@@ -1,0 +1,278 @@
+// ============================================================================
+// Garden Types – canonical interfaces for all Supabase tables
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+export type TaskType =
+  | "sow"
+  | "harvest"
+  | "start_seed"
+  | "transplant"
+  | "direct_sow"
+  | "maintenance"
+  | "fertilize"
+  | "prune"
+  | "general";
+
+export interface Task {
+  id: string;
+  plant_profile_id?: string | null;
+  plant_variety_id: string | null;
+  category: TaskType;
+  due_date: string; // ISO date
+  completed_at: string | null;
+  created_at: string;
+  grow_instance_id: string | null;
+  title?: string | null;
+  care_schedule_id?: string | null;
+  deleted_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Grow Instances
+// ---------------------------------------------------------------------------
+export type GrowInstanceStatus =
+  | "pending"
+  | "growing"
+  | "harvested"
+  | "dead"
+  | "archived";
+
+export interface GrowInstance {
+  id: string;
+  plant_profile_id?: string | null;
+  plant_variety_id: string;
+  sown_date: string;
+  expected_harvest_date: string | null;
+  status?: GrowInstanceStatus | null;
+  ended_at?: string | null;
+  location?: string | null;
+  end_reason?: string | null;
+  seed_packet_id?: string | null;
+  created_at: string;
+  user_id: string;
+  deleted_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Journal Entries
+// ---------------------------------------------------------------------------
+export type JournalEntryType =
+  | "planting"
+  | "growth"
+  | "harvest"
+  | "note"
+  | "care"
+  | "pest"
+  | "death"
+  | "quick";
+
+export type WeatherSnapshotData = {
+  temp?: number;
+  condition?: string;
+  code?: number;
+  icon?: string;
+  wind_speed_mph?: number;
+} | null;
+
+export interface JournalEntry {
+  id: string;
+  plant_variety_id: string | null;
+  plant_profile_id?: string | null;
+  grow_instance_id: string | null;
+  seed_packet_id?: string | null;
+  note: string | null;
+  photo_url: string | null;
+  image_file_path: string | null;
+  weather_snapshot?: WeatherSnapshotData;
+  entry_type?: JournalEntryType | null;
+  harvest_weight?: number | null;
+  harvest_unit?: string | null;
+  harvest_quantity?: number | null;
+  created_at: string;
+  user_id: string;
+  deleted_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Shopping List
+// ---------------------------------------------------------------------------
+export interface ShoppingListItem {
+  id: string;
+  user_id: string;
+  plant_profile_id: string;
+  plant_variety_id?: string; // legacy
+  is_purchased?: boolean;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Plant Varieties (legacy)
+// ---------------------------------------------------------------------------
+export interface PlantVarietyProfile {
+  id: string;
+  name: string;
+  variety_name: string | null;
+  user_id: string;
+  sun?: string | null;
+  water?: string | null;
+  harvest?: string | null;
+  vendor?: string | null;
+  harvest_days?: number | null;
+  days_to_germination?: string | null;
+  plant_spacing?: string | null;
+  inventory_count?: number | null;
+  status?: string | null;
+  tags?: string[] | null;
+  source_url?: string | null;
+  primary_image_path?: string | null;
+  growing_notes?: string | null;
+  growing_info_from_source?: string | null;
+  plant_description?: string | null;
+  pretreatment_notes?: string | null;
+  scrape_status?: string | null;
+  scrape_error_log?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Plant Profiles
+// ---------------------------------------------------------------------------
+export type PlantProfileType = "seed" | "permanent";
+
+/** Plant > Packets: master biological identity (parent). */
+export interface PlantProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  variety_name: string | null;
+  profile_type?: PlantProfileType;
+  primary_image_path?: string | null;
+  /** Hero (plant) photo path in journal-photos bucket; overrides packet for profile/vault thumb. */
+  hero_image_path?: string | null;
+  hero_image_url?: string | null;
+  hero_image_pending?: boolean;
+  sun?: string | null;
+  water?: string | null;
+  plant_spacing?: string | null;
+  days_to_germination?: string | null;
+  harvest_days?: number | null;
+  height?: string | null;
+  tags?: string[] | null;
+  status?: string | null;
+  sowing_method?: string | null;
+  planting_window?: string | null;
+  purchase_date?: string | null;
+  scientific_name?: string | null;
+  botanical_care_notes?: Record<string, unknown> | null;
+  perenual_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Seed Packets
+// ---------------------------------------------------------------------------
+/** Plant > Packets: one physical packet (vendor, url, qty slider, scraped details). */
+export interface SeedPacket {
+  id: string;
+  plant_profile_id: string;
+  user_id: string;
+  vendor_name?: string | null;
+  purchase_url?: string | null;
+  purchase_date?: string | null;
+  price?: string | null;
+  qty_status: number;
+  scraped_details?: string | null;
+  primary_image_path?: string | null;
+  packet_photo_path?: string | null;
+  user_notes?: string | null;
+  created_at?: string;
+  tags?: string[] | null;
+  is_archived?: boolean;
+  deleted_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Tag Settings
+// ---------------------------------------------------------------------------
+/** User-defined tag for extraction and vault (tag_settings table). */
+export interface TagSetting {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// User Settings
+// ---------------------------------------------------------------------------
+export interface UserSettings {
+  id: string;
+  user_id: string;
+  planting_zone?: string | null;
+  last_frost_date?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null;
+  location_name?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Care Schedules
+// ---------------------------------------------------------------------------
+export type CareRecurrenceType =
+  | "interval"
+  | "monthly"
+  | "yearly"
+  | "custom_dates"
+  | "one_off";
+
+export interface CareSchedule {
+  id: string;
+  plant_profile_id?: string | null;
+  grow_instance_id?: string | null;
+  user_id: string;
+  title: string;
+  category: string;
+  recurrence_type: CareRecurrenceType;
+  interval_days?: number | null;
+  months?: number[] | null;
+  day_of_month?: number | null;
+  custom_dates?: string[] | null;
+  next_due_date?: string | null;
+  last_completed_at?: string | null;
+  is_active: boolean;
+  is_template: boolean;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Household Sharing
+// ---------------------------------------------------------------------------
+export interface Household {
+  id: string;
+  name: string;
+  owner_id: string;
+  invite_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type HouseholdMemberRole = "owner" | "admin" | "member";
+
+export interface HouseholdMember {
+  id: string;
+  household_id: string;
+  user_id: string;
+  role: HouseholdMemberRole;
+  joined_at: string;
+}

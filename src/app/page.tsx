@@ -1,0 +1,431 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSync } from "@/contexts/SyncContext";
+import { completeTask } from "@/lib/completeSowTask";
+import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
+import type { Task } from "@/types/garden";
+import type { ShoppingListItem } from "@/types/garden";
+
+type TaskWithPlant = Task & { plant_name?: string };
+type ShoppingItemWithName = ShoppingListItem & { name?: string; variety_name?: string | null };
+type UpcomingCare = { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string; plant_name: string };
+
+type WeatherDay = { date: string; high: number; low: number; code: number };
+type WeatherData = {
+  temp: number;
+  condition: string;
+  code: number;
+  daily: WeatherDay[];
+} | null;
+
+type UserSettingsRow = {
+  planting_zone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  timezone?: string | null;
+  location_name?: string | null;
+};
+
+export default function HomePage() {
+  const { user } = useAuth();
+  const { setSyncing } = useSync();
+  const [pendingTasks, setPendingTasks] = useState<TaskWithPlant[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingItemWithName[]>([]);
+  const [weather, setWeather] = useState<WeatherData>(null);
+  const [loading, setLoading] = useState(true);
+  const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
+  const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
+  const [upcomingCare, setUpcomingCare] = useState<UpcomingCare[]>([]);
+  const [userProfiles, setUserProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
+  const [scheduleDefaults, setScheduleDefaults] = useState<{
+    plant_type: string;
+    sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean;
+    sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean;
+    sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean;
+  }[]>([]);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    let cancelled = false;
+
+    async function load() {
+      // Fetch user_settings for weather coords + location name
+      const { data: settingsRow } = await supabase
+        .from("user_settings")
+        .select("planting_zone, latitude, longitude, timezone, location_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      const settings = settingsRow as UserSettingsRow | null;
+      if (!cancelled) setUserSettings(settings);
+
+      // Tasks
+      const { data: tasksData } = await supabase
+        .from("tasks")
+        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title")
+        .eq("user_id", user!.id)
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .order("due_date", { ascending: true })
+        .limit(20);
+      const taskRows = Array.isArray(tasksData) ? tasksData : [];
+
+      // Resolve names for tasks
+      const profileIds = taskRows.map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter((id): id is string => Boolean(id));
+      const varietyIds = taskRows.map((t: { plant_variety_id?: string | null }) => t.plant_variety_id).filter((id): id is string => Boolean(id));
+      const names: Record<string, string> = {};
+      if (profileIds.length > 0) {
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", Array.from(new Set(profileIds)));
+        (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
+          names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+        });
+      }
+      if (varietyIds.length > 0) {
+        const { data: varieties } = await supabase.from("plant_varieties").select("id, name").in("id", Array.from(new Set(varietyIds)));
+        (varieties ?? []).forEach((v: { id: string; name: string }) => { names[v.id] = v.name; });
+      }
+      const withNames: TaskWithPlant[] = taskRows.map((t: any) => {
+        const linkId = t.plant_profile_id ?? t.plant_variety_id;
+        return { ...t, plant_name: linkId ? names[linkId] ?? "Unknown" : undefined };
+      });
+      if (!cancelled) setPendingTasks(withNames);
+
+      // Shopping list
+      const { data: listRows } = await supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false });
+      const listIds = Array.from(new Set((listRows ?? []).map((r: { plant_profile_id: string }) => r.plant_profile_id)));
+      const listNames: Record<string, { name: string; variety_name: string | null }> = {};
+      if (listIds.length > 0) {
+        const { data: v } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", listIds);
+        (v ?? []).forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
+      }
+      if (!cancelled) setShoppingList(
+        (listRows ?? []).map((r: { id: string; user_id: string; plant_profile_id: string; created_at: string }) => ({
+          ...r,
+          name: listNames[r.plant_profile_id]?.name ?? "Unknown",
+          variety_name: listNames[r.plant_profile_id]?.variety_name ?? null,
+        }))
+      );
+
+      // Profiles + schedule defaults (for Sow Now)
+      const { data: profilesData } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", user!.id).is("deleted_at", null);
+      if (!cancelled) setUserProfiles((profilesData ?? []) as { id: string; name: string; variety_name: string | null }[]);
+
+      const { data: scheduleData } = await supabase.from("schedule_defaults").select("plant_type, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec").eq("user_id", user!.id);
+      if (!cancelled) setScheduleDefaults((scheduleData ?? []) as typeof scheduleDefaults);
+
+      // Upcoming care schedules (next 14 days)
+      const twoWeeksOut = new Date();
+      twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
+      const { data: careData } = await supabase.from("care_schedules")
+        .select("id, title, category, next_due_date, plant_profile_id")
+        .eq("user_id", user!.id).eq("is_active", true)
+        .lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10))
+        .order("next_due_date", { ascending: true })
+        .limit(10);
+      if (careData && careData.length > 0) {
+        const careProfileIds = Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id)));
+        const { data: careProfiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", careProfileIds);
+        const careNames: Record<string, string> = {};
+        (careProfiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
+          careNames[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+        });
+        if (!cancelled) setUpcomingCare(careData.map((c: { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string }) => ({
+          ...c,
+          plant_name: careNames[c.plant_profile_id] ?? "Unknown",
+        })));
+      }
+
+      // Weather -- use user coords if available
+      try {
+        const forecastUrl = buildForecastUrl(settings ? { latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone } : null);
+        const res = await fetch(forecastUrl);
+        const data = await res.json();
+        if (!cancelled && data?.current) {
+          const cur = data.current;
+          const daily = data.daily;
+          const days: WeatherDay[] = (daily?.time ?? []).slice(0, 3).map((date: string, i: number) => ({
+            date,
+            high: Number(daily?.temperature_2m_max?.[i]) ?? 0,
+            low: Number(daily?.temperature_2m_min?.[i]) ?? 0,
+            code: Number(daily?.weather_code?.[i]) ?? 0,
+          }));
+          setWeather({
+            temp: Number(cur.temperature_2m),
+            condition: weatherCodeToCondition(Number(cur.weather_code)),
+            code: Number(cur.weather_code),
+            daily: days,
+          });
+        } else if (!cancelled) setWeather(null);
+      } catch {
+        if (!cancelled) setWeather(null);
+      }
+
+      setLoading(false);
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const currentTemp = weather?.temp ?? null;
+  const heatAlert = currentTemp != null && currentTemp > 90;
+
+  // Frost alert: check if any of the next 3 days have a low <= 32F
+  const frostDays = useMemo(() => {
+    if (!weather?.daily) return [];
+    return weather.daily.filter((d) => d.low <= 32);
+  }, [weather?.daily]);
+  const frostAlert = frostDays.length > 0;
+  const sowingOk = currentTemp != null && currentTemp >= 40 && currentTemp <= 90 && !frostAlert;
+
+  const locationLabel = userSettings?.location_name?.trim() || "Vista, CA";
+
+  async function handleMarkPurchased(item: ShoppingItemWithName) {
+    if (!user?.id) return;
+    setMarkingPurchasedId(item.id);
+    setSyncing(true);
+    try {
+      await supabase.from("shopping_list").update({ is_purchased: true }).eq("id", item.id).eq("user_id", user.id);
+      setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
+    } finally { setMarkingPurchasedId(null); setSyncing(false); }
+  }
+
+  async function handleMarkTaskDone(t: TaskWithPlant) {
+    if (!user?.id || t.completed_at) return;
+    setMarkingTaskDoneId(t.id);
+    setSyncing(true);
+    try {
+      await completeTask(t, user.id);
+      setPendingTasks((prev) => prev.filter((x) => x.id !== t.id));
+    } finally { setMarkingTaskDoneId(null); setSyncing(false); }
+  }
+
+  const { startThisMonthProfiles, harvestTasksThisMonth } = useMemo(() => {
+    const now = new Date();
+    const monthIndex = now.getMonth();
+    const monthCol = (["sow_jan","sow_feb","sow_mar","sow_apr","sow_may","sow_jun","sow_jul","sow_aug","sow_sep","sow_oct","sow_nov","sow_dec"] as const)[monthIndex];
+    const startPlantTypes = new Set(
+      scheduleDefaults.filter((s) => s[monthCol] === true).map((s) => s.plant_type.trim().toLowerCase())
+    );
+    const startProfiles = userProfiles.filter((p) => {
+      const nameNorm = (p.name ?? "").trim().toLowerCase();
+      const firstWord = nameNorm.split(/\s+/)[0];
+      return startPlantTypes.has(nameNorm) || startPlantTypes.has(firstWord ?? "") || Array.from(startPlantTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
+    });
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const harvestTasks = pendingTasks.filter((t) => {
+      if (t.category !== "harvest") return false;
+      const d = new Date(t.due_date);
+      return d >= monthStart && d < nextMonthStart;
+    });
+    return { startThisMonthProfiles: startProfiles, harvestTasksThisMonth: harvestTasks };
+  }, [userProfiles, scheduleDefaults, pendingTasks]);
+
+  const monthName = new Date().toLocaleString("en-US", { month: "long" });
+
+  return (
+    <div className="px-6 pt-8 pb-6">
+      <h1 className="text-2xl font-semibold text-black mb-1">Garden</h1>
+      <p className="text-muted text-sm mb-6">
+        Your weightless garden hub -- tasks, vault, and journal in one place.
+      </p>
+
+      {/* ---- Frost Alert Banner ---- */}
+      {frostAlert && (
+        <div className="mb-4 rounded-2xl bg-blue-50 border border-blue-200 p-4">
+          <p className="text-sm font-semibold text-blue-800">Frost Warning</p>
+          {frostDays.map((d) => (
+            <p key={d.date} className="text-sm text-blue-700">
+              {new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} -- expected low of {Math.round(d.low)}°F. Protect tender plants!
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* ---- Weather ---- */}
+      <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 mb-6">
+        <h2 className="text-lg font-medium text-black mb-3">Weather &amp; Forecast -- {locationLabel}</h2>
+        {weather ? (
+          <>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="text-3xl" aria-hidden>{weatherCodeToIcon(weather.code)}</span>
+              <div>
+                <p className="text-2xl font-semibold text-black">{Math.round(weather.temp)}°F</p>
+                <p className="text-sm text-black/60">{weather.condition}</p>
+              </div>
+            </div>
+            {weather.daily.length > 0 && (
+              <div className="flex gap-4 pt-2 border-t border-black/5">
+                {weather.daily.map((d) => (
+                  <div key={d.date} className="text-center min-w-[4rem]">
+                    <p className="text-xs text-black/60">{new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })}</p>
+                    <span className="text-lg" aria-hidden>{weatherCodeToIcon(d.code)}</span>
+                    <p className="text-xs text-black/80">{Math.round(d.high)}° / {Math.round(d.low)}°</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 pt-3 border-t border-black/5 space-y-1.5">
+              {heatAlert && <p className="text-sm text-citrus font-medium">Extreme Heat: Check irrigation.</p>}
+              {sowingOk && !heatAlert && <p className="text-sm text-emerald font-medium">Great weather for sowing!</p>}
+            </div>
+
+            {/* ---- Sow Now (linked to actual seeds) ---- */}
+            <div className="mt-4 pt-4 border-t border-black/5 space-y-4">
+              <h3 className="text-sm font-semibold text-black">Plant This {monthName}</h3>
+              {startThisMonthProfiles.length === 0 ? (
+                <p className="text-xs text-black/50">No seeds in your vault match this month&apos;s planting window.</p>
+              ) : (
+                <ul className="flex flex-wrap gap-2">
+                  {startThisMonthProfiles.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={`/vault/${p.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-sm text-emerald-700 font-medium hover:bg-emerald-100 transition-colors"
+                      >
+                        {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Harvest this month */}
+              <div className="pt-2 border-t border-black/5 mt-2">
+                <p className="text-xs font-medium text-black/60 mb-1.5">Harvest this month</p>
+                {harvestTasksThisMonth.length === 0 ? (
+                  <p className="text-sm text-black/50">No harvest tasks due this month.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {harvestTasksThisMonth.map((t) => (
+                      <li key={t.id}>
+                        <Link
+                          href={(t.plant_profile_id ?? t.plant_variety_id) ? `/vault/${t.plant_profile_id ?? t.plant_variety_id}` : "/calendar"}
+                          className="text-sm text-emerald-600 font-medium hover:underline"
+                        >
+                          {t.plant_name ?? t.title ?? t.category}
+                          {t.due_date && ` (${new Date(t.due_date).toLocaleDateString()})`}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-black/50 text-sm">Loading weather...</p>
+        )}
+      </section>
+
+      <div className="space-y-6">
+        {/* ---- Tasks ---- */}
+        <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+          <h2 className="text-lg font-medium text-black mb-2">At a glance</h2>
+          {loading ? (
+            <p className="text-black/50 text-sm">Loading...</p>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-black/70 mb-2">Tasks (pending)</h3>
+                {pendingTasks.length === 0 ? (
+                  <p className="text-black/50 text-sm">No pending tasks.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {pendingTasks.map((t) => {
+                      const vaultId = t.plant_profile_id ?? t.plant_variety_id;
+                      const taskHref = vaultId ? `/vault/${vaultId}` : "/calendar";
+                      const isMarking = markingTaskDoneId === t.id;
+                      return (
+                        <li key={t.id} className="flex items-center justify-between gap-2">
+                          <Link href={taskHref} className="text-sm text-black/90 hover:text-emerald flex-1 min-w-0 truncate">
+                            {t.title ?? t.category}{t.plant_name ? ` -- ${t.plant_name}` : ""} ({new Date(t.due_date).toLocaleDateString()})
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleMarkTaskDone(t)}
+                            disabled={isMarking}
+                            className="shrink-0 min-w-[44px] min-h-[44px] px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50"
+                          >
+                            {isMarking ? "..." : "Done"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ---- Plant Care ---- */}
+        {upcomingCare.length > 0 && (
+          <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+            <h2 className="text-lg font-medium text-black mb-2">Plant Care</h2>
+            <p className="text-xs text-black/50 mb-3">Upcoming care reminders for the next 2 weeks</p>
+            <ul className="space-y-2">
+              {upcomingCare.map((c) => {
+                const isOverdue = c.next_due_date && new Date(c.next_due_date + "T00:00:00") < new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+                const catIcon = c.category === "fertilize" ? "🌿" : c.category === "prune" ? "✂️" : c.category === "water" ? "💧" : c.category === "spray" ? "🧴" : c.category === "harvest" ? "🧺" : "📋";
+                return (
+                  <li key={c.id} className="flex items-center gap-3">
+                    <span className="text-lg shrink-0" aria-hidden>{catIcon}</span>
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/vault/${c.plant_profile_id}`} className="text-sm text-black/90 hover:text-emerald-600 font-medium truncate block">
+                        {c.title}
+                      </Link>
+                      <p className="text-xs text-black/50">{c.plant_name}{c.next_due_date ? ` -- ${isOverdue ? "Overdue: " : ""}${new Date(c.next_due_date + "T00:00:00").toLocaleDateString()}` : ""}</p>
+                    </div>
+                    {isOverdue && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium shrink-0">Overdue</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* ---- Shopping List ---- */}
+        <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+          <h2 className="text-lg font-medium text-black mb-2">Shopping list</h2>
+          {loading ? (
+            <p className="text-black/50 text-sm">Loading...</p>
+          ) : shoppingList.length === 0 ? (
+            <p className="text-black/50 text-sm">Nothing to buy. Select seeds in the Vault and add to your list.</p>
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {shoppingList.map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 group">
+                    <input
+                      type="checkbox"
+                      id={`purchased-${item.id}`}
+                      checked={false}
+                      onChange={() => handleMarkPurchased(item)}
+                      disabled={markingPurchasedId === item.id}
+                      className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
+                      aria-label={`Mark ${item.name}${item.variety_name ? ` (${item.variety_name})` : ""} as purchased`}
+                    />
+                    <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
+                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                        {item.name}{item.variety_name ? ` (${item.variety_name})` : ""}
+                      </Link>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline mt-3 inline-block">
+                View full list &rarr;
+              </Link>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}

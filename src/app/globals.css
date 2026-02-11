@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #1a1a1a;
+  --emerald: #50C878;
+  --citrus: #FFD700;
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Range slider: larger thumb for mobile (min 24x24px) */
+@layer utilities {
+  .text-muted {
+    @apply text-black/60;
+  }
+  .border-soft {
+    @apply border-black/5;
+  }
+  .range-thumb-lg {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+  .range-thumb-lg::-webkit-slider-runnable-track {
+    height: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+  .range-thumb-lg::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #16a34a;
+    cursor: pointer;
+    border: 2px solid #15803d;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  .range-thumb-lg::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #16a34a;
+    cursor: pointer;
+    border: 2px solid #15803d;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  @keyframes fade-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-slide-in {
+    animation: fade-slide-in 0.3s ease-out forwards;
+  }
+}

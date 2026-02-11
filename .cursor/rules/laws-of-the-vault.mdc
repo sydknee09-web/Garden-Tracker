@@ -1,0 +1,138 @@
+---
+description: Master rules for the Seed Vault / Garden Tracker application. Covers data integrity, UI conventions, and architecture laws that must never be violated.
+alwaysApply: true
+---
+
+# Laws of the Vault
+
+These are the non-negotiable rules for every change made to the Seed Vault codebase. Breaking any of these will corrupt data, break multi-tenancy, or degrade the user experience.
+
+---
+
+## Law 1: RLS & User ID
+
+Every Supabase `INSERT` or `UPSERT` **must** include `user_id: user.id`. Never omit it, never hardcode it, never remove it from existing queries. This is the backbone of multi-tenant data isolation.
+
+```typescript
+// ALWAYS
+await supabase.from("plant_profiles").insert({ user_id: user.id, name: "Tomato", ... });
+
+// NEVER
+await supabase.from("plant_profiles").insert({ name: "Tomato", ... });
+```
+
+Every `SELECT`, `UPDATE`, and `DELETE` must also scope to `.eq("user_id", user.id)` unless the table is a shared/public cache (e.g., `global_plant_cache`, `schedule_defaults`).
+
+---
+
+## Law 2: Soft Delete
+
+All deletions of `plant_profiles`, `seed_packets`, `journal_entries`, `grow_instances`, and `tasks` must use soft delete:
+
+```typescript
+// CORRECT: soft delete
+await supabase.from("plant_profiles").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+
+// WRONG: hard delete (only used for permanent trash purge in Settings)
+await supabase.from("plant_profiles").delete().eq("id", id);
+```
+
+All fetch queries for these tables must include `.is("deleted_at", null)` to exclude trashed items.
+
+---
+
+## Law 3: Seed Packet Volume
+
+The `qty_status` field on `seed_packets` is a numeric percentage (0-100). When planting, **decrement** the packet -- never delete the row. Archive the packet (`is_archived: true`) when `qty_status` reaches 0. If all packets for a profile are archived/empty, set `plant_profiles.status = 'out_of_stock'` and add to `shopping_list`.
+
+---
+
+## Law 4: Image Compression
+
+Every image upload path must use `compressImage()` from `src/lib/compressImage.ts` before uploading to Supabase Storage. Raw phone photos are 5-10MB; compressed targets are ~800KB max.
+
+```typescript
+import { compressImage } from "@/lib/compressImage";
+const { blob } = await compressImage(file);
+await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg" });
+```
+
+---
+
+## Law 5: Smart Camera
+
+The "Take Photo" button must use `capture="environment"` on mobile (native camera) and `getUserMedia` (webcam) on desktop. Check `isMobileDevice()` before deciding which path.
+
+---
+
+## Law 6: 11 Functional Tags
+
+Never remove the auto-tagging logic (Heat Lover, Pollinator, Cool Season, etc.) from the parser or QuickAdd components. These tags are derived from scraped/extracted data and power filtering.
+
+---
+
+## Law 7: Plant Profile Image Hierarchy
+
+Display the hero image using this fallback chain:
+1. `hero_image_url` (external URL from search)
+2. `hero_image_path` (uploaded to storage)
+3. First journal photo (`image_file_path`)
+4. Packet image (`primary_image_path`)
+5. Sprout emoji fallback
+
+---
+
+## Law 8: Source URL Preservation
+
+Always save the original vendor link in the `source_url` / `purchase_url` column when importing from a URL. This is the user's audit trail back to the product page.
+
+---
+
+## Law 9: Entry Types Are Explicit
+
+Journal entries must set `entry_type` explicitly on insert. Valid types: `planting`, `growth`, `harvest`, `note`, `care`, `pest`, `death`, `quick`. Never rely on text-matching the `note` field for new entries.
+
+---
+
+## Law 10: Profile Type Distinction
+
+`plant_profiles.profile_type` distinguishes:
+- `"seed"` -- seasonal plants grown from seed (default). Shows Packets + Plantings tabs.
+- `"permanent"` -- trees, bushes, perennials. Shows Care tab instead.
+
+Never mix these up. The tab structure and available actions change based on profile type.
+
+---
+
+## Law 11: Care Schedule Architecture
+
+- **Templates** (`is_template: true`) live on `plant_profile_id`. They auto-copy to new grow instances on planting via `copyCareTemplatesToInstance()`.
+- **Instance schedules** (`is_template: false`) live on `grow_instance_id`. These are the active schedules that generate tasks.
+- `generateCareTasks()` creates tasks from due schedules. `advanceCareSchedule()` bumps the next due date after completion.
+
+---
+
+## Architecture Quick Reference
+
+| Layer | Tech | Notes |
+|-------|------|-------|
+| Framework | Next.js 14 (App Router) | `src/app/` for pages, `src/components/` for shared UI |
+| Backend | Supabase (Postgres + Auth + Storage + RLS) | All data in Supabase, no separate API server |
+| Styling | Tailwind CSS | Utility-first, design system colors: `emerald`, `citrus` |
+| AI | Google Gemini (`@google/generative-ai`) | Scraping, extraction, hero search, research |
+| OCR | OpenAI `gpt-4o-mini` + Tesseract.js | Seed packet text extraction |
+| State | React `useState`/`useCallback` | No Redux/Zustand; Supabase is the source of truth |
+| Types | `src/types/garden.ts` | All shared interfaces live here |
+| Utilities | `src/lib/` | `compressImage`, `completeSowTask`, `generateCareTasks`, `weatherSnapshot`, etc. |
+
+### Key Tables
+
+`plant_profiles` > `seed_packets` > `grow_instances` > `journal_entries`
+`care_schedules` (templates on profiles, instances on grows)
+`tasks` (calendar items, generated from care schedules or manual)
+`user_settings` (zone, location, weather coords)
+`households` + `household_members` (family sharing)
+
+### Mobile-First Touch Targets
+
+All interactive elements must have `min-w-[44px] min-h-[44px]` for accessibility. Modals use `max-h-[85vh]` with internal scroll. Fixed bottom nav is 80px tall -- content must not be obscured.
