@@ -839,8 +839,12 @@ export default function VaultImportPage() {
             const data = (await res.json()) as ExtractResponse;
             if (!res.ok) {
               const errMsg = (data as { error?: string }).error ?? "Rescue failed";
-              if (results[i]) (results[i] as ResultRow).errorMessage = errMsg;
-              else results[i] = { vendor: deriveVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: errMsg } as ResultRow;
+              const r = results[i];
+              if (r) {
+                (r as NonNullable<ResultRow>).errorMessage = errMsg;
+              } else {
+                results[i] = { vendor: deriveVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: errMsg } as ResultRow;
+              }
               updateItem(i, { status: "error", error: errMsg });
               return;
             }
@@ -857,7 +861,8 @@ export default function VaultImportPage() {
           } catch (err) {
             if (err instanceof Error && err.name === "AbortError") return;
             const message = err instanceof Error ? err.message : "Rescue failed";
-            if (results[i]) (results[i] as ResultRow).errorMessage = message;
+            const r2 = results[i];
+            if (r2) (r2 as NonNullable<ResultRow>).errorMessage = message;
             else results[i] = { vendor: deriveVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: message } as ResultRow;
             updateItem(i, { status: "error", error: message });
           }

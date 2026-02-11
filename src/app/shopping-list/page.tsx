@@ -36,7 +36,7 @@ export default function ShoppingListPage() {
       setLoading(false);
       return;
     }
-    setItems((data ?? []) as ShoppingItem[]);
+    setItems((data ?? []) as unknown as ShoppingItem[]);
     setLoading(false);
   }, [user?.id]);
 

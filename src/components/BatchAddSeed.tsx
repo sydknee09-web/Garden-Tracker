@@ -23,11 +23,18 @@ async function resizeImageIfNeeded(file: File, maxLongEdge = 1200, quality = 0.8
   return compressImage(file, maxLongEdge, quality);
 }
 
-/** Queue item before Gemini processing (no extracted data yet). */
+/** Queue item before/during Gemini processing. */
 interface PendingPhoto {
   id: string;
   file: File;
   previewUrl: string;
+  status?: "pending" | "loading";
+  name?: string;
+  variety?: string;
+  vendor?: string;
+  tags?: string[];
+  purchaseDate?: string;
+  error?: string;
 }
 
 /** Derive slug-like string from filename (no extension). Good for Rareseeds. */
@@ -219,7 +226,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   function addFiles(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (list.length === 0) return;
-    const newItems: BatchPacketItem[] = list.map((file) => ({
+    const newItems: PendingPhoto[] = list.map((file) => ({
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
@@ -321,15 +328,16 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       // Convert order items to review items and navigate to review
       const reviewItems: ReviewImportItem[] = data.items.map((item) => ({
         id: crypto.randomUUID(),
-        name: item.name,
+        imageBase64: "",
+        fileName: "",
+        type: item.name || "Imported seed",
         variety: item.variety,
         vendor: item.vendor || data.vendor,
         tags: [],
-        status: "pending" as const,
         purchaseDate: todayISO(),
       }));
 
-      setReviewImportData(reviewItems);
+      setReviewImportData({ items: reviewItems });
       onClose();
       router.push("/vault/review-import");
     } catch (e) {
@@ -370,7 +378,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     setStep("review");
   }
 
-  function updateItem(id: string, updates: Partial<Pick<BatchPacketItem, "name" | "variety" | "vendor" | "tags" | "purchaseDate">>) {
+  function updateItem(id: string, updates: Partial<Pick<PendingPhoto, "name" | "variety" | "vendor" | "tags" | "purchaseDate">>) {
     setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   }
 
@@ -382,9 +390,9 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     setSaving(true);
     let bucketEnsured = false;
     for (const item of toSave) {
-      const name = item.name.trim() || "Unknown";
-      const varietyName = item.variety.trim() || null;
-      let path = item.uploadedPath;
+      const name = (item.name ?? "").trim() || "Unknown";
+      const varietyName = (item.variety ?? "").trim() || null;
+      let path = (item as { uploadedPath?: string }).uploadedPath;
       if (!path) {
         if (!bucketEnsured) {
           const ensureRes = await fetch("/api/seed/ensure-storage-bucket", { method: "POST" });
@@ -406,7 +414,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
           return;
         }
       }
-      const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety);
+      const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety ?? "");
       const coreVarietyName = coreVariety || varietyName;
       const zone10b = applyZone10bToProfile(name, {});
       const nameNorm = normalizeForMatch(name);
@@ -430,7 +438,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
             name: name.trim(),
             variety_name: coreVarietyName || varietyName,
             primary_image_path: path,
-            tags: item.tags.length > 0 ? item.tags : undefined,
+            tags: (item.tags ?? []).length > 0 ? item.tags : undefined,
             ...(zone10b.sun && { sun: zone10b.sun }),
             ...(zone10b.plant_spacing && { plant_spacing: zone10b.plant_spacing }),
             ...(zone10b.days_to_germination && { days_to_germination: zone10b.days_to_germination }),
@@ -448,7 +456,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
         profileId = (newProfile as { id: string }).id;
       }
       const purchaseDate = item.purchaseDate?.trim() || todayISO();
-      const tagsToSave = packetTags.length > 0 ? packetTags : item.tags;
+      const tagsToSave = packetTags.length > 0 ? packetTags : (item.tags ?? []);
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: profileId,
         user_id: user.id,
@@ -703,8 +711,8 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                       </button>
                     </div>
                     {item.error && <p className="text-xs text-citrus">{item.error}</p>}
-                    {item.tags.length > 0 && (
-                      <p className="text-xs text-black/60">Tags: {item.tags.join(", ")}</p>
+                    {(item.tags ?? []).length > 0 && (
+                      <p className="text-xs text-black/60">Tags: {(item.tags ?? []).join(", ")}</p>
                     )}
                   </li>
                 ))}

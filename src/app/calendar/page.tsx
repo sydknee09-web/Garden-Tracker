@@ -63,7 +63,7 @@ export default function CalendarPage() {
       if (cancelled) return;
       const plantTypes = new Set(
         (schedules ?? [])
-          .filter((s: Record<string, unknown>) => s[monthCol] === true)
+          .filter((s) => typeof s === "object" && s !== null && !("error" in s) && (s as Record<string, unknown>)[monthCol] === true)
           .map((s: { plant_type: string }) => s.plant_type.trim().toLowerCase())
       );
       const matches = (profiles ?? []).filter((p: { name: string }) => {
@@ -82,6 +82,7 @@ export default function CalendarPage() {
       setLoading(false);
       return;
     }
+    const userId = user.id;
     let cancelled = false;
 
     async function fetchTasks() {
@@ -91,7 +92,7 @@ export default function CalendarPage() {
       const { data: taskRows, error: e } = await supabase
         .from("tasks")
         .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .is("deleted_at", null)
         .gte("due_date", start)
         .lte("due_date", end)

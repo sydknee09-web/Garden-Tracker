@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SeedVaultView, type StatusFilter } from "@/components/SeedVaultView";
 import { ActiveGardenView } from "@/components/ActiveGardenView";
@@ -61,7 +61,7 @@ function MergeIcon({ className }: { className?: string }) {
   );
 }
 
-export default function VaultPage() {
+function VaultPageInner() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "active" | "plants">("grid");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -642,7 +642,6 @@ export default function VaultPage() {
 
   const openLogHarvest = useCallback((batch: { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null }) => {
     setLogHarvestBatch(batch);
-    setLogHarvestNote("Harvest");
   }, []);
 
   const handleEndCrop = useCallback((batch: { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null }) => {
@@ -1416,6 +1415,14 @@ export default function VaultPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VaultPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-neutral-600">Loading…</div>}>
+      <VaultPageInner />
+    </Suspense>
   );
 }
 

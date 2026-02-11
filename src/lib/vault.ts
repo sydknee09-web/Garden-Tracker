@@ -1,28 +1,26 @@
 import type { SeedStockDisplay, Volume } from "@/types/vault";
 
+/** Variant shape for joined plant variety (object or array from Supabase). */
+type PlantVarietyShape = {
+  name?: string | null;
+  variety_name?: string | null;
+  inventory_count?: number | null;
+  status?: string | null;
+  harvest_days?: number | null;
+  sun?: string | null;
+  plant_spacing?: string | null;
+  days_to_germination?: string | null;
+  tags?: string[] | null;
+  source_url?: string | null;
+};
+
 /** Raw row shape from Supabase seed_stocks select with plant_varieties join. */
 export type SeedStockRowRaw = {
   id?: string | null;
   plant_variety_id?: string | null;
   volume?: string | null;
-  plant_varieties?: {
-    name?: string | null;
-    variety_name?: string | null;
-    inventory_count?: number | null;
-    status?: string | null;
-    harvest_days?: number | null;
-    tags?: string[] | null;
-    source_url?: string | null;
-  } | null;
-  plant_variety?: {
-    name?: string | null;
-    variety_name?: string | null;
-    inventory_count?: number | null;
-    status?: string | null;
-    harvest_days?: number | null;
-    tags?: string[] | null;
-    source_url?: string | null;
-  } | null;
+  plant_varieties?: PlantVarietyShape | PlantVarietyShape[] | null;
+  plant_variety?: PlantVarietyShape | null;
 };
 
 const VALID_VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
@@ -54,7 +52,8 @@ export function normalizeSeedStockRow(row: SeedStockRowRaw | null | undefined): 
       source_url: null,
     };
   }
-  const pv = row.plant_varieties ?? row.plant_variety;
+  const pvRaw = row.plant_varieties ?? row.plant_variety;
+  const pv = Array.isArray(pvRaw) ? pvRaw[0] : pvRaw;
   const vol = toVolume(row.volume);
   return {
     id: String(row.id ?? ""),

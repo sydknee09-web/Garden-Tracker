@@ -199,7 +199,7 @@ export default function VaultSeedPage() {
       // Plantable now check
       const monthCol = (["sow_jan","sow_feb","sow_mar","sow_apr","sow_may","sow_jun","sow_jul","sow_aug","sow_sep","sow_oct","sow_nov","sow_dec"] as const)[new Date().getMonth()];
       const { data: scheds } = await supabase.from("schedule_defaults").select("plant_type, " + monthCol).eq("user_id", user.id);
-      const plantableTypes = new Set((scheds ?? []).filter((s: Record<string, unknown>) => s[monthCol] === true).map((s: { plant_type: string }) => s.plant_type.trim().toLowerCase()));
+      const plantableTypes = new Set((scheds ?? []).filter((s) => typeof s === "object" && s !== null && !("error" in s) && (s as Record<string, unknown>)[monthCol] === true).map((s: { plant_type: string }) => s.plant_type.trim().toLowerCase()));
       const nameNorm = ((profileData as { name?: string }).name ?? "").trim().toLowerCase();
       const firstWord = nameNorm.split(/\s+/)[0];
       setIsPlantableNow(plantableTypes.has(nameNorm) || plantableTypes.has(firstWord ?? "") || Array.from(plantableTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm)));

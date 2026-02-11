@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -23,7 +23,7 @@ function brainSuggestsGreenhouse(plantName: string, scheduleDefaultsMap: Record<
   return /indoors|greenhouse|transplant/.test(sowingMethod) && !/direct sow|direct_sow/.test(sowingMethod);
 }
 
-export default function VaultPlantPage() {
+function VaultPlantPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -531,6 +531,14 @@ export default function VaultPlantPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function VaultPlantPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-neutral-600">Loading…</div>}>
+      <VaultPlantPageInner />
+    </Suspense>
   );
 }
 

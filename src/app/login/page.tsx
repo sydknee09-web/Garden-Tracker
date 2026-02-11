@@ -22,7 +22,6 @@ export default function LoginPage() {
     const { error: err } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { redirectTo: `${APP_URL}/` },
     });
     setLoading(false);
     if (err) {

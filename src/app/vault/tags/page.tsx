@@ -98,10 +98,10 @@ export default function VaultTagsPage() {
       const newTags = (tags: string[] | null) => (tags ?? []).filter((t) => t !== tagName);
       await Promise.all([
         ...toUpdateProfiles.map((p: { id: string; tags?: string[] | null }) =>
-          supabase.from("plant_profiles").update({ tags: newTags(p.tags) }).eq("id", p.id)
+          supabase.from("plant_profiles").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id)
         ),
         ...toUpdatePackets.map((p: { id: string; tags?: string[] | null }) =>
-          supabase.from("seed_packets").update({ tags: newTags(p.tags) }).eq("id", p.id)
+          supabase.from("seed_packets").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id)
         ),
       ]);
       await loadVaultTags();
