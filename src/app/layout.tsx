@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -9,21 +9,22 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-sans" });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#059669",
+};
+
 export const metadata: Metadata = {
   title: "Seed Vault — Garden Tracker",
   description: "Universal Garden Management PWA — Fresh Antigravity",
   manifest: "/manifest.json",
-  themeColor: "#059669",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Seed Vault",
-  },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
   },
 };
 
