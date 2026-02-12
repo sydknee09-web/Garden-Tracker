@@ -6,9 +6,6 @@ import { supabase } from "@/lib/supabase";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
-// All Supabase fetches/inserts use this user id. Set NEXT_PUBLIC_DEV_USER_ID in .env.local to your Supabase user id so data saves to your account.
-const DEV_USER_ID = process.env.NEXT_PUBLIC_DEV_USER_ID ?? "00000000-0000-0000-0000-000000000000";
-
 type AuthContextType = {
   user: User | null;
   session: Session | null;
@@ -20,30 +17,25 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => ({ id: DEV_USER_ID } as User));
+  const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    function setUserFromSession(s: Session | null) {
       setSession(s);
-      if (s?.user) {
-        setUser(s.user);
-      } else {
-        setUser({ id: DEV_USER_ID } as User);
-      }
+      setUser(s?.user ?? null);
+    }
+
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setUserFromSession(s);
       setLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      if (s?.user) {
-        setUser(s.user);
-      } else {
-        setUser({ id: DEV_USER_ID } as User);
-      }
+      setUserFromSession(s);
     });
 
     return () => subscription.unsubscribe();
@@ -51,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser({ id: DEV_USER_ID } as User);
+    setUser(null);
     setSession(null);
   };
 

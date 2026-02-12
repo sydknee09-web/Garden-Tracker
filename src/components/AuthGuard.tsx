@@ -1,8 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { BottomNav } from "./BottomNav";
 import { useSync } from "@/contexts/SyncContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 
@@ -23,9 +25,29 @@ function CloudSyncIcon({ syncing }: { syncing: boolean }) {
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
   const isVault = pathname === "/vault" || pathname?.startsWith("/vault/");
   const { syncing } = useSync();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user && !isAuthPage) {
+      router.replace("/login");
+    }
+  }, [loading, user, isAuthPage, router]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center text-black/60">
+        Loading…
+      </main>
+    );
+  }
+  if (!user && !isAuthPage) {
+    return null;
+  }
 
   return (
     <>
