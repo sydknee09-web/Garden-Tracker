@@ -153,12 +153,19 @@ export default function VaultSeedPage() {
   // =========================================================================
   const loadProfile = useCallback(async () => {
     if (!id || !user?.id) return;
+    setError(null);
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, growing_notes")
-      .eq("id", id).eq("user_id", user.id).maybeSingle();
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type")
+      .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
 
-    if (!e1 && profileData) {
+    if (e1) {
+      setError(e1.message);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+    if (profileData) {
       setProfile(profileData as ProfileData);
       // Packets
       const { data: packetData } = await supabase.from("seed_packets")
@@ -410,6 +417,8 @@ export default function VaultSeedPage() {
     if (!user?.id || !profile) return;
     setSavingEdit(true);
     const harvestDays = editForm.maturity.trim() === "" ? null : parseInt(editForm.maturity.trim(), 10);
+    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
+    const table = isLeg ? "plant_varieties" : "plant_profiles";
     const updates: Record<string, unknown> = {
       name: editForm.plantType.trim() || null,
       variety_name: editForm.varietyName.trim() || null,
@@ -419,11 +428,9 @@ export default function VaultSeedPage() {
       days_to_germination: editForm.germination.trim() || null,
       harvest_days: harvestDays != null && !Number.isNaN(harvestDays) ? harvestDays : null,
       status: editForm.status.trim() || null,
-      growing_notes: editForm.growingNotes.trim() || null,
+      ...(isLeg ? { growing_notes: editForm.growingNotes.trim() || null } : {}),
+      ...(!isLeg ? { sowing_method: editForm.sowingMethod.trim() || null, planting_window: editForm.plantingWindow.trim() || null } : {}),
     };
-    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
-    const table = isLeg ? "plant_varieties" : "plant_profiles";
-    if (!isLeg) { updates.sowing_method = editForm.sowingMethod.trim() || null; updates.planting_window = editForm.plantingWindow.trim() || null; }
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
     setSavingEdit(false);
     if (error) { setError(error.message); return; }
