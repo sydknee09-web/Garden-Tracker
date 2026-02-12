@@ -571,7 +571,7 @@ export function SeedVaultView({
 
   if (error) {
     return (
-      <div className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+      <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
         <p className="text-citrus font-medium">Could not load seed vault</p>
         <p className="text-sm text-black/60 mt-1">{error}</p>
       </div>
@@ -580,7 +580,7 @@ export function SeedVaultView({
 
   if (seeds.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-8 shadow-antigravity border border-black/5 text-center">
+      <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center">
         <p className="text-black/60">No seeds yet. Tap + to add your first packet.</p>
       </div>
     );
@@ -588,7 +588,7 @@ export function SeedVaultView({
 
   if (filteredSeeds.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 text-center">
+      <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5 text-center">
         <p className="text-black/60">
           {q || statusFilter || tagFilters.length > 0
             ? "No seeds match your search or filters."
@@ -609,7 +609,7 @@ export function SeedVaultView({
                 role="button"
                 tabIndex={0}
                 onClick={() => onToggleVarietySelection?.(seed.id)}
-                className={`rounded-2xl bg-white p-4 shadow-antigravity border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative ${
+                className={`rounded-2xl bg-white p-4 shadow-card border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative ${
                   selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald" : ""
                 }`}
                 style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
@@ -677,7 +677,7 @@ export function SeedVaultView({
                 }}
               >
                 <article
-                  className="rounded-2xl bg-white p-4 shadow-antigravity border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald/30 w-full"
+                  className="rounded-2xl bg-white p-4 shadow-card border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald/30 w-full"
                   style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
                 >
                 {(() => {

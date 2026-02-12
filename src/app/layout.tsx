@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Seed Vault — Garden Tracker",
-  description: "Universal Garden Management PWA — Fresh Antigravity",
+  description: "Universal Garden Management PWA — Seed Vault",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

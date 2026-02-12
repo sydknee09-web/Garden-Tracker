@@ -341,16 +341,16 @@ export default function CalendarPage() {
       )}
 
       {loading ? (
-        <div className="rounded-2xl bg-white p-8 shadow-antigravity border border-black/5 text-center text-black/60">
+        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center text-black/60">
           Loading...
         </div>
       ) : error ? (
-        <div className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+        <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <p className="text-citrus font-medium">Could not load tasks</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
         </div>
       ) : viewMode === "overview" ? (
-        <div className="rounded-2xl bg-white shadow-antigravity border border-black/5 overflow-hidden">
+        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
           <div className="grid grid-cols-7 border-b border-black/10">
             {WEEKDAY_LABELS.map((label) => (
               <div key={label} className="p-2 text-center text-xs font-medium text-black/60 border-r border-black/5 last:border-r-0">
@@ -383,7 +383,7 @@ export default function CalendarPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl bg-white shadow-antigravity border border-black/5 overflow-hidden">
+        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
           {tasks.length === 0 ? (
             <div className="p-8 text-center text-black/50 text-sm">
               No tasks this month. Start a new Sowing on a plant profile to generate tasks.
@@ -427,7 +427,7 @@ export default function CalendarPage() {
           setNewTaskPlantId("");
           setNewTaskError(null);
         }}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-antigravity flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label="New task"
       >
@@ -465,7 +465,7 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setNewTaskOpen(false)} />
           <div
-            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 max-w-md mx-auto"
+            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-task-title"
@@ -630,7 +630,7 @@ function CalendarTaskRow({
       {snoozeOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setSnoozeOpen(false)} />
-          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-antigravity border border-black/5 max-w-xs mx-auto">
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-card border border-black/5 max-w-xs mx-auto">
             <p className="text-sm font-medium text-black mb-2">New due date</p>
             <input
               type="date"

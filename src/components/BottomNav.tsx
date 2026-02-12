@@ -25,7 +25,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-black/5 shadow-antigravity"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-black/5 shadow-card"
       style={{
         boxShadow: "0 -10px 30px rgba(0,0,0,0.05)",
         paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",

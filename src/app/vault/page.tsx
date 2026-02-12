@@ -1362,7 +1362,7 @@ function VaultPageInner() {
       <button
         type="button"
         onClick={() => setQuickAddOpen(true)}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-antigravity flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label="Quick add seed"
       >

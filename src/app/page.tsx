@@ -248,7 +248,7 @@ export default function HomePage() {
       )}
 
       {/* ---- Weather ---- */}
-      <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 mb-6">
+      <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5 mb-6">
         <h2 className="text-lg font-medium text-black mb-3">Weather &amp; Forecast -- {locationLabel}</h2>
         {weather ? (
           <>
@@ -325,7 +325,7 @@ export default function HomePage() {
 
       <div className="space-y-6">
         {/* ---- Tasks ---- */}
-        <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <h2 className="text-lg font-medium text-black mb-2">At a glance</h2>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
@@ -366,7 +366,7 @@ export default function HomePage() {
 
         {/* ---- Plant Care ---- */}
         {upcomingCare.length > 0 && (
-          <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+          <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
             <h2 className="text-lg font-medium text-black mb-2">Plant Care</h2>
             <p className="text-xs text-black/50 mb-3">Upcoming care reminders for the next 2 weeks</p>
             <ul className="space-y-2">
@@ -391,7 +391,7 @@ export default function HomePage() {
         )}
 
         {/* ---- Shopping List ---- */}
-        <section className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <h2 className="text-lg font-medium text-black mb-2">Shopping list</h2>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>

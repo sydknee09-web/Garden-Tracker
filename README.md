@@ -1,6 +1,6 @@
 # Garden Tracker
 
-Universal Garden Management PWA — **Fresh Antigravity** design. Next.js (App Router), TypeScript, Tailwind CSS. Supabase + Vercel AI SDK planned.
+Universal Garden Management PWA — **Garden Tracker / Seed Vault**. Next.js (App Router), TypeScript, Tailwind CSS. Supabase + Vercel AI SDK planned.
 
 ## Design system
 

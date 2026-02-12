@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Fresh Antigravity palette — NO GREY
+        // Garden Tracker / Seed Vault palette — NO GREY
         white: "#FFFFFF",
         // Full scale so bg-emerald-600, hover:bg-emerald-700 etc. render (buttons were invisible with only base)
         emerald: {
@@ -33,7 +33,7 @@ const config: Config = {
         surface: "#FFFFFF",
       },
       boxShadow: {
-        antigravity: "0 10px 30px rgba(0, 0, 0, 0.05)",
+        card: "0 10px 30px rgba(0, 0, 0, 0.05)",
         float: "0 10px 30px rgba(0, 0, 0, 0.05)",
         soft: "0 4px 20px rgba(0, 0, 0, 0.04)",
       },

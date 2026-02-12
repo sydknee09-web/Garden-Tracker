@@ -54,7 +54,7 @@ export default function UpdatePasswordPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-white">
         <div
-          className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-antigravity border border-black/5"
+          className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
           style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
         >
           <h1 className="text-xl font-semibold text-black mb-2">Invalid or expired link</h1>
@@ -81,7 +81,7 @@ export default function UpdatePasswordPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-white">
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-antigravity border border-black/5"
+        className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
       >
         <h1 className="text-2xl font-semibold text-black mb-1">Set new password</h1>

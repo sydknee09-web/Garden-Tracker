@@ -504,7 +504,7 @@ export default function JournalPage() {
       <div className="px-6 pt-8 pb-6">
         <h1 className="text-2xl font-semibold text-black mb-1">Journal</h1>
         <p className="text-muted text-sm mb-6">Notes and photos</p>
-        <div className="rounded-2xl bg-white p-8 shadow-antigravity border border-black/5 text-center text-black/60">
+        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center text-black/60">
           Loading…
         </div>
       </div>
@@ -515,7 +515,7 @@ export default function JournalPage() {
     return (
       <div className="px-6 pt-8 pb-6">
         <h1 className="text-2xl font-semibold text-black mb-1">Journal</h1>
-        <div className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+        <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <p className="text-citrus font-medium">Could not load journal</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
         </div>
@@ -570,7 +570,7 @@ export default function JournalPage() {
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-2xl bg-white p-8 shadow-antigravity border border-black/5 text-center">
+        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center">
           <p className="text-black/60">No journal entries yet.</p>
           <p className="text-sm text-black/50 mt-1">Tap the + button to log a note or photo.</p>
         </div>
@@ -766,7 +766,7 @@ export default function JournalPage() {
       <button
         type="button"
         onClick={openAddModal}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-antigravity flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label="Add journal entry"
       >
@@ -811,7 +811,7 @@ export default function JournalPage() {
             }}
           />
           <div
-            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 max-w-md mx-auto"
+            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-entry-title"

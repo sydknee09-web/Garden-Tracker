@@ -5,7 +5,7 @@ export default function ChatPage() {
       <p className="text-muted text-sm mb-8">
         AI garden assistant — coming soon.
       </p>
-      <div className="rounded-2xl bg-white p-6 shadow-antigravity border border-black/5">
+      <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
         <p className="text-black/60 text-sm">Floating chat bubble and context-aware AI will appear here.</p>
       </div>
     </div>

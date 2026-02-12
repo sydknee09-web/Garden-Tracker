@@ -523,7 +523,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
         </div>
       )}
       <div
-        className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-antigravity border border-black/5 max-w-md mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-add-title"

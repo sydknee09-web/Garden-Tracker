@@ -60,7 +60,7 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
     <>
       <div className="fixed inset-0 z-50 bg-black/60" aria-hidden onClick={onClose} />
       <div
-        className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-antigravity max-w-sm mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-card max-w-sm mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="qr-scanner-title"

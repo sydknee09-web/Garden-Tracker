@@ -217,7 +217,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         onClick={onClose}
       />
       <div
-        className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-antigravity border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-title"

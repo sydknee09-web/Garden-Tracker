@@ -59,7 +59,7 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
         onClick={handleClose}
       />
       <div
-        className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white shadow-antigravity border border-black/5 p-6 max-w-sm mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-sm mx-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="invite-modal-title"
