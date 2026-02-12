@@ -17,7 +17,11 @@ export type ExtractOrderResponse = {
   error?: string;
 };
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_KEY ?? "";
+const GEMINI_KEY =
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ??
+  process.env.GEMINI_API_KEY ??
+  process.env.GOOGLE_AI_KEY ??
+  "";
 
 export async function POST(req: Request) {
   try {
