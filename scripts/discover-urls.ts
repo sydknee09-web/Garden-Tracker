@@ -14,6 +14,9 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Vendor list (mirrors ALLOWED_HOST_ROOTS in scrape-url/route.ts) ──────────
 const VENDORS = [
@@ -71,6 +74,24 @@ const JUNK_PATH_PATTERNS = [
   /\/workshop/i, /\/class/i, /\/event/i, /\/subscription/i,
   /\.pdf$/i, /\.jpg$/i, /\.png$/i, /\.xml$/i,
   /\/collections\/?$/i, /\/products\/?$/i,
+  // Articles, how-to, resources (not seed product pages)
+  /\/resources\//i, /\/how-to[- ]/i, /\/growing-milkweed-from-seed/i,
+  /\/gallery/i, /\/seed-swap/i, /\/ask-the-experts/i,
+  // Floret-style blog/editorial slugs (no /blog/ prefix)
+  /\/the-seasonal-flower/i, /\/this-moment-/i, /\/pretty-in-pink/i,
+  /\/super-green-love/i, /\/behind-the-scenes/i, /\/reasons-love/i, /\/bouquet-mania/i,
+  // Non-seed products: merch, soap, hat, tunnel, mushroom kit, display, recipe book, apron, grow bags, broadfork, fertilizer
+  /\/liquid-hand-soap/i, /\/trucker-mesh-hat/i, /\/easy-net-tunnel/i,
+  /\/mushroom-fruiting/i, /\/wholesale-display-stand/i,
+  /\/botanical-teas-recipe-book/i, /\/pickled-pantry/i, /\/find-me-in-the-garden-apron/i,
+  /\/grow-bags-lined/i, /\/broadfork/i, /\/digital-gift-card/i,
+  /\/vegetable-garden-mix-mini/i,
+  // Mary's / general merch: shirts, trays, earrings, gift baskets, plant markers, coffee combo, seed box gift, books
+  /\/shirt/i, /\/v-neck/i, /\/germination-tray/i, /\/earring/i, /\/gift-basket/i,
+  /\/plant-marker/i, /\/fermented-vegetables/i, /\/cup-coffee-combo/i,
+  /\/seed-box-gift-pack/i,
+  // Territorial / other: hanging basket, hose nozzle
+  /\/hanging-basket/i, /\/hose-nozzle/i,
 ];
 
 function isProductUrl(urlStr: string, domain: string): boolean {

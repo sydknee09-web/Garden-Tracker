@@ -35,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={outfit.variable}>
-      <body className="min-h-screen bg-white font-sans antialiased">
+      <body className="min-h-screen bg-paper font-sans antialiased">
         <ServiceWorkerRegistration />
         <OfflineIndicator />
         <AuthProvider>

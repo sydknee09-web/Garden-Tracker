@@ -19,9 +19,16 @@ export type ReviewImportItem = {
   sowing_depth?: string;
   spacing?: string;
   sun_requirement?: string;
+  /** Alternative field names from scrape API */
+  water?: string;
+  sun?: string;
+  plant_spacing?: string;
+  harvest_days?: number;
   days_to_germination?: string;
   days_to_maturity?: string;
   source_url?: string;
+  /** Short description from scrape or research (passed to cache and profile). */
+  plant_description?: string;
   /** Scientific name (e.g. Thunbergia alata) from extraction */
   scientific_name?: string;
   /** From link extraction: stock/vendor plant image URL for profile hero and review thumbnail */
@@ -43,6 +50,8 @@ export type ReviewImportItem = {
   isPotentialDuplicate?: boolean;
   /** Additional source URLs merged from duplicate rows */
   secondary_urls?: string[];
+  /** 0–1 from extract API; when < 0.7, UI can highlight row/inputs for review */
+  confidence_score?: number;
 };
 
 export type ReviewImportData = {

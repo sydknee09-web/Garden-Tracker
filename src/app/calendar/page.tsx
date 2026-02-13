@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,10 +44,49 @@ export default function CalendarPage() {
   const [varieties, setVarieties] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [savingTask, setSavingTask] = useState(false);
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "overview">("list");
+  const [viewMode, setViewMode] = useState<"list" | "overview">("overview");
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
+  const [plantableInventoryPlantType, setPlantableInventoryPlantType] = useState<{ plantType: string; profiles: { id: string; name: string; variety_name: string | null }[] } | null>(null);
+  const [plantableAllOpen, setPlantableAllOpen] = useState(false);
+  const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
+  const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
+
+  const plantTypesGrouped = useMemo(() => {
+    const byType = new Map<string, { id: string; name: string; variety_name: string | null }[]>();
+    for (const p of plantableProfiles) {
+      const type = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || p.name?.trim() || "Other";
+      if (!byType.has(type)) byType.set(type, []);
+      byType.get(type)!.push(p);
+    }
+    return Array.from(byType.entries()).map(([plantType, profiles]) => ({ plantType, profiles }));
+  }, [plantableProfiles]);
+
+  const fetchPacketsForProfileIds = useCallback(
+    async (profileIds: string[]) => {
+      if (!user?.id || profileIds.length === 0) {
+        setInventoryPackets([]);
+        return;
+      }
+      setInventoryPacketsLoading(true);
+      const { data } = await supabase
+        .from("seed_packets")
+        .select("plant_profile_id, vendor_name, qty_status")
+        .eq("user_id", user.id)
+        .in("plant_profile_id", profileIds)
+        .is("deleted_at", null);
+      setInventoryPackets((data ?? []) as { plant_profile_id: string; vendor_name: string | null; qty_status: number }[]);
+      setInventoryPacketsLoading(false);
+    },
+    [user?.id]
+  );
+
+  useEffect(() => {
+    if (!plantableInventoryPlantType) return;
+    const ids = plantableInventoryPlantType.profiles.map((p) => p.id);
+    fetchPacketsForProfileIds(ids);
+  }, [plantableInventoryPlantType, fetchPacketsForProfileIds]);
 
   // Fetch schedule_defaults + user profiles to compute "Plantable this month"
   useEffect(() => {
@@ -275,20 +314,20 @@ export default function CalendarPage() {
           <button
             type="button"
             role="tab"
-            aria-selected={viewMode === "list"}
-            onClick={() => setViewMode("list")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
-          >
-            List
-          </button>
-          <button
-            type="button"
-            role="tab"
             aria-selected={viewMode === "overview"}
             onClick={() => setViewMode("overview")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
           >
             Overview
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "list"}
+            onClick={() => setViewMode("list")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+          >
+            List
           </button>
         </div>
       </div>
@@ -311,7 +350,7 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {/* Plantable this month */}
+      {/* Plantable window: icons + infinity */}
       {plantableProfiles.length > 0 && (
         <div className="mb-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 overflow-hidden">
           <button
@@ -325,19 +364,154 @@ export default function CalendarPage() {
             <span className="text-emerald-600 text-sm">{plantableExpanded ? "Hide" : "Show"}</span>
           </button>
           {plantableExpanded && (
-            <div className="px-4 pb-4 flex flex-wrap gap-2">
-              {plantableProfiles.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/vault/${p.id}`}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-emerald-200 text-sm text-emerald-700 font-medium hover:bg-emerald-100 transition-colors"
+            <div className="px-4 pb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {plantTypesGrouped.map(({ plantType, profiles }) => (
+                  <button
+                    key={plantType}
+                    type="button"
+                    onClick={() => setPlantableInventoryPlantType({ plantType, profiles })}
+                    className="min-h-[44px] px-3 py-2 flex items-center gap-1.5 rounded-xl bg-white border border-emerald-200 text-sm font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
+                    title={`${plantType} – view seed inventory`}
+                    aria-label={`View seed inventory for ${plantType}`}
+                  >
+                    <span>{plantType}</span>
+                    {profiles.length > 1 && (
+                      <span className="text-emerald-600">{profiles.length}</span>
+                    )}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPlantableAllOpen(true)}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white border border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors"
+                  title="Show all plantable"
+                  aria-label="Show all plantable for this month"
                 >
-                  {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
-                </Link>
-              ))}
+                  ∞
+                </button>
+              </div>
             </div>
           )}
         </div>
+      )}
+
+      {/* Modal: seed inventory for one plant type */}
+      {plantableInventoryPlantType && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setPlantableInventoryPlantType(null)} />
+          <div
+            className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-lg border border-black/10 max-w-md mx-auto flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plantable-inventory-title"
+          >
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
+              <h2 id="plantable-inventory-title" className="text-lg font-semibold text-black">
+                {plantableInventoryPlantType.plantType} – Seed inventory
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPlantableInventoryPlantType(null)}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+              {inventoryPacketsLoading ? (
+                <p className="text-sm text-black/50">Loading packets…</p>
+              ) : (
+                plantableInventoryPlantType.profiles.map((profile) => {
+                  const packets = inventoryPackets.filter((p) => p.plant_profile_id === profile.id);
+                  return (
+                    <div key={profile.id} className="rounded-xl border border-black/10 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-black">
+                          {profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name}
+                        </span>
+                        <Link
+                          href={`/vault/plant?ids=${profile.id}`}
+                          className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                        >
+                          Plant
+                        </Link>
+                      </div>
+                      {packets.length === 0 ? (
+                        <p className="text-xs text-black/50">No packets</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {packets.map((pkt, i) => (
+                            <li key={i} className="text-sm text-black/70 flex justify-between">
+                              <span>{pkt.vendor_name?.trim() || "—"}</span>
+                              <span>{pkt.qty_status}%</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <Link href={`/vault/${profile.id}`} className="text-xs text-emerald-600 hover:underline">
+                        View profile →
+                      </Link>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Modal: all plantable (infinity) */}
+      {plantableAllOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setPlantableAllOpen(false)} />
+          <div
+            className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-lg border border-black/10 max-w-md mx-auto flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plantable-all-title"
+          >
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
+              <h2 id="plantable-all-title" className="text-lg font-semibold text-black">
+                ∞ All plantable in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPlantableAllOpen(false)}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
+              <ul className="space-y-2">
+                {plantableProfiles.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 p-3">
+                    <span className="flex-1 min-w-0 font-medium text-black truncate">
+                      {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
+                    </span>
+                    <div className="flex gap-2 shrink-0">
+                      <Link
+                        href={`/vault/plant?ids=${p.id}`}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                      >
+                        Plant
+                      </Link>
+                      <Link
+                        href={`/vault/${p.id}`}
+                        className="px-3 py-1.5 rounded-lg border border-black/15 text-black/70 text-sm font-medium hover:bg-black/5"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </>
       )}
 
       {loading ? (
@@ -574,6 +748,16 @@ function TrashIcon() {
   );
 }
 
+function SnoozeIcon({ className }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+      <path d="M4 22l2-2M20 22l-2-2M22 4l-2 2M2 4l2 2" />
+    </svg>
+  );
+}
+
 function CalendarTaskRow({
   task,
   onComplete,
@@ -587,46 +771,74 @@ function CalendarTaskRow({
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
+  const [showDelete, setShowDelete] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoryLabel = TASK_LABELS[task.category] ?? task.category;
-  const displayTitle = task.title ?? categoryLabel;
-  const displaySub = task.title ? (task.plant_name ? ` — ${task.plant_name}` : ` (${categoryLabel})`) : (task.plant_name ?? "");
+  const plantLabel = (task.plant_name ?? (task.title ?? "").replace(new RegExp(`^${categoryLabel}\\s*`, "i"), "").trim()) || null;
+  const displayLine = plantLabel ? `${categoryLabel} – ${plantLabel}` : (task.title ?? categoryLabel);
+
+  const handleDoubleClick = () => {
+    setShowDelete(true);
+    setTimeout(() => setShowDelete(false), 3000);
+  };
+
+  const handlePointerDown = () => {
+    longPressTimerRef.current = setTimeout(() => {
+      setShowDelete(true);
+      setTimeout(() => setShowDelete(false), 3000);
+      longPressTimerRef.current = null;
+    }, 500);
+  };
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onDoubleClick={handleDoubleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       className={`flex flex-wrap items-center gap-2 py-2 px-3 rounded-xl text-sm ${
-        task.completed_at ? "bg-black/5 text-black/60" : "bg-emerald/10 text-black"
+        task.completed_at ? "bg-slate-100/80 text-slate-500" : "bg-emerald/10 text-black"
       }`}
     >
-      <span className={`font-medium ${task.completed_at ? "line-through" : ""}`}>{displayTitle}</span>
-      {displaySub && <span className="text-black/70">{displaySub}</span>}
-      {task.completed_at ? (
-        <span className="text-xs text-black/50 ml-auto">Done</span>
-      ) : (
-        <span className="ml-auto flex items-center gap-1">
+      <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
+      {!task.completed_at && (
+        <span className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setSnoozeOpen(true)}
-            className="text-xs font-medium text-black/60 hover:text-emerald"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
+            aria-label="Snooze"
+            title="Snooze"
           >
-            Snooze
+            <SnoozeIcon />
           </button>
           <button
             type="button"
             onClick={onComplete}
-            className="text-xs font-medium text-emerald hover:underline"
+            className="text-xs font-medium text-emerald-600 hover:underline px-1"
           >
             Complete
           </button>
         </span>
       )}
-      <button
-        type="button"
-        onClick={onDeleteRequest}
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/40 hover:text-citrus hover:bg-black/5 shrink-0"
-        aria-label="Delete task"
-      >
-        <TrashIcon />
-      </button>
+      {showDelete && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDeleteRequest(); setShowDelete(false); }}
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 shrink-0"
+          aria-label="Delete task"
+        >
+          <TrashIcon />
+        </button>
+      )}
       {snoozeOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setSnoozeOpen(false)} />

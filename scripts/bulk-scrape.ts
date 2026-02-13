@@ -7,20 +7,54 @@
  *   2. Dev server running: npm run dev
  *   3. Environment vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *
- * Run:  npx ts-node scripts/bulk-scrape.ts
- *       npx ts-node scripts/bulk-scrape.ts --no-ai
- *       npx ts-node scripts/bulk-scrape.ts --vendor rareseeds.com
- *       npx ts-node scripts/bulk-scrape.ts --vendor rareseeds.com --no-ai
+ * Run:  npm run bulk-scrape
+ *       (default: round-robin = 1 URL per vendor per round, 4 vendors in parallel for ~4x speed, same per-vendor rate)
+ *       npm run bulk-scrape -- --parallel   (legacy: 4 vendors at a time, each does full queue)
+ *       npm run bulk-scrape -- --no-ai
+ *       npm run bulk-scrape -- --vendor rareseeds.com
  */
 
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
+import { identityKeyFromVariety } from "../src/lib/identityKey";
+import { stripPlantFromVariety, cleanVarietyForDisplay } from "../src/lib/varietyNormalize";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load .env.local from project root so env vars are set when run via ts-node (no need to set in PowerShell)
+const projectRoot = path.join(__dirname, "..");
+const envPath = path.join(projectRoot, ".env.local");
+if (fs.existsSync(envPath)) {
+  const content = fs.readFileSync(envPath, "utf-8");
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key && !process.env[key]) process.env[key] = value;
+  }
+}
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const BASE_URL = process.env.SCRAPE_TEST_BASE_URL ?? "http://localhost:3000";
 const API_PATH = "/api/seed/scrape-url";
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+const SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+
+if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_PROJECT_REF")) {
+  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL is missing or still the placeholder.");
+  console.error("Edit .env.local and set it to your real Supabase URL (e.g. https://xxxx.supabase.co).");
+  console.error("Find it in Supabase Dashboard → Project Settings → API → Project URL.");
+  process.exit(1);
+}
+if (!SERVICE_ROLE_KEY) {
+  console.error("ERROR: SUPABASE_SERVICE_ROLE_KEY is not set.");
+  console.error("Edit .env.local and set it to your service_role key (Supabase Dashboard → Project Settings → API → service_role).");
+  process.exit(1);
+}
 
 /** Max vendor streams running in parallel */
 const MAX_PARALLEL_VENDORS = 4;
@@ -74,13 +108,38 @@ async function isAlreadyCached(sourceUrl: string): Promise<boolean> {
   return Array.isArray(data) && data.length > 0;
 }
 
+/** Fetch existing scrape_quality for a cached URL, or null if not cached. */
+async function getCachedQuality(sourceUrl: string): Promise<string | null> {
+  const encoded = encodeURIComponent(sourceUrl);
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/global_plant_cache?source_url=eq.${encoded}&select=scrape_quality&limit=1`,
+    {
+      headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+    }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const q = (data[0] as { scrape_quality?: string } | null)?.scrape_quality;
+  return typeof q === "string" ? q : null;
+}
+
+/** Quality order: higher = better. Only overwrite cache when new quality >= existing. */
+const QUALITY_RANK: Record<string, number> = { full: 3, partial: 2, ai_only: 1, failed: 0 };
+function qualityRank(q: string): number {
+  return QUALITY_RANK[q] ?? -1;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function jitteredDelay(): Promise<void> {
   const ms = DELAY_BASE_MS + Math.random() * DELAY_JITTER_MS;
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function getVendor(urlString: string): string {
+function getVendorDomain(urlString: string): string {
   try {
     return new URL(urlString).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
@@ -88,11 +147,56 @@ function getVendor(urlString: string): string {
   }
 }
 
-/** Build identity_key from scraper response (same as vault code: `type_variety`) */
-function buildIdentityKey(data: Record<string, unknown>): string {
-  const t = ((data.plant_name as string) ?? (data.ogTitle as string) ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  const v = ((data.variety_name as string) ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  return t && v ? `${t}_${v}` : t || v || "unknown";
+/** Normalize domain to display name (match extract/route vendorFromUrl for vault/packet display). */
+const VENDOR_NORMALIZE_MAP: { pattern: RegExp; vendor: string }[] = [
+  { pattern: /rareseeds\.com/i, vendor: "Rare Seeds" },
+  { pattern: /hudsonvalleyseed/i, vendor: "Hudson Valley Seed Co" },
+  { pattern: /floretflowers\.com/i, vendor: "Floret" },
+];
+
+function getVendorDisplayName(domain: string): string {
+  for (const { pattern, vendor } of VENDOR_NORMALIZE_MAP) {
+    if (pattern.test(domain)) return vendor;
+  }
+  const name = domain.split(".")[0] ?? domain;
+  return name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Build identity_key using shared formula (must match vault/link import for cache-by-identity). */
+function buildIdentityKey(type: string, variety: string): string {
+  const key = identityKeyFromVariety(type, variety);
+  return key || "unknown";
+}
+
+/** Derive type and variety from URL path when the scraper returns empty (e.g. Select Seeds, Swallowtail). */
+function deriveTypeAndVarietyFromUrl(url: string): { type: string; variety: string } {
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split("/").filter(Boolean);
+    const last = (segments[segments.length - 1] ?? "").replace(/\.[^.]*$/, "").replace(/_/g, "-").trim();
+    const parent = (segments[segments.length - 2] ?? "").replace(/_/g, " ").replace(/-/g, " ").trim();
+    let variety = last
+      .replace(/-seeds?$/i, "")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+    let type = "";
+    if (parent && parent.length >= 2 && !/^[\d\s]+$/.test(parent)) {
+      type = parent.replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+    }
+    if (!type && variety) {
+      const words = variety.split(/\s+/);
+      const lastWord = words[words.length - 1] ?? "";
+      if (words.length > 1 && lastWord.length >= 2) {
+        type = lastWord;
+        variety = words.slice(0, -1).join(" ").trim();
+      }
+    }
+    if (!type) type = "Imported seed";
+    return { type, variety: variety || "Unknown" };
+  } catch {
+    return { type: "Imported seed", variety: "Unknown" };
+  }
 }
 
 /** Fields we track for quality reporting */
@@ -125,6 +229,8 @@ function determineScrapeQuality(data: Record<string, unknown>): string {
 interface ProgressData {
   completed: Record<string, string[]>;  // vendor -> completed URLs
   failed: Record<string, string[]>;     // vendor -> failed URLs
+  /** Round-robin only: next URL index per vendor */
+  nextIndex?: Record<string, number>;
   stats: {
     total_scraped: number;
     total_failed: number;
@@ -193,10 +299,34 @@ async function scrapeOne(url: string, noAi: boolean): Promise<ScrapeResult> {
       };
     }
 
-    const vendor = getVendor(url);
-    const identityKey = buildIdentityKey(data);
+    const domain = getVendorDomain(url);
+    const vendor = getVendorDisplayName(domain);
+    let typeNorm = String(data.plant_name ?? data.ogTitle ?? "").trim() || "";
+    let varietyNorm = String(data.variety_name ?? "").trim();
+    // When scraper returns empty type/variety (e.g. some Select Seeds / Swallowtail pages), derive from URL slug so we still cache
+    if (!typeNorm.trim() || !varietyNorm.trim()) {
+      const fromUrl = deriveTypeAndVarietyFromUrl(url);
+      if (!typeNorm.trim()) typeNorm = fromUrl.type;
+      if (!varietyNorm.trim()) varietyNorm = fromUrl.variety;
+    }
+    // Same normalization as link import and extract image branch: strip plant from variety, clean variety, merge tags
+    varietyNorm = stripPlantFromVariety(varietyNorm, typeNorm);
+    const { cleanedVariety, tagsToAdd } = cleanVarietyForDisplay(varietyNorm, typeNorm);
+    varietyNorm = cleanedVariety;
+    const tagsRaw = Array.isArray(data.tags) ? (data.tags as string[]).filter((t) => typeof t === "string").map((t) => String(t).trim()).filter(Boolean) : [];
+    const tagsMerged = [...tagsRaw];
+    for (const t of tagsToAdd) {
+      if (t && !tagsMerged.some((x) => x.toLowerCase() === t.toLowerCase())) tagsMerged.push(t);
+    }
+    const identityKey = buildIdentityKey(typeNorm || "Imported seed", varietyNorm);
     const scrapedFields = collectScrapedFields(data);
     const quality = determineScrapeQuality(data);
+
+    // Validation: skip upsert only if we still have no usable identity (avoid bad rows in cache)
+    if (!typeNorm.trim() || !varietyNorm.trim() || !identityKey || identityKey === "unknown") {
+      console.warn(`[bulk-scrape] Skip cache: missing type/variety/identity_key for ${url}`);
+      return { url, success: true, quality, fieldsFound: scrapedFields.length };
+    }
 
     // Extract hero image URL
     const heroUrl =
@@ -205,31 +335,52 @@ async function scrapeOne(url: string, noAi: boolean): Promise<ScrapeResult> {
       (data.stock_photo_url as string) ??
       null;
 
-    // Build extract_data (the full payload to cache)
+    const rawHarvestDays = data.harvest_days;
+    const daysToMaturityStr =
+      typeof rawHarvestDays === "number" && Number.isFinite(rawHarvestDays)
+        ? String(rawHarvestDays)
+        : typeof rawHarvestDays === "string" && rawHarvestDays.trim()
+          ? rawHarvestDays.trim()
+          : undefined;
+
+    // Build extract_data: same shape as extract-metadata / Tier 0 so link import and lookup-by-identity consume one format
     const extractData: Record<string, unknown> = {
-      type: data.plant_name ?? data.ogTitle ?? "",
-      variety: data.variety_name ?? "",
-      vendor: vendor,
-      tags: data.tags ?? [],
+      type: typeNorm || "Imported seed",
+      variety: varietyNorm,
+      vendor,
+      tags: tagsMerged,
       source_url: url,
       sowing_depth: data.sowing_depth ?? undefined,
       spacing: data.plant_spacing ?? undefined,
       sun_requirement: data.sun ?? undefined,
       days_to_germination: data.days_to_germination ?? undefined,
-      days_to_maturity: data.harvest_days ?? undefined,
+      days_to_maturity: daysToMaturityStr,
       scientific_name: data.latin_name ?? undefined,
       hero_image_url: heroUrl ?? undefined,
       plant_description: data.plant_description ?? undefined,
       growing_notes: data.growing_notes ?? undefined,
       life_cycle: data.life_cycle ?? undefined,
       hybrid_status: data.hybrid_status ?? undefined,
+      water: (data.water as string)?.trim() || undefined,
+      sun: data.sun ?? undefined,
+      plant_spacing: data.plant_spacing ?? undefined,
+      harvest_days: typeof rawHarvestDays === "number" && Number.isFinite(rawHarvestDays) ? rawHarvestDays : undefined,
     };
 
-    // Upsert into global_plant_cache
+    // Only overwrite cache if new quality is better than or equal to existing (never replace good data with worse)
+    const existingQuality = await getCachedQuality(url);
+    const existingRank = existingQuality !== null ? qualityRank(existingQuality) : -1;
+    const newRank = qualityRank(quality);
+    if (existingRank > newRank) {
+      // Keep existing row; don't overwrite. Still report success so we mark URL completed and don't retry forever.
+      return { url, success: true, quality: existingQuality ?? quality, fieldsFound: scrapedFields.length };
+    }
+
+    // Upsert into global_plant_cache (vendor = display name for RLS/index; domain not stored in row)
     const cached = await upsertGlobalCache({
       source_url: url,
       identity_key: identityKey,
-      vendor: vendor,
+      vendor,
       extract_data: extractData,
       original_hero_url: heroUrl,
       scraped_fields: scrapedFields,
@@ -344,6 +495,178 @@ async function processVendor(
   return { scraped, failed, skipped };
 }
 
+// ── Round-robin: one URL per vendor per round (long cooldown per vendor) ──────
+async function runRoundRobin(
+  vendorDomains: string[],
+  vendorData: Record<string, { discovered: number; urls: string[] }>,
+  progress: ProgressData,
+  progressFile: string,
+  noAi: boolean
+): Promise<Record<string, { scraped: number; failed: number; skipped: number }>> {
+  const results: Record<string, { scraped: number; failed: number; skipped: number }> = {};
+  const completedSets: Record<string, Set<string>> = {};
+  const nextIndex: Record<string, number> = {};
+  const failedUrlsByVendor: Record<string, string[]> = {};
+  /** Failed URLs from previous run: drain these first so we retry them on resume */
+  const failedToRetry: Record<string, string[]> = {};
+
+  for (const domain of vendorDomains) {
+    results[domain] = { scraped: 0, failed: 0, skipped: 0 };
+    completedSets[domain] = new Set(progress.completed[domain] ?? []);
+    nextIndex[domain] = progress.nextIndex?.[domain] ?? 0;
+    failedUrlsByVendor[domain] = [];
+    failedToRetry[domain] = [...(progress.failed[domain] ?? [])];
+  }
+
+  const totalUrls = vendorDomains.reduce(
+    (sum, d) => sum + (vendorData[d]?.urls?.length ?? 0) - completedSets[d]!.size,
+    0
+  );
+  let totalProcessed = 0;   // scrapes only (success or fail)
+  let totalDone = 0;        // scrapes + cache hits (for %)
+  const logInterval = 50;
+
+  /** Returns next URL to process: failed-from-previous-run first, then unprocessed from main list. */
+  function getNextUrl(domain: string): { url: string; fromFailed: boolean } | null {
+    const urls = vendorData[domain]?.urls ?? [];
+    const completed = completedSets[domain]!;
+    const failedQueue = failedToRetry[domain]!;
+    if (failedQueue.length > 0) {
+      const url = failedQueue.shift()!;
+      return { url, fromFailed: true };
+    }
+    while (nextIndex[domain]! < urls.length) {
+      const url = urls[nextIndex[domain]!++]!;
+      if (!completed.has(url)) return { url, fromFailed: false };
+    }
+    return null;
+  }
+
+  const parallelPerRound = Math.min(MAX_PARALLEL_VENDORS, vendorDomains.length);
+  console.log(
+    "\n🔄 Round-robin mode: 1 URL per vendor per round, " +
+      parallelPerRound +
+      " vendors in parallel (~" +
+      Math.ceil(vendorDomains.length / parallelPerRound) * (DELAY_BASE_MS / 1000) +
+      "s per round)\n"
+  );
+
+  for (;;) {
+    const roundWork: { domain: string; url: string; fromFailed: boolean }[] = [];
+    for (const domain of vendorDomains) {
+      const next = getNextUrl(domain);
+      if (next) roundWork.push({ domain, ...next });
+    }
+    if (roundWork.length === 0) break;
+
+    for (let i = 0; i < roundWork.length; i += MAX_PARALLEL_VENDORS) {
+      const batch = roundWork.slice(i, i + MAX_PARALLEL_VENDORS);
+
+      const cacheResults = await Promise.all(
+        batch.map(async (item) => ({
+          ...item,
+          cached: await isAlreadyCached(item.url),
+        }))
+      );
+
+      for (const { domain, url, fromFailed, cached } of cacheResults) {
+        if (cached) {
+          if (!progress.completed[domain]) progress.completed[domain] = [];
+          progress.completed[domain]!.push(url);
+          completedSets[domain]!.add(url);
+          if (fromFailed && progress.failed[domain]) {
+            progress.failed[domain] = progress.failed[domain]!.filter((u) => u !== url);
+          }
+          progress.stats.total_cached++;
+          results[domain]!.skipped++;
+          totalDone++;
+        }
+      }
+
+      const toScrape = cacheResults.filter((r) => !r.cached);
+      if (toScrape.length > 0) {
+        const scrapeResults = await Promise.all(toScrape.map((item) => scrapeOne(item.url, noAi)));
+        for (let j = 0; j < toScrape.length; j++) {
+          const { domain, url, fromFailed } = toScrape[j]!;
+          const result = scrapeResults[j]!;
+          if (result.success) {
+            if (!progress.completed[domain]) progress.completed[domain] = [];
+            progress.completed[domain]!.push(url);
+            completedSets[domain]!.add(url);
+            if (fromFailed && progress.failed[domain]) {
+              progress.failed[domain] = progress.failed[domain]!.filter((u) => u !== url);
+            }
+            progress.stats.total_scraped++;
+            results[domain]!.scraped++;
+          } else {
+            progress.stats.total_failed++;
+            results[domain]!.failed++;
+            if (fromFailed) {
+              if (!progress.failed[domain]) progress.failed[domain] = [];
+              if (!progress.failed[domain]!.includes(url)) progress.failed[domain]!.push(url);
+            } else {
+              failedUrlsByVendor[domain]!.push(url);
+            }
+          }
+          totalProcessed++;
+          totalDone++;
+        }
+        const prevProcessed = totalProcessed - toScrape.length;
+        if (Math.floor(totalProcessed / logInterval) > Math.floor(prevProcessed / logInterval)) {
+          const pct = Math.round((totalDone / totalUrls) * 100);
+          const totalScrapedSoFar = vendorDomains.reduce((s, d) => s + results[d]!.scraped, 0);
+          const totalFailedSoFar = vendorDomains.reduce((s, d) => s + results[d]!.failed, 0);
+          const totalSkippedSoFar = vendorDomains.reduce((s, d) => s + results[d]!.skipped, 0);
+          console.log(
+            `  [round-robin] ${totalDone}/${totalUrls} (${pct}%) | success: ${totalScrapedSoFar} | failed: ${totalFailedSoFar} | skipped: ${totalSkippedSoFar}`
+          );
+        }
+      }
+
+      await jitteredDelay();
+    }
+
+    progress.nextIndex = { ...nextIndex };
+    saveProgress(progressFile, progress);
+  }
+
+  progress.nextIndex = nextIndex;
+  saveProgress(progressFile, progress);
+
+  // Retry failed URLs once (all vendors)
+  const allFailed: { domain: string; url: string }[] = [];
+  for (const domain of vendorDomains) {
+    for (const url of failedUrlsByVendor[domain]!) allFailed.push({ domain, url });
+  }
+  if (allFailed.length > 0) {
+    console.log(`\n  [round-robin] Retrying ${allFailed.length} failed URLs after 30s cooldown...`);
+    await new Promise((r) => setTimeout(r, RETRY_COOLDOWN_MS));
+    for (let i = 0; i < allFailed.length; i += MAX_PARALLEL_VENDORS) {
+      const batch = allFailed.slice(i, i + MAX_PARALLEL_VENDORS);
+      const retryResults = await Promise.all(batch.map(({ url }) => scrapeOne(url, noAi)));
+      for (let j = 0; j < batch.length; j++) {
+        const { domain, url } = batch[j]!;
+        const retry = retryResults[j]!;
+        if (retry.success) {
+          if (!progress.completed[domain]) progress.completed[domain] = [];
+          progress.completed[domain]!.push(url);
+          progress.stats.total_scraped++;
+          progress.stats.total_failed--;
+          results[domain]!.scraped++;
+          results[domain]!.failed--;
+        } else {
+          if (!progress.failed[domain]) progress.failed[domain] = [];
+          progress.failed[domain]!.push(url);
+        }
+      }
+      await jitteredDelay();
+    }
+    saveProgress(progressFile, progress);
+  }
+
+  return results;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   // Validate env
@@ -356,9 +679,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Parse CLI args
+  // Parse CLI args (default: round-robin = 1 URL per vendor per round; use --parallel for 4 vendors at a time)
   const args = process.argv.slice(2);
   const noAi = args.includes("--no-ai");
+  const forceParallel = args.includes("--parallel");
+  const roundRobin = args.includes("--round-robin") || !forceParallel;
   const vendorFlag = args.indexOf("--vendor");
   const targetVendor = vendorFlag >= 0 ? args[vendorFlag + 1] : undefined;
 
@@ -391,7 +716,9 @@ async function main(): Promise<void> {
   console.log(`   Vendors: ${vendorDomains.length}`);
   console.log(`   Total URLs: ${totalUrls}`);
   console.log(`   AI fallback: ${noAi ? "DISABLED (--no-ai)" : "ENABLED"}`);
-  console.log(`   Parallel streams: ${MAX_PARALLEL_VENDORS}`);
+  console.log(
+    `   Mode: ${roundRobin ? `ROUND-ROBIN (1 URL per vendor per round, up to ${MAX_PARALLEL_VENDORS} in parallel)` : `Parallel (${MAX_PARALLEL_VENDORS} vendors, full queue each)`}`
+  );
   console.log(`   Delay: ${DELAY_BASE_MS}-${DELAY_BASE_MS + DELAY_JITTER_MS}ms (jittered)`);
   console.log(`   Scraper: ${BASE_URL}${API_PATH}`);
   console.log(`   Target DB: ${SUPABASE_URL}`);
@@ -401,24 +728,28 @@ async function main(): Promise<void> {
   const progressFile = path.join(dataDir, "scrape-progress.json");
   const progress = loadProgress(progressFile);
 
-  // Process vendors in parallel batches
-  const results: Record<string, { scraped: number; failed: number; skipped: number }> = {};
+  let results: Record<string, { scraped: number; failed: number; skipped: number }>;
 
-  // Chunk vendors into parallel groups
-  for (let i = 0; i < vendorDomains.length; i += MAX_PARALLEL_VENDORS) {
-    const batch = vendorDomains.slice(i, i + MAX_PARALLEL_VENDORS);
-    console.log(`\n── Batch ${Math.floor(i / MAX_PARALLEL_VENDORS) + 1}: ${batch.join(", ")} ──`);
+  if (roundRobin) {
+    results = await runRoundRobin(vendorDomains, vendorData, progress, progressFile, noAi);
+  } else {
+    results = {};
+    // Process vendors in parallel batches
+    for (let i = 0; i < vendorDomains.length; i += MAX_PARALLEL_VENDORS) {
+      const batch = vendorDomains.slice(i, i + MAX_PARALLEL_VENDORS);
+      console.log(`\n── Batch ${Math.floor(i / MAX_PARALLEL_VENDORS) + 1}: ${batch.join(", ")} ──`);
 
-    const promises = batch.map(async (domain) => {
-      const urls = vendorData[domain]?.urls ?? [];
-      if (urls.length === 0) {
-        results[domain] = { scraped: 0, failed: 0, skipped: 0 };
-        return;
-      }
-      results[domain] = await processVendor(domain, urls, progress, progressFile, noAi);
-    });
+      const promises = batch.map(async (domain) => {
+        const urls = vendorData[domain]?.urls ?? [];
+        if (urls.length === 0) {
+          results[domain] = { scraped: 0, failed: 0, skipped: 0 };
+          return;
+        }
+        results[domain] = await processVendor(domain, urls, progress, progressFile, noAi);
+      });
 
-    await Promise.all(promises);
+      await Promise.all(promises);
+    }
   }
 
   // Final save
@@ -444,11 +775,9 @@ async function main(): Promise<void> {
       `${domain.padEnd(35)} ${String(r.scraped).padStart(8)} ${String(r.failed).padStart(8)} ${String(r.skipped).padStart(8)}`
     );
   }
-
   console.log("-".repeat(63));
-  console.log(
-    `${"TOTAL".padEnd(35)} ${String(totalScraped).padStart(8)} ${String(totalFailed).padStart(8)} ${String(totalSkipped).padStart(8)}`
-  );
+  console.log(`${"TOTAL".padEnd(35)} ${String(totalScraped).padStart(8)} ${String(totalFailed).padStart(8)} ${String(totalSkipped).padStart(8)}`);
+  console.log(`\n  Success: ${totalScraped}  |  Failed: ${totalFailed}  |  Skipped (cached): ${totalSkipped}`);
   console.log(`\nProgress saved to: ${progressFile}`);
 }
 

@@ -14,8 +14,9 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTagStyle } from "@/components/TagBadges";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
-import { hasPendingReviewData } from "@/lib/reviewImportStorage";
+import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
 import { HarvestModal } from "@/components/HarvestModal";
+import { AddStoreBoughtPlantModal } from "@/components/AddStoreBoughtPlantModal";
 import { compressImage } from "@/lib/compressImage";
 
 const SAVE_TOAST_DURATION_MS = 5000;
@@ -60,6 +61,30 @@ function MergeIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+/** Photo cards = image-dominant 2-col grid (4 quadrants). */
+function PhotoCardsGridIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+/** Condensed = denser 3-col grid (6 cells). */
+function CondensedGridIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="2" width="5" height="5" />
+      <rect x="9.5" y="2" width="5" height="5" />
+      <rect x="17" y="2" width="5" height="5" />
+      <rect x="2" y="9.5" width="5" height="5" />
+      <rect x="9.5" y="9.5" width="5" height="5" />
+      <rect x="17" y="9.5" width="5" height="5" />
+    </svg>
+  );
+}
 
 function VaultPageInner() {
   const { user } = useAuth();
@@ -92,11 +117,38 @@ function VaultPageInner() {
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearchQuery, setTagSearchQuery] = useState("");
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
+  const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
+  const [activeFabMenuOpen, setActiveFabMenuOpen] = useState(false);
+  const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
+  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
+  const [refineByOpen, setRefineByOpen] = useState(false);
+  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
+  const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [activeFilteredCount, setActiveFilteredCount] = useState(0);
+  const [plantsCategoryFilter, setPlantsCategoryFilter] = useState<string | null>(null);
+  const [plantsCategoryChips, setPlantsCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [plantsFilteredCount, setPlantsFilteredCount] = useState(0);
+  const [activeSearchQuery, setActiveSearchQuery] = useState("");
+  const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
+
+  const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
+    setCategoryChips(chips);
+  }, []);
+  const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
+    setActiveCategoryChips(chips);
+  }, []);
+  const handlePlantsCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
+    setPlantsCategoryChips(chips);
+  }, []);
 
   const handleTagsLoaded = useCallback((tags: string[]) => {
     setAvailableTags(tags);
@@ -161,6 +213,53 @@ function VaultPageInner() {
     }
   }, [searchParams]);
 
+  // Restore view/filter/search from sessionStorage when no URL params (cross-session continuity)
+  const hasRestoredSession = useRef(false);
+  useEffect(() => {
+    if (hasRestoredSession.current || typeof window === "undefined") return;
+    if (searchParams.get("tab") || searchParams.get("status")) return;
+    hasRestoredSession.current = true;
+    try {
+      const savedView = sessionStorage.getItem("vault-view-mode");
+      if (savedView === "grid" || savedView === "list" || savedView === "active" || savedView === "plants") setViewMode(savedView);
+      const savedGridStyle = sessionStorage.getItem("vault-grid-style");
+      if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
+      const savedStatus = sessionStorage.getItem("vault-status-filter");
+      if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory") setStatusFilter(savedStatus);
+      const savedSearch = sessionStorage.getItem("vault-search");
+      if (typeof savedSearch === "string") setSearchQuery(savedSearch);
+    } catch {
+      /* ignore */
+    }
+  }, [searchParams]);
+
+  // Persist view mode, status filter, and search to sessionStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-view-mode", viewMode);
+      sessionStorage.setItem("vault-status-filter", statusFilter);
+    } catch {
+      /* ignore */
+    }
+  }, [viewMode, statusFilter]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-grid-style", gridDisplayStyle);
+    } catch {
+      /* ignore */
+    }
+  }, [gridDisplayStyle]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-search", searchQuery);
+    } catch {
+      /* ignore */
+    }
+  }, [searchQuery]);
+
   const toggleVarietySelection = useCallback((plantVarietyId: string) => {
     setSelectedVarietyIds((prev) => {
       const next = new Set(prev);
@@ -179,14 +278,15 @@ function VaultPageInner() {
     }
     setBatchDeleting(true);
     let failed = false;
+    const now = new Date().toISOString();
     for (const id of Array.from(selectedVarietyIds)) {
-      const { data: deletedProfile } = await supabase
+      const { data: softDeleted } = await supabase
         .from("plant_profiles")
-        .delete()
+        .update({ deleted_at: now })
         .eq("id", id)
         .eq("user_id", uid)
         .select("id");
-      if (deletedProfile && deletedProfile.length > 0) continue;
+      if (softDeleted && softDeleted.length > 0) continue;
       const { error: e2 } = await supabase.from("plant_varieties").delete().eq("id", id).eq("user_id", uid);
       if (e2) {
         setSaveToastMessage(`Could not delete: ${e2.message}`);
@@ -225,6 +325,7 @@ function VaultPageInner() {
       .from("seed_packets")
       .select("plant_profile_id")
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .in("plant_profile_id", ids);
     const countByProfile = new Map<string, number>();
     for (const r of packetCounts ?? []) {
@@ -252,9 +353,10 @@ function VaultPageInner() {
       setMergeInProgress(false);
       return;
     }
+    const now = new Date().toISOString();
     const { error: deleteErr } = await supabase
       .from("plant_profiles")
-      .delete()
+      .update({ deleted_at: now })
       .in("id", sourceIds)
       .eq("user_id", user.id);
     if (deleteErr) {
@@ -434,7 +536,7 @@ function VaultPageInner() {
       const [profilesRes, defaultsRes, packetsRes] = await Promise.all([
         supabase.from("plant_profiles").select("id, name, variety_name, harvest_days").in("id", ids).eq("user_id", user.id),
         supabase.from("schedule_defaults").select("plant_type, planting_window, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec").eq("user_id", user.id),
-        supabase.from("seed_packets").select("id, plant_profile_id, qty_status, created_at").in("plant_profile_id", ids).eq("user_id", user.id).order("created_at", { ascending: true }),
+        supabase.from("seed_packets").select("id, plant_profile_id, qty_status, created_at").in("plant_profile_id", ids).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: true }),
       ]);
       if (!cancelled && profilesRes.data) {
         const profiles = profilesRes.data as PlantProfileForModal[];
@@ -476,17 +578,19 @@ function VaultPageInner() {
 
   const consumePackets = useCallback(async (profileId: string, toUse: number, packets: SeedPacketRow[]): Promise<boolean> => {
     if (!user?.id || toUse <= 0) return true;
+    const now = new Date().toISOString();
     let need = toUse;
     for (const pk of packets) {
       const packetValue = pk.qty_status / 100;
       if (need >= packetValue - 1e-6) {
-        await supabase.from("seed_packets").delete().eq("id", pk.id).eq("user_id", user.id);
+        // Law 2 & 3: soft delete and archive when qty reaches 0
+        await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
         need -= packetValue;
       } else {
         const remaining = Math.round((packetValue - need) * 100);
         const newQty = Math.max(0, Math.min(100, remaining));
         if (newQty <= 0) {
-          await supabase.from("seed_packets").delete().eq("id", pk.id).eq("user_id", user.id);
+          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
         } else {
           await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
         }
@@ -733,14 +837,28 @@ function VaultPageInner() {
   return (
     <div className="px-6 pt-0 pb-10">
       {hasPendingReview && (
-        <button
-          type="button"
-          onClick={() => router.push("/vault/review-import")}
-          className="w-full mb-3 mt-2 flex items-center justify-between gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-left hover:bg-amber-100 transition-colors"
-        >
-          <span className="text-sm font-medium text-amber-800">You have items pending review from a previous import.</span>
-          <span className="text-sm text-amber-600 font-medium shrink-0">Review now &rarr;</span>
-        </button>
+        <div className="w-full mb-3 mt-2 flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 relative">
+          <button
+            type="button"
+            onClick={() => router.push("/vault/review-import")}
+            className="flex-1 flex items-center justify-between gap-3 text-left hover:bg-amber-100/50 rounded-lg -m-1 p-1 transition-colors min-w-0"
+          >
+            <span className="text-sm font-medium text-amber-800">You have items pending review from a previous import.</span>
+            <span className="text-sm text-amber-600 font-medium shrink-0">Review now &rarr;</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              clearReviewImportData();
+              setRefetchTrigger((t) => t + 1);
+            }}
+            className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-amber-700 hover:bg-amber-200/80 transition-colors"
+            aria-label="Cancel batch and dismiss"
+            title="Cancel batch"
+          >
+            <span className="text-lg font-medium leading-none" aria-hidden>×</span>
+          </button>
+        </div>
       )}
       <div ref={stickyHeaderRef} className="sticky top-12 z-50 h-auto min-h-0 -mx-6 px-6 pt-1.5 pb-3 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
         <div className="flex items-center justify-between mb-2 relative z-10">
@@ -756,7 +874,7 @@ function VaultPageInner() {
               </span>
             )}
           </div>
-          {!batchSelectMode && (
+          {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
             <div className="flex items-center gap-2 shrink-0 pointer-events-auto" aria-label="Vault actions">
               <button
                 type="button"
@@ -824,49 +942,73 @@ function VaultPageInner() {
           </button>
         </div>
 
-        {(viewMode === "grid" || viewMode === "list") && (
+        {/* Unified toolbar: search + (view toggle | Refine by | batch actions) for all four tabs */}
+        {(viewMode === "grid" || viewMode === "list" || viewMode === "active" || viewMode === "plants") && (
           <>
             <div className="flex gap-2 mb-3">
-              <div className="flex-1 relative">
+              <div className="flex-1">
                 <input
                   type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search seeds…"
-                  className="w-full rounded-xl border border-black/10 bg-white pl-4 pr-12 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickAddOpen(false);
-                    setBatchAddOpen(true);
+                  value={viewMode === "grid" || viewMode === "list" ? searchQuery : viewMode === "active" ? activeSearchQuery : plantsSearchQuery}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (viewMode === "grid" || viewMode === "list") setSearchQuery(v);
+                    else if (viewMode === "active") setActiveSearchQuery(v);
+                    else setPlantsSearchQuery(v);
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-black/60 hover:bg-black/5 hover:text-black"
-                  aria-label="Photo import seeds"
-                  title="Photo Import"
-                >
-                  <BatchCameraIcon />
-                </button>
+                  placeholder={viewMode === "grid" || viewMode === "list" ? "Search seeds…" : viewMode === "active" ? "Search batches…" : "Search plants…"}
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                  aria-label={viewMode === "grid" || viewMode === "list" ? "Search seeds" : viewMode === "active" ? "Search batches" : "Search plants"}
+                />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
-                <div className="flex items-center gap-2 shrink-0 relative z-40">
-                  <span className="text-xs font-medium text-black/60">Category</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald relative z-40"
-                    aria-label="Filter by status"
-                  >
-                    <option value="">All</option>
-                    <option value="vault">Vaulted</option>
-                    <option value="active">Active</option>
-                    <option value="low_inventory">Low Inventory</option>
-                  </select>
-                </div>
-                {batchSelectMode && (
+                {viewMode === "grid" && (
+                  <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Grid display style">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={gridDisplayStyle === "photo"}
+                      onClick={() => setGridDisplayStyle("photo")}
+                      className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${gridDisplayStyle === "photo" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+                      title="Photo cards"
+                      aria-label="Photo cards"
+                    >
+                      <PhotoCardsGridIcon />
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={gridDisplayStyle === "condensed"}
+                      onClick={() => setGridDisplayStyle("condensed")}
+                      className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${gridDisplayStyle === "condensed" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+                      title="Condensed"
+                      aria-label="Condensed"
+                    >
+                      <CondensedGridIcon />
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
+                  aria-label={viewMode === "grid" || viewMode === "list" ? "Refine by status, tags, plant type" : "Refine by plant type"}
+                >
+                  Refine by
+                  {(viewMode === "grid" || viewMode === "list") && ((statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null) ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
+                      {[statusFilter !== "" && statusFilter !== "vault", tagFilters.length > 0, categoryFilter !== null].filter(Boolean).length}
+                    </span>
+                  ) : viewMode === "active" && activeCategoryFilter !== null ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                  ) : viewMode === "plants" && plantsCategoryFilter !== null ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                  ) : null}
+                </button>
+                {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
                   <div className="flex items-center gap-2 flex-nowrap min-w-0 overflow-x-auto pb-1 scrollbar-thin bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" style={{ scrollbarWidth: "thin" }} role="toolbar" aria-label="Batch actions">
                     <button
                       type="button"
@@ -936,75 +1078,255 @@ function VaultPageInner() {
                   </div>
                 )}
               </div>
-              {availableTags.length > 0 && (
-                <div className="flex items-center gap-2 shrink-0 relative" ref={tagDropdownRef}>
-                  <span className="text-xs font-medium text-black/60">Tags</span>
+            </div>
+
+          </>
+        )}
+      </div>
+
+      {/* Refine By pop-up modal (shared across Plant Profiles, Seed Vault, Active Garden, My Plants) */}
+      {refineByOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[100] bg-black/40"
+            aria-hidden
+            onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 z-[101] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col mx-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="refine-by-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
+              <h2 id="refine-by-title" className="text-lg font-semibold text-black">Refine by</h2>
+              <button
+                type="button"
+                onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
+                aria-label="Close"
+              >
+                <span className="text-xl leading-none" aria-hidden>×</span>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+              {/* Content for Plant Profiles / Seed Vault */}
+              {(viewMode === "grid" || viewMode === "list") && (
+                <>
+                  <div className="border-b border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setRefineBySection((s) => (s === "vault" ? null : "vault"))}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                      aria-expanded={refineBySection === "vault"}
+                    >
+                      <span>Vault status</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▴" : "▾"}</span>
+                    </button>
+                    {refineBySection === "vault" && (
+                      <div className="px-4 pb-3 pt-0 space-y-0.5">
+                        {(["", "vault", "active", "low_inventory"] as const).map((value) => {
+                          const label = value === "" ? "All" : value === "vault" ? "Vaulted" : value === "active" ? "Active" : "Low inventory";
+                          const selected = statusFilter === value;
+                          return (
+                            <button
+                              key={value || "all"}
+                              type="button"
+                              onClick={() => setStatusFilter(value)}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {availableTags.length > 0 && (
+                    <div className="border-b border-black/5">
+                      <button
+                        type="button"
+                        onClick={() => setRefineBySection((s) => (s === "tags" ? null : "tags"))}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                        aria-expanded={refineBySection === "tags"}
+                      >
+                        <span>Tags</span>
+                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▴" : "▾"}</span>
+                      </button>
+                      {refineBySection === "tags" && (
+                        <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                          {availableTags.map((tag) => {
+                            const checked = tagFilters.includes(tag);
+                            return (
+                              <label
+                                key={tag}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleTagFilter(tag)}
+                                  className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                                  aria-label={`Filter by ${tag}`}
+                                />
+                                <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>
+                                  {tag}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {categoryChips.length > 0 && (
+                    <div className="border-b border-black/5">
+                      <button
+                        type="button"
+                        onClick={() => setRefineBySection((s) => (s === "plantType" ? null : "plantType"))}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                        aria-expanded={refineBySection === "plantType"}
+                      >
+                        <span>Plant type</span>
+                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▴" : "▾"}</span>
+                      </button>
+                      {refineBySection === "plantType" && (
+                        <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setCategoryFilter(null)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${categoryFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                          >
+                            All
+                          </button>
+                          {categoryChips.map(({ type, count }) => {
+                            const selected = categoryFilter === type;
+                            return (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setCategoryFilter(type)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              >
+                                {type} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+              {/* Content for Active Garden or My Plants: Plant type only */}
+              {(viewMode === "active" || viewMode === "plants") && (
+                <div className="border-b border-black/5">
                   <button
                     type="button"
-                    onClick={() => setTagDropdownOpen((o) => !o)}
-                    aria-expanded={tagDropdownOpen}
-                    aria-haspopup="listbox"
-                    aria-label="Filter by tags"
-                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-w-[100px] text-left flex items-center justify-between gap-2"
+                    onClick={() => setRefineBySection((s) => (s === "plantType" ? null : "plantType"))}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                    aria-expanded={refineBySection === "plantType"}
                   >
-                    <span className="truncate">
-                      {tagFilters.length === 0
-                        ? "All"
-                        : tagFilters.length === 1
-                          ? tagFilters[0]
-                          : `Tags (${tagFilters.length})`}
-                    </span>
-                    <span className="text-neutral-400 shrink-0" aria-hidden>
-                      {tagDropdownOpen ? "▴" : "▾"}
-                    </span>
+                    <span>Plant type</span>
+                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▴" : "▾"}</span>
                   </button>
-                  {tagDropdownOpen && (
-                    <div
-                      className="absolute left-0 top-full mt-1 py-1 min-w-[200px] max-h-[320px] overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg z-50"
-                      role="listbox"
-                      aria-multiselectable="true"
-                      aria-label="Select tags to filter"
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      {availableTags.map((tag) => {
-                        const checked = tagFilters.includes(tag);
-                        return (
-                          <label
-                            key={tag}
-                            className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer"
-                            onMouseDown={(e) => e.stopPropagation()}
+                  {refineBySection === "plantType" && (
+                    <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                      {viewMode === "active" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCategoryFilter(null)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeCategoryFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleTagFilter(tag)}
-                              className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                              aria-label={`Filter by ${tag}`}
-                            />
-                            <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${getTagStyle(tag)}`}>
-                              {tag}
-                            </span>
-                          </label>
-                        );
-                      })}
+                            All
+                          </button>
+                          {activeCategoryChips.map(({ type, count }) => {
+                            const selected = activeCategoryFilter === type;
+                            return (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setActiveCategoryFilter(type)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              >
+                                {type} ({count})
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                      {viewMode === "plants" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setPlantsCategoryFilter(null)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${plantsCategoryFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                          >
+                            All
+                          </button>
+                          {plantsCategoryChips.map(({ type, count }) => {
+                            const selected = plantsCategoryFilter === type;
+                            return (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setPlantsCategoryFilter(type)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              >
+                                {type} ({count})
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </div>
-          </>
-        )}
-      </div>
+            <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
+                className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
+              >
+                Show results (
+                {viewMode === "active" ? activeFilteredCount : viewMode === "plants" ? plantsFilteredCount : filteredVarietyIds.length}
+                )
+              </button>
+            </footer>
+          </div>
+        </>
+      )}
 
       {viewMode === "active" && (
         <div className="pt-2">
-          <ActiveGardenView refetchTrigger={refetchTrigger} onLogGrowth={openLogGrowth} onLogHarvest={openLogHarvest} onEndCrop={handleEndCrop} />
+          <ActiveGardenView
+            refetchTrigger={refetchTrigger}
+            searchQuery={activeSearchQuery}
+            onLogGrowth={openLogGrowth}
+            onLogHarvest={openLogHarvest}
+            onEndCrop={handleEndCrop}
+            categoryFilter={activeCategoryFilter}
+            onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
+            onFilteredCountChange={setActiveFilteredCount}
+          />
         </div>
       )}
 
       {viewMode === "plants" && (
         <div className="pt-2">
-          <MyPlantsView refetchTrigger={refetchTrigger} />
+          <MyPlantsView
+            refetchTrigger={refetchTrigger}
+            searchQuery={plantsSearchQuery}
+            openAddModal={showAddPermanentPlantModal}
+            onCloseAddModal={() => setShowAddPermanentPlantModal(false)}
+            categoryFilter={plantsCategoryFilter}
+            onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
+            onFilteredCountChange={setPlantsFilteredCount}
+          />
         </div>
       )}
 
@@ -1025,6 +1347,11 @@ function VaultPageInner() {
             onPendingHeroCountChange={setPendingHeroCount}
             availablePlantTypes={availablePlantTypes}
             onPlantTypeChange={handlePlantTypeChange}
+            plantNowFilter={false}
+            gridDisplayStyle={viewMode === "grid" ? gridDisplayStyle : undefined}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            onCategoryChipsLoaded={handleCategoryChipsLoaded}
           />
         </div>
       )}
@@ -1359,15 +1686,44 @@ function VaultPageInner() {
         </div>
       )}
 
+      {viewMode === "active" && activeFabMenuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-20"
+            aria-label="Close menu"
+            onClick={() => setActiveFabMenuOpen(false)}
+          />
+          <div className="fixed right-6 bottom-32 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg">
+            <button
+              type="button"
+              onClick={() => { setShowStoreBoughtModal(true); setActiveFabMenuOpen(false); }}
+              className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]"
+            >
+              Add store-bought plant
+            </button>
+          </div>
+        </>
+      )}
       <button
         type="button"
-        onClick={() => setQuickAddOpen(true)}
+        onClick={() => {
+          if (viewMode === "active") setActiveFabMenuOpen((o) => !o);
+          else if (viewMode === "plants") setShowAddPermanentPlantModal(true);
+          else setQuickAddOpen(true);
+        }}
         className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label="Quick add seed"
+        aria-label={viewMode === "active" ? "Open menu" : viewMode === "plants" ? "Add permanent plant" : "Quick add seed"}
       >
         +
       </button>
+
+      <AddStoreBoughtPlantModal
+        open={showStoreBoughtModal}
+        onClose={() => setShowStoreBoughtModal(false)}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+      />
 
       <QuickAddSeed
         open={quickAddOpen}
@@ -1425,14 +1781,3 @@ export default function VaultPage() {
     </Suspense>
   );
 }
-
-function BatchCameraIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M12 9v6" />
-      <path d="M9 12h6" />
-    </svg>
-  );
-}
-

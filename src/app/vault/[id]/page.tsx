@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule } from "@/types/garden";
+import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant, toScheduleKey, type PlantingData } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { fetchScheduleDefaults } from "@/lib/scheduleDefaults";
@@ -14,7 +14,7 @@ import { TagBadges } from "@/components/TagBadges";
 import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
-import { getCanonicalKey } from "@/lib/canonicalKey";
+import { identityKeyFromVariety } from "@/lib/identityKey";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -56,10 +56,7 @@ function formatDisplayDate(value: string): string {
 }
 
 function buildIdentityKey(type: string, variety: string): string {
-  const t = getCanonicalKey((type ?? "").trim());
-  const v = getCanonicalKey((variety ?? "").trim());
-  if (!t && !v) return "";
-  return t && v ? `${t}_${v}` : t || v;
+  return identityKeyFromVariety(type, variety);
 }
 
 function syncExtractCache(userId: string, identityKey: string, updates: { extractDataPatch?: Record<string, unknown>; heroStoragePath?: string | null; originalHeroUrl?: string | null }, oldIdentityKey?: string): void {
@@ -105,6 +102,7 @@ export default function VaultSeedPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -129,7 +127,14 @@ export default function VaultSeedPage() {
   });
   const [scheduleDefault, setScheduleDefault] = useState<PlantingData | null>(null);
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
-  const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal" | "care">("about");
+  const tabFromUrl = searchParams.get("tab");
+  const validTab = ["about", "packets", "plantings", "journal", "care"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" | "care" : "about";
+  const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal" | "care">(validTab);
+  const [profileViewMode, setProfileViewMode] = useState<"detailed" | "condensed">("detailed");
+
+  useEffect(() => {
+    setActiveTab(validTab);
+  }, [id, validTab]);
   const [showSetPhotoModal, setShowSetPhotoModal] = useState(false);
   const [heroUploading, setHeroUploading] = useState(false);
   const [findingStockPhoto, setFindingStockPhoto] = useState(false);
@@ -169,7 +174,7 @@ export default function VaultSeedPage() {
       setProfile(profileData as ProfileData);
       // Packets
       const { data: packetData } = await supabase.from("seed_packets")
-        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, created_at, user_notes, tags")
+        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, created_at, user_notes, tags, vendor_specs")
         .eq("plant_profile_id", id).eq("user_id", user.id).order("created_at", { ascending: false });
       setPackets((packetData ?? []) as SeedPacket[]);
 
@@ -229,7 +234,7 @@ export default function VaultSeedPage() {
   // =========================================================================
   // Derived
   // =========================================================================
-  const displayName = profile?.variety_name?.trim() ? `${profile.name} -- ${profile.variety_name}` : profile?.name ?? "";
+  const displayName = profile?.variety_name?.trim() ? `${profile.name} – ${profile.variety_name}` : profile?.name ?? "";
   const isLegacy = profile ? "vendor" in profile && (profile as PlantVarietyProfile).vendor != null : false;
   const isPermanent = (profile as PlantProfile | null)?.profile_type === "permanent";
   const profileStatus = (profile?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
@@ -611,8 +616,65 @@ export default function VaultSeedPage() {
       {/* Main Content                                                     */}
       {/* ================================================================ */}
       <div className="mx-auto max-w-2xl px-6 pt-6">
-        <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
+        {validTab === "journal" ? (
+          <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
+        ) : (
+          <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
+        )}
 
+        {/* View toggle: Detailed vs Table (condensed) */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-medium text-neutral-500">View</span>
+          <div className="inline-flex rounded-lg p-0.5 border border-neutral-200 bg-neutral-100" role="tablist" aria-label="Profile view">
+            <button type="button" role="tab" aria-selected={profileViewMode === "detailed"} onClick={() => setProfileViewMode("detailed")} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${profileViewMode === "detailed" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"}`}>Detailed</button>
+            <button type="button" role="tab" aria-selected={profileViewMode === "condensed"} onClick={() => setProfileViewMode("condensed")} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${profileViewMode === "condensed" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"}`}>Table</button>
+          </div>
+        </div>
+
+        {profileViewMode === "condensed" ? (
+          <>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h1 className="text-xl font-bold text-neutral-900">{displayName}</h1>
+              <div className="flex items-center gap-1 shrink-0">
+                <button type="button" onClick={() => setShowPlanModal(true)} className="min-h-[44px] px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50">Plan</button>
+                <Link href={`/vault/plant?ids=${id}`} className="min-h-[44px] px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 inline-flex items-center">Plant</Link>
+                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50" aria-label="Edit"><PencilIcon /></button>
+                <button type="button" onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-lg text-red-600 hover:bg-red-50" aria-label="Delete"><TrashIcon /></button>
+              </div>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white mb-4">
+              <table className="w-full text-sm" role="table">
+                <thead>
+                  <tr className="border-b border-neutral-200 bg-neutral-50">
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Plant Type</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Variety</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Sun</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Spacing</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Germination</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Maturity</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Packets</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Vendor(s)</th>
+                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-neutral-100">
+                    <td className="py-2 px-3 text-neutral-900">{(profile?.name ?? "").trim() || "—"}</td>
+                    <td className="py-2 px-3 font-medium text-neutral-900">{(profile?.variety_name ?? "").trim() || "—"}</td>
+                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.sun ?? profile?.sun ?? "").toString().trim() || "—"}</td>
+                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.plant_spacing ?? profile?.plant_spacing ?? "").toString().trim() || "—"}</td>
+                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.days_to_germination ?? profile?.days_to_germination ?? "").toString().trim() || "—"}</td>
+                    <td className="py-2 px-3 text-neutral-700">{effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} d` : profile?.harvest_days != null ? `${profile.harvest_days} d` : "—"}</td>
+                    <td className="py-2 px-3 text-neutral-900">{packetCount}</td>
+                    <td className="py-2 px-3 text-neutral-700">{[...new Set(packets.map((p) => p.vendor_name).filter(Boolean))].join(", ") || "—"}</td>
+                    <td className="py-2 px-3">{profileStatus ? <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[profileStatus] ?? ""}`}>{profileStatus.replace("_", " ")}</span> : "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <>
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -717,6 +779,42 @@ export default function VaultSeedPage() {
                 </div>
               </div>
             </div>
+
+            {/* Vendor recommendations (by packet) */}
+            {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs).length > 0) && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
+                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Vendor recommendations</h3>
+                <p className="text-xs text-neutral-500 mb-3">What each packet or vendor says about growing this variety.</p>
+                <ul className="space-y-4">
+                  {packets
+                    .filter((p) => p.vendor_specs && Object.keys(p.vendor_specs).length > 0)
+                    .map((pkt) => {
+                      const vs = pkt.vendor_specs as VendorSpecs | undefined;
+                      const vendorLabel = (pkt.vendor_name ?? "").trim() || "Unknown vendor";
+                      const parts: string[] = [];
+                      if (vs?.sowing_depth) parts.push(`Sow: ${vs.sowing_depth}`);
+                      if (vs?.spacing) parts.push(`Spacing: ${vs.spacing}`);
+                      if (vs?.sun_requirement) parts.push(`Sun: ${vs.sun_requirement}`);
+                      if (vs?.days_to_germination) parts.push(`Germ: ${vs.days_to_germination}`);
+                      if (vs?.days_to_maturity) parts.push(`Maturity: ${vs.days_to_maturity}`);
+                      return (
+                        <li key={pkt.id} className="border border-neutral-100 rounded-lg p-3">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-sm font-medium text-neutral-800">{vendorLabel}</span>
+                            {pkt.purchase_url?.trim() && (
+                              <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline truncate max-w-[140px]">Link</a>
+                            )}
+                          </div>
+                          <p className="text-sm text-neutral-600">{parts.join(" · ") || "—"}</p>
+                          {vs?.plant_description?.trim() && (
+                            <p className="text-xs text-neutral-500 mt-2 line-clamp-2">{vs.plant_description}</p>
+                          )}
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
+            )}
 
             {/* Tags */}
             {profile?.tags && profile.tags.length > 0 && (
@@ -956,6 +1054,8 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "care" && (
           <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
+        )}
+          </>
         )}
       </div>
 

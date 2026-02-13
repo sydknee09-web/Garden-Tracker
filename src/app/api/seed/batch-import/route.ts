@@ -151,6 +151,7 @@ export async function POST(request: Request) {
           if (proxyRes.ok) {
             const blob = await proxyRes.blob();
             if (blob.type.startsWith("image/")) {
+              // TODO: Add server-side image compression (e.g. sharp) for Law 4 compliance
               const ext = blob.type.split("/")[1] || "jpg";
               const path = `${userId}/${crypto.randomUUID()}.${ext}`;
               const { error: uploadErr } = await supabase.storage

@@ -13,6 +13,8 @@ import {
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { getCanonicalKey } from "@/lib/canonicalKey";
+import { identityKeyFromVariety } from "@/lib/identityKey";
+import { compressImage } from "@/lib/compressImage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
@@ -365,6 +367,33 @@ export default function ReviewImportPage() {
         }
       }
 
+      // Phase 0.5 (Vault profiles): user's plant_profiles with hero — skip AI when they already have this variety
+      const vaultProfileHeroMap = new Map<string, string>();
+      if (user?.id) {
+        try {
+          const { data: profilesWithHero } = await supabase
+            .from("plant_profiles")
+            .select("id, name, variety_name, hero_image_path, hero_image_url")
+            .eq("user_id", user.id)
+            .is("deleted_at", null);
+          for (const p of profilesWithHero ?? []) {
+            const key = identityKeyFromVariety(p.name ?? "", p.variety_name ?? "");
+            if (!key) continue;
+            let heroUrl: string | null = null;
+            if ((p as { hero_image_path?: string }).hero_image_path?.trim()) {
+              const { data: pub } = supabase.storage.from("journal-photos").getPublicUrl((p as { hero_image_path: string }).hero_image_path.trim());
+              if (pub?.publicUrl) heroUrl = pub.publicUrl;
+            }
+            if (!heroUrl && (p as { hero_image_url?: string }).hero_image_url?.trim().startsWith("http")) {
+              heroUrl = (p as { hero_image_url: string }).hero_image_url.trim();
+            }
+            if (heroUrl && !vaultProfileHeroMap.has(key)) vaultProfileHeroMap.set(key, heroUrl);
+          }
+        } catch (_) {
+          // non-fatal
+        }
+      }
+
       items.forEach((item) => {
         if (heroFetchedRef.current.has(item.id)) return;
         if (item.hero_image_url) return;
@@ -392,19 +421,22 @@ export default function ReviewImportPage() {
 
         const identityKey = (item.identityKey ?? "").trim();
         const vaultUrl = identityKey ? vaultMap.get(identityKey) : undefined;
-        if (vaultUrl) {
-          // Phase 0 hit: use saved URL, skip API call entirely
+        const vaultProfileUrl = identityKey ? vaultProfileHeroMap.get(identityKey) : undefined;
+        const heroUrlToUse = vaultUrl ?? vaultProfileUrl;
+        if (heroUrlToUse) {
+          // Phase 0 or 0.5 hit: use saved URL, skip API call entirely
+          const resultMsg = vaultUrl ? "Vault (Phase 0)" : "Vault (existing profile)";
           setImportLogs((prev) => {
             const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
             if (idx < 0) return prev;
             const next = [...prev];
-            next[idx] = { ...next[idx], resultStatus: "success", resultMessage: "Vault (Phase 0)" };
+            next[idx] = { ...next[idx], resultStatus: "success", resultMessage: resultMsg };
             return next;
           });
           setItems((prev) =>
             prev.map((i) =>
               i.id === item.id
-                ? { ...i, stock_photo_url: vaultUrl, hero_image_url: vaultUrl, useStockPhotoAsHero: true }
+                ? { ...i, stock_photo_url: heroUrlToUse, hero_image_url: heroUrlToUse, useStockPhotoAsHero: true }
                 : i
             )
           );
@@ -570,11 +602,56 @@ export default function ReviewImportPage() {
     const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
     if (token) authHeaders.Authorization = `Bearer ${token}`;
 
+    // Build vault profile hero map — skip API when user already has this variety
+    const vaultProfileHeroMap = new Map<string, string>();
+    if (user?.id) {
+      try {
+        const { data: profilesWithHero } = await supabase
+          .from("plant_profiles")
+          .select("id, name, variety_name, hero_image_path, hero_image_url")
+          .eq("user_id", user.id)
+          .is("deleted_at", null);
+        for (const p of profilesWithHero ?? []) {
+          const key = identityKeyFromVariety(p.name ?? "", p.variety_name ?? "");
+          if (!key) continue;
+          let heroUrl: string | null = null;
+          if ((p as { hero_image_path?: string }).hero_image_path?.trim()) {
+            const { data: pub } = supabase.storage.from("journal-photos").getPublicUrl((p as { hero_image_path: string }).hero_image_path.trim());
+            if (pub?.publicUrl) heroUrl = pub.publicUrl;
+          }
+          if (!heroUrl && (p as { hero_image_url?: string }).hero_image_url?.trim().startsWith("http")) {
+            heroUrl = (p as { hero_image_url: string }).hero_image_url.trim();
+          }
+          if (heroUrl && !vaultProfileHeroMap.has(key)) vaultProfileHeroMap.set(key, heroUrl);
+        }
+      } catch (_) {
+        /* non-fatal */
+      }
+    }
+
     const results = await Promise.all(
       missing.map(async (item) => {
         const searchName = (item.originalType ?? item.type ?? "").trim() || "Unknown";
         const searchVariety = (item.originalVariety ?? item.variety ?? "").trim();
         const queryUsed = `${searchName} ${searchVariety}`.trim() || "—";
+        const identityKeyBulk = (item.identityKey ?? "").trim();
+        const vaultProfileUrl = identityKeyBulk ? vaultProfileHeroMap.get(identityKeyBulk) : undefined;
+        if (vaultProfileUrl) {
+          setImportLogs((prev) => {
+            const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
+            if (idx < 0) return prev;
+            const next = [...prev];
+            next[idx] = { ...next[idx], resultStatus: "success", resultMessage: "Vault (existing profile)" };
+            return next;
+          });
+          persistHeroSearchLog(item, 1, true, 200, queryUsed, vaultProfileUrl);
+          return {
+            id: item.id,
+            url: vaultProfileUrl,
+            isError: false,
+            variety: item.cleanVariety ?? item.variety ?? item.type ?? "",
+          };
+        }
         let didLog = false;
         try {
           const res = await fetch("/api/seed/find-hero-photo", {
@@ -598,7 +675,6 @@ export default function ReviewImportPage() {
           let cleaned = cleanHeroUrl(typeof raw === "string" ? raw : "");
           let formatted = formatVendorUrl(cleaned);
           let url = formatted.startsWith("http") ? formatted : undefined;
-          const identityKeyBulk = (item.identityKey ?? "").trim();
           if (res.status === 0 && identityKeyBulk && token && !url) {
             try {
               const vaultRes = await fetch("/api/settings/import-logs", { headers: { Authorization: `Bearer ${token}` } });
@@ -806,9 +882,10 @@ export default function ReviewImportPage() {
       let path: string | null = null;
       if (!isLinkImport) {
         path = `${user.id}/${crypto.randomUUID()}.jpg`;
-        const blob = base64ToBlob(item.imageBase64!, "image/jpeg");
-        const file = new File([blob], item.fileName || "packet.jpg", { type: "image/jpeg" });
-        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, file, {
+        const rawBlob = base64ToBlob(item.imageBase64!, "image/jpeg");
+        const file = new File([rawBlob], item.fileName || "packet.jpg", { type: "image/jpeg" });
+        const { blob } = await compressImage(file);
+        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
           contentType: "image/jpeg",
           upsert: false,
         });
@@ -887,6 +964,7 @@ export default function ReviewImportPage() {
             ...(zone10b.sowing_method && { sowing_method: zone10b.sowing_method }),
             ...(zone10b.planting_window && { planting_window: zone10b.planting_window }),
             ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
+            ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim() }),
           })
           .select("id")
           .single();
@@ -900,6 +978,17 @@ export default function ReviewImportPage() {
       }
       const purchaseDate = (item.purchaseDate ?? "").trim() || todayISO();
       const tagsToSave = packetTags?.length ? packetTags : (item.tags ?? []);
+      const vendorSpecs =
+        (item.sowing_depth ?? item.spacing ?? item.sun_requirement ?? item.days_to_germination ?? item.days_to_maturity ?? item.plant_description) != null
+          ? {
+              ...((item.sowing_depth ?? "").trim() && { sowing_depth: item.sowing_depth!.trim() }),
+              ...((item.spacing ?? "").trim() && { spacing: item.spacing!.trim() }),
+              ...((item.sun_requirement ?? "").trim() && { sun_requirement: item.sun_requirement!.trim() }),
+              ...((item.days_to_germination ?? "").trim() && { days_to_germination: item.days_to_germination!.trim() }),
+              ...((item.days_to_maturity ?? "").trim() && { days_to_maturity: item.days_to_maturity!.trim() }),
+              ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim() }),
+            }
+          : undefined;
       const allUrls = [
         (item.source_url ?? "").trim(),
         ...((item.secondary_urls ?? []).map((u) => (u ?? "").trim()).filter(Boolean)),
@@ -917,6 +1006,7 @@ export default function ReviewImportPage() {
           purchase_date: purchaseDate,
           ...(purchaseUrl && { purchase_url: purchaseUrl }),
           ...(tagsToSave.length > 0 && { tags: tagsToSave }),
+          ...(vendorSpecs && Object.keys(vendorSpecs).length > 0 && { vendor_specs: vendorSpecs }),
         });
         if (packetErr) {
           setError(packetErr.message);
@@ -937,8 +1027,10 @@ export default function ReviewImportPage() {
         chunk.map(async ({ item: savedItem, profileId: savedProfileId }) => {
           const identityKey = (savedItem.identityKey ?? "").trim();
           const vendorStr = (savedItem.vendor ?? "").trim();
-          const sourceUrl = (savedItem.source_url ?? "").trim();
-          if (!identityKey || !sourceUrl) return; // can't cache without key or URL
+          const rawSourceUrl = (savedItem.source_url ?? "").trim();
+          // Allow cache upsert for photo/manual: use synthetic source_url so same user benefits on re-import
+          const sourceUrl = rawSourceUrl || (identityKey ? `photo:${identityKey}` : "");
+          if (!identityKey || !sourceUrl) return; // need at least identity key to cache
 
           let heroStoragePath: string | null = null;
           const rawHero = (savedItem.stock_photo_url ?? "").trim() || (savedItem.hero_image_url ?? "").trim();
@@ -953,10 +1045,12 @@ export default function ReviewImportPage() {
               clearTimeout(timeout);
               if (imgRes.ok) {
                 const blob = await imgRes.blob();
+                const file = new File([blob], "hero.jpg", { type: blob.type || "image/jpeg" });
+                const { blob: compressedBlob } = await compressImage(file);
                 const sanitizedKey = (vendorStr + "_" + identityKey).toLowerCase().replace(/[^a-z0-9]/g, "_");
                 const storagePath = `${user.id}/hero-cache/${sanitizedKey}.jpg`;
-                const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, blob, {
-                  contentType: blob.type || "image/jpeg",
+                const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, compressedBlob, {
+                  contentType: "image/jpeg",
                   upsert: true,
                 });
                 if (!uploadErr) {
@@ -990,6 +1084,7 @@ export default function ReviewImportPage() {
             days_to_maturity: (savedItem.days_to_maturity ?? "").trim() || undefined,
             source_url: sourceUrl,
             hero_image_url: rawHero || undefined,
+            plant_description: (savedItem.plant_description ?? "").trim() || undefined,
           };
           const { error: cacheErr } = await supabase
             .from("plant_extract_cache")
@@ -1077,21 +1172,9 @@ export default function ReviewImportPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-black/10 bg-white -mx-8 w-full">
-        <table className="w-full text-sm border-collapse" aria-label="Import review">
-          <thead>
-            <tr className="border-b border-black/10 bg-neutral-50/80">
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 w-20">Image</th>
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 min-w-[140px]">Vendor</th>
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 min-w-[120px]">Plant Type</th>
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 min-w-[200px]">Variety</th>
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 w-36">Purchase date</th>
-              <th className="text-left py-2.5 px-3 text-xs font-semibold text-black/70 min-w-[140px]">Research</th>
-              <th className="text-right py-2.5 px-3 text-xs font-semibold text-black/70 w-14"><span className="sr-only">Remove</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => {
+      <div className="rounded-xl border border-black/10 bg-white -mx-4 md:-mx-8 w-full overflow-hidden">
+        <div className="divide-y divide-black/5">
+          {items.map((item) => {
               const stockUrl = item.stock_photo_url?.trim();
               const heroUrl = item.hero_image_url?.trim();
               const packetDataUrl = item.imageBase64?.trim()
@@ -1123,14 +1206,15 @@ export default function ReviewImportPage() {
               const displayVariety = stripVarietySuffixes(displayVarietyRaw) || displayVarietyRaw;
               const mergedSourceCount = item.secondary_urls?.length ?? 0;
               const displayVendor = getGoldenVendorForGroup(items, item.identityKey) ?? item.vendor ?? "";
+              const lowConfidence = item.confidence_score != null && item.confidence_score < 0.7;
+              const inputLowConfidence = lowConfidence ? " review-input-low-confidence" : "";
               return (
-                <tr
+                <article
                   key={canonicalRowKey}
-                  className={`border-b align-top ${isDuplicate ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/70" : "border-black/5 hover:bg-black/[0.02]"}`}
+                  className={`flex flex-col md:flex-row gap-4 p-4 md:py-4 md:px-6 ${isDuplicate ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/70" : "hover:bg-black/[0.02]"}`}
                 >
-                  <td className="py-2.5 px-3 align-top">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="w-16 h-16 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0">
+                  <div className="md:w-52 shrink-0 flex flex-col gap-1.5">
+                      <div className="w-20 h-20 md:w-40 md:h-40 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0">
                         {heroLoading ? (
                           <div className="absolute inset-0 bg-neutral-200 animate-pulse rounded-lg" aria-hidden />
                         ) : null}
@@ -1200,9 +1284,9 @@ export default function ReviewImportPage() {
                           Please find or upload a photo first
                         </p>
                       )}
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-3">
+                  </div>
+                  <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
+                    <div className="sm:col-span-2 lg:col-span-1">
                     {mergedSourceCount > 0 ? (
                       <span className="inline-flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-black/90">{decodeHtmlEntities(displayVendor) || "Vendor"}</span>
@@ -1216,22 +1300,22 @@ export default function ReviewImportPage() {
                         value={item.vendor}
                         onChange={(e) => updateItem(item.id, { vendor: e.target.value })}
                         placeholder="Vendor"
-                        className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                        className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         aria-label="Vendor"
                       />
                     )}
-                  </td>
-                  <td className="py-2.5 px-3">
+                    </div>
+                    <div>
                     <input
                       type="text"
                       value={item.type}
                       onChange={(e) => updateItem(item.id, { type: e.target.value })}
                       placeholder="Plant type"
-                      className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                      className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       aria-label="Plant type"
                     />
-                  </td>
-                  <td className="py-2.5 px-3">
+                    </div>
+                    <div className="sm:col-span-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <input
@@ -1239,7 +1323,7 @@ export default function ReviewImportPage() {
                           value={decodeHtmlEntities(displayVariety)}
                           onChange={(e) => updateItem(item.id, { variety: e.target.value })}
                           placeholder="Variety"
-                          className="flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                          className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                           aria-label="Variety"
                         />
                         {item.linkNotFound && (
@@ -1281,8 +1365,8 @@ export default function ReviewImportPage() {
                         </div>
                       )}
                     </div>
-                  </td>
-                  <td className="py-2.5 px-3">
+                  </div>
+                    <div>
                     <input
                       type="date"
                       value={item.purchaseDate || todayISO()}
@@ -1290,8 +1374,8 @@ export default function ReviewImportPage() {
                       className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
                       aria-label="Purchase date"
                     />
-                  </td>
-                  <td className="py-2.5 px-3 text-sm text-black/70">
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4 text-sm text-black/70">
                     {item.sowing_depth ?? item.spacing ?? item.sun_requirement ?? item.days_to_germination ?? item.days_to_maturity ? (
                       <div className="space-y-1">
                         <div className="flex flex-wrap gap-x-2 gap-y-0.5">
@@ -1323,8 +1407,8 @@ export default function ReviewImportPage() {
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td className="py-2.5 px-3 text-right relative z-10 bg-inherit">
+                    </div>
+                    <div className="sm:col-span-2 flex flex-wrap items-center justify-end gap-2">
                     {isDuplicate && (
                       <button
                         type="button"
@@ -1345,17 +1429,17 @@ export default function ReviewImportPage() {
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/50 hover:bg-red-50 hover:text-red-600 ml-auto"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/50 hover:bg-red-50 hover:text-red-600"
                       aria-label="Remove"
                     >
                       ✕
                     </button>
-                  </td>
-                </tr>
+                    </div>
+                  </div>
+                </article>
               );
             })}
-          </tbody>
-        </table>
+        </div>
       </div>
 
       {importLogs.length > 0 && (
@@ -1365,7 +1449,7 @@ export default function ReviewImportPage() {
       )}
 
       <div
-        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-white/95 border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper/95 border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
         style={{ paddingBottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))" }}
       >
         <button

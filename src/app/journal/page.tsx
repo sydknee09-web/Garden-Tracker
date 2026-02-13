@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,31 +41,90 @@ function isMobileDevice(): boolean {
   return (hasTouch && mobileKeywords.test(ua)) || narrowScreen || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function getActionFromNote(note: string | null): { label: string; icon: "plant" | "harvest" | "growth" | "note" } {
+type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" };
+
+function getActionFromNote(note: string | null, entryType?: string | null): ActionInfo {
   const n = (note ?? "").toLowerCase();
+  if (entryType === "quick" || entryType === "care") {
+    if (n.includes("watered")) return { label: "Water", icon: "water" };
+    if (n.includes("fertilized")) return { label: "Fertilize", icon: "fertilize" };
+    if (n.includes("sprayed")) return { label: "Spray", icon: "spray" };
+    return { label: "Care", icon: "care" };
+  }
   if (n.includes("planted") || n.includes("sown") || n.includes("sow")) return { label: "Planted", icon: "plant" };
   if (n.includes("harvest")) return { label: "Harvest", icon: "harvest" };
   if (n.includes("growth") || n.includes("transplant") || n.includes("progress")) return { label: "Growth", icon: "growth" };
+  if (n.includes("watered")) return { label: "Water", icon: "water" };
+  if (n.includes("fertilized")) return { label: "Fertilize", icon: "fertilize" };
+  if (n.includes("sprayed")) return { label: "Spray", icon: "spray" };
   return { label: "Note", icon: "note" };
 }
 
-/** Group entries that are the same action (same created_at second + same note) into one row with multiple plant tags. */
-function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; entryIds: string[] }[] {
-  const key = (e: JournalEntryWithPlant) => `${e.created_at}|${e.note ?? ""}`;
+/** Collapse repeated notes into "Label ×N". */
+function combineNotes(notes: (string | null)[]): string {
+  const counts = new Map<string, number>();
+  for (const n of notes) {
+    const t = (n ?? "").trim();
+    if (!t) continue;
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([text, num]) => (num > 1 ? `${text} ×${num}` : text))
+    .join(", ");
+}
+
+/** Pick display action for a group: harvest > planting > care > growth > note. */
+function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
+  const has = (type: string) => group.some((e) => (e.entry_type ?? "").toLowerCase() === type);
+  if (has("harvest")) return { label: "Harvest", icon: "harvest" };
+  if (has("planting")) return { label: "Planted", icon: "plant" };
+  if (has("quick") || has("care")) return { label: "Care", icon: "care" };
+  if (has("growth")) return { label: "Growth", icon: "growth" };
+  const first = group[0];
+  return getActionFromNote(first.note, first.entry_type);
+}
+
+/** Group entries by same plant + same day so one row per (date, plant). */
+function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[] }[] {
+  const dateStr = (e: JournalEntryWithPlant) => e.created_at.slice(0, 10);
+  const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? e.plant_variety_id ?? "__general__";
+  const key = (e: JournalEntryWithPlant) => `${dateStr(e)}|${plantKey(e)}`;
   const map = new Map<string, JournalEntryWithPlant[]>();
   for (const e of entries) {
     const k = key(e);
     if (!map.has(k)) map.set(k, []);
     map.get(k)!.push(e);
   }
-  return Array.from(map.entries()).map(([, group]) => {
+  const rows = Array.from(map.values()).map((group) => {
+    group.sort((a, b) => b.created_at.localeCompare(a.created_at));
     const first = group[0];
-    const note = first.note ?? null;
-    const action = getActionFromNote(note);
     const plantNames = Array.from(new Set(group.map((e) => (e as JournalEntryWithPlant).plant_display_name ?? e.plant_name ?? "General")));
+    const notes = group.map((e) => e.note);
+    const note = combineNotes(notes);
+    const action = getActionForGroup(group);
     const entryIds = group.map((e) => e.id);
-    return { date: first.created_at, note, action, plantNames, entryIds };
+    return { date: first.created_at, note: note || null, action, plantNames, entryIds };
   });
+  rows.sort((a, b) => b.date.localeCompare(a.date));
+  return rows;
+}
+
+/** Insert year/month section headers into table rows for glanceable timeline. */
+function tableRowsWithSections(
+  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; entryIds: string[] }[]
+): ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] {
+  const out: ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] = [];
+  let lastYM = "";
+  for (const row of rows) {
+    const d = new Date(row.date);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (ym !== lastYM) {
+      out.push({ type: "section", label: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) });
+      lastYM = ym;
+    }
+    out.push({ type: "row", row });
+  }
+  return out;
 }
 
 function TableIcon() {
@@ -153,6 +213,47 @@ function GrowthIconSmall() {
     </svg>
   );
 }
+function WaterIconSmall() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+    </svg>
+  );
+}
+function FertilizeIconSmall() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </svg>
+  );
+}
+function SprayIconSmall() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h4v14H3zM17 6h4v14h-4zM7 6h10v4H7z" />
+    </svg>
+  );
+}
+function CareIconSmall() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
+  switch (icon) {
+    case "plant": return <PlantIcon />;
+    case "harvest": return <HarvestIconSmall />;
+    case "growth": return <GrowthIconSmall />;
+    case "water": return <WaterIconSmall />;
+    case "fertilize": return <FertilizeIconSmall />;
+    case "spray": return <SprayIconSmall />;
+    case "care": return <CareIconSmall />;
+    default: return <NoteIcon />;
+  }
+}
 
 export default function JournalPage() {
   const { user } = useAuth();
@@ -176,13 +277,22 @@ export default function JournalPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">("table");
+  const searchParams = useSearchParams();
+  const viewFromUrl = searchParams.get("view");
+  const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">(
+    viewFromUrl === "timeline" ? "timeline" : viewFromUrl === "grid" ? "grid" : "table"
+  );
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
   const cameraMobileRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (viewFromUrl === "timeline") setViewMode("timeline");
+    else if (viewFromUrl === "grid") setViewMode("grid");
+  }, [viewFromUrl]);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -570,9 +680,9 @@ export default function JournalPage() {
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center">
-          <p className="text-black/60">No journal entries yet.</p>
-          <p className="text-sm text-black/50 mt-1">Tap the + button to log a note or photo.</p>
+        <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center">
+          <p className="text-slate-600">No journal entries yet.</p>
+          <p className="text-sm text-slate-500 mt-1">Tap the + button to log a note or photo.</p>
         </div>
       ) : viewMode === "table" ? (
         <div className="overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6">
@@ -587,10 +697,19 @@ export default function JournalPage() {
               </tr>
             </thead>
             <tbody>
-              {groupEntriesForTable(entries).map((row) => {
+              {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
+                if (item.type === "section") {
+                  return (
+                    <tr key={`section-${item.label}`} className="bg-slate-100/80 border-b border-black/10">
+                      <td colSpan={5} className="py-2 px-3 text-sm font-semibold text-slate-700 sticky top-0 bg-slate-100/95">
+                        {item.label}
+                      </td>
+                    </tr>
+                  );
+                }
+                const row = item.row;
                 const rowId = row.entryIds[0];
                 const isExpanded = expandedNoteId === rowId;
-                const ActionIcon = row.action.icon === "plant" ? PlantIcon : row.action.icon === "harvest" ? HarvestIconSmall : row.action.icon === "growth" ? GrowthIconSmall : NoteIcon;
                 return (
                   <tr key={rowId} className="border-b border-black/5 hover:bg-black/[0.02] align-top">
                     <td className="py-2.5 pr-3 text-black/80 whitespace-nowrap">
@@ -598,7 +717,7 @@ export default function JournalPage() {
                     </td>
                     <td className="py-2.5 pr-3">
                       <span className="inline-flex items-center gap-1.5 text-black/80">
-                        <ActionIcon />
+                        <ActionIcon icon={row.action.icon} />
                         <span>{row.action.label}</span>
                       </span>
                     </td>
@@ -643,113 +762,123 @@ export default function JournalPage() {
           </table>
         </div>
       ) : viewMode === "timeline" ? (
-        <div className="space-y-6">
-          {groupEntriesByPlant(entries).map((group) => (
-            <div key={group.profileId ?? "__general__"} className="rounded-2xl bg-white border border-black/10 overflow-hidden" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-              <div className="px-4 py-3 bg-neutral-50/80 border-b border-black/10 flex items-center justify-between">
-                {group.profileId ? (
-                  <Link href={`/vault/${group.profileId}`} className="text-sm font-semibold text-emerald hover:underline">{group.plantName}</Link>
-                ) : (
-                  <span className="text-sm font-semibold text-black/80">{group.plantName}</span>
-                )}
-                <span className="text-xs text-black/50">{group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}</span>
-              </div>
-              <div className="relative pl-8 pr-4 py-3">
-                {/* Vertical timeline line */}
-                <div className="absolute left-[18px] top-3 bottom-3 w-[2px] bg-emerald/20" aria-hidden />
-                {group.entries.map((entry, idx) => {
-                  const entryAction = entry.entry_type ? entry.entry_type : getActionFromNote(entry.note).icon;
-                  const dotColor = entryAction === "harvest" ? "bg-amber-400" : entryAction === "planting" || entryAction === "plant" ? "bg-emerald" : entryAction === "care" || entryAction === "quick" ? "bg-blue-400" : entryAction === "death" || entryAction === "pest" ? "bg-red-400" : "bg-neutral-400";
-                  const imgSrc = entry.image_file_path ? supabase.storage.from("journal-photos").getPublicUrl(entry.image_file_path).data.publicUrl : entry.photo_url ?? null;
-                  return (
-                    <div key={entry.id} className={`relative flex gap-3 ${idx > 0 ? "mt-4" : ""}`}>
-                      {/* Timeline dot */}
-                      <div className={`absolute -left-[14px] top-1.5 w-3 h-3 rounded-full border-2 border-white ${dotColor} shadow-sm`} aria-hidden />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <time className="text-xs text-black/50 font-medium" dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time>
-                          {entry.entry_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${entryAction === "harvest" ? "bg-amber-50 text-amber-700" : entryAction === "care" || entryAction === "quick" ? "bg-blue-50 text-blue-700" : entryAction === "death" || entryAction === "pest" ? "bg-red-50 text-red-700" : entryAction === "planting" ? "bg-green-50 text-green-700" : "bg-neutral-50 text-neutral-600"}`}>{entry.entry_type}</span>}
-                        </div>
-                        {entry.note && <p className="text-sm text-black/80 mt-1">{entry.note}</p>}
-                        {entry.entry_type === "harvest" && (entry.harvest_weight != null || entry.harvest_quantity != null) && (
-                          <p className="text-xs text-amber-700 mt-1 font-medium">
-                            {entry.harvest_weight != null ? `${entry.harvest_weight} ${(entry as JournalEntryWithPlant & { harvest_unit?: string }).harvest_unit || "units"}` : ""}
-                            {entry.harvest_quantity != null ? `${entry.harvest_weight != null ? ", " : ""}${entry.harvest_quantity} count` : ""}
-                          </p>
-                        )}
-                        {entry.weather_snapshot && (
-                          <p className="text-xs text-sky-700 mt-1">{formatWeatherBadge(entry.weather_snapshot)}</p>
-                        )}
-                        {imgSrc && (
-                          <div className="mt-2 rounded-lg overflow-hidden bg-neutral-100 max-w-[200px]">
-                            <Image src={imgSrc} alt="" width={200} height={150} className="object-cover" sizes="200px" unoptimized={imgSrc.startsWith("data:") || !imgSrc.includes("supabase.co")} />
-                          </div>
-                        )}
-                      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
+          {/* Plant gallery: click opens that plant's journal in vault */}
+          {groupEntriesByPlant(entries).map((group) => {
+            const firstWithImage = group.entries.find((e) => e.image_file_path || e.photo_url);
+            const thumbSrc = firstWithImage?.image_file_path
+              ? supabase.storage.from("journal-photos").getPublicUrl(firstWithImage.image_file_path).data.publicUrl
+              : firstWithImage?.photo_url ?? null;
+            const href = group.profileId ? `/vault/${group.profileId}?tab=journal` : null;
+            const card = (
+              <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col">
+                <div className="relative aspect-[4/3] bg-neutral-50 shrink-0">
+                  {thumbSrc ? (
+                    <Image
+                      src={thumbSrc}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                      unoptimized={thumbSrc.startsWith("data:") || !thumbSrc.includes("supabase.co")}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-black/15">
+                      <PlantIcon />
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+                <div className="p-3 flex-1 flex flex-col justify-center">
+                  <p className="text-sm font-semibold text-black/90 line-clamp-1">{group.plantName}</p>
+                  <p className="text-xs text-black/50 mt-0.5">{group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+            return (
+              <div key={group.profileId ?? "__general__"}>
+                {href ? (
+                  <Link href={href} className="block min-w-[44px] min-h-[44px] focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-offset-2 rounded-2xl">
+                    {card}
+                  </Link>
+                ) : (
+                  <div className="opacity-90">{card}</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div className="columns-2 sm:columns-3 lg:columns-4 gap-5 space-y-5 [&>*]:break-inside-avoid">
-          {entries.map((entry) => {
-            const imgSrc = entry.image_file_path
-              ? supabase.storage.from("journal-photos").getPublicUrl(entry.image_file_path).data.publicUrl
-              : entry.photo_url ?? null;
-            const hasImage = !!imgSrc;
-            const profileId = (entry as JournalEntryWithPlant).plant_profile_id ?? entry.plant_variety_id;
+        <div className="max-w-lg mx-auto pb-24">
+          {/* Instagram-style feed: one card per (day, plant), photo then note */}
+          {groupEntriesForTable(entries).map((row) => {
+            const groupEntries = entries.filter((e) => row.entryIds.includes(e.id));
+            const imageUrls = groupEntries
+              .map((e) => (e.image_file_path ? supabase.storage.from("journal-photos").getPublicUrl(e.image_file_path).data.publicUrl : e.photo_url))
+              .filter((url): url is string => !!url);
+            const hasImages = imageUrls.length > 0;
+            const rowId = row.entryIds[0];
             return (
-              <article
-                key={entry.id}
-                className="inline-block w-full"
-              >
-                <div className="rounded-2xl bg-white p-3 pt-3 pb-4 border border-black/10 overflow-hidden" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06), 0 12px 24px -8px rgba(0,0,0,0.08)" }}>
-                  {hasImage && (
-                    <div className="relative aspect-[4/3] rounded-lg overflow-hidden mb-3 bg-neutral-100 -mx-0.5 ring-1 ring-black/5">
+              <article key={rowId} className="rounded-2xl bg-white border border-black/10 overflow-hidden mb-6 shadow-card">
+                {/* Photo: single image or swipeable carousel */}
+                {hasImages ? (
+                  <div className="relative aspect-square bg-neutral-100">
+                    {imageUrls.length === 1 ? (
                       <Image
-                        src={imgSrc}
+                        src={imageUrls[0]}
                         alt=""
                         fill
                         className="object-cover"
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        unoptimized={imgSrc.startsWith("data:") || !imgSrc.includes("supabase.co")}
+                        sizes="(max-width: 512px) 100vw, 512px"
+                        unoptimized={imageUrls[0].startsWith("data:") || !imageUrls[0].includes("supabase.co")}
                       />
+                    ) : (
+                      <div className="flex overflow-x-auto snap-x snap-mandatory h-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {imageUrls.map((url, i) => (
+                          <div key={i} className="relative shrink-0 w-full h-full snap-center">
+                            <Image
+                              src={url}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 512px) 100vw, 512px"
+                              unoptimized={url.startsWith("data:") || !url.includes("supabase.co")}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {imageUrls.length > 1 && (
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5" aria-hidden>
+                        {imageUrls.map((_, i) => (
+                          <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/80 shadow-sm" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="aspect-square bg-neutral-50 flex items-center justify-center text-black/20">
+                    <span className="scale-[2.5]" aria-hidden><NoteIcon /></span>
+                  </div>
+                )}
+                {/* Note and meta below */}
+                <div className="p-4">
+                  {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex flex-wrap gap-1.5">
+                      {row.plantNames.map((name) => (
+                        <span key={name} className="text-xs font-medium text-emerald-700 bg-emerald/10 px-2 py-0.5 rounded-full">
+                          {name}
+                        </span>
+                      ))}
                     </div>
-                  )}
-                  {entry.note && (
-                    <p className="text-black/90 text-sm mb-2 line-clamp-2 px-0.5">{entry.note}</p>
-                  )}
-                  {entry.weather_snapshot && (
-                    <div className="mb-2 px-0.5 py-1.5 rounded-lg bg-sky-50 border border-sky-100">
-                      <p className="text-xs font-medium text-sky-800">
-                        Weather at planting: {formatWeatherBadge(entry.weather_snapshot)}
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between gap-1 text-xs text-black/50 px-0.5">
-                    <span>
-                      {profileId ? (
-                        <Link
-                          href={`/vault/${profileId}`}
-                          className="font-medium text-emerald hover:underline"
-                        >
-                          {entry.plant_name}
-                        </Link>
-                      ) : (
-                        <span>{entry.plant_name}</span>
-                      )}
-                    </span>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <time dateTime={entry.created_at}>
-                        {new Date(entry.created_at).toLocaleDateString()}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <time dateTime={row.date} className="text-xs text-black/50">
+                        {new Date(row.date).toLocaleDateString()}
                       </time>
                       <button
                         type="button"
-                        onClick={() => requestDeleteEntry(entry.id)}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/40 hover:text-citrus hover:bg-black/5 -mr-1"
+                        onClick={() => row.entryIds.forEach((id) => requestDeleteEntry(id))}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/40 hover:text-citrus hover:bg-black/5"
                         aria-label="Delete entry"
                       >
                         <TrashIcon />

@@ -21,6 +21,8 @@ import { setReviewImportData, addProgressiveItem, clearProgressiveItems, getProg
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { getCanonicalKey } from "@/lib/canonicalKey";
+import { identityKeyFromVariety, isGenericTrapName } from "@/lib/identityKey";
+import { compressImage } from "@/lib/compressImage";
 import { stripVarietySuffixes, varietySlugFromUrl } from "@/app/api/seed/extract/route";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 
@@ -161,21 +163,34 @@ function isRareSeedsVendor(vendor: string | null | undefined): boolean {
 }
 
 /** Exact variety names that must not be used for identity or display (prevents 'Vegetables-Vegetables' duplicates). */
-const GENERIC_NAME_TRAP = new Set(["vegetables", "seeds", "cool season", "shop"]);
-
-function isGenericTrapName(variety: string | null | undefined): boolean {
-  const v = (variety ?? "").trim().toLowerCase();
-  return v.length > 0 && GENERIC_NAME_TRAP.has(v);
+/** Parse days_to_maturity string (e.g. "75", "65-80") to a number for harvest_days. */
+function parseDaysToMaturityFromScrapeData(d: Record<string, unknown>): number | null {
+  const num = d.harvest_days;
+  if (typeof num === "number" && Number.isFinite(num) && num > 0 && num < 365) return num;
+  const str = (d.days_to_maturity as string) ?? "";
+  const m = String(str).trim().match(/^(\d+)/);
+  if (!m?.[1]) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 && n < 365 ? n : null;
 }
 
-/** Identity key for merging: canonical key of type + variety so "Benary's Giant", "benary-s-giant", "Benarys Giant" match across vendors. */
-function identityKeyFromVariety(type: string, variety: string): string {
-  const strippedVariety = stripVarietySuffixes((variety ?? "").trim());
-  if (isGenericTrapName(strippedVariety)) return "";
-  const typeKey = getCanonicalKey((type ?? "").trim());
-  const varietyKey = getCanonicalKey(strippedVariety);
-  if (!typeKey && !varietyKey) return "";
-  return (typeKey && varietyKey ? `${typeKey}_${varietyKey}` : typeKey || varietyKey) || "";
+/** Normalize scrape/extract payload so both naming conventions (sun vs sun_requirement, etc.) work for zone10b and form. */
+function normalizedSpecFromScrapeData(d: Record<string, unknown>): {
+  sun: string | null;
+  plant_spacing: string | null;
+  days_to_germination: string | null;
+  harvest_days: number | null;
+} {
+  const sun = (d.sun as string) ?? (d.sun_requirement as string);
+  const plant_spacing = (d.plant_spacing as string) ?? (d.spacing as string);
+  const days_to_germination = d.days_to_germination != null ? String(d.days_to_germination).trim() : null;
+  const harvest_days = parseDaysToMaturityFromScrapeData(d);
+  return {
+    sun: sun?.trim() || null,
+    plant_spacing: plant_spacing?.trim() || null,
+    days_to_germination: days_to_germination || null,
+    harvest_days,
+  };
 }
 
 /** Parse streamed result line; return partial ExtractResponse with empty strings for missing fields so we can still show Import Review. */
@@ -460,11 +475,12 @@ export default function VaultImportPage() {
             try {
               const proxyRes = await fetch("/api/seed/proxy-image?url=" + encodeURIComponent(scrapeData.imageUrl as string));
               if (proxyRes.ok) {
-                const blob = await proxyRes.blob();
-                if (blob.type.startsWith("image/")) {
-                  const ext = blob.type.split("/")[1] || "jpg";
-                  const path = `${uid}/${crypto.randomUUID()}.${ext}`;
-                  const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, { contentType: blob.type, upsert: false });
+                const rawBlob = await proxyRes.blob();
+                if (rawBlob.type.startsWith("image/")) {
+                  const file = new File([rawBlob], "packet.jpg", { type: rawBlob.type });
+                  const { blob } = await compressImage(file);
+                  const path = `${uid}/${crypto.randomUUID()}.jpg`;
+                  const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, { contentType: "image/jpeg", upsert: false });
                   if (!uploadErr) uploadedImagePath = path;
                 }
               }
@@ -499,23 +515,25 @@ export default function VaultImportPage() {
           scrapeData,
         });
         setNewPlantName(plantName);
+        const spec = normalizedSpecFromScrapeData(scrapeData);
         setNewPlantForm({
           sowingMethod: "",
           plantingWindow: "",
-          sun: (scrapeData.sun as string) ?? "",
-          spacing: (scrapeData.plant_spacing as string) ?? "",
-          germination: scrapeData.days_to_germination != null ? String(scrapeData.days_to_germination) : "",
-          maturity: typeof scrapeData.harvest_days === "number" ? String(scrapeData.harvest_days) : "",
+          sun: spec.sun ?? "",
+          spacing: spec.plant_spacing ?? "",
+          germination: spec.days_to_germination ?? "",
+          maturity: spec.harvest_days != null ? String(spec.harvest_days) : "",
         });
         setShowNewPlantModal(true);
         return;
       }
 
+      const spec = normalizedSpecFromScrapeData(scrapeData);
       const zone10bMerged = applyZone10bToProfileWithUser(plantName.trim(), {
-        sun: (scrapeData.sun as string) ?? null,
-        plant_spacing: (scrapeData.plant_spacing as string) ?? null,
-        days_to_germination: scrapeData.days_to_germination != null ? String(scrapeData.days_to_germination).trim() : null,
-        harvest_days: typeof scrapeData.harvest_days === "number" ? scrapeData.harvest_days : null,
+        sun: spec.sun,
+        plant_spacing: spec.plant_spacing,
+        days_to_germination: spec.days_to_germination,
+        harvest_days: spec.harvest_days,
       }, scheduleMap);
 
       const result = await runCreateProfileAndPacket(
@@ -1065,6 +1083,13 @@ export default function VaultImportPage() {
         useStockPhotoAsHero: !!heroUrl,
         linkNotFound: !!(r as { linkNotFound?: boolean }).linkNotFound,
         identityKey,
+        water: (r as { water?: string }).water?.trim() || undefined,
+        sun: (r as { sun?: string }).sun ?? r.sun_requirement,
+        plant_spacing: (r as { plant_spacing?: string }).plant_spacing ?? r.spacing,
+        harvest_days: (() => {
+          const hd = (r as Record<string, unknown>).harvest_days;
+          return typeof hd === "number" ? hd : undefined;
+        })(),
       });
     }
     // Mark later duplicates in the same batch so UI can show "Merge with existing"
@@ -1156,11 +1181,12 @@ export default function VaultImportPage() {
     setPendingImportItem(null);
     setShowNewPlantModal(false);
 
+    const spec = normalizedSpecFromScrapeData(pending.scrapeData as Record<string, unknown>);
     const zone10bMerged = applyZone10bToProfileWithUser(pending.plantName.trim(), {
-      sun: (pending.scrapeData.sun as string) ?? null,
-      plant_spacing: (pending.scrapeData.plant_spacing as string) ?? null,
-      days_to_germination: pending.scrapeData.days_to_germination != null ? String(pending.scrapeData.days_to_germination).trim() : null,
-      harvest_days: typeof pending.scrapeData.harvest_days === "number" ? pending.scrapeData.harvest_days : null,
+      sun: spec.sun,
+      plant_spacing: spec.plant_spacing,
+      days_to_germination: spec.days_to_germination,
+      harvest_days: spec.harvest_days,
     }, nextMap);
 
     await runCreateProfileAndPacket(

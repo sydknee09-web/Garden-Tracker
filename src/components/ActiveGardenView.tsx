@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,14 +31,22 @@ type GrowingBatch = {
 
 export function ActiveGardenView({
   refetchTrigger,
+  searchQuery = "",
   onLogGrowth,
   onLogHarvest,
   onEndCrop,
+  categoryFilter = null,
+  onCategoryChipsLoaded,
+  onFilteredCountChange,
 }: {
   refetchTrigger: number;
+  searchQuery?: string;
   onLogGrowth: (batch: GrowingBatch) => void;
   onLogHarvest: (batch: GrowingBatch) => void;
   onEndCrop: (batch: GrowingBatch) => void;
+  categoryFilter?: string | null;
+  onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  onFilteredCountChange?: (count: number) => void;
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -59,6 +68,8 @@ export function ActiveGardenView({
   const [endReason, setEndReason] = useState<string>("season_ended");
   const [endNote, setEndNote] = useState("");
   const [endSaving, setEndSaving] = useState(false);
+
+  const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -137,6 +148,48 @@ export function ActiveGardenView({
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
 
+  const categoryChips = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of growing) {
+      const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+      map.set(first, (map.get(first) ?? 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
+  }, [growing]);
+
+  const filteredGrowing = useMemo(() => {
+    if (!categoryFilter) return growing;
+    return growing.filter((b) => {
+      const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+      return first === categoryFilter;
+    });
+  }, [growing, categoryFilter]);
+
+  const q = (searchQuery ?? "").trim().toLowerCase();
+  const filteredBySearch = useMemo(() => {
+    if (!q) return filteredGrowing;
+    return filteredGrowing.filter((b) => {
+      const name = (b.profile_name ?? "").toLowerCase();
+      const variety = (b.profile_variety_name ?? "").toLowerCase();
+      return name.includes(q) || variety.includes(q);
+    });
+  }, [filteredGrowing, q]);
+
+  const filteredPending = useMemo(() => {
+    if (!q) return pending;
+    return pending.filter((p) => (p.title ?? "").toLowerCase().includes(q));
+  }, [pending, q]);
+
+  useEffect(() => {
+    onCategoryChipsLoaded?.(categoryChips);
+  }, [categoryChips, onCategoryChipsLoaded]);
+
+  useEffect(() => {
+    onFilteredCountChange?.(filteredPending.length + filteredBySearch.length);
+  }, [filteredPending.length, filteredBySearch.length, onFilteredCountChange]);
+
   // Quick-tap handler
   const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
     if (!user?.id) return;
@@ -150,7 +203,7 @@ export function ActiveGardenView({
       entry_type: "quick",
       weather_snapshot: weather ?? undefined,
     });
-    setQuickToast(`${notes[action]} ${displayName(batch.profile_name, batch.profile_variety_name)}`);
+    setQuickToast(`${notes[action]} ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`);
     setTimeout(() => setQuickToast(null), 2000);
   }, [user?.id]);
 
@@ -176,6 +229,29 @@ export function ActiveGardenView({
     setBulkSelected(new Set());
     setBulkMode(false);
   }, [user?.id, bulkSelected, bulkNote, growing]);
+
+  // Bulk quick actions (water / fertilize / spray on all selected)
+  const handleBulkQuickTap = useCallback(async (action: "water" | "fertilize" | "spray") => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    setBulkSaving(true);
+    const weather = await fetchWeatherSnapshot();
+    const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+    const entries = Array.from(bulkSelected).map((growId) => {
+      const batch = growing.find((b) => b.id === growId);
+      return {
+        user_id: user.id,
+        plant_profile_id: batch?.plant_profile_id ?? null,
+        grow_instance_id: growId,
+        note: notes[action],
+        entry_type: "quick" as const,
+        weather_snapshot: weather ?? undefined,
+      };
+    });
+    await supabase.from("journal_entries").insert(entries);
+    setBulkSaving(false);
+    setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`);
+    setTimeout(() => setQuickToast(null), 2000);
+  }, [user?.id, bulkSelected, growing]);
 
   // End batch with reason
   const handleEndBatch = useCallback(async () => {
@@ -217,8 +293,6 @@ export function ActiveGardenView({
   if (!user) return null;
   if (loading) return <div className="py-8 text-center text-black/50 text-sm">Loading Active Garden...</div>;
 
-  const displayName = (name: string, variety: string | null) => variety?.trim() ? `${name} (${variety})` : name;
-
   return (
     <div className="space-y-6">
       {/* Quick toast */}
@@ -233,7 +307,7 @@ export function ActiveGardenView({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
             <h2 className="text-lg font-semibold text-neutral-900 mb-4">End Batch</h2>
-            <p className="text-sm text-neutral-600 mb-4">{displayName(endBatchTarget.profile_name, endBatchTarget.profile_variety_name)}</p>
+            <p className="text-sm text-neutral-600 mb-4">{formatBatchDisplayName(endBatchTarget.profile_name, endBatchTarget.profile_variety_name)}</p>
             <div className="space-y-3 mb-4">
               {[
                 { value: "season_ended", label: "Season Ended" },
@@ -273,13 +347,18 @@ export function ActiveGardenView({
           {bulkMode ? `Selecting (${bulkSelected.size})` : "Bulk Journal"}
         </button>
         {bulkMode && bulkSelected.size > 0 && (
-          <div className="flex items-center gap-2 flex-1 ml-3">
+          <div className="flex items-center gap-2 flex-1 ml-3 flex-wrap">
+            <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={() => handleBulkQuickTap("water")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50" title="Water selected" aria-label="Water selected">💧</button>
+              <button type="button" onClick={() => handleBulkQuickTap("fertilize")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Fertilize selected" aria-label="Fertilize selected">🌿</button>
+              <button type="button" onClick={() => handleBulkQuickTap("spray")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-50" title="Spray selected" aria-label="Spray selected">🧴</button>
+            </div>
             <input
               type="text"
               placeholder="Add note to selected..."
               value={bulkNote}
               onChange={(e) => setBulkNote(e.target.value)}
-              className="flex-1 px-3 py-1.5 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500"
+              className="flex-1 min-w-[120px] px-3 py-1.5 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500"
             />
             <button
               type="button"
@@ -287,18 +366,18 @@ export function ActiveGardenView({
               disabled={bulkSaving || !bulkNote.trim()}
               className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              {bulkSaving ? "..." : "Add"}
+              {bulkSaving ? "..." : "Add note"}
             </button>
           </div>
         )}
       </div>
 
       {/* Pending tasks */}
-      {pending.length > 0 && (
+      {filteredPending.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 mb-3 flex items-center gap-2">Pending</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 mb-3 flex items-center gap-2">Pending ({filteredPending.length})</h2>
           <ul className="space-y-3">
-            {pending.map((t) => (
+            {filteredPending.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
                 <span className="min-w-0 flex-1 text-sm font-medium text-black/90">{t.title.replace(/^Sow\s+/, "")}</span>
                 <div className="flex shrink-0 flex-col items-end gap-0.5 min-w-[120px]">
@@ -313,12 +392,12 @@ export function ActiveGardenView({
 
       {/* Growing batches */}
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-3 flex items-center gap-2">Growing ({growing.length})</h2>
-        {growing.length === 0 ? (
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-3 flex items-center gap-2">Growing ({filteredBySearch.length})</h2>
+        {filteredBySearch.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
         ) : (
           <ul className="space-y-4">
-            {growing.map((batch) => {
+            {filteredBySearch.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();
               const expected = batch.expected_harvest_date ? new Date(batch.expected_harvest_date).getTime() : null;
               const now = Date.now();
@@ -339,15 +418,21 @@ export function ActiveGardenView({
                         className="mt-1 w-5 h-5 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
                       />
                     )}
-                    <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/vault/${batch.plant_profile_id}?tab=journal`}
+                      className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
+                      aria-label={`View details for ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
+                    >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-black/90">{displayName(batch.profile_name, batch.profile_variety_name)}</p>
+                        <span className="font-medium text-black/90 group-hover:text-emerald-700">
+                          {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
+                        </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
                       <p className="text-xs text-black/50 mt-0.5">
-                        Sown {new Date(batch.sown_date).toLocaleDateString()} -- {label}
-                        {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> -- Harvested {batch.harvest_count}x</span>}
+                        Sown {new Date(batch.sown_date).toLocaleDateString()} – {label}
+                        {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> – Harvested {batch.harvest_count}x</span>}
                       </p>
                       {progress != null && (
                         <div className="mt-2 h-2 rounded-full bg-black/10 overflow-hidden">
@@ -359,7 +444,7 @@ export function ActiveGardenView({
                           Weather at planting: {formatWeatherBadge(batch.weather_snapshot)}
                         </p>
                       )}
-                    </div>
+                    </Link>
                     <div className="flex flex-shrink-0 flex-col gap-1">
                       {/* Quick-tap actions */}
                       <div className="flex items-center gap-1">

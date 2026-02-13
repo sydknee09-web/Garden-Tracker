@@ -77,6 +77,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     label: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveSuccessCount, setSaveSuccessCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [knownPlantTypes, setKnownPlantTypes] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -92,6 +93,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       setQueue([]);
       setStep("capture");
       setError(null);
+      setSaveSuccessCount(null);
       setProcessingAll(false);
       setGeminiProcessing(false);
       setSaving(false);
@@ -404,8 +406,9 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
           bucketEnsured = true;
         }
         path = `${user.id}/${crypto.randomUUID()}.jpg`;
-        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, item.file, {
-          contentType: item.file.type || "image/jpeg",
+        const { blob } = await compressImage(item.file);
+        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
+          contentType: "image/jpeg",
           upsert: false,
         });
         if (uploadErr) {
@@ -473,9 +476,10 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       }
     }
     setSaving(false);
+    const count = queue.filter((i) => i.status === "pending").length;
     queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+    setSaveSuccessCount(count);
     onSuccess();
-    onClose();
   }
 
   function removeFromQueue(id: string) {
@@ -491,6 +495,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     setQueue([]);
     setStep("capture");
     setError(null);
+    setSaveSuccessCount(null);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     onClose();
@@ -586,7 +591,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                 onChange={(e) => {
                   const files = e.target.files;
                   if (files?.length) {
-                    processFilesWithGeminiAndRedirect(files);
+                    addFiles(files);
                     e.target.value = "";
                   }
                 }}
@@ -651,7 +656,15 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
           </>
         )}
 
-        {step === "review" && (
+        {saveSuccessCount != null ? (
+          <div className="py-4 text-center">
+            <p className="text-lg font-medium text-emerald-700 mb-2">Saved to vault</p>
+            <p className="text-sm text-black/70 mb-4">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. You can add more from the vault or close.</p>
+            <button type="button" onClick={handleClose} className="py-3 px-6 rounded-xl bg-emerald text-white font-medium">
+              Done
+            </button>
+          </div>
+        ) : step === "review" ? (
           <>
             <p className="text-sm text-black/70 mb-4">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
             <ul className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto">
@@ -738,7 +751,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
               </button>
             </div>
           </>
-        )}
+        ) : null}
       </div>
     </>
   );

@@ -11,7 +11,7 @@ import { getZone10bScheduleForPlant, toScheduleKey } from "@/data/zone10b_schedu
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
-type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null };
+type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
 type ProfileWithPackets = { profile: Profile; packets: Packet[] };
 type SowingMethod = "direct_sow" | "greenhouse";
 
@@ -40,6 +40,7 @@ function VaultPlantPageInner() {
   const [selectedPacketIdsByProfileId, setSelectedPacketIdsByProfileId] = useState<Record<string, string[]>>({});
   const [sowingMethodByProfileId, setSowingMethodByProfileId] = useState<Record<string, SowingMethod>>({});
   const [masterSowingMethod, setMasterSowingMethod] = useState<SowingMethod>("direct_sow");
+  const [showSeedlingCelebration, setShowSeedlingCelebration] = useState(false);
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
@@ -75,16 +76,6 @@ function VaultPlantPageInner() {
     });
   }, [rows]);
 
-  const setAllToZeroRemaining = useCallback(() => {
-    const next: Record<string, number> = {};
-    rows.forEach((r) => {
-      const selected = selectedPacketIdsByProfileId[r.profile.id];
-      if (selected?.length) selected.forEach((pid) => { next[pid] = 100; });
-      else if (r.packets.length === 1) next[r.packets[0].id] = 100;
-    });
-    setUsePercentByPacketId(next);
-  }, [rows, selectedPacketIdsByProfileId]);
-
   useEffect(() => {
     if (!user?.id || profileIds.length === 0) {
       setLoading(false);
@@ -101,7 +92,7 @@ function VaultPlantPageInner() {
           .eq("user_id", user.id),
         supabase
           .from("seed_packets")
-          .select("id, plant_profile_id, qty_status, created_at, tags")
+          .select("id, plant_profile_id, qty_status, created_at, tags, vendor_name")
           .in("plant_profile_id", profileIds)
           .eq("user_id", user.id)
           .or("is_archived.eq.false,is_archived.is.null")
@@ -126,10 +117,15 @@ function VaultPlantPageInner() {
         .filter((r): r is ProfileWithPackets => r != null);
       setRows(ordered);
       const initialSelected: Record<string, string[]> = {};
+      const initialUsePercent: Record<string, number> = {};
       ordered.forEach(({ profile, packets }) => {
-        if (packets.length) initialSelected[profile.id] = [packets[0].id];
+        if (packets.length) {
+          initialSelected[profile.id] = [packets[0].id];
+          packets.forEach((p) => { initialUsePercent[p.id] = 100; });
+        }
       });
       setSelectedPacketIdsByProfileId(initialSelected);
+      setUsePercentByPacketId(initialUsePercent);
       const methodByProfile: Record<string, SowingMethod> = {};
       ordered.forEach(({ profile, packets: pks }) => {
         const suggestsGreenhouse = brainSuggestsGreenhouse(profile.name, scheduleMap as Record<string, { sowing_method?: string }>);
@@ -259,7 +255,11 @@ function VaultPlantPageInner() {
       return;
     }
     setError(null);
-    router.push("/vault?tab=active");
+    setShowSeedlingCelebration(true);
+    setTimeout(() => {
+      setShowSeedlingCelebration(false);
+      router.push("/vault?tab=active");
+    }, 1100);
   }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowingMethodByProfileId, router]);
 
   if (!user) return null;
@@ -364,13 +364,6 @@ function VaultPlantPageInner() {
               Greenhouse
             </button>
           </div>
-          <button
-            type="button"
-            onClick={setAllToZeroRemaining}
-            className="min-h-[44px] min-w-[44px] px-3 rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-800 text-xs font-semibold hover:bg-amber-100"
-          >
-            Set All to 0% (Plant All)
-          </button>
         </div>
       </section>
 
@@ -414,9 +407,12 @@ function VaultPlantPageInner() {
                       {packets.length > 1 && (
                         <div className="flex flex-wrap gap-x-3 gap-y-1" role="group" aria-label={`Select packets for ${displayName}`}>
                           {packets.map((pk, idx) => {
-                            const isOldest = idx === 0;
                             const checked = selectedIds.includes(pk.id);
-                            const label = isOldest ? "Packet 1 (oldest)" : `Packet ${idx + 1}`;
+                            const vendor = (pk.vendor_name ?? "").trim() || "Vendor";
+                            const sameVendorCount = packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).length;
+                            const label = sameVendorCount > 1
+                              ? `${vendor} (${packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).findIndex((p) => p.id === pk.id) + 1})`
+                              : vendor;
                             return (
                               <label key={pk.id} className="flex items-center gap-1.5 cursor-pointer text-xs text-black/70">
                                 <input
@@ -464,7 +460,9 @@ function VaultPlantPageInner() {
                           const usePct = usePercentByPacketId[pk.id] ?? 0;
                           const remainingPct = 100 - usePct;
                           const pktQty = pk.qty_status / 100;
-                          const label = selectedPackets.length > 1 ? (idx === 0 && packets[0].id === pk.id ? "Pkt 1" : `Pkt ${packets.findIndex((p) => p.id === pk.id) + 1}`) : null;
+                          const vendor = (pk.vendor_name ?? "").trim() || "Vendor";
+                          const sameVendor = selectedPackets.filter((p) => ((p.vendor_name ?? "").trim() || "") === (vendor === "Vendor" ? "" : vendor));
+                          const label = selectedPackets.length > 1 ? (sameVendor.length > 1 ? `${vendor} (${sameVendor.findIndex((p) => p.id === pk.id) + 1})` : vendor) : null;
                           return (
                             <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
                               {label && <span className="text-[10px] font-medium text-black/50 w-8 shrink-0">{label}</span>}
@@ -510,8 +508,25 @@ function VaultPlantPageInner() {
         </p>
       )}
 
+      {showSeedlingCelebration && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-emerald-500/90"
+          role="status"
+          aria-live="polite"
+          aria-label="Planting saved"
+        >
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
+              <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
+            </div>
+            <p className="text-white font-semibold text-lg">Planted!</p>
+          </div>
+        </div>
+      )}
+
       <div
-        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-gray-200 border-t-2 border-gray-400 shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
+        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper border-t border-black/10 shadow-card"
         style={{ paddingBottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))" }}
       >
         <button
@@ -525,7 +540,7 @@ function VaultPlantPageInner() {
             })
           }
           onClick={handleConfirm}
-          className="w-full min-h-[56px] rounded-xl bg-green-700 text-white text-lg font-bold hover:bg-green-800 disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed shadow-lg ring-2 ring-green-900/40 ring-offset-2 ring-offset-gray-200 disabled:ring-gray-600"
+          className="w-full min-h-[56px] rounded-xl bg-emerald-500 text-white text-lg font-semibold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
         >
           {confirming ? "Planting…" : "Confirm Planting"}
         </button>

@@ -22,6 +22,8 @@ Open [http://localhost:3001](http://localhost:3001) (or the port shown in the te
 
 **Database:** Run `supabase/migrations/20250204000000_garden_tables.sql` in the Supabase SQL Editor if you haven’t already (creates `tasks`, `grow_instances`, `journal_entries`, and optional columns on `plant_varieties`).
 
+**Data maintenance** (discover, scrape, cleanup, normalize): see [docs/DATA_MAINTENANCE.md](docs/DATA_MAINTENANCE.md).
+
 ## Structure
 
 - **Home** — Dashboard: pending tasks, recent activity, journal photos

@@ -3,6 +3,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
+import {
+  stripVarietySuffixes,
+  stripPlantFromVariety,
+  cleanVarietyForDisplay,
+} from "@/lib/varietyNormalize";
 
 export const maxDuration = 60;
 
@@ -72,58 +77,8 @@ export function varietySlugFromUrl(url: string): string {
   }
 }
 
-/** Simple plural form for stripping (e.g. Carrot -> Carrots, Tomato -> Tomatoes). */
-function pluralOf(plantType: string): string {
-  const p = (plantType ?? "").trim().toLowerCase();
-  if (!p) return "";
-  if (p.endsWith("s") || p.endsWith("x") || p.endsWith("z") || p.endsWith("ch") || p.endsWith("sh")) return p + "es";
-  if (p.endsWith("y") && p.length > 1 && !/[aeiou]/.test(p[p.length - 2] ?? "")) return p.slice(0, -1) + "ies";
-  if (p.endsWith("o")) return p + "es";
-  return p + "s";
-}
-
-/**
- * Boundary-only: remove plant type from variety only when it is a redundant prefix or suffix.
- * When checking the end, ignore trailing "Seeds" or "Seed" (noise) so "Bulls Blood Beet Seeds" (Plant: Beet) -> "Bulls Blood Seeds".
- * No global search-replace; only strip from start or end to avoid deleting words in the middle.
- */
-export function stripPlantFromVariety(variety: string, plantType: string): string {
-  const v = (variety ?? "").trim();
-  const p = (plantType ?? "").trim();
-  if (!p || !v) return v;
-  const vLower = v.toLowerCase();
-  const pLower = p.toLowerCase();
-  const plural = pluralOf(plantType);
-
-  const stripFromStart = (): string | null => {
-    if (vLower.startsWith(pLower + " ")) return v.slice(p.length + 1).trim();
-    if (vLower.startsWith(plural + " ")) return v.slice(plural.length + 1).trim();
-    return null;
-  };
-
-  const stripFromEnd = (): string | null => {
-    const noiseSuffixMatch = v.match(/\s+(Seeds?)\s*$/i);
-    const fullNoiseSuffix = noiseSuffixMatch ? (noiseSuffixMatch[0] ?? "") : "";
-    const noiseWord = noiseSuffixMatch ? (noiseSuffixMatch[1] ?? "").trim() : "";
-    const core = fullNoiseSuffix ? v.slice(0, v.length - fullNoiseSuffix.length).trim() : v;
-    const coreLower = core.toLowerCase();
-    if (coreLower.endsWith(" " + pLower)) {
-      const withoutPlant = core.slice(0, core.length - (p.length + 1)).trim();
-      return noiseWord ? withoutPlant + " " + noiseWord : withoutPlant;
-    }
-    if (coreLower.endsWith(" " + plural)) {
-      const withoutPlant = core.slice(0, core.length - (plural.length + 1)).trim();
-      return noiseWord ? withoutPlant + " " + noiseWord : withoutPlant;
-    }
-    return null;
-  };
-
-  const fromStart = stripFromStart();
-  if (fromStart !== null) return fromStart;
-  const fromEnd = stripFromEnd();
-  if (fromEnd !== null) return fromEnd;
-  return v;
-}
+// Re-export for backward compatibility (canonical implementation in @/lib/varietyNormalize)
+export { stripPlantFromVariety } from "@/lib/varietyNormalize";
 
 /** Outside Pride: extract plant/category from URL slug (e.g. /fruit-seed/ -> "Fruit", /flower-seeds/ -> "Flower"). */
 export function plantFromUrlSlug(url: string): string {
@@ -197,6 +152,8 @@ export type ExtractResponse = {
   confidence_score?: number;
   /** Scientific name (e.g. Thunbergia alata) when extractable from page or search */
   scientific_name?: string;
+  /** Short plant description from scrape or research (passed to profile and cache) */
+  plant_description?: string;
   /** Step 2 research (grounding) - optional */
   sowing_depth?: string;
   spacing?: string;
@@ -299,99 +256,8 @@ export function inferSpecificPlantFromVariety(variety: string): string | null {
   return null;
 }
 
-/** Metadata/suffixes to strip from variety names (order matters: longer first). Treat as metadata, not part of name. */
-const VARIETY_SUFFIXES = [
-  "Drought Tolerant",
-  "Selected Seeds",
-  "Non-GMO",
-  "Seeds",
-  "Seed",
-  "Organic",
-  "Heirloom",
-];
-
-/** Strip common suffixes from the end of a variety string. Used for display and identity key consistency. Collapses spaces and trims. */
-export function stripVarietySuffixes(s: string): string {
-  let out = (s ?? "").trim().replace(/_/g, " ");
-  if (!out) return out;
-  // "Spanish Eyes" short-naming: if variety contains "Seeds", take only the string after the word "Seeds" (e.g. "Black Eyed Susan Vine Seeds Spanish Eyes" → "Spanish Eyes")
-  const seedsSplit = out.split(/\bSeeds\b/i);
-  if (seedsSplit.length > 1) {
-    const afterSeeds = (seedsSplit[seedsSplit.length - 1] ?? "").trim();
-    if (afterSeeds) out = afterSeeds;
-  }
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const suffix of VARIETY_SUFFIXES) {
-      const escaped = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const trailingRe = new RegExp(`\\s*${escaped}\\s*$`, "i");
-      const leadingRe = new RegExp(`^\\s*${escaped}\\s*`, "i");
-      if (trailingRe.test(out)) {
-        out = out.replace(trailingRe, "").trim();
-        changed = true;
-        break;
-      }
-      if (leadingRe.test(out)) {
-        out = out.replace(leadingRe, "").trim();
-        changed = true;
-        break;
-      }
-    }
-  }
-  out = out.replace(/\s+/g, " ").trim();
-  // Empty parentheses fix (e.g. "Rubybor ()" after F1 removed) and trailing non-alphanumeric debris
-  out = out.replace(/\(\s*\)/g, "").replace(/[^a-zA-Z0-9]+$/g, "").trim();
-  // Final "vacuum": trailing punctuation, double spaces, empty parenthesis
-  out = out.replace(/[-._,\s]+$/g, "").replace(/^[-._,\s]+/g, "").trim();
-  out = out.replace(/\s{2,}/g, " ").trim();
-  out = out.replace(/\s*\(\s*\)\s*/g, "").trim();
-  return out;
-}
-
-/**
- * Clean variety for display: strip genetic/marketing terms and maturity, de-duplicate plant_type at end.
- * Returns cleaned variety and tags to add so the tags column carries F1/Hybrid/Heirloom. Does not touch URLs.
- */
-export function cleanVarietyForDisplay(
-  variety: string,
-  plantType: string
-): { cleanedVariety: string; tagsToAdd: string[] } {
-  let s = (variety ?? "").trim();
-  s = stripVarietySuffixes(s);
-  const tagsToAdd: string[] = [];
-  console.log("[cleanVarietyForDisplay] BEFORE:", JSON.stringify(variety ?? ""), "| plantType:", JSON.stringify(plantType ?? ""));
-
-  if (/\bF1\b/i.test(s)) {
-    tagsToAdd.push("F1");
-    s = s.replace(/\bF1\b/gi, "");
-  }
-  if (/\bHybrid\b/i.test(s)) {
-    tagsToAdd.push("Hybrid");
-    s = s.replace(/\bHybrid\b/gi, "");
-  }
-  if (/\bHeirloom\b/i.test(s)) {
-    tagsToAdd.push("Heirloom");
-    s = s.replace(/\bHeirloom\b/gi, "");
-  }
-  s = s
-    .replace(/\b\d+\s*Days?\b/gi, "")
-    .replace(/\b\d+-\d+\s*Days?\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const typeNorm = (plantType ?? "").trim().toLowerCase();
-  if (typeNorm) {
-    const words = s.split(/\s+/).filter(Boolean);
-    if (words.length >= 2 && words[words.length - 1].toLowerCase() === typeNorm) {
-      words.pop();
-      s = words.join(" ").trim();
-    }
-  }
-
-  console.log("[cleanVarietyForDisplay] AFTER:", JSON.stringify(s), "| tagsToAdd:", tagsToAdd);
-  return { cleanedVariety: s, tagsToAdd };
-}
+// Re-export for backward compatibility (canonical implementation in @/lib/varietyNormalize)
+export { stripVarietySuffixes, cleanVarietyForDisplay } from "@/lib/varietyNormalize";
 
 /** Parse link-extract JSON robustly; missing fields become empty string so we never fail the whole object. */
 function parseLinkExtractJson(jsonStr: string, url: string): ExtractResponse | null {
@@ -570,14 +436,15 @@ export async function extractFromUrl(apiKey: string, url: string): Promise<Extra
   }
 }
 
-async function researchVariety(
+/** Name+variety research (no vendor in query for better results). Exported for enrich-from-name (store-bought). */
+export async function researchVariety(
   apiKey: string,
   plantType: string,
   variety: string,
   vendor: string
 ): Promise<Partial<ExtractResponse> | null> {
   try {
-    console.log("[extract] Image path: Finding hero photo / research (Gemini with Google Search) for", plantType, variety || "(no variety)");
+    console.log("[extract] Research variety (Gemini + Search) for", plantType, variety || "(no variety)");
     const ai = new GoogleGenAI({ apiKey });
     const searchQuery =
       [vendor, plantType, variety].filter(Boolean).join(" ") || "seed planting guide";
@@ -753,18 +620,29 @@ export async function POST(req: Request) {
         const confidence_score = typeof parsed.confidence_score === "number" ? parsed.confidence_score : undefined;
 
         const blocked = await getBlockedTagsForRequest(req);
-        const filteredTags = filterBlockedTags(tags ?? [], blocked);
+        let filteredTags = filterBlockedTags(tags ?? [], blocked);
+
+        // Same normalization as link import: strip plant from variety, clean variety, merge F1/Heirloom into tags
+        let varietyForResponse = (variety ?? "").trim();
+        const typeForNorm = (type ?? "").trim() || "Imported seed";
+        varietyForResponse = stripPlantFromVariety(varietyForResponse, typeForNorm);
+        const { cleanedVariety, tagsToAdd } = cleanVarietyForDisplay(varietyForResponse, typeForNorm);
+        varietyForResponse = cleanedVariety;
+        const mergedTags = [...filteredTags];
+        for (const t of tagsToAdd) {
+          if (t && !mergedTags.some((x) => x.toLowerCase() === t.toLowerCase())) mergedTags.push(t);
+        }
 
         const base: ExtractResponse = {
           vendor: vendor ?? "",
-          type: type ?? "",
-          variety: variety ?? "",
-          tags: filteredTags,
+          type: typeForNorm || "Imported seed",
+          variety: varietyForResponse ?? "",
+          tags: mergedTags,
           ...(confidence_score !== undefined && { confidence_score }),
         };
 
-        if (type || variety) {
-          const research = await researchVariety(apiKey, type, variety, vendor);
+        if (typeForNorm || varietyForResponse) {
+          const research = await researchVariety(apiKey, typeForNorm, varietyForResponse, vendor);
           if (research) {
             Object.assign(base, research);
           }

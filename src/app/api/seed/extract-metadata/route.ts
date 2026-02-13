@@ -15,6 +15,7 @@ import {
   isGenericSegmentForPlant,
 } from "../extract/route";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
+import { isGenericTrapName } from "@/lib/identityKey";
 import type { ExtractResponse } from "../extract/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -60,9 +61,6 @@ const JUNK_TITLE_TERMS = new Set([
   "seed", "vegetable", "herb", "flower", "product", "store", "cart", "account",
 ]);
 
-/** Generic Trap list: never use as variety (breadcrumbs/nav titles). If Pass 1 hits these, trigger Pass 2/3 immediately. */
-const GENERIC_NAME_TRAP = new Set(["vegetables", "seeds", "cool season", "shop"]);
-
 function isJunkTitle(title: string | null | undefined): boolean {
   const t = (title ?? "").trim();
   if (t.length < 2) return true;
@@ -70,11 +68,6 @@ function isJunkTitle(title: string | null | undefined): boolean {
   if (JUNK_TITLE_TERMS.has(lower)) return true;
   if (/^(all|view\s+all|shop\s+all|see\s+all)$/i.test(lower)) return true;
   return false;
-}
-
-function isGenericTrapName(name: string | null | undefined): boolean {
-  const n = (name ?? "").trim().toLowerCase();
-  return n.length > 0 && GENERIC_NAME_TRAP.has(n);
 }
 
 /** Strip vendor suffix from <title> (e.g. "Product Name | Johnny's Seeds" → "Product Name"). */
@@ -334,6 +327,16 @@ export async function POST(req: Request) {
         if (globalCached?.extract_data) {
           const ed = globalCached.extract_data as Record<string, unknown>;
           const heroUrl = (ed.hero_image_url as string) ?? (globalCached.original_hero_url as string) ?? "";
+          const sunReq = (ed.sun_requirement as string) ?? (ed.sun as string);
+          const spacingVal = (ed.spacing as string) ?? (ed.plant_spacing as string);
+          const daysToMaturity = (ed.days_to_maturity as string) ?? undefined;
+          const harvestDaysNum = typeof ed.harvest_days === "number" && Number.isFinite(ed.harvest_days)
+            ? ed.harvest_days
+            : daysToMaturity != null
+              ? parseInt(String(daysToMaturity).replace(/^(\d+).*/, "$1"), 10)
+              : undefined;
+          const harvestDays =
+            typeof harvestDaysNum === "number" && harvestDaysNum > 0 && harvestDaysNum < 365 ? harvestDaysNum : undefined;
           console.log(`[PASS 1] Tier 0 global cache hit for ${url.slice(0, 60)}...`);
           return NextResponse.json({
             type: (ed.type as string) ?? "Imported seed",
@@ -342,16 +345,22 @@ export async function POST(req: Request) {
             tags: (ed.tags as string[]) ?? [],
             source_url: (ed.source_url as string) ?? url,
             sowing_depth: (ed.sowing_depth as string) ?? undefined,
-            spacing: (ed.spacing as string) ?? undefined,
-            sun_requirement: (ed.sun_requirement as string) ?? undefined,
+            spacing: spacingVal ?? undefined,
+            sun_requirement: sunReq ?? undefined,
             days_to_germination: (ed.days_to_germination as string) ?? undefined,
-            days_to_maturity: (ed.days_to_maturity as string) ?? undefined,
+            days_to_maturity: daysToMaturity,
             scientific_name: (ed.scientific_name as string) ?? undefined,
+            plant_description: (ed.plant_description as string) ?? undefined,
             hero_image_url: heroUrl || undefined,
             stock_photo_url: heroUrl || undefined,
             failed: false,
             cached: true,
             productPageStatus: 200,
+            // scrape-url shape so import flow and zone10b merge get sun, plant_spacing, harvest_days, water
+            sun: sunReq ?? undefined,
+            plant_spacing: spacingVal ?? undefined,
+            harvest_days: harvestDays,
+            water: (ed.water as string)?.trim() || undefined,
           });
         }
       } catch (e) {
@@ -381,6 +390,16 @@ export async function POST(req: Request) {
               const { data: pubUrl } = sbCache.storage.from("journal-photos").getPublicUrl(cached.hero_storage_path as string);
               if (pubUrl?.publicUrl) heroUrl = pubUrl.publicUrl;
             }
+            const sunReq = (ed.sun_requirement as string) ?? (ed.sun as string);
+            const spacingVal = (ed.spacing as string) ?? (ed.plant_spacing as string);
+            const daysToMaturity = (ed.days_to_maturity as string) ?? undefined;
+            const harvestDaysNum = typeof ed.harvest_days === "number" && Number.isFinite(ed.harvest_days)
+              ? ed.harvest_days
+              : daysToMaturity != null
+                ? parseInt(String(daysToMaturity).replace(/^(\d+).*/, "$1"), 10)
+                : undefined;
+            const harvestDays =
+              typeof harvestDaysNum === "number" && harvestDaysNum > 0 && harvestDaysNum < 365 ? harvestDaysNum : undefined;
             console.log(`[PASS 1] Tier 1 cache hit for ${url.slice(0, 60)}...`);
             return NextResponse.json({
               type: (ed.type as string) ?? "Imported seed",
@@ -389,16 +408,21 @@ export async function POST(req: Request) {
               tags: (ed.tags as string[]) ?? [],
               source_url: (ed.source_url as string) ?? url,
               sowing_depth: (ed.sowing_depth as string) ?? undefined,
-              spacing: (ed.spacing as string) ?? undefined,
-              sun_requirement: (ed.sun_requirement as string) ?? undefined,
+              spacing: spacingVal ?? undefined,
+              sun_requirement: sunReq ?? undefined,
               days_to_germination: (ed.days_to_germination as string) ?? undefined,
-              days_to_maturity: (ed.days_to_maturity as string) ?? undefined,
+              days_to_maturity: daysToMaturity,
               scientific_name: (ed.scientific_name as string) ?? undefined,
+              plant_description: (ed.plant_description as string) ?? undefined,
               hero_image_url: heroUrl || undefined,
               stock_photo_url: heroUrl || undefined,
               failed: false,
               cached: true,
               productPageStatus: 200,
+              sun: sunReq ?? undefined,
+              plant_spacing: spacingVal ?? undefined,
+              harvest_days: harvestDays,
+              water: (ed.water as string)?.trim() || undefined,
             });
           }
         }

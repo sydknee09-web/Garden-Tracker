@@ -164,6 +164,10 @@ export interface PlantProfile {
   sowing_method?: string | null;
   planting_window?: string | null;
   purchase_date?: string | null;
+  /** Store-bought (no packet): vendor/seller name */
+  purchase_vendor?: string | null;
+  /** Store-bought (no packet): nursery or store name */
+  purchase_nursery?: string | null;
   scientific_name?: string | null;
   botanical_care_notes?: Record<string, unknown> | null;
   perenual_id?: number | null;
@@ -175,6 +179,16 @@ export interface PlantProfile {
 // ---------------------------------------------------------------------------
 // Seed Packets
 // ---------------------------------------------------------------------------
+/** Vendor-specific growing specs stored per packet (from import); shown in "Vendor recommendations" on profile. */
+export type VendorSpecs = {
+  sowing_depth?: string;
+  spacing?: string;
+  sun_requirement?: string;
+  days_to_germination?: string;
+  days_to_maturity?: string;
+  plant_description?: string;
+};
+
 /** Plant > Packets: one physical packet (vendor, url, qty slider, scraped details). */
 export interface SeedPacket {
   id: string;
@@ -193,6 +207,8 @@ export interface SeedPacket {
   tags?: string[] | null;
   is_archived?: boolean;
   deleted_at?: string | null;
+  /** That vendor's growing recommendations (from import); shown on profile "By packet". */
+  vendor_specs?: VendorSpecs | null;
 }
 
 // ---------------------------------------------------------------------------

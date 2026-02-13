@@ -11,17 +11,18 @@ import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vaul
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
 const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
-const DEFAULT_LIST_COLUMN_ORDER: ListDataColumnId[] = ["name", "variety", "sun", "spacing", "germination", "maturity", "pkts"];
+const DEFAULT_LIST_COLUMN_ORDER: ListDataColumnId[] = ["name", "variety", "vendor", "sun", "spacing", "germination", "maturity", "pkts"];
 const DEFAULT_LIST_COLUMN_WIDTHS: Record<ListDataColumnId, number> = {
   name: 140,
   variety: 160,
+  vendor: 100,
   sun: 88,
   spacing: 100,
   germination: 100,
   maturity: 88,
   pkts: 64,
 };
-type ListDataColumnId = "name" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
+type ListDataColumnId = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
 
 function loadListTableState(): { columnOrder: ListDataColumnId[]; columnWidths: Record<string, number> } {
   if (typeof window === "undefined") return { columnOrder: [...DEFAULT_LIST_COLUMN_ORDER], columnWidths: { ...DEFAULT_LIST_COLUMN_WIDTHS } };
@@ -75,9 +76,11 @@ export type VaultCardItem = {
   created_at?: string | null;
   /** True if any packet under this profile has F1 (or similar) in packet tags. */
   hasF1Packet?: boolean;
+  /** Comma-separated vendor names from packets (for list column). */
+  vendor_display?: string | null;
 };
 
-export type ListSortColumn = "name" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
+export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
 
 /** Thumbnail URL: hero (plant) image first, then packet image. */
 function getThumbnailUrl(seed: VaultCardItem): string | null {
@@ -115,6 +118,14 @@ function getHealthColor(seed: VaultCardItem): string {
   if (seed.packet_count === 0 || seed.status === "out_of_stock") return "bg-red-500";
   if (seed.packet_count === 1) return "bg-amber-400";
   return "bg-emerald-500";
+}
+
+/** Card border by planting status: active = in garden, out_of_stock = muted, default = vault/dormant. */
+function getCardBorderClass(seed: VaultCardItem): string {
+  const active = (seed.status ?? "").toLowerCase().includes("active");
+  if (active) return "border-emerald-500/60 border-2";
+  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-slate-200 border border-dashed";
+  return "border-slate-200/80 border";
 }
 
 function HealthDot({ seed }: { seed: VaultCardItem }) {
@@ -177,6 +188,11 @@ export function SeedVaultView({
   onPendingHeroCountChange,
   availablePlantTypes = [],
   onPlantTypeChange,
+  plantNowFilter = false,
+  gridDisplayStyle = "condensed",
+  categoryFilter: categoryFilterProp,
+  onCategoryFilterChange,
+  onCategoryChipsLoaded,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -194,12 +210,35 @@ export function SeedVaultView({
   availablePlantTypes?: string[];
   /** Called when user changes plant type in list view; parent should update plant_profiles.name and refetch. */
   onPlantTypeChange?: (profileId: string, newName: string) => void;
+  plantNowFilter?: boolean;
+  /** When mode is "grid", "photo" = image-dominant cards, "condensed" = compact data-focused cards. */
+  gridDisplayStyle?: "photo" | "condensed";
+  /** Controlled plant-type filter (first word of name); when set, Refine By panel can drive this. */
+  categoryFilter?: string | null;
+  onCategoryFilterChange?: (value: string | null) => void;
+  /** Called when category chips (plant types with counts) are computed, for Refine By panel. */
+  onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
 }) {
   const router = useRouter();
   const { user } = useAuth();
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scheduleDefaults, setScheduleDefaults] = useState<{
+    plant_type: string;
+    sow_jan: boolean;
+    sow_feb: boolean;
+    sow_mar: boolean;
+    sow_apr: boolean;
+    sow_may: boolean;
+    sow_jun: boolean;
+    sow_jul: boolean;
+    sow_aug: boolean;
+    sow_sep: boolean;
+    sow_oct: boolean;
+    sow_nov: boolean;
+    sow_dec: boolean;
+  }[]>([]);
   const pendingSinceRef = useRef<Map<string, number>>(new Map());
   const [tick, setTick] = useState(0);
   const [listSortColumn, setListSortColumn] = useState<ListSortColumn | null>("name");
@@ -208,6 +247,9 @@ export function SeedVaultView({
   const [plantFilterOpen, setPlantFilterOpen] = useState(false);
   const [plantFilterSearch, setPlantFilterSearch] = useState("");
   const plantFilterRef = useRef<HTMLDivElement>(null);
+  const [categoryFilterInternal, setCategoryFilterInternal] = useState<string | null>(null);
+  const categoryFilter = categoryFilterProp !== undefined ? categoryFilterProp : categoryFilterInternal;
+  const setCategoryFilter = onCategoryFilterChange ?? setCategoryFilterInternal;
   const [gridSortBy, setGridSortBy] = useState<GridSortBy>("name");
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
@@ -276,8 +318,24 @@ export function SeedVaultView({
     router.push(`/vault/${profileId}`);
   }
 
+  const isSowNow = useCallback((seed: VaultCardItem, defaults: { plant_type: string; sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean; sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean; sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean }[]) => {
+    if (!defaults.length) return true;
+    const now = new Date();
+    const monthIndex = now.getMonth();
+    const monthCol = ["sow_jan", "sow_feb", "sow_mar", "sow_apr", "sow_may", "sow_jun", "sow_jul", "sow_aug", "sow_sep", "sow_oct", "sow_nov", "sow_dec"][monthIndex] as keyof (typeof defaults)[0];
+    const plantableTypes = new Set(defaults.filter((d) => d[monthCol] === true).map((d) => d.plant_type.trim().toLowerCase()));
+    const nameNorm = (seed.name ?? "").trim().toLowerCase();
+    const firstWord = nameNorm.split(/\s+/)[0];
+    return plantableTypes.has(nameNorm) || plantableTypes.has(firstWord ?? "") || Array.from(plantableTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
+  }, []);
+
   const filteredSeeds = useMemo(() => {
     return displayedSeeds.filter((s) => {
+      if (categoryFilter !== null) {
+        const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+        if (first !== categoryFilter) return false;
+      }
+      if (plantNowFilter && scheduleDefaults.length > 0 && !isSowNow(s, scheduleDefaults)) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
         return false;
@@ -296,7 +354,19 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [displayedSeeds, q, statusFilter, tagFilters, plantTypeFilter]);
+  }, [displayedSeeds, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, plantNowFilter, scheduleDefaults, isSowNow]);
+
+  const categoryChips = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of seeds) {
+      const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim();
+      const type = first || "Other";
+      map.set(type, (map.get(type) ?? 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
+  }, [seeds]);
 
   const uniquePlantNames = useMemo(
     () => Array.from(new Set(displayedSeeds.map((s) => s.name))).sort((a, b) => a.localeCompare(b)),
@@ -323,6 +393,10 @@ export function SeedVaultView({
         case "variety":
           va = a.variety?.trim() ?? "";
           vb = b.variety?.trim() ?? "";
+          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
+        case "vendor":
+          va = a.vendor_display?.trim() ?? "";
+          vb = b.vendor_display?.trim() ?? "";
           return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
         case "sun":
           va = a.sun?.trim() ?? "";
@@ -383,6 +457,37 @@ export function SeedVaultView({
     seeds.forEach((s) => (s.tags ?? []).forEach((t) => allTags.add(t)));
     onTagsLoaded(Array.from(allTags).sort());
   }, [seeds, onTagsLoaded]);
+
+  // Load schedule_defaults when Plant Now filter is active (to filter by sow-this-month)
+  useEffect(() => {
+    if (!user?.id || !plantNowFilter) {
+      setScheduleDefaults([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("schedule_defaults")
+      .select("plant_type, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        if (!cancelled && data) setScheduleDefaults(data as {
+          plant_type: string;
+          sow_jan: boolean;
+          sow_feb: boolean;
+          sow_mar: boolean;
+          sow_apr: boolean;
+          sow_may: boolean;
+          sow_jun: boolean;
+          sow_jul: boolean;
+          sow_aug: boolean;
+          sow_sep: boolean;
+          sow_oct: boolean;
+          sow_nov: boolean;
+          sow_dec: boolean;
+        }[]);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, plantNowFilter, refetchTrigger]);
 
   useEffect(() => {
     if (!user) {
@@ -456,15 +561,23 @@ export function SeedVaultView({
 
       const { data: packets } = await supabase
         .from("seed_packets")
-        .select("plant_profile_id, tags")
+        .select("plant_profile_id, tags, vendor_name")
         .eq("user_id", user.id)
         .or("is_archived.eq.false,is_archived.is.null");
       const countByProfile = new Map<string, number>();
+      const vendorsByProfile = new Map<string, Set<string>>();
       const f1ProfileIds = new Set<string>();
       for (const p of packets ?? []) {
-        const pid = (p as { plant_profile_id: string; tags?: string[] | null }).plant_profile_id;
+        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null };
+        const pid = row.plant_profile_id;
         countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
-        const tags = (p as { tags?: string[] | null }).tags;
+        const v = (row.vendor_name ?? "").trim();
+        if (v) {
+          const set = vendorsByProfile.get(pid) ?? new Set<string>();
+          set.add(v);
+          vendorsByProfile.set(pid, set);
+        }
+        const tags = row.tags;
         if (Array.isArray(tags) && tags.some((t) => String(t).toLowerCase() === "f1")) f1ProfileIds.add(pid);
       }
 
@@ -511,6 +624,10 @@ export function SeedVaultView({
           hero_image_pending: (p.hero_image_pending as boolean | null) ?? false,
           created_at: (p.created_at as string) ?? undefined,
           hasF1Packet: f1ProfileIds.has(p.id as string),
+          vendor_display: (() => {
+            const vendors = vendorsByProfile.get(p.id as string);
+            return vendors && vendors.size > 0 ? Array.from(vendors).sort().join(", ") : null;
+          })(),
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -537,6 +654,10 @@ export function SeedVaultView({
   useEffect(() => {
     onFilteredIdsChange?.(filteredIds);
   }, [filteredIds, onFilteredIdsChange]);
+
+  useEffect(() => {
+    onCategoryChipsLoaded?.(categoryChips);
+  }, [categoryChips, onCategoryChipsLoaded]);
 
   const pendingHeroCount = useMemo(
     () => seeds.filter((s) => !(s.hero_image_url ?? "").trim() && !!s.hero_image_pending).length,
@@ -571,27 +692,33 @@ export function SeedVaultView({
 
   if (error) {
     return (
-      <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-        <p className="text-citrus font-medium">Could not load seed vault</p>
-        <p className="text-sm text-black/60 mt-1">{error}</p>
+      <div className="rounded-card bg-white p-6 shadow-card border border-black/5">
+        <p className="text-amber-600 font-medium">Could not load seed vault</p>
+        <p className="text-sm text-slate-500 mt-1">{error}</p>
       </div>
     );
   }
 
   if (seeds.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center">
-        <p className="text-black/60">No seeds yet. Tap + to add your first packet.</p>
+      <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center max-w-md mx-auto">
+        <p className="text-slate-600 mb-4">Your vault is empty. Add your first seed to get started.</p>
+        <p className="text-sm text-slate-500 mb-2">Tap the <strong>+</strong> button below to add a packet, or scan one with your camera.</p>
+        {typeof window !== "undefined" && (
+          <a href="/vault/import" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">
+            Scan or import a packet
+          </a>
+        )}
       </div>
     );
   }
 
   if (filteredSeeds.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5 text-center">
-        <p className="text-black/60">
-          {q || statusFilter || tagFilters.length > 0
-            ? "No seeds match your search or filters."
+      <div className="rounded-card-lg bg-white p-6 shadow-card border border-black/5 text-center max-w-md mx-auto">
+        <p className="text-slate-600">
+          {q || statusFilter || tagFilters.length > 0 || categoryFilter !== null
+            ? "No seeds match your search or filters. Try changing filters or search."
             : "No seeds yet. Tap + to add your first packet."}
         </p>
       </div>
@@ -599,126 +726,159 @@ export function SeedVaultView({
   }
 
   if (mode === "grid") {
+    const isPhotoCards = gridDisplayStyle === "photo";
+
     return (
       <div className="relative z-10 space-y-3">
-        <ul className="grid grid-cols-3 gap-4" role="list">
-        {sortedGridSeeds.map((seed) => (
-          <li key={seed.id}>
-            {batchSelectMode ? (
-              <article
-                role="button"
-                tabIndex={0}
-                onClick={() => onToggleVarietySelection?.(seed.id)}
-                className={`rounded-2xl bg-white p-4 shadow-card border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative ${
-                  selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald" : ""
-                }`}
-                style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
-              >
-                {onToggleVarietySelection && (
-                  <div
-                    className="absolute top-2 left-2 z-10"
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedVarietyIds?.has(seed.id) ?? false}
-                      onChange={() => onToggleVarietySelection(seed.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded border-black/20"
-                      aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
-                    />
-                  </div>
-                )}
-                {(() => {
-                  const { thumbUrl, showResearching } = getThumbState(seed);
-                  const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
-                  return showResearching ? (
-                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
-                      <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
-                      <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
-                    </div>
-                  ) : showSeedling ? (
-                    <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
+        <ul className={`grid gap-4 ${isPhotoCards ? "grid-cols-2" : "grid-cols-3"}`} role="list">
+          {sortedGridSeeds.map((seed) => {
+            const { thumbUrl, showResearching } = getThumbState(seed);
+            const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
+
+            if (isPhotoCards) {
+              const cardContent = (
+                <>
+                  <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0">
+                    {showResearching ? (
+                      <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
+                        <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
+                      </div>
+                    ) : showSeedling ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-4xl">🌱</div>
+                    ) : (
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
-                    </div>
-                  );
-                })()}
-                <div className="flex-1 min-h-0">
-                  <h3 className="font-medium text-black text-sm truncate">{decodeHtmlEntities(seed.name)}</h3>
-                  <p className="text-xs text-black/60 truncate flex items-center gap-1 flex-wrap justify-center">
-                    {decodeHtmlEntities(seed.variety)}
-                    {seed.hasF1Packet && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
-                  </p>
-                </div>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <HealthDot seed={seed} />
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-black/80">
-                    {seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                  <span className="mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>
-                )}
-              </article>
-            ) : (
-              <div
-                role="link"
-                tabIndex={0}
-                className="block cursor-pointer"
-                onClick={() => goToProfile(seed.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    goToProfile(seed.id);
-                  }
-                }}
-              >
-                <article
-                  className="rounded-2xl bg-white p-4 shadow-card border border-black/5 flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald/30 w-full"
-                  style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
-                >
-                {(() => {
-                  const { thumbUrl, showResearching } = getThumbState(seed);
-                  const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
-                  return showResearching ? (
-                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
-                      <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
-                      <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
-                    </div>
-                  ) : showSeedling ? (
-                    <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
-                  ) : (
-                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
-                    </div>
-                  );
-                })()}
-                  <div className="flex-1 min-h-0 w-full min-w-0 flex flex-col items-center text-center">
-                    <h3 className="font-medium text-black text-sm truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
-                    <p className="text-xs text-black/60 truncate flex items-center justify-center gap-1 flex-wrap w-full">
-                      {decodeHtmlEntities(seed.variety)}
-                      {seed.hasF1Packet && (
-                        <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-                    <HealthDot seed={seed} />
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-black/80">
-                      {seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}
-                    </span>
-                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>
+                    )}
+                    {batchSelectMode && onToggleVarietySelection && (
+                      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedVarietyIds?.has(seed.id) ?? false}
+                          onChange={() => onToggleVarietySelection(seed.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-black/20 w-5 h-5"
+                          aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
+                        />
+                      </div>
                     )}
                   </div>
-                </article>
-              </div>
-            )}
-          </li>
-        ))}
+                  <div className="p-3 flex flex-col items-center text-center min-w-0">
+                    <p className="text-xs text-black/50 truncate w-full">{decodeHtmlEntities(seed.name)}{seed.variety && seed.variety !== "—" ? ` · ${decodeHtmlEntities(seed.variety)}` : ""}</p>
+                    <h3 className="font-semibold text-black text-sm mt-0.5 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}</h3>
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap justify-center">
+                      <HealthDot seed={seed} />
+                      <span className="text-xs text-black/50">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                      {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
+                        <span className="text-xs font-medium text-amber-700">Out of Stock</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+
+              return (
+                <li key={seed.id}>
+                  {batchSelectMode ? (
+                    <article
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onToggleVarietySelection?.(seed.id)}
+                      className={`rounded-xl bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/10 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
+                    >
+                      {cardContent}
+                    </article>
+                  ) : (
+                    <div
+                      role="link"
+                      tabIndex={0}
+                      className="block cursor-pointer"
+                      onClick={() => goToProfile(seed.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
+                    >
+                      <article className="rounded-xl bg-white shadow-card overflow-hidden flex flex-col border border-black/10 hover:border-emerald-500/50 transition-colors w-full">
+                        {cardContent}
+                      </article>
+                    </div>
+                  )}
+                </li>
+              );
+            }
+
+            return (
+              <li key={seed.id}>
+                {batchSelectMode ? (
+                  <article
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onToggleVarietySelection?.(seed.id)}
+                    className={`rounded-card bg-white p-4 shadow-card flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative ${getCardBorderClass(seed)} ${
+                      selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""
+                    }`}
+                  >
+                    {onToggleVarietySelection && (
+                      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                      </div>
+                    )}
+                    {showResearching ? (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
+                        <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
+                        <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
+                      </div>
+                    ) : showSeedling ? (
+                      <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
+                        <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0">
+                      <h3 className="font-medium text-black text-sm truncate">{decodeHtmlEntities(seed.name)}</h3>
+                      <p className="text-xs text-black/60 truncate flex items-center gap-1 flex-wrap justify-center">
+                        {decodeHtmlEntities(seed.variety)}
+                        {seed.hasF1Packet && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
+                      </p>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <HealthDot seed={seed} />
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-slate-700">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                    </div>
+                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
+                      <span className="mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>
+                    )}
+                  </article>
+                ) : (
+                  <div role="link" tabIndex={0} className="block cursor-pointer" onClick={() => goToProfile(seed.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}>
+                    <article className={`rounded-card bg-white p-4 shadow-card flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald-500/40 w-full ${getCardBorderClass(seed)}`}>
+                      {showResearching ? (
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
+                          <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
+                          <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
+                        </div>
+                      ) : showSeedling ? (
+                        <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
+                          <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-h-0 w-full min-w-0 flex flex-col items-center text-center">
+                        <h3 className="font-medium text-black text-sm truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
+                        <p className="text-xs text-black/60 truncate flex items-center justify-center gap-1 flex-wrap w-full">
+                          {decodeHtmlEntities(seed.variety)}
+                          {seed.hasF1Packet && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                        <HealthDot seed={seed} />
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-slate-700">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                        {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>}
+                      </div>
+                    </article>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     );
@@ -740,7 +900,7 @@ export function SeedVaultView({
     const w = listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId];
     const isDragging = draggedColId === colId;
     const label =
-      colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : "Pkts";
+      colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "vendor" ? "Vendor" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : "Pkts";
     const content =
       colId === "name" ? (
         <div className="relative flex items-center gap-1" ref={plantFilterRef}>
@@ -837,6 +997,8 @@ export function SeedVaultView({
             </span>
           </td>
         );
+      case "vendor":
+        return <td key="vendor" className="py-2 px-3 align-middle text-neutral-700 truncate" title={seed.vendor_display ?? ""}>{seed.vendor_display?.trim() || "—"}</td>;
       case "sun":
         return <td key="sun" className="py-2 px-3 align-middle text-neutral-700">{seed.sun?.trim() || ""}</td>;
       case "spacing":

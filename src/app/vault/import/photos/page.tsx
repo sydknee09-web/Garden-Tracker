@@ -12,6 +12,8 @@ import {
   type ReviewImportItem,
 } from "@/lib/reviewImportStorage";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
+import { identityKeyFromVariety } from "@/lib/identityKey";
+import { supabase } from "@/lib/supabase";
 
 type PhotoPhase = "uploading" | "scanning" | "finding_hero" | "success" | "error";
 
@@ -27,13 +29,16 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type VaultProfile = { id: string; name: string; variety_name: string | null; hero_image_path: string | null; hero_image_url: string | null };
+
 export default function ImportPhotosPage() {
   const router = useRouter();
-  const { session: authSession } = useAuth();
+  const { session: authSession, user } = useAuth();
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [processing, setProcessing] = useState(true);
   const [allDone, setAllDone] = useState(false);
   const processingRef = useRef(false);
+  const vaultProfilesRef = useRef<VaultProfile[] | null>(null);
 
   const updateItem = useCallback((id: string, updates: Partial<PhotoItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -106,6 +111,73 @@ export default function ImportPhotosPage() {
             processingRef.current = false;
             return;
           }
+          const identityKey = identityKeyFromVariety(data.type || "Imported seed", data.variety ?? "");
+          const isGeneric =
+            !identityKey ||
+            ((data.type ?? "").trim() === "Imported seed" && !(data.variety ?? "").trim());
+          // Early vault check: if user already has a profile for this type+variety with hero, use it (skip AI)
+          if (!isGeneric && user?.id) {
+            if (vaultProfilesRef.current === null) {
+              const { data: profiles } = await supabase
+                .from("plant_profiles")
+                .select("id, name, variety_name, hero_image_path, hero_image_url")
+                .eq("user_id", user.id)
+                .is("deleted_at", null);
+              vaultProfilesRef.current = (profiles ?? []) as VaultProfile[];
+            }
+            const exact = vaultProfilesRef.current.find(
+              (p) => identityKeyFromVariety(p.name ?? "", p.variety_name ?? "") === identityKey
+            );
+            if (exact) {
+              let heroUrl: string | null = null;
+              if (exact.hero_image_path?.trim()) {
+                const { data: pub } = supabase.storage.from("journal-photos").getPublicUrl(exact.hero_image_path.trim());
+                if (pub?.publicUrl) heroUrl = pub.publicUrl;
+              }
+              if (!heroUrl && exact.hero_image_url?.trim().startsWith("http")) {
+                heroUrl = exact.hero_image_url.trim();
+              }
+              if (heroUrl) {
+                updateItem(id, {
+                  phase: "success",
+                  phaseLabel: "Ready",
+                  extractResult: { ...data, stock_photo_url: heroUrl, hero_image_url: heroUrl },
+                  heroPhotoUrl: heroUrl,
+                });
+                processingRef.current = false;
+                return;
+              }
+            }
+          }
+          if (!isGeneric && authSession?.access_token) {
+            try {
+              const lookupRes = await fetch("/api/seed/lookup-by-identity", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                  name: data.type || "Imported seed",
+                  variety: data.variety ?? "",
+                  vendor: (data.vendor ?? "").trim() || undefined,
+                }),
+              });
+              const lookupData = (await lookupRes.json()) as ExtractResponse & { found?: boolean };
+              const cacheHero =
+                (lookupData.found && (lookupData.hero_image_url ?? lookupData.stock_photo_url)?.trim()) || "";
+              if (lookupRes.ok && lookupData.found && cacheHero.startsWith("http")) {
+                const { found: _f, ...payload } = lookupData;
+                updateItem(id, {
+                  phase: "success",
+                  phaseLabel: "Ready",
+                  extractResult: { ...payload, stock_photo_url: cacheHero, hero_image_url: cacheHero },
+                  heroPhotoUrl: cacheHero,
+                });
+                processingRef.current = false;
+                return;
+              }
+            } catch {
+              /* fall through to find-hero-photo */
+            }
+          }
           updateItem(id, {
             phase: "finding_hero",
             phaseLabel: "Finding hero photo (Pass 2)...",
@@ -118,6 +190,7 @@ export default function ImportPhotosPage() {
               name: data.type || "Imported seed",
               variety: data.variety ?? "",
               vendor: data.vendor ?? "",
+              ...(identityKey && { identity_key: identityKey }),
             }),
           });
           const heroData = (await heroRes.json()) as { hero_image_url?: string };
@@ -150,13 +223,16 @@ export default function ImportPhotosPage() {
     const reviewItems: ReviewImportItem[] = successful.map((i) => {
       const r = i.extractResult!;
       const heroUrl = i.heroPhotoUrl?.trim() || r.stock_photo_url?.trim() || r.hero_image_url?.trim();
+      const type = r.type ?? "Imported seed";
+      const variety = r.variety ?? "";
+      const identityKey = identityKeyFromVariety(type, variety);
       return {
         id: crypto.randomUUID(),
         imageBase64: i.imageBase64,
         fileName: i.fileName,
         vendor: r.vendor ?? "",
-        type: r.type ?? "Imported seed",
-        variety: r.variety ?? "",
+        type,
+        variety,
         tags: r.tags ?? [],
         purchaseDate: todayISO(),
         sowing_depth: r.sowing_depth,
@@ -168,6 +244,7 @@ export default function ImportPhotosPage() {
         stock_photo_url: r.stock_photo_url?.trim() || undefined,
         hero_image_url: heroUrl || "/seedling-icon.svg",
         useStockPhotoAsHero: !!heroUrl,
+        identityKey: identityKey || undefined,
       };
     });
     setReviewImportData({ items: reviewItems });

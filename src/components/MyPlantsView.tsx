@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,23 @@ type PermanentPlant = {
   journal_count: number;
 };
 
-export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
+export function MyPlantsView({
+  refetchTrigger,
+  searchQuery = "",
+  openAddModal: openAddModalProp,
+  onCloseAddModal,
+  categoryFilter = null,
+  onCategoryChipsLoaded,
+  onFilteredCountChange,
+}: {
+  refetchTrigger: number;
+  searchQuery?: string;
+  openAddModal?: boolean;
+  onCloseAddModal?: () => void;
+  categoryFilter?: string | null;
+  onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  onFilteredCountChange?: (count: number) => void;
+}) {
   const { user } = useAuth();
   const [plants, setPlants] = useState<PermanentPlant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +96,51 @@ export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
 
   useEffect(() => { fetchPlants(); }, [fetchPlants, refetchTrigger]);
 
+  const categoryChips = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of plants) {
+      const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+      map.set(first, (map.get(first) ?? 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
+  }, [plants]);
+
+  const filteredPlants = useMemo(() => {
+    if (!categoryFilter) return plants;
+    return plants.filter((p) => {
+      const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+      return first === categoryFilter;
+    });
+  }, [plants, categoryFilter]);
+
+  const q = (searchQuery ?? "").trim().toLowerCase();
+  const filteredBySearch = useMemo(() => {
+    if (!q) return filteredPlants;
+    return filteredPlants.filter((p) => {
+      const name = (p.name ?? "").toLowerCase();
+      const variety = (p.variety_name ?? "").toLowerCase();
+      return name.includes(q) || variety.includes(q);
+    });
+  }, [filteredPlants, q]);
+
+  useEffect(() => {
+    onCategoryChipsLoaded?.(categoryChips);
+  }, [categoryChips, onCategoryChipsLoaded]);
+
+  useEffect(() => {
+    onFilteredCountChange?.(filteredBySearch.length);
+  }, [filteredBySearch.length, onFilteredCountChange]);
+
+  // When parent asks to open Add modal (e.g. from FAB), open it and clear the request
+  useEffect(() => {
+    if (openAddModalProp) {
+      setShowAddModal(true);
+      onCloseAddModal?.();
+    }
+  }, [openAddModalProp, onCloseAddModal]);
+
   const handleAddPlant = useCallback(async () => {
     if (!user?.id || !addName.trim()) return;
     setAddSaving(true);
@@ -92,7 +153,7 @@ export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
       if (!uploadErr) imagePath = path;
     }
 
-    await supabase.from("plant_profiles").insert({
+    const { error } = await supabase.from("plant_profiles").insert({
       user_id: user.id,
       name: addName.trim(),
       variety_name: addVariety.trim() || null,
@@ -105,8 +166,10 @@ export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
     setAddSaving(false);
     setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null);
     setShowAddModal(false);
-    fetchPlants();
-  }, [user?.id, addName, addVariety, addNotes, addPhoto, fetchPlants]);
+    onCloseAddModal?.();
+    if (error) return;
+    await fetchPlants();
+  }, [user?.id, addName, addVariety, addNotes, addPhoto, fetchPlants, onCloseAddModal]);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -148,11 +211,11 @@ export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
       ) : (
         <>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-black/50">{plants.length} plant{plants.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-black/50">{filteredBySearch.length} plant{filteredBySearch.length !== 1 ? "s" : ""}</p>
             <button type="button" onClick={() => setShowAddModal(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add Plant</button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {plants.map((plant) => {
+            {filteredBySearch.map((plant) => {
               const imgUrl = getImageUrl(plant);
               return (
                 <Link key={plant.id} href={`/vault/${plant.id}`} className="group rounded-xl bg-white border border-black/10 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
@@ -213,7 +276,7 @@ export function MyPlantsView({ refetchTrigger }: { refetchTrigger: number }) {
               </div>
             </div>
             <div className="flex-shrink-0 flex gap-3 justify-end p-4 border-t border-neutral-200">
-              <button type="button" onClick={() => { setShowAddModal(false); setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null); }} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+              <button type="button" onClick={() => { setShowAddModal(false); setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null); onCloseAddModal?.(); }} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
               <button type="button" onClick={handleAddPlant} disabled={addSaving || !addName.trim()} className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addSaving ? "Saving..." : "Add Plant"}</button>
             </div>
           </div>

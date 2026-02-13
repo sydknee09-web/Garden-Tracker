@@ -172,6 +172,37 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         return;
       }
       const plantType = name.trim();
+      const enrichRes = await fetch("/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: plantType, variety: varietyName ?? "" }),
+      });
+      const enrichData = (await enrichRes.json()) as { enriched?: boolean; sun?: string; plant_spacing?: string; days_to_germination?: string; harvest_days?: number; sowing_depth?: string };
+      if (enrichData.enriched && enrichData) {
+        const updates: Record<string, unknown> = {};
+        if (enrichData.sun != null) updates.sun = enrichData.sun;
+        if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;
+        if (enrichData.days_to_germination != null) updates.days_to_germination = enrichData.days_to_germination;
+        if (enrichData.harvest_days != null) updates.harvest_days = enrichData.harvest_days;
+        if (enrichData.sowing_depth != null) updates.sowing_method = enrichData.sowing_depth;
+        if (Object.keys(updates).length > 0) {
+          await supabase.from("plant_profiles").update(updates).eq("id", plantVarietyId).eq("user_id", userId);
+        }
+      }
+      const heroRes = await fetch("/api/seed/find-hero-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: plantType, variety: varietyName ?? "", vendor: "" }),
+      });
+      const heroData = (await heroRes.json()) as { hero_image_url?: string; error?: string };
+      const heroUrl = heroData.hero_image_url?.trim();
+      if (heroUrl) {
+        await supabase
+          .from("plant_profiles")
+          .update({ hero_image_url: heroUrl })
+          .eq("id", plantVarietyId)
+          .eq("user_id", userId);
+      }
       if (plantType) {
         const { data: existingSchedule } = await supabase
           .from("schedule_defaults")

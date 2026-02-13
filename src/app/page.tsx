@@ -232,7 +232,7 @@ export default function HomePage() {
     <div className="px-6 pt-8 pb-6">
       <h1 className="text-2xl font-semibold text-black mb-1">Garden</h1>
       <p className="text-muted text-sm mb-6">
-        Your weightless garden hub -- tasks, vault, and journal in one place.
+        Your weightless garden hub – tasks, vault, and journal in one place.
       </p>
 
       {/* ---- Frost Alert Banner ---- */}
@@ -241,7 +241,7 @@ export default function HomePage() {
           <p className="text-sm font-semibold text-blue-800">Frost Warning</p>
           {frostDays.map((d) => (
             <p key={d.date} className="text-sm text-blue-700">
-              {new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} -- expected low of {Math.round(d.low)}°F. Protect tender plants!
+              {new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })} – expected low of {Math.round(d.low)}°F. Protect tender plants!
             </p>
           ))}
         </div>
@@ -249,10 +249,10 @@ export default function HomePage() {
 
       {/* ---- Weather ---- */}
       <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5 mb-6">
-        <h2 className="text-lg font-medium text-black mb-3">Weather &amp; Forecast -- {locationLabel}</h2>
+        <h2 className="text-lg font-medium text-black mb-3">Weather &amp; Forecast, {locationLabel}</h2>
         {weather ? (
           <>
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-4 mb-3 p-3 rounded-xl bg-black/[0.04] border border-black/5">
               <span className="text-3xl" aria-hidden>{weatherCodeToIcon(weather.code)}</span>
               <div>
                 <p className="text-2xl font-semibold text-black">{Math.round(weather.temp)}°F</p>
@@ -260,9 +260,12 @@ export default function HomePage() {
               </div>
             </div>
             {weather.daily.length > 0 && (
-              <div className="flex gap-4 pt-2 border-t border-black/5">
-                {weather.daily.map((d) => (
-                  <div key={d.date} className="text-center min-w-[4rem]">
+              <div className="flex flex-nowrap gap-0 overflow-x-auto pt-2 border-t border-black/5">
+                {weather.daily.map((d, i) => (
+                  <div
+                    key={d.date}
+                    className={`text-center min-w-[4rem] flex-shrink-0 py-1 ${i > 0 ? "border-l border-black/10" : ""}`}
+                  >
                     <p className="text-xs text-black/60">{new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })}</p>
                     <span className="text-lg" aria-hidden>{weatherCodeToIcon(d.code)}</span>
                     <p className="text-xs text-black/80">{Math.round(d.high)}° / {Math.round(d.low)}°</p>
@@ -271,8 +274,16 @@ export default function HomePage() {
               </div>
             )}
             <div className="mt-3 pt-3 border-t border-black/5 space-y-1.5">
-              {heatAlert && <p className="text-sm text-citrus font-medium">Extreme Heat: Check irrigation.</p>}
-              {sowingOk && !heatAlert && <p className="text-sm text-emerald font-medium">Great weather for sowing!</p>}
+              {heatAlert && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800">
+                  Extreme Heat: Check irrigation.
+                </span>
+              )}
+              {sowingOk && !heatAlert && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+                  Great weather for sowing!
+                </span>
+              )}
             </div>
 
             {/* ---- Sow Now (linked to actual seeds) ---- */}
@@ -344,7 +355,11 @@ export default function HomePage() {
                       return (
                         <li key={t.id} className="flex items-center justify-between gap-2">
                           <Link href={taskHref} className="text-sm text-black/90 hover:text-emerald flex-1 min-w-0 truncate">
-                            {t.title ?? t.category}{t.plant_name ? ` -- ${t.plant_name}` : ""} ({new Date(t.due_date).toLocaleDateString()})
+                            {(() => {
+                              const label = t.title ?? t.category ?? "";
+                              const showPlant = t.plant_name && !label.includes(t.plant_name);
+                              return `${label}${showPlant ? ` · ${t.plant_name}` : ""} (${new Date(t.due_date).toLocaleDateString()})`;
+                            })()}
                           </Link>
                           <button
                             type="button"

@@ -24,7 +24,7 @@ async function checkImageAccessible(url: string): Promise<boolean> {
 const HERO_SEARCH_PROMPT = `You are a professional botanical curator. Using Google Search Grounding, find an image URL that follows these rules:
 
 Subject: Must show the actual growing plant, flower, or fruit (not a seed packet).
-Quality: Prioritize high-resolution, clear lighting, and natural settings.
+Quality: Prioritize high-resolution, clear lighting, and natural settings. Prioritize clear, well-lit images of the plant or fruit (for edible crops).
 Strictly Prohibited: No seed packets, no hands/people, no cooked food, no cutting boards, and no watermarked stock previews (e.g. Alamy, Getty).
 Preferred Sources: Look for educational sites, university extensions, or reputable nurseries (e.g. Rare Seeds, Johnny's, Wikimedia).
 
@@ -77,6 +77,26 @@ export async function POST(req: Request) {
           }
         }
 
+        // Tier 0.5: global_plant_cache by identity_key (reuse bulk-scraped hero URLs; detailed-then-loosen: prefer vendor match)
+        const { data: gpcRows } = await supabase
+          .from("global_plant_cache")
+          .select("original_hero_url, extract_data, vendor")
+          .eq("identity_key", identity_key)
+          .order("updated_at", { ascending: false })
+          .limit(5);
+        if (gpcRows?.length) {
+          const withVendor = vendor ? gpcRows.find((r) => (r as { vendor?: string }).vendor === vendor) : null;
+          const row = withVendor ?? gpcRows[0];
+          const ed = row?.extract_data as Record<string, unknown> | undefined;
+          const heroFromExtract = typeof ed?.hero_image_url === "string" ? String(ed.hero_image_url).trim() : "";
+          const heroFromRow =
+            (row?.original_hero_url as string)?.trim() || heroFromExtract || "";
+          if (heroFromRow.startsWith("http") && (await checkImageAccessible(heroFromRow))) {
+            console.log(`[find-hero-photo] Tier 0.5 cache hit (global_plant_cache) for ${logLabel}`);
+            return NextResponse.json({ hero_image_url: heroFromRow });
+          }
+        }
+
         // Fallback: check seed_import_logs for cached external hero URL (requires HEAD accessibility check)
         const { data: rows, error: selectError } = await supabase
           .from("seed_import_logs")
@@ -95,6 +115,13 @@ export async function POST(req: Request) {
         }
       }
     }
+
+    // --- AI search: detailed then loosen ---
+    // Pass 1 (detailed): Prefer query that includes vendor + plant + variety. Cache lookups above
+    // (plant_extract_cache, global_plant_cache, seed_import_logs) already prefer hero from cache.
+    // First AI attempt uses searchQuery built from variety + name (and for Rare Seeds includes vendor).
+    // Pass 2+ (loosen): If no result, later attempts strip vendor (Rare Seeds fallback, flat-name retry,
+    // botanical retry, scientific_name pass) so we try plant+variety or variety-only.
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
     if (!apiKey) {

@@ -50,12 +50,12 @@ function buildWeatherUrl(coords?: WeatherCoords | null): string {
   return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&timezone=${encodeURIComponent(tz)}`;
 }
 
-/** Build the 3-day forecast URL (used by the dashboard). */
+/** Build the 7-day forecast URL (used by the dashboard). */
 export function buildForecastUrl(coords?: WeatherCoords | null): string {
   const lat = coords?.latitude ?? DEFAULT_LAT;
   const lng = coords?.longitude ?? DEFAULT_LNG;
   const tz = coords?.timezone ?? DEFAULT_TZ;
-  return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=${encodeURIComponent(tz)}&forecast_days=3`;
+  return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=${encodeURIComponent(tz)}&forecast_days=7`;
 }
 
 /** Fetch current weather. Optionally pass user coords; falls back to Vista, CA. */

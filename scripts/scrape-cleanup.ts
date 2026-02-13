@@ -17,6 +17,8 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { identityKeyFromVariety } from "../src/lib/identityKey";
+import { stripPlantFromVariety, cleanVarietyForDisplay } from "../src/lib/varietyNormalize";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const BASE_URL = process.env.SCRAPE_TEST_BASE_URL ?? "http://localhost:3000";
@@ -120,10 +122,25 @@ function determineScrapeQuality(data: Record<string, unknown>): string {
   return "partial";
 }
 
-function buildIdentityKey(data: Record<string, unknown>): string {
-  const t = ((data.plant_name as string) ?? (data.ogTitle as string) ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  const v = ((data.variety_name as string) ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  return t && v ? `${t}_${v}` : t || v || "unknown";
+/** Build identity_key using shared formula (must match bulk-scrape for cache consistency). */
+function buildIdentityKeyAndNormalize(data: Record<string, unknown>): {
+  identityKey: string;
+  typeNorm: string;
+  varietyNorm: string;
+  tagsMerged: string[];
+} {
+  let typeNorm = String(data.plant_name ?? data.ogTitle ?? "").trim() || "";
+  let varietyNorm = String(data.variety_name ?? "").trim();
+  varietyNorm = stripPlantFromVariety(varietyNorm, typeNorm);
+  const { cleanedVariety, tagsToAdd } = cleanVarietyForDisplay(varietyNorm, typeNorm);
+  varietyNorm = cleanedVariety;
+  const identityKey = identityKeyFromVariety(typeNorm || "Imported seed", varietyNorm) || "unknown";
+  const tagsRaw = Array.isArray(data.tags) ? (data.tags as string[]).filter((t) => typeof t === "string").map((t) => String(t).trim()).filter(Boolean) : [];
+  const tagsMerged = [...tagsRaw];
+  for (const t of tagsToAdd) {
+    if (t && !tagsMerged.some((x) => x.toLowerCase() === t.toLowerCase())) tagsMerged.push(t);
+  }
+  return { identityKey, typeNorm: typeNorm || "Imported seed", varietyNorm, tagsMerged };
 }
 
 async function cleanupOne(row: CacheRow): Promise<{ improved: boolean; newQuality: string; error?: string }> {
@@ -142,7 +159,7 @@ async function cleanupOne(row: CacheRow): Promise<{ improved: boolean; newQualit
 
     const newQuality = determineScrapeQuality(data);
     const scrapedFields = collectScrapedFields(data);
-    const identityKey = buildIdentityKey(data);
+    const { identityKey, typeNorm, varietyNorm, tagsMerged } = buildIdentityKeyAndNormalize(data);
 
     const heroUrl =
       (data.imageUrl as string) ??
@@ -151,10 +168,10 @@ async function cleanupOne(row: CacheRow): Promise<{ improved: boolean; newQualit
       null;
 
     const extractData: Record<string, unknown> = {
-      type: data.plant_name ?? data.ogTitle ?? "",
-      variety: data.variety_name ?? "",
+      type: typeNorm,
+      variety: varietyNorm,
       vendor: row.vendor ?? "",
-      tags: data.tags ?? [],
+      tags: tagsMerged,
       source_url: row.source_url,
       sowing_depth: data.sowing_depth ?? undefined,
       spacing: data.plant_spacing ?? undefined,

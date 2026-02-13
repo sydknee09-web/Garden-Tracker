@@ -650,6 +650,17 @@ function isValidSpecValue(s: string | null | undefined): boolean {
   return true;
 }
 
+/** Reject values that are HTML fragments, phone numbers, or footer/boilerplate (for scientific_name, plant_spacing, etc.). */
+function isJunkSpecValue(s: string | null | undefined): boolean {
+  if (!s || !s.trim()) return true;
+  const t = s.trim();
+  if (/<|>|&lt;|&gt;/.test(t)) return true;
+  if (/\d{3}[-.\s]\d{3}[-.\s]\d{4}/.test(t)) return true;
+  if (/selected for (improved )?traits|,\s*and selected|creates stronger|mechanical seeders/i.test(t)) return true;
+  if (t.length > 120) return true;
+  return false;
+}
+
 /** True if value looks like a URL slug (underscores or dashes without spaces, e.g. flower_seeds_mammoth). */
 function looksLikeUrlSlug(s: string | null | undefined): boolean {
   if (!s || !s.trim()) return true;
@@ -791,7 +802,7 @@ async function searchWebFallback(
     });
 
     if (!res.ok) {
-      console.log("AI Search Tavily HTTP error:", res.status, res.statusText);
+      console.log("AI Search Tavily HTTP error:", res.status, res.statusText, "(partial vendor data will still be saved)");
       return null;
     }
     const data = (await res.json()) as {
@@ -1453,6 +1464,8 @@ function parseJohnnys(html: string, pageOrigin: string, metadata?: OgMetadata | 
     if (!src.startsWith("data:")) imageUrl = resolveImageUrl(src, pageOrigin);
   }
   if (!imageUrl) imageUrl = extractImageUrl(html, pageOrigin, metadata?.ogImage ?? undefined);
+  // Johnny's: reject logo as hero (JSS_Logo, logo.svg, /logo/ path)
+  if (imageUrl && /JSS_Logo|logo\.svg|\/logo\b/i.test(imageUrl)) imageUrl = null;
 
   let harvest_days: number | null = null;
   let sun: string | null = null;
@@ -1605,11 +1618,14 @@ function parseJohnnys(html: string, pageOrigin: string, metadata?: OgMetadata | 
     ?? extract(html, /(?:Sun|Light):\s*([^.<]+?)(?:\.|$)/i);
   if (lightMatch) {
     const s = lightMatch.trim();
-    if (/full\s*sun|sun|part\s*sun|partial\s*sun|shade/i.test(s)) sun = s;
+    if (/full\s*sun|sun|part\s*sun|partial\s*sun|shade/i.test(s)) sun = /^Sun$/i.test(s) ? "Full Sun" : s;
   }
   if (!sun) {
     const fullSunMatch = html.match(/\b(Full\s*Sun|Part\s*Sun|Sun|Partial\s*Shade)\b/i);
-    if (fullSunMatch?.[1]) sun = fullSunMatch[1].trim();
+    if (fullSunMatch?.[1]) {
+      const raw = fullSunMatch[1].trim();
+      sun = /^Sun$/i.test(raw) ? "Full Sun" : raw;
+    }
   }
 
   if (days_to_germination == null) {
@@ -1665,6 +1681,8 @@ function parseJohnnys(html: string, pageOrigin: string, metadata?: OgMetadata | 
   }
 
   if (latin_name == null) latin_name = extractFuzzyLabel(html, LATIN_NAME_KEYWORDS, 80);
+  if (latin_name != null && isJunkSpecValue(latin_name)) latin_name = null;
+  if (plant_spacing != null && isJunkSpecValue(plant_spacing)) plant_spacing = null;
   life_cycle = extractFuzzyLabel(html, LIFE_CYCLE_KEYWORDS, 30);
   if (hybrid_status == null) hybrid_status = extractFuzzyLabel(html, HYBRID_KEYWORDS, 30);
 
@@ -1774,6 +1792,12 @@ function parseMarysHeirloom(html: string, pageOrigin: string, metadata?: OgMetad
     if (!plant_spacing) plant_spacing = "3-4 inches";
     if (!water) water = "Consistent";
   }
+
+  // Sanity checks: don't store HTML fragments, phone numbers, or boilerplate
+  if (sun != null && isJunkSpecValue(sun)) sun = null;
+  if (days_to_germination != null && isJunkSpecValue(days_to_germination)) days_to_germination = null;
+  if (plant_spacing != null && isJunkSpecValue(plant_spacing)) plant_spacing = null;
+  if (latin_name != null && isJunkSpecValue(latin_name)) latin_name = null;
 
   return {
     imageUrl,
@@ -3196,6 +3220,14 @@ function parseUniversal(html: string, pageOrigin: string, metadata?: OgMetadata 
   };
 }
 
+/** GET: health check so we can confirm the route is loaded (avoids 404 confusion when POST fails to compile). */
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "scrape-url is up. Use POST with body { url: string }.",
+  });
+}
+
 export async function POST(request: Request) {
   let body: { url?: string; knownPlantTypes?: string[] };
   try {
@@ -3205,6 +3237,7 @@ export async function POST(request: Request) {
   }
 
   const urlString = typeof body.url === "string" ? body.url.trim() : "";
+  const skipAiFallback = (body as { skipAiFallback?: boolean }).skipAiFallback === true;
   const knownPlantTypes =
     Array.isArray(body.knownPlantTypes) &&
     body.knownPlantTypes.every((t) => typeof t === "string")
@@ -3351,20 +3384,16 @@ export async function POST(request: Request) {
     if (!shouldTriggerAiFallback(cleaned)) {
       return buildSuccessResponse(withDefaults, imageError, requestUrl, metadata);
     }
+    if (skipAiFallback) {
+      return buildSuccessResponse(withDefaults, imageError, requestUrl, metadata);
+    }
     const nameForSearch = plantName || "vegetable";
     console.log("Triggering AI Search for:", nameForSearch);
     const categoryKey = getPlantCategoryFromName(plantName);
     const aiPayload = await searchWebFallback(nameForSearch, categoryKey);
     if (!aiPayload) {
-      const failPayload = { ...withStructured };
-      const failCleaned = cleanScrapedPayload(failPayload);
-      const failWithSafety = applyBlankSunAndRequireConfig(failCleaned);
-      return NextResponse.json({
-        ...failWithSafety,
-        scrape_status: "Failed" as const,
-        scrape_error_log: "AI search returned no data.",
-        image_error: imageError || undefined,
-      });
+      // Save partial vendor data anyway; do not mark as Failed. Tavily (432, rate limit, etc.) is optional.
+      return buildSuccessResponse(withDefaults, imageError, requestUrl, metadata);
     }
     const merged: Record<string, unknown> = { ...withDefaults };
     if (!(merged.sun as string)?.trim() && aiPayload.sun) merged.sun = aiPayload.sun;
@@ -3481,6 +3510,17 @@ export async function POST(request: Request) {
             scrape_error_log: msg,
           });
         }
+        if (skipAiFallback) {
+          const failDefaults = applyPlantCategoryDefaults(base, plantName);
+          const failStructured = { ...failDefaults, ...getStructuredNameVendor(failDefaults, url, null) };
+          const failCleaned = cleanScrapedPayload(failStructured);
+          const failWithSafety = applyBlankSunAndRequireConfig(failCleaned);
+          return NextResponse.json({
+            ...failWithSafety,
+            scrape_status: "Failed" as const,
+            scrape_error_log: msg,
+          });
+        }
         console.log("Triggering AI Search for:", plantName, "(site returned 403/404, unknown category)");
         const aiPayload = await searchWebFallback(plantName, null);
         if (aiPayload) {
@@ -3498,14 +3538,15 @@ export async function POST(request: Request) {
             scrape_error_log: msg,
           });
         }
+        // Save URL-derived identity anyway; do not mark as Failed when Tavily fails (e.g. 432).
         const failDefaults = applyPlantCategoryDefaults(base, plantName);
         const failStructured = { ...failDefaults, ...getStructuredNameVendor(failDefaults, url, null) };
         const failCleaned = cleanScrapedPayload(failStructured);
         const failWithSafety = applyBlankSunAndRequireConfig(failCleaned);
         return NextResponse.json({
           ...failWithSafety,
-          scrape_status: "Failed" as const,
-          scrape_error_log: `${msg} (AI fallback returned no data)`,
+          scrape_status: "Partial" as const,
+          scrape_error_log: `${msg} (AI search unavailable or failed; URL identity saved.)`,
         });
       }
       return NextResponse.json(
@@ -4043,6 +4084,25 @@ export async function POST(request: Request) {
     const isTimeout = e instanceof Error && e.message === "SCRAPER_TIMEOUT";
     const isAbort = e instanceof Error && e.name === "AbortError";
     if (isTimeout || isAbort) {
+      if (skipAiFallback) {
+        if (fallbackMetadata && fallbackOrigin) {
+          return safetyMetadataResponse(fallbackMetadata, fallbackOrigin, url, "Request timed out (15s).");
+        }
+        return NextResponse.json(
+          {
+            error: "Request timed out (15s).",
+            scrape_status: "Failed",
+            scrape_error_log: "Request timed out (15s).",
+            imageUrl: undefined,
+            plant_description: undefined,
+            ogTitle: undefined,
+            plant_name: "",
+            variety_name: "",
+            vendor_name: "",
+          },
+          { status: 200 }
+        );
+      }
       console.log("Scraper timed out; trying AI fallback for batch/vault completeness.");
       const timeoutPlantName = slugLooksUseful ? plantNameFromUrl : (plantNameFromUrl || "vegetable");
       const categoryKey = categoryFromUrl ?? getPlantCategoryFromName(timeoutPlantName);
