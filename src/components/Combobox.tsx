@@ -52,8 +52,13 @@ export function Combobox({
           setHighlight(0);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => setTimeout(() => setOpen(false), 0)}
         onKeyDown={(e) => {
+          // Always allow Space to be typed in the input (don't let listbox semantics or parents capture it)
+          if (e.key === " ") {
+            e.stopPropagation();
+            return;
+          }
           if (!showList) return;
           if (e.key === "ArrowDown") {
             e.preventDefault();

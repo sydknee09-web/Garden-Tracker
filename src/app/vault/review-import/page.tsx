@@ -1360,7 +1360,7 @@ export default function ReviewImportPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Combobox
-                          value={decodeHtmlEntities(item.cleanVariety ?? item.variety ?? "")}
+                          value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
                           suggestions={getVarietySuggestionsForPlant(item.type)}
                           placeholder="Variety"
