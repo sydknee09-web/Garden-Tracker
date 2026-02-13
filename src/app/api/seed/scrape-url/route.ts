@@ -502,6 +502,8 @@ function getStructuredNameVendor(
     const slug = slugWithExt.replace(/\.(html?|aspx|php)$/i, "").trim();
     const categorySegment = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] ?? "" : "";
 
+    plant_name = "";
+    variety_name = "";
     if (slug) {
       const lower = slug.toLowerCase();
       // Pattern: something-seeds-something (e.g. sweet-violet-seeds-reine-de-neiges) → plant from left, variety from right

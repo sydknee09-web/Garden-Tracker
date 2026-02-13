@@ -58,7 +58,7 @@ export async function POST(req: Request) {
             result = {
               type,
               variety,
-              vendor: String(data.vendor_name ?? data.vendor ?? "").trim() || undefined,
+              vendor: String(data.vendor_name ?? data.vendor ?? "").trim() || "",
               tags: (Array.isArray(data.tags) ? data.tags : []) as string[],
               source_url: url,
               sowing_depth: data.sowing_depth as string | undefined,
