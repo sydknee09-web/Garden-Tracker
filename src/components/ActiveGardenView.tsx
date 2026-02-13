@@ -38,6 +38,8 @@ export function ActiveGardenView({
   categoryFilter = null,
   onCategoryChipsLoaded,
   onFilteredCountChange,
+  openBulkJournalRequest = false,
+  onBulkJournalRequestHandled,
 }: {
   refetchTrigger: number;
   searchQuery?: string;
@@ -47,6 +49,9 @@ export function ActiveGardenView({
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
   onFilteredCountChange?: (count: number) => void;
+  /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
+  openBulkJournalRequest?: boolean;
+  onBulkJournalRequestHandled?: () => void;
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -68,6 +73,9 @@ export function ActiveGardenView({
   const [endReason, setEndReason] = useState<string>("season_ended");
   const [endNote, setEndNote] = useState("");
   const [endSaving, setEndSaving] = useState(false);
+
+  // Actions menu (per-batch dropdown to reduce icon clutter)
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
@@ -189,6 +197,14 @@ export function ActiveGardenView({
   useEffect(() => {
     onFilteredCountChange?.(filteredPending.length + filteredBySearch.length);
   }, [filteredPending.length, filteredBySearch.length, onFilteredCountChange]);
+
+  // Enter bulk mode when parent requests it (e.g. FAB "Add journal entry").
+  useEffect(() => {
+    if (openBulkJournalRequest) {
+      setBulkMode(true);
+      onBulkJournalRequestHandled?.();
+    }
+  }, [openBulkJournalRequest, onBulkJournalRequestHandled]);
 
   // Quick-tap handler
   const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
@@ -337,40 +353,45 @@ export function ActiveGardenView({
         </div>
       )}
 
-      {/* Bulk mode controls */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => { setBulkMode((b) => !b); setBulkSelected(new Set()); }}
-          className={`text-sm font-medium px-3 py-1.5 rounded-lg border ${bulkMode ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-        >
-          {bulkMode ? `Selecting (${bulkSelected.size})` : "Bulk Journal"}
-        </button>
-        {bulkMode && bulkSelected.size > 0 && (
-          <div className="flex items-center gap-2 flex-1 ml-3 flex-wrap">
-            <div className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={() => handleBulkQuickTap("water")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50" title="Water selected" aria-label="Water selected">💧</button>
-              <button type="button" onClick={() => handleBulkQuickTap("fertilize")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Fertilize selected" aria-label="Fertilize selected">🌿</button>
-              <button type="button" onClick={() => handleBulkQuickTap("spray")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-50" title="Spray selected" aria-label="Spray selected">🧴</button>
+      {/* Bulk mode: shown when entered from FAB "Add journal entry". Cancel exits; when batches selected, show quick actions + note. */}
+      {bulkMode && (
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <button
+            type="button"
+            onClick={() => { setBulkMode(false); setBulkSelected(new Set()); }}
+            className="text-sm font-medium px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 shrink-0"
+          >
+            Cancel
+          </button>
+          {bulkSelected.size > 0 ? (
+            <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+              <span className="text-sm text-black/60 shrink-0">Selecting ({bulkSelected.size})</span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button type="button" onClick={() => handleBulkQuickTap("water")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50" title="Water selected" aria-label="Water selected">💧</button>
+                <button type="button" onClick={() => handleBulkQuickTap("fertilize")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Fertilize selected" aria-label="Fertilize selected">🌿</button>
+                <button type="button" onClick={() => handleBulkQuickTap("spray")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-50" title="Spray selected" aria-label="Spray selected">🧴</button>
+              </div>
+              <input
+                type="text"
+                placeholder="Add note to selected..."
+                value={bulkNote}
+                onChange={(e) => setBulkNote(e.target.value)}
+                className="flex-1 min-w-[120px] px-3 py-1.5 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={handleBulkSubmit}
+                disabled={bulkSaving || !bulkNote.trim()}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 shrink-0"
+              >
+                {bulkSaving ? "..." : "Add note"}
+              </button>
             </div>
-            <input
-              type="text"
-              placeholder="Add note to selected..."
-              value={bulkNote}
-              onChange={(e) => setBulkNote(e.target.value)}
-              className="flex-1 min-w-[120px] px-3 py-1.5 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500"
-            />
-            <button
-              type="button"
-              onClick={handleBulkSubmit}
-              disabled={bulkSaving || !bulkNote.trim()}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {bulkSaving ? "..." : "Add note"}
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <p className="text-sm text-black/50">Select batches below to add a journal entry.</p>
+          )}
+        </div>
+      )}
 
       {/* Pending tasks */}
       {filteredPending.length > 0 && (
@@ -445,25 +466,39 @@ export function ActiveGardenView({
                         </p>
                       )}
                     </Link>
-                    <div className="flex flex-shrink-0 flex-col gap-1">
-                      {/* Quick-tap actions */}
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => handleQuickTap(batch, "water")} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs" title="Water" aria-label="Water">
-                          💧
-                        </button>
-                        <button type="button" onClick={() => handleQuickTap(batch, "fertilize")} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-xs" title="Fertilize" aria-label="Fertilize">
-                          🌿
-                        </button>
-                        <button type="button" onClick={() => handleQuickTap(batch, "spray")} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 text-xs" title="Spray" aria-label="Spray">
-                          🧴
-                        </button>
-                      </div>
-                      {/* Main actions */}
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => onLogHarvest(batch)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-black/70 hover:bg-black/5" aria-label="Log harvest" title="Log harvest"><BasketIcon /></button>
-                        <button type="button" onClick={() => onLogGrowth(batch)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-black/70 hover:bg-black/5" aria-label="Log growth" title="Log growth"><CameraIcon /></button>
-                        <button type="button" onClick={() => setEndBatchTarget(batch)} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" aria-label="End batch" title="End batch"><ArchiveIcon /></button>
-                      </div>
+                    <div className="relative flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setOpenActionsMenuId((id) => (id === batch.id ? null : batch.id))}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-black/70 hover:bg-black/5"
+                        aria-label="Actions"
+                        aria-expanded={openActionsMenuId === batch.id}
+                      >
+                        <MoreVerticalIcon />
+                      </button>
+                      {openActionsMenuId === batch.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" aria-hidden onClick={() => setOpenActionsMenuId(null)} />
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] py-1 rounded-xl bg-white shadow-lg border border-black/10">
+                            <button type="button" onClick={() => { handleQuickTap(batch, "water"); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-blue-50 text-blue-700">
+                              <span>💧</span> Water
+                            </button>
+                            <button type="button" onClick={() => { onLogHarvest(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-emerald-50 text-emerald-700">
+                              <span>🧺</span> Harvest
+                            </button>
+                            <button type="button" onClick={() => { handleQuickTap(batch, "spray"); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-purple-50 text-purple-700">
+                              <span>🧴</span> Spray
+                            </button>
+                            <div className="border-t border-black/5 my-1" />
+                            <button type="button" onClick={() => { onLogGrowth(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-black/5 text-black/80">
+                              <CameraIcon /> Log growth
+                            </button>
+                            <button type="button" onClick={() => { setEndBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 text-amber-700">
+                              <ArchiveIcon /> End batch
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -476,6 +511,7 @@ export function ActiveGardenView({
   );
 }
 
+function MoreVerticalIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>; }
 function CameraIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>; }
 function BasketIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.5 10H6.5L5 8z" /><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path d="M4 10h16" /></svg>; }
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>; }

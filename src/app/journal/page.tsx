@@ -612,9 +612,8 @@ export default function JournalPage() {
 
   if (loading) {
     return (
-      <div className="px-6 pt-8 pb-6">
-        <h1 className="text-2xl font-semibold text-black mb-1">Journal</h1>
-        <p className="text-muted text-sm mb-6">Notes and photos</p>
+      <div className="px-6 pt-2 pb-6">
+        <p className="text-muted text-sm mb-4">Notes and photos</p>
         <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center text-black/60">
           Loading…
         </div>
@@ -624,8 +623,7 @@ export default function JournalPage() {
 
   if (error) {
     return (
-      <div className="px-6 pt-8 pb-6">
-        <h1 className="text-2xl font-semibold text-black mb-1">Journal</h1>
+      <div className="px-6 pt-2 pb-6">
         <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <p className="text-citrus font-medium">Could not load journal</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
@@ -635,10 +633,9 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="px-6 pt-8 pb-6">
+    <div className="px-6 pt-2 pb-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-semibold text-black mb-1">Journal</h1>
           <p className="text-muted text-sm">Notes and photos from your garden</p>
         </div>
         {entries.length > 0 && (
@@ -764,7 +761,7 @@ export default function JournalPage() {
         </div>
       ) : viewMode === "timeline" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
-          {/* Plant gallery: click opens that plant's journal in vault */}
+          {/* Plant gallery: click opens that plant's journal in vault; no blank photo placeholder */}
           {groupEntriesByPlant(entries).map((group) => {
             const firstWithImage = group.entries.find((e) => e.image_file_path || e.photo_url);
             const thumbSrc = firstWithImage?.image_file_path
@@ -773,8 +770,8 @@ export default function JournalPage() {
             const href = group.profileId ? `/vault/${group.profileId}?tab=journal` : null;
             const card = (
               <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col">
-                <div className="relative aspect-[4/3] bg-neutral-50 shrink-0">
-                  {thumbSrc ? (
+                {thumbSrc ? (
+                  <div className="relative aspect-[4/3] bg-neutral-50 shrink-0">
                     <Image
                       src={thumbSrc}
                       alt=""
@@ -783,12 +780,8 @@ export default function JournalPage() {
                       sizes="(max-width: 640px) 50vw, 33vw"
                       unoptimized={thumbSrc.startsWith("data:") || !thumbSrc.includes("supabase.co")}
                     />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-black/15">
-                      <PlantIcon />
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
                 <div className="p-3 flex-1 flex flex-col justify-center">
                   <p className="text-sm font-semibold text-black/90 line-clamp-1">{group.plantName}</p>
                   <p className="text-xs text-black/50 mt-0.5">{group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}</p>
@@ -820,8 +813,8 @@ export default function JournalPage() {
             const rowId = row.entryIds[0];
             return (
               <article key={rowId} className="rounded-2xl bg-white border border-black/10 overflow-hidden mb-6 shadow-card">
-                {/* Photo: single image or swipeable carousel */}
-                {hasImages ? (
+                {/* Photo only when present; no blank placeholder */}
+                {hasImages && (
                   <div className="relative aspect-square bg-neutral-100">
                     {imageUrls.length === 1 ? (
                       <Image
@@ -856,12 +849,8 @@ export default function JournalPage() {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="aspect-square bg-neutral-50 flex items-center justify-center text-black/20">
-                    <span className="scale-[2.5]" aria-hidden><NoteIcon /></span>
-                  </div>
                 )}
-                {/* Note and meta below */}
+                {/* Note and meta (text bubble when no photo) */}
                 <div className="p-4">
                   {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
                   <div className="flex items-center justify-between gap-2 flex-wrap">

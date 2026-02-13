@@ -181,6 +181,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         setError(packetErr.message);
         return;
       }
+      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", match.id).eq("user_id", userId);
     } else {
       const { data: newProfile, error: profileErr } = await supabase
         .from("plant_profiles")

@@ -306,8 +306,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="px-6 pt-8 pb-6">
-      <h1 className="text-2xl font-semibold text-black mb-1">Calendar</h1>
+    <div className="px-6 pt-2 pb-6">
       <p className="text-muted text-sm mb-4">Tasks by due date</p>
 
       <div className="flex justify-center mb-4">

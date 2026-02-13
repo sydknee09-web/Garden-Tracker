@@ -116,8 +116,6 @@ export default function VaultSeedPage() {
 
   const [vendorDetailsOpen, setVendorDetailsOpen] = useState(false);
   const [openPacketDetails, setOpenPacketDetails] = useState<Set<string>>(new Set());
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -130,7 +128,6 @@ export default function VaultSeedPage() {
   const tabFromUrl = searchParams.get("tab");
   const validTab = ["about", "packets", "plantings", "journal", "care"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" | "care" : "about";
   const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal" | "care">(validTab);
-  const [profileViewMode, setProfileViewMode] = useState<"detailed" | "condensed">("detailed");
 
   useEffect(() => {
     setActiveTab(validTab);
@@ -141,11 +138,6 @@ export default function VaultSeedPage() {
   const [findHeroError, setFindHeroError] = useState<string | null>(null);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
-
-  // Plan modal
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  const [planDate, setPlanDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [savingPlan, setSavingPlan] = useState(false);
 
   // Harvest modal
   const [harvestGrowId, setHarvestGrowId] = useState<string | null>(null);
@@ -174,8 +166,8 @@ export default function VaultSeedPage() {
       setProfile(profileData as ProfileData);
       // Packets
       const { data: packetData } = await supabase.from("seed_packets")
-        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, created_at, user_notes, tags, vendor_specs")
-        .eq("plant_profile_id", id).eq("user_id", user.id).order("created_at", { ascending: false });
+        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, created_at, user_notes, tags, vendor_specs, is_archived")
+        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
       setPackets((packetData ?? []) as SeedPacket[]);
 
       // Grow instances
@@ -299,22 +291,26 @@ export default function VaultSeedPage() {
     if (clamped <= 0) updates.is_archived = true;
     else updates.is_archived = false;
     await supabase.from("seed_packets").update(updates).eq("id", packetId).eq("user_id", user.id);
-    setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, qty_status: clamped } : p)));
-    // Check profile stock status after qty change
-    if (clamped <= 0 && id) {
-      const { data: remaining } = await supabase
-        .from("seed_packets")
-        .select("id")
-        .eq("plant_profile_id", id)
-        .eq("user_id", user.id)
-        .or("is_archived.is.null,is_archived.eq.false")
-        .gt("qty_status", 0);
-      if (!remaining?.length) {
-        await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", id).eq("user_id", user.id);
-        await supabase.from("shopping_list").upsert(
-          { user_id: user.id, plant_profile_id: id, is_purchased: false },
-          { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
-        );
+    setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, qty_status: clamped, is_archived: clamped <= 0 } : p)));
+    // Profile: archive when all packets 0%; unarchive when any packet has inventory
+    if (id) {
+      if (clamped > 0) {
+        await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", user.id);
+      } else {
+        const { data: remaining } = await supabase
+          .from("seed_packets")
+          .select("id")
+          .eq("plant_profile_id", id)
+          .eq("user_id", user.id)
+          .or("is_archived.is.null,is_archived.eq.false")
+          .gt("qty_status", 0);
+        if (!remaining?.length) {
+          await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", id).eq("user_id", user.id);
+          await supabase.from("shopping_list").upsert(
+            { user_id: user.id, plant_profile_id: id, is_purchased: false },
+            { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
+          );
+        }
       }
     }
   }, [user?.id, id]);
@@ -448,38 +444,11 @@ export default function VaultSeedPage() {
     await loadProfile();
   }, [user?.id, profile, id, editForm, loadProfile]);
 
-  // Soft delete
-  const handleDeleteProfile = useCallback(async () => {
-    if (!user?.id || !profile) return;
-    setDeleting(true);
-    const now = new Date().toISOString();
-    // Soft-delete: set deleted_at timestamp
-    const { error: e1 } = await supabase.from("plant_profiles").update({ deleted_at: now }).eq("id", id).eq("user_id", user.id);
-    if (!e1) { setDeleting(false); setShowDeleteConfirm(false); router.push("/vault"); return; }
-    // Legacy fallback
-    const { error: e } = await supabase.from("plant_varieties").delete().eq("id", id).eq("user_id", user.id);
-    if (e) { setDeleting(false); setError(e.message); return; }
-    setDeleting(false); setShowDeleteConfirm(false); router.push("/vault");
-  }, [user?.id, profile, id, router]);
-
-  // Plan task
-  const handleCreatePlan = useCallback(async () => {
-    if (!user?.id || !profile) return;
-    setSavingPlan(true);
-    await supabase.from("tasks").insert({ user_id: user.id, plant_profile_id: id, plant_variety_id: id, category: "sow", due_date: planDate, title: `Sow ${displayName}` });
-    setSavingPlan(false);
-    setShowPlanModal(false);
-  }, [user?.id, id, profile, planDate, displayName]);
-
   // =========================================================================
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
   if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6"><Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link><p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
-
-  const deleteConfirmMessage = packetCount > 0
-    ? `Are you sure you want to delete ${displayName}? This will permanently remove the profile and ${packetCount} seed packet${packetCount === 1 ? "" : "s"}.`
-    : `Are you sure you want to delete ${displayName}? This will permanently remove the profile.`;
 
   const careList = [
     { label: "Sowing Method", value: displaySowing || "--" },
@@ -498,36 +467,21 @@ export default function VaultSeedPage() {
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
 
+  // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
+  const sortedPackets = useMemo(() => {
+    return [...packets].sort((a, b) => {
+      const aHas = (a.qty_status ?? 0) > 0 ? 1 : 0;
+      const bHas = (b.qty_status ?? 0) > 0 ? 1 : 0;
+      if (bHas !== aHas) return bHas - aHas; // has inventory first, then 0% at bottom
+      const aAt = a.created_at ?? "";
+      const bAt = b.created_at ?? "";
+      return bAt.localeCompare(aAt);
+    });
+  }, [packets]);
+
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Modals */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-2">Delete profile</h2>
-            <p className="text-neutral-600 text-sm mb-6">{deleteConfirmMessage}</p>
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleDeleteProfile} disabled={deleting} className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50">{deleting ? "Deleting..." : "Delete"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Plan Sowing</h2>
-            <label htmlFor="plan-date" className="block text-sm font-medium text-neutral-700 mb-1">Due date</label>
-            <input id="plan-date" type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm mb-4 focus:ring-emerald-500 focus:border-emerald-500" />
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowPlanModal(false)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
-              <button type="button" onClick={handleCreatePlan} disabled={savingPlan} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingPlan ? "Saving..." : "Create Task"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showSetPhotoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
@@ -622,59 +576,6 @@ export default function VaultSeedPage() {
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}
 
-        {/* View toggle: Detailed vs Table (condensed) */}
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-medium text-neutral-500">View</span>
-          <div className="inline-flex rounded-lg p-0.5 border border-neutral-200 bg-neutral-100" role="tablist" aria-label="Profile view">
-            <button type="button" role="tab" aria-selected={profileViewMode === "detailed"} onClick={() => setProfileViewMode("detailed")} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${profileViewMode === "detailed" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"}`}>Detailed</button>
-            <button type="button" role="tab" aria-selected={profileViewMode === "condensed"} onClick={() => setProfileViewMode("condensed")} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${profileViewMode === "condensed" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"}`}>Table</button>
-          </div>
-        </div>
-
-        {profileViewMode === "condensed" ? (
-          <>
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <h1 className="text-xl font-bold text-neutral-900">{displayName}</h1>
-              <div className="flex items-center gap-1 shrink-0">
-                <button type="button" onClick={() => setShowPlanModal(true)} className="min-h-[44px] px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50">Plan</button>
-                <Link href={`/vault/plant?ids=${id}`} className="min-h-[44px] px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 inline-flex items-center">Plant</Link>
-                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50" aria-label="Edit"><PencilIcon /></button>
-                <button type="button" onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-lg text-red-600 hover:bg-red-50" aria-label="Delete"><TrashIcon /></button>
-              </div>
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white mb-4">
-              <table className="w-full text-sm" role="table">
-                <thead>
-                  <tr className="border-b border-neutral-200 bg-neutral-50">
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Plant Type</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Variety</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Sun</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Spacing</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Germination</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Maturity</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Packets</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Vendor(s)</th>
-                    <th className="text-left py-2 px-3 font-medium text-neutral-600">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-2 px-3 text-neutral-900">{(profile?.name ?? "").trim() || "—"}</td>
-                    <td className="py-2 px-3 font-medium text-neutral-900">{(profile?.variety_name ?? "").trim() || "—"}</td>
-                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.sun ?? profile?.sun ?? "").toString().trim() || "—"}</td>
-                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.plant_spacing ?? profile?.plant_spacing ?? "").toString().trim() || "—"}</td>
-                    <td className="py-2 px-3 text-neutral-700">{(effectiveCare?.days_to_germination ?? profile?.days_to_germination ?? "").toString().trim() || "—"}</td>
-                    <td className="py-2 px-3 text-neutral-700">{effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} d` : profile?.harvest_days != null ? `${profile.harvest_days} d` : "—"}</td>
-                    <td className="py-2 px-3 text-neutral-900">{packetCount}</td>
-                    <td className="py-2 px-3 text-neutral-700">{[...new Set(packets.map((p) => p.vendor_name).filter(Boolean))].join(", ") || "—"}</td>
-                    <td className="py-2 px-3">{profileStatus ? <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[profileStatus] ?? ""}`}>{profileStatus.replace("_", " ")}</span> : "—"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <>
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -689,13 +590,10 @@ export default function VaultSeedPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button type="button" onClick={() => setShowPlanModal(true)} className="min-h-[44px] px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50">Plan</button>
-            <Link href={`/vault/plant?ids=${id}`} className="min-h-[44px] px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 inline-flex items-center">Plant</Link>
             {growInstances.some((gi) => gi.status === "growing") && (
               <button type="button" onClick={() => { const active = growInstances.find((gi) => gi.status === "growing"); if (active) setHarvestGrowId(active.id); }} className="min-h-[44px] px-3 py-2 rounded-lg border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-50">Harvest</button>
             )}
-            <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50" aria-label="Edit"><PencilIcon /></button>
-            <button type="button" onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-lg text-red-600 hover:bg-red-50" aria-label="Delete"><TrashIcon /></button>
+            <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit"><PencilIcon /></button>
           </div>
         </div>
 
@@ -905,16 +803,17 @@ export default function VaultSeedPage() {
             ) : (
               <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
                 <ul className="divide-y divide-neutral-100">
-                  {packets.map((pkt) => {
+                  {sortedPackets.map((pkt) => {
                     const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
                     const open = openPacketDetails.has(pkt.id);
                     const pktImageUrl = pkt.primary_image_path?.trim() ? supabase.storage.from("seed-packets").getPublicUrl(pkt.primary_image_path).data.publicUrl : null;
+                    const isArchived = (pkt.qty_status ?? 0) <= 0;
                     return (
-                      <li key={pkt.id} className="p-4">
+                      <li key={pkt.id} className={`p-4 ${isArchived ? "bg-neutral-50 text-neutral-500" : ""}`}>
                         <div className="flex items-center gap-3 flex-wrap">
-                          {pktImageUrl && <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-100 shrink-0"><img src={pktImageUrl} alt="" className="w-full h-full object-cover" /></div>}
+                          {pktImageUrl && <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"}`}><img src={pktImageUrl} alt="" className="w-full h-full object-cover" /></div>}
                           <div className="flex-1 min-w-0 flex items-center justify-between gap-2 flex-wrap">
-                            <button type="button" onClick={() => togglePacketDetails(pkt.id)} className="flex items-center gap-1 font-medium text-neutral-900 hover:text-emerald-600 text-left min-h-[44px] -m-2 p-2" aria-expanded={open}>
+                            <button type="button" onClick={() => togglePacketDetails(pkt.id)} className={`flex items-center gap-1 font-medium text-left min-h-[44px] -m-2 p-2 ${isArchived ? "text-neutral-500 hover:text-neutral-700" : "text-neutral-900 hover:text-emerald-600"}`} aria-expanded={open}>
                               <span className="truncate">{pkt.vendor_name?.trim() || "--"}</span>
                               {year != null && <span className="text-neutral-500 text-sm shrink-0">{year}</span>}
                               <span className={`shrink-0 inline-flex text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden><ChevronDownIcon /></span>
@@ -956,7 +855,7 @@ export default function VaultSeedPage() {
             {growInstances.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">No plantings yet.</p>
-                <p className="text-neutral-400 text-xs mt-1">Use the &quot;Plant&quot; button above to start a new planting.</p>
+                <p className="text-neutral-400 text-xs mt-1">Use the + button from the Vault or Garden to start a new planting.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1054,8 +953,6 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "care" && (
           <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
-        )}
-          </>
         )}
       </div>
 

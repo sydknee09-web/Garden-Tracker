@@ -9,17 +9,34 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 
+function getPageTitle(pathname: string | null): string {
+  if (!pathname) return "";
+  if (pathname === "/") return "Home";
+  if (pathname.startsWith("/vault")) return "Vault";
+  if (pathname.startsWith("/garden")) return "Garden";
+  if (pathname.startsWith("/journal")) return "Journal";
+  if (pathname.startsWith("/calendar")) return "Calendar";
+  if (pathname.startsWith("/settings")) return "Settings";
+  return "";
+}
+
 function CloudSyncIcon({ syncing }: { syncing: boolean }) {
   return (
     <span
-      className="inline-flex items-center justify-center w-9 h-9 rounded-full"
+      className="relative inline-flex items-center justify-center w-9 h-9 rounded-full min-w-[44px] min-h-[44px]"
       title={syncing ? "Syncing to cloud…" : "All data saved"}
       aria-label={syncing ? "Syncing to cloud" : "All data saved"}
       style={{ color: syncing ? "#eab308" : "#10b981" }}
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={syncing ? "animate-pulse" : ""}>
         <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
       </svg>
+      {syncing && (
+        <span
+          className="absolute inset-0 rounded-full border-2 border-transparent border-t-current opacity-70 animate-spin"
+          aria-hidden
+        />
+      )}
     </span>
   );
 }
@@ -63,13 +80,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     <>
       {!isAuthPage && (
         <header
-          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-4 pr-4 bg-paper/90 backdrop-blur border-b border-black/5"
+          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <CloudSyncIcon syncing={syncing} />
+          <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
+            {getPageTitle(pathname) || "\u00A0"}
+          </h1>
           <Link
             href="/settings"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 text-black/60 hover:text-black"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 text-black/60 hover:text-black"
             aria-label="Settings"
           >
             <SettingsIcon />

@@ -515,6 +515,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
         setSaving(false);
         return;
       }
+      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
     }
     setSaving(false);
     const count = queue.filter((i) => i.status === "pending").length;

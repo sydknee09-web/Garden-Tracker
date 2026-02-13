@@ -78,6 +78,8 @@ export type VaultCardItem = {
   hasF1Packet?: boolean;
   /** Comma-separated vendor names from packets (for list column). */
   vendor_display?: string | null;
+  /** Average seed quantity % across packets (0–100), for inventory dot; null when no packets. */
+  avg_qty_pct?: number | null;
 };
 
 export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
@@ -113,10 +115,12 @@ const VOLUME_COLORS: Record<string, string> = {
   empty: "bg-black/5 text-black/50",
 };
 
-/** Returns a color class for the health indicator dot based on packet inventory. */
+/** Returns a color class for the health indicator dot based on inventory % (avg qty). Grey = no packets, yellow ≤25%, orange ≤50%, green >50%. */
 function getHealthColor(seed: VaultCardItem): string {
-  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "bg-red-500";
-  if (seed.packet_count === 1) return "bg-amber-400";
+  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "bg-neutral-400";
+  const avg = seed.avg_qty_pct ?? 0;
+  if (avg <= 25) return "bg-amber-400";
+  if (avg <= 50) return "bg-orange-500";
   return "bg-emerald-500";
 }
 
@@ -124,13 +128,20 @@ function getHealthColor(seed: VaultCardItem): string {
 function getCardBorderClass(seed: VaultCardItem): string {
   const active = (seed.status ?? "").toLowerCase().includes("active");
   if (active) return "border-emerald-500/60 border-2";
-  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-slate-200 border border-dashed";
+  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-neutral-300 border border-dashed";
   return "border-slate-200/80 border";
 }
 
 function HealthDot({ seed }: { seed: VaultCardItem }) {
   const color = getHealthColor(seed);
-  const label = seed.packet_count === 0 || seed.status === "out_of_stock" ? "Out of stock" : seed.packet_count === 1 ? "Low inventory" : "In stock";
+  const label =
+    seed.packet_count === 0 || seed.status === "out_of_stock"
+      ? "Out of stock"
+      : (seed.avg_qty_pct ?? 0) <= 25
+        ? "Low inventory (≤25%)"
+        : (seed.avg_qty_pct ?? 0) <= 50
+          ? "Medium (≤50%)"
+          : "In stock (>50%)";
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${color} shrink-0`} title={label} aria-label={label} />;
 }
 
@@ -144,7 +155,7 @@ function ExternalLinkIcon() {
   );
 }
 
-export type StatusFilter = "" | "vault" | "active" | "low_inventory";
+export type StatusFilter = "" | "vault" | "active" | "low_inventory" | "archived";
 export type TagFilter = string[];
 
 function SortArrowIcon({ dir }: { dir: "asc" | "desc" | "off" }) {
@@ -202,6 +213,7 @@ export function SeedVaultView({
   maturityFilter = null,
   packetCountFilter = null,
   onRefineChipsLoaded,
+  hideArchivedProfiles = false,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -247,6 +259,8 @@ export function SeedVaultView({
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
   }) => void;
+  /** When true, exclude plant profiles with no packets (archived) from list/table. */
+  hideArchivedProfiles?: boolean;
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -410,6 +424,7 @@ export function SeedVaultView({
 
   const filteredSeeds = useMemo(() => {
     return displayedSeeds.filter((s) => {
+      if (hideArchivedProfiles && statusFilter !== "archived" && (s.packet_count ?? 0) <= 0) return false;
       if (categoryFilter !== null) {
         const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
@@ -448,6 +463,7 @@ export function SeedVaultView({
         return false;
       if (statusFilter === "vault") {
         if ((s.packet_count ?? 0) <= 0) return false;
+        if ((s.status ?? "").toLowerCase() === "out_of_stock") return false;
       }
       if (statusFilter === "active") {
         if ((s.status ?? "").toLowerCase() !== "active on hillside") return false;
@@ -455,13 +471,16 @@ export function SeedVaultView({
       if (statusFilter === "low_inventory") {
         if ((s.packet_count ?? 0) > 1) return false;
       }
+      if (statusFilter === "archived") {
+        if ((s.status ?? "").toLowerCase() !== "out_of_stock") return false;
+      }
       if (tagFilters.length > 0) {
         const seedTags = s.tags ?? [];
         if (!tagFilters.some((t) => seedTags.includes(t))) return false;
       }
       return true;
     });
-  }, [displayedSeeds, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, scheduleDefaults, isSowNow]);
+  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, scheduleDefaults, isSowNow]);
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -704,16 +723,19 @@ export function SeedVaultView({
 
       const { data: packets } = await supabase
         .from("seed_packets")
-        .select("plant_profile_id, tags, vendor_name")
+        .select("plant_profile_id, tags, vendor_name, qty_status")
         .eq("user_id", user.id)
         .or("is_archived.eq.false,is_archived.is.null");
       const countByProfile = new Map<string, number>();
+      const sumQtyByProfile = new Map<string, number>();
       const vendorsByProfile = new Map<string, Set<string>>();
       const f1ProfileIds = new Set<string>();
       for (const p of packets ?? []) {
-        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null };
+        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number };
         const pid = row.plant_profile_id;
         countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
+        const qty = typeof row.qty_status === "number" ? row.qty_status : 100;
+        sumQtyByProfile.set(pid, (sumQtyByProfile.get(pid) ?? 0) + qty);
         const v = (row.vendor_name ?? "").trim();
         if (v) {
           const set = vendorsByProfile.get(pid) ?? new Set<string>();
@@ -750,11 +772,16 @@ export function SeedVaultView({
         );
         const profilePrimary = p.primary_image_path as string | null;
         const fallbackPacketImage = firstPacketImageByProfile.get(p.id as string) ?? null;
+        const pid = p.id as string;
+        const count = countByProfile.get(pid) ?? 0;
+        const sumQty = sumQtyByProfile.get(pid) ?? 0;
+        const avg_qty_pct = count > 0 ? Math.round(sumQty / count) : null;
         return {
-          id: p.id as string,
+          id: pid,
           name: (p.name as string) ?? "Unknown",
           variety: (p.variety_name as string) ?? "—",
-          packet_count: countByProfile.get(p.id as string) ?? 0,
+          packet_count: count,
+          avg_qty_pct,
           status: p.status as string | null,
           harvest_days: effective.harvest_days ?? (p.harvest_days as number | null) ?? null,
           sun: effective.sun ?? undefined,
@@ -766,9 +793,9 @@ export function SeedVaultView({
           hero_image_url: (p.hero_image_url as string | null) ?? null,
           hero_image_pending: (p.hero_image_pending as boolean | null) ?? false,
           created_at: (p.created_at as string) ?? undefined,
-          hasF1Packet: f1ProfileIds.has(p.id as string),
+          hasF1Packet: f1ProfileIds.has(pid),
           vendor_display: (() => {
-            const vendors = vendorsByProfile.get(p.id as string);
+            const vendors = vendorsByProfile.get(pid);
             return vendors && vendors.size > 0 ? Array.from(vendors).sort().join(", ") : null;
           })(),
         };
@@ -959,6 +986,42 @@ export function SeedVaultView({
               );
             }
 
+            /* Condensed: same layout as photo cards (image on top, then name · variety, title, HealthDot + count) but smaller */
+            const condensedContent = (
+              <>
+                <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0 rounded-t-lg">
+                  {showResearching ? (
+                    <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
+                      <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
+                    </div>
+                  ) : showSeedling ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-2xl">🌱</div>
+                  ) : (
+                    <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                  )}
+                  {batchSelectMode && onToggleVarietySelection && (
+                    <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-4 h-4" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                    </div>
+                  )}
+                </div>
+                <div className="p-1.5 flex flex-col items-center text-center min-w-0">
+                  <p className="text-[10px] text-black/50 truncate w-full">{decodeHtmlEntities(seed.name)}{seed.variety && seed.variety !== "—" ? ` · ${decodeHtmlEntities(seed.variety)}` : ""}</p>
+                  <h3 className="font-semibold text-black text-xs mt-0.5 truncate w-full flex items-center justify-center gap-0.5">
+                    {decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}
+                    {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
+                  </h3>
+                  <div className="mt-0.5 flex items-center gap-1 flex-wrap justify-center">
+                    <HealthDot seed={seed} />
+                    <span className="text-[10px] text-black/50">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
+                      <span className="text-[10px] font-medium text-amber-700">Out</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+
             return (
               <li key={seed.id}>
                 {batchSelectMode ? (
@@ -966,41 +1029,9 @@ export function SeedVaultView({
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleVarietySelection?.(seed.id)}
-                    className={`rounded-card bg-white p-3 shadow-card flex flex-col items-center text-center min-h-[110px] justify-between transition-colors cursor-pointer relative ${getCardBorderClass(seed)} ${
-                      selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""
-                    }`}
+                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/10 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
                   >
-                    {onToggleVarietySelection && (
-                      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
-                      </div>
-                    )}
-                    {showResearching ? (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
-                        <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
-                        <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
-                      </div>
-                    ) : showSeedling ? (
-                      <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
-                        <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
-                      </div>
-                    )}
-                    <div className="flex-1 min-h-0">
-                      <p className="text-xs text-black/50 truncate">{decodeHtmlEntities(seed.name)}</p>
-                      <h3 className="font-semibold text-black text-sm truncate flex items-center gap-1 flex-wrap justify-center">
-                        {decodeHtmlEntities(seed.variety)}
-                        {seed.hasF1Packet && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
-                      </h3>
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <HealthDot seed={seed} />
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-slate-700">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
-                    </div>
-                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                      <span className="mt-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>
-                    )}
+                    {condensedContent}
                   </article>
                 ) : (
                   <div
@@ -1011,31 +1042,8 @@ export function SeedVaultView({
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
                     {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                   >
-                    <article className={`rounded-card bg-white p-4 shadow-card flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald-500/40 w-full ${getCardBorderClass(seed)}`}>
-                      {showResearching ? (
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
-                          <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
-                          <span className="text-[10px] font-medium text-neutral-500 z-10 px-1 text-center">🔍 AI Researching…</span>
-                        </div>
-                      ) : showSeedling ? (
-                        <div className="w-14 h-14 rounded-xl bg-emerald/10 flex items-center justify-center text-2xl mb-2 shrink-0">🌱</div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 shrink-0 mb-2 flex items-center justify-center">
-                          <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-h-0 w-full min-w-0 flex flex-col items-center text-center">
-                        <h3 className="font-medium text-black text-sm truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
-                        <p className="text-xs text-black/60 truncate flex items-center justify-center gap-1 flex-wrap w-full">
-                          {decodeHtmlEntities(seed.variety)}
-                          {seed.hasF1Packet && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
-                        </p>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-                        <HealthDot seed={seed} />
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-black/10 text-slate-700">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
-                        {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Out of Stock</span>}
-                      </div>
+                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/10 hover:border-emerald-500/50 transition-colors w-full ${getCardBorderClass(seed)}`}>
+                      {condensedContent}
                     </article>
                   </div>
                 )}
@@ -1132,24 +1140,6 @@ export function SeedVaultView({
   const renderCell = (colId: ListDataColumnId, seed: VaultCardItem) => {
     switch (colId) {
       case "name":
-        if (onPlantTypeChange && availablePlantTypes.length > 0) {
-          const options = Array.from(new Set([...availablePlantTypes, seed.name].filter(Boolean))).sort((a, b) => a.localeCompare(b));
-          return (
-            <td key="name" className="py-2 px-3 align-middle text-neutral-900" onClick={(e) => e.stopPropagation()}>
-              <select
-                value={seed.name}
-                onChange={(e) => onPlantTypeChange(seed.id, e.target.value)}
-                className="min-w-[100px] max-w-full rounded border border-black/15 bg-white px-2 py-1 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald"
-                aria-label={`Plant type for ${decodeHtmlEntities(seed.variety) || "variety"}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {options.map((opt) => (
-                  <option key={opt} value={opt}>{decodeHtmlEntities(opt)}</option>
-                ))}
-              </select>
-            </td>
-          );
-        }
         return <td key="name" className="py-2 px-3 align-middle text-neutral-900">{decodeHtmlEntities(seed.name)}</td>;
       case "variety":
         return (

@@ -393,6 +393,7 @@ export default function VaultImportPage() {
         updateItem(i, { status: "error", displayName: safePlantName, error: packetErr.message });
         return { ok: false };
       }
+      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", uid);
 
       const brainStatus: BrainStatus = matchedExisting ? "Linked to Existing Profile" : "New Type: Added to Brain";
       const newTypeAddedToBrain = opts?.fromSaveToBrain === true && !matchedExisting;

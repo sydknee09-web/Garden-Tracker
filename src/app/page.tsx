@@ -229,9 +229,8 @@ export default function HomePage() {
   const monthName = new Date().toLocaleString("en-US", { month: "long" });
 
   return (
-    <div className="px-6 pt-8 pb-6">
-      <h1 className="text-2xl font-semibold text-black mb-1">Garden</h1>
-      <p className="text-muted text-sm mb-6">
+    <div className="px-6 pt-2 pb-6 max-w-2xl mx-auto">
+      <p className="text-muted text-sm mb-4">
         Your weightless garden hub – tasks, vault, and journal in one place.
       </p>
 
@@ -308,7 +307,7 @@ export default function HomePage() {
 
               {/* Harvest this month */}
               <div className="pt-2 border-t border-black/5 mt-2">
-                <p className="text-xs font-medium text-black/60 mb-1.5">Harvest this month</p>
+                <h3 className="text-sm font-semibold text-black mb-1.5">Harvest this month</h3>
                 {harvestTasksThisMonth.length === 0 ? (
                   <p className="text-sm text-black/50">No harvest tasks due this month.</p>
                 ) : (

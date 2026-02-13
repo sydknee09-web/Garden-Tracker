@@ -3,8 +3,6 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SeedVaultView, type StatusFilter } from "@/components/SeedVaultView";
-import { ActiveGardenView } from "@/components/ActiveGardenView";
-import { MyPlantsView } from "@/components/MyPlantsView";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { QRScannerModal } from "@/components/QRScannerModal";
@@ -15,8 +13,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTagStyle } from "@/components/TagBadges";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
-import { HarvestModal } from "@/components/HarvestModal";
-import { AddStoreBoughtPlantModal } from "@/components/AddStoreBoughtPlantModal";
 import { compressImage } from "@/lib/compressImage";
 
 const SAVE_TOAST_DURATION_MS = 5000;
@@ -121,9 +117,6 @@ function VaultPageInner() {
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
-  const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
-  const [activeFabMenuOpen, setActiveFabMenuOpen] = useState(false);
-  const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
@@ -145,14 +138,6 @@ function VaultPageInner() {
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
   }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [] });
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
-  const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
-  const [activeFilteredCount, setActiveFilteredCount] = useState(0);
-  const [plantsCategoryFilter, setPlantsCategoryFilter] = useState<string | null>(null);
-  const [plantsCategoryChips, setPlantsCategoryChips] = useState<{ type: string; count: number }[]>([]);
-  const [plantsFilteredCount, setPlantsFilteredCount] = useState(0);
-  const [activeSearchQuery, setActiveSearchQuery] = useState("");
-  const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
 
@@ -170,13 +155,6 @@ function VaultPageInner() {
   }) => {
     setRefineChips(chips);
   }, []);
-  const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setActiveCategoryChips(chips);
-  }, []);
-  const handlePlantsCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setPlantsCategoryChips(chips);
-  }, []);
-
   const handleTagsLoaded = useCallback((tags: string[]) => {
     setAvailableTags(tags);
     setTagFilters((prev) => prev.filter((t) => tags.includes(t)));
@@ -233,9 +211,11 @@ function VaultPageInner() {
     if (tab === "active" || tab === "grid" || tab === "list" || tab === "plants") {
       setViewMode(tab);
       if (tab === "active") setRefetchTrigger((t) => t + 1);
+    } else if (tab === "table") {
+      setViewMode("list");
     }
     const status = searchParams.get("status");
-    if (status === "vault" || status === "active" || status === "low_inventory") {
+    if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
       setStatusFilter(status);
     }
   }, [searchParams]);
@@ -249,10 +229,11 @@ function VaultPageInner() {
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
       if (savedView === "grid" || savedView === "list" || savedView === "active" || savedView === "plants") setViewMode(savedView);
+      else if (savedView === "table") setViewMode("list");
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       const savedStatus = sessionStorage.getItem("vault-status-filter");
-      if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory") setStatusFilter(savedStatus);
+      if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") setStatusFilter(savedStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
       if (typeof savedSearch === "string") setSearchQuery(savedSearch);
     } catch {
@@ -549,15 +530,6 @@ function VaultPageInner() {
   type PlantQuantityChoice = "50%" | "1 Pkt" | "All";
   type PlantModalRow = { profile: PlantProfileForModal; packets: SeedPacketRow[]; quantityChoice: PlantQuantityChoice };
   const [plantModalRows, setPlantModalRows] = useState<PlantModalRow[]>([]);
-  type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
-  const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
-  const [logGrowthNote, setLogGrowthNote] = useState("");
-  const [logGrowthFile, setLogGrowthFile] = useState<File | null>(null);
-  const [logGrowthPreview, setLogGrowthPreview] = useState<string | null>(null);
-  const [logGrowthSaving, setLogGrowthSaving] = useState(false);
-  const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
-  const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
-  const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
   useEffect(() => {
     if (!plantModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
     setPlantDate(new Date().toISOString().slice(0, 10));
@@ -728,7 +700,7 @@ function VaultPageInner() {
     setBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
     setSaveToastMessage("Planted!");
-    setTimeout(() => router.push("/vault?tab=active"), 600);
+    setTimeout(() => router.push("/garden?tab=active"), 600);
   }, [user?.id, plantModalRows, plantDate, plantNotes, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {
@@ -768,73 +740,6 @@ function VaultPageInner() {
     const t = setTimeout(() => setSaveToastMessage(null), SAVE_TOAST_DURATION_MS);
     return () => clearTimeout(t);
   }, [saveToastMessage]);
-
-  const openLogGrowth = useCallback((batch: { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null }) => {
-    setLogGrowthBatch(batch);
-    setLogGrowthNote("");
-    setLogGrowthFile(null);
-    setLogGrowthPreview(null);
-  }, []);
-
-  const openLogHarvest = useCallback((batch: { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null }) => {
-    setLogHarvestBatch(batch);
-  }, []);
-
-  const handleEndCrop = useCallback((batch: { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null }) => {
-    setEndCropConfirmBatch(batch);
-  }, []);
-
-  const confirmEndCrop = useCallback(async () => {
-    if (!user?.id || !endCropConfirmBatch) return;
-    const { error } = await supabase
-      .from("grow_instances")
-      .update({ status: "archived", ended_at: new Date().toISOString() })
-      .eq("id", endCropConfirmBatch.id)
-      .eq("user_id", user.id);
-    setEndCropConfirmBatch(null);
-    if (error) {
-      setSaveToastMessage(error.message);
-      return;
-    }
-    setRefetchTrigger((t) => t + 1);
-    setSaveToastMessage("Crop ended. View in Settings → Archived Plantings.");
-  }, [user?.id, endCropConfirmBatch]);
-
-  const handleLogGrowthSubmit = useCallback(async () => {
-    if (!user?.id || !logGrowthBatch) return;
-    setLogGrowthSaving(true);
-    let imagePath: string | null = null;
-    if (logGrowthFile) {
-      const { blob } = await compressImage(logGrowthFile);
-      const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
-      if (upErr) {
-        setSaveToastMessage(upErr.message);
-        setLogGrowthSaving(false);
-        return;
-      }
-      imagePath = path;
-    }
-    const weatherSnapshot = await fetchWeatherSnapshot();
-    const noteTrim = logGrowthNote.trim() || null;
-    const { error: journalErr } = await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      plant_profile_id: logGrowthBatch.plant_profile_id,
-      grow_instance_id: logGrowthBatch.id,
-      note: noteTrim,
-      entry_type: "growth",
-      image_file_path: imagePath,
-      weather_snapshot: weatherSnapshot ?? undefined,
-    });
-    setLogGrowthSaving(false);
-    if (journalErr) {
-      setSaveToastMessage(journalErr.message);
-      return;
-    }
-    setLogGrowthBatch(null);
-    setRefetchTrigger((t) => t + 1);
-    setSaveToastMessage("Growth logged.");
-  }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthFile]);
 
   function toggleTagFilter(tag: string) {
     setTagFilters((prev) =>
@@ -892,40 +797,26 @@ function VaultPageInner() {
           </button>
         </div>
       )}
-      <div ref={stickyHeaderRef} className="sticky top-12 z-50 h-auto min-h-0 -mx-6 px-6 pt-1.5 pb-3 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
-        <div className="flex items-center justify-between mb-2 relative z-10">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold text-black truncate">Plant Vault</h1>
-            {pendingHeroCount > 0 && (
-              <span
-                className="inline-flex items-center gap-1.5 text-sm text-neutral-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 shrink-0"
-                title={`Gemini is researching photos for ${pendingHeroCount} new variet${pendingHeroCount === 1 ? "y" : "ies"}…`}
-              >
-                <ShovelIcon className="w-4 h-4 animate-spin text-amber-600" aria-hidden />
-                <span>AI Researching…</span>
-              </span>
-            )}
-          </div>
-          {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
-            <div className="flex items-center gap-2 shrink-0 pointer-events-auto" aria-label="Vault actions">
-              <button
-                type="button"
-                onClick={() => setBatchSelectMode(true)}
-                className="py-1.5 px-3 rounded-lg border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
-              >
-                Select
-              </button>
-            </div>
+      <div ref={stickyHeaderRef} className="sticky top-11 z-50 h-auto min-h-0 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
+        <div className="flex items-center gap-2 mb-2 relative z-10 flex-wrap">
+          {pendingHeroCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-neutral-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-1 shrink-0"
+              title={`Gemini is researching photos for ${pendingHeroCount} new variet${pendingHeroCount === 1 ? "y" : "ies"}…`}
+            >
+              <ShovelIcon className="w-3.5 h-3.5 animate-spin text-amber-600" aria-hidden />
+              <span>AI Researching…</span>
+            </span>
           )}
         </div>
 
-        <div className="flex border-b border-black/10 mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+        <div className="flex border-b border-black/10 mb-2 -mx-6 px-6" role="tablist" aria-label="View">
           <button
             type="button"
             role="tab"
             aria-selected={viewMode === "grid"}
             onClick={() => setViewMode("grid")}
-            className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
               viewMode === "grid"
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-black/60 hover:text-black"
@@ -938,7 +829,7 @@ function VaultPageInner() {
             role="tab"
             aria-selected={viewMode === "list"}
             onClick={() => setViewMode("list")}
-            className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
               viewMode === "list"
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-black/60 hover:text-black"
@@ -946,51 +837,20 @@ function VaultPageInner() {
           >
             Seed Vault
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "active"}
-            onClick={() => setViewMode("active")}
-            className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "active"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            Active Garden
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "plants"}
-            onClick={() => setViewMode("plants")}
-            className={`py-2.5 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "plants"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            My Plants
-          </button>
         </div>
 
-        {/* Unified toolbar: search + (Refine by | view toggle | batch actions) for all four tabs */}
-        {(viewMode === "grid" || viewMode === "list" || viewMode === "active" || viewMode === "plants") && (
+        {/* Unified toolbar: search + (Refine by | view toggle | Select | batch actions) for vault tabs */}
+        {(viewMode === "grid" || viewMode === "list") && (
           <>
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-2">
               <div className="flex-1">
                 <input
                   type="search"
-                  value={viewMode === "grid" || viewMode === "list" ? searchQuery : viewMode === "active" ? activeSearchQuery : plantsSearchQuery}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (viewMode === "grid" || viewMode === "list") setSearchQuery(v);
-                    else if (viewMode === "active") setActiveSearchQuery(v);
-                    else setPlantsSearchQuery(v);
-                  }}
-                  placeholder={viewMode === "grid" || viewMode === "list" ? "Search seeds…" : viewMode === "active" ? "Search batches…" : "Search plants…"}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search seeds…"
                   className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                  aria-label={viewMode === "grid" || viewMode === "list" ? "Search seeds" : viewMode === "active" ? "Search batches" : "Search plants"}
+                  aria-label="Search seeds"
                 />
               </div>
             </div>
@@ -1001,7 +861,7 @@ function VaultPageInner() {
                   type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
                   className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
-                  aria-label={viewMode === "grid" || viewMode === "list" ? "Refine by status, tags, plant type" : "Refine by plant type"}
+                  aria-label="Refine by status, tags, plant type"
                 >
                   Refine by
                   {(viewMode === "grid" || viewMode === "list") && (
@@ -1023,10 +883,6 @@ function VaultPageInner() {
                         packetCountFilter !== null,
                       ].filter(Boolean).length}
                     </span>
-                  ) : viewMode === "active" && activeCategoryFilter !== null ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
-                  ) : viewMode === "plants" && plantsCategoryFilter !== null ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
                   ) : null}
                 </button>
                 {viewMode === "grid" && (
@@ -1054,6 +910,15 @@ function VaultPageInner() {
                       <CondensedGridIcon />
                     </button>
                   </div>
+                )}
+                {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchSelectMode(true)}
+                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
+                  >
+                    Select
+                  </button>
                 )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
                   <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Batch actions">
@@ -1158,7 +1023,7 @@ function VaultPageInner() {
               </button>
             </header>
             <div className="flex-1 overflow-y-auto">
-              {/* Content for Plant Profiles / Seed Vault */}
+              {/* Content for Plant Profiles / Seed Vault / Table */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
                   <div className="border-b border-black/5">
@@ -1173,8 +1038,8 @@ function VaultPageInner() {
                     </button>
                     {refineBySection === "vault" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
-                        {(["", "vault", "active", "low_inventory"] as const).map((value) => {
-                          const label = value === "" ? "All" : value === "vault" ? "Vaulted" : value === "active" ? "Active" : "Low inventory";
+                        {(["", "vault", "active", "low_inventory", "archived"] as const).map((value) => {
+                          const label = value === "" ? "All" : value === "vault" ? "Vaulted" : value === "active" ? "Active" : value === "low_inventory" ? "Low inventory" : "Archived";
                           const selected = statusFilter === value;
                           return (
                             <button
@@ -1264,7 +1129,7 @@ function VaultPageInner() {
                       )}
                     </div>
                   )}
-                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count (Seed Vault only) */}
+                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count (Seed Vault / Table) */}
                   {(viewMode === "grid" || viewMode === "list") && (
                     <>
                       {refineChips.variety.length > 0 && (
@@ -1383,72 +1248,6 @@ function VaultPageInner() {
                   )}
                 </>
               )}
-              {/* Content for Active Garden or My Plants: Plant type only */}
-              {(viewMode === "active" || viewMode === "plants") && (
-                <div className="border-b border-black/5">
-                  <button
-                    type="button"
-                    onClick={() => setRefineBySection((s) => (s === "plantType" ? null : "plantType"))}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                    aria-expanded={refineBySection === "plantType"}
-                  >
-                    <span>Plant type</span>
-                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▴" : "▾"}</span>
-                  </button>
-                  {refineBySection === "plantType" && (
-                    <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                      {viewMode === "active" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setActiveCategoryFilter(null)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${activeCategoryFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                          >
-                            All
-                          </button>
-                          {activeCategoryChips.map(({ type, count }) => {
-                            const selected = activeCategoryFilter === type;
-                            return (
-                              <button
-                                key={type}
-                                type="button"
-                                onClick={() => setActiveCategoryFilter(type)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                              >
-                                {type} ({count})
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
-                      {viewMode === "plants" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setPlantsCategoryFilter(null)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${plantsCategoryFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                          >
-                            All
-                          </button>
-                          {plantsCategoryChips.map(({ type, count }) => {
-                            const selected = plantsCategoryFilter === type;
-                            return (
-                              <button
-                                key={type}
-                                type="button"
-                                onClick={() => setPlantsCategoryFilter(type)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                              >
-                                {type} ({count})
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
             <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
               <button
@@ -1456,42 +1255,11 @@ function VaultPageInner() {
                 onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
                 className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
               >
-                Show results (
-                {viewMode === "active" ? activeFilteredCount : viewMode === "plants" ? plantsFilteredCount : filteredVarietyIds.length}
-                )
+                Show results ({filteredVarietyIds.length})
               </button>
             </footer>
           </div>
         </>
-      )}
-
-      {viewMode === "active" && (
-        <div className="pt-2">
-          <ActiveGardenView
-            refetchTrigger={refetchTrigger}
-            searchQuery={activeSearchQuery}
-            onLogGrowth={openLogGrowth}
-            onLogHarvest={openLogHarvest}
-            onEndCrop={handleEndCrop}
-            categoryFilter={activeCategoryFilter}
-            onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
-            onFilteredCountChange={setActiveFilteredCount}
-          />
-        </div>
-      )}
-
-      {viewMode === "plants" && (
-        <div className="pt-2">
-          <MyPlantsView
-            refetchTrigger={refetchTrigger}
-            searchQuery={plantsSearchQuery}
-            openAddModal={showAddPermanentPlantModal}
-            onCloseAddModal={() => setShowAddPermanentPlantModal(false)}
-            categoryFilter={plantsCategoryFilter}
-            onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
-            onFilteredCountChange={setPlantsFilteredCount}
-          />
-        </div>
       )}
 
       {(viewMode === "grid" || viewMode === "list") && (
@@ -1525,6 +1293,7 @@ function VaultPageInner() {
             maturityFilter={maturityFilter}
             packetCountFilter={packetCountFilter}
             onRefineChipsLoaded={handleRefineChipsLoaded}
+            hideArchivedProfiles={false}
           />
         </div>
       )}
@@ -1786,117 +1555,15 @@ function VaultPageInner() {
         </div>
       )}
 
-      {/* Log Growth modal */}
-      {logGrowthBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
-          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-black/10">
-              <h2 className="text-lg font-semibold text-black">Log Growth</h2>
-              <p className="text-sm text-black/60 mt-1">{logGrowthBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(logGrowthBatch.profile_name)} (${decodeHtmlEntities(logGrowthBatch.profile_variety_name)})` : decodeHtmlEntities(logGrowthBatch.profile_name)}</p>
-            </div>
-            <div className="p-4 overflow-y-auto flex-1 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional)</label>
-                <input
-                  ref={fileInputLogGrowthRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setLogGrowthFile(f);
-                      setLogGrowthPreview(URL.createObjectURL(f));
-                    }
-                    e.target.value = "";
-                  }}
-                />
-                {logGrowthPreview ? (
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                    <img src={logGrowthPreview} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => { setLogGrowthFile(null); setLogGrowthPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Choose photo or take one</button>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Note</label>
-                <textarea value={logGrowthNote} onChange={(e) => setLogGrowthNote(e.target.value)} placeholder="Growth update, note…" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
-              </div>
-            </div>
-            <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
-              <button type="button" onClick={() => { setLogGrowthBatch(null); if (logGrowthPreview) URL.revokeObjectURL(logGrowthPreview); setLogGrowthPreview(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
-              <button type="button" disabled={logGrowthSaving} onClick={handleLogGrowthSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{logGrowthSaving ? "Saving…" : "Save"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Log Harvest modal */}
-      <HarvestModal
-        open={!!logHarvestBatch}
-        onClose={() => setLogHarvestBatch(null)}
-        onSaved={() => { setRefetchTrigger((p: number) => p + 1); setLogHarvestBatch(null); }}
-        profileId={logHarvestBatch?.plant_profile_id ?? ""}
-        growInstanceId={logHarvestBatch?.id ?? ""}
-        displayName={logHarvestBatch ? (logHarvestBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(logHarvestBatch.profile_name)} (${decodeHtmlEntities(logHarvestBatch.profile_variety_name)})` : decodeHtmlEntities(logHarvestBatch.profile_name)) : ""}
-      />
-
-      {/* End Crop confirm */}
-      {endCropConfirmBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
-          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-4">
-            <h2 className="text-lg font-semibold text-black">End Crop?</h2>
-            <p className="text-sm text-black/70 mt-2">
-              {endCropConfirmBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(endCropConfirmBatch.profile_name)} (${decodeHtmlEntities(endCropConfirmBatch.profile_variety_name)})` : decodeHtmlEntities(endCropConfirmBatch.profile_name)} will move to Settings → Archived Plantings.
-            </p>
-            <div className="flex gap-2 justify-end mt-4">
-              <button type="button" onClick={() => setEndCropConfirmBatch(null)} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
-              <button type="button" onClick={confirmEndCrop} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700">End Crop</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewMode === "active" && activeFabMenuOpen && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-20"
-            aria-label="Close menu"
-            onClick={() => setActiveFabMenuOpen(false)}
-          />
-          <div className="fixed right-6 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
-            <button
-              type="button"
-              onClick={() => { setShowStoreBoughtModal(true); setActiveFabMenuOpen(false); }}
-              className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]"
-            >
-              Add store-bought plant
-            </button>
-          </div>
-        </>
-      )}
       <button
         type="button"
-        onClick={() => {
-          if (viewMode === "active") setActiveFabMenuOpen((o) => !o);
-          else if (viewMode === "plants") setShowAddPermanentPlantModal(true);
-          else setQuickAddOpen(true);
-        }}
+        onClick={() => setQuickAddOpen(true)}
         className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={viewMode === "active" ? "Open menu" : viewMode === "plants" ? "Add permanent plant" : "Quick add seed"}
+        aria-label="Quick add seed"
       >
         +
       </button>
-
-      <AddStoreBoughtPlantModal
-        open={showStoreBoughtModal}
-        onClose={() => setShowStoreBoughtModal(false)}
-        onSuccess={() => setRefetchTrigger((t) => t + 1)}
-      />
 
       <QuickAddSeed
         open={quickAddOpen}

@@ -355,26 +355,51 @@ export default function ReviewImportPage() {
       .then(({ data }) => setProfiles((data ?? []) as ProfileMatch[]));
   }, [user?.id, items.length]);
 
+  // Vendor suggestions: existing packet vendors + scraped caches (global + user) for standardization.
+  // Combobox allows free text so obscure vendors can still be entered; saving upserts to plant_extract_cache so they appear next time for this user.
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
+      const allVendors = new Set<string>();
+
+      // 1) From existing plant profiles' seed packets (user's vault)
       const { data: profileRows } = await supabase
         .from("plant_profiles")
         .select("id")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .is("deleted_at", null);
       const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
-      if (ids.length === 0) {
-        setVendorSuggestions([]);
-        return;
+      if (ids.length > 0) {
+        const { data: packetRows } = await supabase
+          .from("seed_packets")
+          .select("vendor_name")
+          .in("plant_profile_id", ids);
+        (packetRows ?? []).forEach((r: { vendor_name: string | null }) => {
+          const v = (r.vendor_name ?? "").trim();
+          if (v) allVendors.add(v);
+        });
       }
-      const { data: packetRows } = await supabase
-        .from("seed_packets")
-        .select("vendor_name")
-        .in("plant_profile_id", ids);
-      const vendors = (packetRows ?? [])
-        .map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim())
-        .filter(Boolean);
-      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+
+      // 2) From global scraped cache (bulk-scraped vendors; RLS allows SELECT for authenticated)
+      const { data: globalRows } = await supabase
+        .from("global_plant_cache")
+        .select("vendor");
+      (globalRows ?? []).forEach((r: { vendor: string | null }) => {
+        const v = (r.vendor ?? "").trim();
+        if (v) allVendors.add(v);
+      });
+
+      // 3) From user's own extract cache (prior imports)
+      const { data: extractRows } = await supabase
+        .from("plant_extract_cache")
+        .select("vendor")
+        .eq("user_id", user.id);
+      (extractRows ?? []).forEach((r: { vendor: string | null }) => {
+        const v = (r.vendor ?? "").trim();
+        if (v) allVendors.add(v);
+      });
+
+      setVendorSuggestions([...allVendors].sort((a, b) => a.localeCompare(b)));
     })();
   }, [user?.id]);
 
@@ -1057,6 +1082,7 @@ export default function ReviewImportPage() {
           return;
         }
       }
+      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
       savedItems.push({ item, profileId });
     }
 

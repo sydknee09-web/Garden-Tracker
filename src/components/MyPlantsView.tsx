@@ -205,8 +205,7 @@ export function MyPlantsView({
         <div className="rounded-2xl bg-white border border-black/10 p-8 text-center" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
           <span className="text-4xl mb-3 block" aria-hidden>🌳</span>
           <p className="text-black/70 font-medium mb-1">No permanent plants yet</p>
-          <p className="text-sm text-black/50 mb-4">Add your fruit trees, avocados, bushes, and other perennial plants here.</p>
-          <button type="button" onClick={() => setShowAddModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Add First Plant</button>
+          <p className="text-sm text-black/50">Use + button to add your fruit trees, bushes, and other perennial plants here.</p>
         </div>
       ) : (
         <>
