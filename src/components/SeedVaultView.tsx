@@ -184,6 +184,7 @@ export function SeedVaultView({
   batchSelectMode = false,
   selectedVarietyIds,
   onToggleVarietySelection,
+  onLongPressVariety,
   onFilteredIdsChange,
   onPendingHeroCountChange,
   availablePlantTypes = [],
@@ -193,6 +194,14 @@ export function SeedVaultView({
   categoryFilter: categoryFilterProp,
   onCategoryFilterChange,
   onCategoryChipsLoaded,
+  varietyFilter = null,
+  vendorFilter = null,
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  packetCountFilter = null,
+  onRefineChipsLoaded,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -204,6 +213,8 @@ export function SeedVaultView({
   batchSelectMode?: boolean;
   selectedVarietyIds?: Set<string>;
   onToggleVarietySelection?: (plantVarietyId: string) => void;
+  /** When user long-presses a card/row (e.g. ~500ms), enter select mode and select this variety. */
+  onLongPressVariety?: (plantVarietyId: string) => void;
   onFilteredIdsChange?: (ids: string[]) => void;
   onPendingHeroCountChange?: (count: number) => void;
   /** Options for the Plant Type dropdown in list view (e.g. from schedule_defaults + "Imported seed", "Bean", "Cucumber"). */
@@ -218,6 +229,24 @@ export function SeedVaultView({
   onCategoryFilterChange?: (value: string | null) => void;
   /** Called when category chips (plant types with counts) are computed, for Refine By panel. */
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
+  varietyFilter?: string | null;
+  vendorFilter?: string | null;
+  sunFilter?: string | null;
+  spacingFilter?: string | null;
+  germinationFilter?: string | null;
+  maturityFilter?: string | null;
+  packetCountFilter?: string | null;
+  /** Called when refine chips (counts per dimension) are computed, for Refine By panel. */
+  onRefineChipsLoaded?: (chips: {
+    variety: { value: string; count: number }[];
+    vendor: { value: string; count: number }[];
+    sun: { value: string; count: number }[];
+    spacing: { value: string; count: number }[];
+    germination: { value: string; count: number }[];
+    maturity: { value: string; count: number }[];
+    packetCount: { value: string; count: number }[];
+  }) => void;
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -257,10 +286,48 @@ export function SeedVaultView({
   const resizeRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
   const dragOverColIdRef = useRef<string | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
 
   useEffect(() => {
     saveListTableState(listColumnOrder, listColumnWidths);
   }, [listColumnOrder, listColumnWidths]);
+
+  const LONG_PRESS_MS = 500;
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const getLongPressHandlers = useCallback(
+    (seedId: string) => {
+      return {
+        onTouchStart: () => {
+          longPressFiredRef.current = false;
+          clearLongPressTimer();
+          longPressTimerRef.current = setTimeout(() => {
+            longPressTimerRef.current = null;
+            longPressFiredRef.current = true;
+            onLongPressVariety?.(seedId);
+          }, LONG_PRESS_MS);
+        },
+        onTouchMove: clearLongPressTimer,
+        onTouchEnd: clearLongPressTimer,
+        onTouchCancel: clearLongPressTimer,
+        handleClick: (e?: React.MouseEvent) => {
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
+            e?.preventDefault();
+            return;
+          }
+          goToProfile(seedId);
+        },
+      };
+    },
+    [onLongPressVariety, clearLongPressTimer]
+  );
 
   const markThumbError = useCallback((seedId: string) => {
     setImageErrorIds((prev) => (prev.has(seedId) ? prev : new Set(prev).add(seedId)));
@@ -329,11 +396,51 @@ export function SeedVaultView({
     return plantableTypes.has(nameNorm) || plantableTypes.has(firstWord ?? "") || Array.from(plantableTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
   }, []);
 
+  const maturityRange = (days: number | null | undefined): string => {
+    if (days == null || !Number.isFinite(days)) return "";
+    if (days < 60) return "<60";
+    if (days <= 90) return "60-90";
+    return "90+";
+  };
+  const packetCountRange = (n: number): string => {
+    if (n === 0) return "0";
+    if (n === 1) return "1";
+    return "2+";
+  };
+
   const filteredSeeds = useMemo(() => {
     return displayedSeeds.filter((s) => {
       if (categoryFilter !== null) {
         const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
+      }
+      if (varietyFilter != null && varietyFilter !== "") {
+        const v = (s.variety ?? "").trim();
+        if (v !== varietyFilter) return false;
+      }
+      if (vendorFilter != null && vendorFilter !== "") {
+        const vendors = (s.vendor_display ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+        if (!vendors.some((v) => v === vendorFilter)) return false;
+      }
+      if (sunFilter != null && sunFilter !== "") {
+        const sun = (s.sun ?? "").trim();
+        if (sun !== sunFilter) return false;
+      }
+      if (spacingFilter != null && spacingFilter !== "") {
+        const sp = (s.plant_spacing ?? "").trim();
+        if (sp !== spacingFilter) return false;
+      }
+      if (germinationFilter != null && germinationFilter !== "") {
+        const g = (s.days_to_germination ?? "").trim();
+        if (g !== germinationFilter) return false;
+      }
+      if (maturityFilter != null && maturityFilter !== "") {
+        const days = s.harvest_days;
+        if (maturityRange(days ?? null) !== maturityFilter) return false;
+      }
+      if (packetCountFilter != null && packetCountFilter !== "") {
+        const n = s.packet_count ?? 0;
+        if (packetCountRange(n) !== packetCountFilter) return false;
       }
       if (plantNowFilter && scheduleDefaults.length > 0 && !isSowNow(s, scheduleDefaults)) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
@@ -354,7 +461,7 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [displayedSeeds, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, plantNowFilter, scheduleDefaults, isSowNow]);
+  }, [displayedSeeds, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, scheduleDefaults, isSowNow]);
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -366,6 +473,42 @@ export function SeedVaultView({
     return Array.from(map.entries())
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
+  }, [seeds]);
+
+  const refineChips = useMemo(() => {
+    const varietyMap = new Map<string, number>();
+    const vendorMap = new Map<string, number>();
+    const sunMap = new Map<string, number>();
+    const spacingMap = new Map<string, number>();
+    const germinationMap = new Map<string, number>();
+    const maturityMap = new Map<string, number>();
+    const packetCountMap = new Map<string, number>();
+    for (const s of seeds) {
+      const v = (s.variety ?? "").trim() || "—";
+      varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
+      (s.vendor_display ?? "").split(",").map((x) => x.trim()).filter(Boolean).forEach((vendor) => {
+        vendorMap.set(vendor, (vendorMap.get(vendor) ?? 0) + 1);
+      });
+      const sun = (s.sun ?? "").trim() || "—";
+      if (sun) sunMap.set(sun, (sunMap.get(sun) ?? 0) + 1);
+      const sp = (s.plant_spacing ?? "").trim() || "—";
+      if (sp) spacingMap.set(sp, (spacingMap.get(sp) ?? 0) + 1);
+      const g = (s.days_to_germination ?? "").trim() || "—";
+      if (g) germinationMap.set(g, (germinationMap.get(g) ?? 0) + 1);
+      const m = maturityRange(s.harvest_days ?? null);
+      if (m) maturityMap.set(m, (maturityMap.get(m) ?? 0) + 1);
+      const pk = packetCountRange(s.packet_count ?? 0);
+      packetCountMap.set(pk, (packetCountMap.get(pk) ?? 0) + 1);
+    }
+    return {
+      variety: Array.from(varietyMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      vendor: Array.from(vendorMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      sun: Array.from(sunMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      spacing: Array.from(spacingMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
+      packetCount: ["0", "1", "2+"].filter((k) => packetCountMap.has(k)).map((value) => ({ value, count: packetCountMap.get(value) ?? 0 })),
+    };
   }, [seeds]);
 
   const uniquePlantNames = useMemo(
@@ -659,6 +802,10 @@ export function SeedVaultView({
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
 
+  useEffect(() => {
+    onRefineChipsLoaded?.(refineChips);
+  }, [refineChips, onRefineChipsLoaded]);
+
   const pendingHeroCount = useMemo(
     () => seeds.filter((s) => !(s.hero_image_url ?? "").trim() && !!s.hero_image_pending).length,
     [seeds]
@@ -730,15 +877,16 @@ export function SeedVaultView({
 
     return (
       <div className="relative z-10 space-y-3">
-        <ul className={`grid gap-4 ${isPhotoCards ? "grid-cols-2" : "grid-cols-3"}`} role="list">
+        <ul className={`grid gap-3 ${isPhotoCards ? "grid-cols-2" : "grid-cols-3"}`} role="list">
           {sortedGridSeeds.map((seed) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
+            const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
 
             if (isPhotoCards) {
               const cardContent = (
                 <>
-                  <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0">
+                  <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0 rounded-t-xl">
                     {showResearching ? (
                       <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                         <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
@@ -761,10 +909,10 @@ export function SeedVaultView({
                       </div>
                     )}
                   </div>
-                  <div className="p-3 flex flex-col items-center text-center min-w-0">
+                  <div className="p-2.5 flex flex-col items-center text-center min-w-0">
                     <p className="text-xs text-black/50 truncate w-full">{decodeHtmlEntities(seed.name)}{seed.variety && seed.variety !== "—" ? ` · ${decodeHtmlEntities(seed.variety)}` : ""}</p>
-                    <h3 className="font-semibold text-black text-sm mt-0.5 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}</h3>
-                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap justify-center">
+                    <h3 className="font-semibold text-black text-base mt-0.5 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}</h3>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap justify-center">
                       <HealthDot seed={seed} />
                       <span className="text-xs text-black/50">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
@@ -791,8 +939,16 @@ export function SeedVaultView({
                       role="link"
                       tabIndex={0}
                       className="block cursor-pointer"
-                      onClick={() => goToProfile(seed.id)}
+                      onClick={lp ? () => lp.handleClick() : () => goToProfile(seed.id)}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
+                      {...(lp
+                        ? {
+                            onTouchStart: lp.onTouchStart,
+                            onTouchMove: lp.onTouchMove,
+                            onTouchEnd: lp.onTouchEnd,
+                            onTouchCancel: lp.onTouchCancel,
+                          }
+                        : {})}
                     >
                       <article className="rounded-xl bg-white shadow-card overflow-hidden flex flex-col border border-black/10 hover:border-emerald-500/50 transition-colors w-full">
                         {cardContent}
@@ -810,7 +966,7 @@ export function SeedVaultView({
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleVarietySelection?.(seed.id)}
-                    className={`rounded-card bg-white p-4 shadow-card flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative ${getCardBorderClass(seed)} ${
+                    className={`rounded-card bg-white p-3 shadow-card flex flex-col items-center text-center min-h-[110px] justify-between transition-colors cursor-pointer relative ${getCardBorderClass(seed)} ${
                       selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""
                     }`}
                   >
@@ -832,11 +988,11 @@ export function SeedVaultView({
                       </div>
                     )}
                     <div className="flex-1 min-h-0">
-                      <h3 className="font-medium text-black text-sm truncate">{decodeHtmlEntities(seed.name)}</h3>
-                      <p className="text-xs text-black/60 truncate flex items-center gap-1 flex-wrap justify-center">
+                      <p className="text-xs text-black/50 truncate">{decodeHtmlEntities(seed.name)}</p>
+                      <h3 className="font-semibold text-black text-sm truncate flex items-center gap-1 flex-wrap justify-center">
                         {decodeHtmlEntities(seed.variety)}
                         {seed.hasF1Packet && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
-                      </p>
+                      </h3>
                     </div>
                     <div className="mt-2 flex items-center gap-1.5">
                       <HealthDot seed={seed} />
@@ -847,7 +1003,14 @@ export function SeedVaultView({
                     )}
                   </article>
                 ) : (
-                  <div role="link" tabIndex={0} className="block cursor-pointer" onClick={() => goToProfile(seed.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}>
+                  <div
+                    role="link"
+                    tabIndex={0}
+                    className="block cursor-pointer"
+                    onClick={lp ? () => lp.handleClick() : () => goToProfile(seed.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
+                    {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                  >
                     <article className={`rounded-card bg-white p-4 shadow-card flex flex-col items-center text-center min-h-[120px] justify-between transition-colors cursor-pointer relative hover:border-emerald-500/40 w-full ${getCardBorderClass(seed)}`}>
                       {showResearching ? (
                         <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 shrink-0 mb-2 flex items-center justify-center relative">
@@ -1040,14 +1203,17 @@ export function SeedVaultView({
           </tr>
         </thead>
         <tbody>
-          {sortedListSeeds.map((seed) => (
+          {sortedListSeeds.map((seed) => {
+            const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
+            return (
             <tr
               key={seed.id}
               role="button"
               tabIndex={0}
-              onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : goToProfile(seed.id)}
+              onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); batchSelectMode ? onToggleVarietySelection?.(seed.id) : goToProfile(seed.id); } }}
               className={`group border-b border-black/5 hover:bg-gray-50 cursor-pointer transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
+              {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
             >
               {batchSelectMode && onToggleVarietySelection && (
                 <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
@@ -1074,7 +1240,8 @@ export function SeedVaultView({
               </td>
               {listColumnOrder.map((id) => renderCell(id, seed))}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       </div>

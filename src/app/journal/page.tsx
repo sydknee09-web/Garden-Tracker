@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -256,6 +256,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
 }
 
 export default function JournalPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { setSyncing } = useSync();
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
@@ -894,9 +895,9 @@ export default function JournalPage() {
 
       <button
         type="button"
-        onClick={openAddModal}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
-        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        onClick={() => router.push("/journal/new")}
+        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label="Add journal entry"
       >
         +

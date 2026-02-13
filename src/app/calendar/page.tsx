@@ -52,6 +52,7 @@ export default function CalendarPage() {
   const [plantableAllOpen, setPlantableAllOpen] = useState(false);
   const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
   const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
+  const swipeStartX = useRef<number | null>(null);
 
   const plantTypesGrouped = useMemo(() => {
     const byType = new Map<string, { id: string; name: string; variety_name: string | null }[]>();
@@ -256,7 +257,7 @@ export default function CalendarPage() {
       }
     }
   }
-  const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
   useEffect(() => {
     if (!user || !newTaskOpen) return;
@@ -332,19 +333,36 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
+      <div
+        className="flex items-center justify-between mb-4 touch-pan-y"
+        onTouchStart={(e) => {
+          swipeStartX.current = e.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(e) => {
+          const start = swipeStartX.current;
+          swipeStartX.current = null;
+          if (start == null) return;
+          const end = e.changedTouches[0]?.clientX;
+          if (end == null) return;
+          const delta = end - start;
+          if (delta < -50) nextMonth();
+          else if (delta > 50) prevMonth();
+        }}
+      >
         <button
           type="button"
           onClick={prevMonth}
-          className="py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          aria-label="Previous month"
         >
           ←
         </button>
-        <span className="font-medium text-black">{monthLabel}</span>
+        <span className="font-medium text-black text-base">{monthLabel}</span>
         <button
           type="button"
           onClick={nextMonth}
-          className="py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          aria-label="Next month"
         >
           →
         </button>
@@ -524,10 +542,25 @@ export default function CalendarPage() {
           <p className="text-sm text-black/60 mt-1">{error}</p>
         </div>
       ) : viewMode === "overview" ? (
-        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+        <div
+          className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden"
+          onTouchStart={(e) => {
+            swipeStartX.current = e.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(e) => {
+            const start = swipeStartX.current;
+            swipeStartX.current = null;
+            if (start == null) return;
+            const end = e.changedTouches[0]?.clientX;
+            if (end == null) return;
+            const delta = end - start;
+            if (delta < -50) nextMonth();
+            else if (delta > 50) prevMonth();
+          }}
+        >
           <div className="grid grid-cols-7 border-b border-black/10">
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="p-2 text-center text-xs font-medium text-black/60 border-r border-black/5 last:border-r-0">
+            {WEEKDAY_LABELS.map((label, i) => (
+              <div key={i} className="p-1.5 text-center text-xs font-medium text-black/60 border-r border-black/5 last:border-r-0">
                 {label}
               </div>
             ))}
@@ -601,8 +634,8 @@ export default function CalendarPage() {
           setNewTaskPlantId("");
           setNewTaskError(null);
         }}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
-        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label="New task"
       >
         +

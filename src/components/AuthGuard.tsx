@@ -62,7 +62,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!isAuthPage && (
-        <header className="sticky top-0 z-40 flex items-center justify-between h-12 pl-4 pr-4 bg-paper/90 backdrop-blur border-b border-black/5">
+        <header
+          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-4 pr-4 bg-paper/90 backdrop-blur border-b border-black/5"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
           <CloudSyncIcon syncing={syncing} />
           <Link
             href="/settings"
@@ -74,7 +77,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </header>
       )}
       <main
-        className={`min-h-screen ${isVault ? "pt-0" : "pt-6"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
+        className={`min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
       >
         {children}
       </main>

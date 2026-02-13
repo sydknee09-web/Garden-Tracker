@@ -126,9 +126,25 @@ function VaultPageInner() {
   const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [varietyFilter, setVarietyFilter] = useState<string | null>(null);
+  const [vendorFilter, setVendorFilter] = useState<string | null>(null);
+  const [sunFilter, setSunFilter] = useState<string | null>(null);
+  const [spacingFilter, setSpacingFilter] = useState<string | null>(null);
+  const [germinationFilter, setGerminationFilter] = useState<string | null>(null);
+  const [maturityFilter, setMaturityFilter] = useState<string | null>(null);
+  const [packetCountFilter, setPacketCountFilter] = useState<string | null>(null);
+  const [refineChips, setRefineChips] = useState<{
+    variety: { value: string; count: number }[];
+    vendor: { value: string; count: number }[];
+    sun: { value: string; count: number }[];
+    spacing: { value: string; count: number }[];
+    germination: { value: string; count: number }[];
+    maturity: { value: string; count: number }[];
+    packetCount: { value: string; count: number }[];
+  }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [] });
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [activeFilteredCount, setActiveFilteredCount] = useState(0);
@@ -142,6 +158,17 @@ function VaultPageInner() {
 
   const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setCategoryChips(chips);
+  }, []);
+  const handleRefineChipsLoaded = useCallback((chips: {
+    variety: { value: string; count: number }[];
+    vendor: { value: string; count: number }[];
+    sun: { value: string; count: number }[];
+    spacing: { value: string; count: number }[];
+    germination: { value: string; count: number }[];
+    maturity: { value: string; count: number }[];
+    packetCount: { value: string; count: number }[];
+  }) => {
+    setRefineChips(chips);
   }, []);
   const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setActiveCategoryChips(chips);
@@ -267,6 +294,11 @@ function VaultPageInner() {
       else next.add(plantVarietyId);
       return next;
     });
+  }, []);
+
+  const handleLongPressVariety = useCallback((plantVarietyId: string) => {
+    setBatchSelectMode(true);
+    setSelectedVarietyIds((prev) => new Set([...prev, plantVarietyId]));
   }, []);
 
   const handleBatchDelete = useCallback(async () => {
@@ -972,9 +1004,24 @@ function VaultPageInner() {
                   aria-label={viewMode === "grid" || viewMode === "list" ? "Refine by status, tags, plant type" : "Refine by plant type"}
                 >
                   Refine by
-                  {(viewMode === "grid" || viewMode === "list") && ((statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null) ? (
+                  {(viewMode === "grid" || viewMode === "list") && (
+                    (statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null ||
+                    varietyFilter !== null || vendorFilter !== null || sunFilter !== null || spacingFilter !== null ||
+                    germinationFilter !== null || maturityFilter !== null || packetCountFilter !== null
+                  ) ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                      {[statusFilter !== "" && statusFilter !== "vault", tagFilters.length > 0, categoryFilter !== null].filter(Boolean).length}
+                      {[
+                        statusFilter !== "" && statusFilter !== "vault",
+                        tagFilters.length > 0,
+                        categoryFilter !== null,
+                        varietyFilter !== null,
+                        vendorFilter !== null,
+                        sunFilter !== null,
+                        spacingFilter !== null,
+                        germinationFilter !== null,
+                        maturityFilter !== null,
+                        packetCountFilter !== null,
+                      ].filter(Boolean).length}
                     </span>
                   ) : viewMode === "active" && activeCategoryFilter !== null ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
@@ -1009,7 +1056,7 @@ function VaultPageInner() {
                   </div>
                 )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
-                  <div className="flex items-center gap-2 flex-nowrap min-w-0 overflow-x-auto pb-1 scrollbar-thin bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" style={{ scrollbarWidth: "thin" }} role="toolbar" aria-label="Batch actions">
+                  <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Batch actions">
                     <button
                       type="button"
                       onClick={() => { setBatchSelectMode(false); setSelectedVarietyIds(new Set()); }}
@@ -1217,6 +1264,123 @@ function VaultPageInner() {
                       )}
                     </div>
                   )}
+                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count (Seed Vault only) */}
+                  {(viewMode === "grid" || viewMode === "list") && (
+                    <>
+                      {refineChips.variety.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "variety" ? null : "variety"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "variety"}>
+                            <span>Variety</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "variety" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                              <button type="button" onClick={() => setVarietyFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${varietyFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.variety.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setVarietyFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${varietyFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.vendor.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "vendor" ? null : "vendor"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "vendor"}>
+                            <span>Vendor</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vendor" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "vendor" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                              <button type="button" onClick={() => setVendorFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.vendor.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setVendorFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${vendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.sun.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
+                            <span>Sun</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "sun" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                              <button type="button" onClick={() => setSunFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${sunFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.sun.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setSunFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${sunFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.spacing.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
+                            <span>Spacing</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "spacing" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                              <button type="button" onClick={() => setSpacingFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${spacingFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.spacing.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setSpacingFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${spacingFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.germination.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
+                            <span>Germination</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "germination" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                              <button type="button" onClick={() => setGerminationFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${germinationFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.germination.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setGerminationFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${germinationFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.maturity.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
+                            <span>Maturity</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "maturity" && (
+                            <div className="px-4 pb-3 pt-0 space-y-0.5">
+                              <button type="button" onClick={() => setMaturityFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${maturityFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.maturity.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setMaturityFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${maturityFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {refineChips.packetCount.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "packetCount" ? null : "packetCount"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetCount"}>
+                            <span>Packet count</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetCount" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "packetCount" && (
+                            <div className="px-4 pb-3 pt-0 space-y-0.5">
+                              <button type="button" onClick={() => setPacketCountFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${packetCountFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {refineChips.packetCount.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setPacketCountFilter(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${packetCountFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "2+" ? "2+ packets" : value === "1" ? "1 packet" : "0 packets"} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </>
               )}
               {/* Content for Active Garden or My Plants: Plant type only */}
@@ -1343,6 +1507,7 @@ function VaultPageInner() {
             batchSelectMode={batchSelectMode}
             selectedVarietyIds={selectedVarietyIds}
             onToggleVarietySelection={toggleVarietySelection}
+            onLongPressVariety={handleLongPressVariety}
             onFilteredIdsChange={setFilteredVarietyIds}
             onPendingHeroCountChange={setPendingHeroCount}
             availablePlantTypes={availablePlantTypes}
@@ -1352,6 +1517,14 @@ function VaultPageInner() {
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
             onCategoryChipsLoaded={handleCategoryChipsLoaded}
+            varietyFilter={varietyFilter}
+            vendorFilter={vendorFilter}
+            sunFilter={sunFilter}
+            spacingFilter={spacingFilter}
+            germinationFilter={germinationFilter}
+            maturityFilter={maturityFilter}
+            packetCountFilter={packetCountFilter}
+            onRefineChipsLoaded={handleRefineChipsLoaded}
           />
         </div>
       )}
@@ -1694,7 +1867,7 @@ function VaultPageInner() {
             aria-label="Close menu"
             onClick={() => setActiveFabMenuOpen(false)}
           />
-          <div className="fixed right-6 bottom-32 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg">
+          <div className="fixed right-6 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
             <button
               type="button"
               onClick={() => { setShowStoreBoughtModal(true); setActiveFabMenuOpen(false); }}
@@ -1712,8 +1885,8 @@ function VaultPageInner() {
           else if (viewMode === "plants") setShowAddPermanentPlantModal(true);
           else setQuickAddOpen(true);
         }}
-        className="fixed right-6 bottom-24 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
-        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label={viewMode === "active" ? "Open menu" : viewMode === "plants" ? "Add permanent plant" : "Quick add seed"}
       >
         +
@@ -1765,7 +1938,8 @@ function VaultPageInner() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-24 left-4 right-4 max-w-md mx-auto z-50 px-4 py-3 rounded-xl bg-black/85 text-white text-sm shadow-lg flex items-center justify-center"
+          className="fixed left-4 right-4 max-w-md mx-auto z-50 px-4 py-3 rounded-xl bg-black/85 text-white text-sm shadow-lg flex items-center justify-center"
+          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}
         >
           {saveToastMessage}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getPendingWrites, removeWrite, incrementRetry } from "@/lib/offlineQueue";
 import type { QueuedWrite } from "@/lib/offlineQueue";
@@ -11,22 +11,14 @@ export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [replaying, setReplaying] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track online/offline status
   useEffect(() => {
     if (typeof window === "undefined") return;
     setIsOnline(navigator.onLine);
 
-    const handleOnline = () => {
-      setIsOnline(true);
-      showTemporaryToast();
-    };
-    const handleOffline = () => {
-      setIsOnline(false);
-      setShowToast(true);
-    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -34,12 +26,6 @@ export function OfflineIndicator() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
-
-  const showTemporaryToast = useCallback(() => {
-    setShowToast(true);
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setShowToast(false), 4000);
   }, []);
 
   // Replay queued writes when coming back online
@@ -99,31 +85,16 @@ export function OfflineIndicator() {
     return () => clearInterval(interval);
   }, []);
 
-  if (!showToast && pendingCount === 0) return null;
+  // Only show toast when offline; rely on header cloud icon for syncing/synced status
+  if (isOnline) return null;
 
   return (
     <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium transition-all duration-300 ${
-        !isOnline
-          ? "bg-amber-600 text-white"
-          : replaying
-          ? "bg-blue-600 text-white"
-          : pendingCount > 0
-          ? "bg-amber-500 text-white"
-          : "bg-emerald-600 text-white"
-      } ${showToast || pendingCount > 0 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-amber-600 text-white"
       role="status"
       aria-live="polite"
     >
-      {!isOnline ? (
-        <span>Offline -- changes will sync when reconnected</span>
-      ) : replaying ? (
-        <span>Syncing {pendingCount} pending change{pendingCount !== 1 ? "s" : ""}...</span>
-      ) : pendingCount > 0 ? (
-        <span>{pendingCount} change{pendingCount !== 1 ? "s" : ""} pending sync</span>
-      ) : (
-        <span>Back online -- all synced</span>
-      )}
+      <span>Offline -- changes will sync when reconnected</span>
     </div>
   );
 }

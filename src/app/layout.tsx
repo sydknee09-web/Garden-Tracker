@@ -12,9 +12,10 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-sans" });
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 2,
+  userScalable: true,
   themeColor: "#059669",
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {

@@ -3,38 +3,42 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
+const SETTINGS_ITEMS = [
+  { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, household, account" },
+  { href: "/settings/developer", label: "Developer", subtitle: "Archived plantings, import logs, cache, trash" },
+  { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
+  { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },
+  { href: "/settings/brain", label: "Brain", subtitle: "AI and research settings" },
+] as const;
+
 export default function SettingsPage() {
   const { user } = useAuth();
 
   if (!user) return null;
 
   return (
-    <div className="px-6 py-8 max-w-2xl mx-auto pb-24">
-      <Link href="/" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6">
+    <div className="px-4 py-6 max-w-2xl mx-auto pb-24">
+      <Link href="/" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
         &larr; Back to Garden
       </Link>
-      <h1 className="text-2xl font-bold text-neutral-900 mb-2">Settings</h1>
-      <p className="text-sm text-neutral-500 mb-8">Profile, data, and developer tools.</p>
+      <h1 className="text-xl font-bold text-neutral-900 mb-1">Settings</h1>
+      <p className="text-sm text-neutral-500 mb-4">Profile, data, and developer tools.</p>
 
-      <div className="space-y-3">
-        <Link
-          href="/settings/profile"
-          className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors"
-        >
-          <h2 className="text-lg font-semibold text-neutral-800 mb-1">Profile</h2>
-          <p className="text-sm text-neutral-500 mb-2">Planting zone, export data, tag manager, schedule defaults, household, and account (reset password, delete account, sign out).</p>
-          <span className="text-sm text-emerald-600 font-medium">Open Profile &rarr;</span>
-        </Link>
-
-        <Link
-          href="/settings/developer"
-          className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors"
-        >
-          <h2 className="text-lg font-semibold text-neutral-800 mb-1">Developer</h2>
-          <p className="text-sm text-neutral-500 mb-2">Archived plantings, import logs, plant data cache, archived purchases, repair hero photos, and trash.</p>
-          <span className="text-sm text-emerald-600 font-medium">Open Developer &rarr;</span>
-        </Link>
-      </div>
+      <nav className="rounded-xl border border-black/10 bg-white overflow-hidden" aria-label="Settings">
+        {SETTINGS_ITEMS.map(({ href, label, subtitle }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex items-center justify-between gap-3 min-h-[44px] px-4 py-3 text-left border-b border-black/5 last:border-b-0 hover:bg-black/[0.03] active:bg-black/5"
+          >
+            <div className="min-w-0 flex-1">
+              <span className="font-medium text-neutral-900 block truncate">{label}</span>
+              {subtitle && <span className="text-xs text-neutral-500 block truncate">{subtitle}</span>}
+            </div>
+            <span className="text-neutral-400 shrink-0" aria-hidden>›</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

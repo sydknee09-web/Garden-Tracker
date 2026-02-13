@@ -15,6 +15,16 @@ body {
   background: var(--background);
 }
 
+/* Avoid iOS zoom on focus: inputs/selects/textarea at least 16px */
+input, select, textarea {
+  font-size: 16px;
+}
+
+/* Prevent body scroll behind modal when inner content scrolls */
+[role="dialog"] .overflow-y-auto {
+  overscroll-behavior: contain;
+}
+
 /* Respect reduced motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
