@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
-import { getCanonicalKey } from "@/lib/canonicalKey";
 import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
@@ -65,38 +64,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
   const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
-  const [schedulePlantTypes, setSchedulePlantTypes] = useState<string[]>([]);
-  const [extractCacheTypes, setExtractCacheTypes] = useState<string[]>([]);
-  const [globalCacheTypes, setGlobalCacheTypes] = useState<string[]>([]);
-
-  const plantSuggestions = useMemo(() => {
-    const set = new Set<string>();
-    profiles.forEach((p) => {
-      const n = (p.name ?? "").trim();
-      if (n) set.add(n);
-    });
-    schedulePlantTypes.forEach((t) => {
-      const n = t.trim();
-      if (n) set.add(n);
-    });
-    extractCacheTypes.forEach((t) => {
-      const n = t.trim();
-      if (n) set.add(n);
-    });
-    globalCacheTypes.forEach((t) => {
-      const n = t.trim();
-      if (n) set.add(n);
-    });
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [profiles, schedulePlantTypes, extractCacheTypes, globalCacheTypes]);
-
-  const getVarietySuggestionsForPlant = useCallback((plantName: string) => {
-    const key = getCanonicalKey(plantName);
-    if (!key) return [];
-    const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
-    const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
-    return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
+  const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
+  const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
 
   // Reset screen when modal opens/closes; apply initial prefill from parent
   useEffect(() => {
@@ -132,23 +101,34 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
   }, [open, user?.id]);
 
-  // Plant name suggestions from profiles + schedule_defaults + plant_extract_cache + global_plant_cache (deduped like vendor)
+  // Plant suggestions from global_plant_cache (standardized, excludes bad rows)
   useEffect(() => {
-    if (!open || !user?.id) return;
-    (async () => {
-      const [schedRes, extractRes, globalRes] = await Promise.all([
-        supabase.from("schedule_defaults").select("plant_type").eq("user_id", user.id),
-        supabase.from("plant_extract_cache").select("extract_data").eq("user_id", user.id),
-        supabase.from("global_plant_cache").select("extract_data"),
-      ]);
-      const schedTypes = (schedRes.data ?? []).map((r: { plant_type?: string }) => (r.plant_type ?? "").trim()).filter(Boolean);
-      const extractTypes = (extractRes.data ?? []).map((r: { extract_data?: { type?: string } }) => (r.extract_data?.type ?? "").trim()).filter(Boolean);
-      const globalTypes = (globalRes.data ?? []).map((r: { extract_data?: { type?: string } }) => (r.extract_data?.type ?? "").trim()).filter(Boolean);
-      setSchedulePlantTypes(schedTypes);
-      setExtractCacheTypes(extractTypes);
-      setGlobalCacheTypes(globalTypes);
-    })();
-  }, [open, user?.id]);
+    if (!open) return;
+    supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
+      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(types);
+    });
+  }, [open]);
+
+  // Variety suggestions from global_plant_cache when plant is selected (debounced)
+  useEffect(() => {
+    if (!open || !plantName.trim()) {
+      setVarietySuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      supabase.rpc("get_global_plant_cache_varieties", { p_plant_type: plantName.trim() }).then(({ data }) => {
+        if (cancelled) return;
+        const varieties = ((data ?? []) as { variety: string | null }[]).map((r) => (r.variety ?? "").trim()).filter(Boolean);
+        setVarietySuggestions(varieties);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [open, plantName]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -364,7 +344,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 id="quick-add-variety"
                 value={varietyCultivar}
                 onChange={setVarietyCultivar}
-                suggestions={getVarietySuggestionsForPlant(plantName)}
+                suggestions={varietySuggestions}
                 placeholder="e.g. Dr. Wyche"
                 aria-label="Variety or cultivar"
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"

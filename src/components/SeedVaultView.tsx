@@ -914,7 +914,7 @@ export function SeedVaultView({
             if (isPhotoCards) {
               const cardContent = (
                 <>
-                  <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0 rounded-t-xl">
+                  <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden shrink-0 rounded-t-xl">
                     {showResearching ? (
                       <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                         <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
@@ -922,7 +922,7 @@ export function SeedVaultView({
                     ) : showSeedling ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-4xl">🌱</div>
                     ) : (
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
                     )}
                     {batchSelectMode && onToggleVarietySelection && (
                       <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
@@ -953,7 +953,7 @@ export function SeedVaultView({
               );
 
               return (
-                <li key={seed.id}>
+                <li key={seed.id} className="min-w-0">
                   {batchSelectMode ? (
                     <article
                       role="button"
@@ -991,7 +991,7 @@ export function SeedVaultView({
             /* Condensed: same layout as photo cards (image on top, then name · variety, title, HealthDot + count) but smaller */
             const condensedContent = (
               <>
-                <div className="relative w-full aspect-[4/3] bg-neutral-100 overflow-hidden shrink-0 rounded-t-lg">
+                <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden shrink-0 rounded-t-lg">
                   {showResearching ? (
                     <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                       <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
@@ -999,7 +999,7 @@ export function SeedVaultView({
                   ) : showSeedling ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-2xl">🌱</div>
                   ) : (
-                    <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                    <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
                   )}
                   {batchSelectMode && onToggleVarietySelection && (
                     <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
@@ -1023,7 +1023,7 @@ export function SeedVaultView({
             );
 
             return (
-              <li key={seed.id}>
+              <li key={seed.id} className="min-w-0">
                 {batchSelectMode ? (
                   <article
                     role="button"

@@ -8,7 +8,12 @@ import { useEffect, useRef } from "react";
  * - On popstate (user pressed back): call onClose.
  * - When modal closes from UI (Cancel, overlay, etc.): call history.back() to remove the state we pushed.
  */
-export function useModalBackClose(isOpen: boolean, onClose: () => void): void {
+export function useModalBackClose(
+  isOpen: boolean,
+  onClose: () => void,
+  /** When true, skip history.back() on close (e.g. navigating away via router.push) */
+  skipPopRef?: React.MutableRefObject<boolean>
+): void {
   const didPushRef = useRef(false);
   const prevOpenRef = useRef(isOpen);
 
@@ -27,7 +32,11 @@ export function useModalBackClose(isOpen: boolean, onClose: () => void): void {
     if (typeof window === "undefined") return;
     if (!isOpen && didPushRef.current) {
       didPushRef.current = false;
-      window.history.back();
+      if (skipPopRef?.current) {
+        skipPopRef.current = false;
+      } else {
+        window.history.back();
+      }
     }
   }, [isOpen]);
 

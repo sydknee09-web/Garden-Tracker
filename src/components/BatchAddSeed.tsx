@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { rareseedsAutotreatment, slugToSpaced } from "@/lib/rareseedsAutotreatment";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
-import { getCanonicalKey } from "@/lib/canonicalKey";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
@@ -88,21 +87,9 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orderInputRef = useRef<HTMLInputElement>(null);
   const [orderProcessing, setOrderProcessing] = useState(false);
-  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
+  const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
-
-  const plantSuggestions = useMemo(() => {
-    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
-
-  const getVarietySuggestionsForPlant = useCallback((plantName: string) => {
-    const key = getCanonicalKey(plantName);
-    if (!key) return [];
-    const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
-    const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
-    return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
 
   useEffect(() => {
     if (!open) {
@@ -134,14 +121,30 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     return () => { cancelled = true; };
   }, [open, user?.id]);
 
+  // Plant suggestions from global_plant_cache
   useEffect(() => {
-    if (!open || !user?.id) return;
-    supabase
-      .from("plant_profiles")
-      .select("id, name, variety_name")
-      .eq("user_id", user.id)
-      .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
-  }, [open, user?.id]);
+    if (!open) return;
+    supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
+      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(types);
+    });
+  }, [open]);
+
+  // Variety suggestions per plant (for queue items)
+  useEffect(() => {
+    if (!open || queue.length === 0) return;
+    const plantNames = [...new Set(queue.map((i) => (i.name ?? "").trim()).filter(Boolean))];
+    plantNames.forEach((name) => {
+      if (varietySuggestionsByPlant[name]) return; // already fetched
+      supabase.rpc("get_global_plant_cache_varieties", { p_plant_type: name }).then(({ data }) => {
+        setVarietySuggestionsByPlant((prev) => {
+          if (prev[name]) return prev;
+          const varieties = ((data ?? []) as { variety: string | null }[]).map((r) => (r.variety ?? "").trim()).filter(Boolean);
+          return { ...prev, [name]: varieties };
+        });
+      });
+    });
+  }, [open, queue]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -719,7 +722,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                         <Combobox
                           value={item.variety ?? ""}
                           onChange={(v) => updateItem(item.id, { variety: v })}
-                          suggestions={getVarietySuggestionsForPlant(item.name ?? "")}
+                          suggestions={varietySuggestionsByPlant[item.name ?? ""] ?? []}
                           placeholder="Variety"
                           aria-label="Variety"
                           className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"

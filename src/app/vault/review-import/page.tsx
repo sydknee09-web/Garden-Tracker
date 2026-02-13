@@ -310,24 +310,33 @@ export default function ReviewImportPage() {
   const [logPanelOpen, setLogPanelOpen] = useState(false);
   const initialBatchIdRef = useRef<string | null>(null);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+  const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
+  const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
 
-  /** Distinct plant names from vault for combobox (instant). */
-  const plantSuggestions = useMemo(() => {
-    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
+  // Plant suggestions from global_plant_cache
+  useEffect(() => {
+    if (items.length === 0) return;
+    supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
+      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(types);
+    });
+  }, [items.length]);
 
-  /** Varieties for a given plant (from vault); instant in-memory filter. */
-  const getVarietySuggestionsForPlant = useCallback(
-    (plantName: string) => {
-      const key = getCanonicalKey(plantName);
-      if (!key) return [];
-      const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
-      const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
-      return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
-    },
-    [profiles]
-  );
+  // Variety suggestions per plant (from global cache)
+  useEffect(() => {
+    if (items.length === 0) return;
+    const plantNames = [...new Set(items.map((i) => (i.type ?? "").trim()).filter(Boolean))];
+    plantNames.forEach((name) => {
+      if (varietySuggestionsByPlant[name]) return;
+      supabase.rpc("get_global_plant_cache_varieties", { p_plant_type: name }).then(({ data }) => {
+        setVarietySuggestionsByPlant((prev) => {
+          if (prev[name]) return prev;
+          const varieties = ((data ?? []) as { variety: string | null }[]).map((r) => (r.variety ?? "").trim()).filter(Boolean);
+          return { ...prev, [name]: varieties };
+        });
+      });
+    });
+  }, [items.length, items]);
 
   useEffect(() => {
     const data = getReviewImportData();
@@ -1388,7 +1397,7 @@ export default function ReviewImportPage() {
                         <Combobox
                           value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
-                          suggestions={getVarietySuggestionsForPlant(item.type)}
+                          suggestions={varietySuggestionsByPlant[item.type ?? ""] ?? []}
                           placeholder="Variety"
                           aria-label="Variety"
                           className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}

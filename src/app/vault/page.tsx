@@ -92,12 +92,14 @@ function VaultPageInner() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
 
-  useModalBackClose(quickAddOpen, useCallback(() => {
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen;
+  const skipPopOnNavigateRef = useRef(false);
+  useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
     setQrPrefill(null);
-  }, []));
-  useModalBackClose(batchAddOpen, useCallback(() => setBatchAddOpen(false), []));
-  useModalBackClose(scannerOpen, useCallback(() => setScannerOpen(false), []));
+    setBatchAddOpen(false);
+    setScannerOpen(false);
+  }, []), skipPopOnNavigateRef);
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("vault");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -1621,10 +1623,12 @@ function VaultPageInner() {
           setBatchAddOpen(true);
         }}
         onOpenLinkImport={() => {
+          skipPopOnNavigateRef.current = true;
           setQuickAddOpen(false);
           router.push("/vault/import");
         }}
         onStartManualImport={() => {
+          skipPopOnNavigateRef.current = true;
           setQuickAddOpen(false);
           router.push("/vault/import/manual");
         }}

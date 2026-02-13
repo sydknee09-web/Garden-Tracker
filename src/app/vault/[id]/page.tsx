@@ -444,6 +444,18 @@ export default function VaultSeedPage() {
     await loadProfile();
   }, [user?.id, profile, id, editForm, loadProfile]);
 
+  // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
+  const sortedPackets = useMemo(() => {
+    return [...packets].sort((a, b) => {
+      const aHas = (a.qty_status ?? 0) > 0 ? 1 : 0;
+      const bHas = (b.qty_status ?? 0) > 0 ? 1 : 0;
+      if (bHas !== aHas) return bHas - aHas; // has inventory first, then 0% at bottom
+      const aAt = a.created_at ?? "";
+      const bAt = b.created_at ?? "";
+      return bAt.localeCompare(aAt);
+    });
+  }, [packets]);
+
   // =========================================================================
   // Loading / error states
   // =========================================================================
@@ -466,18 +478,6 @@ export default function VaultSeedPage() {
   ];
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
-
-  // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
-  const sortedPackets = useMemo(() => {
-    return [...packets].sort((a, b) => {
-      const aHas = (a.qty_status ?? 0) > 0 ? 1 : 0;
-      const bHas = (b.qty_status ?? 0) > 0 ? 1 : 0;
-      if (bHas !== aHas) return bHas - aHas; // has inventory first, then 0% at bottom
-      const aAt = a.created_at ?? "";
-      const bAt = b.created_at ?? "";
-      return bAt.localeCompare(aAt);
-    });
-  }, [packets]);
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
