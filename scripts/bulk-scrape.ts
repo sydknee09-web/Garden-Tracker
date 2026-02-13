@@ -193,6 +193,20 @@ function deriveTypeAndVarietyFromUrl(url: string): { type: string; variety: stri
       }
     }
 
+    // High Mowing: slug organic-non-gmo-spretnak-lettuce-p-m005 → Lettuce / Spretnak (so identity_key is not pelleted_*)
+    if (host.includes("highmowingseeds.com") && last) {
+      const slugNoCode = last.replace(/-p?-m?\d+$/i, "").replace(/-+$/, "").trim();
+      const parts = slugNoCode.split("-").filter(Boolean);
+      const noise = ["organic", "non", "gmo", "pelleted", "seeds", "seed"];
+      const meaningful = parts.filter((p) => !noise.includes(p.toLowerCase()));
+      if (meaningful.length >= 2) {
+        const type = toTitle(meaningful[meaningful.length - 1]!);
+        const variety = toTitle(meaningful.slice(0, -1).join(" "));
+        return { type, variety: variety || "Unknown" };
+      }
+      if (meaningful.length === 1) return { type: toTitle(meaningful[0]!), variety: "Unknown" };
+    }
+
     // Outsidepride: derive from path + slug only (no default "Flower"). sweet-violet-seeds-reine-de-neiges → Sweet Viola / Reine De Neiges; stokesia-seeds-white-star → Stokesia / White Star
     if (host.includes("outsidepride.com") && last) {
       const lower = last.toLowerCase();

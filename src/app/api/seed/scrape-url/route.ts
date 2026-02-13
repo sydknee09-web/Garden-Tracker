@@ -615,6 +615,30 @@ function getStructuredNameVendor(
     }
     variety_name = stripFedcoSlugNoise(variety_name).replace(/\s*[-|:]+\s*$/g, "").trim();
     if (plant_name === "Fedco") plant_name = "General";
+  } else if (host.includes("highmowingseeds.com")) {
+    // High Mowing: derive plant/variety from slug so "Pelleted" never becomes type. e.g. organic-non-gmo-spretnak-lettuce-p-m005 → Lettuce / Spretnak
+    const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+    const slugWithExt = pathSegments.pop() ?? "";
+    let slug = slugWithExt.replace(/\.(html?|aspx|php)$/i, "").trim();
+    const productCode = /-p?-m?\d+$/i;
+    slug = slug.replace(productCode, "").replace(/-+$/, "").trim();
+    const parts = slug.split("-").filter(Boolean);
+    const noise = ["organic", "non", "gmo", "non-gmo", "pelleted", "seeds", "seed"];
+    const meaningful = parts.filter((p) => !noise.includes(p.toLowerCase()));
+    if (meaningful.length >= 2) {
+      plant_name = toTitleCase(meaningful[meaningful.length - 1] ?? "");
+      variety_name = toTitleCase(meaningful.slice(0, -1).join(" "));
+    } else if (meaningful.length === 1) {
+      plant_name = toTitleCase(meaningful[0] ?? "");
+      variety_name = "";
+    } else if (rawTitle) {
+      const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+      plant_name = parsed.plant_name.replace(/\s*Pelleted\s*/gi, " ").trim() || parsed.plant_name;
+      variety_name = parsed.variety_name.replace(/\s*Pelleted\s*/gi, " ").trim() || parsed.variety_name;
+    } else {
+      plant_name = "General";
+      variety_name = "";
+    }
   } else if (host.includes("johnnyseeds.com")) {
     // Johnny's URL: either category/plant/variety-slug (3+ parts) or category/slug (2 parts, e.g. /herbs/stevia).
     const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
