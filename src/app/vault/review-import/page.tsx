@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,7 @@ import { compressImage } from "@/lib/compressImage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
+import { Combobox } from "@/components/Combobox";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -308,6 +309,25 @@ export default function ReviewImportPage() {
   const [importLogs, setImportLogs] = useState<ImportLogEntry[]>([]);
   const [logPanelOpen, setLogPanelOpen] = useState(false);
   const initialBatchIdRef = useRef<string | null>(null);
+  const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+
+  /** Distinct plant names from vault for combobox (instant). */
+  const plantSuggestions = useMemo(() => {
+    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
+
+  /** Varieties for a given plant (from vault); instant in-memory filter. */
+  const getVarietySuggestionsForPlant = useCallback(
+    (plantName: string) => {
+      const key = getCanonicalKey(plantName);
+      if (!key) return [];
+      const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
+      const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
+      return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
+    },
+    [profiles]
+  );
 
   useEffect(() => {
     const data = getReviewImportData();
@@ -334,6 +354,29 @@ export default function ReviewImportPage() {
       .eq("user_id", user.id)
       .then(({ data }) => setProfiles((data ?? []) as ProfileMatch[]));
   }, [user?.id, items.length]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data: profileRows } = await supabase
+        .from("plant_profiles")
+        .select("id")
+        .eq("user_id", user.id);
+      const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
+      if (ids.length === 0) {
+        setVendorSuggestions([]);
+        return;
+      }
+      const { data: packetRows } = await supabase
+        .from("seed_packets")
+        .select("vendor_name")
+        .in("plant_profile_id", ids);
+      const vendors = (packetRows ?? [])
+        .map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim())
+        .filter(Boolean);
+      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+    })();
+  }, [user?.id]);
 
   // Run when item count is set (e.g. load from storage). [items.length] only — hero URL updates do not re-trigger.
   // Phase 0: fetch vault (import logs with status 200 + hero_image_url), then for each item missing hero either use vault URL (skip API) or call find-hero-photo. Always call persistHeroSearchLog for every API result (success or fail).
@@ -1287,44 +1330,42 @@ export default function ReviewImportPage() {
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                     <div className="sm:col-span-2 lg:col-span-1">
-                    {mergedSourceCount > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 flex-wrap">
-                        <span className="font-medium text-black/90">{decodeHtmlEntities(displayVendor) || "Vendor"}</span>
-                        <span className="text-xs font-medium text-neutral-500 bg-neutral-100 rounded px-1.5 py-0.5" title={`${mergedSourceCount} additional link${mergedSourceCount === 1 ? "" : "s"} linked`}>
+                    <div className="inline-flex items-center gap-1.5 flex-wrap w-full">
+                      <Combobox
+                        value={item.vendor}
+                        onChange={(v) => updateItem(item.id, { vendor: v })}
+                        suggestions={vendorSuggestions}
+                        placeholder="Vendor"
+                        aria-label="Vendor"
+                        className={`w-full min-w-0 rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
+                      />
+                      {mergedSourceCount > 0 && (
+                        <span className="text-xs font-medium text-neutral-500 bg-neutral-100 rounded px-1.5 py-0.5 shrink-0" title={`${mergedSourceCount} additional link${mergedSourceCount === 1 ? "" : "s"} linked`}>
                           +{mergedSourceCount}
                         </span>
-                      </span>
-                    ) : (
-                      <input
-                        type="text"
-                        value={item.vendor}
-                        onChange={(e) => updateItem(item.id, { vendor: e.target.value })}
-                        placeholder="Vendor"
-                        className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
-                        aria-label="Vendor"
-                      />
-                    )}
+                      )}
+                    </div>
                     </div>
                     <div>
-                    <input
-                      type="text"
+                    <Combobox
                       value={item.type}
-                      onChange={(e) => updateItem(item.id, { type: e.target.value })}
+                      onChange={(v) => updateItem(item.id, { type: v })}
+                      suggestions={plantSuggestions}
                       placeholder="Plant type"
-                      className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       aria-label="Plant type"
+                      className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
                     </div>
                     <div className="sm:col-span-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <input
-                          type="text"
-                          value={decodeHtmlEntities(displayVariety)}
-                          onChange={(e) => updateItem(item.id, { variety: e.target.value })}
+                        <Combobox
+                          value={decodeHtmlEntities(item.cleanVariety ?? item.variety ?? "")}
+                          onChange={(v) => updateItem(item.id, { variety: v })}
+                          suggestions={getVarietySuggestionsForPlant(item.type)}
                           placeholder="Variety"
-                          className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                           aria-label="Variety"
+                          className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         />
                         {item.linkNotFound && (
                           <span className="text-red-600 text-xs font-medium whitespace-nowrap flex items-center gap-1" title="Product page returned 404">

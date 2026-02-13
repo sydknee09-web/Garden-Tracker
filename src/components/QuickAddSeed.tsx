@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { getZone10bScheduleForPlant, getDefaultSowMonthsForZone10b } from "@/data/zone10b_schedule";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
+import { getCanonicalKey } from "@/lib/canonicalKey";
 import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
+import { Combobox } from "@/components/Combobox";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -59,6 +61,21 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [error, setError] = useState<string | null>(null);
   const [tagsToSave, setTagsToSave] = useState<string[]>([]);
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
+  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+
+  const plantSuggestions = useMemo(() => {
+    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
+
+  const getVarietySuggestionsForPlant = useCallback((plantName: string) => {
+    const key = getCanonicalKey(plantName);
+    if (!key) return [];
+    const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
+    const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
+    return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
 
   // Reset screen when modal opens/closes; apply initial prefill from parent
   useEffect(() => {
@@ -83,6 +100,30 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       setSourceUrlToSave("");
     }
   }, [open, initialPrefill]);
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    supabase
+      .from("plant_profiles")
+      .select("id, name, variety_name")
+      .eq("user_id", user.id)
+      .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
+  }, [open, user?.id]);
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    (async () => {
+      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id);
+      const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
+      if (ids.length === 0) {
+        setVendorSuggestions([]);
+        return;
+      }
+      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids);
+      const vendors = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
+      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+    })();
+  }, [open, user?.id]);
 
   function goBack() {
     setError(null);
@@ -331,39 +372,42 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               <label htmlFor="quick-add-name" className="block text-sm font-medium text-black/80 mb-1">
                 Plant Name
               </label>
-              <input
+              <Combobox
                 id="quick-add-name"
-                type="text"
                 value={plantName}
-                onChange={(e) => setPlantName(e.target.value)}
+                onChange={setPlantName}
+                suggestions={plantSuggestions}
                 placeholder="e.g. Tomato"
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                aria-label="Plant name"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
               />
             </div>
             <div>
               <label htmlFor="quick-add-variety" className="block text-sm font-medium text-black/80 mb-1">
                 Variety / Cultivar
               </label>
-              <input
+              <Combobox
                 id="quick-add-variety"
-                type="text"
                 value={varietyCultivar}
-                onChange={(e) => setVarietyCultivar(e.target.value)}
+                onChange={setVarietyCultivar}
+                suggestions={getVarietySuggestionsForPlant(plantName)}
                 placeholder="e.g. Dr. Wyche"
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                aria-label="Variety or cultivar"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
               />
             </div>
             <div>
               <label htmlFor="quick-add-vendor" className="block text-sm font-medium text-black/80 mb-1">
                 Vendor
               </label>
-              <input
+              <Combobox
                 id="quick-add-vendor"
-                type="text"
                 value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
+                onChange={setVendor}
+                suggestions={vendorSuggestions}
                 placeholder="e.g. Burpee"
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                aria-label="Vendor"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
               />
             </div>
             <div>

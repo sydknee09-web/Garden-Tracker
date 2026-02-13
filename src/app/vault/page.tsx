@@ -942,7 +942,7 @@ function VaultPageInner() {
           </button>
         </div>
 
-        {/* Unified toolbar: search + (view toggle | Refine by | batch actions) for all four tabs */}
+        {/* Unified toolbar: search + (Refine by | view toggle | batch actions) for all four tabs */}
         {(viewMode === "grid" || viewMode === "list" || viewMode === "active" || viewMode === "plants") && (
           <>
             <div className="flex gap-2 mb-3">
@@ -965,6 +965,23 @@ function VaultPageInner() {
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
+                <button
+                  type="button"
+                  onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
+                  aria-label={viewMode === "grid" || viewMode === "list" ? "Refine by status, tags, plant type" : "Refine by plant type"}
+                >
+                  Refine by
+                  {(viewMode === "grid" || viewMode === "list") && ((statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null) ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
+                      {[statusFilter !== "" && statusFilter !== "vault", tagFilters.length > 0, categoryFilter !== null].filter(Boolean).length}
+                    </span>
+                  ) : viewMode === "active" && activeCategoryFilter !== null ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                  ) : viewMode === "plants" && plantsCategoryFilter !== null ? (
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                  ) : null}
+                </button>
                 {viewMode === "grid" && (
                   <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Grid display style">
                     <button
@@ -991,23 +1008,6 @@ function VaultPageInner() {
                     </button>
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
-                  aria-label={viewMode === "grid" || viewMode === "list" ? "Refine by status, tags, plant type" : "Refine by plant type"}
-                >
-                  Refine by
-                  {(viewMode === "grid" || viewMode === "list") && ((statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null) ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                      {[statusFilter !== "" && statusFilter !== "vault", tagFilters.length > 0, categoryFilter !== null].filter(Boolean).length}
-                    </span>
-                  ) : viewMode === "active" && activeCategoryFilter !== null ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
-                  ) : viewMode === "plants" && plantsCategoryFilter !== null ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
-                  ) : null}
-                </button>
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
                   <div className="flex items-center gap-2 flex-nowrap min-w-0 overflow-x-auto pb-1 scrollbar-thin bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" style={{ scrollbarWidth: "thin" }} role="toolbar" aria-label="Batch actions">
                     <button

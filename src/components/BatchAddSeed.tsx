@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { rareseedsAutotreatment, slugToSpaced } from "@/lib/rareseedsAutotreatment";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
+import { getCanonicalKey } from "@/lib/canonicalKey";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import { setReviewImportData, setPendingPhotoImport } from "@/lib/reviewImportStorage";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
+import { Combobox } from "@/components/Combobox";
 
 /** Today's date in YYYY-MM-DD for default purchase date. */
 function todayISO(): string {
@@ -86,6 +88,21 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orderInputRef = useRef<HTMLInputElement>(null);
   const [orderProcessing, setOrderProcessing] = useState(false);
+  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+
+  const plantSuggestions = useMemo(() => {
+    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
+
+  const getVarietySuggestionsForPlant = useCallback((plantName: string) => {
+    const key = getCanonicalKey(plantName);
+    if (!key) return [];
+    const matches = profiles.filter((p) => getCanonicalKey(p.name ?? "") === key);
+    const varieties = matches.map((p) => (p.variety_name ?? "").trim()).filter(Boolean);
+    return [...new Set(varieties)].sort((a, b) => a.localeCompare(b));
+  }, [profiles]);
 
   useEffect(() => {
     if (!open) {
@@ -115,6 +132,30 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
         setKnownPlantTypes(types);
       });
     return () => { cancelled = true; };
+  }, [open, user?.id]);
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    supabase
+      .from("plant_profiles")
+      .select("id, name, variety_name")
+      .eq("user_id", user.id)
+      .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
+  }, [open, user?.id]);
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    (async () => {
+      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id);
+      const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
+      if (ids.length === 0) {
+        setVendorSuggestions([]);
+        return;
+      }
+      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids);
+      const vendors = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
+      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+    })();
   }, [open, user?.id]);
 
   useEffect(() => {
@@ -597,27 +638,6 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                 }}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => orderInputRef.current?.click()}
-              disabled={orderProcessing}
-              className="w-full py-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 font-medium hover:bg-amber-100 disabled:opacity-50 mb-3"
-            >
-              {orderProcessing ? "Processing Order…" : "Scan Order Confirmation"}
-            </button>
-            <input
-              ref={orderInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  processOrderConfirmation(file);
-                  e.target.value = "";
-                }
-              }}
-            />
 
             {queue.length > 0 && (
               <>
@@ -679,29 +699,29 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                         className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0 space-y-2">
-                        <input
-                          type="text"
-                          value={item.vendor}
-                          onChange={(e) => updateItem(item.id, { vendor: e.target.value })}
+                        <Combobox
+                          value={item.vendor ?? ""}
+                          onChange={(v) => updateItem(item.id, { vendor: v })}
+                          suggestions={vendorSuggestions}
                           placeholder="Vendor"
-                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
                           aria-label="Vendor"
+                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
                         />
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                        <Combobox
+                          value={item.name ?? ""}
+                          onChange={(v) => updateItem(item.id, { name: v })}
+                          suggestions={plantSuggestions}
                           placeholder="Plant type"
-                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
                           aria-label="Plant type"
-                        />
-                        <input
-                          type="text"
-                          value={item.variety}
-                          onChange={(e) => updateItem(item.id, { variety: e.target.value })}
-                          placeholder="Variety"
                           className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
+                        />
+                        <Combobox
+                          value={item.variety ?? ""}
+                          onChange={(v) => updateItem(item.id, { variety: v })}
+                          suggestions={getVarietySuggestionsForPlant(item.name ?? "")}
+                          placeholder="Variety"
                           aria-label="Variety"
+                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm min-h-[44px] min-w-[44px]"
                         />
                         <label className="block">
                           <span className="text-xs text-black/50">Purchase date</span>
