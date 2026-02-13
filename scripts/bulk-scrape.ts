@@ -10,7 +10,7 @@
  * Run:  npm run bulk-scrape
  *       (default: round-robin = 1 URL per vendor per round, 4 vendors in parallel for ~4x speed, same per-vendor rate)
  *       npm run bulk-scrape -- --parallel   (legacy: 4 vendors at a time, each does full queue)
- *       npm run bulk-scrape -- --no-ai
+ *       npm run bulk-scrape -- --ai          (enable Tavily AI fallback when keys available)
  *       npm run bulk-scrape -- --vendor rareseeds.com
  */
 
@@ -168,12 +168,162 @@ function buildIdentityKey(type: string, variety: string): string {
   return key || "unknown";
 }
 
-/** Derive type and variety from URL path when the scraper returns empty (e.g. Select Seeds, Swallowtail). */
+const JOHNNYS_TOP_CATEGORIES = ["vegetables", "flowers", "herbs", "tools", "supplies"];
+const JOHNNYS_PRODUCT_CODE = /-\d+[a-z]*$/i;
+
+function toTitle(s: string): string {
+  return s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+}
+
+/** Derive type and variety from URL path when the scraper returns empty or wrong (e.g. product code as type). */
 function deriveTypeAndVarietyFromUrl(url: string): { type: string; variety: string } {
   try {
-    const pathname = new URL(url).pathname;
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = parsed.pathname;
     const segments = pathname.split("/").filter(Boolean);
     const last = (segments[segments.length - 1] ?? "").replace(/\.[^.]*$/, "").replace(/_/g, "-").trim();
+
+    if (host.includes("burpee.com") && last) {
+      const parts = last.split("-").filter(Boolean);
+      if (parts.length >= 1) {
+        const type = toTitle(parts[0]!);
+        const variety = parts.length > 1 ? toTitle(parts.slice(1).join("-")) : "";
+        return { type: type || "Imported seed", variety: variety || "Unknown" };
+      }
+    }
+
+    // Outsidepride: derive from path + slug only (no default "Flower"). sweet-violet-seeds-reine-de-neiges → Sweet Viola / Reine De Neiges; stokesia-seeds-white-star → Stokesia / White Star
+    if (host.includes("outsidepride.com") && last) {
+      const lower = last.toLowerCase();
+      const categorySegment = segments.length >= 2 ? (segments[segments.length - 2] ?? "").replace(/\.[^.]*$/, "").trim() : "";
+      if (lower.includes("-seeds-")) {
+        const idx = lower.indexOf("-seeds-");
+        const leftPart = last.slice(0, idx).replace(/-/g, " ").trim();
+        const rightPart = last.slice(idx + 7).replace(/-/g, " ").trim();
+        if (leftPart && rightPart) {
+          let type = toTitle(leftPart);
+          if (type === "Sweet Violet") type = "Sweet Viola";
+          return { type, variety: toTitle(rightPart) || "Unknown" };
+        }
+      }
+      const categoryLower = categorySegment.toLowerCase().replace(/-/g, " ");
+      let plantBase = "";
+      if (categorySegment && categoryLower !== "flower-seed" && categoryLower !== "flower") {
+        plantBase = categorySegment.endsWith("-seeds") ? categorySegment.slice(0, -6) : categorySegment;
+      }
+      if (!plantBase) plantBase = (lower.split("-seeds-")[0] ?? "").replace(/-/g, " ");
+      if (plantBase) {
+        const type = toTitle(plantBase.replace(/-/g, " "));
+        const prefix = (plantBase.toLowerCase().replace(/\s+/g, "-") + "-seeds-");
+        const varietySlug = lower.startsWith(prefix) ? lower.slice(prefix.length).replace(/-/g, " ") : "";
+        return { type, variety: varietySlug ? toTitle(varietySlug) : "Unknown" };
+      }
+    }
+
+    if (host.includes("edenbrothers.com") && last) {
+      const lower = last.toLowerCase();
+      // Underscore slugs: annual_phlox_seeds_dwarf_mixed → Phlox / Dwarf Mixed; mixed_annual_phlox_seeds → Phlox / Mixed
+      const parts = last.replace(/-/g, "_").split("_").filter(Boolean);
+      const partsLower = parts.map((p) => p.toLowerCase());
+      const phloxIdx = partsLower.indexOf("phlox");
+      const seedsIdx = partsLower.indexOf("seeds");
+      const annualIdx = partsLower.indexOf("annual");
+      if (phloxIdx !== -1 && seedsIdx !== -1 && seedsIdx >= phloxIdx) {
+        let variety = "";
+        if (seedsIdx + 1 < parts.length) {
+          variety = parts.slice(seedsIdx + 1).join(" ");
+        } else if (annualIdx !== -1 && annualIdx > 0) {
+          variety = parts.slice(0, annualIdx).join(" ");
+        } else if (phloxIdx > 0) {
+          variety = parts.slice(0, phloxIdx).join(" ");
+        }
+        variety = toTitle(variety.trim());
+        return { type: "Phlox", variety: variety || "Unknown" };
+      }
+      if (lower.includes("-seeds-")) {
+        const idx = lower.indexOf("-seeds-");
+        const plantPart = last.slice(0, idx).replace(/-/g, " ").trim();
+        const varietyPart = last.slice(idx + 7).replace(/-/g, " ").trim();
+        if (plantPart && varietyPart) {
+          return { type: toTitle(plantPart), variety: toTitle(varietyPart) };
+        }
+      }
+      const m = last.match(/^(.+?)-(pepper|tomato|lettuce|cucumber|bean|squash)s?-seeds?$/i);
+      if (m) {
+        const varietyPart = m[1]!.replace(/^organic-?/i, "").replace(/-/g, " ").trim();
+        if (varietyPart) {
+          return { type: toTitle(m[2]!), variety: toTitle(varietyPart) };
+        }
+      }
+      // Underscore: dwarf_nasturtium_seeds → Nasturtium / Dwarf
+      const partsEd = last.replace(/-/g, "_").split("_").filter(Boolean);
+      const partsLowerEd = partsEd.map((p) => p.toLowerCase());
+      const nasturtiumIdxEd = partsLowerEd.indexOf("nasturtium");
+      const seedsIdxEd = partsLowerEd.indexOf("seeds");
+      if (nasturtiumIdxEd !== -1 && seedsIdxEd !== -1 && seedsIdxEd > nasturtiumIdxEd) {
+        const varietyEd = partsEd.slice(0, nasturtiumIdxEd).join(" ");
+        if (varietyEd) return { type: "Nasturtium", variety: toTitle(varietyEd) };
+      }
+      // Hyphen/slug: nasturtium-alaska-mix → Nasturtium / Alaska Mix
+      if (partsLowerEd[0] === "nasturtium" && partsEd.length >= 2) {
+        const varietyEd = partsEd.slice(1).join(" ");
+        if (varietyEd) return { type: "Nasturtium", variety: toTitle(varietyEd) };
+      }
+    }
+
+    const SWALLOWTAIL_TOP = ["annuals", "perennials", "herbs", "vegetables", "bulk", "flowering-vines"];
+    if (host.includes("swallowtailgardenseeds.com") && segments.length >= 1 && last) {
+      const pathSegments = segments.slice(0, -1);
+      const plantSegment = pathSegments[pathSegments.length - 1] ?? "";
+      if (!SWALLOWTAIL_TOP.includes(plantSegment.toLowerCase())) {
+        let type = toTitle(plantSegment);
+        if (type.endsWith("s") && type.length > 1) type = type.slice(0, -1);
+        let varietySlug = last.replace(/-seeds?$/gi, "").replace(/-flower(s)?$/gi, "").trim();
+        const typeLower = type.toLowerCase();
+        if (varietySlug.toLowerCase().endsWith(typeLower)) {
+          varietySlug = varietySlug.slice(0, -typeLower.length).replace(/-+$/, "").trim();
+        }
+        const variety = varietySlug && varietySlug.toLowerCase() !== typeLower ? toTitle(varietySlug.replace(/-/g, " ")) : "";
+        return { type, variety: variety || "Unknown" };
+      }
+      const parts = last.split("-").filter(Boolean);
+      const type = parts.length ? toTitle(parts[0]!) : "Imported seed";
+      const variety = parts.length > 1 ? toTitle(parts.slice(1).join("-")) : "";
+      return { type, variety: variety || "Unknown" };
+    }
+
+    // Johnny's: two-part URL (e.g. /herbs/stevia) → slug is plant; 3+ parts → last path segment = plant, slug = variety.
+    if (host.includes("johnnyseeds.com") && segments.length >= 2) {
+      const slugWithoutCode = last.replace(JOHNNYS_PRODUCT_CODE, "").replace(/-+$/, "").trim();
+      if (segments.length === 2) {
+        // category/slug only — slug is the plant name (e.g. stevia)
+        const type = slugWithoutCode
+          ? slugWithoutCode.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim()
+          : "";
+        if (type) return { type, variety: "Unknown" };
+      } else {
+        const plantSegment = segments[segments.length - 2] ?? "";
+        const type = plantSegment
+          ? plantSegment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim()
+          : "";
+        let variety = slugWithoutCode
+          .replace(/-organic\b/gi, "")
+          .replace(/-lettuce\b/gi, "")
+          .replace(/-seeds?\b/gi, "")
+          .replace(/-bean(-seed)?$/gi, "")
+          .replace(/-+/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+          .trim();
+        if (type && variety.toLowerCase().endsWith(type.toLowerCase())) {
+          variety = variety.slice(0, -type.length).trim();
+        }
+        if (type || variety) {
+          return { type: type || "Imported seed", variety: variety || "Unknown" };
+        }
+      }
+    }
+
     const parent = (segments[segments.length - 2] ?? "").replace(/_/g, " ").replace(/-/g, " ").trim();
     let variety = last
       .replace(/-seeds?$/i, "")
@@ -309,6 +459,34 @@ async function scrapeOne(url: string, noAi: boolean): Promise<ScrapeResult> {
       if (!typeNorm.trim()) typeNorm = fromUrl.type;
       if (!varietyNorm.trim()) varietyNorm = fromUrl.variety;
     }
+    // Johnny's: if API returned a product code as type (e.g. 2326ng), derive type/variety from URL so cache stays correct
+    if (domain.includes("johnnyseeds.com") && /^\d+[a-z]*$/i.test(typeNorm)) {
+      const fromUrl = deriveTypeAndVarietyFromUrl(url);
+      typeNorm = fromUrl.type;
+      varietyNorm = fromUrl.variety;
+    }
+    // Burpee: if API returned a product code as type (e.g. Prod600097), derive from URL slug
+    if (domain.includes("burpee.com") && /^prod\d+$/i.test(typeNorm)) {
+      const fromUrl = deriveTypeAndVarietyFromUrl(url);
+      typeNorm = fromUrl.type;
+      varietyNorm = fromUrl.variety;
+    }
+    // Eden Brothers: if variety collapsed to generic "Hot" or "Sweet" (peppers), derive from URL slug
+    if (domain.includes("edenbrothers.com") && /^(hot|sweet)$/i.test(varietyNorm.trim())) {
+      const fromUrl = deriveTypeAndVarietyFromUrl(url);
+      if (fromUrl.variety && fromUrl.variety !== "Unknown") {
+        typeNorm = fromUrl.type;
+        varietyNorm = fromUrl.variety;
+      }
+    }
+    // Swallowtail: if type is "General" (wrong for category pages), derive from URL path
+    if (domain.includes("swallowtailgardenseeds.com") && /^general$/i.test(typeNorm.trim())) {
+      const fromUrl = deriveTypeAndVarietyFromUrl(url);
+      if (fromUrl.type && fromUrl.type !== "Imported seed") {
+        typeNorm = fromUrl.type;
+        varietyNorm = fromUrl.variety;
+      }
+    }
     // Same normalization as link import and extract image branch: strip plant from variety, clean variety, merge tags
     varietyNorm = stripPlantFromVariety(varietyNorm, typeNorm);
     const { cleanedVariety, tagsToAdd } = cleanVarietyForDisplay(varietyNorm, typeNorm);
@@ -322,10 +500,21 @@ async function scrapeOne(url: string, noAi: boolean): Promise<ScrapeResult> {
     const scrapedFields = collectScrapedFields(data);
     const quality = determineScrapeQuality(data);
 
-    // Validation: skip upsert only if we still have no usable identity (avoid bad rows in cache)
+    // Validation: skip upsert if no usable identity — treat as fail so we don't persist junk and can retry after parser fixes
     if (!typeNorm.trim() || !varietyNorm.trim() || !identityKey || identityKey === "unknown") {
-      console.warn(`[bulk-scrape] Skip cache: missing type/variety/identity_key for ${url}`);
-      return { url, success: true, quality, fieldsFound: scrapedFields.length };
+      console.warn(`[bulk-scrape] Fail (no identity): missing type/variety/identity_key for ${url}`);
+      return { url, success: false, quality: "failed", fieldsFound: scrapedFields.length, error: "Missing type/variety" };
+    }
+    // Treat "General" as fail: don't write to cache; URL stays in failed list for retry when parser improves
+    if (/^general$/i.test(typeNorm.trim())) {
+      console.warn(`[bulk-scrape] Fail (General): unresolved plant name for ${url}`);
+      return { url, success: false, quality: "failed", fieldsFound: scrapedFields.length, error: "Plant name could not be determined (General)" };
+    }
+    // Reject identity_key patterns that indicate bad extraction (generic "Flower" type only; allow sunflower_*)
+    const BAD_IDENTITY_PATTERNS = /pelleted|floret_|general_|^flower_|days_|from_|mix_/i;
+    if (BAD_IDENTITY_PATTERNS.test(identityKey)) {
+      console.warn(`[bulk-scrape] Fail (bad identity_key): ${identityKey} for ${url}`);
+      return { url, success: false, quality: "failed", fieldsFound: scrapedFields.length, error: "Identity key indicates failed extraction" };
     }
 
     // Extract hero image URL
@@ -679,9 +868,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Parse CLI args (default: round-robin = 1 URL per vendor per round; use --parallel for 4 vendors at a time)
+  // Parse CLI args (default: round-robin, no AI pass; use --ai to enable Tavily fallback)
   const args = process.argv.slice(2);
-  const noAi = args.includes("--no-ai");
+  const noAi = !args.includes("--ai");
   const forceParallel = args.includes("--parallel");
   const roundRobin = args.includes("--round-robin") || !forceParallel;
   const vendorFlag = args.indexOf("--vendor");
@@ -715,7 +904,7 @@ async function main(): Promise<void> {
   console.log(`\n🚀 Bulk Scrape Pipeline`);
   console.log(`   Vendors: ${vendorDomains.length}`);
   console.log(`   Total URLs: ${totalUrls}`);
-  console.log(`   AI fallback: ${noAi ? "DISABLED (--no-ai)" : "ENABLED"}`);
+  console.log(`   AI fallback: ${noAi ? "DISABLED (default; use --ai to enable)" : "ENABLED (--ai)"}`);
   console.log(
     `   Mode: ${roundRobin ? `ROUND-ROBIN (1 URL per vendor per round, up to ${MAX_PARALLEL_VENDORS} in parallel)` : `Parallel (${MAX_PARALLEL_VENDORS} vendors, full queue each)`}`
   );

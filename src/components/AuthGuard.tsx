@@ -97,7 +97,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </header>
       )}
       <main
-        className={`min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
+        className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
       >
         {children}
       </main>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchWeatherSnapshot, formatWeatherBadge } from "@/lib/weatherSnapshot";
+import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import type { WeatherSnapshotData } from "@/types/garden";
 
 type PendingItem = {
@@ -440,9 +440,9 @@ export function ActiveGardenView({
                       />
                     )}
                     <Link
-                      href={`/vault/${batch.plant_profile_id}?tab=journal`}
+                      href={`/vault/${batch.plant_profile_id}?tab=plantings`}
                       className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
-                      aria-label={`View details for ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
+                      aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-black/90 group-hover:text-emerald-700">
@@ -460,21 +460,16 @@ export function ActiveGardenView({
                           <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress * 100}%` }} />
                         </div>
                       )}
-                      {batch.weather_snapshot && (
-                        <p className="text-xs text-sky-700 mt-2 py-1 px-2 rounded-lg bg-sky-50 border border-sky-100 inline-block">
-                          Weather at planting: {formatWeatherBadge(batch.weather_snapshot)}
-                        </p>
-                      )}
                     </Link>
                     <div className="relative flex-shrink-0">
                       <button
                         type="button"
                         onClick={() => setOpenActionsMenuId((id) => (id === batch.id ? null : batch.id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-black/70 hover:bg-black/5"
-                        aria-label="Actions"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                        aria-label="Log care or journal entry"
                         aria-expanded={openActionsMenuId === batch.id}
                       >
-                        <MoreVerticalIcon />
+                        <CareHandsIcon />
                       </button>
                       {openActionsMenuId === batch.id && (
                         <>
@@ -489,9 +484,8 @@ export function ActiveGardenView({
                             <button type="button" onClick={() => { handleQuickTap(batch, "spray"); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-purple-50 text-purple-700">
                               <span>🧴</span> Spray
                             </button>
-                            <div className="border-t border-black/5 my-1" />
                             <button type="button" onClick={() => { onLogGrowth(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-black/5 text-black/80">
-                              <CameraIcon /> Log growth
+                              <PencilIcon /> Log growth
                             </button>
                             <button type="button" onClick={() => { setEndBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 text-amber-700">
                               <ArchiveIcon /> End batch
@@ -511,7 +505,20 @@ export function ActiveGardenView({
   );
 }
 
-function MoreVerticalIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>; }
-function CameraIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>; }
+/** Hands/care icon: cupped hands with heart and sprout — for logging care journal entries. */
+function CareHandsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {/* Cupped hands (left and right) */}
+      <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" />
+      <path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
+      {/* Heart */}
+      <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
+      {/* Small sprout/leaf from heart */}
+      <path d="M13 11v1.5c0 .8.6 1.5 1.2 1.5" />
+    </svg>
+  );
+}
+function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
 function BasketIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.5 10H6.5L5 8z" /><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path d="M4 10h16" /></svg>; }
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>; }

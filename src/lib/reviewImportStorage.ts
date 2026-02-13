@@ -154,3 +154,42 @@ export function clearPendingPhotoImport(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(PENDING_PHOTO_IMPORT_KEY);
 }
+
+// ---------------------------------------------------------------------------
+// Pending manual add (Quick Add → loading page → review)
+// ---------------------------------------------------------------------------
+export const PENDING_MANUAL_ADD_KEY = "garden-pending-manual-add";
+
+export type PendingManualAdd = {
+  plantName: string;
+  varietyCultivar: string;
+  vendor: string;
+  volume: string;
+  tagsToSave?: string[];
+  sourceUrlToSave?: string;
+};
+
+export function getPendingManualAdd(): PendingManualAdd | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PENDING_MANUAL_ADD_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PendingManualAdd;
+  } catch {
+    return null;
+  }
+}
+
+export function setPendingManualAdd(data: PendingManualAdd): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PENDING_MANUAL_ADD_KEY, JSON.stringify(data));
+  } catch {
+    /* full */
+  }
+}
+
+export function clearPendingManualAdd(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(PENDING_MANUAL_ADD_KEY);
+}

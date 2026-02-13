@@ -15,6 +15,7 @@
     "test:scrapers": "ts-node scripts/test-scrapers.ts",
     "discover-urls": "ts-node scripts/discover-urls.ts",
     "bulk-scrape": "tsx scripts/bulk-scrape.ts",
+    "clean-bad-cache": "tsx scripts/clean-bad-cache.ts",
     "scrape-cleanup": "ts-node scripts/scrape-cleanup.ts",
     "normalize-global-cache": "ts-node -r tsconfig-paths/register scripts/normalize-global-plant-cache.ts"
   },

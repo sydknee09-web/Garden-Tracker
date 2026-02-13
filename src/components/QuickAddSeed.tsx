@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { getZone10bScheduleForPlant, getDefaultSowMonthsForZone10b } from "@/data/zone10b_schedule";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
 import { getCanonicalKey } from "@/lib/canonicalKey";
 import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
+import { setPendingManualAdd } from "@/lib/reviewImportStorage";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -35,6 +35,8 @@ interface QuickAddSeedProps {
   onOpenBatch?: () => void;
   /** Open Link Import (paste URL) flow; parent should close this modal and navigate to /vault/import */
   onOpenLinkImport?: () => void;
+  /** When manual add has no matching profile; parent should navigate to /vault/import/manual */
+  onStartManualImport?: () => void;
 }
 
 function applyPrefillToForm(
@@ -50,7 +52,7 @@ function applyPrefillToForm(
   if (prefill.vendor) setters.setVendor(prefill.vendor);
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onStartManualImport }: QuickAddSeedProps) {
   const { user } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
@@ -63,11 +65,30 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
   const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+  const [schedulePlantTypes, setSchedulePlantTypes] = useState<string[]>([]);
+  const [extractCacheTypes, setExtractCacheTypes] = useState<string[]>([]);
+  const [globalCacheTypes, setGlobalCacheTypes] = useState<string[]>([]);
 
   const plantSuggestions = useMemo(() => {
-    const names = profiles.map((p) => (p.name ?? "").trim()).filter(Boolean);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [profiles]);
+    const set = new Set<string>();
+    profiles.forEach((p) => {
+      const n = (p.name ?? "").trim();
+      if (n) set.add(n);
+    });
+    schedulePlantTypes.forEach((t) => {
+      const n = t.trim();
+      if (n) set.add(n);
+    });
+    extractCacheTypes.forEach((t) => {
+      const n = t.trim();
+      if (n) set.add(n);
+    });
+    globalCacheTypes.forEach((t) => {
+      const n = t.trim();
+      if (n) set.add(n);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [profiles, schedulePlantTypes, extractCacheTypes, globalCacheTypes]);
 
   const getVarietySuggestionsForPlant = useCallback((plantName: string) => {
     const key = getCanonicalKey(plantName);
@@ -107,7 +128,26 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       .from("plant_profiles")
       .select("id, name, variety_name")
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
+  }, [open, user?.id]);
+
+  // Plant name suggestions from profiles + schedule_defaults + plant_extract_cache + global_plant_cache (deduped like vendor)
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    (async () => {
+      const [schedRes, extractRes, globalRes] = await Promise.all([
+        supabase.from("schedule_defaults").select("plant_type").eq("user_id", user.id),
+        supabase.from("plant_extract_cache").select("extract_data").eq("user_id", user.id),
+        supabase.from("global_plant_cache").select("extract_data"),
+      ]);
+      const schedTypes = (schedRes.data ?? []).map((r: { plant_type?: string }) => (r.plant_type ?? "").trim()).filter(Boolean);
+      const extractTypes = (extractRes.data ?? []).map((r: { extract_data?: { type?: string } }) => (r.extract_data?.type ?? "").trim()).filter(Boolean);
+      const globalTypes = (globalRes.data ?? []).map((r: { extract_data?: { type?: string } }) => (r.extract_data?.type ?? "").trim()).filter(Boolean);
+      setSchedulePlantTypes(schedTypes);
+      setExtractCacheTypes(extractTypes);
+      setGlobalCacheTypes(globalTypes);
+    })();
   }, [open, user?.id]);
 
   useEffect(() => {
@@ -152,8 +192,6 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     const sourceUrlVal = sourceUrlToSave.trim() || null;
     const volumeForDb = (typeof volume === "string" ? volume.toLowerCase() : "full") as Volume;
 
-    let plantVarietyId: string;
-
     const nameNorm = normalizeForMatch(name);
     const varietyNorm = normalizeForMatch(varietyName);
     const volToQty: Record<string, number> = { full: 100, partial: 50, low: 20, empty: 0 };
@@ -166,7 +204,6 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     );
 
     if (match) {
-      plantVarietyId = match.id;
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: match.id,
         user_id: userId,
@@ -182,91 +219,27 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         return;
       }
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", match.id).eq("user_id", userId);
-    } else {
-      const { data: newProfile, error: profileErr } = await supabase
-        .from("plant_profiles")
-        .insert({
-          user_id: userId,
-          name: name.trim(),
-          variety_name: varietyName,
-          ...(tagsToSave.length > 0 && { tags: tagsToSave }),
-        })
-        .select("id")
-        .single();
-      if (profileErr) {
-        setSubmitting(false);
-        setError(profileErr.message);
-        return;
-      }
-      plantVarietyId = (newProfile as { id: string }).id;
-      const { error: packetErr } = await supabase.from("seed_packets").insert({
-        plant_profile_id: plantVarietyId,
-        user_id: userId,
-        vendor_name: vendorVal,
-        purchase_url: sourceUrlVal,
-        purchase_date: new Date().toISOString().slice(0, 10),
-        qty_status: qtyStatus,
-        ...(packetTags.length > 0 && { tags: packetTags }),
-      });
-      if (packetErr) {
-        setSubmitting(false);
-        setError(packetErr.message);
-        return;
-      }
-      const plantType = name.trim();
-      const enrichRes = await fetch("/api/seed/enrich-from-name", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: plantType, variety: varietyName ?? "" }),
-      });
-      const enrichData = (await enrichRes.json()) as { enriched?: boolean; sun?: string; plant_spacing?: string; days_to_germination?: string; harvest_days?: number; sowing_depth?: string };
-      if (enrichData.enriched && enrichData) {
-        const updates: Record<string, unknown> = {};
-        if (enrichData.sun != null) updates.sun = enrichData.sun;
-        if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;
-        if (enrichData.days_to_germination != null) updates.days_to_germination = enrichData.days_to_germination;
-        if (enrichData.harvest_days != null) updates.harvest_days = enrichData.harvest_days;
-        if (enrichData.sowing_depth != null) updates.sowing_method = enrichData.sowing_depth;
-        if (Object.keys(updates).length > 0) {
-          await supabase.from("plant_profiles").update(updates).eq("id", plantVarietyId).eq("user_id", userId);
-        }
-      }
-      const heroRes = await fetch("/api/seed/find-hero-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: plantType, variety: varietyName ?? "", vendor: "" }),
-      });
-      const heroData = (await heroRes.json()) as { hero_image_url?: string; error?: string };
-      const heroUrl = heroData.hero_image_url?.trim();
-      if (heroUrl) {
-        await supabase
-          .from("plant_profiles")
-          .update({ hero_image_url: heroUrl })
-          .eq("id", plantVarietyId)
-          .eq("user_id", userId);
-      }
-      if (plantType) {
-        const { data: existingSchedule } = await supabase
-          .from("schedule_defaults")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("plant_type", plantType)
-          .maybeSingle();
-        if (!existingSchedule) {
-          const zone10b = getZone10bScheduleForPlant(plantType);
-          const sowMonths = getDefaultSowMonthsForZone10b(zone10b?.planting_window);
-          await supabase.from("schedule_defaults").upsert(
-            {
-              user_id: userId,
-              plant_type: plantType,
-              updated_at: new Date().toISOString(),
-              ...sowMonths,
-            },
-            { onConflict: "user_id,plant_type" }
-          );
-        }
-      }
+      setSubmitting(false);
+      setPlantName("");
+      setVarietyCultivar("");
+      setVendor("");
+      setVolume("full");
+      setTagsToSave([]);
+      setSourceUrlToSave("");
+      onSuccess();
+      onClose();
+      return;
     }
+
+    // No match: send to loading page → review (do not create profile/packet here)
+    setPendingManualAdd({
+      plantName: name.trim(),
+      varietyCultivar: varietyCultivar.trim(),
+      vendor: vendor.trim(),
+      volume: volumeForDb,
+      tagsToSave: tagsToSave.length > 0 ? tagsToSave : undefined,
+      sourceUrlToSave: sourceUrlVal ?? undefined,
+    });
     setSubmitting(false);
     setPlantName("");
     setVarietyCultivar("");
@@ -274,8 +247,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     setVolume("full");
     setTagsToSave([]);
     setSourceUrlToSave("");
-    onSuccess();
     onClose();
+    onStartManualImport?.();
   }
 
   if (!open) return null;

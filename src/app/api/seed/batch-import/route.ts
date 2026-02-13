@@ -247,7 +247,7 @@ export async function POST(request: Request) {
         if (zone10b.sowing_method != null) updates.sowing_method = zone10b.sowing_method;
         if (zone10b.planting_window != null) updates.planting_window = zone10b.planting_window;
         if (Object.keys(updates).length > 0) {
-          await supabase.from("plant_profiles").update(updates).eq("id", profileId);
+          await supabase.from("plant_profiles").update(updates).eq("id", profileId).eq("user_id", userId);
         }
       }
 
@@ -294,7 +294,8 @@ export async function POST(request: Request) {
                 ...(perenualData.scientific_name != null && { scientific_name: perenualData.scientific_name }),
                 ...(perenualData.botanical_care_notes != null && { botanical_care_notes: perenualData.botanical_care_notes }),
               })
-              .eq("id", profileId);
+              .eq("id", profileId)
+              .eq("user_id", userId);
             logLines.push("Sourced from Perenual.");
           }
         }

@@ -96,12 +96,13 @@ export default function VaultTagsPage() {
         (r: { tags?: string[] | null }) => Array.isArray(r.tags) && r.tags.includes(tagName)
       );
       const newTags = (tags: string[] | null) => (tags ?? []).filter((t) => t !== tagName);
+      const uid = user.id;
       await Promise.all([
         ...toUpdateProfiles.map((p: { id: string; tags?: string[] | null }) =>
-          supabase.from("plant_profiles").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id)
+          supabase.from("plant_profiles").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id).eq("user_id", uid)
         ),
         ...toUpdatePackets.map((p: { id: string; tags?: string[] | null }) =>
-          supabase.from("seed_packets").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id)
+          supabase.from("seed_packets").update({ tags: newTags(p.tags ?? null) }).eq("id", p.id).eq("user_id", uid)
         ),
       ]);
       await loadVaultTags();

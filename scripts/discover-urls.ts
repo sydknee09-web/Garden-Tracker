@@ -77,6 +77,8 @@ const JUNK_PATH_PATTERNS = [
   // Articles, how-to, resources (not seed product pages)
   /\/resources\//i, /\/how-to[- ]/i, /\/growing-milkweed-from-seed/i,
   /\/gallery/i, /\/seed-swap/i, /\/ask-the-experts/i,
+  // Floret directory (Farmer-Florist Collective, etc.) — informative, not product
+  /\/directory\//i,
   // Floret-style blog/editorial slugs (no /blog/ prefix)
   /\/the-seasonal-flower/i, /\/this-moment-/i, /\/pretty-in-pink/i,
   /\/super-green-love/i, /\/behind-the-scenes/i, /\/reasons-love/i, /\/bouquet-mania/i,

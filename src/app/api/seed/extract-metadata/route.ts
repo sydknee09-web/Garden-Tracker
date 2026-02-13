@@ -25,6 +25,8 @@ export const maxDuration = 30;
 
 const PASS1_TIMEOUT_MS = 20_000;
 const PAGE_FETCH_TIMEOUT_MS = 8_000;
+/** Timeout for scrape-url when used as canonical extractor (same as bulk-scrape / cache). */
+const SCRAPE_URL_TIMEOUT_MS = 22_000;
 
 /** Realistic, up-to-date User-Agents (Chrome 131) to reduce vendor blocks; pick by URL so same site gets consistent UA. */
 const SCRAPER_USER_AGENTS = [
@@ -432,6 +434,81 @@ export async function POST(req: Request) {
       }
     }
 
+    // Canonical extractor: scrape-url (same logic as bulk-scrape / cache) so link import matches cache
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      (typeof process.env.VERCEL_URL === "string" ? `https://${process.env.VERCEL_URL}` : null) ||
+      (() => {
+        try {
+          return new URL(req.url).origin;
+        } catch {
+          return "http://localhost:3000";
+        }
+      })();
+    const scrapeUrlEndpoint = `${origin}/api/seed/scrape-url`;
+    let scrapeResult: Record<string, unknown> | null = null;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SCRAPE_URL_TIMEOUT_MS);
+      const scrapeRes = await fetch(scrapeUrlEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (scrapeRes.ok) {
+        const data = (await scrapeRes.json().catch(() => null)) as Record<string, unknown> | null;
+        if (data && !data.error) {
+          const type = (data.plant_name ?? data.type ?? "") as string;
+          const variety = (data.variety_name ?? data.variety ?? "") as string;
+          const vendor = (data.vendor_name ?? data.vendor ?? "") as string;
+          if (type?.trim() || variety?.trim()) {
+            scrapeResult = data;
+            console.log(`[PASS 1] Canonical scrape-url success for ${url.slice(0, 60)}...`);
+          }
+        }
+      }
+    } catch (e) {
+      console.log("[PASS 1] scrape-url attempt failed, falling back to AI extraction:", (e instanceof Error ? e.message : String(e)));
+    }
+
+    if (scrapeResult) {
+      const type = String(scrapeResult.plant_name ?? scrapeResult.type ?? "Imported seed").trim() || "Imported seed";
+      const variety = String(scrapeResult.variety_name ?? scrapeResult.variety ?? "").trim();
+      const vendor = String(scrapeResult.vendor_name ?? scrapeResult.vendor ?? "").trim();
+      const sunReq = (scrapeResult.sun_requirement ?? scrapeResult.sun) as string | undefined;
+      const spacing = (scrapeResult.spacing ?? scrapeResult.plant_spacing) as string | undefined;
+      const harvestDays = scrapeResult.harvest_days as number | undefined;
+      const daysToMaturity = harvestDays != null && Number.isFinite(harvestDays) ? String(harvestDays) : undefined;
+      const heroUrl = (scrapeResult.hero_image_url ?? scrapeResult.stock_photo_url ?? scrapeResult.imageUrl) as string | undefined;
+      const blocked = await getBlockedTagsForRequest(req);
+      const tags = filterBlockedTags((Array.isArray(scrapeResult.tags) ? scrapeResult.tags : []) as string[], blocked);
+      return NextResponse.json({
+        type,
+        variety,
+        vendor: vendor || undefined,
+        tags,
+        source_url: url,
+        sowing_depth: (scrapeResult.sowing_depth as string) ?? undefined,
+        spacing: spacing ?? undefined,
+        sun_requirement: sunReq ?? undefined,
+        days_to_germination: (scrapeResult.days_to_germination as string) ?? undefined,
+        days_to_maturity: daysToMaturity,
+        scientific_name: (scrapeResult.scientific_name as string) ?? undefined,
+        plant_description: (scrapeResult.plant_description as string) ?? undefined,
+        hero_image_url: heroUrl?.startsWith("http") ? heroUrl : undefined,
+        stock_photo_url: heroUrl?.startsWith("http") ? heroUrl : undefined,
+        failed: false,
+        cached: false,
+        productPageStatus: 200,
+        sun: sunReq ?? undefined,
+        plant_spacing: spacing ?? undefined,
+        harvest_days: harvestDays,
+        water: (scrapeResult.water as string)?.trim() || undefined,
+      } as ExtractResponse & { failed: false; cached: boolean; productPageStatus?: number });
+    }
+
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json(
@@ -447,7 +524,7 @@ export async function POST(req: Request) {
       batchTotal != null && batchIndex != null
         ? ` ${batchIndex + 1}/${batchTotal}`
         : "";
-    console.log(`[PASS 1] Scraping link${batchLabel}: ${url.slice(0, 60)}...`);
+    console.log(`[PASS 1] Scraping link${batchLabel}: ${url.slice(0, 60)}... (AI fallback)`);
 
     let pageFetch: PageFetchResult | null = null;
     let result: Awaited<ReturnType<typeof extractFromUrl>> = null;

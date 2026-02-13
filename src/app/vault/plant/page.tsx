@@ -147,7 +147,6 @@ function VaultPlantPageInner() {
     for (const { profile, packets } of rows) {
       const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
       const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
-      const usedVolumeParts: string[] = [];
       let totalUsed = 0;
 
       for (const pk of packets) {
@@ -159,12 +158,11 @@ function VaultPlantPageInner() {
         totalUsed += take;
         const remaining = Math.round((packetValue - take) * 100);
         const newQty = Math.max(0, Math.min(100, remaining));
+        const now = new Date().toISOString();
         if (newQty <= 0) {
-          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", pk.id).eq("user_id", user.id);
-          usedVolumeParts.push("100%");
+          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
         } else {
           await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
-          usedVolumeParts.push(`${Math.round(usePct)}%`);
         }
       }
 
@@ -194,9 +192,8 @@ function VaultPlantPageInner() {
       }
 
       const methodLabel = method === "greenhouse" ? "Greenhouse" : "Direct Sow";
-      const inventorySummary = usedVolumeParts.length ? usedVolumeParts.join(", ") : "";
       const noteParts = [
-        `Planted via ${methodLabel} at ${inventorySummary}.`,
+        `Planted via ${methodLabel}.`,
         plantNotes.trim() ? plantNotes.trim() : "",
       ].filter(Boolean);
       const note = noteParts.join(" ");

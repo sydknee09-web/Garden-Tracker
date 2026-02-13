@@ -73,7 +73,7 @@ function syncExtractCache(userId: string, identityKey: string, updates: { extrac
           ...(updates.heroStoragePath !== undefined ? { hero_storage_path: updates.heroStoragePath } : {}),
           ...(updates.originalHeroUrl !== undefined ? { original_hero_url: updates.originalHeroUrl } : {}),
           updated_at: new Date().toISOString(),
-        }).eq("id", row.id);
+        }).eq("id", row.id).eq("user_id", userId);
       }
     } catch (e) { console.error("[syncExtractCache] failed:", e instanceof Error ? e.message : String(e)); }
   })();

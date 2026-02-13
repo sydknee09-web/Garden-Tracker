@@ -147,7 +147,7 @@ export default function HomePage() {
         if (!cancelled && data?.current) {
           const cur = data.current;
           const daily = data.daily;
-          const days: WeatherDay[] = (daily?.time ?? []).slice(0, 3).map((date: string, i: number) => ({
+          const days: WeatherDay[] = (daily?.time ?? []).slice(0, 7).map((date: string, i: number) => ({
             date,
             high: Number(daily?.temperature_2m_max?.[i]) ?? 0,
             low: Number(daily?.temperature_2m_min?.[i]) ?? 0,
@@ -230,10 +230,6 @@ export default function HomePage() {
 
   return (
     <div className="px-6 pt-2 pb-6 max-w-2xl mx-auto">
-      <p className="text-muted text-sm mb-4">
-        Your weightless garden hub – tasks, vault, and journal in one place.
-      </p>
-
       {/* ---- Frost Alert Banner ---- */}
       {frostAlert && (
         <div className="mb-4 rounded-2xl bg-blue-50 border border-blue-200 p-4">
@@ -248,7 +244,7 @@ export default function HomePage() {
 
       {/* ---- Weather ---- */}
       <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5 mb-6">
-        <h2 className="text-lg font-medium text-black mb-3">Weather &amp; Forecast, {locationLabel}</h2>
+        <h2 className="text-lg font-medium text-black mb-3 text-center">Weather &amp; Forecast, {locationLabel}</h2>
         {weather ? (
           <>
             <div className="flex items-center gap-4 mb-3 p-3 rounded-xl bg-black/[0.04] border border-black/5">
@@ -287,7 +283,7 @@ export default function HomePage() {
 
             {/* ---- Sow Now (linked to actual seeds) ---- */}
             <div className="mt-4 pt-4 border-t border-black/5 space-y-4">
-              <h3 className="text-sm font-semibold text-black">Plant This {monthName}</h3>
+              <h3 className="text-sm font-semibold text-black text-center">Plant This {monthName}</h3>
               {startThisMonthProfiles.length === 0 ? (
                 <p className="text-xs text-black/50">No seeds in your vault match this month&apos;s planting window.</p>
               ) : (
@@ -307,7 +303,7 @@ export default function HomePage() {
 
               {/* Harvest this month */}
               <div className="pt-2 border-t border-black/5 mt-2">
-                <h3 className="text-sm font-semibold text-black mb-1.5">Harvest this month</h3>
+                <h3 className="text-sm font-semibold text-black mb-1.5 text-center">Harvest this month</h3>
                 {harvestTasksThisMonth.length === 0 ? (
                   <p className="text-sm text-black/50">No harvest tasks due this month.</p>
                 ) : (
@@ -334,9 +330,45 @@ export default function HomePage() {
       </section>
 
       <div className="space-y-6">
+        {/* ---- Shopping List ---- */}
+        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
+          <h2 className="text-lg font-medium text-black mb-2 text-center">Shopping list</h2>
+          {loading ? (
+            <p className="text-black/50 text-sm">Loading...</p>
+          ) : shoppingList.length === 0 ? (
+            <p className="text-black/50 text-sm">Nothing to buy. Select seeds in the Vault and add to your list.</p>
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {shoppingList.map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 group">
+                    <input
+                      type="checkbox"
+                      id={`purchased-${item.id}`}
+                      checked={false}
+                      onChange={() => handleMarkPurchased(item)}
+                      disabled={markingPurchasedId === item.id}
+                      className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
+                      aria-label={`Mark ${item.name}${item.variety_name ? ` (${item.variety_name})` : ""} as purchased`}
+                    />
+                    <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
+                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                        {item.name}{item.variety_name ? ` (${item.variety_name})` : ""}
+                      </Link>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline mt-3 inline-block">
+                View full list &rarr;
+              </Link>
+            </>
+          )}
+        </section>
+
         {/* ---- Tasks ---- */}
         <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-          <h2 className="text-lg font-medium text-black mb-2">At a glance</h2>
+          <h2 className="text-lg font-medium text-black mb-2 text-center">At a glance</h2>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : (
@@ -381,7 +413,7 @@ export default function HomePage() {
         {/* ---- Plant Care ---- */}
         {upcomingCare.length > 0 && (
           <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-            <h2 className="text-lg font-medium text-black mb-2">Plant Care</h2>
+            <h2 className="text-lg font-medium text-black mb-2 text-center">Plant Care</h2>
             <p className="text-xs text-black/50 mb-3">Upcoming care reminders for the next 2 weeks</p>
             <ul className="space-y-2">
               {upcomingCare.map((c) => {
@@ -403,42 +435,6 @@ export default function HomePage() {
             </ul>
           </section>
         )}
-
-        {/* ---- Shopping List ---- */}
-        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-          <h2 className="text-lg font-medium text-black mb-2">Shopping list</h2>
-          {loading ? (
-            <p className="text-black/50 text-sm">Loading...</p>
-          ) : shoppingList.length === 0 ? (
-            <p className="text-black/50 text-sm">Nothing to buy. Select seeds in the Vault and add to your list.</p>
-          ) : (
-            <>
-              <ul className="space-y-2">
-                {shoppingList.map((item) => (
-                  <li key={item.id} className="flex items-center gap-3 group">
-                    <input
-                      type="checkbox"
-                      id={`purchased-${item.id}`}
-                      checked={false}
-                      onChange={() => handleMarkPurchased(item)}
-                      disabled={markingPurchasedId === item.id}
-                      className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
-                      aria-label={`Mark ${item.name}${item.variety_name ? ` (${item.variety_name})` : ""} as purchased`}
-                    />
-                    <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
-                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
-                        {item.name}{item.variety_name ? ` (${item.variety_name})` : ""}
-                      </Link>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline mt-3 inline-block">
-                View full list &rarr;
-              </Link>
-            </>
-          )}
-        </section>
       </div>
     </div>
   );

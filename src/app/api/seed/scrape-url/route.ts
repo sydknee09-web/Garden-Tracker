@@ -119,6 +119,87 @@ function isForbiddenBroadType(plant: string): boolean {
 }
 
 /**
+ * Parse Eden Brothers product slug for plant and variety so variety comes from URL, not page "Hot".
+ * e.g. lobelia-seeds-starship-blue → Lobelia / Starship Blue; pepper-seeds-cayennetta → Pepper / Cayennetta;
+ * organic-jalapeno-early-pepper-seeds → Pepper / Jalapeno Early.
+ * Underscore slugs: annual_phlox_seeds_dwarf_mixed → Phlox / Dwarf Mixed; mixed_annual_phlox_seeds → Phlox / Mixed; red_annual_phlox_seeds → Phlox / Red.
+ */
+function parseEdenBrothersSlug(slug: string): { plant_name: string; variety_name: string } | null {
+  const s = slug.trim();
+  if (!s || s.length < 3) return null;
+  const lower = s.toLowerCase();
+
+  // Underscore slugs: annual_phlox_seeds_dwarf_mixed, mixed_annual_phlox_seeds, red_annual_phlox_seeds
+  const parts = s.replace(/-/g, "_").split("_").filter(Boolean);
+  const partsLower = parts.map((p) => p.toLowerCase());
+  const phloxIdx = partsLower.indexOf("phlox");
+  const seedsIdx = partsLower.indexOf("seeds");
+  const annualIdx = partsLower.indexOf("annual");
+  if (phloxIdx !== -1 && seedsIdx !== -1 && seedsIdx >= phloxIdx) {
+    const plant_name = "Phlox";
+    let variety_name = "";
+    if (seedsIdx + 1 < parts.length) {
+      variety_name = parts.slice(seedsIdx + 1).map((p) => stripVaultNoise(p)).filter(Boolean).join(" ");
+    } else if (annualIdx !== -1 && annualIdx > 0) {
+      variety_name = parts.slice(0, annualIdx).map((p) => stripVaultNoise(p)).filter(Boolean).join(" ");
+    } else if (phloxIdx > 0) {
+      variety_name = parts.slice(0, phloxIdx).map((p) => stripVaultNoise(p)).filter(Boolean).join(" ");
+    }
+    variety_name = toTitleCase(variety_name.trim()) || "";
+    if (variety_name || plant_name) {
+      return { plant_name, variety_name };
+    }
+  }
+
+  // Underscore: dwarf_nasturtium_seeds → Nasturtium / Dwarf (variety before plant)
+  const nasturtiumIdx = partsLower.indexOf("nasturtium");
+  if (nasturtiumIdx !== -1 && seedsIdx !== -1 && seedsIdx > nasturtiumIdx) {
+    const variety_name = parts.slice(0, nasturtiumIdx).map((p) => stripVaultNoise(p)).filter(Boolean).join(" ");
+    if (variety_name) {
+      return { plant_name: "Nasturtium", variety_name: toTitleCase(variety_name) };
+    }
+  }
+
+  // Hyphen: nasturtium-alaska-mix → Nasturtium / Alaska Mix (plant first, then variety; trailing -mix is part of variety)
+  if (!lower.includes("-seeds-") && parts.length >= 2) {
+    const first = partsLower[0] ?? "";
+    if (first === "nasturtium") {
+      const varietyPart = parts.slice(1).map((p) => stripVaultNoise(p)).filter(Boolean).join(" ");
+      if (varietyPart) {
+        return { plant_name: "Nasturtium", variety_name: toTitleCase(varietyPart) };
+      }
+    }
+  }
+
+  if (lower.includes("-seeds-")) {
+    const idx = lower.indexOf("-seeds-");
+    const plantPart = s.slice(0, idx).replace(/-/g, " ").trim();
+    const varietyPart = s.slice(idx + 7).replace(/-/g, " ").trim();
+    if (plantPart && varietyPart) {
+      return {
+        plant_name: toTitleCase(stripVaultNoise(plantPart)) || "General",
+        variety_name: toTitleCase(stripVaultNoise(varietyPart)) || "",
+      };
+    }
+  }
+  const plantSuffixMatch = s.match(/^(.+?)-(pepper|tomato|lettuce|cucumber|bean|squash)s?-seeds?$/i);
+  if (plantSuffixMatch) {
+    const varietyPart = plantSuffixMatch[1]!
+      .replace(/^organic-?/i, "")
+      .replace(/-/g, " ")
+      .trim();
+    const plant = plantSuffixMatch[2]!;
+    if (varietyPart) {
+      return {
+        plant_name: toTitleCase(plant),
+        variety_name: toTitleCase(stripVaultNoise(varietyPart)) || "",
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Parse Fedco URL slug (e.g. maxibel-organic-bush-haricots-verts-249) into plant_name and variety_name.
  * Never use "Fedco" as plant type. Maps haricots-verts / bush-bean → Bean; variety e.g. "Maxibel Bush Haricots Verts".
  * Strips organic, seeds, trailing numeric IDs from variety.
@@ -281,36 +362,47 @@ function getStructuredNameVendor(
       plant_name = parsed.plant_name;
       variety_name = parsed.variety_name;
     }
-  } else if (host.includes("edenbrothers.com") && rawTitle) {
-    let cleaned = rawTitle.replace(/\bSeeds?\s*$/i, "").trim();
-    cleaned = stripTitleNoise(cleaned).trim();
-    const keys = Object.keys(PLANT_CATEGORY_DEFAULTS) as PlantCategoryKey[];
-    const byLen = [...keys].sort((a, b) => b.length - a.length);
-    const lower = cleaned.toLowerCase();
-    let bestKey: string | null = null;
-    let bestEnd = -1;
-    for (const key of byLen) {
-      const keyLower = key.toLowerCase();
-      const idx = lower.lastIndexOf(keyLower);
-      if (idx === -1) continue;
-      const end = idx + keyLower.length;
-      if (end === lower.length || (end < lower.length && /\s/.test(lower[end]))) {
-        if (idx === 0 || /\s/.test(lower[idx - 1])) {
-          if (end > bestEnd) {
-            bestEnd = end;
-            bestKey = key;
+  } else if (host.includes("edenbrothers.com")) {
+    const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+    const slug = (pathSegments.pop() ?? "").replace(/\.(html?|aspx|php)$/i, "").trim();
+    const fromSlug = slug ? parseEdenBrothersSlug(slug) : null;
+    if (fromSlug && (fromSlug.plant_name !== "General" || fromSlug.variety_name)) {
+      plant_name = fromSlug.plant_name;
+      variety_name = fromSlug.variety_name;
+    } else if (rawTitle) {
+      let cleaned = rawTitle.replace(/\bSeeds?\s*$/i, "").trim();
+      cleaned = stripTitleNoise(cleaned).trim();
+      const keys = Object.keys(PLANT_CATEGORY_DEFAULTS) as PlantCategoryKey[];
+      const byLen = [...keys].sort((a, b) => b.length - a.length);
+      const lower = cleaned.toLowerCase();
+      let bestKey: string | null = null;
+      let bestEnd = -1;
+      for (const key of byLen) {
+        const keyLower = key.toLowerCase();
+        const idx = lower.lastIndexOf(keyLower);
+        if (idx === -1) continue;
+        const end = idx + keyLower.length;
+        if (end === lower.length || (end < lower.length && /\s/.test(lower[end]))) {
+          if (idx === 0 || /\s/.test(lower[idx - 1])) {
+            if (end > bestEnd) {
+              bestEnd = end;
+              bestKey = key;
+            }
           }
         }
       }
-    }
-    if (bestKey) {
-      const before = cleaned.slice(0, bestEnd - bestKey.length).trim();
-      plant_name = toTitleCase(bestKey);
-      variety_name = before ? toTitleCase(stripTitleNoise(before).trim()) : "";
+      if (bestKey) {
+        const before = cleaned.slice(0, bestEnd - bestKey.length).trim();
+        plant_name = toTitleCase(bestKey);
+        variety_name = before ? toTitleCase(stripTitleNoise(before).trim()) : "";
+      } else {
+        const parsed = parsePlantVarietyFromTitle(cleaned || "General");
+        plant_name = parsed.plant_name;
+        variety_name = parsed.variety_name;
+      }
     } else {
-      const parsed = parsePlantVarietyFromTitle(cleaned || "General");
-      plant_name = parsed.plant_name;
-      variety_name = parsed.variety_name;
+      plant_name = "General";
+      variety_name = "";
     }
   } else if (host.includes("rareseeds.com") && rawTitle) {
     const fromBreadcrumb = (payload.plant_name_from_breadcrumb as string | null | undefined)?.trim();
@@ -354,24 +446,38 @@ function getStructuredNameVendor(
       plant_name = parsed.plant_name;
       variety_name = parsed.variety_name;
     }
-  } else if (host.includes("burpee.com") && rawTitle) {
-    const commaIdx = rawTitle.indexOf(",");
-    if (commaIdx !== -1) {
-      plant_name = toTitleCase(rawTitle.slice(0, commaIdx).trim());
-      variety_name = toTitleCase(rawTitle.slice(commaIdx + 1).trim());
-    } else {
-      const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
-      plant_name = parsed.plant_name;
-      variety_name = parsed.variety_name;
-    }
-    if (!variety_name || /^[-—–]\s*$/.test(variety_name.trim())) {
-      const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
-      const slug = (pathSegments.pop() ?? "").replace(/\.(html?|aspx|php)$/i, "").trim();
-      if (slug) {
-        const fromSlug = parseSlugPlantVariety(slug);
-        plant_name = fromSlug.plant_name;
-        variety_name = fromSlug.variety_name;
+  } else if (host.includes("burpee.com")) {
+    const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+    const slug = (pathSegments.pop() ?? "").replace(/\.(html?|aspx|php)$/i, "").trim();
+    const titleLooksLikeProductCode = /^prod\d+$/i.test((rawTitle ?? "").trim());
+    if (titleLooksLikeProductCode && slug) {
+      const fromSlug = parseSlugPlantVariety(slug);
+      plant_name = fromSlug.plant_name;
+      variety_name = fromSlug.variety_name;
+    } else if (rawTitle) {
+      const commaIdx = rawTitle.indexOf(",");
+      if (commaIdx !== -1) {
+        plant_name = toTitleCase(rawTitle.slice(0, commaIdx).trim());
+        variety_name = toTitleCase(rawTitle.slice(commaIdx + 1).trim());
+      } else {
+        const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+        plant_name = parsed.plant_name;
+        variety_name = parsed.variety_name;
       }
+      if (!variety_name || /^[-—–]\s*$/.test(variety_name.trim())) {
+        if (slug) {
+          const fromSlug = parseSlugPlantVariety(slug);
+          plant_name = fromSlug.plant_name;
+          variety_name = fromSlug.variety_name;
+        }
+      }
+    } else if (slug) {
+      const fromSlug = parseSlugPlantVariety(slug);
+      plant_name = fromSlug.plant_name;
+      variety_name = fromSlug.variety_name;
+    } else {
+      plant_name = "General";
+      variety_name = "";
     }
   } else if (host.includes("row7seeds.com") && rawTitle) {
     const cleaned = rawTitle.replace(/\bSeeds\s*$/i, "").trim();
@@ -388,37 +494,111 @@ function getStructuredNameVendor(
       variety_name = parsed.variety_name;
     }
   } else if (host.includes("outsidepride.com")) {
+    // Outsidepride: derive plant/variety from URL path and slug only — do not use title/default "Flower".
+    // e.g. /seed/flower-seed/viola/sweet-violet-seeds-reine-de-neiges → Sweet Violet / Reine De Neiges
+    // e.g. /seed/flower-seed/stokesia-seeds/stokesia-seeds-white-star → Stokesia / White Star
     const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
     const slugWithExt = pathSegments.pop() ?? "";
     const slug = slugWithExt.replace(/\.(html?|aspx|php)$/i, "").trim();
-    const titleTrimmed = (rawTitle ?? "").trim();
-    const looksGeneric =
-      /\bseed\s*$/i.test(titleTrimmed) ||
-      (titleTrimmed.split(/\s+/).length <= 4 && /\bseed\b/i.test(titleTrimmed));
-    if (slug && looksGeneric && slug.includes("-")) {
-      const parts = slug.split("-").filter(Boolean);
-      if (parts.length >= 2) {
-        plant_name = toTitleCase(parts[0] ?? "");
-        variety_name = toTitleCase(parts.slice(1).join(" "));
-      } else if (parts.length === 1) {
-        plant_name = toTitleCase(parts[0] ?? "");
-        variety_name = "";
-      } else {
-        const parsed = parsePlantVarietyFromTitle(titleTrimmed || "General");
-        plant_name = parsed.plant_name;
-        variety_name = parsed.variety_name;
+    const categorySegment = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] ?? "" : "";
+
+    if (slug) {
+      const lower = slug.toLowerCase();
+      // Pattern: something-seeds-something (e.g. sweet-violet-seeds-reine-de-neiges) → plant from left, variety from right
+      if (lower.includes("-seeds-")) {
+        const idx = lower.indexOf("-seeds-");
+        const leftPart = slug.slice(0, idx).replace(/-/g, " ").trim();
+        const rightPart = slug.slice(idx + 7).replace(/-/g, " ").trim();
+        if (leftPart && rightPart) {
+          plant_name = toTitleCase(stripVaultNoise(leftPart));
+          variety_name = toTitleCase(stripVaultNoise(rightPart));
+        }
       }
-    } else if (rawTitle) {
-      const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
-      plant_name = parsed.plant_name;
-      variety_name = parsed.variety_name;
-    } else if (slug) {
+      if (!plant_name || !variety_name) {
+        // Pattern: {plant}-seeds-{variety} (e.g. stokesia-seeds-white-star) — plant from path segment or slug prefix
+        const categoryLower = categorySegment.toLowerCase().replace(/-/g, " ");
+        let plantFromCategory = "";
+        if (categorySegment) {
+          if (categorySegment.toLowerCase().endsWith("-seeds")) {
+            plantFromCategory = categorySegment.slice(0, -6).replace(/-/g, " ").trim();
+          } else if (categorySegment.toLowerCase() !== "flower-seed" && categorySegment.toLowerCase() !== "flower") {
+            plantFromCategory = categorySegment.replace(/-/g, " ").trim();
+          }
+        }
+        const plantFromSlug = (lower.split("-seeds-")[0] ?? "").replace(/-/g, " ").trim();
+        const plantBase = plantFromCategory || plantFromSlug;
+        if (plantBase) {
+          plant_name = toTitleCase(plantBase);
+          const prefixToStrip = (plantBase.toLowerCase() + "-seeds-").replace(/\s+/g, "-");
+          let varietySlug = lower;
+          if (lower.startsWith(prefixToStrip)) {
+            varietySlug = lower.slice(prefixToStrip.length).replace(/-/g, " ").trim();
+          } else if (lower.startsWith(plantBase.toLowerCase().replace(/\s+/g, "-") + "-seeds-")) {
+            varietySlug = lower.slice((plantBase.toLowerCase().replace(/\s+/g, "-") + "-seeds-").length).replace(/-/g, " ").trim();
+          }
+          variety_name = varietySlug ? toTitleCase(stripVaultNoise(varietySlug)) : "";
+        }
+      }
+    }
+    if (!plant_name) {
+      plant_name = categorySegment ? toTitleCase(categorySegment.replace(/-/g, " ")) : "General";
+      variety_name = slug ? toTitleCase(slug.replace(/-/g, " ")) : "";
+    }
+    if (plant_name === "General" && slug) {
       const parts = slug.split("-").filter(Boolean);
       plant_name = parts.length ? toTitleCase(parts[0] ?? "") : "General";
       variety_name = parts.length > 1 ? toTitleCase(parts.slice(1).join(" ")) : "";
+    }
+    // Never use generic "Flower" for Outsidepride — prefer first meaningful part of slug
+    if (/^flower(s|\s*seed)?$/i.test((plant_name ?? "").trim()) && slug) {
+      const first = slug.split("-").filter(Boolean)[0];
+      if (first) plant_name = toTitleCase(first);
+    }
+    // User preference: "Sweet Violet" → "Sweet Viola" for display
+    if (plant_name === "Sweet Violet") plant_name = "Sweet Viola";
+  } else if (host.includes("swallowtailgardenseeds.com")) {
+    const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+    const slugWithExt = pathSegments.pop() ?? "";
+    const slug = slugWithExt.replace(/\.(html?|aspx|php)$/i, "").trim();
+    const topCategories = ["annuals", "perennials", "herbs", "vegetables", "bulk", "flowering-vines"];
+    if (pathSegments.length >= 1 && slug) {
+      const plantSegment = pathSegments[pathSegments.length - 1] ?? "";
+      const plantLower = plantSegment.toLowerCase().replace(/-/g, " ");
+      if (!topCategories.includes(plantSegment.toLowerCase())) {
+        const plantTitle = toTitleCase(plantSegment.replace(/-/g, " "));
+        plant_name = plantTitle.endsWith("s") && plantTitle.length > 1 ? plantTitle.slice(0, -1) : plantTitle;
+        let varietySlug = slug
+          .replace(/-seeds?$/gi, "")
+          .replace(/-flower(s)?$/gi, "")
+          .trim();
+        const plantForStrip = plant_name.toLowerCase();
+        if (varietySlug.toLowerCase().endsWith(plantForStrip)) {
+          varietySlug = varietySlug.slice(0, -plantForStrip.length).replace(/-+$/, "").trim();
+        }
+        if (varietySlug && varietySlug.toLowerCase() !== plantForStrip) {
+          variety_name = toTitleCase(stripVaultNoise(varietySlug.replace(/-/g, " "))) || "";
+        } else {
+          variety_name = rawTitle ? toTitleCase(stripTitleNoise(rawTitle).trim()) : "";
+        }
+      } else {
+        const fromSlug = parseSlugPlantVariety(slug);
+        plant_name = fromSlug.plant_name;
+        variety_name = fromSlug.variety_name;
+      }
+    } else if (pathSegments.length >= 1) {
+      const plantSegment = pathSegments[pathSegments.length - 1] ?? "";
+      if (!topCategories.includes(plantSegment.toLowerCase())) {
+        plant_name = toTitleCase(plantSegment.replace(/-/g, " "));
+        variety_name = rawTitle ? toTitleCase(stripTitleNoise(rawTitle).trim()) : "";
+      } else {
+        const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+        plant_name = parsed.plant_name;
+        variety_name = parsed.variety_name;
+      }
     } else {
-      plant_name = "General";
-      variety_name = "";
+      const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+      plant_name = parsed.plant_name;
+      variety_name = parsed.variety_name;
     }
   } else if (host.includes("fedcoseeds.com")) {
     const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
@@ -435,6 +615,50 @@ function getStructuredNameVendor(
     }
     variety_name = stripFedcoSlugNoise(variety_name).replace(/\s*[-|:]+\s*$/g, "").trim();
     if (plant_name === "Fedco") plant_name = "General";
+  } else if (host.includes("johnnyseeds.com")) {
+    // Johnny's URL: either category/plant/variety-slug (3+ parts) or category/slug (2 parts, e.g. /herbs/stevia).
+    const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+    const slugWithExt = pathSegments.pop() ?? "";
+    const slug = slugWithExt.replace(/\.(html?|aspx|php)$/i, "").trim();
+    const productCodePattern = /-\d+[a-z]*$/i;
+    const slugWithoutCode = slug.replace(productCodePattern, "").replace(/-+$/, "").trim();
+    const titleLooksLikeProductCode = /^\d+[a-z]*$/i.test((rawTitle ?? "").trim()) || ((rawTitle ?? "").trim().length <= 8 && /\d+[a-z]*/i.test(rawTitle ?? ""));
+
+    // Two-part URL: /category/slug (e.g. /herbs/stevia) — slug is the plant name, avoid "General"
+    if (pathSegments.length === 1 && slug) {
+      plant_name = toTitleCase(slug.replace(/-/g, " "));
+      variety_name = rawTitle && !titleLooksLikeProductCode ? toTitleCase(stripTitleNoise(rawTitle).trim()) : "";
+    } else if (pathSegments.length >= 2 && (slugWithoutCode || titleLooksLikeProductCode)) {
+      // Standard: last path segment = plant, slug = variety (e.g. vegetables/beans/bush-beans/provider-bean-seed-10)
+      const plantSegment = pathSegments[pathSegments.length - 1];
+      if (plantSegment) {
+        plant_name = toTitleCase(plantSegment.replace(/-/g, " "));
+        if (slugWithoutCode) {
+          let varietySlug = slugWithoutCode
+            .replace(/-organic\b/gi, "")
+            .replace(/-lettuce\b/gi, "")
+            .replace(/-seeds?\b/gi, "")
+            .replace(/-bean(-seed)?$/gi, "")
+            .replace(/-+/g, " ")
+            .trim();
+          const plantLower = plant_name.toLowerCase().replace(/\s+/g, " ");
+          if (varietySlug.toLowerCase().endsWith(plantLower)) {
+            varietySlug = varietySlug.slice(0, -plantLower.length).trim();
+          }
+          variety_name = toTitleCase(stripVaultNoise(varietySlug)) || "";
+        } else {
+          variety_name = rawTitle && !titleLooksLikeProductCode ? toTitleCase(stripTitleNoise(rawTitle).trim()) : "";
+        }
+      } else {
+        const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+        plant_name = parsed.plant_name;
+        variety_name = parsed.variety_name;
+      }
+    } else {
+      const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
+      plant_name = parsed.plant_name;
+      variety_name = parsed.variety_name;
+    }
   } else {
     const parsed = parsePlantVarietyFromTitle(rawTitle || "General");
     plant_name = parsed.plant_name;
@@ -475,6 +699,12 @@ function getStructuredNameVendor(
 
   plant_name = toTitleCase(stripVaultNoise(plant_name)) || plant_name || "General";
   variety_name = toTitleCase(stripVaultNoise(variety_name)) || variety_name;
+
+  // High Mowing: "Pelleted" is a tag (seed form), not plant or variety — strip so it doesn't show as name
+  if (host.includes("highmowingseeds.com")) {
+    plant_name = plant_name.replace(/\s*Pelleted\s*/gi, " ").replace(/\s+/g, " ").trim() || plant_name;
+    variety_name = variety_name.replace(/\s*Pelleted\s*/gi, " ").replace(/\s+/g, " ").trim() || variety_name;
+  }
 
   let vendor_name = (payload.vendor as string | null | undefined) ?? metadata?.ogSiteName ?? null;
   if (typeof vendor_name === "string") vendor_name = stripHtmlAndDecode(vendor_name).trim() || null;

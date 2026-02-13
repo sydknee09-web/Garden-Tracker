@@ -14,6 +14,7 @@ import { getTagStyle } from "@/components/TagBadges";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 const SAVE_TOAST_DURATION_MS = 5000;
 
@@ -90,6 +91,13 @@ function VaultPageInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
+
+  useModalBackClose(quickAddOpen, useCallback(() => {
+    setQuickAddOpen(false);
+    setQrPrefill(null);
+  }, []));
+  useModalBackClose(batchAddOpen, useCallback(() => setBatchAddOpen(false), []));
+  useModalBackClose(scannerOpen, useCallback(() => setScannerOpen(false), []));
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("vault");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -120,6 +128,7 @@ function VaultPageInner() {
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
+  const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [varietyFilter, setVarietyFilter] = useState<string | null>(null);
@@ -860,7 +869,7 @@ function VaultPageInner() {
                 <button
                   type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2 shrink-0"
                   aria-label="Refine by status, tags, plant type"
                 >
                   Refine by
@@ -885,8 +894,17 @@ function VaultPageInner() {
                     </span>
                   ) : null}
                 </button>
+                {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchSelectMode(true)}
+                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
+                  >
+                    Select
+                  </button>
+                )}
                 {viewMode === "grid" && (
-                  <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Grid display style">
+                  <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft ml-auto" role="tablist" aria-label="Grid display style">
                     <button
                       type="button"
                       role="tab"
@@ -911,20 +929,11 @@ function VaultPageInner() {
                     </button>
                   </div>
                 )}
-                {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
-                  <button
-                    type="button"
-                    onClick={() => setBatchSelectMode(true)}
-                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
-                  >
-                    Select
-                  </button>
-                )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
-                  <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Batch actions">
+                  <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Selection">
                     <button
                       type="button"
-                      onClick={() => { setBatchSelectMode(false); setSelectedVarietyIds(new Set()); }}
+                      onClick={() => { setBatchSelectMode(false); setSelectedVarietyIds(new Set()); setSelectionActionsOpen(false); }}
                       className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 shrink-0"
                     >
                       Cancel
@@ -935,57 +944,6 @@ function VaultPageInner() {
                       className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 shrink-0"
                     >
                       Select All
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedVarietyIds.size < 2}
-                      onClick={openMergeModal}
-                      title={selectedVarietyIds.size < 2 ? "Select 2 or more varieties to combine into one (packets will move to the chosen variety)" : "Combine selected varieties into one"}
-                      aria-label={selectedVarietyIds.size < 2 ? "Select 2 or more varieties to combine" : "Combine selected varieties"}
-                      className="min-w-[44px] min-h-[44px] h-11 flex items-center justify-center gap-1.5 rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 disabled:opacity-50 shrink-0 px-2"
-                    >
-                      <MergeIcon />
-                      <span className="whitespace-nowrap">Merge</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedVarietyIds.size === 0}
-                      onClick={goToPlantPage}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/80 bg-white hover:bg-black/5 disabled:opacity-50 shrink-0"
-                      aria-label="Plant selected: open planting page"
-                      title="Plant selected: open planting page"
-                    >
-                      <ShovelIcon />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedVarietyIds.size === 0 || addingToShoppingList}
-                      onClick={handleAddToShoppingList}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 disabled:opacity-50 shrink-0"
-                      aria-label="Add to shopping list"
-                      title="Add to shopping list"
-                    >
-                      🛒
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleBatchDelete}
-                      disabled={selectedVarietyIds.size === 0 || batchDeleting}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-citrus text-white disabled:opacity-60 shrink-0"
-                      aria-label="Dispose selected"
-                      title="Dispose selected"
-                    >
-                      {batchDeleting ? <span className="text-sm">…</span> : <Trash2Icon />}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedVarietyIds.size === 0}
-                      onClick={openScheduleModal}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/80 bg-white hover:bg-black/5 disabled:opacity-50 shrink-0"
-                      aria-label="Schedule sowing for selected varieties"
-                      title="Schedule sowing"
-                    >
-                      <CalendarIcon />
                     </button>
                   </div>
                 )}
@@ -1005,7 +963,7 @@ function VaultPageInner() {
             onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
           />
           <div
-            className="fixed left-1/2 top-1/2 z-[101] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col mx-4"
+            className="fixed left-4 right-4 top-1/2 z-[101] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="refine-by-title"
@@ -1555,12 +1513,91 @@ function VaultPageInner() {
         </div>
       )}
 
+      {/* Selection actions menu (when plants selected): plus opens this instead of quick add */}
+      {selectionActionsOpen && (viewMode === "grid" || viewMode === "list") && batchSelectMode && (
+        <>
+          <div
+            className="fixed inset-0 z-[99] bg-black/40"
+            aria-hidden
+            onClick={() => setSelectionActionsOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Selection actions"
+            className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
+          >
+            <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
+              <p className="text-sm font-medium text-black/70">{selectedVarietyIds.size} selected</p>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              <button
+                type="button"
+                onClick={() => { handleBatchDelete(); setSelectionActionsOpen(false); }}
+                disabled={selectedVarietyIds.size === 0 || batchDeleting}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
+                aria-label="Delete selected"
+              >
+                <Trash2Icon className="w-5 h-5 shrink-0" />
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => { goToPlantPage(); setSelectionActionsOpen(false); }}
+                disabled={selectedVarietyIds.size === 0}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                aria-label="Plant selected"
+              >
+                <ShovelIcon className="w-5 h-5 shrink-0" />
+                Plant
+              </button>
+              <button
+                type="button"
+                onClick={() => { handleAddToShoppingList(); setSelectionActionsOpen(false); }}
+                disabled={selectedVarietyIds.size === 0 || addingToShoppingList}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                aria-label="Add to shopping list"
+              >
+                <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>🛒</span>
+                Shopping list
+              </button>
+              <button
+                type="button"
+                onClick={() => { openScheduleModal(); setSelectionActionsOpen(false); }}
+                disabled={selectedVarietyIds.size === 0}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                aria-label="Schedule sowing"
+              >
+                <CalendarIcon className="w-5 h-5 shrink-0" />
+                Plan
+              </button>
+              <button
+                type="button"
+                onClick={() => { openMergeModal(); setSelectionActionsOpen(false); }}
+                disabled={selectedVarietyIds.size < 2}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                aria-label="Merge selected"
+              >
+                <MergeIcon className="w-5 h-5 shrink-0" />
+                Merge
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <button
         type="button"
-        onClick={() => setQuickAddOpen(true)}
+        onClick={() => {
+          if ((viewMode === "grid" || viewMode === "list") && batchSelectMode) {
+            setSelectionActionsOpen(true);
+          } else {
+            setQuickAddOpen(true);
+          }
+        }}
         className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label="Quick add seed"
+        aria-label={(viewMode === "grid" || viewMode === "list") && batchSelectMode ? "Selection actions" : "Quick add seed"}
       >
         +
       </button>
@@ -1586,6 +1623,10 @@ function VaultPageInner() {
         onOpenLinkImport={() => {
           setQuickAddOpen(false);
           router.push("/vault/import");
+        }}
+        onStartManualImport={() => {
+          setQuickAddOpen(false);
+          router.push("/vault/import/manual");
         }}
       />
 

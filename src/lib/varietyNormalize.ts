@@ -125,6 +125,10 @@ export function cleanVarietyForDisplay(
     tagsToAdd.push("Heirloom");
     s = s.replace(/\bHeirloom\b/gi, "");
   }
+  if (/\bPelleted\b/i.test(s)) {
+    tagsToAdd.push("Pelleted");
+    s = s.replace(/\bPelleted\b/gi, "");
+  }
   s = s
     .replace(/\b\d+\s*Days?\b/gi, "")
     .replace(/\b\d+-\d+\s*Days?\b/gi, "")

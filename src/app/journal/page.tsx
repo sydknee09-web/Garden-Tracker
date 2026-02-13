@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -262,6 +262,7 @@ export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addChoiceOpen, setAddChoiceOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [note, setNote] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -284,8 +285,12 @@ export default function JournalPage() {
     viewFromUrl === "timeline" ? "timeline" : viewFromUrl === "grid" ? "grid" : "table"
   );
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
-  const [deleteConfirmEntryId, setDeleteConfirmEntryId] = useState<string | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [deleteConfirmEntryIds, setDeleteConfirmEntryIds] = useState<string[] | null>(null);
+  const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const cameraMobileRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -562,21 +567,79 @@ export default function JournalPage() {
     }));
   }
 
-  function requestDeleteEntry(entryId: string) {
-    setDeleteConfirmEntryId(entryId);
+  const LONG_PRESS_MS = 500;
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const toggleRowSelection = useCallback((entryIds: string[]) => {
+    setSelectedEntryIds((prev) => {
+      const prevSet = new Set(prev);
+      const allSelected = entryIds.every((id) => prevSet.has(id));
+      if (allSelected) {
+        entryIds.forEach((id) => prevSet.delete(id));
+      } else {
+        entryIds.forEach((id) => prevSet.add(id));
+      }
+      return Array.from(prevSet);
+    });
+  }, []);
+
+  const getLongPressHandlers = useCallback(
+    (entryIds: string[]) => ({
+      onTouchStart: () => {
+        longPressFiredRef.current = false;
+        clearLongPressTimer();
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          longPressFiredRef.current = true;
+          toggleRowSelection(entryIds);
+        }, LONG_PRESS_MS);
+      },
+      onTouchMove: clearLongPressTimer,
+      onTouchEnd: clearLongPressTimer,
+      onTouchCancel: clearLongPressTimer,
+      handleClick: (e?: React.MouseEvent) => {
+        if (longPressFiredRef.current) {
+          longPressFiredRef.current = false;
+          e?.preventDefault?.();
+          return;
+        }
+        if (selectedEntryIds.length > 0) {
+          e?.preventDefault?.();
+          toggleRowSelection(entryIds);
+        }
+      },
+    }),
+    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length]
+  );
+
+  function requestBulkDelete(ids: string[]) {
+    setDeleteConfirmEntryIds(ids);
   }
 
-  async function confirmDeleteEntry() {
-    if (!user || !deleteConfirmEntryId) return;
-    const entryId = deleteConfirmEntryId;
-    setDeleteConfirmEntryId(null);
-    const { error: e } = await supabase.from("journal_entries").update({ deleted_at: new Date().toISOString() }).eq("id", entryId).eq("user_id", user.id);
-    if (e) {
-      setError(e.message);
-      return;
+  async function confirmBulkDeleteEntry() {
+    if (!user || !deleteConfirmEntryIds?.length) return;
+    const ids = deleteConfirmEntryIds;
+    setDeleteConfirmEntryIds(null);
+    setSelectedEntryIds((prev) => prev.filter((id) => !ids.includes(id)));
+    for (const entryId of ids) {
+      const { error: e } = await supabase.from("journal_entries").update({ deleted_at: new Date().toISOString() }).eq("id", entryId).eq("user_id", user.id);
+      if (e) {
+        setError(e.message);
+        return;
+      }
     }
-    setEntries((prev) => prev.filter((x) => x.id !== entryId));
+    setEntries((prev) => prev.filter((x) => !ids.includes(x.id)));
   }
+
+  const isRowSelected = useCallback(
+    (entryIds: string[]) => entryIds.length > 0 && entryIds.every((id) => selectedEntryIds.includes(id)),
+    [selectedEntryIds]
+  );
 
   function openAddModal() {
     setAddModalOpen(true);
@@ -633,13 +696,12 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="px-6 pt-2 pb-6">
-      <div className="flex items-center justify-between gap-4 mb-4">
+    <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
+      <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5 flex items-center justify-between gap-4">
         <div>
           <p className="text-muted text-sm">Notes and photos from your garden</p>
         </div>
-        {entries.length > 0 && (
-          <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Journal view">
+        <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Journal view">
             <button
               type="button"
               role="tab"
@@ -674,7 +736,6 @@ export default function JournalPage() {
               <TimelineIcon />
             </button>
           </div>
-        )}
       </div>
 
       {entries.length === 0 ? (
@@ -683,7 +744,7 @@ export default function JournalPage() {
           <p className="text-sm text-slate-500 mt-1">Tap the + button to log a note or photo.</p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6">
+        <div className="overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6 pb-24">
           <table className="w-full min-w-[480px] text-sm border-collapse" role="grid" aria-label="Journal entries">
             <thead>
               <tr className="border-b border-black/10 bg-neutral-50/80">
@@ -691,7 +752,6 @@ export default function JournalPage() {
                 <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 whitespace-nowrap w-[100px]">Action</th>
                 <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[120px]">Plants</th>
                 <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[140px] max-w-[240px]">Note</th>
-                <th className="text-right py-2.5 pl-3 text-xs font-semibold text-black/70 w-[52px]"><span className="sr-only">Delete</span></th>
               </tr>
             </thead>
             <tbody>
@@ -699,7 +759,7 @@ export default function JournalPage() {
                 if (item.type === "section") {
                   return (
                     <tr key={`section-${item.label}`} className="bg-slate-100/80 border-b border-black/10">
-                      <td colSpan={5} className="py-2 px-3 text-sm font-semibold text-slate-700 sticky top-0 bg-slate-100/95">
+                      <td colSpan={4} className="py-2 px-3 text-sm font-semibold text-slate-700 sticky top-0 bg-slate-100/95">
                         {item.label}
                       </td>
                     </tr>
@@ -708,8 +768,18 @@ export default function JournalPage() {
                 const row = item.row;
                 const rowId = row.entryIds[0];
                 const isExpanded = expandedNoteId === rowId;
+                const lp = getLongPressHandlers(row.entryIds);
+                const selected = isRowSelected(row.entryIds);
                 return (
-                  <tr key={rowId} className="border-b border-black/5 hover:bg-black/[0.02] align-top">
+                  <tr
+                    key={rowId}
+                    className={`border-b border-black/5 align-top ${selected ? "bg-emerald/10 ring-1 ring-emerald/30" : "hover:bg-black/[0.02]"}`}
+                    {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                    onClick={lp?.handleClick}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lp?.handleClick(); } }}
+                  >
                     <td className="py-2.5 pr-3 text-black/80 whitespace-nowrap">
                       <time dateTime={row.date}>{new Date(row.date).toLocaleDateString()}</time>
                     </td>
@@ -732,7 +802,13 @@ export default function JournalPage() {
                       {row.note ? (
                         <button
                           type="button"
-                          onClick={() => setExpandedNoteId(isExpanded ? null : rowId)}
+                          onClick={(e) => {
+                            if (selectedEntryIds.length > 0) {
+                              e.stopPropagation();
+                              return;
+                            }
+                            setExpandedNoteId(isExpanded ? null : rowId);
+                          }}
                           className="text-left w-full block min-w-0"
                         >
                           <span className={isExpanded ? "" : "line-clamp-2"} title={row.note}>
@@ -742,16 +818,6 @@ export default function JournalPage() {
                       ) : (
                         <span className="text-black/40">—</span>
                       )}
-                    </td>
-                    <td className="py-2.5 pl-3 text-right align-top">
-                      <button
-                        type="button"
-                        onClick={() => row.entryIds.forEach((id) => requestDeleteEntry(id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/40 hover:text-citrus hover:bg-black/5 ml-auto"
-                        aria-label="Delete entry"
-                      >
-                        <TrashIcon />
-                      </button>
                     </td>
                   </tr>
                 );
@@ -811,8 +877,18 @@ export default function JournalPage() {
               .filter((url): url is string => !!url);
             const hasImages = imageUrls.length > 0;
             const rowId = row.entryIds[0];
+            const lp = getLongPressHandlers(row.entryIds);
+            const selected = isRowSelected(row.entryIds);
             return (
-              <article key={rowId} className="rounded-2xl bg-white border border-black/10 overflow-hidden mb-6 shadow-card">
+              <article
+                key={rowId}
+                className={`rounded-2xl bg-white border overflow-hidden mb-6 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
+                {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                onClick={lp?.handleClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lp?.handleClick(); } }}
+              >
                 {/* Photo only when present; no blank placeholder */}
                 {hasImages && (
                   <div className="relative aspect-square bg-neutral-100">
@@ -861,19 +937,9 @@ export default function JournalPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <time dateTime={row.date} className="text-xs text-black/50">
-                        {new Date(row.date).toLocaleDateString()}
-                      </time>
-                      <button
-                        type="button"
-                        onClick={() => row.entryIds.forEach((id) => requestDeleteEntry(id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/40 hover:text-citrus hover:bg-black/5"
-                        aria-label="Delete entry"
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
+                    <time dateTime={row.date} className="text-xs text-black/50 shrink-0">
+                      {new Date(row.date).toLocaleDateString()}
+                    </time>
                   </div>
                 </div>
               </article>
@@ -882,35 +948,199 @@ export default function JournalPage() {
         </div>
       )}
 
+      {selectedEntryIds.length > 0 && (
+        <div
+          className="fixed left-4 right-4 z-30 flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-white border border-black/10 shadow-lg max-w-md mx-auto"
+          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}
+          role="status"
+          aria-label={`${selectedEntryIds.length} selected`}
+        >
+          <span className="text-sm font-medium text-black/80">{selectedEntryIds.length} selected</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => requestBulkDelete(selectedEntryIds)}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-citrus hover:bg-citrus/10"
+              aria-label="Delete selected"
+            >
+              <TrashIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedEntryIds([])}
+              className="min-w-[44px] min-h-[44px] px-3 rounded-lg border border-black/10 text-sm font-medium text-black/80"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={() => router.push("/journal/new")}
+        onClick={() => (selectedEntryIds.length > 0 ? setSelectionActionsOpen(true) : setAddChoiceOpen(true))}
         className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label="Add journal entry"
+        aria-label={selectedEntryIds.length > 0 ? "Actions for selected" : "Add journal entry"}
       >
         +
       </button>
 
-      {deleteConfirmEntryId && (
+      {addChoiceOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            aria-hidden
+            onClick={() => setAddChoiceOpen(false)}
+          />
+          <div
+            className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-journal-choice-title"
+          >
+            <h2 id="add-journal-choice-title" className="text-lg font-semibold text-black mb-1">
+              Add Journal Entry
+            </h2>
+            <p className="text-sm text-black/70 mb-4">Choose how you want to add an entry.</p>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChoiceOpen(false);
+                  openAddModal();
+                }}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <CameraIcon />
+                </span>
+                Quick entry (with photo)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChoiceOpen(false);
+                  router.push("/journal/new");
+                }}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <DocumentIcon />
+                </span>
+                Full entry
+              </button>
+              <div className="pt-4">
+                <button
+                  type="button"
+                  onClick={() => setAddChoiceOpen(false)}
+                  className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {selectionActionsOpen && selectedEntryIds.length > 0 && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            aria-hidden
+            onClick={() => setSelectionActionsOpen(false)}
+          />
+          <div
+            className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="selection-actions-title"
+          >
+            <h2 id="selection-actions-title" className="text-lg font-semibold text-black mb-1">
+              {selectedEntryIds.length} selected
+            </h2>
+            <p className="text-sm text-black/70 mb-4">Choose an action.</p>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionActionsOpen(false);
+                  requestBulkDelete(selectedEntryIds);
+                }}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-citrus/50 hover:bg-citrus/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <TrashIcon />
+                </span>
+                Trash
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionActionsOpen(false);
+                  setSelectedEntryIds([]);
+                }}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <ArchiveIcon />
+                </span>
+                Archive
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionActionsOpen(false);
+                  const firstId = selectedEntryIds[0];
+                  const entry = entries.find((e) => e.id === firstId);
+                  if (entry?.plant_profile_id) router.push(`/vault/${entry.plant_profile_id}?tab=journal`);
+                }}
+                disabled={selectedEntryIds.length !== 1}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <PencilEditIcon />
+                </span>
+                Edit {selectedEntryIds.length === 1 ? "entry" : "(select one)"}
+              </button>
+              <div className="pt-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectionActionsOpen(false)}
+                  className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {deleteConfirmEntryIds && deleteConfirmEntryIds.length > 0 && (
         <div
           className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto rounded-xl bg-white border border-black/10 shadow-lg p-4 flex items-center justify-between gap-3"
           role="dialog"
           aria-live="polite"
           aria-label="Confirm delete"
         >
-          <p className="text-sm font-medium text-black/80">Delete this journal entry?</p>
+          <p className="text-sm font-medium text-black/80">
+            Delete {deleteConfirmEntryIds.length} journal {deleteConfirmEntryIds.length === 1 ? "entry" : "entries"}?
+          </p>
           <div className="flex gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setDeleteConfirmEntryId(null)}
+              onClick={() => setDeleteConfirmEntryIds(null)}
               className="min-w-[44px] min-h-[44px] px-4 rounded-lg border border-black/15 text-sm font-medium text-black/80"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={confirmDeleteEntry}
+              onClick={confirmBulkDeleteEntry}
               className="min-w-[44px] min-h-[44px] px-4 rounded-lg bg-citrus text-white text-sm font-medium"
             >
               Delete
@@ -1164,6 +1394,35 @@ function UploadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function DocumentIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+    </svg>
+  );
+}
+
+function PencilEditIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }

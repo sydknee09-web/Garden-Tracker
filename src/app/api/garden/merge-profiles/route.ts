@@ -158,9 +158,10 @@ export async function POST(request: Request) {
   }
   journalMoved = updatedJournal?.length ?? 0;
 
+  const now = new Date().toISOString();
   const { error: deleteError } = await supabase
     .from("plant_profiles")
-    .delete()
+    .update({ deleted_at: now })
     .in("id", sourceProfileIds)
     .eq("user_id", userId);
 

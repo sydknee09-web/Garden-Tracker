@@ -31,6 +31,7 @@ function GardenPageInner() {
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"plantType" | null>(null);
   const [activeFabMenuOpen, setActiveFabMenuOpen] = useState(false);
+  const [plantsFabMenuOpen, setPlantsFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
@@ -345,15 +346,25 @@ function GardenPageInner() {
         </>
       )}
 
+      {viewMode === "plants" && plantsFabMenuOpen && (
+        <>
+          <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setPlantsFabMenuOpen(false)} />
+          <div className="fixed right-6 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
+            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setPlantsFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add permanent plant</button>
+            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setPlantsFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add store-bought plant</button>
+          </div>
+        </>
+      )}
+
       <button
         type="button"
         onClick={() => {
           if (viewMode === "active") setActiveFabMenuOpen((o) => !o);
-          else setShowAddPermanentPlantModal(true);
+          else if (viewMode === "plants") setPlantsFabMenuOpen((o) => !o);
         }}
         className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={viewMode === "active" ? "Open menu" : "Add permanent plant"}
+        aria-label={viewMode === "active" ? "Open menu" : viewMode === "plants" ? "Add plant options" : "Add"}
       >
         +
       </button>

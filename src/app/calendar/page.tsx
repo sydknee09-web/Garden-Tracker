@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { completeTask } from "@/lib/completeSowTask";
 import type { Task, TaskType } from "@/types/garden";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -53,6 +54,9 @@ export default function CalendarPage() {
   const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
   const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
   const swipeStartX = useRef<number | null>(null);
+
+  useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
+  useModalBackClose(!!deleteConfirmTask, () => setDeleteConfirmTask(null));
 
   const plantTypesGrouped = useMemo(() => {
     const byType = new Map<string, { id: string; name: string; variety_name: string | null }[]>();
@@ -131,7 +135,7 @@ export default function CalendarPage() {
 
       const { data: taskRows, error: e } = await supabase
         .from("tasks")
-        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title")
+        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id")
         .eq("user_id", userId)
         .is("deleted_at", null)
         .gte("due_date", start)
@@ -188,7 +192,7 @@ export default function CalendarPage() {
     if (!user || !deleteConfirmTask) return;
     const t = deleteConfirmTask;
     setDeleteConfirmTask(null);
-    const { error: e } = await supabase.from("tasks").delete().eq("id", t.id).eq("user_id", user.id);
+    const { error: e } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", user.id);
     if (e) {
       setError(e.message);
       return;
@@ -239,6 +243,21 @@ export default function CalendarPage() {
     const d = t.due_date;
     if (!byDate[d]) byDate[d] = [];
     byDate[d].push(t);
+  });
+
+  // Reminders view: only recurring (from care schedules) and not completed
+  const remindersTasks = useMemo(
+    () =>
+      tasks.filter(
+        (t) => (t as Task & { care_schedule_id?: string | null }).care_schedule_id != null && !t.completed_at
+      ) as (Task & { plant_name?: string })[],
+    [tasks]
+  );
+  const byDateReminders: Record<string, (Task & { plant_name?: string })[]> = {};
+  remindersTasks.forEach((t) => {
+    const d = t.due_date;
+    if (!byDateReminders[d]) byDateReminders[d] = [];
+    byDateReminders[d].push(t);
   });
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();
@@ -307,8 +326,6 @@ export default function CalendarPage() {
 
   return (
     <div className="px-6 pt-2 pb-6">
-      <p className="text-muted text-sm mb-4">Tasks by due date</p>
-
       <div className="flex justify-center mb-4">
         <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Calendar view">
           <button
@@ -324,10 +341,11 @@ export default function CalendarPage() {
             type="button"
             role="tab"
             aria-selected={viewMode === "list"}
+            aria-label="Reminders view: recurring care tasks, excluding completed"
             onClick={() => setViewMode("list")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
           >
-            List
+            Reminders
           </button>
         </div>
       </div>
@@ -588,10 +606,13 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
-      ) : (
-        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+      ) : null}
+
+      {!loading && !error && viewMode === "overview" && (
+        <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+          <h2 className="px-4 py-3 text-sm font-semibold text-black border-b border-black/10">Tasks this month</h2>
           {tasks.length === 0 ? (
-            <div className="p-8 text-center text-black/50 text-sm">
+            <div className="p-6 text-center text-black/50 text-sm">
               No tasks this month. Start a new Sowing on a plant profile to generate tasks.
             </div>
           ) : (
@@ -622,6 +643,41 @@ export default function CalendarPage() {
           )}
         </div>
       )}
+
+      {!loading && !error && viewMode === "list" ? (
+        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+          {remindersTasks.length === 0 ? (
+            <div className="p-8 text-center text-black/50 text-sm">
+              No recurring reminders this month. Care schedules generate reminder tasks when you plant.
+            </div>
+          ) : (
+            <ul className="divide-y divide-black/5">
+              {Object.entries(byDateReminders)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, dayTasks]) => (
+                  <li key={date} className="p-4">
+                    <p className="text-xs font-medium text-black/50 mb-2">
+                      {new Date(date + "T12:00:00").toLocaleDateString("default", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    {dayTasks.map((t) => (
+                      <CalendarTaskRow
+                        key={t.id}
+                        task={t}
+                        onComplete={() => handleComplete(t)}
+                        onSnooze={(newDue) => handleSnooze(t, newDue)}
+                        onDeleteRequest={() => requestDeleteTask(t)}
+                      />
+                    ))}
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       <button
         type="button"

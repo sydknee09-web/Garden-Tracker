@@ -132,7 +132,7 @@ function getCardBorderClass(seed: VaultCardItem): string {
   return "border-slate-200/80 border";
 }
 
-function HealthDot({ seed }: { seed: VaultCardItem }) {
+function HealthDot({ seed, size = "default" }: { seed: VaultCardItem; size?: "default" | "sm" }) {
   const color = getHealthColor(seed);
   const label =
     seed.packet_count === 0 || seed.status === "out_of_stock"
@@ -142,7 +142,8 @@ function HealthDot({ seed }: { seed: VaultCardItem }) {
         : (seed.avg_qty_pct ?? 0) <= 50
           ? "Medium (≤50%)"
           : "In stock (>50%)";
-  return <span className={`inline-block w-2.5 h-2.5 rounded-full ${color} shrink-0`} title={label} aria-label={label} />;
+  const sizeClass = size === "sm" ? "w-2 h-2" : "w-2.5 h-2.5";
+  return <span className={`inline-block rounded-full ${sizeClass} ${color} shrink-0`} title={label} aria-label={label} />;
 }
 
 function ExternalLinkIcon() {
@@ -937,14 +938,15 @@ export function SeedVaultView({
                     )}
                   </div>
                   <div className="p-2.5 flex flex-col items-center text-center min-w-0">
-                    <p className="text-xs text-black/50 truncate w-full">{decodeHtmlEntities(seed.name)}{seed.variety && seed.variety !== "—" ? ` · ${decodeHtmlEntities(seed.variety)}` : ""}</p>
-                    <h3 className="font-semibold text-black text-base mt-0.5 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}</h3>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap justify-center">
-                      <HealthDot seed={seed} />
-                      <span className="text-xs text-black/50">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                    <h3 className="font-semibold text-black text-sm truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
+                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
+                      <span className="text-xs text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
+                      <HealthDot seed={seed} size="sm" />
+                      <span className="text-[10px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                        <span className="text-xs font-medium text-amber-700">Out of Stock</span>
+                        <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
                       )}
+                      {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                     </div>
                   </div>
                 </>
@@ -957,7 +959,7 @@ export function SeedVaultView({
                       role="button"
                       tabIndex={0}
                       onClick={() => onToggleVarietySelection?.(seed.id)}
-                      className={`rounded-xl bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/10 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
+                      className={`rounded-xl bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
                     >
                       {cardContent}
                     </article>
@@ -977,7 +979,7 @@ export function SeedVaultView({
                           }
                         : {})}
                     >
-                      <article className="rounded-xl bg-white shadow-card overflow-hidden flex flex-col border border-black/10 hover:border-emerald-500/50 transition-colors w-full">
+                      <article className="rounded-xl bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full">
                         {cardContent}
                       </article>
                     </div>
@@ -1006,17 +1008,15 @@ export function SeedVaultView({
                   )}
                 </div>
                 <div className="p-1.5 flex flex-col items-center text-center min-w-0">
-                  <p className="text-[10px] text-black/50 truncate w-full">{decodeHtmlEntities(seed.name)}{seed.variety && seed.variety !== "—" ? ` · ${decodeHtmlEntities(seed.variety)}` : ""}</p>
-                  <h3 className="font-semibold text-black text-xs mt-0.5 truncate w-full flex items-center justify-center gap-0.5">
-                    {decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : seed.name)}
-                    {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
-                  </h3>
-                  <div className="mt-0.5 flex items-center gap-1 flex-wrap justify-center">
-                    <HealthDot seed={seed} />
-                    <span className="text-[10px] text-black/50">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                  <h3 className="font-semibold text-black text-xs truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
+                  <div className="mt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
+                    <span className="text-[10px] text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
+                    <HealthDot seed={seed} size="sm" />
+                    <span className="text-[9px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
                     {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                      <span className="text-[10px] font-medium text-amber-700">Out</span>
+                      <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
                     )}
+                    {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                   </div>
                 </div>
               </>
@@ -1029,7 +1029,7 @@ export function SeedVaultView({
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleVarietySelection?.(seed.id)}
-                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/10 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
+                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
                   >
                     {condensedContent}
                   </article>
@@ -1042,7 +1042,7 @@ export function SeedVaultView({
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
                     {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                   >
-                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/10 hover:border-emerald-500/50 transition-colors w-full ${getCardBorderClass(seed)}`}>
+                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full ${getCardBorderClass(seed)}`}>
                       {condensedContent}
                     </article>
                   </div>

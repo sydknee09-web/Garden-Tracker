@@ -10,9 +10,17 @@
   --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+html {
+  width: 100%;
+  overflow-x: auto;
+}
+
 body {
+  width: 100%;
+  min-width: 0;
   color: var(--foreground);
   background: var(--background);
+  overflow-x: auto;
 }
 
 /* Avoid iOS zoom on focus: inputs/selects/textarea at least 16px */

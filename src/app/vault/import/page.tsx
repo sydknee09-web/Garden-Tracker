@@ -323,7 +323,7 @@ export default function VaultImportPage() {
         if (!p?.days_to_germination && zone10bMerged.days_to_germination != null) updates.days_to_germination = zone10bMerged.days_to_germination;
         if (zone10bMerged.sowing_method != null) updates.sowing_method = zone10bMerged.sowing_method;
         if (zone10bMerged.planting_window != null) updates.planting_window = zone10bMerged.planting_window;
-        if (Object.keys(updates).length > 0) await supabase.from("plant_profiles").update(updates).eq("id", profileId);
+        if (Object.keys(updates).length > 0) await supabase.from("plant_profiles").update(updates).eq("id", profileId).eq("user_id", uid);
       } else {
         const { data: newProfile, error: profileErr } = await supabase
           .from("plant_profiles")
