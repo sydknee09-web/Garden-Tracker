@@ -231,6 +231,7 @@ export function SeedVaultView({
   germinationFilter = null,
   maturityFilter = null,
   packetCountFilter = null,
+  onSowingMonthChipsLoaded,
   onRefineChipsLoaded,
   hideArchivedProfiles = false,
   onEmptyStateChange,
