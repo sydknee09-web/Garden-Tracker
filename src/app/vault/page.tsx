@@ -1677,6 +1677,11 @@ function VaultPageInner() {
         open={batchAddOpen}
         onClose={() => setBatchAddOpen(false)}
         onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        onNavigateToHero={() => {
+          skipPopOnNavigateRef.current = true;
+          setBatchAddOpen(false);
+          router.push("/vault/import/photos/hero");
+        }}
       />
 
       <QRScannerModal

@@ -61,9 +61,11 @@ interface BatchAddSeedProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** When provided, called instead of onClose + router.push so parent can skip history.back() (e.g. useModalBackClose). */
+  onNavigateToHero?: () => void;
 }
 
-export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
+export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
@@ -531,8 +533,12 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       setQueue([]);
       setStep("capture");
       setSaveSuccessCount(null);
-      onClose();
-      router.push("/vault/import/photos/hero");
+      if (onNavigateToHero) {
+        onNavigateToHero();
+      } else {
+        onClose();
+        router.push("/vault/import/photos/hero");
+      }
     } catch (e) {
       const isQuota = e instanceof DOMException && (e.name === "QuotaExceededError" || (e as { code?: number }).code === 22);
       setError(isQuota ? "Too many or large photos—try fewer or smaller images." : (e instanceof Error ? e.message : "Preparation failed"));
