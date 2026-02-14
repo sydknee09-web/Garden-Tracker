@@ -1597,11 +1597,23 @@ function VaultPageInner() {
             setQuickAddOpen(true);
           }
         }}
-        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+          (viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0
+            ? "bg-amber-500 text-white"
+            : "bg-emerald text-white"
+        }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label={(viewMode === "grid" || viewMode === "list") && batchSelectMode ? "Selection actions" : "Quick add seed"}
       >
-        +
+        {(viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0 ? (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="6" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="18" r="1.5" />
+          </svg>
+        ) : (
+          "+"
+        )}
       </button>
 
       <QuickAddSeed

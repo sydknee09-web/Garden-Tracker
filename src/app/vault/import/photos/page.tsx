@@ -38,6 +38,7 @@ export default function ImportPhotosPage() {
   const [processing, setProcessing] = useState(true);
   const [allDone, setAllDone] = useState(false);
   const processingRef = useRef(false);
+  const stopRequestedRef = useRef(false);
   const vaultProfilesRef = useRef<VaultProfile[] | null>(null);
 
   const updateItem = useCallback((id: string, updates: Partial<PhotoItem>) => {
@@ -61,7 +62,7 @@ export default function ImportPhotosPage() {
   }, [router]);
 
   useEffect(() => {
-    if (items.length === 0 || processingRef.current) return;
+    if (items.length === 0 || processingRef.current || stopRequestedRef.current) return;
     const next = items.find(
       (i) => i.phase === "uploading" || i.phase === "scanning" || i.phase === "finding_hero"
     );
@@ -218,8 +219,8 @@ export default function ImportPhotosPage() {
     run();
   }, [items, updateItem, authSession?.access_token]);
 
-  const handleContinueToReview = useCallback(() => {
-    const successful = items.filter((i) => i.phase === "success" && i.extractResult);
+  const buildReviewItems = useCallback((itemsToUse: PhotoItem[]) => {
+    const successful = itemsToUse.filter((i) => i.phase === "success" && i.extractResult);
     const reviewItems: ReviewImportItem[] = successful.map((i) => {
       const r = i.extractResult!;
       const heroUrl = i.heroPhotoUrl?.trim() || r.stock_photo_url?.trim() || r.hero_image_url?.trim();
@@ -249,7 +250,41 @@ export default function ImportPhotosPage() {
     });
     setReviewImportData({ items: reviewItems });
     router.push("/vault/review-import");
-  }, [items, router]);
+  }, [router]);
+
+  const handleContinueToReview = useCallback(() => {
+    buildReviewItems(items);
+  }, [items, buildReviewItems]);
+
+  const handleStopAndReview = useCallback(() => {
+    stopRequestedRef.current = true;
+    setProcessing(false);
+    const successCount = items.filter((i) => i.phase === "success" && i.extractResult).length;
+    if (successCount > 0) {
+      buildReviewItems(items);
+    } else {
+      router.push("/vault");
+    }
+  }, [items, buildReviewItems, router]);
+
+  const handleCancel = useCallback(() => {
+    stopRequestedRef.current = true;
+    setProcessing(false);
+    router.push("/vault");
+  }, [router]);
+
+  const handleRetryFailed = useCallback(() => {
+    stopRequestedRef.current = false;
+    setItems((prev) =>
+      prev.map((i) =>
+        i.phase === "error"
+          ? { ...i, phase: "uploading" as PhotoPhase, phaseLabel: "Uploading file...", error: undefined }
+          : i
+      )
+    );
+    setProcessing(true);
+    setAllDone(false);
+  }, []);
 
   const completed = items.filter((i) => i.phase === "success" || i.phase === "error").length;
   const total = items.length;
@@ -266,7 +301,7 @@ export default function ImportPhotosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6">
+    <div className="min-h-screen bg-neutral-50 p-6 pb-24">
       <div className="mx-auto max-w-2xl">
         <Link
           href="/vault"
@@ -282,11 +317,36 @@ export default function ImportPhotosPage() {
 
         {/* Global progress */}
         <div className="mb-6">
-          <div className="flex items-center justify-between text-sm text-neutral-600 mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-600 mb-2">
             <span>
-              Processing {completed} of {total} photos...
+              {completed} of {total} processed · {progressPercent}%
             </span>
-            <span>{progressPercent}%</span>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {processing ? (
+                <button
+                  type="button"
+                  onClick={handleStopAndReview}
+                  className="text-amber-600 hover:text-amber-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center"
+                >
+                  Stop & Review
+                </button>
+              ) : items.some((i) => i.phase === "error") ? (
+                <button
+                  type="button"
+                  onClick={handleRetryFailed}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center"
+                >
+                  Retry Failed
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="text-red-500 hover:text-red-700 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
           <div
             className="h-2 rounded-full bg-black/10 overflow-hidden"

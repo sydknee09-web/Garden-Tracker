@@ -744,87 +744,154 @@ export default function JournalPage() {
           <p className="text-sm text-slate-500 mt-1">Tap the + button to log a note or photo.</p>
         </div>
       ) : viewMode === "table" ? (
-        <div className="overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6 pb-24">
-          <table className="w-full min-w-[480px] text-sm border-collapse" role="grid" aria-label="Journal entries">
-            <thead>
-              <tr className="border-b border-black/10 bg-neutral-50/80">
-                <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 whitespace-nowrap w-[90px]">Date</th>
-                <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 whitespace-nowrap w-[100px]">Action</th>
-                <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[120px]">Plants</th>
-                <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[140px] max-w-[240px]">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
-                if (item.type === "section") {
+        <>
+          {/* Mobile: card layout — no horizontal scroll */}
+          <div className="sm:hidden space-y-3 pb-24 -mx-6 px-4">
+            {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
+              if (item.type === "section") {
+                return (
+                  <h2 key={`section-${item.label}`} className="text-sm font-semibold text-slate-700 pt-2 first:pt-0 sticky top-11 bg-paper -mx-4 px-4 py-1 z-10">
+                    {item.label}
+                  </h2>
+                );
+              }
+              const row = item.row;
+              const rowId = row.entryIds[0];
+              const isExpanded = expandedNoteId === rowId;
+              const lp = getLongPressHandlers(row.entryIds);
+              const selected = isRowSelected(row.entryIds);
+              return (
+                <article
+                  key={rowId}
+                  className={`rounded-xl border bg-white p-4 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
+                  {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                  onClick={lp?.handleClick}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lp?.handleClick(); } }}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <time dateTime={row.date} className="text-sm text-black/80 shrink-0">
+                      {new Date(row.date).toLocaleDateString()}
+                    </time>
+                    <span className="inline-flex items-center gap-1.5 text-black/80 shrink-0">
+                      <ActionIcon icon={row.action.icon} />
+                      <span className="text-sm font-medium">{row.action.label}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {row.plantNames.map((name) => (
+                      <span key={name} className="inline-block px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                  {row.note ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        if (selectedEntryIds.length > 0) {
+                          e.stopPropagation();
+                          return;
+                        }
+                        setExpandedNoteId(isExpanded ? null : rowId);
+                      }}
+                      className="text-left w-full block text-sm text-black/90"
+                    >
+                      <span className={isExpanded ? "" : "line-clamp-3"} title={row.note}>
+                        {row.note}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="text-sm text-black/40">—</span>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+          {/* Desktop: table layout */}
+          <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6 pb-24">
+            <table className="w-full min-w-[480px] text-sm border-collapse" role="grid" aria-label="Journal entries">
+              <thead>
+                <tr className="border-b border-black/10 bg-neutral-50/80">
+                  <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 whitespace-nowrap w-[90px]">Date</th>
+                  <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 whitespace-nowrap w-[100px]">Action</th>
+                  <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[120px]">Plants</th>
+                  <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[140px] max-w-[240px]">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
+                  if (item.type === "section") {
+                    return (
+                      <tr key={`section-${item.label}`} className="bg-slate-100/80 border-b border-black/10">
+                        <td colSpan={4} className="py-2 px-3 text-sm font-semibold text-slate-700 sticky top-0 bg-slate-100/95">
+                          {item.label}
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const row = item.row;
+                  const rowId = row.entryIds[0];
+                  const isExpanded = expandedNoteId === rowId;
+                  const lp = getLongPressHandlers(row.entryIds);
+                  const selected = isRowSelected(row.entryIds);
                   return (
-                    <tr key={`section-${item.label}`} className="bg-slate-100/80 border-b border-black/10">
-                      <td colSpan={4} className="py-2 px-3 text-sm font-semibold text-slate-700 sticky top-0 bg-slate-100/95">
-                        {item.label}
+                    <tr
+                      key={rowId}
+                      className={`border-b border-black/5 align-top ${selected ? "bg-emerald/10 ring-1 ring-emerald/30" : "hover:bg-black/[0.02]"}`}
+                      {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                      onClick={lp?.handleClick}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lp?.handleClick(); } }}
+                    >
+                      <td className="py-2.5 pr-3 text-black/80 whitespace-nowrap">
+                        <time dateTime={row.date}>{new Date(row.date).toLocaleDateString()}</time>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="inline-flex items-center gap-1.5 text-black/80">
+                          <ActionIcon icon={row.action.icon} />
+                          <span>{row.action.label}</span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <div className="flex flex-wrap gap-1">
+                          {row.plantNames.map((name) => (
+                            <span key={name} className="inline-block px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3 min-w-0">
+                        {row.note ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              if (selectedEntryIds.length > 0) {
+                                e.stopPropagation();
+                                return;
+                              }
+                              setExpandedNoteId(isExpanded ? null : rowId);
+                            }}
+                            className="text-left w-full block min-w-0"
+                          >
+                            <span className={isExpanded ? "" : "line-clamp-2"} title={row.note}>
+                              {row.note}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-black/40">—</span>
+                        )}
                       </td>
                     </tr>
                   );
-                }
-                const row = item.row;
-                const rowId = row.entryIds[0];
-                const isExpanded = expandedNoteId === rowId;
-                const lp = getLongPressHandlers(row.entryIds);
-                const selected = isRowSelected(row.entryIds);
-                return (
-                  <tr
-                    key={rowId}
-                    className={`border-b border-black/5 align-top ${selected ? "bg-emerald/10 ring-1 ring-emerald/30" : "hover:bg-black/[0.02]"}`}
-                    {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
-                    onClick={lp?.handleClick}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lp?.handleClick(); } }}
-                  >
-                    <td className="py-2.5 pr-3 text-black/80 whitespace-nowrap">
-                      <time dateTime={row.date}>{new Date(row.date).toLocaleDateString()}</time>
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      <span className="inline-flex items-center gap-1.5 text-black/80">
-                        <ActionIcon icon={row.action.icon} />
-                        <span>{row.action.label}</span>
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      <div className="flex flex-wrap gap-1">
-                        {row.plantNames.map((name) => (
-                          <span key={name} className="inline-block px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-2.5 pr-3 min-w-0">
-                      {row.note ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            if (selectedEntryIds.length > 0) {
-                              e.stopPropagation();
-                              return;
-                            }
-                            setExpandedNoteId(isExpanded ? null : rowId);
-                          }}
-                          className="text-left w-full block min-w-0"
-                        >
-                          <span className={isExpanded ? "" : "line-clamp-2"} title={row.note}>
-                            {row.note}
-                          </span>
-                        </button>
-                      ) : (
-                        <span className="text-black/40">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : viewMode === "timeline" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
           {/* Plant gallery: click opens that plant's journal in vault; no blank photo placeholder */}
@@ -979,11 +1046,21 @@ export default function JournalPage() {
       <button
         type="button"
         onClick={() => (selectedEntryIds.length > 0 ? setSelectionActionsOpen(true) : setAddChoiceOpen(true))}
-        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+          selectedEntryIds.length > 0 ? "bg-amber-500 text-white" : "bg-emerald text-white"
+        }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label={selectedEntryIds.length > 0 ? "Actions for selected" : "Add journal entry"}
       >
-        +
+        {selectedEntryIds.length > 0 ? (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="6" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="18" r="1.5" />
+          </svg>
+        ) : (
+          <span className="text-2xl font-light">+</span>
+        )}
       </button>
 
       {addChoiceOpen && (

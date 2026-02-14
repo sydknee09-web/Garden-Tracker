@@ -938,10 +938,12 @@ export function SeedVaultView({
                     )}
                   </div>
                   <div className="p-2.5 flex flex-col items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-sm truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
+                    <h3 className="font-semibold text-black text-sm w-full flex items-center justify-center gap-1 min-w-0">
+                      <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
+                      <HealthDot seed={seed} size="sm" />
+                    </h3>
                     <div className="mt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       <span className="text-xs text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
-                      <HealthDot seed={seed} size="sm" />
                       <span className="text-[10px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
@@ -1008,10 +1010,12 @@ export function SeedVaultView({
                   )}
                 </div>
                 <div className="p-1.5 flex flex-col items-center text-center min-w-0">
-                  <h3 className="font-semibold text-black text-xs truncate w-full">{decodeHtmlEntities(seed.name)}</h3>
+                  <h3 className="font-semibold text-black text-xs w-full flex items-center justify-center gap-1 min-w-0">
+                    <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
+                    <HealthDot seed={seed} size="sm" />
+                  </h3>
                   <div className="mt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                     <span className="text-[10px] text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
-                    <HealthDot seed={seed} size="sm" />
                     <span className="text-[9px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
                     {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>

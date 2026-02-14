@@ -156,6 +156,47 @@ export function clearPendingPhotoImport(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Pending photo hero import (BatchAddSeed review → hero processing → review-import)
+// Items already have extracted vendor/type/variety; hero page runs find-hero-photo only.
+// ---------------------------------------------------------------------------
+export const PENDING_PHOTO_HERO_KEY = "garden-pending-photo-hero";
+
+export type PendingPhotoHeroItem = {
+  id: string;
+  imageBase64: string;
+  fileName: string;
+  vendor: string;
+  type: string;
+  variety: string;
+  tags: string[];
+  purchaseDate: string;
+};
+
+export type PendingPhotoHeroData = {
+  items: PendingPhotoHeroItem[];
+};
+
+export function getPendingPhotoHeroImport(): PendingPhotoHeroData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PENDING_PHOTO_HERO_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as PendingPhotoHeroData;
+    return Array.isArray(data?.items) ? data : null;
+  } catch { return null; }
+}
+
+export function setPendingPhotoHeroImport(data: PendingPhotoHeroData): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(PENDING_PHOTO_HERO_KEY, JSON.stringify(data)); } catch { /* full */ }
+}
+
+export function clearPendingPhotoHeroImport(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(PENDING_PHOTO_HERO_KEY);
+}
+
+// ---------------------------------------------------------------------------
 // Pending manual add (Quick Add → loading page → review)
 // ---------------------------------------------------------------------------
 export const PENDING_MANUAL_ADD_KEY = "garden-pending-manual-add";

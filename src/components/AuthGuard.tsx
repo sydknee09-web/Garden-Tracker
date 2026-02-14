@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BottomNav } from "./BottomNav";
+import { FeedbackModal } from "./FeedbackModal";
 import { useSync } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -50,6 +51,14 @@ function SettingsIcon() {
   );
 }
 
+function FeedbackIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  );
+}
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,6 +66,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
   const isVault = pathname === "/vault" || pathname?.startsWith("/vault/");
   const { syncing } = useSync();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -79,22 +89,40 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!isAuthPage && (
-        <header
-          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-        >
-          <CloudSyncIcon syncing={syncing} />
-          <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
-            {getPageTitle(pathname) || "\u00A0"}
-          </h1>
-          <Link
-            href="/settings"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 text-black/60 hover:text-black"
-            aria-label="Settings"
+        <>
+          <header
+            className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
-            <SettingsIcon />
-          </Link>
-        </header>
+            <div className="flex items-center gap-1 shrink-0">
+              <CloudSyncIcon syncing={syncing} />
+              <button
+                type="button"
+                onClick={() => setFeedbackOpen(true)}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
+                aria-label="Send feedback"
+                title="Send feedback"
+              >
+                <FeedbackIcon />
+              </button>
+            </div>
+            <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
+              {getPageTitle(pathname) || "\u00A0"}
+            </h1>
+            <Link
+              href="/settings"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 text-black/60 hover:text-black"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </Link>
+          </header>
+          <FeedbackModal
+            open={feedbackOpen}
+            onClose={() => setFeedbackOpen(false)}
+            pageUrl={pathname ?? ""}
+          />
+        </>
       )}
       <main
         className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}

@@ -1213,7 +1213,7 @@ export default function VaultImportPage() {
   const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6">
+    <div className="min-h-screen bg-neutral-50 p-6 pb-24">
       {showNewPlantModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-4 sm:pb-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="new-plant-dialog-title">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
@@ -1381,22 +1381,21 @@ export default function VaultImportPage() {
 
         {items.length > 0 && (
           <div className="mt-8">
-            <div className="flex items-center justify-between text-sm text-neutral-600 mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-600 mb-2">
               <span>
-                {completed} / {total} processed
+                {completed} of {total} processed · {progressPercent}%
               </span>
-              <span>{progressPercent}%</span>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 {processing ? (
-                  <button type="button" onClick={handleStopAndReview} className="text-amber-600 hover:text-amber-800 font-medium text-sm">
+                  <button type="button" onClick={handleStopAndReview} className="text-amber-600 hover:text-amber-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center">
                     Stop & Review
                   </button>
                 ) : items.some((i) => i.status === "error") ? (
-                  <button type="button" onClick={handleRetryFailed} className="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                  <button type="button" onClick={handleRetryFailed} className="text-blue-600 hover:text-blue-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center">
                     Retry Failed
                   </button>
                 ) : null}
-                <button type="button" onClick={handleCancel} className="text-red-500 hover:text-red-700 font-medium text-sm">
+                <button type="button" onClick={handleCancel} className="text-red-500 hover:text-red-700 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center">
                   Clear All
                 </button>
               </div>

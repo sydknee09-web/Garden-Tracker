@@ -9,8 +9,7 @@ import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModif
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
-import { setReviewImportData, setPendingPhotoImport } from "@/lib/reviewImportStorage";
-import type { ReviewImportItem } from "@/lib/reviewImportStorage";
+import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 
@@ -428,6 +427,51 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   }
 
+  async function handleLoadPlantProfilePicture() {
+    const toProcess = queue.filter((i) => i.status === "pending");
+    if (toProcess.length === 0) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const pendingItems: { id: string; imageBase64: string; fileName: string; vendor: string; type: string; variety: string; tags: string[]; purchaseDate: string }[] = [];
+      for (const item of toProcess) {
+        const { blob, fileName } = await resizeImageIfNeeded(item.file);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
+            else reject(new Error("Read failed"));
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        pendingItems.push({
+          id: item.id,
+          imageBase64: base64,
+          fileName: item.file.name || fileName || "packet.jpg",
+          vendor: (item.vendor ?? "").trim() || "",
+          type: (item.name ?? "").trim() || "Imported seed",
+          variety: (item.variety ?? "").trim() || "",
+          tags: item.tags ?? [],
+          purchaseDate: (item.purchaseDate ?? todayISO()).trim() || todayISO(),
+        });
+      }
+      setPendingPhotoHeroImport({ items: pendingItems });
+      queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      setQueue([]);
+      setStep("capture");
+      setSaveSuccessCount(null);
+      onClose();
+      router.push("/vault/import/photos/hero");
+    } catch (e) {
+      const isQuota = e instanceof DOMException && (e.name === "QuotaExceededError" || (e as { code?: number }).code === 22);
+      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : (e instanceof Error ? e.message : "Preparation failed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSaveAll() {
     if (!user) return;
     const toSave = queue.filter((i) => i.status === "pending");
@@ -601,7 +645,9 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                 Camera may not work on this connection. Use HTTPS or localhost for reliable access.
               </p>
             )}
-            <p className="text-sm text-black/70 mb-3">Snap packets or upload from files. Results appear in the queue and process in the background.</p>
+            <p className="text-sm text-black/70 mb-3">
+              <strong>Tips for best results:</strong> Take photos in bright light with minimal background. Make sure packet text is clear and visible. Wait until results finish loading before pressing Continue.
+            </p>
             <div className="relative rounded-xl overflow-hidden bg-black/10 aspect-[4/3] mb-3">
               <video
                 ref={videoRef}
@@ -767,11 +813,11 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
               </button>
               <button
                 type="button"
-                onClick={handleSaveAll}
+                onClick={handleLoadPlantProfilePicture}
                 disabled={saving || pendingCount === 0}
                 className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save all"}
+                {saving ? "Preparing…" : "Load Plant Profile Picture"}
               </button>
             </div>
           </>
