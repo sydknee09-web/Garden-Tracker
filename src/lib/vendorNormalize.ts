@@ -114,6 +114,48 @@ export function toCanonicalDisplay(vendor: string): string {
 }
 
 /**
+ * Single source of truth: URL hostname → canonical vendor display name.
+ * Used by link import, extract-metadata Tier 0.5, scrape-url, extract, re-extract, parseSeedFromImportUrl.
+ * rareseeds.com → "Rare Seeds" (matches cache and Golden Record).
+ */
+const VENDOR_FROM_URL_HOST: Record<string, string> = {
+  rareseeds: "Rare Seeds",
+  "www.rareseeds": "Rare Seeds",
+  johnnyseeds: "Johnny's Selected Seeds",
+  "www.johnnyseeds": "Johnny's Selected Seeds",
+  marysheirloomseeds: "Mary's Heirloom Seeds",
+  "www.marysheirloomseeds": "Mary's Heirloom Seeds",
+  territorialseed: "Territorial Seed Company",
+  "www.territorialseed": "Territorial Seed Company",
+  edenbrothers: "Eden Brothers",
+  "www.edenbrothers": "Eden Brothers",
+  outsidepride: "Outsidepride",
+  "www.outsidepride": "Outsidepride",
+  everwilde: "Everwilde",
+  "www.everwilde": "Everwilde",
+  parkseed: "Park Seed",
+  "www.parkseed": "Park Seed",
+  hudsonvalleyseed: "Hudson Valley Seed Co",
+  floretflowers: "Floret Flowers",
+  burpee: "Burpee",
+  botanicalinterests: "Botanical Interests",
+};
+
+export function getVendorFromUrl(url: string): string {
+  try {
+    const host = new URL(url.startsWith("http") ? url : "https://" + url).hostname.replace(/^www\./i, "");
+    const base = host.split(".")[0] ?? host;
+    const key = base.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const hostLower = host.toLowerCase();
+    const byKey = key ? VENDOR_FROM_URL_HOST[key] ?? VENDOR_FROM_URL_HOST[hostLower.replace(/\./g, "")] : undefined;
+    if (byKey) return byKey;
+    return base.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim() || "Vendor";
+  } catch {
+    return "Vendor";
+  }
+}
+
+/**
  * Dedupe a list of vendor names by normalized key; each key maps to one display name.
  */
 export function dedupeVendorsForSuggestions(vendorNames: string[]): string[] {

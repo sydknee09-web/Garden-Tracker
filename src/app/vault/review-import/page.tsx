@@ -8,8 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getReviewImportData,
   setReviewImportData,
+  setPendingPhotoHeroImport,
   clearReviewImportData,
   type ReviewImportItem,
+  type ReviewImportSource,
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { getCanonicalKey } from "@/lib/canonicalKey";
@@ -184,6 +186,7 @@ export default function ReviewImportPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [items, setItems] = useState<ReviewImportItem[]>([]);
+  const [importSource, setImportSource] = useState<ReviewImportSource | undefined>(undefined);
   const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingPhase, setSavingPhase] = useState("Saving\u2026");
@@ -235,6 +238,7 @@ export default function ReviewImportPage() {
       router.replace("/vault");
       return;
     }
+    setImportSource(data.source);
     setItems(
       data.items.map((i) => ({
         ...i,
@@ -304,9 +308,10 @@ export default function ReviewImportPage() {
   }, [user?.id]);
 
   // Run when item count is set (e.g. load from storage). [items.length] only — hero URL updates do not re-trigger.
+  // Skip auto hero fetch for purchase_order: user must click "Find Hero Photos" to go to hero step first.
   // Phase 0: fetch vault (import logs with status 200 + hero_image_url), then for each item missing hero either use vault URL (skip API) or call find-hero-photo. Always call persistHeroSearchLog for every API result (success or fail).
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || importSource === "purchase_order") return;
 
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -456,7 +461,7 @@ export default function ReviewImportPage() {
         })();
       });
     })();
-  }, [items.length, user?.id]);
+  }, [items.length, user?.id, importSource]);
 
   const updateItem = useCallback((id: string, updates: Partial<ReviewImportItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -522,6 +527,23 @@ export default function ReviewImportPage() {
   }, []);
 
   const itemsMissingHero = items.filter((i) => !hasValidImageUrl(i));
+
+  /** For purchase_order: navigate to hero page to find photos for all items (two-step flow like photo import). */
+  const handleGoToHeroPhotos = useCallback(() => {
+    setReviewImportData({ items });
+    const heroItems = items.map((i) => ({
+      id: i.id,
+      imageBase64: i.imageBase64 ?? "",
+      fileName: i.fileName ?? "",
+      vendor: i.vendor ?? "",
+      type: i.type ?? "Imported seed",
+      variety: i.variety ?? "",
+      tags: i.tags ?? [],
+      purchaseDate: i.purchaseDate ?? todayISO(),
+    }));
+    setPendingPhotoHeroImport({ items: heroItems });
+    router.push("/vault/import/photos/hero");
+  }, [items, router]);
 
   const handleFindMissingHeroPhotos = useCallback(async () => {
     const missing = itemsMissingHero;
@@ -1084,6 +1106,35 @@ export default function ReviewImportPage() {
           if (cacheErr) {
             console.warn("[save] plant_extract_cache upsert failed:", cacheErr.message);
           }
+
+          // C. When link import was not from cache, write to global_plant_cache so other users benefit
+          const wasFromCache = (savedItem as { extractResult?: { cached?: boolean } }).extractResult?.cached === true;
+          if (
+            token &&
+            rawSourceUrl.startsWith("http") &&
+            !wasFromCache &&
+            identityKey
+          ) {
+            fetch("/api/seed/write-to-global-cache", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                source_url: rawSourceUrl,
+                type: (savedItem.type ?? "").trim() || "Imported seed",
+                variety: (savedItem.variety ?? "").trim(),
+                vendor: vendorStr || undefined,
+                hero_image_url: rawHero?.startsWith("http") ? rawHero : undefined,
+                tags: savedItem.tags ?? [],
+                sowing_depth: (savedItem.sowing_depth ?? "").trim() || undefined,
+                spacing: (savedItem.spacing ?? "").trim() || undefined,
+                sun_requirement: (savedItem.sun_requirement ?? "").trim() || undefined,
+                days_to_germination: (savedItem.days_to_germination ?? "").trim() || undefined,
+                days_to_maturity: (savedItem.days_to_maturity ?? "").trim() || undefined,
+                scientific_name: (savedItem.scientific_name ?? "").trim() || undefined,
+                plant_description: (savedItem.plant_description ?? "").trim() || undefined,
+              }),
+            }).catch(() => {});
+          }
         })
       );
     }
@@ -1153,9 +1204,13 @@ export default function ReviewImportPage() {
       <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
         ← Back to Vault
       </Link>
-      <h1 className="text-xl font-semibold text-black mb-1">Import Review</h1>
+      <h1 className="text-xl font-semibold text-black mb-1">
+        {importSource === "purchase_order" ? "Step 1: Import Review" : "Import Review"}
+      </h1>
       <p className="text-sm text-black/60 mb-4">
-        Edit the extracted data below, then save all to the vault.
+        {importSource === "purchase_order"
+          ? "Edit the extracted data below, then find hero photos (Step 2) or save to the vault."
+          : "Edit the extracted data below, then save all to the vault."}
       </p>
 
       {error && (
@@ -1165,25 +1220,46 @@ export default function ReviewImportPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <button
-          type="button"
-          onClick={handleFindMissingHeroPhotos}
-          disabled={itemsMissingHero.length === 0 || bulkHeroSearching || saving}
-          title={
-            itemsMissingHero.length === 0
-              ? "All items have a hero image"
-              : bulkHeroSearching
-                ? "Searching for photos…"
-                : `Find hero photos for ${itemsMissingHero.length} item(s)`
-          }
-          className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-blue-500 bg-transparent text-blue-600 font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-500 transition-colors"
-        >
-          {bulkHeroSearching ? "Searching…" : "Find Missing Hero Photos"}
-        </button>
-        {itemsMissingHero.length > 0 && !bulkHeroSearching && (
-          <span className="text-sm text-neutral-500">
-            {itemsMissingHero.length} without image
-          </span>
+        {importSource === "purchase_order" ? (
+          <>
+            <p className="text-sm text-black/70 mb-2 w-full">
+              Step 2: Find plant photos for each item. We&apos;ll search for images based on your edits above.
+            </p>
+            <button
+              type="button"
+              onClick={handleGoToHeroPhotos}
+              disabled={saving}
+              className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Find Hero Photos
+            </button>
+            <span className="text-sm text-neutral-500">
+              or save without photos below
+            </span>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleFindMissingHeroPhotos}
+              disabled={itemsMissingHero.length === 0 || bulkHeroSearching || saving}
+              title={
+                itemsMissingHero.length === 0
+                  ? "All items have a hero image"
+                  : bulkHeroSearching
+                    ? "Searching for photos…"
+                    : `Find hero photos for ${itemsMissingHero.length} item(s)`
+              }
+              className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-blue-500 bg-transparent text-blue-600 font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-500 transition-colors"
+            >
+              {bulkHeroSearching ? "Searching…" : "Find Missing Hero Photos"}
+            </button>
+            {itemsMissingHero.length > 0 && !bulkHeroSearching && (
+              <span className="text-sm text-neutral-500">
+                {itemsMissingHero.length} without image
+              </span>
+            )}
+          </>
         )}
       </div>
 

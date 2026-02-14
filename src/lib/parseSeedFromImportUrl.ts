@@ -1,25 +1,6 @@
 import type { SeedQRPrefill } from "./parseSeedFromQR";
 import { getRareseedsSlugFromUrl, rareseedsAutotreatment, slugToSpaced } from "./rareseedsAutotreatment";
-
-/** Vendor domain (lowercase, no www) -> display name */
-const VENDOR_DOMAINS: Record<string, string> = {
-  "rareseeds.com": "Baker Creek",
-  "www.rareseeds.com": "Baker Creek",
-  "johnnyseeds.com": "Johnny's Seeds",
-  "www.johnnyseeds.com": "Johnny's Seeds",
-  "marysheirloomseeds.com": "Mary's",
-  "www.marysheirloomseeds.com": "Mary's",
-  "territorialseed.com": "Territorial",
-  "www.territorialseed.com": "Territorial",
-  "edenbrothers.com": "Eden Brothers",
-  "www.edenbrothers.com": "Eden Brothers",
-  "outsidepride.com": "Outsidepride",
-  "www.outsidepride.com": "Outsidepride",
-  "everwilde.com": "Everwilde",
-  "www.everwilde.com": "Everwilde",
-  "parkseed.com": "Park Seed",
-  "www.parkseed.com": "Park Seed",
-};
+import { getVendorFromUrl } from "./vendorNormalize";
 
 /**
  * 11 Functional Tags: scan URL slug and plant name for these keywords.
@@ -122,16 +103,7 @@ export function parseSeedFromImportUrl(urlString: string, knownPlantTypes?: stri
     out.source_url = url.href;
     out.image_fallback_url = getImageFallbackUrl(url.href);
 
-    const host = url.hostname.toLowerCase().replace(/^www\./, "");
-
-    const hostKey = url.hostname.toLowerCase();
-    if (VENDOR_DOMAINS[hostKey]) {
-      out.vendor = VENDOR_DOMAINS[hostKey];
-    } else if (host === "rareseeds.com") {
-      out.vendor = "Baker Creek";
-    } else if (host === "johnnyseeds.com") {
-      out.vendor = "Johnny's Seeds";
-    }
+    out.vendor = getVendorFromUrl(url.href);
 
     const pathname = cleanPath(url.pathname);
     const pathParts = pathname.split("/").filter(Boolean);

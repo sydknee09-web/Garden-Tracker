@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
-import { toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import {
   stripVarietySuffixes,
   stripPlantFromVariety,
@@ -39,25 +39,10 @@ export function filterBlockedTags(tags: string[], blocked: Set<string> | null): 
   });
 }
 
-/** Vendor map: normalize domain to canonical name for canonical key merging (Rareseeds.com, Hudson Valley -> "Hudson Valley Seed Co"). */
-const VENDOR_NORMALIZE_MAP: { pattern: RegExp; vendor: string }[] = [
-  { pattern: /rareseeds\.com/i, vendor: "Rare Seeds" },
-  { pattern: /hudsonvalleyseed/i, vendor: "Hudson Valley Seed Co" },
-  { pattern: /floretflowers\.com/i, vendor: "Floret" },
-];
-
-/** Extract vendor hint from URL hostname (e.g. growitalian.com -> Growitalian). Uses VENDOR_NORMALIZE_MAP so rareseeds.com -> "Rare Seeds". */
+/** Extract vendor hint from URL hostname. Delegates to shared getVendorFromUrl for consistency. */
 export function vendorFromUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./i, "");
-    for (const { pattern, vendor } of VENDOR_NORMALIZE_MAP) {
-      if (pattern.test(host)) return vendor;
-    }
-    const name = host.split(".")[0] ?? host;
-    return name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  } catch {
-    return "";
-  }
+  const v = getVendorFromUrl(url);
+  return v === "Vendor" ? "" : v;
 }
 
 /** Extract product/variety slug from path (e.g. /products/clemson-spineless-okra -> Clemson Spineless Okra). */

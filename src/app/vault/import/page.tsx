@@ -19,6 +19,7 @@ import { identityKeyFromVariety, isGenericTrapName } from "@/lib/identityKey";
 import { compressImage } from "@/lib/compressImage";
 import { stripVarietySuffixes, varietySlugFromUrl } from "@/app/api/seed/extract/route";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
+import { getVendorFromUrl } from "@/lib/vendorNormalize";
 
 type ItemStatus = "pending" | "processing" | "success" | "error" | "skipped";
 
@@ -77,25 +78,6 @@ function deriveNameFromUrl(url: string): string {
     return name.length > 1 ? name : "Imported seed";
   } catch {
     return "Imported seed";
-  }
-}
-
-const VENDOR_DOMAIN_OVERRIDES: { pattern: RegExp; vendor: string }[] = [
-  { pattern: /rareseeds\.com/i, vendor: "Rare Seeds" },
-  { pattern: /hudsonvalleyseed/i, vendor: "Hudson Valley Seed Co" },
-  { pattern: /floretflowers\.com/i, vendor: "Floret" },
-];
-
-function deriveVendorFromUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./i, "");
-    for (const { pattern, vendor } of VENDOR_DOMAIN_OVERRIDES) {
-      if (pattern.test(host)) return vendor;
-    }
-    const name = (host.split(".")[0] ?? host) || "";
-    return name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim() || "Vendor";
-  } catch {
-    return "Vendor";
   }
 }
 
@@ -634,7 +616,7 @@ export default function VaultImportPage() {
     ) => {
       if (res.status === 404 && data.error === "LINK_NOT_FOUND") {
         const fallback: ExtractResponse & { linkNotFound: true; productPageStatus?: number } = {
-          vendor: deriveVendorFromUrl(url),
+          vendor: getVendorFromUrl(url),
           type: "Imported seed",
           variety: deriveNameFromUrl(url),
           tags: [],
@@ -655,7 +637,7 @@ export default function VaultImportPage() {
       if (!res.ok) {
         const errMsg = data.error ?? "Failed";
         results[i] = {
-          vendor: deriveVendorFromUrl(url),
+          vendor: getVendorFromUrl(url),
           type: "Imported seed",
           variety: "",
           tags: [],
@@ -717,7 +699,7 @@ export default function VaultImportPage() {
         if (err) {
           if (err.name === "AbortError") continue;
           results[i] = {
-            vendor: deriveVendorFromUrl(url),
+            vendor: getVendorFromUrl(url),
             type: "Imported seed",
             variety: "",
             tags: [],
@@ -746,7 +728,7 @@ export default function VaultImportPage() {
                   return varietySlugFromUrl(url);
                 })();
                 const synthetic: ResultRow = {
-                  vendor: deriveVendorFromUrl(url),
+                  vendor: getVendorFromUrl(url),
                   type: "Imported seed",
                   variety: slugVariety || "",
                   tags: [],
@@ -765,7 +747,7 @@ export default function VaultImportPage() {
               } else {
                 const msg = res2.status === 429 || res2.status === 403 ? "Rate limited (vendor blocked request)" : (data2 as { error?: string })?.error ?? "Failed";
                 results[i] = {
-                  vendor: deriveVendorFromUrl(url),
+                  vendor: getVendorFromUrl(url),
                   type: "Imported seed",
                   variety: "",
                   tags: [],
@@ -786,7 +768,7 @@ export default function VaultImportPage() {
                 return varietySlugFromUrl(url);
               })();
               const synthetic: ResultRow = {
-                vendor: deriveVendorFromUrl(url),
+                vendor: getVendorFromUrl(url),
                 type: "Imported seed",
                 variety: slugVariety || "",
                 tags: [],
@@ -804,7 +786,7 @@ export default function VaultImportPage() {
               });
             } else {
               results[i] = {
-                vendor: deriveVendorFromUrl(url),
+                vendor: getVendorFromUrl(url),
                 type: "Imported seed",
                 variety: "",
                 tags: [],
@@ -860,7 +842,7 @@ export default function VaultImportPage() {
               if (r) {
                 (r as NonNullable<ResultRow>).errorMessage = errMsg;
               } else {
-                results[i] = { vendor: deriveVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: errMsg } as ResultRow;
+                results[i] = { vendor: getVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: errMsg } as ResultRow;
               }
               updateItem(i, { status: "error", error: errMsg });
               return;
@@ -880,7 +862,7 @@ export default function VaultImportPage() {
             const message = err instanceof Error ? err.message : "Rescue failed";
             const r2 = results[i];
             if (r2) (r2 as NonNullable<ResultRow>).errorMessage = message;
-            else results[i] = { vendor: deriveVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: message } as ResultRow;
+            else results[i] = { vendor: getVendorFromUrl(url), type: "Imported seed", variety: "", tags: [], errorMessage: message } as ResultRow;
             updateItem(i, { status: "error", error: message });
           }
         })
@@ -1113,7 +1095,7 @@ export default function VaultImportPage() {
         return {
           user_id: user.id,
           url,
-          vendor_name: (r?.vendor ?? deriveVendorFromUrl(url)) || null,
+          vendor_name: (r?.vendor ?? getVendorFromUrl(url)) || null,
           status_code: r?.productPageStatus ?? 0,
           identity_key_generated: (r && !isGenericTrapName(r.variety) ? identityKeyFromVariety(r.type ?? "", r.variety ?? "") || null : null),
           error_message: `[Link Import] - ${reason}${heroSuffix}`,
@@ -1457,12 +1439,15 @@ export default function VaultImportPage() {
                       </>
                     )}
                     {item.status === "error" && (
-                      <>
-                        <span className="truncate">{item.url}</span>
+                      <span className="flex flex-col gap-0.5 min-w-0">
+                        <span className="truncate text-neutral-800">{item.url}</span>
+                        <span className="text-neutral-600 text-xs">
+                          We couldn&apos;t load this link. Go to Review & Save to keep the link and try again later.
+                        </span>
                         {item.error && (
-                          <span className="text-red-600 font-medium">{item.error}</span>
+                          <span className="text-red-600 font-medium text-xs">{item.error}</span>
                         )}
-                      </>
+                      </span>
                     )}
                     {item.status === "skipped" && (
                       <span className="text-neutral-500">
@@ -1504,13 +1489,18 @@ export default function VaultImportPage() {
                 Import more
               </button>
               {items.some((i) => i.status === "error") && (
-                <button
-                  type="button"
-                  onClick={handleRetryFailed}
-                  className="py-2.5 px-4 rounded-xl border border-blue-200 text-blue-700 font-medium hover:bg-blue-50"
-                >
-                  Retry {items.filter((i) => i.status === "error").length} Failed
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm text-neutral-600">
+                    Save links in Review & Save to try again later, or retry now.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRetryFailed}
+                    className="py-2.5 px-4 rounded-xl border border-blue-200 text-blue-700 font-medium hover:bg-blue-50 min-h-[44px] min-w-[44px]"
+                  >
+                    Retry {items.filter((i) => i.status === "error").length} Failed
+                  </button>
+                </div>
               )}
             </div>
           </div>

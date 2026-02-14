@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   extractFromUrl,
-  vendorFromUrl,
   varietySlugFromUrl,
   getBlockedTagsForRequest,
   filterBlockedTags,
@@ -15,7 +14,9 @@ import {
   isGenericSegmentForPlant,
 } from "../extract/route";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
-import { isGenericTrapName } from "@/lib/identityKey";
+import { identityKeyFromVariety, isGenericTrapName } from "@/lib/identityKey";
+import { parseSeedFromImportUrl } from "@/lib/parseSeedFromImportUrl";
+import { getVendorFromUrl, normalizeVendorKey } from "@/lib/vendorNormalize";
 import type { ExtractResponse } from "../extract/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -27,6 +28,25 @@ const PASS1_TIMEOUT_MS = 20_000;
 const PAGE_FETCH_TIMEOUT_MS = 8_000;
 /** Timeout for scrape-url when used as canonical extractor (same as bulk-scrape / cache). */
 const SCRAPE_URL_TIMEOUT_MS = 22_000;
+const IMAGE_CHECK_TIMEOUT_MS = 5_000;
+
+function qualityRank(q: string): number {
+  const rank: Record<string, number> = { full: 3, partial: 2, ai_only: 1, failed: 0 };
+  return rank[q] ?? -1;
+}
+
+async function checkImageAccessible(url: string): Promise<boolean> {
+  if (!url?.startsWith("http")) return false;
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), IMAGE_CHECK_TIMEOUT_MS);
+    const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+    clearTimeout(t);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 /** Realistic, up-to-date User-Agents (Chrome 131) to reduce vendor blocks; pick by URL so same site gets consistent UA. */
 const SCRAPER_USER_AGENTS = [
@@ -434,6 +454,89 @@ export async function POST(req: Request) {
       }
     }
 
+    // Tier 0.5: identity + vendor lookup (same plant+variety from same vendor in cache; most specific match)
+    // When URL cache misses, try URL-derived type/variety/vendor so we can reuse cache from another URL.
+    if (cacheToken) {
+      try {
+        const prefill = parseSeedFromImportUrl(url);
+        const vendor = (prefill.vendor ?? getVendorFromUrl(url)).trim();
+        const name = (prefill.name ?? "").trim() || "Imported seed";
+        const variety = (prefill.variety ?? "").trim();
+        const identityKey = identityKeyFromVariety(name, variety);
+        if (identityKey && vendor) {
+          const sbGlobal = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: `Bearer ${cacheToken}` } },
+          });
+          const { data: rows, error: tier05Error } = await sbGlobal
+            .from("global_plant_cache")
+            .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
+            .eq("identity_key", identityKey)
+            .limit(10);
+          if (!tier05Error && rows?.length) {
+            const vendorKey = normalizeVendorKey(vendor);
+            const filtered =
+              vendorKey && rows.length > 1
+                ? rows.filter((r: { vendor?: string | null }) => normalizeVendorKey((r.vendor ?? "")) === vendorKey)
+                : rows;
+            const toSort = filtered.length > 0 ? filtered : rows;
+            const sorted = [...toSort].sort((a, b) => {
+              const qA = qualityRank((a as { scrape_quality?: string }).scrape_quality ?? "");
+              const qB = qualityRank((b as { scrape_quality?: string }).scrape_quality ?? "");
+              if (qB !== qA) return qB - qA;
+              const tA = new Date((a as { updated_at?: string }).updated_at ?? 0).getTime();
+              const tB = new Date((b as { updated_at?: string }).updated_at ?? 0).getTime();
+              return tB - tA;
+            });
+            const row = sorted[0] as { extract_data: Record<string, unknown>; original_hero_url?: string | null };
+            const ed = row.extract_data ?? {};
+            const heroFromRow =
+              (row.original_hero_url as string)?.trim() ||
+              (typeof ed.hero_image_url === "string" && ed.hero_image_url.trim()) ||
+              "";
+            let heroUrl = heroFromRow.startsWith("http") ? heroFromRow : "";
+            if (heroUrl && !(await checkImageAccessible(heroUrl))) heroUrl = "";
+            const sunReq = (ed.sun_requirement as string) ?? (ed.sun as string);
+            const spacingVal = (ed.spacing as string) ?? (ed.plant_spacing as string);
+            const daysToMaturity = (ed.days_to_maturity as string) ?? undefined;
+            const harvestDaysNum =
+              typeof ed.harvest_days === "number" && Number.isFinite(ed.harvest_days)
+                ? ed.harvest_days
+                : daysToMaturity != null
+                  ? parseInt(String(daysToMaturity).replace(/^(\d+).*/, "$1"), 10)
+                  : undefined;
+            const harvestDays =
+              typeof harvestDaysNum === "number" && harvestDaysNum > 0 && harvestDaysNum < 365 ? harvestDaysNum : undefined;
+            console.log(`[PASS 1] Tier 0.5 identity+vendor cache hit for ${url.slice(0, 60)}...`);
+            return NextResponse.json({
+              type: (ed.type as string) ?? "Imported seed",
+              variety: (ed.variety as string) ?? "",
+              vendor: (ed.vendor as string) ?? vendor,
+              tags: (ed.tags as string[]) ?? [],
+              source_url: url,
+              sowing_depth: (ed.sowing_depth as string) ?? undefined,
+              spacing: spacingVal ?? undefined,
+              sun_requirement: sunReq ?? undefined,
+              days_to_germination: (ed.days_to_germination as string) ?? undefined,
+              days_to_maturity: daysToMaturity,
+              scientific_name: (ed.scientific_name as string) ?? undefined,
+              plant_description: (ed.plant_description as string) ?? undefined,
+              hero_image_url: heroUrl || undefined,
+              stock_photo_url: heroUrl || undefined,
+              failed: false,
+              cached: true,
+              productPageStatus: 200,
+              sun: sunReq ?? undefined,
+              plant_spacing: spacingVal ?? undefined,
+              harvest_days: harvestDays,
+              water: (ed.water as string)?.trim() || undefined,
+            });
+          }
+        }
+      } catch (e) {
+        console.log("[PASS 1] Tier 0.5 identity+vendor check failed, proceeding:", (e instanceof Error ? e.message : String(e)));
+      }
+    }
+
     // Canonical extractor: scrape-url (same logic as bulk-scrape / cache) so link import matches cache
     const origin =
       process.env.NEXT_PUBLIC_APP_URL?.trim() ||
@@ -596,7 +699,8 @@ export async function POST(req: Request) {
       result.type = decodeHtmlEntities(result.type ?? "") || (result.type ?? "") || "Imported seed";
       result.variety = decodeHtmlEntities(result.variety ?? "") || (result.variety ?? "");
 
-      if (url.toLowerCase().includes("rareseeds.com")) result.vendor = "Rare Seeds";
+      const urlVendor = getVendorFromUrl(url);
+      if (urlVendor !== "Vendor") result.vendor = urlVendor;
       const blocked = await getBlockedTagsForRequest(req);
       result.tags = filterBlockedTags(result.tags ?? [], blocked);
       const typeLower = (result.type ?? "").trim().toLowerCase();
@@ -655,9 +759,6 @@ export async function POST(req: Request) {
 
       result.variety = stripPlantFromVariety(result.variety ?? "", result.type ?? "");
       result.variety = (result.variety ?? "").replace(/\s+\d{3,4}$/, "").trim();
-
-      if (host.includes("hudsonvalleyseed")) result.vendor = "Hudson Valley Seed Co";
-      if (host.includes("floretflowers")) result.vendor = "Floret";
 
       const useTitlePriority = TITLE_PRIORITY_HOSTS.some((h) => host.includes(h));
       // Host-based override: Johnny's / San Diego — if getTitleFromHtml returned a generic trap name, force Pass 2/3
@@ -730,7 +831,7 @@ export async function POST(req: Request) {
     }
 
     const variety = varietySlugFromUrl(url);
-    const vendor = vendorFromUrl(url);
+    const vendor = getVendorFromUrl(url);
     const fallback: ExtractResponse & { failed: true } = {
       failed: true,
       vendor,

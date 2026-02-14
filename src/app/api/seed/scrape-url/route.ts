@@ -7,7 +7,7 @@ import {
   slugToSpaced,
   rareseedsAutotreatment,
 } from "@/lib/rareseedsAutotreatment";
-import { toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
 
 /** Root domains for allowed vendors (no www); subdomains and paths are allowed (e.g. shop.johnnyseeds.com, www.rareseeds.com) */
 const ALLOWED_HOST_ROOTS = [
@@ -230,10 +230,10 @@ function toTitleCase(s: string): string {
   return s.trim().replace(/(^|\s)(\w)/g, (_, before, letter) => before + letter.toUpperCase());
 }
 
-/** Host (lowercase, with or without www) -> vendor display name. Aligns with single-upload import. */
+/** Host (lowercase, with or without www) -> vendor display name. Fallback when getVendorFromUrl returns "Vendor". */
 const HOST_TO_VENDOR: Record<string, string> = {
-  "rareseeds.com": "Baker Creek",
-  "www.rareseeds.com": "Baker Creek",
+  "rareseeds.com": "Rare Seeds",
+  "www.rareseeds.com": "Rare Seeds",
   "johnnyseeds.com": "Johnny's Seeds",
   "www.johnnyseeds.com": "Johnny's Seeds",
   "marysheirloomseeds.com": "Mary's",
@@ -736,10 +736,9 @@ function getStructuredNameVendor(
   let vendor_name = (payload.vendor as string | null | undefined) ?? metadata?.ogSiteName ?? null;
   if (typeof vendor_name === "string") vendor_name = stripHtmlAndDecode(vendor_name).trim() || null;
   if (!vendor_name) {
-    vendor_name = HOST_TO_VENDOR[host] ?? HOST_TO_VENDOR[fullHost] ?? "";
+    vendor_name = getVendorFromUrl(requestUrl.href);
   }
-  // Standardize Rare Seeds identity for Golden Record merging (rareseeds.com -> "Rare Seeds").
-  if (host.includes("rareseeds.com")) vendor_name = "Rare Seeds";
+  if (vendor_name === "Vendor") vendor_name = HOST_TO_VENDOR[host] ?? HOST_TO_VENDOR[fullHost] ?? "";
   const finalVendor = (vendor_name ?? "").trim();
   return { plant_name, variety_name, vendor_name: finalVendor ? (toCanonicalDisplay(finalVendor) || finalVendor) : "" };
 }

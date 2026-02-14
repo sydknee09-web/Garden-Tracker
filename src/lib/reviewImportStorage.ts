@@ -58,10 +58,16 @@ export type ReviewImportItem = {
   user_notes?: string;
   /** Optional storage location (e.g. box, drawer); saved to seed_packets.storage_location. */
   storage_location?: string;
+  /** From link import: extract API result; used to know if item was from cache (write to global cache only when not). */
+  extractResult?: { cached?: boolean; [key: string]: unknown };
 };
+
+export type ReviewImportSource = "purchase_order" | "link" | "photo";
 
 export type ReviewImportData = {
   items: ReviewImportItem[];
+  /** When "purchase_order", review page skips auto hero fetch; user must click "Find Hero Photos" to go to hero step. */
+  source?: ReviewImportSource;
 };
 
 export function getReviewImportData(): ReviewImportData | null {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { identityKeyFromVariety } from "@/lib/identityKey";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 
 export const maxDuration = 30;
@@ -59,13 +60,13 @@ export async function POST(req: Request) {
       });
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (!authError && user?.id) {
-        // Tier 2: check plant_extract_cache for stored hero image (owned file in journal-photos bucket, no HEAD check needed)
+        // Tier 2: check plant_extract_cache for stored hero (storage path or original_hero_url)
         const { data: extractRows } = await supabase
           .from("plant_extract_cache")
-          .select("hero_storage_path, vendor")
+          .select("hero_storage_path, original_hero_url, vendor")
           .eq("user_id", user.id)
           .eq("identity_key", identity_key)
-          .not("hero_storage_path", "is", null)
+          .or("hero_storage_path.not.is.null,original_hero_url.not.is.null")
           .order("updated_at", { ascending: false })
           .limit(5);
         const vendorKeyExtract = normalizeVendorKey(vendor);
@@ -79,6 +80,13 @@ export async function POST(req: Request) {
           if (pubUrl?.publicUrl) {
             console.log(`[find-hero-photo] Tier 2 cache hit (plant_extract_cache) for ${logLabel}`);
             return NextResponse.json({ hero_image_url: pubUrl.publicUrl });
+          }
+        }
+        if (cachedRow && (cachedRow.original_hero_url as string)?.trim()?.startsWith("http")) {
+          const origUrl = (cachedRow.original_hero_url as string).trim();
+          if (await checkImageAccessible(origUrl)) {
+            console.log(`[find-hero-photo] Tier 2 cache hit (original_hero_url) for ${logLabel}`);
+            return NextResponse.json({ hero_image_url: origUrl });
           }
         }
 
@@ -330,6 +338,35 @@ export async function POST(req: Request) {
         }
       } catch {
         // keep original url if jpg/png search fails
+      }
+    }
+
+    // Write back to plant_extract_cache so next time we hit Tier 2 (no Gemini call)
+    const authHeader = req.headers.get("authorization");
+    const tokenForCache = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    if (url && tokenForCache) {
+      try {
+        const sb = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: `Bearer ${tokenForCache}` } },
+        });
+        const { data: { user: cacheUser } } = await sb.auth.getUser(tokenForCache);
+        const idKey = identity_key?.trim() || identityKeyFromVariety(name || "Imported seed", variety || "");
+        if (cacheUser?.id && idKey) {
+          await sb.from("plant_extract_cache").upsert(
+            {
+              user_id: cacheUser.id,
+              source_url: `hero:${idKey}`,
+              identity_key: idKey,
+              vendor: vendor?.trim() || null,
+              extract_data: { type: name || "Imported seed", variety: variety || "", vendor: vendor || "" },
+              original_hero_url: url,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,source_url" }
+          );
+        }
+      } catch {
+        // non-fatal
       }
     }
 

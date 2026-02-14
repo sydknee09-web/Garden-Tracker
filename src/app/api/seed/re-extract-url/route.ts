@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { stripPlantFromVariety, cleanVarietyForDisplay } from "@/lib/varietyNormalize";
+import { getVendorFromUrl } from "@/lib/vendorNormalize";
 
 /**
  * Re-extract one URL and overwrite its global_plant_cache row.
@@ -41,29 +42,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const domain = (() => {
-      try {
-        return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-      } catch {
-        return "unknown";
-      }
-    })();
-    const VENDOR_MAP: { pattern: RegExp; vendor: string }[] = [
-      { pattern: /rareseeds\.com/i, vendor: "Rare Seeds" },
-      { pattern: /hudsonvalleyseed/i, vendor: "Hudson Valley Seed Co" },
-      { pattern: /floretflowers\.com/i, vendor: "Floret" },
-    ];
-    let vendor = domain;
-    for (const { pattern, vendor: v } of VENDOR_MAP) {
-      if (pattern.test(domain)) {
-        vendor = v;
-        break;
-      }
-    }
-    if (vendor === domain) {
-      const name = domain.split(".")[0] ?? domain;
-      vendor = name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    }
+    const vendor = getVendorFromUrl(url);
 
     let typeNorm = String(data.plant_name ?? data.ogTitle ?? "").trim() || "";
     let varietyNorm = String(data.variety_name ?? "").trim();
