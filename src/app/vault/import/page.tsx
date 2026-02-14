@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -236,6 +236,8 @@ function parseStreamedExtractResult(payload: string, url: string): ExtractRespon
 export default function VaultImportPage() {
   const { user, session: authSession } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const embed = searchParams.get("embed") === "1";
   const [urlText, setUrlText] = useState("");
   const [items, setItems] = useState<ImportItem[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -1212,8 +1214,12 @@ export default function VaultImportPage() {
   const total = items.length;
   const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  return (
-    <div className="min-h-screen bg-neutral-50 p-6 pb-24">
+  const closeToVault = useCallback(() => {
+    router.push("/vault");
+  }, [router]);
+
+  const mainContent = (
+    <>
       {showNewPlantModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-4 sm:pb-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="new-plant-dialog-title">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
@@ -1331,16 +1337,19 @@ export default function VaultImportPage() {
       )}
 
       <div className="mx-auto max-w-2xl">
-        <Link
-          href="/vault"
-          className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
-        >
-          ← Back to Vault
-        </Link>
-
-        <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-          Link Import
-        </h1>
+        {!embed && (
+          <Link
+            href="/vault"
+            className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
+          >
+            ← Back to Vault
+          </Link>
+        )}
+        {!embed && (
+          <h1 className="text-2xl font-bold text-neutral-900 mb-2">
+            Link Import
+          </h1>
+        )}
         <p className="text-neutral-600 text-sm mb-6">
           Paste one URL per line. Each link is analyzed with Google Search, then you review and save to your vault—same flow as photo import.
         </p>
@@ -1537,6 +1546,42 @@ export default function VaultImportPage() {
           </div>
         )}
       </div>
+    </>
+  );
+
+  if (embed) {
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-[60] bg-black/40"
+          aria-hidden
+          onClick={closeToVault}
+        />
+        <div className="fixed inset-0 z-[70] flex flex-col bg-white overflow-auto max-h-screen">
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10 bg-white">
+            <h1 className="text-xl font-bold text-neutral-900">Link Import</h1>
+            <button
+              type="button"
+              onClick={closeToVault}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/60 hover:bg-black/5"
+              aria-label="Close"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 pb-24">
+            {mainContent}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-50 p-6 pb-24">
+      {mainContent}
     </div>
   );
 }

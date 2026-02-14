@@ -8,6 +8,7 @@ import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
 import { setPendingManualAdd } from "@/lib/reviewImportStorage";
+import { hapticSuccess } from "@/lib/haptics";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -59,6 +60,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [vendor, setVendor] = useState("");
   const [volume, setVolume] = useState<Volume>("full");
   const [submitting, setSubmitting] = useState(false);
+  const [addedToVault, setAddedToVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagsToSave, setTagsToSave] = useState<string[]>([]);
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
@@ -70,6 +72,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   // Reset screen when modal opens/closes; apply initial prefill from parent
   useEffect(() => {
     if (open) {
+      setAddedToVault(false);
       const hasPrefill = initialPrefill && Object.keys(initialPrefill).length > 0;
       setScreen(hasPrefill ? "manual" : "choose");
       if (hasPrefill && initialPrefill) {
@@ -233,14 +236,19 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       }
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", match.id).eq("user_id", userId);
       setSubmitting(false);
-      setPlantName("");
-      setVarietyCultivar("");
-      setVendor("");
-      setVolume("full");
-      setTagsToSave([]);
-      setSourceUrlToSave("");
-      onSuccess();
-      onClose();
+      hapticSuccess();
+      setAddedToVault(true);
+      setTimeout(() => {
+        setPlantName("");
+        setVarietyCultivar("");
+        setVendor("");
+        setVolume("full");
+        setTagsToSave([]);
+        setSourceUrlToSave("");
+        setAddedToVault(false);
+        onSuccess();
+        onClose();
+      }, 1500);
       return;
     }
 
@@ -440,16 +448,33 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               </button>
               <button
                 type="submit"
-                disabled={submitting}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
+                disabled={submitting || addedToVault}
+                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {submitting ? "Adding…" : "Add to Vault"}
+                {addedToVault ? (
+                  <>
+                    <CheckmarkIcon className="w-5 h-5" />
+                    Added!
+                  </>
+                ) : submitting ? (
+                  "Adding…"
+                ) : (
+                  "Add to Vault"
+                )}
               </button>
             </div>
           </form>
         )}
       </div>
     </>
+  );
+}
+
+function CheckmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
   );
 }
 

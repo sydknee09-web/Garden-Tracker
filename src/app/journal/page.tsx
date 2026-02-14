@@ -1103,12 +1103,22 @@ export default function JournalPage() {
 
       <button
         type="button"
-        onClick={() => (selectedEntryIds.length > 0 ? setSelectionActionsOpen(true) : setAddChoiceOpen(true))}
+        onClick={() => {
+          if (selectedEntryIds.length > 0) {
+            setSelectionActionsOpen(true);
+          } else if (addChoiceOpen) {
+            setAddChoiceOpen(false);
+          } else {
+            setAddChoiceOpen(true);
+          }
+        }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-          selectedEntryIds.length > 0 ? "bg-amber-500 text-white" : "bg-emerald text-white"
+          selectedEntryIds.length > 0 ? "bg-amber-500 text-white" : addChoiceOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
         }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={selectedEntryIds.length > 0 ? "Actions for selected" : "Add journal entry"}
+        aria-label={
+          selectedEntryIds.length > 0 ? "Actions for selected" : addChoiceOpen ? "Close add menu" : "Add journal entry"
+        }
       >
         {selectedEntryIds.length > 0 ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1117,7 +1127,21 @@ export default function JournalPage() {
             <circle cx="12" cy="18" r="1.5" />
           </svg>
         ) : (
-          <span className="text-2xl font-light">+</span>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-200 ${addChoiceOpen ? "rotate-45" : "rotate-0"}`}
+            aria-hidden
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         )}
       </button>
 

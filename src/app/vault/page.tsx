@@ -237,6 +237,7 @@ function VaultPageInner() {
     const status = searchParams.get("status");
     if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
       setStatusFilter(status);
+      if (status === "vault") setSaveToastMessage("Added to Vault!");
     }
   }, [searchParams]);
 
@@ -1592,8 +1593,11 @@ function VaultPageInner() {
       <button
         type="button"
         onClick={() => {
-          if ((viewMode === "grid" || viewMode === "list") && batchSelectMode) {
+          if ((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) {
             setSelectionActionsOpen(true);
+          } else if (quickAddOpen) {
+            setQuickAddOpen(false);
+            setQrPrefill(null);
           } else {
             setQuickAddOpen(true);
           }
@@ -1601,10 +1605,18 @@ function VaultPageInner() {
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
           (viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0
             ? "bg-amber-500 text-white"
-            : "bg-emerald text-white"
+            : quickAddOpen
+              ? "bg-emerald-700 text-white"
+              : "bg-emerald text-white"
         }`}
         style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}
-        aria-label={(viewMode === "grid" || viewMode === "list") && batchSelectMode ? "Selection actions" : "Quick add seed"}
+        aria-label={
+          (viewMode === "grid" || viewMode === "list") && batchSelectMode
+            ? "Selection actions"
+            : quickAddOpen
+              ? "Close add menu"
+              : "Add seed"
+        }
       >
         {(viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0 ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1613,7 +1625,21 @@ function VaultPageInner() {
             <circle cx="12" cy="18" r="1.5" />
           </svg>
         ) : (
-          "+"
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-200 ${quickAddOpen ? "rotate-45" : "rotate-0"}`}
+            aria-hidden
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
         )}
       </button>
 
@@ -1638,7 +1664,7 @@ function VaultPageInner() {
         onOpenLinkImport={() => {
           skipPopOnNavigateRef.current = true;
           setQuickAddOpen(false);
-          router.push("/vault/import");
+          router.push("/vault/import?embed=1");
         }}
         onStartManualImport={() => {
           skipPopOnNavigateRef.current = true;

@@ -19,6 +19,7 @@ import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
 import { Combobox } from "@/components/Combobox";
+import { hapticSuccess } from "@/lib/haptics";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -91,6 +92,14 @@ function getGoldenSourceItem(items: ReviewImportItem[], identityKey: string | un
     if (match) return match;
   }
   return group[0] ?? null;
+}
+
+function CheckmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
 }
 
 /** Collapsible Technical Log panel: batch-level accordion, per-seed details with query and pass results. */
@@ -298,6 +307,7 @@ export default function ReviewImportPage() {
   const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingPhase, setSavingPhase] = useState("Saving\u2026");
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [heroLoadingIds, setHeroLoadingIds] = useState<Set<string>>(new Set());
   const heroFetchedRef = useRef<Set<string>>(new Set());
@@ -309,6 +319,7 @@ export default function ReviewImportPage() {
   const [importLogs, setImportLogs] = useState<ImportLogEntry[]>([]);
   const [logPanelOpen, setLogPanelOpen] = useState(false);
   const initialBatchIdRef = useRef<string | null>(null);
+  const saveSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
@@ -935,6 +946,12 @@ export default function ReviewImportPage() {
     if (items.length) setReviewImportData({ items });
   }, [items]);
 
+  useEffect(() => {
+    return () => {
+      if (saveSuccessTimeoutRef.current) clearTimeout(saveSuccessTimeoutRef.current);
+    };
+  }, []);
+
   const handleSaveAll = useCallback(async () => {
     if (!user?.id || items.length === 0) return;
     setError(null);
@@ -1198,8 +1215,13 @@ export default function ReviewImportPage() {
     }
 
     setSaving(false);
-    clearReviewImportData();
-    router.replace("/vault?status=vault");
+    hapticSuccess();
+    setSaveSuccess(true);
+    const t = setTimeout(() => {
+      clearReviewImportData();
+      router.replace("/vault?status=vault");
+    }, 1500);
+    saveSuccessTimeoutRef.current = t;
   }, [user?.id, items, router]);
 
   if (!user) return null;
@@ -1531,10 +1553,19 @@ export default function ReviewImportPage() {
         <button
           type="button"
           onClick={handleSaveAll}
-          disabled={saving || items.length === 0}
-          className="w-full min-h-[56px] rounded-xl bg-emerald text-white text-lg font-semibold hover:bg-emerald/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          disabled={saving || saveSuccess || items.length === 0}
+          className="w-full min-h-[56px] rounded-xl bg-emerald text-white text-lg font-semibold hover:bg-emerald/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
         >
-          {saving ? savingPhase : "Save All to Vault"}
+          {saveSuccess ? (
+            <>
+              <CheckmarkIcon className="w-6 h-6" />
+              Added!
+            </>
+          ) : saving ? (
+            savingPhase
+          ) : (
+            "Save All to Vault"
+          )}
         </button>
       </div>
     </div>

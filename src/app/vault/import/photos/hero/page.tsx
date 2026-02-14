@@ -27,6 +27,7 @@ export default function HeroImportPage() {
   const { session: authSession } = useAuth();
   const [items, setItems] = useState<HeroItem[]>([]);
   const [processing, setProcessing] = useState(true);
+  const [noData, setNoData] = useState(false);
   const stopRequestedRef = useRef(false);
   const processingRef = useRef(false);
 
@@ -38,7 +39,7 @@ export default function HeroImportPage() {
   useEffect(() => {
     const pending = getPendingPhotoHeroImport();
     if (!pending?.items?.length) {
-      router.replace("/vault");
+      setNoData(true);
       return;
     }
     setItems(
@@ -49,12 +50,9 @@ export default function HeroImportPage() {
     );
   }, [router]);
 
-  // Clear storage when leaving the page so we don't show stale data on next visit
-  useEffect(() => {
-    return () => {
-      clearPendingPhotoHeroImport();
-    };
-  }, []);
+  // Do NOT clear on unmount: React Strict Mode unmounts then remounts, which would wipe
+  // storage before the second mount could read it and send the user to /vault (lost progress).
+  // We clear only when user explicitly continues or cancels (handleStopAndReview / handleCancel).
 
   useEffect(() => {
     if (items.length === 0 || processingRef.current || stopRequestedRef.current) return;
@@ -138,6 +136,7 @@ export default function HeroImportPage() {
     });
     if (reviewItems.length > 0) {
       setReviewImportData({ items: reviewItems });
+      clearPendingPhotoHeroImport();
       router.push("/vault/review-import");
     }
   }, [items, router]);
@@ -165,6 +164,22 @@ export default function HeroImportPage() {
   const successCount = items.filter((i) => i.status === "success").length;
   const allDone = completed === total;
   const canReview = allDone && completed > 0;
+
+  if (noData) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-6 gap-4">
+        <p className="text-neutral-600 text-center">
+          No import data found. If you just clicked &quot;Load plant profile pictures&quot;, try again with fewer photos.
+        </p>
+        <Link
+          href="/vault"
+          className="text-emerald-600 font-medium hover:underline min-h-[44px] min-w-[44px] flex items-center justify-center"
+        >
+          Back to Vault
+        </Link>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

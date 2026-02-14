@@ -385,11 +385,27 @@ function GardenPageInner() {
       <button
         type="button"
         onClick={() => setFabMenuOpen((o) => !o)}
-        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+          fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+        }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label="Add to garden"
+        aria-label={fabMenuOpen ? "Close menu" : "Add to garden"}
       >
-        +
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
+          aria-hidden
+        >
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
       </button>
 
       {addedToMyPlantsToast && (
