@@ -109,7 +109,7 @@ function VaultPlantPageInner() {
     const trimmed = customName.trim();
     if (!trimmed) return;
     const rowId = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const useGreenhouse = suggestsGreenhouse({ name: parseNameVariety(trimmed).name });
+    const useGreenhouse = suggestsGreenhouse(parseNameVariety(trimmed).name);
     setRows((prev) => [...prev, { isNew: true, customName: trimmed, rowId }]);
     setSowingMethodByProfileId((prev) => ({ ...prev, [rowId]: useGreenhouse ? "greenhouse" : "direct_sow" }));
     setAddSeedOpen(false);
@@ -171,7 +171,7 @@ function VaultPlantPageInner() {
       setUsePercentByPacketId(initialUsePercent);
       const methodByProfile: Record<string, SowingMethod> = {};
       ordered.forEach(({ profile }) => {
-        const useGreenhouse = suggestsGreenhouse(profile);
+        const useGreenhouse = suggestsGreenhouse(profile.name);
         methodByProfile[profile.id] = useGreenhouse ? "greenhouse" : "direct_sow";
       });
       setSowingMethodByProfileId(methodByProfile);
