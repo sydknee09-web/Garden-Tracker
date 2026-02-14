@@ -875,12 +875,13 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setNewTaskOpen(false)} />
           <div
-            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
+            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto"
+            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-task-title"
           >
-            <h2 id="new-task-title" className="text-lg font-semibold text-black mb-4">
+            <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
               New Task
             </h2>
             <form onSubmit={handleCreateTask} className="space-y-4">
@@ -953,14 +954,14 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => setNewTaskOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                  className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingTask}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
+                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
                   {savingTask ? "Saving…" : "Save task"}
                 </button>

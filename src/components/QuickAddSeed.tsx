@@ -284,7 +284,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         onClick={onClose}
       />
       <div
-        className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-title"
@@ -295,26 +295,29 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
             <button
               type="button"
               onClick={goBack}
-              className="p-2 rounded-xl text-black/70 hover:bg-black/5 -ml-1"
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1"
               aria-label="Back to choose method"
             >
               <BackIcon />
             </button>
           )}
-          <h2 id="quick-add-title" className="text-lg font-semibold text-black">
+          <h2
+            id="quick-add-title"
+            className={`text-xl font-bold text-neutral-900 ${screen === "choose" ? "flex-1 text-center" : ""}`}
+          >
             {modalTitle}
           </h2>
         </div>
 
         {screen === "choose" && (
           <div className="space-y-3">
-            <p className="text-sm text-black/70 mb-4">Choose how you want to add a seed.</p>
+            <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a seed.</p>
             <button
               type="button"
               onClick={() => setScreen("manual")}
-              className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                 <PencilIcon />
               </span>
               Manual Entry
@@ -326,9 +329,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   onClose();
                   onOpenBatch();
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <CameraIcon />
                 </span>
                 Photo Import
@@ -341,9 +344,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   onClose();
                   onOpenLinkImport();
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <LinkIcon />
                 </span>
                 Link Import
@@ -353,7 +356,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
               >
                 Cancel
               </button>

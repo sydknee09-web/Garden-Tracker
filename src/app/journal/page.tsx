@@ -1153,16 +1153,16 @@ export default function JournalPage() {
             onClick={() => setAddChoiceOpen(false)}
           />
           <div
-            className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
             style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-journal-choice-title"
           >
-            <h2 id="add-journal-choice-title" className="text-lg font-semibold text-black mb-1">
+            <h2 id="add-journal-choice-title" className="text-xl font-bold text-center text-neutral-900 mb-1">
               Quick log
             </h2>
-            <p className="text-sm text-black/70 mb-4">Choose how you want to add an entry.</p>
+            <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add an entry.</p>
             <div className="space-y-3">
               <button
                 type="button"
@@ -1170,9 +1170,9 @@ export default function JournalPage() {
                   setAddChoiceOpen(false);
                   openAddModal({ asSnapshot: true });
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <CameraIcon />
                 </span>
                 Snapshot — take a photo
@@ -1183,9 +1183,9 @@ export default function JournalPage() {
                   setAddChoiceOpen(false);
                   openAddModal();
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <NoteIcon />
                 </span>
                 Quick Note — text only
@@ -1196,9 +1196,9 @@ export default function JournalPage() {
                   setAddChoiceOpen(false);
                   router.push("/journal/new");
                 }}
-                className="w-full py-3 px-4 rounded-xl border border-black/10 hover:bg-black/5 text-left text-sm font-medium text-black/70 transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-8 w-8 rounded-lg bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <DocumentIcon />
                 </span>
                 Full entry (link plant, packet, sowing)
@@ -1207,7 +1207,7 @@ export default function JournalPage() {
                 <button
                   type="button"
                   onClick={() => setAddChoiceOpen(false)}
-                  className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                  className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
                 >
                   Cancel
                 </button>
@@ -1225,16 +1225,16 @@ export default function JournalPage() {
             onClick={() => setSelectionActionsOpen(false)}
           />
           <div
-            className="fixed left-4 right-4 bottom-20 z-50 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
             style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="selection-actions-title"
           >
-            <h2 id="selection-actions-title" className="text-lg font-semibold text-black mb-1">
+            <h2 id="selection-actions-title" className="text-xl font-bold text-center text-neutral-900 mb-1">
               {selectedEntryIds.length} selected
             </h2>
-            <p className="text-sm text-black/70 mb-4">Choose an action.</p>
+            <p className="text-sm text-neutral-500 text-center mb-4">Choose an action.</p>
             <div className="space-y-3">
               <button
                 type="button"
@@ -1242,9 +1242,9 @@ export default function JournalPage() {
                   setSelectionActionsOpen(false);
                   requestBulkDelete(selectedEntryIds);
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-citrus/50 hover:bg-citrus/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-citrus/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <TrashIcon />
                 </span>
                 Trash
@@ -1255,9 +1255,9 @@ export default function JournalPage() {
                   setSelectionActionsOpen(false);
                   setSelectedEntryIds([]);
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <ArchiveIcon />
                 </span>
                 Archive
@@ -1271,9 +1271,9 @@ export default function JournalPage() {
                   if (entry?.plant_profile_id) router.push(`/vault/${entry.plant_profile_id}?tab=journal`);
                 }}
                 disabled={selectedEntryIds.length !== 1}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
                   <PencilEditIcon />
                 </span>
                 Edit {selectedEntryIds.length === 1 ? "entry" : "(select one)"}
@@ -1282,7 +1282,7 @@ export default function JournalPage() {
                 <button
                   type="button"
                   onClick={() => setSelectionActionsOpen(false)}
-                  className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                  className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
                 >
                   Cancel
                 </button>

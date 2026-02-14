@@ -361,21 +361,21 @@ function GardenPageInner() {
       {fabMenuOpen && (
         <>
           <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setFabMenuOpen(false)} />
-          <div className="fixed right-6 z-30 flex flex-col gap-0.5 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
-            <button type="button" onClick={() => { router.push("/vault"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
-              <span className="text-lg" aria-hidden>🌿</span>
+          <div className="fixed right-6 z-30 flex flex-col gap-0.5 rounded-3xl border border-neutral-200 bg-white p-1.5 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
+            <button type="button" onClick={() => { router.push("/vault"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌿</span>
               <span>Plant from Seed Vault</span>
             </button>
-            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
-              <span className="text-lg" aria-hidden>🏷️</span>
+            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🏷️</span>
               <span>Add store-bought plant</span>
             </button>
-            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
-              <span className="text-lg" aria-hidden>🌳</span>
+            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌳</span>
               <span>Add permanent plant</span>
             </button>
-            <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
-              <span className="text-lg" aria-hidden>📖</span>
+            <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📖</span>
               <span>Add journal entry</span>
             </button>
           </div>

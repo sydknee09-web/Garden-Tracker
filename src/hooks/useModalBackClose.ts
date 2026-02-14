@@ -32,9 +32,11 @@ export function useModalBackClose(
     if (typeof window === "undefined") return;
     if (!isOpen && didPushRef.current) {
       didPushRef.current = false;
-      if (skipPopRef?.current) {
-        skipPopRef.current = false;
-      } else {
+      const skipPop = skipPopRef?.current === true;
+      const alreadyNavigatedToHero =
+        typeof window.location?.pathname === "string" && window.location.pathname.includes("/vault/import/photos/hero");
+      if (skipPop) skipPopRef!.current = false;
+      if (!skipPop && !alreadyNavigatedToHero) {
         window.history.back();
       }
     }

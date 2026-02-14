@@ -8,6 +8,11 @@
   --emerald: #10b981;
   --citrus: #FFD700;
   --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  /* Master modal template: unified look for Add Seed, Quick log, Garden menu, New Task */
+  --modal-radius: 24px;
+  --modal-header-size: 1.25rem; /* 20px */
+  --modal-subtext-size: 0.875rem; /* 14px */
+  --modal-action-text-size: 1rem; /* 16px */
 }
 
 html {
