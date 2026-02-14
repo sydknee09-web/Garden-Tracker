@@ -663,7 +663,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={handleClose} />
+      <div className="fixed inset-0 z-[60] bg-black/40" aria-hidden onClick={handleClose} />
       {geminiProcessing && (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white/95 px-6" aria-live="polite" aria-busy="true">
           <p className="text-lg font-medium text-black mb-2 text-center">
@@ -686,7 +686,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
         </div>
       )}
       <div
-        className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-add-title"
@@ -729,6 +729,15 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
               />
             </div>
             <p className="mt-3 text-xs text-black/50">You’ll go to Confirm & Save when all are done.</p>
+            {pendingCount > 0 && loadingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setStep("review")}
+                className="mt-4 w-full py-2.5 rounded-xl border border-black/20 text-black/70 text-sm font-medium hover:bg-black/5 transition-colors min-h-[44px]"
+              >
+                Continue with {pendingCount} ready
+              </button>
+            )}
           </div>
         )}
 
@@ -876,7 +885,13 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
           </div>
         ) : step === "review" ? (
           <>
-            <p className="text-sm text-black/70 mb-4">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
+            <p className="text-sm text-black/70 mb-2">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
+            {loadingCount > 0 && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                <span className="inline-block h-4 w-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" aria-hidden />
+                <span>{loadingCount} more still extracting — they’ll appear below when ready.</span>
+              </div>
+            )}
             <ul className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto">
               {queue
                 .filter((i) => i.status === "pending")
