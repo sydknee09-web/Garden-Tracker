@@ -105,6 +105,7 @@ export function parseSeedFromImportUrl(urlString: string, knownPlantTypes?: stri
 
     out.vendor = getVendorFromUrl(url.href);
 
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
     const pathname = cleanPath(url.pathname);
     const pathParts = pathname.split("/").filter(Boolean);
     const combinedSlug = pathParts.join(" ");

@@ -342,8 +342,8 @@ export async function POST(req: Request) {
     }
 
     // Write back to plant_extract_cache so next time we hit Tier 2 (no Gemini call)
-    const authHeader = req.headers.get("authorization");
-    const tokenForCache = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const cacheAuth = req.headers.get("authorization");
+    const tokenForCache = cacheAuth?.startsWith("Bearer ") ? cacheAuth.slice(7).trim() : null;
     if (url && tokenForCache) {
       try {
         const sb = createClient(supabaseUrl, supabaseAnonKey, {
