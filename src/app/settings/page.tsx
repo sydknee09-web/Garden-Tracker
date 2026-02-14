@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 
 const SETTINGS_ITEMS = [
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, household, account" },
   { href: "/settings/feedback", label: "Feedback", subtitle: "Your submitted feedback" },
-  { href: "/settings/developer", label: "Developer", subtitle: "Archived plantings, import logs, cache, trash" },
+  { href: "/settings/developer", label: "Developer", subtitle: "Archived plantings, import logs, cache, trash", devOnly: true },
   { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
   { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },
   { href: "/settings/brain", label: "Brain", subtitle: "AI and research settings" },
@@ -14,8 +15,11 @@ const SETTINGS_ITEMS = [
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { isUnlocked } = useDeveloperUnlock();
 
   if (!user) return null;
+
+  const items = SETTINGS_ITEMS.filter((item) => !("devOnly" in item && item.devOnly) || isUnlocked);
 
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto pb-24">
@@ -26,7 +30,7 @@ export default function SettingsPage() {
       <p className="text-sm text-neutral-500 mb-4">Profile, data, and developer tools.</p>
 
       <nav className="rounded-xl border border-black/10 bg-white overflow-hidden" aria-label="Settings">
-        {SETTINGS_ITEMS.map(({ href, label, subtitle }) => (
+        {items.map(({ href, label, subtitle }) => (
           <Link
             key={href}
             href={href}

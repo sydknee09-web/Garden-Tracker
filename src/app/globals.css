@@ -84,6 +84,13 @@ input, select, textarea {
     border: 2px solid #15803d;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
+  }
   @keyframes fade-slide-in {
     from {
       opacity: 0;

@@ -108,6 +108,7 @@ function VaultPageInner() {
   const [batchSelectMode, setBatchSelectMode] = useState(false);
   const [selectedVarietyIds, setSelectedVarietyIds] = useState<Set<string>>(new Set());
   const [filteredVarietyIds, setFilteredVarietyIds] = useState<string[]>([]);
+  const [vaultHasSeeds, setVaultHasSeeds] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [pendingHeroCount, setPendingHeroCount] = useState(0);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
@@ -821,46 +822,52 @@ function VaultPageInner() {
           )}
         </div>
 
-        <div className="flex border-b border-black/10 mb-2 -mx-6 px-6" role="tablist" aria-label="View">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "grid"}
-            onClick={() => setViewMode("grid")}
-            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "grid"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            Plant Profiles
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "list"}
-            onClick={() => setViewMode("list")}
-            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "list"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            Seed Vault
-          </button>
+        <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "grid"}
+              onClick={() => setViewMode("grid")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === "grid"
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-black/60 hover:text-black"
+              }`}
+            >
+              Plant Profiles
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === "list"
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-black/60 hover:text-black"
+              }`}
+            >
+              Seed Vault
+            </button>
+          </div>
         </div>
 
-        {/* Unified toolbar: search + (Refine by | view toggle | Select | batch actions) for vault tabs */}
-        {(viewMode === "grid" || viewMode === "list") && (
+        {/* Unified toolbar: search + (Refine by | view toggle | Select | batch actions) — hidden when vault is empty */}
+        {(viewMode === "grid" || viewMode === "list") && vaultHasSeeds && (
           <>
             <div className="flex gap-2 mb-2">
-              <div className="flex-1">
+              <div className="flex-1 relative">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search seeds…"
-                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                  className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
                   aria-label="Search seeds"
                 />
               </div>
@@ -906,30 +913,15 @@ function VaultPageInner() {
                   </button>
                 )}
                 {viewMode === "grid" && (
-                  <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft ml-auto" role="tablist" aria-label="Grid display style">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={gridDisplayStyle === "photo"}
-                      onClick={() => setGridDisplayStyle("photo")}
-                      className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${gridDisplayStyle === "photo" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
-                      title="Photo cards"
-                      aria-label="Photo cards"
-                    >
-                      <PhotoCardsGridIcon />
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={gridDisplayStyle === "condensed"}
-                      onClick={() => setGridDisplayStyle("condensed")}
-                      className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${gridDisplayStyle === "condensed" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
-                      title="Condensed"
-                      aria-label="Condensed"
-                    >
-                      <CondensedGridIcon />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGridDisplayStyle((s) => (s === "photo" ? "condensed" : "photo"))}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
+                    title={gridDisplayStyle === "photo" ? "Switch to condensed view" : "Switch to photo cards"}
+                    aria-label={gridDisplayStyle === "photo" ? "Switch to condensed view" : "Switch to photo cards"}
+                  >
+                    {gridDisplayStyle === "photo" ? <CondensedGridIcon /> : <PhotoCardsGridIcon />}
+                  </button>
                 )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
                   <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Selection">
@@ -1238,6 +1230,7 @@ function VaultPageInner() {
             onLongPressVariety={handleLongPressVariety}
             onFilteredIdsChange={setFilteredVarietyIds}
             onPendingHeroCountChange={setPendingHeroCount}
+            onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
             availablePlantTypes={availablePlantTypes}
             onPlantTypeChange={handlePlantTypeChange}
             plantNowFilter={false}
@@ -1602,7 +1595,7 @@ function VaultPageInner() {
             ? "bg-amber-500 text-white"
             : "bg-emerald text-white"
         }`}
-        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}
         aria-label={(viewMode === "grid" || viewMode === "list") && batchSelectMode ? "Selection actions" : "Quick add seed"}
       >
         {(viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0 ? (

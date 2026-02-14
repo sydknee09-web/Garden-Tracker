@@ -58,7 +58,8 @@ export function FeedbackModal({
         onClose();
       }, 1500);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send");
+      const msg = e instanceof Error ? e.message : (e && typeof (e as { message?: string }).message === "string" ? (e as { message: string }).message : "Failed to send");
+      setError(msg);
     } finally {
       setSending(false);
     }

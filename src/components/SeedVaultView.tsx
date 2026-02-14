@@ -215,6 +215,7 @@ export function SeedVaultView({
   packetCountFilter = null,
   onRefineChipsLoaded,
   hideArchivedProfiles = false,
+  onEmptyStateChange,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -230,6 +231,8 @@ export function SeedVaultView({
   onLongPressVariety?: (plantVarietyId: string) => void;
   onFilteredIdsChange?: (ids: string[]) => void;
   onPendingHeroCountChange?: (count: number) => void;
+  /** Called when vault empty state changes (no seeds at all). Parent can hide toolbar. */
+  onEmptyStateChange?: (isEmpty: boolean) => void;
   /** Options for the Plant Type dropdown in list view (e.g. from schedule_defaults + "Imported seed", "Bean", "Cucumber"). */
   availablePlantTypes?: string[];
   /** Called when user changes plant type in list view; parent should update plant_profiles.name and refetch. */
@@ -621,6 +624,10 @@ export function SeedVaultView({
     onTagsLoaded(Array.from(allTags).sort());
   }, [seeds, onTagsLoaded]);
 
+  useEffect(() => {
+    if (!loading) onEmptyStateChange?.(seeds.length === 0);
+  }, [loading, seeds.length, onEmptyStateChange]);
+
   // Load schedule_defaults when Plant Now filter is active (to filter by sow-this-month)
   useEffect(() => {
     if (!user?.id || !plantNowFilter) {
@@ -877,10 +884,19 @@ export function SeedVaultView({
   if (seeds.length === 0) {
     return (
       <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center max-w-md mx-auto">
-        <p className="text-slate-600 mb-4">Your vault is empty. Add your first seed to get started.</p>
-        <p className="text-sm text-slate-500 mb-2">Tap the <strong>+</strong> button below to add a packet, or scan one with your camera.</p>
+        <div className="flex justify-center mb-4" aria-hidden>
+          <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
+            <rect x="10" y="6" width="44" height="52" rx="5" stroke="currentColor" strokeWidth="2" fill="none" />
+            <path d="M10 18h44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M18 28h28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <path d="M18 36h20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            <path d="M32 52v-6c0-2 2-4 4-6 1.5-1.5 1.5-4 0-5.5s-4-1.5-5.5 0c-2 2-4 4-4 6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </div>
+        <p className="text-slate-600 font-medium mb-2">Your vault is empty</p>
+        <p className="text-sm text-slate-500 mb-6">Add your first seed packet to get started.</p>
         {typeof window !== "undefined" && (
-          <a href="/vault/import" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">
+          <a href="/vault/import" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm">
             Scan or import a packet
           </a>
         )}
@@ -906,7 +922,7 @@ export function SeedVaultView({
     return (
       <div className="relative z-10 space-y-3">
         <ul className={`grid gap-3 ${isPhotoCards ? "grid-cols-2" : "grid-cols-3"}`} role="list">
-          {sortedGridSeeds.map((seed) => {
+          {sortedGridSeeds.map((seed, idx) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
@@ -955,7 +971,7 @@ export function SeedVaultView({
               );
 
               return (
-                <li key={seed.id} className="min-w-0">
+                <li key={seed.id} className="min-w-0 animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
                   {batchSelectMode ? (
                     <article
                       role="button"
@@ -1027,7 +1043,7 @@ export function SeedVaultView({
             );
 
             return (
-              <li key={seed.id} className="min-w-0">
+              <li key={seed.id} className="min-w-0 animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
                 {batchSelectMode ? (
                   <article
                     role="button"

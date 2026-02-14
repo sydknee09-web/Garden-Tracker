@@ -38,6 +38,7 @@ export function ActiveGardenView({
   categoryFilter = null,
   onCategoryChipsLoaded,
   onFilteredCountChange,
+  onEmptyStateChange,
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
 }: {
@@ -49,6 +50,7 @@ export function ActiveGardenView({
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
   onFilteredCountChange?: (count: number) => void;
+  onEmptyStateChange?: (isEmpty: boolean) => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
@@ -197,6 +199,10 @@ export function ActiveGardenView({
   useEffect(() => {
     onFilteredCountChange?.(filteredPending.length + filteredBySearch.length);
   }, [filteredPending.length, filteredBySearch.length, onFilteredCountChange]);
+
+  useEffect(() => {
+    if (!loading) onEmptyStateChange?.(filteredPending.length === 0 && filteredBySearch.length === 0);
+  }, [loading, filteredPending.length, filteredBySearch.length, onEmptyStateChange]);
 
   // Enter bulk mode when parent requests it (e.g. FAB "Add journal entry").
   useEffect(() => {
@@ -413,10 +419,30 @@ export function ActiveGardenView({
 
       {/* Growing batches */}
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-3 flex items-center gap-2">Growing ({filteredBySearch.length})</h2>
-        {filteredBySearch.length === 0 ? (
+        {filteredBySearch.length === 0 && filteredPending.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+            <div className="flex justify-center mb-4" aria-hidden>
+              <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-300" aria-hidden>
+                <rect x="6" y="36" width="52" height="22" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+                <path d="M10 36V26c0-2 2-4 4-4h36c2 0 4 2 4 4v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M18 50v-2M32 50v-2M46 50v-2" stroke="#78716c" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                <path d="M28 18c0-2 2-4 4-4s4 2 4 4-2 4-4 4-4-2-4-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
+              </svg>
+            </div>
+            <p className="text-black/70 font-medium mb-2">Your garden is ready for its first seeds.</p>
+            <p className="text-sm text-black/50 mb-6">You haven&apos;t planted anything yet.</p>
+            <Link
+              href="/vault"
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+            >
+              Go to Seed Vault
+            </Link>
+          </div>
+        ) : filteredBySearch.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
         ) : (
+          <>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-3 flex items-center gap-2">Growing ({filteredBySearch.length})</h2>
           <ul className="space-y-4">
             {filteredBySearch.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();
@@ -499,6 +525,7 @@ export function ActiveGardenView({
               );
             })}
           </ul>
+          </>
         )}
       </section>
     </div>

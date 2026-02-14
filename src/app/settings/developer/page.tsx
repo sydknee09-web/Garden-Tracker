@@ -42,6 +42,9 @@ export default function SettingsDeveloperPage() {
   const [reExtractUrl, setReExtractUrl] = useState("");
   const [reExtractLoading, setReExtractLoading] = useState(false);
   const [reExtractResult, setReExtractResult] = useState<{ ok?: boolean; error?: string } | null>(null);
+  const [reExtractConfirmOpen, setReExtractConfirmOpen] = useState(false);
+  const [repairConfirmOpen, setRepairConfirmOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -150,6 +153,7 @@ export default function SettingsDeveloperPage() {
       setReExtractResult({ error: "Enter a valid URL (http or https)" });
       return;
     }
+    setReExtractConfirmOpen(false);
     setReExtractLoading(true);
     setReExtractResult(null);
     try {
@@ -172,8 +176,13 @@ export default function SettingsDeveloperPage() {
     }
   }, [reExtractUrl]);
 
+  const reExtractUrlError = reExtractUrl.trim() && !reExtractUrl.trim().startsWith("http")
+    ? "Enter a valid URL (http or https)"
+    : null;
+
   const runRepairMissingHeroPhotos = useCallback(async () => {
     if (!user?.id || repairHeroRunning) return;
+    setRepairConfirmOpen(false);
     setRepairHeroRunning(true);
     setRepairHeroResult(null);
     const { data: profiles } = await supabase
@@ -223,18 +232,36 @@ export default function SettingsDeveloperPage() {
     setRepairHeroRunning(false);
   }, [user?.id, repairHeroRunning]);
 
+  const q = searchQuery.trim().toLowerCase();
+  const matchesSection = (s: { title: string; desc: string }) =>
+    !q || s.title.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q);
+
   if (!user) return null;
 
   return (
     <div className="px-6 py-8 max-w-2xl mx-auto pb-24">
-      <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6">
+      <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6 min-h-[44px] items-center">
         &larr; Settings
       </Link>
-      <h1 className="text-2xl font-bold text-neutral-900 mb-8">Developer</h1>
-      <p className="text-sm text-neutral-500 mb-6">Tools and data for troubleshooting, archives, and cache.</p>
+      <h1 className="text-2xl font-bold text-neutral-900 mb-2">Developer</h1>
+      <p className="text-sm text-neutral-500 mb-4">Tools and data for troubleshooting, archives, and cache.</p>
 
-      {/* Archived Plantings */}
-      <section className="mb-10">
+      <div className="mb-6">
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search tools…"
+          className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-neutral-100 border-0 text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald/40"
+          aria-label="Search developer tools"
+        />
+      </div>
+
+      {/* Safe Tools */}
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Safe tools</h2>
+      <div className="space-y-6 mb-10">
+      {matchesSection({ title: "Archived Plantings", desc: "Past growing batches" }) && (
+      <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Archived Plantings</h3>
           <p className="text-sm text-neutral-500 mb-3">Past growing batches you ended or that died.</p>
@@ -273,56 +300,20 @@ export default function SettingsDeveloperPage() {
           )}
         </div>
       </section>
+      )}
 
-      {/* Import History */}
-      <section className="mb-10">
-        <Link href="/settings/import-logs" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+      {matchesSection({ title: "Import History", desc: "Past link imports" }) && (
+      <section>
+        <Link href="/settings/import-logs" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors min-h-[44px]">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Import History</h3>
           <p className="text-sm text-neutral-500 mb-2">Past link imports for troubleshooting.</p>
           <span className="text-sm text-emerald-600 font-medium">View logs &rarr;</span>
         </Link>
       </section>
+      )}
 
-      {/* Re-extract one URL */}
-      <section className="mb-10">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Re-extract this URL</h3>
-          <p className="text-sm text-neutral-500 mb-3">Overwrite the global cache row for a single seed URL. Use when a cached entry is wrong or stale.</p>
-          <input
-            type="url"
-            value={reExtractUrl}
-            onChange={(e) => setReExtractUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full min-h-[44px] px-4 py-2 rounded-xl border border-neutral-200 text-neutral-800 placeholder:text-neutral-400 mb-2"
-          />
-          {reExtractResult && (
-            <p className={`text-sm mb-2 ${reExtractResult.ok ? "text-emerald-600" : "text-red-600"}`}>
-              {reExtractResult.ok ? "Cache updated." : reExtractResult.error}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={runReExtractUrl}
-            disabled={reExtractLoading}
-            className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-            style={{ backgroundColor: "#059669", color: "#ffffff" }}
-          >
-            {reExtractLoading ? "Re-extracting…" : "Re-extract URL"}
-          </button>
-        </div>
-      </section>
-
-      {/* Plant Data Cache */}
-      <section className="mb-10">
-        <Link href="/settings/extract-cache" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Plant Data Cache</h3>
-          <p className="text-sm text-neutral-500 mb-2">Cached plant details and hero photos. Clear to force fresh extraction.</p>
-          <span className="text-sm text-emerald-600 font-medium">Manage cache &rarr;</span>
-        </Link>
-      </section>
-
-      {/* Archived Purchases */}
-      <section className="mb-10">
+      {matchesSection({ title: "Archived Purchases", desc: "Items marked purchased" }) && (
+      <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Archived Purchases</h3>
           <p className="text-sm text-neutral-500 mb-3">Items marked as purchased. Un-archive to move back to your active shopping list.</p>
@@ -364,9 +355,10 @@ export default function SettingsDeveloperPage() {
           )}
         </div>
       </section>
+      )}
 
-      {/* Repair Hero Photos */}
-      <section className="mb-10">
+      {matchesSection({ title: "Repair Hero Photos", desc: "Find and set stock photos" }) && (
+      <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Repair Hero Photos</h3>
           <p className="text-sm text-neutral-500 mb-3">Find and set stock plant photos for varieties missing a hero image.</p>
@@ -384,21 +376,69 @@ export default function SettingsDeveloperPage() {
           )}
           <button
             type="button"
-            onClick={runRepairMissingHeroPhotos}
+            onClick={() => setRepairConfirmOpen(true)}
             disabled={repairHeroRunning}
-            className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
             style={{ backgroundColor: "#059669", color: "#ffffff" }}
           >
             {repairHeroRunning ? "Repairing..." : "Repair Missing Photos"}
           </button>
         </div>
       </section>
+      )}
+      </div>
 
-      {/* Trash */}
-      {trashProfiles.length > 0 && (
-        <section className="mb-10">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-800 mb-1">Deleted Items</h3>
+      {/* Danger Zone */}
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-red-600 mb-4">Danger zone</h2>
+      <div className="space-y-6 rounded-2xl border border-red-200 bg-red-50/30 p-4">
+      {matchesSection({ title: "Re-extract URL", desc: "Overwrite cache" }) && (
+      <section>
+        <div className="rounded-xl border border-red-200/50 bg-white p-5">
+          <h3 className="text-base font-semibold text-red-700 mb-1">Re-extract this URL</h3>
+          <p className="text-sm text-neutral-600 mb-3">Overwrite the global cache row for a single seed URL. Use when a cached entry is wrong or stale.</p>
+          <input
+            type="url"
+            value={reExtractUrl}
+            onChange={(e) => { setReExtractUrl(e.target.value); setReExtractResult(null); }}
+            placeholder="https://..."
+            className={`w-full min-h-[44px] px-4 py-2 rounded-xl border text-neutral-800 placeholder:text-neutral-400 mb-2 ${reExtractUrlError ? "border-red-400" : "border-neutral-200"}`}
+            aria-invalid={!!reExtractUrlError}
+            aria-describedby={reExtractUrlError ? "reextract-error" : undefined}
+          />
+          {reExtractUrlError && (
+            <p id="reextract-error" className="text-sm text-red-600 mb-2">{reExtractUrlError}</p>
+          )}
+          {reExtractResult && !reExtractUrlError && (
+            <p className={`text-sm mb-2 ${reExtractResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+              {reExtractResult.ok ? "Cache updated." : reExtractResult.error}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setReExtractConfirmOpen(true)}
+            disabled={reExtractLoading || !reExtractUrl.trim().startsWith("http")}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-red-600 text-white"
+          >
+            {reExtractLoading ? "Re-extracting…" : "Re-extract URL"}
+          </button>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Plant Data Cache", desc: "Cached plant details" }) && (
+      <section>
+        <Link href="/settings/extract-cache" className="block rounded-xl border border-red-200/50 bg-white p-5 hover:border-red-300 transition-colors min-h-[44px]">
+          <h3 className="text-base font-semibold text-red-700 mb-1">Plant Data Cache</h3>
+          <p className="text-sm text-neutral-600 mb-2">Cached plant details and hero photos. Clear to force fresh extraction.</p>
+          <span className="text-sm text-red-600 font-medium">Manage cache &rarr;</span>
+        </Link>
+      </section>
+      )}
+
+      {matchesSection({ title: "Deleted Items", desc: "Restore or permanently delete" }) && trashProfiles.length > 0 && (
+        <section>
+          <div className="rounded-xl border border-red-200/50 bg-white p-5">
+            <h3 className="text-base font-semibold text-red-700 mb-1">Deleted Items</h3>
             <p className="text-sm text-neutral-500 mb-3">{trashProfiles.length} deleted profile{trashProfiles.length !== 1 ? "s" : ""}. Restore or permanently delete.</p>
             <button type="button" onClick={() => setTrashExpanded((p) => !p)} className="text-sm text-emerald-600 font-medium hover:underline mb-3 flex items-center gap-1">
               {trashExpanded ? "Hide" : "Show items"} <span className="text-neutral-400" aria-hidden>{trashExpanded ? "-" : "+"}</span>
@@ -425,6 +465,36 @@ export default function SettingsDeveloperPage() {
             )}
           </div>
         </section>
+      )}
+      </div>
+
+      {/* Confirmation modals */}
+      {reExtractConfirmOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setReExtractConfirmOpen(false)} />
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="reextract-confirm-title">
+            <h2 id="reextract-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Re-extract URL?</h2>
+            <p className="text-sm text-neutral-600 mb-4">This will overwrite the cached data for this URL. Continue?</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setReExtractConfirmOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Cancel</button>
+              <button type="button" onClick={runReExtractUrl} disabled={reExtractLoading} className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-medium disabled:opacity-50">Re-extract</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {repairConfirmOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setRepairConfirmOpen(false)} />
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="repair-confirm-title">
+            <h2 id="repair-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Repair Hero Photos?</h2>
+            <p className="text-sm text-neutral-600 mb-4">This will search for and set stock photos for varieties missing a hero image. It may take a few minutes.</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setRepairConfirmOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Cancel</button>
+              <button type="button" onClick={runRepairMissingHeroPhotos} disabled={repairHeroRunning} className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-50">Repair</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { completeTask } from "@/lib/completeSowTask";
+import { hapticError, hapticSuccess } from "@/lib/haptics";
 import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
@@ -27,6 +28,25 @@ const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
   { value: "general", label: "General" },
 ];
 
+/** Dot color for at-a-glance calendar indicators */
+function getCategoryDotColor(category: string): string {
+  switch (category) {
+    case "sow":
+    case "start_seed":
+    case "transplant":
+    case "direct_sow":
+      return "bg-emerald-500";
+    case "harvest":
+      return "bg-amber-500";
+    case "maintenance":
+    case "fertilize":
+    case "prune":
+      return "bg-sky-500";
+    default:
+      return "bg-neutral-400";
+  }
+}
+
 export default function CalendarPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
@@ -45,6 +65,7 @@ export default function CalendarPage() {
   const [varieties, setVarieties] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [savingTask, setSavingTask] = useState(false);
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
+  const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "overview">("overview");
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
@@ -53,7 +74,10 @@ export default function CalendarPage() {
   const [plantableAllOpen, setPlantableAllOpen] = useState(false);
   const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
   const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const swipeStartX = useRef<number | null>(null);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!deleteConfirmTask, () => setDeleteConfirmTask(null));
@@ -180,8 +204,15 @@ export default function CalendarPage() {
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
+    const isHarvest = t.category === "harvest";
     await completeTask(t, user.id);
     setRefetch((r) => r + 1);
+    hapticSuccess();
+    if (isHarvest) {
+      const plantLabel = t.plant_name ?? t.title ?? "Harvest";
+      setHarvestCelebration(plantLabel);
+      setTimeout(() => setHarvestCelebration(null), 2500);
+    }
   }
 
   function requestDeleteTask(t: Task & { plant_name?: string }) {
@@ -195,8 +226,10 @@ export default function CalendarPage() {
     const { error: e } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", user.id);
     if (e) {
       setError(e.message);
+      hapticError();
       return;
     }
+    hapticSuccess();
     setRefetch((r) => r + 1);
   }
 
@@ -299,41 +332,67 @@ export default function CalendarPage() {
     const titleTrim = newTaskTitle.trim();
     if (!titleTrim) {
       setNewTaskError("Title is required.");
+      hapticError();
       return;
     }
     setNewTaskError(null);
-    setSavingTask(true);
-    const { error: err } = await supabase.from("tasks").insert({
-      user_id: user.id,
-      plant_variety_id: newTaskPlantId || null,
+    const savedDue = newTaskDue;
+    const savedCategory = newTaskCategory;
+    const savedPlantId = newTaskPlantId;
+    const plantName = savedPlantId ? varieties.find((v) => v.id === savedPlantId) : null;
+    const displayName = plantName ? (plantName.variety_name?.trim() ? `${plantName.name} (${plantName.variety_name})` : plantName.name) : null;
+    const optimisticId = `opt-${Date.now()}`;
+    const optimisticTask: Task & { plant_name?: string } = {
+      id: optimisticId,
+      plant_variety_id: savedPlantId || null,
+      plant_profile_id: null,
       grow_instance_id: null,
-      category: newTaskCategory,
-      due_date: newTaskDue,
+      category: savedCategory,
+      due_date: savedDue,
+      completed_at: null,
+      created_at: new Date().toISOString(),
       title: titleTrim,
-    });
-    setSavingTask(false);
-    if (err) {
-      setNewTaskError(err.message);
-      return;
-    }
+      plant_name: displayName ?? "Unknown",
+    };
     setNewTaskOpen(false);
     setNewTaskTitle("");
     setNewTaskDue(new Date().toISOString().slice(0, 10));
     setNewTaskCategory("maintenance");
     setNewTaskPlantId("");
+    setTasks((prev) => [...prev, optimisticTask]);
+    const { error: err } = await supabase.from("tasks").insert({
+      user_id: user.id,
+      plant_variety_id: savedPlantId || null,
+      grow_instance_id: null,
+      category: savedCategory,
+      due_date: savedDue,
+      title: titleTrim,
+    });
+    if (err) {
+      setTasks((prev) => prev.filter((t) => t.id !== optimisticId));
+      setNewTaskOpen(true);
+      setNewTaskTitle(titleTrim);
+      setNewTaskPlantId(savedPlantId);
+      setNewTaskDue(savedDue);
+      setNewTaskCategory(savedCategory);
+      setNewTaskError(err.message);
+      hapticError();
+      return;
+    }
+    hapticSuccess();
     setRefetch((r) => r + 1);
   }
 
   return (
     <div className="px-6 pt-2 pb-6">
-      <div className="flex justify-center mb-4">
-        <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Calendar view">
+      <div className="flex justify-center mb-3">
+        <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Calendar view">
           <button
             type="button"
             role="tab"
             aria-selected={viewMode === "overview"}
             onClick={() => setViewMode("overview")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
           >
             Overview
           </button>
@@ -343,7 +402,7 @@ export default function CalendarPage() {
             aria-selected={viewMode === "list"}
             aria-label="Reminders view: recurring care tasks, excluding completed"
             onClick={() => setViewMode("list")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
           >
             Reminders
           </button>
@@ -351,7 +410,7 @@ export default function CalendarPage() {
       </div>
 
       <div
-        className="flex items-center justify-between mb-4 touch-pan-y"
+        className="flex items-center justify-center gap-2 mb-2 touch-pan-y"
         onTouchStart={(e) => {
           swipeStartX.current = e.touches[0]?.clientX ?? null;
         }}
@@ -369,16 +428,16 @@ export default function CalendarPage() {
         <button
           type="button"
           onClick={prevMonth}
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Previous month"
         >
           ←
         </button>
-        <span className="font-medium text-black text-base">{monthLabel}</span>
+        <span className="font-semibold text-black text-base min-w-[140px] text-center">{monthLabel}</span>
         <button
           type="button"
           onClick={nextMonth}
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Next month"
         >
           →
@@ -583,38 +642,120 @@ export default function CalendarPage() {
             ))}
           </div>
           <div className="grid grid-cols-7 auto-rows-fr">
-            {overviewDays.map((cell, idx) => (
-              <div
-                key={idx}
-                className={`min-h-[80px] p-2 border-b border-r border-black/5 last:border-r-0 ${cell.dateStr ? "bg-white" : "bg-black/[0.02]"}`}
-              >
-                {cell.dayNum != null && (
-                  <>
-                    <p className="text-xs font-medium text-black/70 mb-1">{cell.dayNum}</p>
-                    {cell.dateStr && (byDate[cell.dateStr] ?? []).map((t) => (
-                      <CalendarTaskRow
-                        key={t.id}
-                        task={t}
-                        onComplete={() => handleComplete(t)}
-                        onSnooze={(newDue) => handleSnooze(t, newDue)}
-                        onDeleteRequest={() => requestDeleteTask(t)}
-                      />
-                    ))}
-                  </>
-                )}
-              </div>
-            ))}
+            {overviewDays.map((cell, idx) => {
+              const dayTasks = cell.dateStr ? (byDate[cell.dateStr] ?? []) : [];
+              const isToday = cell.dateStr === todayStr;
+              const isSelected = cell.dateStr === selectedDate;
+              const uniqueCategories = [...new Set(dayTasks.map((t) => t.category))];
+              const cellContent = (
+                <>
+                  {cell.dayNum != null && (
+                    <>
+                      <span
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold shrink-0 ${
+                          isToday
+                            ? "bg-emerald-600 text-white"
+                            : isSelected
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "text-black/80"
+                        }`}
+                      >
+                        {cell.dayNum}
+                      </span>
+                      {cell.dateStr && dayTasks.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+                          {uniqueCategories.slice(0, 3).map((cat) => (
+                            <span
+                              key={cat}
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${getCategoryDotColor(cat)}`}
+                              title={TASK_LABELS[cat] ?? cat}
+                              aria-hidden
+                            />
+                          ))}
+                          {uniqueCategories.length > 3 && (
+                            <span className="text-[10px] text-black/50" aria-hidden>+</span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              );
+              const baseClass = `min-h-[56px] p-1.5 border-b border-r border-black/5 last:border-r-0 flex flex-col items-center justify-start ${
+                cell.dateStr ? "bg-white" : "bg-black/[0.02]"
+              } ${isSelected ? "ring-2 ring-inset ring-emerald/40" : ""}`;
+              return cell.dateStr ? (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSelectedDate(cell.dateStr!)}
+                  className={`${baseClass} hover:bg-black/[0.02] cursor-pointer`}
+                >
+                  {cellContent}
+                </button>
+              ) : (
+                <div key={idx} className={baseClass}>
+                  {cellContent}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
 
       {!loading && !error && viewMode === "overview" && (
         <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
-          <h2 className="px-4 py-3 text-sm font-semibold text-black border-b border-black/10">Tasks this month</h2>
+          <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-black/10">
+            <h2 className="text-sm font-semibold text-black">
+              {selectedDate
+                ? `Tasks for ${new Date(selectedDate + "T12:00:00").toLocaleDateString("default", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}`
+                : "Tasks this month"}
+            </h2>
+            {selectedDate && (
+              <button
+                type="button"
+                onClick={() => setSelectedDate(null)}
+                className="text-xs font-medium text-emerald-600 hover:underline"
+              >
+                Show all
+              </button>
+            )}
+          </div>
           {tasks.length === 0 ? (
-            <div className="p-6 text-center text-black/50 text-sm">
-              No tasks this month. Start a new Sowing on a plant profile to generate tasks.
+            <div className="p-6 text-center">
+              <p className="text-black/60 text-sm font-medium">
+                No tasks scheduled for {new Date(month.year, month.month).toLocaleString("default", { month: "long" })}.
+              </p>
+              <p className="text-sm text-black/50 mt-2">
+                Add a reminder to start your spring seedlings, or plant from a profile to generate tasks.
+              </p>
             </div>
+          ) : selectedDate ? (
+            (byDate[selectedDate] ?? []).length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-black/50 text-sm">
+                  No tasks on {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric" })}.
+                </p>
+                <p className="text-xs text-black/40 mt-1">Tap another date to see its tasks.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-black/5">
+                {(byDate[selectedDate] ?? []).map((t) => (
+                  <li key={t.id} className="p-4">
+                    <CalendarTaskRow
+                      task={t}
+                      onComplete={() => handleComplete(t)}
+                      onSnooze={(newDue) => handleSnooze(t, newDue)}
+                      onDeleteRequest={() => requestDeleteTask(t)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <ul className="divide-y divide-black/5">
               {Object.entries(byDate)
@@ -678,6 +819,13 @@ export default function CalendarPage() {
           )}
         </div>
       ) : null}
+
+      {harvestCelebration && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
+          <span aria-hidden>🌿</span>
+          <span>Harvest logged! {harvestCelebration}</span>
+        </div>
+      )}
 
       <button
         type="button"
@@ -894,7 +1042,7 @@ function CalendarTaskRow({
       onPointerLeave={handlePointerUp}
       className={`flex flex-wrap items-center gap-2 py-2 px-3 rounded-xl text-sm ${
         task.completed_at ? "bg-slate-100/80 text-slate-500" : "bg-emerald/10 text-black"
-      }`}
+      } ${task.id.startsWith("opt-") ? "opacity-60 animate-pulse" : ""}`}
     >
       <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
       {!task.completed_at && (

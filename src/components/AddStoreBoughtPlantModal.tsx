@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
+import { hapticError, hapticSuccess } from "@/lib/haptics";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 
@@ -101,6 +102,7 @@ export function AddStoreBoughtPlantModal({
         if (!selectedProfileId) {
           setError("Select a variety.");
           setSubmitting(false);
+          hapticError();
           return;
         }
         profileId = selectedProfileId;
@@ -109,6 +111,7 @@ export function AddStoreBoughtPlantModal({
         if (!name) {
           setError("Plant type is required.");
           setSubmitting(false);
+          hapticError();
           return;
         }
         const { data: insertRow, error: insertErr } = await supabase
@@ -247,6 +250,7 @@ export function AddStoreBoughtPlantModal({
         }
       }
 
+      hapticSuccess();
       onSuccess?.();
       if (enrichmentFailed) {
         setSubmitting(false);
@@ -256,6 +260,7 @@ export function AddStoreBoughtPlantModal({
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
+      hapticError();
     } finally {
       setSubmitting(false);
     }

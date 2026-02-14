@@ -28,11 +28,13 @@ function GardenPageInner() {
   const [plantsCategoryFilter, setPlantsCategoryFilter] = useState<string | null>(null);
   const [plantsCategoryChips, setPlantsCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [plantsFilteredCount, setPlantsFilteredCount] = useState(0);
+  const [plantsHasItems, setPlantsHasItems] = useState(false);
+  const [activeHasItems, setActiveHasItems] = useState(false);
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"plantType" | null>(null);
-  const [activeFabMenuOpen, setActiveFabMenuOpen] = useState(false);
-  const [plantsFabMenuOpen, setPlantsFabMenuOpen] = useState(false);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
+  const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
 
@@ -119,60 +121,70 @@ function GardenPageInner() {
   return (
     <div className="min-h-screen pb-24">
       <div className="px-4 pt-2 pb-4">
-        <div className="flex border-b border-black/10 mb-2" role="tablist" aria-label="View">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "active"}
-            onClick={() => setViewMode("active")}
-            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "active" ? "border-emerald-600 text-emerald-700" : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            Active Garden
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "plants"}
-            onClick={() => setViewMode("plants")}
-            className={`py-2 px-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              viewMode === "plants" ? "border-emerald-600 text-emerald-700" : "border-transparent text-black/60 hover:text-black"
-            }`}
-          >
-            My Plants
-          </button>
-        </div>
-
-        <div className="flex gap-2 mb-2">
-          <div className="flex-1">
-            <input
-              type="search"
-              value={viewMode === "active" ? activeSearchQuery : plantsSearchQuery}
-              onChange={(e) => (viewMode === "active" ? setActiveSearchQuery(e.target.value) : setPlantsSearchQuery(e.target.value))}
-              placeholder={viewMode === "active" ? "Search batches…" : "Search plants…"}
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-              aria-label={viewMode === "active" ? "Search batches" : "Search plants"}
-            />
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="View">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "active"}
+              onClick={() => setViewMode("active")}
+              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+              }`}
+            >
+              Active Garden
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "plants"}
+              onClick={() => setViewMode("plants")}
+              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+              }`}
+            >
+              My Plants
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            type="button"
-            onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
-            className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
-            aria-label="Refine by plant type"
-          >
-            Refine by
-            {(viewMode === "active" && activeCategoryFilter !== null) || (viewMode === "plants" && plantsCategoryFilter !== null) ? (
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
-            ) : null}
-          </button>
-          <span className="text-sm text-black/50">
-            {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
-          </span>
-        </div>
+        {((viewMode === "active" && activeHasItems) || (viewMode === "plants" && plantsHasItems)) && (
+          <>
+            <div className="flex gap-2 mb-2">
+              <div className="flex-1 relative">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  type="search"
+                  value={viewMode === "active" ? activeSearchQuery : plantsSearchQuery}
+                  onChange={(e) => (viewMode === "active" ? setActiveSearchQuery(e.target.value) : setPlantsSearchQuery(e.target.value))}
+                  placeholder={viewMode === "active" ? "Search batches…" : "Search plants…"}
+                  className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
+                  aria-label={viewMode === "active" ? "Search batches" : "Search plants"}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mb-2">
+              <button
+                type="button"
+                onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
+                className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
+                aria-label="Refine by plant type"
+              >
+                Refine by
+                {(viewMode === "active" && activeCategoryFilter !== null) || (viewMode === "plants" && plantsCategoryFilter !== null) ? (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                ) : null}
+              </button>
+              <span className="text-sm text-black/50">
+                {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </>
+        )}
 
         {refineByOpen && (
           <>
@@ -245,22 +257,32 @@ function GardenPageInner() {
               categoryFilter={activeCategoryFilter}
               onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
               onFilteredCountChange={setActiveFilteredCount}
+              onEmptyStateChange={(empty) => setActiveHasItems(!empty)}
               openBulkJournalRequest={openBulkJournalForActive}
               onBulkJournalRequestHandled={() => setOpenBulkJournalForActive(false)}
             />
           </div>
         )}
 
-        {viewMode === "plants" && (
-          <div className="pt-2">
+        {(viewMode === "plants" || showAddPermanentPlantModal) && (
+          <div className={`pt-2 ${viewMode !== "plants" ? "sr-only" : ""}`}>
             <MyPlantsView
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchQuery}
               openAddModal={showAddPermanentPlantModal}
               onCloseAddModal={() => setShowAddPermanentPlantModal(false)}
+              onPermanentPlantAdded={() => {
+                if (viewMode === "active") {
+                  setViewMode("plants");
+                  setAddedToMyPlantsToast(true);
+                  setTimeout(() => setAddedToMyPlantsToast(false), 2500);
+                }
+              }}
               categoryFilter={plantsCategoryFilter}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               onFilteredCountChange={setPlantsFilteredCount}
+              onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
+              onAddClick={() => setShowAddPermanentPlantModal(true)}
             />
           </div>
         )}
@@ -336,38 +358,45 @@ function GardenPageInner() {
         </div>
       )}
 
-      {viewMode === "active" && activeFabMenuOpen && (
+      {fabMenuOpen && (
         <>
-          <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setActiveFabMenuOpen(false)} />
-          <div className="fixed right-6 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
-            <button type="button" onClick={() => { setOpenBulkJournalForActive(true); setActiveFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add journal entry</button>
-            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setActiveFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add store-bought plant</button>
-          </div>
-        </>
-      )}
-
-      {viewMode === "plants" && plantsFabMenuOpen && (
-        <>
-          <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setPlantsFabMenuOpen(false)} />
-          <div className="fixed right-6 z-30 flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
-            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setPlantsFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add permanent plant</button>
-            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setPlantsFabMenuOpen(false); }} className="px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px]">Add store-bought plant</button>
+          <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setFabMenuOpen(false)} />
+          <div className="fixed right-6 z-30 flex flex-col gap-0.5 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}>
+            <button type="button" onClick={() => { router.push("/vault"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
+              <span className="text-lg" aria-hidden>🌿</span>
+              <span>Plant from Seed Vault</span>
+            </button>
+            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
+              <span className="text-lg" aria-hidden>🏷️</span>
+              <span>Add store-bought plant</span>
+            </button>
+            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
+              <span className="text-lg" aria-hidden>🌳</span>
+              <span>Add permanent plant</span>
+            </button>
+            <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm font-medium text-neutral-800 hover:bg-neutral-50 min-h-[44px] w-full">
+              <span className="text-lg" aria-hidden>📖</span>
+              <span>Add journal entry</span>
+            </button>
           </div>
         </>
       )}
 
       <button
         type="button"
-        onClick={() => {
-          if (viewMode === "active") setActiveFabMenuOpen((o) => !o);
-          else if (viewMode === "plants") setPlantsFabMenuOpen((o) => !o);
-        }}
+        onClick={() => setFabMenuOpen((o) => !o)}
         className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={viewMode === "active" ? "Open menu" : viewMode === "plants" ? "Add plant options" : "Add"}
+        aria-label="Add to garden"
       >
         +
       </button>
+
+      {addedToMyPlantsToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status">
+          Added to My Plants
+        </div>
+      )}
 
       <AddStoreBoughtPlantModal open={showStoreBoughtModal} onClose={() => setShowStoreBoughtModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} />
     </div>

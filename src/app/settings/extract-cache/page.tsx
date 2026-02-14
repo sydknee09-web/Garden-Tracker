@@ -32,6 +32,7 @@ export default function ExtractCachePage() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   const loadEntries = useCallback(async () => {
     if (!user?.id) return;
@@ -55,6 +56,7 @@ export default function ExtractCachePage() {
 
   const clearAll = useCallback(async () => {
     if (!user?.id || clearing) return;
+    setClearConfirmOpen(false);
     setClearing(true);
     await supabase.from("plant_extract_cache").delete().eq("user_id", user.id);
     setEntries([]);
@@ -94,9 +96,9 @@ export default function ExtractCachePage() {
         </p>
         <button
           type="button"
-          onClick={clearAll}
+          onClick={() => setClearConfirmOpen(true)}
           disabled={clearing || entries.length === 0}
-          className="min-h-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {clearing ? "Clearing\u2026" : "Clear All"}
         </button>
@@ -191,6 +193,20 @@ export default function ExtractCachePage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {clearConfirmOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setClearConfirmOpen(false)} />
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="clear-confirm-title">
+            <h2 id="clear-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Clear all cache?</h2>
+            <p className="text-sm text-neutral-600 mb-4">This will delete all cached plant data. Re-importing URLs will trigger fresh extraction. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setClearConfirmOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Cancel</button>
+              <button type="button" onClick={clearAll} disabled={clearing} className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-medium disabled:opacity-50">Clear All</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -242,50 +242,74 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ---- Weather ---- */}
-      <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5 mb-6">
-        <h2 className="text-lg font-medium text-black mb-3 text-center">Weather &amp; Forecast, {locationLabel}</h2>
+      {/* ---- Insight Banner (most valuable info first) ---- */}
+      {weather && sowingOk && !heatAlert && (
+        <div className="mb-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 shadow-card-soft flex items-center gap-3">
+          <span className="text-2xl shrink-0" aria-hidden>🌱</span>
+          <div>
+            <p className="text-xs font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
+            <p className="text-base font-semibold text-white">Great weather for sowing!</p>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Weather (compact, mesh gradient) ---- */}
+      <section className="rounded-xl bg-gradient-to-br from-sky-50 via-blue-50/50 to-amber-50/30 p-4 shadow-card-soft border border-black/5 mb-6">
+        <h2 className="text-base font-semibold text-black/90 mb-2 text-center">Weather &amp; Forecast, {locationLabel}</h2>
         {weather ? (
           <>
-            <div className="flex items-center gap-4 mb-3 p-3 rounded-xl bg-black/[0.04] border border-black/5">
-              <span className="text-3xl" aria-hidden>{weatherCodeToIcon(weather.code)}</span>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <span className="text-2xl" aria-hidden>{weatherCodeToIcon(weather.code)}</span>
               <div>
-                <p className="text-2xl font-semibold text-black">{Math.round(weather.temp)}°F</p>
-                <p className="text-sm text-black/60">{weather.condition}</p>
+                <p className="text-xl font-semibold text-black">{Math.round(weather.temp)}°F</p>
+                <p className="text-xs text-black/60">{weather.condition}</p>
               </div>
             </div>
             {weather.daily.length > 0 && (
-              <div className="flex flex-nowrap gap-0 overflow-x-auto pt-2 border-t border-black/5">
+              <div className="flex flex-nowrap gap-0 overflow-x-auto py-1">
                 {weather.daily.map((d, i) => (
                   <div
                     key={d.date}
-                    className={`text-center min-w-[4rem] flex-shrink-0 py-1 ${i > 0 ? "border-l border-black/10" : ""}`}
+                    className={`text-center min-w-[3.5rem] flex-shrink-0 py-0.5 ${i > 0 ? "border-l border-black/10" : ""}`}
                   >
-                    <p className="text-xs text-black/60">{new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })}</p>
-                    <span className="text-lg" aria-hidden>{weatherCodeToIcon(d.code)}</span>
-                    <p className="text-xs text-black/80">{Math.round(d.high)}° / {Math.round(d.low)}°</p>
+                    <p className="text-[10px] text-black/60">{new Date(d.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })}</p>
+                    <span className="text-base" aria-hidden>{weatherCodeToIcon(d.code)}</span>
+                    <p className="text-[10px] text-black/80">{Math.round(d.high)}°/{Math.round(d.low)}°</p>
                   </div>
                 ))}
               </div>
             )}
-            <div className="mt-3 pt-3 border-t border-black/5 space-y-1.5">
+            <div className="mt-2 pt-2 border-t border-black/5 space-y-1">
               {heatAlert && (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-800">
                   Extreme Heat: Check irrigation.
-                </span>
-              )}
-              {sowingOk && !heatAlert && (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
-                  Great weather for sowing!
                 </span>
               )}
             </div>
 
             {/* ---- Sow Now (linked to actual seeds) ---- */}
-            <div className="mt-4 pt-4 border-t border-black/5 space-y-4">
+            <div className="mt-3 pt-3 border-t border-black/5 space-y-3">
               <h3 className="text-sm font-semibold text-black text-center">Plant This {monthName}</h3>
               {startThisMonthProfiles.length === 0 ? (
-                <p className="text-xs text-black/50">No seeds in your vault match this month&apos;s planting window.</p>
+                <div>
+                  <div className="flex flex-col items-center gap-1.5 mb-2">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/20" aria-hidden>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <p className="text-xs text-black/50 text-center">No seeds in your vault match this month&apos;s planting window.</p>
+                  </div>
+                  <p className="text-xs font-medium text-black/70 mb-2 text-center">Suggested for {locationLabel}</p>
+                  <ul className="flex flex-wrap gap-2 justify-center">
+                    {(["Peppers", "Tomatoes", "Marigolds", "Lettuce"] as const).map((name) => (
+                      <li key={name}>
+                        <Link href="/vault" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/80 text-xs font-medium text-emerald-700 border border-emerald-200/60 hover:bg-emerald-50/80 transition-colors">
+                          {name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <ul className="flex flex-wrap gap-2">
                   {startThisMonthProfiles.map((p) => (
@@ -305,7 +329,13 @@ export default function HomePage() {
               <div className="pt-2 border-t border-black/5 mt-2">
                 <h3 className="text-sm font-semibold text-black mb-1.5 text-center">Harvest this month</h3>
                 {harvestTasksThisMonth.length === 0 ? (
-                  <p className="text-sm text-black/50">No harvest tasks due this month.</p>
+                  <div className="flex flex-col items-center gap-1.5 py-1">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/20" aria-hidden>
+                      <path d="M5 8h14l-1.5 10H6.5L5 8z" />
+                      <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    <p className="text-xs text-black/50">No harvest tasks due this month.</p>
+                  </div>
                 ) : (
                   <ul className="space-y-1">
                     {harvestTasksThisMonth.map((t) => (
@@ -329,14 +359,22 @@ export default function HomePage() {
         )}
       </section>
 
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* ---- Shopping List ---- */}
-        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-          <h2 className="text-lg font-medium text-black mb-2 text-center">Shopping list</h2>
+        <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
+          <h2 className="text-base font-semibold text-black mb-3">Shopping list</h2>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : shoppingList.length === 0 ? (
-            <p className="text-black/50 text-sm">Nothing to buy. Select seeds in the Vault and add to your list.</p>
+            <div className="flex flex-col items-center gap-2 py-4">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              <p className="text-xs text-black/50 text-center">Nothing to buy.</p>
+              <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault →</Link>
+            </div>
           ) : (
             <>
               <ul className="space-y-2">
@@ -367,16 +405,23 @@ export default function HomePage() {
         </section>
 
         {/* ---- Tasks ---- */}
-        <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
-          <h2 className="text-lg font-medium text-black mb-2 text-center">At a glance</h2>
+        <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
+          <h2 className="text-base font-semibold text-black mb-1">At a glance</h2>
+          <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <h3 className="text-sm font-medium text-black/70 mb-2">Tasks (pending)</h3>
                 {pendingTasks.length === 0 ? (
-                  <p className="text-black/50 text-sm">No pending tasks.</p>
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
+                      <path d="M9 11l3 3L22 4" />
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
+                    <p className="text-xs text-black/50 text-center">No pending tasks.</p>
+                    <Link href="/calendar" className="text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
+                  </div>
                 ) : (
                   <ul className="space-y-1">
                     {pendingTasks.map((t) => {
@@ -412,7 +457,7 @@ export default function HomePage() {
 
         {/* ---- Plant Care ---- */}
         {upcomingCare.length > 0 && (
-          <section className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
+          <section className="sm:col-span-2 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
             <h2 className="text-lg font-medium text-black mb-2 text-center">Plant Care</h2>
             <p className="text-xs text-black/50 mb-3">Upcoming care reminders for the next 2 weeks</p>
             <ul className="space-y-2">

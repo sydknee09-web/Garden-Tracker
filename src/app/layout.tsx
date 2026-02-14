@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SyncProvider } from "@/contexts/SyncContext";
+import { DeveloperUnlockProvider } from "@/contexts/DeveloperUnlockContext";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -41,7 +42,9 @@ export default function RootLayout({
         <OfflineIndicator />
         <AuthProvider>
           <SyncProvider>
-            <AuthGuard>{children}</AuthGuard>
+            <DeveloperUnlockProvider>
+              <AuthGuard>{children}</AuthGuard>
+            </DeveloperUnlockProvider>
           </SyncProvider>
         </AuthProvider>
       </body>

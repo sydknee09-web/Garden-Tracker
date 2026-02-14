@@ -264,6 +264,7 @@ export default function JournalPage() {
   const [error, setError] = useState<string | null>(null);
   const [addChoiceOpen, setAddChoiceOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [openAsSnapshot, setOpenAsSnapshot] = useState(false);
   const [note, setNote] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -282,7 +283,7 @@ export default function JournalPage() {
   const searchParams = useSearchParams();
   const viewFromUrl = searchParams.get("view");
   const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">(
-    viewFromUrl === "timeline" ? "timeline" : viewFromUrl === "grid" ? "grid" : "table"
+    viewFromUrl === "timeline" ? "timeline" : viewFromUrl === "grid" ? "grid" : "timeline"
   );
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
@@ -298,6 +299,7 @@ export default function JournalPage() {
   useEffect(() => {
     if (viewFromUrl === "timeline") setViewMode("timeline");
     else if (viewFromUrl === "grid") setViewMode("grid");
+    else if (viewFromUrl === "table") setViewMode("table");
   }, [viewFromUrl]);
 
   useEffect(() => {
@@ -641,8 +643,9 @@ export default function JournalPage() {
     [selectedEntryIds]
   );
 
-  function openAddModal() {
+  function openAddModal(opts?: { asSnapshot?: boolean }) {
     setAddModalOpen(true);
+    if (opts?.asSnapshot) setOpenAsSnapshot(true);
     setNote("");
     setImageFile(null);
     if (imagePreviewUrl) {
@@ -663,6 +666,38 @@ export default function JournalPage() {
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [webcamActive]);
+
+  useEffect(() => {
+    if (addModalOpen && openAsSnapshot) {
+      setOpenAsSnapshot(false);
+      if (isMobile) {
+        cameraMobileRef.current?.click();
+      } else {
+        startDesktopWebcam();
+      }
+    }
+  }, [addModalOpen, openAsSnapshot, isMobile]);
+
+  useEffect(() => {
+    if (!addModalOpen || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("grow_instances")
+        .select("plant_profile_id")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .in("status", ["growing", "pending"])
+        .order("sown_date", { ascending: false })
+        .limit(10);
+      if (cancelled || !data?.length) return;
+      const profileIds = [...new Set((data as { plant_profile_id: string | null }[]).map((r) => r.plant_profile_id).filter(Boolean))];
+      if (profileIds.length === 1) {
+        setSelectedPlantId(profileIds[0] as string);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [addModalOpen, user?.id]);
 
   function handleImageSelected(f: File | null) {
     if (imagePreviewUrl) {
@@ -697,17 +732,16 @@ export default function JournalPage() {
 
   return (
     <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
-      <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-muted text-sm">Notes and photos from your garden</p>
-        </div>
-        <div className="inline-flex rounded-xl p-1 border border-black/10 bg-white shadow-soft" role="tablist" aria-label="Journal view">
+      <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
+        <p className="text-muted text-sm mb-3">Notes and photos from your garden</p>
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Journal view">
             <button
               type="button"
               role="tab"
               aria-selected={viewMode === "table"}
               onClick={() => setViewMode("table")}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "table" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "table" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Table view"
               aria-label="Table view"
             >
@@ -718,7 +752,7 @@ export default function JournalPage() {
               role="tab"
               aria-selected={viewMode === "grid"}
               onClick={() => setViewMode("grid")}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "grid" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "grid" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Gallery view"
               aria-label="Gallery view"
             >
@@ -729,19 +763,43 @@ export default function JournalPage() {
               role="tab"
               aria-selected={viewMode === "timeline"}
               onClick={() => setViewMode("timeline")}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "timeline" ? "bg-emerald text-white" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "timeline" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Timeline view"
               aria-label="Timeline view"
             >
               <TimelineIcon />
             </button>
           </div>
+        </div>
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center">
-          <p className="text-slate-600">No journal entries yet.</p>
-          <p className="text-sm text-slate-500 mt-1">Tap the + button to log a note or photo.</p>
+        <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center max-w-md mx-auto">
+          <div className="flex justify-center mb-4" aria-hidden>
+            <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
+              <rect x="8" y="4" width="48" height="56" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+              <rect x="12" y="12" width="40" height="28" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
+              <circle cx="32" cy="26" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.5" />
+              <path d="M20 48h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+            </svg>
+          </div>
+          <p className="text-slate-600 font-medium mb-2">No journal entries yet</p>
+          <p className="text-sm text-slate-500 mb-4">
+            {(() => {
+              const prompts = [
+                "What's looking green today? Take a photo of your first sprout!",
+                "Capture today's progress. How did your plants change?",
+                "Log a quick note—what did you water, harvest, or notice?",
+                "Snap a photo of your garden. Small moments add up.",
+                "What's blooming or growing? Document it.",
+                "Quick check-in: how are your seedlings doing?",
+                "Capture the light. Morning or evening—what do you see?",
+              ];
+              const day = new Date().getDay();
+              return prompts[day % prompts.length];
+            })()}
+          </p>
+          <p className="text-xs text-slate-400">Tap the + button below to add your first entry.</p>
         </div>
       ) : viewMode === "table" ? (
         <>
@@ -1078,10 +1136,23 @@ export default function JournalPage() {
             aria-labelledby="add-journal-choice-title"
           >
             <h2 id="add-journal-choice-title" className="text-lg font-semibold text-black mb-1">
-              Add Journal Entry
+              Quick log
             </h2>
             <p className="text-sm text-black/70 mb-4">Choose how you want to add an entry.</p>
             <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChoiceOpen(false);
+                  openAddModal({ asSnapshot: true });
+                }}
+                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                  <CameraIcon />
+                </span>
+                Snapshot — take a photo
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1091,9 +1162,9 @@ export default function JournalPage() {
                 className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
-                  <CameraIcon />
+                  <NoteIcon />
                 </span>
-                Quick entry (with photo)
+                Quick Note — text only
               </button>
               <button
                 type="button"
@@ -1101,12 +1172,12 @@ export default function JournalPage() {
                   setAddChoiceOpen(false);
                   router.push("/journal/new");
                 }}
-                className="w-full py-4 px-4 rounded-xl border-2 border-black/10 hover:border-emerald/50 hover:bg-emerald/5 text-left font-medium text-black transition-colors flex items-center gap-3"
+                className="w-full py-3 px-4 rounded-xl border border-black/10 hover:bg-black/5 text-left text-sm font-medium text-black/70 transition-colors flex items-center gap-3"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-black/5 items-center justify-center">
+                <span className="flex h-8 w-8 rounded-lg bg-black/5 items-center justify-center">
                   <DocumentIcon />
                 </span>
-                Full entry
+                Full entry (link plant, packet, sowing)
               </button>
               <div className="pt-4">
                 <button

@@ -10,13 +10,18 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
+// Mock developer unlock so Developer link is visible in tests
+vi.mock("@/contexts/DeveloperUnlockContext", () => ({
+  useDeveloperUnlock: () => ({ isUnlocked: true, tapVersion: vi.fn(), reset: vi.fn() }),
+}));
+
 describe("Settings page", () => {
   it("renders settings menu with Profile and Developer links", async () => {
     render(<SettingsPage />);
 
     expect(await screen.findByRole("heading", { name: /settings/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /open profile/i })).toHaveAttribute("href", "/settings/profile");
-    expect(screen.getByRole("link", { name: /open developer/i })).toHaveAttribute("href", "/settings/developer");
+    expect(screen.getByRole("link", { name: /profile/i })).toHaveAttribute("href", "/settings/profile");
+    expect(screen.getByRole("link", { name: /developer/i })).toHaveAttribute("href", "/settings/developer");
     expect(screen.getByRole("link", { name: /back to garden/i })).toHaveAttribute("href", "/");
   });
 });

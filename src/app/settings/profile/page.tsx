@@ -1,26 +1,48 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import type { UserSettings, Household, HouseholdMember } from "@/types/garden";
+
+const APP_VERSION = "0.1.0";
+
+function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
 
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
+  const { tapVersion } = useDeveloperUnlock();
+  const router = useRouter();
   const [gardenSettings, setGardenSettings] = useState<Partial<UserSettings>>({});
+  const [lastSavedSettings, setLastSavedSettings] = useState<Partial<UserSettings> | null>(null);
   const [gardenSaving, setGardenSaving] = useState(false);
   const [gardenSaved, setGardenSaved] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const [household, setHousehold] = useState<Household | null>(null);
   const [householdMembers, setHouseholdMembers] = useState<(HouseholdMember & { email?: string })[]>([]);
   const [householdLoading, setHouseholdLoading] = useState(true);
+  const [householdExpanded, setHouseholdExpanded] = useState(false);
+  const [accountExpanded, setAccountExpanded] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joiningHousehold, setJoiningHousehold] = useState(false);
   const [creatingHousehold, setCreatingHousehold] = useState(false);
   const [householdName, setHouseholdName] = useState("");
   const [householdError, setHouseholdError] = useState<string | null>(null);
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+  const [showAdvancedCoords, setShowAdvancedCoords] = useState(false);
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+  const pendingNavigateRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -30,9 +52,30 @@ export default function SettingsProfilePage() {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setGardenSettings(data as UserSettings);
+        if (data) {
+          const s = data as UserSettings;
+          setGardenSettings(s);
+          setLastSavedSettings(s);
+          if (s.latitude != null || s.longitude != null) setShowAdvancedCoords(true);
+        }
       });
   }, [user?.id]);
+
+  const isDirty = useCallback(() => {
+    if (!lastSavedSettings) return false;
+    const a = { ...gardenSettings };
+    const b = { ...lastSavedSettings };
+    return JSON.stringify({ planting_zone: a.planting_zone, last_frost_date: a.last_frost_date, latitude: a.latitude, longitude: a.longitude, location_name: a.location_name }) !==
+      JSON.stringify({ planting_zone: b.planting_zone, last_frost_date: b.last_frost_date, latitude: b.latitude, longitude: b.longitude, location_name: b.location_name });
+  }, [gardenSettings, lastSavedSettings]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty()) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const loadHousehold = useCallback(async () => {
     if (!user?.id) return;
@@ -92,18 +135,15 @@ export default function SettingsProfilePage() {
     if (!user?.id) return;
     setGardenSaving(true);
     setGardenSaved(false);
+    const toSave = { planting_zone: gardenSettings.planting_zone || null, last_frost_date: gardenSettings.last_frost_date || null, latitude: gardenSettings.latitude ?? null, longitude: gardenSettings.longitude ?? null, timezone: gardenSettings.timezone || "America/Los_Angeles", location_name: gardenSettings.location_name || null };
     const { error } = await supabase.from("user_settings").upsert({
       user_id: user.id,
-      planting_zone: gardenSettings.planting_zone || null,
-      last_frost_date: gardenSettings.last_frost_date || null,
-      latitude: gardenSettings.latitude ?? null,
-      longitude: gardenSettings.longitude ?? null,
-      timezone: gardenSettings.timezone || "America/Los_Angeles",
-      location_name: gardenSettings.location_name || null,
+      ...toSave,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
     setGardenSaving(false);
     if (!error) {
+      setLastSavedSettings((prev) => ({ ...prev, ...toSave }));
       setGardenSaved(true);
       setTimeout(() => setGardenSaved(false), 2500);
     }
@@ -112,42 +152,51 @@ export default function SettingsProfilePage() {
   const handleUseMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => setGardenSettings((prev) => ({
-        ...prev,
-        latitude: Math.round(pos.coords.latitude * 10000) / 10000,
-        longitude: Math.round(pos.coords.longitude * 10000) / 10000,
-      })),
+      (pos) => {
+        setGardenSettings((prev) => ({
+          ...prev,
+          latitude: Math.round(pos.coords.latitude * 10000) / 10000,
+          longitude: Math.round(pos.coords.longitude * 10000) / 10000,
+        }));
+        setShowAdvancedCoords(true);
+      },
       () => {},
     );
   }, []);
+
+  const fetchExportData = useCallback(async () => {
+    if (!user?.id) return null;
+    const [profiles, packets, grows, journal, tasks, shopping, schedules, careScheds, settings] = await Promise.all([
+      supabase.from("plant_profiles").select("*").eq("user_id", user.id),
+      supabase.from("seed_packets").select("*").eq("user_id", user.id),
+      supabase.from("grow_instances").select("*").eq("user_id", user.id),
+      supabase.from("journal_entries").select("*").eq("user_id", user.id),
+      supabase.from("tasks").select("*").eq("user_id", user.id),
+      supabase.from("shopping_list").select("*").eq("user_id", user.id),
+      supabase.from("schedule_defaults").select("*").eq("user_id", user.id),
+      supabase.from("care_schedules").select("*").eq("user_id", user.id),
+      supabase.from("user_settings").select("*").eq("user_id", user.id),
+    ]);
+    return {
+      exported_at: new Date().toISOString(),
+      plant_profiles: profiles.data ?? [],
+      seed_packets: packets.data ?? [],
+      grow_instances: grows.data ?? [],
+      journal_entries: journal.data ?? [],
+      tasks: tasks.data ?? [],
+      shopping_list: shopping.data ?? [],
+      schedule_defaults: schedules.data ?? [],
+      care_schedules: careScheds.data ?? [],
+      user_settings: settings.data ?? [],
+    };
+  }, [user?.id]);
 
   const handleExportData = useCallback(async () => {
     if (!user?.id) return;
     setExporting(true);
     try {
-      const [profiles, packets, grows, journal, tasks, shopping, schedules, careScheds, settings] = await Promise.all([
-        supabase.from("plant_profiles").select("*").eq("user_id", user.id),
-        supabase.from("seed_packets").select("*").eq("user_id", user.id),
-        supabase.from("grow_instances").select("*").eq("user_id", user.id),
-        supabase.from("journal_entries").select("*").eq("user_id", user.id),
-        supabase.from("tasks").select("*").eq("user_id", user.id),
-        supabase.from("shopping_list").select("*").eq("user_id", user.id),
-        supabase.from("schedule_defaults").select("*").eq("user_id", user.id),
-        supabase.from("care_schedules").select("*").eq("user_id", user.id),
-        supabase.from("user_settings").select("*").eq("user_id", user.id),
-      ]);
-      const exportData = {
-        exported_at: new Date().toISOString(),
-        plant_profiles: profiles.data ?? [],
-        seed_packets: packets.data ?? [],
-        grow_instances: grows.data ?? [],
-        journal_entries: journal.data ?? [],
-        tasks: tasks.data ?? [],
-        shopping_list: shopping.data ?? [],
-        schedule_defaults: schedules.data ?? [],
-        care_schedules: careScheds.data ?? [],
-        user_settings: settings.data ?? [],
-      };
+      const exportData = await fetchExportData();
+      if (!exportData) return;
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -158,22 +207,54 @@ export default function SettingsProfilePage() {
     } finally {
       setExporting(false);
     }
-  }, [user?.id]);
+  }, [user?.id, fetchExportData]);
+
+  const handleCopyExport = useCallback(async () => {
+    if (!user?.id) return;
+    setExporting(true);
+    setCopySuccess(false);
+    try {
+      const exportData = await fetchExportData();
+      if (!exportData) return;
+      const json = JSON.stringify(exportData, null, 2);
+      await navigator.clipboard.writeText(json);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } finally {
+      setExporting(false);
+    }
+  }, [user?.id, fetchExportData]);
 
   const ZONES = ["1a","1b","2a","2b","3a","3b","4a","4b","5a","5b","6a","6b","7a","7b","8a","8b","9a","9b","10a","10b","11a","11b","12a","12b","13a","13b"];
+
+  const handleNavClick = useCallback((e: React.MouseEvent, href: string) => {
+    if (isDirty()) {
+      e.preventDefault();
+      pendingNavigateRef.current = href;
+      setUnsavedModalOpen(true);
+    }
+  }, [isDirty]);
+
+  const handleLeaveAnyway = useCallback(() => {
+    const to = pendingNavigateRef.current;
+    setUnsavedModalOpen(false);
+    pendingNavigateRef.current = null;
+    if (to) router.push(to);
+  }, []);
 
   if (!user) return null;
 
   return (
     <div className="px-6 py-8 max-w-2xl mx-auto pb-24">
-      <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6">
-        &larr; Settings
+      <Link href="/settings" onClick={(e) => handleNavClick(e, "/settings")} className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-emerald-600 font-medium hover:underline mb-6" aria-label="Back to Settings">
+        &larr;
       </Link>
-      <h1 className="text-2xl font-bold text-neutral-900 mb-8">Profile</h1>
+      <h1 className="text-2xl font-bold text-neutral-900 mb-2">Profile</h1>
+      <p className="text-sm text-neutral-500 mb-6">Zone, export, tags, schedule, household, account.</p>
 
       {/* My Garden */}
-      <section className="mb-10">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">My Garden</h2>
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">My Garden</h2>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm space-y-5">
           <div>
             <label htmlFor="planting-zone" className="block text-sm font-medium text-neutral-700 mb-1">Planting Zone</label>
@@ -193,21 +274,31 @@ export default function SettingsProfilePage() {
           </div>
           <div>
             <label htmlFor="location-name" className="block text-sm font-medium text-neutral-700 mb-1">Location Name</label>
-            <input id="location-name" type="text" placeholder="e.g. Vista, CA" value={gardenSettings.location_name ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, location_name: e.target.value || null }))} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="lat" className="block text-sm font-medium text-neutral-700 mb-1">Latitude</label>
-              <input id="lat" type="number" step="any" value={gardenSettings.latitude ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, latitude: e.target.value ? Number(e.target.value) : null }))} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
-            </div>
-            <div>
-              <label htmlFor="lng" className="block text-sm font-medium text-neutral-700 mb-1">Longitude</label>
-              <input id="lng" type="number" step="any" value={gardenSettings.longitude ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, longitude: e.target.value ? Number(e.target.value) : null }))} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+                <MapPinIcon className="w-4 h-4" />
+              </span>
+              <input id="location-name" type="text" placeholder="e.g. Vista, CA" value={gardenSettings.location_name ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, location_name: e.target.value || null }))} className="w-full rounded-lg border border-neutral-300 pl-9 pr-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={handleUseMyLocation} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Use My Location</button>
-            <button type="button" onClick={saveGardenSettings} disabled={gardenSaving} className="min-h-[44px] px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+          {showAdvancedCoords && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="lat" className="block text-sm font-medium text-neutral-700 mb-1">Latitude</label>
+                <input id="lat" type="number" step="any" value={gardenSettings.latitude ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, latitude: e.target.value ? Number(e.target.value) : null }))} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+              </div>
+              <div>
+                <label htmlFor="lng" className="block text-sm font-medium text-neutral-700 mb-1">Longitude</label>
+                <input id="lng" type="number" step="any" value={gardenSettings.longitude ?? ""} onChange={(e) => setGardenSettings((p) => ({ ...p, longitude: e.target.value ? Number(e.target.value) : null }))} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+              </div>
+            </div>
+          )}
+          <button type="button" onClick={() => setShowAdvancedCoords((v) => !v)} className="text-xs text-neutral-500 hover:text-neutral-700">
+            {showAdvancedCoords ? "Hide coordinates" : "Show latitude & longitude"}
+          </button>
+          <div className="flex flex-col gap-3">
+            <button type="button" onClick={handleUseMyLocation} className="min-h-[44px] w-full px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Use My Location</button>
+            <button type="button" onClick={saveGardenSettings} disabled={gardenSaving} className="min-h-[44px] w-full px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
               {gardenSaving ? "Saving..." : gardenSaved ? "Saved!" : "Save"}
             </button>
           </div>
@@ -215,22 +306,27 @@ export default function SettingsProfilePage() {
       </section>
 
       {/* Export, Tag Manager, Schedule Defaults */}
-      <section className="mb-10">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Data & preferences</h2>
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Data & preferences</h2>
         <div className="space-y-3">
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-800 mb-1">Export My Data</h3>
-            <p className="text-sm text-neutral-500 mb-3">Download all your garden data as a JSON file.</p>
-            <button type="button" onClick={handleExportData} disabled={exporting} className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-              {exporting ? "Exporting..." : "Download JSON"}
-            </button>
+            <h3 className="text-base font-semibold text-neutral-800 mb-1">Back up my data</h3>
+            <p className="text-sm text-neutral-500 mb-3">Download or copy all your garden data for safekeeping.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={handleExportData} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                {exporting ? "..." : "Download"}
+              </button>
+              <button type="button" onClick={handleCopyExport} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
+                {copySuccess ? "Copied!" : "Copy to Clipboard"}
+              </button>
+            </div>
           </div>
-          <Link href="/vault/tags" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+          <Link href="/vault/tags" onClick={(e) => handleNavClick(e, "/vault/tags")} className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">Tag Manager</h3>
             <p className="text-sm text-neutral-500 mb-2">Manage tag colors, blocked tags, and AI tagging behavior.</p>
             <span className="text-sm text-emerald-600 font-medium">Manage tags &rarr;</span>
           </Link>
-          <Link href="/settings/brain" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+          <Link href="/settings/brain" onClick={(e) => handleNavClick(e, "/settings/brain")} className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">Schedule Defaults</h3>
             <p className="text-sm text-neutral-500 mb-2">Set sow-by-month calendars and default care info for each plant type.</p>
             <span className="text-sm text-emerald-600 font-medium">Edit defaults &rarr;</span>
@@ -239,9 +335,13 @@ export default function SettingsProfilePage() {
       </section>
 
       {/* Manage household */}
-      <section className="mb-10">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Manage household</h2>
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <section className="mb-8">
+        <button type="button" onClick={() => setHouseholdExpanded((e) => !e)} className="w-full flex items-center justify-between min-h-[44px] py-2 text-left" aria-expanded={householdExpanded}>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Manage household</h2>
+          <span className="text-neutral-400 text-lg leading-none" aria-hidden>{householdExpanded ? "−" : "+"}</span>
+        </button>
+        {householdExpanded && (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm mt-2">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">My Household</h3>
           <p className="text-sm text-neutral-500 mb-3">Share your garden with family members.</p>
           {householdLoading ? (
@@ -304,21 +404,26 @@ export default function SettingsProfilePage() {
           )}
           {householdError && <p className="text-sm text-red-600 mt-2">{householdError}</p>}
         </div>
+        )}
       </section>
 
       {/* Account */}
-      <section className="mb-10">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Account</h2>
-        <div className="space-y-3">
-          <Link href="/reset-password" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+      <section className="mb-8">
+        <button type="button" onClick={() => setAccountExpanded((e) => !e)} className="w-full flex items-center justify-between min-h-[44px] py-2 text-left" aria-expanded={accountExpanded}>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Account</h2>
+          <span className="text-neutral-400 text-lg leading-none" aria-hidden>{accountExpanded ? "−" : "+"}</span>
+        </button>
+        {accountExpanded && (
+        <div className="space-y-3 mt-2">
+          <Link href="/reset-password" onClick={(e) => handleNavClick(e, "/reset-password")} className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">Reset Password</h3>
             <p className="text-sm text-neutral-500">Receive an email link to set a new password.</p>
           </Link>
-          <div className="rounded-2xl border border-red-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-red-600 mb-1">Delete Account</h3>
-            <p className="text-sm text-neutral-500 mb-3">Permanently delete your account and all garden data. This cannot be undone.</p>
+          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm">
+            <h3 className="text-base font-semibold text-red-700 mb-1">Delete Account</h3>
+            <p className="text-sm text-neutral-600 mb-3">Permanently delete your account and all garden data. This cannot be undone.</p>
             {!deleteAccountConfirm ? (
-              <button type="button" onClick={() => setDeleteAccountConfirm(true)} className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50">
+              <button type="button" onClick={() => setDeleteAccountConfirm(true)} className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 border border-red-200 hover:bg-red-200/80">
                 Delete my account
               </button>
             ) : (
@@ -333,7 +438,33 @@ export default function SettingsProfilePage() {
             <p className="text-sm text-neutral-500">Sign out of your account on this device.</p>
           </button>
         </div>
+        )}
       </section>
+
+      <p className="text-center text-xs text-neutral-400 mt-8">
+        <button
+          type="button"
+          onClick={tapVersion}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-2 py-1 -m-1 rounded"
+          aria-label="App version"
+        >
+          Version {APP_VERSION}
+        </button>
+      </p>
+
+      {unsavedModalOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setUnsavedModalOpen(false)} />
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+            <h2 id="unsaved-title" className="text-lg font-semibold text-neutral-900 mb-2">Unsaved changes</h2>
+            <p className="text-sm text-neutral-600 mb-4">You have unsaved changes. Leave anyway?</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setUnsavedModalOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Stay</button>
+              <button type="button" onClick={handleLeaveAnyway} className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-medium">Leave</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
