@@ -839,22 +839,6 @@ function VaultPageInner() {
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
                 <button
                   type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-                    router.push(`/vault?sow=${sow}`);
-                  }}
-                  className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium shrink-0 ${
-                    sowParam && /^\d{4}-\d{2}$/.test(sowParam) && sowParam === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                      : "border-black/10 bg-white text-black/80 hover:bg-black/5"
-                  }`}
-                  aria-label="Filter to plants you can sow this month"
-                >
-                  Plant Now
-                </button>
-                <button
-                  type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
                   className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2 shrink-0"
                   aria-label="Refine by status, tags, plant type"
@@ -1093,9 +1077,26 @@ function VaultPageInner() {
                         <button
                           type="button"
                           onClick={() => { router.replace("/vault", { scroll: false }); setRefineByOpen(false); setRefineBySection(null); }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm ${!sowParam ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!sowParam ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                         >
                           All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const now = new Date();
+                            const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                            router.push(`/vault?sow=${sow}`);
+                            setRefineByOpen(false);
+                            setRefineBySection(null);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${
+                            sowParam && /^\d{4}-\d{2}$/.test(sowParam) && sowParam === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+                              ? "bg-emerald/10 text-emerald-800 font-medium"
+                              : "text-black/80 hover:bg-black/5"
+                          }`}
+                        >
+                          Plant Now
                         </button>
                         {sowingMonthChips.map(({ month, monthName, count }) => {
                           const year = new Date().getFullYear();

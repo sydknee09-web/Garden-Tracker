@@ -9,6 +9,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
 
+/** Placeholder hero URL (generic icon). Treat as "no hero" so we try to find a real photo. */
+function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
+  if (!url || !String(url).trim()) return false;
+  const u = String(url).trim().toLowerCase();
+  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+}
+
 function qualityRank(q: string): number {
   const rank: Record<string, number> = { full: 3, partial: 2, ai_only: 1, failed: 0 };
   return rank[q] ?? -1;
@@ -78,23 +85,40 @@ export async function POST(req: Request) {
       });
     }
 
-    const needHero = profiles.filter(
-      (p: { hero_image_url?: string | null; hero_image_path?: string | null }) =>
-        !(p.hero_image_url ?? "").trim() && !(p.hero_image_path ?? "").trim()
+    // Missing hero = no uploaded hero_image_path and (no URL or only placeholder icon URL)
+    const missingHero = (p: { hero_image_url?: string | null; hero_image_path?: string | null }) => {
+      const path = (p.hero_image_path ?? "").trim();
+      if (path) return false;
+      const url = (p.hero_image_url ?? "").trim();
+      if (!url) return true;
+      return isPlaceholderHeroUrl(url);
+    };
+
+    // Metadata-sparse = missing most of sun, spacing, germination, harvest (so we try cache for "How to Grow")
+    const metadataSparse = (p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }) => {
+      const has = (v: string | number | null | undefined) => (v != null && String(v).trim() !== "" && (typeof v !== "number" || Number.isFinite(v)));
+      const count = [p.sun, p.plant_spacing, p.days_to_germination, p.harvest_days].filter(has).length;
+      return count < 2; // include if 0 or 1 of these set
+    };
+
+    // Include profile if missing hero OR has empty/sparse metadata (so cache lookup can fill About)
+    const needFilling = profiles.filter(
+      (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }) =>
+        missingHero(p) || metadataSparse(p)
     );
 
-    if (needHero.length === 0) {
+    if (needFilling.length === 0) {
       return NextResponse.json({
         ok: true,
         fromCache: 0,
         fromAi: 0,
         failed: 0,
         skipped: profiles.length,
-        message: "No profiles missing hero.",
+        message: "No profiles missing hero or metadata.",
       });
     }
 
-    const profileIds = needHero.map((p: { id: string }) => p.id);
+    const profileIds = needFilling.map((p: { id: string }) => p.id);
     const { data: packets } = await supabase
       .from("seed_packets")
       .select("plant_profile_id, vendor_name")
@@ -113,7 +137,7 @@ export async function POST(req: Request) {
     let fromAi = 0;
     let failed = 0;
 
-    for (const p of needHero as Array<{
+    for (const p of needFilling as Array<{
       id: string;
       name: string;
       variety_name: string | null;
@@ -247,7 +271,7 @@ export async function POST(req: Request) {
       fromCache,
       fromAi,
       failed,
-      skipped: profiles.length - needHero.length,
+      skipped: profiles.length - needFilling.length,
       message: `From cache: ${fromCache}. From AI: ${fromAi}. No match: ${failed}.`,
     });
   } catch (e) {

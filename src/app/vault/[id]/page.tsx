@@ -107,6 +107,16 @@ const STATUS_COLORS: Record<string, string> = {
   growing: "bg-green-100 text-green-800",
 };
 
+/** Allowed profile status values for Edit modal; users must pick one, not free-text. */
+const PROFILE_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "in_stock", label: "In stock" },
+  { value: "out_of_stock", label: "Out of stock" },
+  { value: "vault", label: "In storage" },
+  { value: "active", label: "Active (in garden)" },
+  { value: "low_inventory", label: "Low inventory" },
+  { value: "archived", label: "Archived" },
+];
+
 // ---------------------------------------------------------------------------
 // Icons
 // ---------------------------------------------------------------------------
@@ -623,11 +633,29 @@ export default function VaultSeedPage() {
                 { id: "edit-maturity", label: "Days to Maturity", key: "maturity" as const, placeholder: "e.g. 75" },
                 { id: "edit-sowing-method", label: "Sowing Method", key: "sowingMethod" as const, placeholder: "e.g. Direct Sow or Start Indoors" },
                 { id: "edit-planting-window", label: "Planting Window", key: "plantingWindow" as const, placeholder: "e.g. Spring: Feb-May" },
-                { id: "edit-status", label: "Status", key: "status" as const, placeholder: "e.g. in_stock, out_of_stock" },
+                { id: "edit-status", label: "Status", key: "status" as const },
               ].map((f) => (
                 <div key={f.id}>
                   <label htmlFor={f.id} className="block text-sm font-medium text-neutral-700 mb-1">{f.label}</label>
-                  <input id={f.id} type="text" value={editForm[f.key]} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+                  {f.key === "status" ? (
+                    <select
+                      id={f.id}
+                      value={editForm.status.trim() || ""}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                      aria-label="Status"
+                    >
+                      {!editForm.status.trim() && <option value="">—</option>}
+                      {PROFILE_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                      {editForm.status.trim() && !PROFILE_STATUS_OPTIONS.some((o) => o.value === editForm.status.trim()) && (
+                        <option value={editForm.status.trim()}>{editForm.status}</option>
+                      )}
+                    </select>
+                  ) : (
+                    <input id={f.id} type="text" value={editForm[f.key]} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={(f as { placeholder?: string }).placeholder} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+                  )}
                   {f.key === "plantingWindow" && !editForm.plantingWindow.trim() && (
                     <p className="text-xs text-amber-600 mt-1">
                       Set planting window for better recommendations.
