@@ -166,7 +166,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
         purchaseDate: todayISO(),
       }));
 
-      setReviewImportData({ items: reviewItems });
+      setReviewImportData({ items: reviewItems, source: "purchase_order" });
       onClose();
       router.push("/vault/review-import");
     } catch (e) {

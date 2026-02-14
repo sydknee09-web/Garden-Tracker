@@ -199,9 +199,9 @@ export default function HeroImportPage() {
           ← Back to Vault
         </Link>
 
-        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Load Plant Profile Picture</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Find Hero Photos</h1>
         <p className="text-neutral-600 text-sm mb-6">
-          Finding a plant photo for each entry (not the packet). You can stop early and review what we have so far.
+          Finding a plant photo for each entry. You can stop early and review what we have so far.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-600 mb-2">
@@ -250,9 +250,10 @@ export default function HeroImportPage() {
 
         <ul className="space-y-4 list-none p-0 m-0">
           {items.map((item) => {
-            const previewSrc = item.imageBase64?.startsWith("data:")
-              ? item.imageBase64
-              : `data:image/jpeg;base64,${item.imageBase64}`;
+            const hasImage = (item.imageBase64 ?? "").trim().length > 0;
+            const previewSrc = hasImage
+              ? (item.imageBase64?.startsWith("data:") ? item.imageBase64 : `data:image/jpeg;base64,${item.imageBase64}`)
+              : null;
             const isError = item.status === "error";
             const isSuccess = item.status === "success";
             const isProcessing = item.status === "processing";
@@ -263,11 +264,15 @@ export default function HeroImportPage() {
               >
                 <div className="flex gap-4 p-4">
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-neutral-100 flex-shrink-0 flex items-center justify-center">
-                    <img
-                      src={previewSrc}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+                    {previewSrc ? (
+                      <img
+                        src={previewSrc}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-2xl text-neutral-400" aria-hidden>🌱</span>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-neutral-800 truncate mb-1">
