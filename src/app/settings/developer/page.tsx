@@ -276,24 +276,17 @@ export default function SettingsDeveloperPage() {
     if (!user?.id || fillInBlanksRunning) return;
     setFillInBlanksRunning(true);
     setFillInBlanksResult(null);
+    setFillInBlanksProgress(null);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
       const res = await fetch("/api/settings/fill-in-blanks", {
         method: "POST",
         headers,
-        body: JSON.stringify({ useGemini }),
+        body: JSON.stringify({ useGemini, stream: true }),
       });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        fromCache?: number;
-        fromAi?: number;
-        failed?: number;
-        skipped?: number;
-        message?: string;
-        error?: string;
-      };
       if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
         setFillInBlanksResult({
           fromCache: 0,
           fromAi: 0,
@@ -303,15 +296,66 @@ export default function SettingsDeveloperPage() {
         });
         return;
       }
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const obj = JSON.parse(trimmed) as { type?: string; current?: number; total?: number; fromCache?: number; fromAi?: number; failed?: number; currentName?: string; skipped?: number; message?: string };
+              if (obj.type === "progress") {
+                setFillInBlanksProgress({
+                  current: obj.current ?? 0,
+                  total: obj.total ?? 0,
+                  fromCache: obj.fromCache ?? 0,
+                  fromAi: obj.fromAi ?? 0,
+                  failed: obj.failed ?? 0,
+                  currentName: obj.currentName,
+                });
+              } else if (obj.type === "done") {
+                setFillInBlanksResult({
+                  fromCache: obj.fromCache ?? 0,
+                  fromAi: obj.fromAi ?? 0,
+                  failed: obj.failed ?? 0,
+                  skipped: obj.skipped ?? 0,
+                  message: obj.message,
+                });
+              }
+            } catch {
+              // ignore malformed lines
+            }
+          }
+        }
+      } else {
+        // no stream (e.g. API returned JSON)
+        const data = (await res.json()) as { fromCache?: number; fromAi?: number; failed?: number; skipped?: number; message?: string };
+        setFillInBlanksResult({
+          fromCache: data.fromCache ?? 0,
+          fromAi: data.fromAi ?? 0,
+          failed: data.failed ?? 0,
+          skipped: data.skipped ?? 0,
+          message: data.message,
+        });
+      }
+    } catch (e) {
       setFillInBlanksResult({
-        fromCache: data.fromCache ?? 0,
-        fromAi: data.fromAi ?? 0,
-        failed: data.failed ?? 0,
-        skipped: data.skipped ?? 0,
-        message: data.message,
+        fromCache: 0,
+        fromAi: 0,
+        failed: 0,
+        skipped: 0,
+        message: e instanceof Error ? e.message : "Request failed",
       });
     } finally {
       setFillInBlanksRunning(false);
+      setFillInBlanksProgress(null);
     }
   }, [user?.id, session?.access_token, fillInBlanksRunning]);
 
@@ -491,6 +535,23 @@ export default function SettingsDeveloperPage() {
             <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
               <p className="text-sm text-neutral-700">From cache: {fillInBlanksResult.fromCache}. From AI: {fillInBlanksResult.fromAi}. No match: {fillInBlanksResult.failed}. Skipped (already had hero): {fillInBlanksResult.skipped}.</p>
               {fillInBlanksResult.message && <p className="text-xs text-neutral-500 mt-1">{fillInBlanksResult.message}</p>}
+            </div>
+          )}
+          {fillInBlanksRunning && fillInBlanksProgress && fillInBlanksProgress.total > 0 && (
+            <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
+              <div className="flex justify-between text-sm text-neutral-700 mb-1">
+                <span>Processing {fillInBlanksProgress.current} of {fillInBlanksProgress.total}</span>
+                <span>Cache: {fillInBlanksProgress.fromCache} · AI: {fillInBlanksProgress.fromAi} · No match: {fillInBlanksProgress.failed}</span>
+              </div>
+              {fillInBlanksProgress.currentName && (
+                <p className="text-xs text-neutral-600 truncate mb-2" title={fillInBlanksProgress.currentName}>{fillInBlanksProgress.currentName}</p>
+              )}
+              <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${Math.round((fillInBlanksProgress.current / fillInBlanksProgress.total) * 100)}%` }}
+                />
+              </div>
             </div>
           )}
           <div className="flex flex-wrap gap-2">
