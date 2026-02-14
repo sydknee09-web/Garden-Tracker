@@ -249,8 +249,8 @@ export default function HomePage() {
       )}
 
       {/* ---- Weather (compact, mesh gradient) ---- */}
-      <section className="rounded-xl bg-gradient-to-br from-sky-50 via-blue-50/50 to-amber-50/30 p-4 shadow-card-soft border border-black/5 mb-6">
-        <h2 className="text-base font-semibold text-black/90 mb-2 text-center">Weather &amp; Forecast, {locationLabel}</h2>
+      <section className="rounded-xl bg-gradient-to-br from-sky-50 via-blue-50/50 to-amber-50/30 p-5 shadow-card-soft border border-black/5 mb-6">
+        <h2 className="text-base font-bold text-black/90 mb-3 text-center pb-2 border-b border-black/5">Weather &amp; Forecast, {locationLabel}</h2>
         {weather ? (
           <>
             <div className="flex items-center justify-center gap-3 mb-2">
@@ -283,8 +283,8 @@ export default function HomePage() {
             </div>
 
             {/* ---- Sow Now (linked to actual seeds) ---- */}
-            <div className="mt-3 pt-3 border-t border-black/5 space-y-3">
-              <h3 className="text-sm font-semibold text-black text-center">Plant This {monthName}</h3>
+            <div className="mt-3 pt-3 border-t border-black/10 space-y-3">
+              <h3 className="text-sm font-bold text-black text-center pb-1 border-b border-black/5">Plant This {monthName}</h3>
               {startThisMonthProfiles.length === 0 ? (
                 <div>
                   <div className="flex flex-col items-center gap-1.5 mb-2">
@@ -306,58 +306,63 @@ export default function HomePage() {
                   </ul>
                 </div>
               ) : (
-                <ul className="flex flex-wrap gap-2">
-                  {startThisMonthProfiles.map((p) => (
-                    <li key={p.id}>
-                      <Link
-                        href={`/vault/${p.id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-sm text-emerald-700 font-medium hover:bg-emerald-100 transition-colors"
-                      >
-                        {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Plant Next Month */}
-              <div className="pt-3 border-t border-black/5 mt-3">
-                <h3 className="text-sm font-semibold text-black mb-2 text-center">Plant Next Month ({nextMonthName})</h3>
-                {startNextMonthProfiles.length === 0 ? (
-                  <p className="text-xs text-black/50 text-center">No seeds match {nextMonthName}&apos;s planting window.</p>
-                ) : (
-                  <ul className="flex flex-wrap gap-2">
-                    {startNextMonthProfiles.map((p) => (
-                      <li key={p.id}>
+                <div className="overflow-x-auto -mx-1 px-1 pb-1">
+                  <ul className="flex gap-2 min-w-max sm:flex-wrap sm:min-w-0 sm:justify-center">
+                    {startThisMonthProfiles.map((p) => (
+                      <li key={p.id} className="shrink-0">
                         <Link
                           href={`/vault/${p.id}`}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 text-sm text-sky-700 font-medium hover:bg-sky-100 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-sm text-emerald-800 hover:bg-emerald-100 transition-colors border border-emerald-100/80"
                         >
-                          {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
+                          <span className="font-semibold">{p.name}</span>
+                          {p.variety_name?.trim() && <span className="text-emerald-600/80 text-xs">({p.variety_name})</span>}
                         </Link>
                       </li>
                     ))}
                   </ul>
-                )}
-                {startNextMonthProfiles.length > 0 && (
-                  <p className="text-xs text-center mt-2">
-                    <Link href={`/vault?sow=${nextMonthSowParam}`} className="text-sky-600 font-medium hover:underline">
-                      View all for {nextMonthName} &rarr;
-                    </Link>
-                  </p>
+                </div>
+              )}
+
+              {/* Plant Next Month */}
+              <div className="pt-3 border-t border-black/10 mt-3">
+                <h3 className="text-sm font-bold text-black text-center pb-1 mb-2 border-b border-black/5">Plant Next Month ({nextMonthName})</h3>
+                {startNextMonthProfiles.length === 0 ? (
+                  <p className="text-xs text-black/50 text-center">No seeds match {nextMonthName}&apos;s planting window.</p>
+                ) : (
+                  <>
+                    <ul className="flex flex-wrap gap-2">
+                      {startNextMonthProfiles.slice(0, 6).map((p) => (
+                        <li key={p.id}>
+                          <Link
+                            href={`/vault/${p.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-50 text-sm text-sky-800 hover:bg-sky-100 transition-colors border border-sky-100/80"
+                          >
+                            <span className="font-semibold">{p.name}</span>
+                            {p.variety_name?.trim() && <span className="text-sky-600/80 text-xs">({p.variety_name})</span>}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-center mt-2">
+                      <Link href={`/vault?sow=${nextMonthSowParam}`} className="text-sky-600 font-medium hover:underline">
+                        View all for {nextMonthName} &rarr;
+                      </Link>
+                    </p>
+                  </>
                 )}
               </div>
 
               {/* Harvest this month */}
-              <div className="pt-2 border-t border-black/5 mt-2">
-                <h3 className="text-sm font-semibold text-black mb-1.5 text-center">Harvest this month</h3>
+              <div className="pt-2 border-t border-black/10 mt-2">
+                <h3 className="text-sm font-bold text-black mb-1.5 text-center pb-1 border-b border-black/5">Harvest this month</h3>
                 {harvestTasksThisMonth.length === 0 ? (
-                  <div className="flex flex-col items-center gap-1.5 py-1">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/20" aria-hidden>
+                  <div className="flex flex-col items-center gap-2 py-3">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
                       <path d="M5 8h14l-1.5 10H6.5L5 8z" />
                       <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                      <path d="M3 10h18" strokeDasharray="2 2" />
                     </svg>
-                    <p className="text-xs text-black/50">No harvest tasks due this month.</p>
+                    <p className="text-xs text-black/50 text-center">No harvest tasks due this month.</p>
                   </div>
                 ) : (
                   <ul className="space-y-1">
@@ -385,7 +390,7 @@ export default function HomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* ---- Shopping List ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-          <h2 className="text-base font-semibold text-black mb-3">Shopping list</h2>
+          <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Shopping list</h2>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : shoppingList.length === 0 ? (
@@ -440,7 +445,7 @@ export default function HomePage() {
 
         {/* ---- Tasks ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-          <h2 className="text-base font-semibold text-black mb-1">At a glance</h2>
+          <h2 className="text-base font-bold text-black mb-1 pb-2 border-b border-black/5">At a glance</h2>
           <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>

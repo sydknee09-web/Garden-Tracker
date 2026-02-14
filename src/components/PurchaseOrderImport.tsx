@@ -11,7 +11,7 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function resizeImageIfNeeded(file: File, maxLongEdge = 1200, quality = 0.85): Promise<{ blob: Blob; fileName: string }> {
+async function resizeImageIfNeeded(file: File, maxLongEdge = 1000, quality = 0.8): Promise<{ blob: Blob; fileName: string }> {
   return compressImage(file, maxLongEdge, quality);
 }
 
@@ -23,7 +23,7 @@ interface PurchaseOrderImportProps {
 export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps) {
   const router = useRouter();
   const { session: authSession } = useAuth();
-  const [step, setStep] = useState<"capture" | "extracting">("capture");
+  const [isExtracting, setIsExtracting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       setFile(null);
       setPreviewUrl(null);
-      setStep("capture");
+      setIsExtracting(false);
       setError(null);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -107,7 +107,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
   async function handleExtract() {
     if (!file) return;
     setError(null);
-    setStep("extracting");
+    setIsExtracting(true);
     try {
       const { blob } = await resizeImageIfNeeded(file);
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -129,22 +129,29 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
         body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
       });
 
-      if (!res.ok) {
-        setError("Failed to process order.");
-        setStep("capture");
+      let data: { items: OrderLineItem[]; vendor: string; error?: string };
+      try {
+        data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
+      } catch {
+        setError(res.ok ? "Invalid response from server." : `Failed to process order (${res.status}).`);
+        setIsExtracting(false);
         return;
       }
 
-      const data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
+      if (!res.ok) {
+        setError(data.error || `Failed to process order (${res.status}).`);
+        setIsExtracting(false);
+        return;
+      }
       if (data.error) {
         setError(data.error);
-        setStep("capture");
+        setIsExtracting(false);
         return;
       }
 
       if (!data.items?.length) {
         setError("No seed items found in this image. Try a clearer screenshot.");
-        setStep("capture");
+        setIsExtracting(false);
         return;
       }
 
@@ -164,7 +171,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
       router.push("/vault/review-import");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Order scan failed");
-      setStep("capture");
+      setIsExtracting(false);
     }
   }
 
@@ -172,7 +179,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
     if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
-    setStep("capture");
+    setIsExtracting(false);
     setError(null);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -192,7 +199,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black pt-0.5">
-            {step === "capture" ? "Purchase Order Import" : "Extracting…"}
+            Purchase Order Import
           </h2>
           <button
             type="button"
@@ -206,37 +213,25 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
           </button>
         </div>
 
-        {step === "extracting" && (
-          <div className="py-6">
+        <>
             <p className="text-sm text-black/70 mb-4">
-              Extracting seed and plant items from your order. This usually takes a few seconds.
-            </p>
-            <div className="flex justify-center">
-              <div className="h-8 w-8 rounded-full border-2 border-emerald border-t-transparent animate-spin" aria-hidden />
-            </div>
-          </div>
-        )}
-
-        {step === "capture" && (
-          <>
-            <p className="text-sm text-black/70 mb-3">
               <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We’ll extract all seed/plant line items from one image.
             </p>
-            <div className="relative rounded-xl overflow-hidden bg-black/10 aspect-[4/3] mb-3">
+            <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[320px] mb-4 border-2 border-dashed border-black/15 flex items-center justify-center">
               {previewUrl ? (
-                <img src={previewUrl} alt="" className="w-full h-full object-contain" />
+                <img src={previewUrl} alt="Order preview" className="max-w-full max-h-[280px] object-contain" />
               ) : (
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover"
+                  className="w-full h-full min-h-[200px] object-cover"
                 />
               )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-3">
               {!previewUrl && (
                 <button
                   type="button"
@@ -249,7 +244,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
+                className="flex-1 py-3 rounded-xl border border-black/15 bg-transparent text-black/70 font-medium min-h-[44px] hover:bg-black/5 transition-colors"
               >
                 {previewUrl ? "Replace image" : "Upload from Files"}
               </button>
@@ -265,14 +260,35 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
               <button
                 type="button"
                 onClick={handleExtract}
-                className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                disabled={isExtracting}
+                className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Extract items
+                {isExtracting ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden />
+                    Extracting…
+                  </>
+                ) : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                      <line x1="7" y1="12" x2="17" y2="12" />
+                    </svg>
+                    Extract items
+                  </>
+                )}
               </button>
             )}
-            {error && <p className="text-sm text-citrus mt-2">{error}</p>}
-          </>
-        )}
+            {error && (
+              <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
+                <p className="text-sm font-medium text-red-800">{error}</p>
+                <p className="text-xs text-red-600/90 mt-1">Try a clearer screenshot or replace the image.</p>
+              </div>
+            )}
+        </>
       </div>
     </>
   );
