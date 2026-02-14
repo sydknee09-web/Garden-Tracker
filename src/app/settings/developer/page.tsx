@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { identityKeyFromVariety } from "@/lib/identityKey";
 
 type ArchivedItem = {
   id: string;
@@ -27,7 +28,7 @@ type ArchivedPlanting = {
 };
 
 export default function SettingsDeveloperPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [archived, setArchived] = useState<ArchivedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [unarchivingId, setUnarchivingId] = useState<string | null>(null);
@@ -47,6 +48,14 @@ export default function SettingsDeveloperPage() {
   const [reExtractConfirmOpen, setReExtractConfirmOpen] = useState(false);
   const [repairConfirmOpen, setRepairConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [fillInBlanksRunning, setFillInBlanksRunning] = useState(false);
+  const [fillInBlanksResult, setFillInBlanksResult] = useState<{
+    fromCache: number;
+    fromAi: number;
+    failed: number;
+    skipped: number;
+    message?: string;
+  } | null>(null);
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -229,10 +238,18 @@ export default function SettingsDeveloperPage() {
       const p = withoutHero[i];
       setRepairHeroProgress({ current: i + 1, total: withoutHero.length, label: `Finding photo for ${p.name}${p.variety_name?.trim() ? ` (${p.variety_name})` : ""}...` });
       try {
+        const identityKey = identityKeyFromVariety(p.name, p.variety_name ?? "") || undefined;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
         const res = await fetch("/api/seed/find-hero-photo", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: p.name, variety: p.variety_name ?? "", vendor: vendorByProfile[p.id] ?? "" }),
+          headers,
+          body: JSON.stringify({
+            name: p.name,
+            variety: p.variety_name ?? "",
+            vendor: vendorByProfile[p.id] ?? "",
+            identity_key: identityKey,
+          }),
         });
         const data = (await res.json()) as { hero_image_url?: string; error?: string };
         const url = data.hero_image_url?.trim();
@@ -245,7 +262,50 @@ export default function SettingsDeveloperPage() {
     setRepairHeroProgress(null);
     setRepairHeroResult({ updated, failed });
     setRepairHeroRunning(false);
-  }, [user?.id, repairHeroRunning]);
+  }, [user?.id, session?.access_token, repairHeroRunning]);
+
+  const runFillInBlanks = useCallback(async (useGemini: boolean) => {
+    if (!user?.id || fillInBlanksRunning) return;
+    setFillInBlanksRunning(true);
+    setFillInBlanksResult(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      const res = await fetch("/api/settings/fill-in-blanks", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ useGemini }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        fromCache?: number;
+        fromAi?: number;
+        failed?: number;
+        skipped?: number;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        setFillInBlanksResult({
+          fromCache: 0,
+          fromAi: 0,
+          failed: 0,
+          skipped: 0,
+          message: data.error ?? "Request failed",
+        });
+        return;
+      }
+      setFillInBlanksResult({
+        fromCache: data.fromCache ?? 0,
+        fromAi: data.fromAi ?? 0,
+        failed: data.failed ?? 0,
+        skipped: data.skipped ?? 0,
+        message: data.message,
+      });
+    } finally {
+      setFillInBlanksRunning(false);
+    }
+  }, [user?.id, session?.access_token, fillInBlanksRunning]);
 
   const q = searchQuery.trim().toLowerCase();
   const matchesSection = (s: { title: string; desc: string }) =>
@@ -408,6 +468,42 @@ export default function SettingsDeveloperPage() {
           >
             {repairHeroRunning ? "Repairing..." : "Repair Missing Photos"}
           </button>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Fill in blanks", desc: "Cache and hero" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fill in blanks</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            For profiles missing hero or metadata: look up <strong>global cache first</strong> (free, no Tavily). Optionally use AI (Gemini) for heroes that have no cache match. Does not add to cache.
+          </p>
+          {fillInBlanksResult && !fillInBlanksRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">From cache: {fillInBlanksResult.fromCache}. From AI: {fillInBlanksResult.fromAi}. No match: {fillInBlanksResult.failed}. Skipped (already had hero): {fillInBlanksResult.skipped}.</p>
+              {fillInBlanksResult.message && <p className="text-xs text-neutral-500 mt-1">{fillInBlanksResult.message}</p>}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => runFillInBlanks(false)}
+              disabled={fillInBlanksRunning}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 bg-white text-neutral-800"
+            >
+              {fillInBlanksRunning ? "Running…" : "Cache only"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runFillInBlanks(true)}
+              disabled={fillInBlanksRunning}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+              style={{ backgroundColor: "#059669", color: "#ffffff" }}
+            >
+              {fillInBlanksRunning ? "Running…" : "Cache + AI hero"}
+            </button>
+          </div>
         </div>
       </section>
       )}
