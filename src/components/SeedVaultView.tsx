@@ -90,13 +90,21 @@ export type VaultCardItem = {
 
 export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
 
-/** Thumbnail URL: hero (plant) image first, then packet image. */
+/** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
+function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
+  if (!url || !String(url).trim()) return false;
+  const u = String(url).trim().toLowerCase();
+  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+}
+
+/** Thumbnail URL: real hero first, then packet image. Skip placeholder icon so we show packet or empty state. */
 function getThumbnailUrl(seed: VaultCardItem): string | null {
   if (seed.hero_image_path?.trim()) {
     return supabase.storage.from("journal-photos").getPublicUrl(seed.hero_image_path.trim()).data.publicUrl;
   }
-  if (seed.hero_image_url?.trim()) {
-    return seed.hero_image_url.trim();
+  const heroUrl = seed.hero_image_url?.trim();
+  if (heroUrl && !isPlaceholderHeroUrl(heroUrl)) {
+    return heroUrl;
   }
   if (seed.primary_image_path?.trim()) {
     return supabase.storage.from("seed-packets").getPublicUrl(seed.primary_image_path.trim()).data.publicUrl;

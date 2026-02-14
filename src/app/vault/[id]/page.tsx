@@ -134,7 +134,7 @@ export default function VaultSeedPage() {
   const id = params.id as string;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -433,17 +433,32 @@ export default function VaultSeedPage() {
 
   const findAndSetStockPhoto = useCallback(async () => {
     if (!profile || findingStockPhoto) return;
-    setFindingStockPhoto(true); setFindHeroError(null);
+    setFindingStockPhoto(true);
+    setFindHeroError(null);
+    const name = (profile.name ?? "").trim() || "Imported seed";
+    const variety = (profile.variety_name ?? "").trim();
     const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
+    const identityKey = identityKeyFromVariety(name, variety);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     try {
-      const res = await fetch("/api/seed/find-hero-photo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name ?? "", variety: profile.variety_name ?? "", vendor }) });
+      const res = await fetch("/api/seed/find-hero-photo", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined }),
+      });
       const data = (await res.json()) as { hero_image_url?: string; error?: string };
       const url = data.hero_image_url?.trim();
-      if (url) { await setHeroFromUrl(url); router.refresh(); }
+      if (url) {
+        await setHeroFromUrl(url);
+        router.refresh();
+      }
       if (data.error) setFindHeroError(data.error);
       await loadProfile();
-    } finally { setFindingStockPhoto(false); }
-  }, [profile, packets, findingStockPhoto, setHeroFromUrl, loadProfile, router]);
+    } finally {
+      setFindingStockPhoto(false);
+    }
+  }, [profile, packets, findingStockPhoto, session?.access_token, setHeroFromUrl, loadProfile, router]);
 
   const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
 

@@ -66,6 +66,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const useGemini = Boolean(body?.useGemini);
+    const stream = body?.stream === true;
 
     // Profiles that need filling: missing hero (and optionally sparse metadata)
     const { data: profiles, error: profilesError } = await supabase
@@ -133,11 +134,16 @@ export async function POST(req: Request) {
       }
     });
 
-    let fromCache = 0;
-    let fromAi = 0;
-    let failed = 0;
+    const encoder = stream ? new TextEncoder() : null;
 
-    for (const p of needFilling as Array<{
+    const runLoop = async (
+      enqueue: (obj: Record<string, unknown>) => void
+    ): Promise<{ fromCache: number; fromAi: number; failed: number }> => {
+      let fromCache = 0;
+      let fromAi = 0;
+      let failed = 0;
+      const total = needFilling.length;
+      const arr = needFilling as Array<{
       id: string;
       name: string;
       variety_name: string | null;
@@ -148,7 +154,9 @@ export async function POST(req: Request) {
       days_to_germination?: string | null;
       harvest_days?: number | null;
       scientific_name?: string | null;
-    }>) {
+    }>;
+      for (let idx = 0; idx < arr.length; idx++) {
+      const p = arr[idx];
       const name = (p.name ?? "").trim() || "Imported seed";
       const variety = (p.variety_name ?? "").trim();
       const identityKey = identityKeyFromVariety(name, variety);
@@ -264,15 +272,53 @@ export async function POST(req: Request) {
           }
         }
       }
+      const currentName = [name, variety].filter(Boolean).join(" — ") || name;
+      enqueue({ type: "progress", current: idx + 1, total, fromCache, fromAi, failed, currentName });
+    }
+      return { fromCache, fromAi, failed };
+    };
+
+    if (stream && encoder) {
+      const skipped = profiles.length - needFilling.length;
+      return new Response(
+        new ReadableStream({
+          async start(controller) {
+            try {
+              const result = await runLoop((obj) => {
+                controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+              });
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({
+                    type: "done",
+                    ok: true,
+                    fromCache: result.fromCache,
+                    fromAi: result.fromAi,
+                    failed: result.failed,
+                    skipped,
+                    message: `From cache: ${result.fromCache}. From AI: ${result.fromAi}. No match: ${result.failed}.`,
+                  }) + "\n"
+                )
+              );
+            } catch (e) {
+              controller.error(e);
+            } finally {
+              controller.close();
+            }
+          },
+        }),
+        { headers: { "Content-Type": "application/x-ndjson" } }
+      );
     }
 
+    const result = await runLoop(() => {});
     return NextResponse.json({
       ok: true,
-      fromCache,
-      fromAi,
-      failed,
+      fromCache: result.fromCache,
+      fromAi: result.fromAi,
+      failed: result.failed,
       skipped: profiles.length - needFilling.length,
-      message: `From cache: ${fromCache}. From AI: ${fromAi}. No match: ${failed}.`,
+      message: `From cache: ${result.fromCache}. From AI: ${result.fromAi}. No match: ${result.failed}.`,
     });
   } catch (e) {
     console.error("[fill-in-blanks]", e);

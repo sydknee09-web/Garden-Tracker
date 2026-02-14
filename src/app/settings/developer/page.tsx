@@ -49,6 +49,14 @@ export default function SettingsDeveloperPage() {
   const [repairConfirmOpen, setRepairConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fillInBlanksRunning, setFillInBlanksRunning] = useState(false);
+  const [fillInBlanksProgress, setFillInBlanksProgress] = useState<{
+    current: number;
+    total: number;
+    fromCache: number;
+    fromAi: number;
+    failed: number;
+    currentName?: string;
+  } | null>(null);
   const [fillInBlanksResult, setFillInBlanksResult] = useState<{
     fromCache: number;
     fromAi: number;
