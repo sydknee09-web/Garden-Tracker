@@ -97,13 +97,17 @@ export interface JournalEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Shopping List
+// Shopping List (unified: out-of-stock + wishlist placeholders)
 // ---------------------------------------------------------------------------
 export interface ShoppingListItem {
   id: string;
   user_id: string;
-  plant_profile_id: string;
+  /** Set when item is from vault (out of stock); null for wishlist placeholders. */
+  plant_profile_id: string | null;
   plant_variety_id?: string; // legacy
+  /** Wishlist: display name when plant_profile_id is null. */
+  placeholder_name?: string | null;
+  placeholder_variety?: string | null;
   is_purchased?: boolean;
   created_at: string;
 }

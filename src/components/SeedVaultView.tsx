@@ -894,12 +894,7 @@ export function SeedVaultView({
           </svg>
         </div>
         <p className="text-slate-600 font-medium mb-2">Your vault is empty</p>
-        <p className="text-sm text-slate-500 mb-6">Add your first seed packet to get started.</p>
-        {typeof window !== "undefined" && (
-          <a href="/vault/import" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm">
-            Scan or import a packet
-          </a>
-        )}
+        <p className="text-sm text-slate-500">Tap the + button below to add a packet or scan one with your camera.</p>
       </div>
     );
   }

@@ -34,13 +34,13 @@ export default function HeroImportPage() {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
   }, []);
 
+  // Load batch from storage; do not clear here so we don't lose the batch if the page fails to mount
   useEffect(() => {
     const pending = getPendingPhotoHeroImport();
     if (!pending?.items?.length) {
       router.replace("/vault");
       return;
     }
-    clearPendingPhotoHeroImport();
     setItems(
       pending.items.map((p) => ({
         ...p,
@@ -48,6 +48,13 @@ export default function HeroImportPage() {
       }))
     );
   }, [router]);
+
+  // Clear storage when leaving the page so we don't show stale data on next visit
+  useEffect(() => {
+    return () => {
+      clearPendingPhotoHeroImport();
+    };
+  }, []);
 
   useEffect(() => {
     if (items.length === 0 || processingRef.current || stopRequestedRef.current) return;

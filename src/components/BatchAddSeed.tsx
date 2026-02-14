@@ -9,7 +9,7 @@ import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModif
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
-import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
+import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, getPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 
@@ -23,10 +23,10 @@ async function resizeImageIfNeeded(file: File, maxLongEdge = 1200, quality = 0.8
   return compressImage(file, maxLongEdge, quality);
 }
 
-/** Queue item before/during Gemini processing. */
+/** Queue item before/during Gemini processing. File may be null briefly for camera placeholder before blob is ready. */
 interface PendingPhoto {
   id: string;
-  file: File;
+  file: File | null;
   previewUrl: string;
   status?: "pending" | "loading";
   name?: string;
@@ -67,7 +67,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
-  const [step, setStep] = useState<"capture" | "review">("capture");
+  const [step, setStep] = useState<"capture" | "extracting" | "review">("capture");
   const [processingAll, setProcessingAll] = useState(false);
   const [geminiProcessing, setGeminiProcessing] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{
@@ -89,10 +89,16 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
+  const [shutterActive, setShutterActive] = useState(false);
+  const [burstMode, setBurstMode] = useState(false);
+  const [burstCount, setBurstCount] = useState(0);
+  const queueScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) {
-      queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      queue.forEach((i) => {
+        if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl);
+      });
       setQueue([]);
       setStep("capture");
       setError(null);
@@ -100,10 +106,22 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       setProcessingAll(false);
       setGeminiProcessing(false);
       setSaving(false);
+      setBurstCount(0);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
   }, [open]);
+
+  // Reset step to capture when queue is cleared (e.g. after save) so next open starts at capture
+  useEffect(() => {
+    if (queue.length === 0 && step !== "capture") setStep("capture");
+  }, [queue.length, step]);
+
+  // Auto-scroll queue to end when new photo is added
+  useEffect(() => {
+    if (queue.length === 0) return;
+    queueScrollRef.current?.scrollTo({ left: queueScrollRef.current.scrollWidth, behavior: "smooth" });
+  }, [queue.length]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -259,8 +277,8 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   const [processTrigger, setProcessTrigger] = useState(0);
   const inFlightIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const loading = queue.find((i) => i.status === "loading" && i.id !== inFlightIdRef.current);
-    if (!loading) return;
+    const loading = queue.find((i) => i.status === "loading" && i.file != null && i.id !== inFlightIdRef.current);
+    if (!loading || !loading.file) return;
     inFlightIdRef.current = loading.id;
     processOneItem(loading.id, loading.file, knownPlantTypes).finally(() => {
       inFlightIdRef.current = null;
@@ -396,6 +414,12 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !streamRef.current || video.readyState < 2) return;
+
+    // 1. Immediate feedback: shutter flash + haptic
+    setShutterActive(true);
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
+    setTimeout(() => setShutterActive(false), 100);
+
     const w = video.videoWidth;
     const h = video.videoHeight;
     canvas.width = w;
@@ -403,11 +427,37 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
+
+    // 2. Add placeholder immediately so queue count increments (preview from canvas)
+    const placeholderId = crypto.randomUUID();
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setQueue((prev) => [
+      ...prev,
+      {
+        id: placeholderId,
+        file: null,
+        previewUrl: dataUrl,
+        status: "loading",
+        name: "",
+        variety: "",
+        vendor: "",
+        tags: [],
+        purchaseDate: todayISO(),
+      },
+    ]);
+    if (burstMode) setBurstCount((c) => c + 1);
+
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
         const file = new File([blob], `packet-${Date.now()}.jpg`, { type: "image/jpeg" });
-        addFiles([file]);
+        setQueue((prev) =>
+          prev.map((i) => (i.id === placeholderId ? { ...i, file, previewUrl: URL.createObjectURL(file) } : i))
+        );
+        // Revoke the data URL we used as placeholder (no-op for data URLs; we're replacing with blob URL)
+        if (dataUrl.startsWith("data:")) {
+          // data URLs are not revokable; the new previewUrl is the blob URL
+        }
       },
       "image/jpeg",
       0.85
@@ -416,19 +466,25 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
 
   const pendingCount = queue.filter((i) => i.status === "pending").length;
   const loadingCount = queue.filter((i) => i.status === "loading").length;
-  const canGoToReview = pendingCount > 0;
+  const canGoToReview = queue.length > 0;
 
   function goToReview() {
     if (!canGoToReview) return;
-    setStep("review");
+    if (loadingCount > 0) setStep("extracting");
+    else setStep("review");
   }
+
+  // When in extracting step and all items finish loading, go to review
+  useEffect(() => {
+    if (step === "extracting" && queue.length > 0 && loadingCount === 0) setStep("review");
+  }, [step, queue.length, loadingCount]);
 
   function updateItem(id: string, updates: Partial<Pick<PendingPhoto, "name" | "variety" | "vendor" | "tags" | "purchaseDate">>) {
     setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   }
 
   async function handleLoadPlantProfilePicture() {
-    const toProcess = queue.filter((i) => i.status === "pending");
+    const toProcess = queue.filter((i): i is PendingPhoto & { file: File } => i.status === "pending" && i.file != null);
     if (toProcess.length === 0) return;
     setError(null);
     setSaving(true);
@@ -457,8 +513,21 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
           purchaseDate: (item.purchaseDate ?? todayISO()).trim() || todayISO(),
         });
       }
-      setPendingPhotoHeroImport({ items: pendingItems });
-      queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      try {
+        setPendingPhotoHeroImport({ items: pendingItems });
+      } catch (storageErr) {
+        const isQuota = storageErr instanceof DOMException && (storageErr.name === "QuotaExceededError" || (storageErr as { code?: number }).code === 22);
+        setError(isQuota ? "Too much data for storage—try fewer photos." : "Could not save batch for next step.");
+        setSaving(false);
+        return;
+      }
+      const verified = getPendingPhotoHeroImport();
+      if (!verified?.items?.length || verified.items.length !== pendingItems.length) {
+        setError("Could not save batch (storage limit?). Try fewer photos.");
+        setSaving(false);
+        return;
+      }
+      queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
       setQueue([]);
       setStep("capture");
       setSaveSuccessCount(null);
@@ -474,7 +543,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
 
   async function handleSaveAll() {
     if (!user) return;
-    const toSave = queue.filter((i) => i.status === "pending");
+    const toSave = queue.filter((i): i is PendingPhoto & { file: File } => i.status === "pending" && i.file != null);
     if (toSave.length === 0) return;
     setError(null);
     setSaving(true);
@@ -566,7 +635,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
     }
     setSaving(false);
     const count = queue.filter((i) => i.status === "pending").length;
-    queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+    queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
     setSaveSuccessCount(count);
     onSuccess();
   }
@@ -574,13 +643,13 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
   function removeFromQueue(id: string) {
     setQueue((prev) => {
       const item = prev.find((i) => i.id === id);
-      if (item) URL.revokeObjectURL(item.previewUrl);
+      if (item?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl);
       return prev.filter((i) => i.id !== id);
     });
   }
 
   function handleClose() {
-    queue.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+    queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
     setQueue([]);
     setStep("capture");
     setError(null);
@@ -624,7 +693,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <h2 id="batch-add-title" className="text-lg font-semibold text-black pt-0.5">
-            {step === "capture" ? "Photo Import" : "Confirm & Save"}
+            {step === "capture" ? "Photo Import" : step === "extracting" ? "Extracting…" : "Confirm & Save"}
           </h2>
           <button
             type="button"
@@ -637,6 +706,31 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
             </svg>
           </button>
         </div>
+
+        {step === "extracting" && (
+          <div className="py-6">
+            <p className="text-sm text-black/70 mb-4">
+              Extracting packet details from your photos. This usually takes a few seconds per image.
+            </p>
+            <div className="mb-2 flex justify-between text-sm">
+              <span className="font-medium text-emerald-700">{pendingCount} of {queue.length} ready</span>
+              {loadingCount > 0 && <span className="text-black/60">{loadingCount} still scanning…</span>}
+            </div>
+            <div
+              className="h-2.5 w-full rounded-full bg-black/10 overflow-hidden"
+              role="progressbar"
+              aria-valuenow={queue.length > 0 ? Math.round((pendingCount / queue.length) * 100) : 0}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full bg-emerald transition-all duration-300 ease-out"
+                style={{ width: queue.length > 0 ? `${(pendingCount / queue.length) * 100}%` : "0%" }}
+              />
+            </div>
+            <p className="mt-3 text-xs text-black/50">You’ll go to Confirm & Save when all are done.</p>
+          </div>
+        )}
 
         {step === "capture" && (
           <>
@@ -656,56 +750,102 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                 muted
                 className="w-full h-full object-cover"
               />
+              {/* Shutter flash on capture */}
+              {shutterActive && (
+                <div className="absolute inset-0 bg-white animate-shutter-flash" aria-hidden />
+              )}
+              {/* Burst mode counter */}
+              {burstMode && burstCount > 0 && (
+                <div className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-emerald text-white font-bold text-lg shadow-md">
+                  {burstCount}
+                </div>
+              )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-2">
               <button
                 type="button"
                 onClick={captureFrame}
-                className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium"
+                className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
               >
                 Capture
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium"
+                className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
               >
                 Upload from Files
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = e.target.files;
-                  if (files?.length) {
-                    addFiles(files);
-                    e.target.value = "";
-                  }
-                }}
-              />
             </div>
+            {/* Burst mode toggle */}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={burstMode}
+                onChange={(e) => {
+                  setBurstMode(e.target.checked);
+                  if (!e.target.checked) setBurstCount(0);
+                }}
+                className="rounded border-black/20 text-emerald focus:ring-emerald"
+              />
+              <span className="text-sm text-black/80">Burst mode — camera stays open, tap to add more</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files?.length) {
+                  addFiles(files);
+                  e.target.value = "";
+                }
+              }}
+            />
 
             {queue.length > 0 && (
               <>
-                <p className="text-sm font-medium text-black mb-2">
-                  Queue: {pendingCount} ready {loadingCount > 0 ? `· ${loadingCount} loading` : ""}
+                <p className="text-sm mb-2">
+                  <span className="font-bold text-emerald-700">
+                    Queue: {pendingCount} ready{loadingCount > 0 ? ` · ${loadingCount} loading` : ""}
+                  </span>
                 </p>
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 min-h-[72px]" style={{ scrollbarWidth: "thin" }}>
+                <div
+                  ref={queueScrollRef}
+                  className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 mb-3 min-h-[72px] snap-x snap-mandatory scroll-smooth"
+                  style={{ scrollbarWidth: "thin" }}
+                >
                   {queue.map((item) => (
                     <div
                       key={item.id}
-                      className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 border border-black/10 relative"
+                      className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 border border-black/10 relative snap-center"
                     >
                       {item.status === "loading" ? (
-                        <div className="w-full h-full flex items-center justify-center bg-neutral-200">
-                          <span className="text-lg animate-spin">⏳</span>
-                        </div>
+                        <>
+                          <img
+                            src={item.previewUrl}
+                            alt=""
+                            className="w-full h-full object-cover scale-110 blur-md"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 animate-pulse">
+                            <div className="w-7 h-7 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                          </div>
+                        </>
                       ) : (
-                        <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
+                        <>
+                          <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
+                          <span
+                            className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald text-white shadow"
+                            aria-label="OCR complete"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                        </>
                       )}
                     </div>
                   ))}
@@ -717,7 +857,7 @@ export function BatchAddSeed({ open, onClose, onSuccess }: BatchAddSeedProps) {
                     disabled={!canGoToReview}
                     className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium disabled:opacity-50"
                   >
-                    Review pending ({pendingCount})
+                    {loadingCount > 0 ? `Review pending (${pendingCount} ready · ${loadingCount} scanning)` : `Review pending (${pendingCount})`}
                   </button>
                 </div>
               </>

@@ -150,6 +150,39 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     setScreen("choose");
   }
 
+  async function handleAddToShoppingList(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const name = plantName.trim();
+    if (!name) {
+      setError("Plant name is required.");
+      return;
+    }
+    if (!user?.id) {
+      setError("You must be signed in to add to the shopping list.");
+      return;
+    }
+    setSubmitting(true);
+    const varietyVal = varietyCultivar.trim() || null;
+    const { error: insertErr } = await supabase.from("shopping_list").insert({
+      user_id: user.id,
+      plant_profile_id: null,
+      placeholder_name: name,
+      placeholder_variety: varietyVal,
+      is_purchased: false,
+    });
+    setSubmitting(false);
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
+    }
+    setPlantName("");
+    setVarietyCultivar("");
+    setVendor("");
+    onSuccess();
+    onClose();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -386,6 +419,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
             {error && (
               <p className="text-sm text-citrus font-medium">{error}</p>
             )}
+            <p className="text-xs text-black/60">
+              Don&apos;t have this seed yet? Add it to your <strong>Shopping List</strong> and mark &quot;I bought this&quot; when you get it.
+            </p>
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -395,11 +431,19 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 Cancel
               </button>
               <button
+                type="button"
+                onClick={handleAddToShoppingList}
+                disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl border border-emerald/60 text-emerald-700 bg-emerald/10 font-medium disabled:opacity-60"
+              >
+                {submitting ? "Adding…" : "Add to Shopping List"}
+              </button>
+              <button
                 type="submit"
                 disabled={submitting}
                 className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
               >
-                {submitting ? "Adding…" : "Add"}
+                {submitting ? "Adding…" : "Add to Vault"}
               </button>
             </div>
           </form>

@@ -217,6 +217,14 @@ function VaultPageInner() {
     }
   }, [searchParams, router]);
 
+  // Open Quick Add when linked from home "Add a variety I don't have"
+  useEffect(() => {
+    if (searchParams.get("open") === "quickadd") {
+      setQuickAddOpen(true);
+      router.replace("/vault", { scroll: false });
+    }
+  }, [searchParams, router]);
+
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     const tab = searchParams.get("tab");

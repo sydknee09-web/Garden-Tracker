@@ -94,19 +94,19 @@ export default function HomePage() {
       });
       if (!cancelled) setPendingTasks(withNames);
 
-      // Shopping list
-      const { data: listRows } = await supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false });
-      const listIds = Array.from(new Set((listRows ?? []).map((r: { plant_profile_id: string }) => r.plant_profile_id)));
+      // Shopping list (profile-linked + placeholders)
+      const { data: listRows } = await supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false });
+      const listIds = Array.from(new Set((listRows ?? []).map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
       const listNames: Record<string, { name: string; variety_name: string | null }> = {};
       if (listIds.length > 0) {
         const { data: v } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", listIds);
         (v ?? []).forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
       }
       if (!cancelled) setShoppingList(
-        (listRows ?? []).map((r: { id: string; user_id: string; plant_profile_id: string; created_at: string }) => ({
+        (listRows ?? []).map((r: { id: string; user_id: string; plant_profile_id: string | null; created_at: string; placeholder_name?: string | null; placeholder_variety?: string | null }) => ({
           ...r,
-          name: listNames[r.plant_profile_id]?.name ?? "Unknown",
-          variety_name: listNames[r.plant_profile_id]?.variety_name ?? null,
+          name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.name ?? "Unknown") : (r.placeholder_name ?? "Wishlist"),
+          variety_name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.variety_name ?? null) : (r.placeholder_variety ?? null),
         }))
       );
 
@@ -366,36 +366,47 @@ export default function HomePage() {
           {loading ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : shoppingList.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-4">
+            <div className="flex flex-col items-center gap-3 py-4">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               <p className="text-xs text-black/50 text-center">Nothing to buy.</p>
-              <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault →</Link>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault (out of stock)</Link>
+                <Link href="/vault?open=quickadd" className="text-xs font-medium text-emerald-600 hover:underline">Add a variety I don&apos;t have</Link>
+              </div>
             </div>
           ) : (
             <>
               <ul className="space-y-2">
-                {shoppingList.map((item) => (
-                  <li key={item.id} className="flex items-center gap-3 group">
-                    <input
-                      type="checkbox"
-                      id={`purchased-${item.id}`}
-                      checked={false}
-                      onChange={() => handleMarkPurchased(item)}
-                      disabled={markingPurchasedId === item.id}
-                      className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
-                      aria-label={`Mark ${item.name}${item.variety_name ? ` (${item.variety_name})` : ""} as purchased`}
-                    />
-                    <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
-                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
-                        {item.name}{item.variety_name ? ` (${item.variety_name})` : ""}
-                      </Link>
-                    </label>
-                  </li>
-                ))}
+                {shoppingList.map((item) => {
+                  const label = `${item.name}${item.variety_name ? ` (${item.variety_name})` : ""}`;
+                  const isPlaceholder = item.plant_profile_id == null;
+                  return (
+                    <li key={item.id} className="flex items-center gap-3 group">
+                      <input
+                        type="checkbox"
+                        id={`purchased-${item.id}`}
+                        checked={false}
+                        onChange={() => handleMarkPurchased(item)}
+                        disabled={markingPurchasedId === item.id}
+                        className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
+                        aria-label={`Mark ${label} as purchased`}
+                      />
+                      <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
+                        {isPlaceholder ? (
+                          <span>{label}</span>
+                        ) : (
+                          <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                            {label}
+                          </Link>
+                        )}
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
               <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline mt-3 inline-block">
                 View full list &rarr;
