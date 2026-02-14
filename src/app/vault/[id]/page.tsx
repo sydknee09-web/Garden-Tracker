@@ -7,14 +7,15 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
-import { getZone10bScheduleForPlant, toScheduleKey, type PlantingData } from "@/data/zone10b_schedule";
+import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
-import { fetchScheduleDefaults } from "@/lib/scheduleDefaults";
+import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { TagBadges } from "@/components/TagBadges";
 import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,6 +54,26 @@ function formatDisplayDate(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** Collect all packet image URLs (primary, packet_photo, packet_images) in display order. */
+function getPacketImageUrls(
+  pkt: { primary_image_path?: string | null; packet_photo_path?: string | null },
+  extraImages: { image_path: string }[]
+): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const add = (path: string | null | undefined) => {
+    const p = path?.trim();
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      urls.push(supabase.storage.from("seed-packets").getPublicUrl(p).data.publicUrl);
+    }
+  };
+  add(pkt.primary_image_path);
+  add(pkt.packet_photo_path);
+  for (const { image_path } of extraImages) add(image_path);
+  return urls;
 }
 
 function buildIdentityKey(type: string, variety: string): string {
@@ -123,7 +144,6 @@ export default function VaultSeedPage() {
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
     purchaseDate: "", growingNotes: "", status: "",
   });
-  const [scheduleDefault, setScheduleDefault] = useState<PlantingData | null>(null);
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
   const validTab = ["about", "packets", "plantings", "journal", "care"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" | "care" : "about";
@@ -138,12 +158,16 @@ export default function VaultSeedPage() {
   const [findHeroError, setFindHeroError] = useState<string | null>(null);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
+  const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
+  const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
 
   // Harvest modal
   const [harvestGrowId, setHarvestGrowId] = useState<string | null>(null);
 
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
+
+  useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
 
   // =========================================================================
   // Load data
@@ -166,9 +190,29 @@ export default function VaultSeedPage() {
       setProfile(profileData as ProfileData);
       // Packets
       const { data: packetData } = await supabase.from("seed_packets")
-        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, created_at, user_notes, tags, vendor_specs, is_archived")
+        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, packet_photo_path, created_at, user_notes, storage_location, tags, vendor_specs, is_archived")
         .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
-      setPackets((packetData ?? []) as SeedPacket[]);
+      const packetRows = (packetData ?? []) as SeedPacket[];
+      setPackets(packetRows);
+      // Fetch packet_images for additional photos (e.g. front + back)
+      const packetIds = packetRows.map((p) => p.id);
+      if (packetIds.length > 0) {
+        const { data: extraImages } = await supabase
+          .from("packet_images")
+          .select("seed_packet_id, image_path, sort_order")
+          .in("seed_packet_id", packetIds)
+          .order("sort_order", { ascending: true });
+        const byPacket = new Map<string, { image_path: string }[]>();
+        for (const row of extraImages ?? []) {
+          const r = row as { seed_packet_id: string; image_path: string };
+          const list = byPacket.get(r.seed_packet_id) ?? [];
+          list.push({ image_path: r.image_path });
+          byPacket.set(r.seed_packet_id, list);
+        }
+        setPacketImagesByPacketId(byPacket);
+      } else {
+        setPacketImagesByPacketId(new Map());
+      }
 
       // Grow instances
       const { data: grows } = await supabase.from("grow_instances")
@@ -179,7 +223,7 @@ export default function VaultSeedPage() {
       // All journal entries for this profile
       const { data: journals } = await supabase.from("journal_entries")
         .select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-        .eq("plant_profile_id", id).eq("user_id", user.id).order("created_at", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
       setJournalEntries((journals ?? []) as JournalEntry[]);
 
       // Care schedules for this profile
@@ -189,24 +233,14 @@ export default function VaultSeedPage() {
         .order("title", { ascending: true });
       setCareSchedules((careData ?? []) as CareSchedule[]);
 
-      // Schedule defaults
-      const map = await fetchScheduleDefaults(supabase);
-      const key = toScheduleKey((profileData as { name?: string }).name ?? "");
-      setScheduleDefault(key && map[key] ? map[key] : null);
-
       // Journal photos for hero picker
       const { data: journalRows } = await supabase.from("journal_entries")
         .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", user.id)
-        .not("image_file_path", "is", null).order("created_at", { ascending: false });
+        .is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false });
       setJournalPhotos((journalRows ?? []) as JournalPhoto[]);
 
-      // Plantable now check
-      const monthCol = (["sow_jan","sow_feb","sow_mar","sow_apr","sow_may","sow_jun","sow_jul","sow_aug","sow_sep","sow_oct","sow_nov","sow_dec"] as const)[new Date().getMonth()];
-      const { data: scheds } = await supabase.from("schedule_defaults").select("plant_type, " + monthCol).eq("user_id", user.id);
-      const plantableTypes = new Set((scheds ?? []).filter((s) => typeof s === "object" && s !== null && !("error" in s) && (s as Record<string, unknown>)[monthCol] === true).map((s: { plant_type: string }) => s.plant_type.trim().toLowerCase()));
-      const nameNorm = ((profileData as { name?: string }).name ?? "").trim().toLowerCase();
-      const firstWord = nameNorm.split(/\s+/)[0];
-      setIsPlantableNow(plantableTypes.has(nameNorm) || plantableTypes.has(firstWord ?? "") || Array.from(plantableTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm)));
+      // Plantable now check (from profile.planting_window or zone10b fallback)
+      setIsPlantableNow(isPlantableInMonth(profileData as { name: string; planting_window?: string | null }, new Date().getMonth()));
 
       setLoading(false);
       return;
@@ -217,7 +251,7 @@ export default function VaultSeedPage() {
       .eq("id", id).eq("user_id", user.id).maybeSingle();
     if (e2) { setError(e2.message); setProfile(null); }
     else if (!legacy) { setError("Plant not found."); setProfile(null); }
-    else { setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); }
+    else { setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map()); }
     setLoading(false);
   }, [id, user?.id]);
 
@@ -264,12 +298,12 @@ export default function VaultSeedPage() {
   // Care info
   const profileWithBotanical = profile as PlantProfile & { botanical_care_notes?: Record<string, unknown> | null };
   const profileWater = profile ? ("water" in profile ? (profile as { water?: string | null }).water : null) : null;
+  const zone10bSchedule = getZone10bScheduleForPlant(profile?.name ?? "");
+  const scheduleForCare = zone10bSchedule ? { ...zone10bSchedule, plant_spacing: zone10bSchedule.spacing, days_to_germination: zone10bSchedule.germination_time } : undefined;
   const effectiveCare = !isLegacy && profileWithBotanical ? getEffectiveCare(
     { sun: profile?.sun ?? null, water: profileWater ?? null, plant_spacing: profile?.plant_spacing ?? null, days_to_germination: profile?.days_to_germination ?? null, harvest_days: profile?.harvest_days ?? null, botanical_care_notes: profileWithBotanical.botanical_care_notes ?? null },
-    scheduleDefault ?? undefined,
+    scheduleForCare,
   ) : null;
-
-  const zone10bSchedule = getZone10bScheduleForPlant(profile?.name ?? "");
   const profileWithSchedule = profile as PlantProfile & { sowing_method?: string | null; planting_window?: string | null; growing_notes?: string | null };
   const displaySowing = profileWithSchedule?.sowing_method?.trim() || zone10bSchedule?.sowing_method?.trim() || null;
   const displayWindow = profileWithSchedule?.planting_window?.trim() || zone10bSchedule?.planting_window?.trim() || null;
@@ -322,6 +356,28 @@ export default function VaultSeedPage() {
     setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, purchase_date: value ?? undefined } : p)));
   }, [user?.id]);
 
+  const updatePacketNotes = useCallback(
+    async (packetId: string, notes: string, options?: { persist?: boolean }) => {
+      const value = notes.trim() || null;
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: value ?? undefined } : p)));
+      if (options?.persist !== false && user?.id) {
+        await supabase.from("seed_packets").update({ user_notes: value }).eq("id", packetId).eq("user_id", user.id);
+      }
+    },
+    [user?.id]
+  );
+
+  const updatePacketStorageLocation = useCallback(
+    async (packetId: string, location: string, options?: { persist?: boolean }) => {
+      const value = location.trim() || null;
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: value ?? undefined } : p)));
+      if (options?.persist !== false && user?.id) {
+        await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", user.id);
+      }
+    },
+    [user?.id]
+  );
+
   const deletePacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
     const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", user.id);
@@ -331,7 +387,7 @@ export default function VaultSeedPage() {
   const fetchJournalForPacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
     setLoadingJournalForPacket((prev) => new Set(prev).add(packetId));
-    const { data } = await supabase.from("journal_entries").select("id, note, created_at, grow_instance_id").eq("seed_packet_id", packetId).eq("user_id", user.id).order("created_at", { ascending: false });
+    const { data } = await supabase.from("journal_entries").select("id, note, created_at, grow_instance_id").eq("seed_packet_id", packetId).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
     setJournalByPacketId((prev) => ({ ...prev, [packetId]: (data ?? []) as { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[] }));
     setLoadingJournalForPacket((prev) => { const next = new Set(prev); next.delete(packetId); return next; });
   }, [user?.id]);
@@ -380,6 +436,31 @@ export default function VaultSeedPage() {
   }, [profile, packets, findingStockPhoto, setHeroFromUrl, loadProfile, router]);
 
   const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
+
+  /** Copy packet image from seed-packets to journal-photos, then set as hero. Packet photos live in seed-packets but hero_image_path expects journal-photos. */
+  const setHeroFromPacket = useCallback(async (packetStoragePath: string) => {
+    if (!user?.id || !id) return;
+    setHeroUploading(true);
+    try {
+      const { data: blob, error: downloadErr } = await supabase.storage.from("seed-packets").download(packetStoragePath);
+      if (downloadErr || !blob) {
+        setError(downloadErr?.message ?? "Could not load packet photo");
+        return;
+      }
+      const destPath = `${user.id}/hero-${id}-from-packet-${crypto.randomUUID().slice(0, 8)}.jpg`;
+      const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(destPath, blob, { contentType: blob.type || "image/jpeg", upsert: false });
+      if (uploadErr) {
+        setError(uploadErr.message);
+        return;
+      }
+      await setHeroFromPath(destPath);
+      setShowSetPhotoModal(false);
+      setImageError(false);
+    } finally {
+      setHeroUploading(false);
+    }
+  }, [user?.id, id, setHeroFromPath]);
+
   const setHeroFromUpload = useCallback(async (file: File) => {
     if (!user?.id || !id) return;
     setHeroUploading(true);
@@ -505,7 +586,7 @@ export default function VaultSeedPage() {
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Packet photos</p>
                   <div className="grid grid-cols-3 gap-2">
                     {packets.filter((p) => p.primary_image_path?.trim()).map((pkt) => { const src = supabase.storage.from("seed-packets").getPublicUrl(pkt.primary_image_path!).data.publicUrl; return (
-                      <button key={pkt.id} type="button" onClick={() => { setHeroFromPath(pkt.primary_image_path!); setShowSetPhotoModal(false); }} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500"><img src={src} alt="" className="w-full h-full object-cover" /></button>
+                      <button key={pkt.id} type="button" onClick={() => setHeroFromPacket(pkt.primary_image_path!)} disabled={heroUploading} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 disabled:opacity-50"><img src={src} alt="" className="w-full h-full object-cover" /></button>
                     ); })}
                   </div>
                 </div>
@@ -547,6 +628,16 @@ export default function VaultSeedPage() {
                 <div key={f.id}>
                   <label htmlFor={f.id} className="block text-sm font-medium text-neutral-700 mb-1">{f.label}</label>
                   <input id={f.id} type="text" value={editForm[f.key]} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+                  {f.key === "plantingWindow" && !editForm.plantingWindow.trim() && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Set planting window for better recommendations.
+                      {zone10bSchedule?.planting_window && (
+                        <button type="button" onClick={() => setEditForm((prev) => ({ ...prev, plantingWindow: zone10bSchedule!.planting_window }))} className="ml-2 underline hover:text-amber-800">
+                          Use: {zone10bSchedule.planting_window}
+                        </button>
+                      )}
+                    </p>
+                  )}
                 </div>
               ))}
               <div>
@@ -806,12 +897,23 @@ export default function VaultSeedPage() {
                   {sortedPackets.map((pkt) => {
                     const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
                     const open = openPacketDetails.has(pkt.id);
-                    const pktImageUrl = pkt.primary_image_path?.trim() ? supabase.storage.from("seed-packets").getPublicUrl(pkt.primary_image_path).data.publicUrl : null;
+                    const extraImgs = packetImagesByPacketId.get(pkt.id) ?? [];
+                    const pktImageUrls = getPacketImageUrls(pkt, extraImgs);
+                    const pktImageUrl = pktImageUrls[0] ?? null;
                     const isArchived = (pkt.qty_status ?? 0) <= 0;
                     return (
                       <li key={pkt.id} className={`p-4 ${isArchived ? "bg-neutral-50 text-neutral-500" : ""}`}>
                         <div className="flex items-center gap-3 flex-wrap">
-                          {pktImageUrl && <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"}`}><img src={pktImageUrl} alt="" className="w-full h-full object-cover" /></div>}
+                          {pktImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => pktImageUrls.length > 0 && setImageLightbox({ urls: pktImageUrls, index: 0 })}
+                              className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 min-w-[56px] min-h-[56px] ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"} hover:ring-2 hover:ring-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                              aria-label="View packet photos"
+                            >
+                              <img src={pktImageUrl} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          )}
                           <div className="flex-1 min-w-0 flex items-center justify-between gap-2 flex-wrap">
                             <button type="button" onClick={() => togglePacketDetails(pkt.id)} className={`flex items-center gap-1 font-medium text-left min-h-[44px] -m-2 p-2 ${isArchived ? "text-neutral-500 hover:text-neutral-700" : "text-neutral-900 hover:text-emerald-600"}`} aria-expanded={open}>
                               <span className="truncate">{pkt.vendor_name?.trim() || "--"}</span>
@@ -828,8 +930,50 @@ export default function VaultSeedPage() {
                         </div>
                         {open && (
                           <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
+                            {pktImageUrls.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium uppercase text-neutral-500 mb-2">Packet photos</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {pktImageUrls.map((url, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => setImageLightbox({ urls: pktImageUrls, index: idx })}
+                                      className="w-16 h-16 rounded-lg overflow-hidden shrink-0 min-w-[64px] min-h-[64px] border-2 border-transparent hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-neutral-100"
+                                      aria-label={`View photo ${idx + 1} of ${pktImageUrls.length}`}
+                                    >
+                                      <img src={url} alt="" className="w-full h-full object-cover" />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {pkt.scraped_details?.trim() && (<><p className="text-xs font-medium uppercase text-neutral-500 mb-1">Original Details</p><p className="text-neutral-800 whitespace-pre-wrap text-sm">{pkt.scraped_details}</p></>)}
                             {pkt.purchase_url?.trim() && <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-neutral-500 underline hover:text-neutral-700 inline-block">View purchase link</a>}
+                            <div>
+                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Your notes</p>
+                              <textarea
+                                value={pkt.user_notes ?? ""}
+                                onChange={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: false })}
+                                onBlur={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: true })}
+                                placeholder="Optional notes for this packet"
+                                rows={2}
+                                className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                                aria-label="Packet notes"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Storage location</p>
+                              <input
+                                type="text"
+                                value={pkt.storage_location ?? ""}
+                                onChange={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: false })}
+                                onBlur={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: true })}
+                                placeholder="e.g. Green box, drawer"
+                                className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                                aria-label="Storage location"
+                              />
+                            </div>
                             <div>
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Used in journal</p>
                               {loadingJournalForPacket.has(pkt.id) ? <p className="text-sm text-neutral-400">Loading...</p> : (journalByPacketId[pkt.id]?.length ?? 0) > 0 ? (
@@ -965,6 +1109,54 @@ export default function VaultSeedPage() {
         growInstanceId={harvestGrowId ?? ""}
         displayName={displayName}
       />
+
+      {/* Packet photo lightbox (tap thumbnail or gallery image to view full-size, swipe/arrows for multiple) */}
+      {imageLightbox && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Packet photo"
+        >
+          <button
+            type="button"
+            onClick={() => setImageLightbox(null)}
+            className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+            aria-label="Close"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          </button>
+          {imageLightbox.urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setImageLightbox((prev) => prev && prev.index > 0 ? { ...prev, index: prev.index - 1 } : prev)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+                aria-label="Previous photo"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageLightbox((prev) => prev && prev.index < prev.urls.length - 1 ? { ...prev, index: prev.index + 1 } : prev)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+                aria-label="Next photo"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+              </button>
+              <span className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-sm text-white/90 bg-black/40 px-3 py-1 rounded-full">
+                {imageLightbox.index + 1} / {imageLightbox.urls.length}
+              </span>
+            </>
+          )}
+          <img
+            src={imageLightbox.urls[imageLightbox.index]}
+            alt=""
+            className="max-w-full max-h-[85vh] object-contain rounded-lg relative z-0"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

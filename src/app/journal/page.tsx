@@ -381,7 +381,7 @@ export default function JournalPage() {
       const names: Record<string, string> = {};
       const displayNames: Record<string, string> = {};
       if (profileIds.length > 0) {
-        const { data: profileRows } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds);
+        const { data: profileRows } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds).is("deleted_at", null);
         (profileRows ?? []).forEach((p: { id: string; name: string; variety_name?: string | null }) => {
           names[p.id] = p.name;
           displayNames[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
@@ -548,7 +548,7 @@ export default function JournalPage() {
     const names: Record<string, string> = {};
     const displayNames: Record<string, string> = {};
     if (profileIds.length > 0) {
-      const { data: p } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds);
+      const { data: p } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds).is("deleted_at", null);
       (p ?? []).forEach((x: { id: string; name: string; variety_name?: string | null }) => {
         names[x.id] = x.name;
         displayNames[x.id] = x.variety_name?.trim() ? `${x.name} (${x.variety_name})` : x.name;
@@ -591,8 +591,8 @@ export default function JournalPage() {
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (entryIds: string[]) => ({
-      onTouchStart: () => {
+    (entryIds: string[]) => {
+      const startLongPress = () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
         longPressTimerRef.current = setTimeout(() => {
@@ -600,27 +600,47 @@ export default function JournalPage() {
           longPressFiredRef.current = true;
           toggleRowSelection(entryIds);
         }, LONG_PRESS_MS);
-      },
-      onTouchMove: clearLongPressTimer,
-      onTouchEnd: clearLongPressTimer,
-      onTouchCancel: clearLongPressTimer,
-      handleClick: (e?: React.MouseEvent) => {
-        if (longPressFiredRef.current) {
-          longPressFiredRef.current = false;
-          e?.preventDefault?.();
-          return;
-        }
-        if (selectedEntryIds.length > 0) {
-          e?.preventDefault?.();
-          toggleRowSelection(entryIds);
-        }
-      },
-    }),
+      };
+      return {
+        onTouchStart: startLongPress,
+        onTouchMove: clearLongPressTimer,
+        onTouchEnd: clearLongPressTimer,
+        onTouchCancel: clearLongPressTimer,
+        onMouseDown: startLongPress,
+        onMouseUp: clearLongPressTimer,
+        onMouseLeave: clearLongPressTimer,
+        handleClick: (e?: React.MouseEvent) => {
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
+            e?.preventDefault?.();
+            return;
+          }
+          if (selectedEntryIds.length > 0) {
+            e?.preventDefault?.();
+            toggleRowSelection(entryIds);
+          }
+        },
+      };
+    },
     [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length]
   );
 
   function requestBulkDelete(ids: string[]) {
     setDeleteConfirmEntryIds(ids);
+  }
+
+  async function requestBulkArchive(ids: string[]) {
+    if (!user || ids.length === 0) return;
+    setSelectionActionsOpen(false);
+    setSelectedEntryIds((prev) => prev.filter((id) => !ids.includes(id)));
+    for (const entryId of ids) {
+      const { error: e } = await supabase.from("journal_entries").update({ deleted_at: new Date().toISOString() }).eq("id", entryId).eq("user_id", user.id);
+      if (e) {
+        setError(e.message);
+        return;
+      }
+    }
+    setEntries((prev) => prev.filter((x) => !ids.includes(x.id)));
   }
 
   async function confirmBulkDeleteEntry() {
@@ -822,7 +842,7 @@ export default function JournalPage() {
                 <article
                   key={rowId}
                   className={`rounded-xl border bg-white p-4 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
-                  {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                  {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave } : {})}
                   onClick={lp?.handleClick}
                   role="button"
                   tabIndex={0}
@@ -898,7 +918,7 @@ export default function JournalPage() {
                     <tr
                       key={rowId}
                       className={`border-b border-black/5 align-top ${selected ? "bg-emerald/10 ring-1 ring-emerald/30" : "hover:bg-black/[0.02]"}`}
-                      {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                      {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave } : {})}
                       onClick={lp?.handleClick}
                       role="button"
                       tabIndex={0}
@@ -1008,7 +1028,7 @@ export default function JournalPage() {
               <article
                 key={rowId}
                 className={`rounded-2xl bg-white border overflow-hidden mb-6 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
-                {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave } : {})}
                 onClick={lp?.handleClick}
                 role="button"
                 tabIndex={0}
@@ -1082,6 +1102,25 @@ export default function JournalPage() {
         >
           <span className="text-sm font-medium text-black/80">{selectedEntryIds.length} selected</span>
           <div className="flex items-center gap-2">
+            {selectedEntryIds.length === 1 && (() => {
+              const entry = entries.find((e) => e.id === selectedEntryIds[0]);
+              if (entry?.plant_profile_id) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEntryIds([]);
+                      router.push(`/vault/${entry.plant_profile_id}?tab=journal`);
+                    }}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald/10"
+                    aria-label="Edit selected entry"
+                  >
+                    <PencilEditIcon />
+                  </button>
+                );
+              }
+              return null;
+            })()}
             <button
               type="button"
               onClick={() => requestBulkDelete(selectedEntryIds)}
@@ -1253,7 +1292,7 @@ export default function JournalPage() {
                 type="button"
                 onClick={() => {
                   setSelectionActionsOpen(false);
-                  setSelectedEntryIds([]);
+                  requestBulkArchive(selectedEntryIds);
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >

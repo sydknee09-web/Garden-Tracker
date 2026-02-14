@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
+import { toCanonicalDisplay } from "@/lib/vendorNormalize";
 import {
   stripVarietySuffixes,
   stripPlantFromVariety,
@@ -633,8 +634,9 @@ export async function POST(req: Request) {
           if (t && !mergedTags.some((x) => x.toLowerCase() === t.toLowerCase())) mergedTags.push(t);
         }
 
+        const vendorDisplay = (vendor ?? "").trim() ? (toCanonicalDisplay(vendor ?? "") || (vendor ?? "").trim()) : "";
         const base: ExtractResponse = {
-          vendor: vendor ?? "",
+          vendor: vendorDisplay,
           type: typeForNorm || "Imported seed",
           variety: varietyForResponse ?? "",
           tags: mergedTags,

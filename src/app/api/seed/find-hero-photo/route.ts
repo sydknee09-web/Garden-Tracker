@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeVendorKey } from "@/lib/vendorNormalize";
 
 export const maxDuration = 30;
 
@@ -59,16 +60,18 @@ export async function POST(req: Request) {
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (!authError && user?.id) {
         // Tier 2: check plant_extract_cache for stored hero image (owned file in journal-photos bucket, no HEAD check needed)
-        const { data: cachedRow } = await supabase
+        const { data: extractRows } = await supabase
           .from("plant_extract_cache")
-          .select("hero_storage_path")
+          .select("hero_storage_path, vendor")
           .eq("user_id", user.id)
           .eq("identity_key", identity_key)
-          .eq("vendor", vendor)
           .not("hero_storage_path", "is", null)
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
+        const vendorKeyExtract = normalizeVendorKey(vendor);
+        const cachedRow = extractRows?.length
+          ? (vendorKeyExtract && extractRows.find((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKeyExtract)) ?? extractRows[0]
+          : null;
         if (cachedRow?.hero_storage_path) {
           const { data: pubUrl } = supabase.storage.from("journal-photos").getPublicUrl(cachedRow.hero_storage_path as string);
           if (pubUrl?.publicUrl) {
@@ -85,7 +88,8 @@ export async function POST(req: Request) {
           .order("updated_at", { ascending: false })
           .limit(5);
         if (gpcRows?.length) {
-          const withVendor = vendor ? gpcRows.find((r) => (r as { vendor?: string }).vendor === vendor) : null;
+          const vendorKey = normalizeVendorKey(vendor);
+          const withVendor = vendorKey ? gpcRows.find((r) => normalizeVendorKey((r as { vendor?: string }).vendor ?? "") === vendorKey) : null;
           const row = withVendor ?? gpcRows[0];
           const ed = row?.extract_data as Record<string, unknown> | undefined;
           const heroFromExtract = typeof ed?.hero_image_url === "string" ? String(ed.hero_image_url).trim() : "";

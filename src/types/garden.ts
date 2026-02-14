@@ -207,6 +207,8 @@ export interface SeedPacket {
   primary_image_path?: string | null;
   packet_photo_path?: string | null;
   user_notes?: string | null;
+  /** Where the user stores this physical packet (e.g. box, drawer). */
+  storage_location?: string | null;
   created_at?: string;
   tags?: string[] | null;
   is_archived?: boolean;

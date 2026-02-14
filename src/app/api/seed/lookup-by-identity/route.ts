@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { normalizeVendorKey } from "@/lib/vendorNormalize";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -59,17 +60,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let query = supabase
+    const { data: rows, error } = await supabase
       .from("global_plant_cache")
       .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
       .eq("identity_key", identityKey)
       .limit(10);
-
-    if (vendor) {
-      query = query.eq("vendor", vendor);
-    }
-
-    const { data: rows, error } = await query;
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -77,8 +72,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ found: false }, { status: 200 });
     }
 
+    const vendorKey = vendor ? normalizeVendorKey(vendor) : "";
+    const filtered =
+      vendorKey && rows.length > 1
+        ? rows.filter((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKey)
+        : rows;
+    const toSort = filtered.length > 0 ? filtered : rows;
+
     // Order by quality then recency (full > partial > ai_only > failed, then updated_at desc)
-    const sorted = [...rows].sort((a, b) => {
+    const sorted = [...toSort].sort((a, b) => {
       const qA = qualityRank((a as { scrape_quality?: string }).scrape_quality ?? "");
       const qB = qualityRank((b as { scrape_quality?: string }).scrape_quality ?? "");
       if (qB !== qA) return qB - qA;

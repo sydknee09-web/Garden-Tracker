@@ -2,32 +2,37 @@
 
 import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
-import { fetchScheduleDefaults } from "@/lib/scheduleDefaults";
-import { getZone10bScheduleForPlant, toScheduleKey } from "@/data/zone10b_schedule";
+import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 
-type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
+type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null; sowing_method?: string | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
 type ProfileWithPackets = { profile: Profile; packets: Packet[] };
+type NewVarietyRow = { isNew: true; customName: string; rowId: string };
+type PlantRow = ProfileWithPackets | NewVarietyRow;
 type SowingMethod = "direct_sow" | "greenhouse";
 
-function brainSuggestsGreenhouse(plantName: string, scheduleDefaultsMap: Record<string, { sowing_method?: string }>): boolean {
-  const key = toScheduleKey(plantName);
-  const userSchedule = key ? scheduleDefaultsMap[key] : undefined;
-  const staticSchedule = getZone10bScheduleForPlant(plantName);
-  const sowingMethod = (userSchedule?.sowing_method ?? staticSchedule?.sowing_method ?? "").toLowerCase();
+function parseNameVariety(text: string): { name: string; variety_name: string | null } {
+  const trimmed = text.trim();
+  const match = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(trimmed);
+  if (match) return { name: match[1].trim(), variety_name: match[2].trim() || null };
+  return { name: trimmed || "", variety_name: null };
+}
+
+function suggestsGreenhouse(plantName: string): boolean {
+  const schedule = getZone10bScheduleForPlant(plantName);
+  const sowingMethod = (schedule?.sowing_method ?? "").toLowerCase();
   return /indoors|greenhouse|transplant/.test(sowingMethod) && !/direct sow|direct_sow/.test(sowingMethod);
 }
 
 function VaultPlantPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [rows, setRows] = useState<ProfileWithPackets[]>([]);
+  const [rows, setRows] = useState<PlantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [plantDate, setPlantDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -41,6 +46,9 @@ function VaultPlantPageInner() {
   const [sowingMethodByProfileId, setSowingMethodByProfileId] = useState<Record<string, SowingMethod>>({});
   const [masterSowingMethod, setMasterSowingMethod] = useState<SowingMethod>("direct_sow");
   const [showSeedlingCelebration, setShowSeedlingCelebration] = useState(false);
+  const [addSeedOpen, setAddSeedOpen] = useState(false);
+  const [addSeedSearch, setAddSeedSearch] = useState("");
+  const [availableProfilesForPicker, setAvailableProfilesForPicker] = useState<ProfileWithPackets[]>([]);
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
@@ -59,8 +67,13 @@ function VaultPlantPageInner() {
     });
   }, []);
 
-  const removeVarietyFromBatch = useCallback((profileId: string) => {
-    setRows((prev) => prev.filter((r) => r.profile.id !== profileId));
+  const removeRowFromBatch = useCallback((id: string) => {
+    setRows((prev) => prev.filter((r) => ("profile" in r ? r.profile.id : r.rowId) !== id));
+    setSowingMethodByProfileId((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
 
   const setSowingMethodForProfile = useCallback((profileId: string, method: SowingMethod) => {
@@ -71,23 +84,54 @@ function VaultPlantPageInner() {
     setMasterSowingMethod(method);
     setSowingMethodByProfileId((prev) => {
       const next = { ...prev };
-      rows.forEach((r) => { next[r.profile.id] = method; });
+      rows.forEach((r) => {
+        const id = "profile" in r ? r.profile.id : r.rowId;
+        next[id] = method;
+      });
       return next;
     });
   }, [rows]);
 
+  const addSeedToBatch = useCallback((row: PlantRow) => {
+    setRows((prev) => [...prev, row]);
+    if ("profile" in row) {
+      const { profile, packets } = row;
+      if (packets.length) {
+        setSelectedPacketIdsByProfileId((p) => ({ ...p, [profile.id]: [packets[0].id] }));
+        packets.forEach((p) => setUsePercentByPacketId((u) => ({ ...u, [p.id]: 100 })));
+      }
+    }
+    setAddSeedOpen(false);
+    setAddSeedSearch("");
+  }, []);
+
+  const addNewVarietyToBatch = useCallback((customName: string) => {
+    const trimmed = customName.trim();
+    if (!trimmed) return;
+    const rowId = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const useGreenhouse = suggestsGreenhouse({ name: parseNameVariety(trimmed).name });
+    setRows((prev) => [...prev, { isNew: true, customName: trimmed, rowId }]);
+    setSowingMethodByProfileId((prev) => ({ ...prev, [rowId]: useGreenhouse ? "greenhouse" : "direct_sow" }));
+    setAddSeedOpen(false);
+    setAddSeedSearch("");
+  }, []);
+
   useEffect(() => {
-    if (!user?.id || profileIds.length === 0) {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    if (profileIds.length === 0) {
       setLoading(false);
       setRows([]);
       return;
     }
     let cancelled = false;
     (async () => {
-      const [profilesRes, packetsRes, scheduleMap] = await Promise.all([
+      const [profilesRes, packetsRes] = await Promise.all([
         supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, harvest_days")
+          .select("id, name, variety_name, harvest_days, sowing_method")
           .in("id", profileIds)
           .eq("user_id", user.id),
         supabase
@@ -97,7 +141,6 @@ function VaultPlantPageInner() {
           .eq("user_id", user.id)
           .or("is_archived.eq.false,is_archived.is.null")
           .order("created_at", { ascending: true }),
-        fetchScheduleDefaults(supabase),
       ]);
       if (cancelled) return;
       const profiles = (profilesRes.data ?? []) as Profile[];
@@ -127,9 +170,9 @@ function VaultPlantPageInner() {
       setSelectedPacketIdsByProfileId(initialSelected);
       setUsePercentByPacketId(initialUsePercent);
       const methodByProfile: Record<string, SowingMethod> = {};
-      ordered.forEach(({ profile, packets: pks }) => {
-        const suggestsGreenhouse = brainSuggestsGreenhouse(profile.name, scheduleMap as Record<string, { sowing_method?: string }>);
-        methodByProfile[profile.id] = suggestsGreenhouse ? "greenhouse" : "direct_sow";
+      ordered.forEach(({ profile }) => {
+        const useGreenhouse = suggestsGreenhouse(profile);
+        methodByProfile[profile.id] = useGreenhouse ? "greenhouse" : "direct_sow";
       });
       setSowingMethodByProfileId(methodByProfile);
       setLoading(false);
@@ -137,36 +180,101 @@ function VaultPlantPageInner() {
     return () => { cancelled = true; };
   }, [user?.id, idsParam, profileIds.length]);
 
+  useEffect(() => {
+    if (!user?.id || !addSeedOpen) return;
+    let cancelled = false;
+    (async () => {
+      const { data: profiles } = await supabase
+        .from("plant_profiles")
+        .select("id, name, variety_name, harvest_days")
+        .eq("user_id", user.id)
+        .is("deleted_at", null);
+      if (cancelled || !profiles?.length) {
+        setAvailableProfilesForPicker([]);
+        return;
+      }
+      const { data: packets } = await supabase
+        .from("seed_packets")
+        .select("id, plant_profile_id, qty_status, created_at, tags, vendor_name")
+        .in("plant_profile_id", profiles.map((p) => p.id))
+        .eq("user_id", user.id)
+        .or("is_archived.eq.false,is_archived.is.null")
+        .order("created_at", { ascending: true });
+      const byProfile = new Map<string, Packet[]>();
+      (packets ?? []).forEach((p) => {
+        const list = byProfile.get(p.plant_profile_id) ?? [];
+        list.push(p as Packet);
+        byProfile.set(p.plant_profile_id, list);
+      });
+      const withPackets = profiles
+        .map((p) => ({ profile: p as Profile, packets: byProfile.get(p.id) ?? [] }))
+        .filter((r) => r.packets.length > 0) as ProfileWithPackets[];
+      if (!cancelled) setAvailableProfilesForPicker(withPackets);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, addSeedOpen]);
+
   const handleConfirm = useCallback(async () => {
     if (!user?.id || rows.length === 0) return;
     setConfirming(true);
+    let errMsg: string | null = null;
+    try {
     const today = plantDate;
     const weatherSnapshot = await fetchWeatherSnapshot();
-    let errMsg: string | null = null;
 
-    for (const { profile, packets } of rows) {
-      const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
-      const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
-      let totalUsed = 0;
+    for (const row of rows) {
+      let profile: Profile;
+      let totalUsed: number;
 
-      for (const pk of packets) {
-        if (!selectedIds.includes(pk.id)) continue;
-        const usePct = usePercentByPacketId[pk.id] ?? 0;
-        if (usePct <= 0) continue;
-        const packetValue = pk.qty_status / 100;
-        const take = packetValue * (usePct / 100);
-        totalUsed += take;
-        const remaining = Math.round((packetValue - take) * 100);
-        const newQty = Math.max(0, Math.min(100, remaining));
-        const now = new Date().toISOString();
-        if (newQty <= 0) {
-          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
-        } else {
-          await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
+      if ("isNew" in row) {
+        const { name, variety_name } = parseNameVariety(row.customName);
+        if (!name.trim()) continue;
+        const { data: newProfile, error: profileErr } = await supabase
+          .from("plant_profiles")
+          .insert({ user_id: user.id, name: name.trim(), variety_name: variety_name?.trim() || null, status: "in_stock" })
+          .select("id, name, variety_name, harvest_days")
+          .single();
+        if (profileErr || !newProfile) {
+          errMsg = profileErr?.message ?? "Could not create plant profile.";
+          break;
+        }
+        profile = newProfile as Profile;
+        const { data: newPacket, error: packetErr } = await supabase
+          .from("seed_packets")
+          .insert({ user_id: user.id, plant_profile_id: profile.id, qty_status: 100, vendor_name: null })
+          .select("id")
+          .single();
+        if (packetErr || !newPacket) {
+          errMsg = packetErr?.message ?? "Could not create seed packet.";
+          break;
+        }
+        await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: new Date().toISOString() }).eq("id", newPacket.id).eq("user_id", user.id);
+        totalUsed = 1;
+      } else {
+        const { profile: p, packets } = row;
+        profile = p;
+        const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
+        totalUsed = 0;
+        for (const pk of packets) {
+          if (!selectedIds.includes(pk.id)) continue;
+          const usePct = usePercentByPacketId[pk.id] ?? 0;
+          if (usePct <= 0) continue;
+          const packetValue = pk.qty_status / 100;
+          const take = packetValue * (usePct / 100);
+          totalUsed += take;
+          const remaining = Math.round((packetValue - take) * 100);
+          const newQty = Math.max(0, Math.min(100, remaining));
+          const now = new Date().toISOString();
+          if (newQty <= 0) {
+            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
+          } else {
+            await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
+          }
         }
       }
 
-      if (totalUsed <= 0) continue;
+      const method = sowingMethodByProfileId["profile" in row ? row.profile.id : row.rowId] ?? "direct_sow";
+      if (totalUsed <= 0 && !("isNew" in row)) continue;
 
       const harvestDays = profile.harvest_days != null && profile.harvest_days > 0 ? profile.harvest_days : null;
       const expectedHarvestDate =
@@ -246,7 +354,6 @@ function VaultPlantPageInner() {
       }
     }
 
-    setConfirming(false);
     if (errMsg) {
       setError(errMsg);
       return;
@@ -255,9 +362,13 @@ function VaultPlantPageInner() {
     setShowSeedlingCelebration(true);
     setTimeout(() => {
       setShowSeedlingCelebration(false);
-      router.push("/vault?tab=active");
-    }, 1100);
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowingMethodByProfileId, router]);
+      // Use hard navigation for reliable post-submit redirect (avoids PWA/client-router quirks)
+      window.location.href = "/vault?tab=active";
+    }, 800);
+    } finally {
+      setConfirming(false);
+    }
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowingMethodByProfileId]);
 
   if (!user) return null;
 
@@ -265,17 +376,6 @@ function VaultPlantPageInner() {
     return (
       <div className="px-6 py-8">
         <p className="text-black/50 text-sm">Loading…</p>
-      </div>
-    );
-  }
-
-  if (profileIds.length === 0) {
-    return (
-      <div className="px-6 py-8">
-        <Link href="/vault" className="text-emerald-600 font-medium hover:underline">
-          ← Back to Vault
-        </Link>
-        <p className="mt-4 text-black/60">No plants selected. Select items in the Vault and click Plant.</p>
       </div>
     );
   }
@@ -375,7 +475,31 @@ function VaultPlantPageInner() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ profile, packets }) => {
+            {rows.map((row) => {
+              if ("isNew" in row) {
+                const method = sowingMethodByProfileId[row.rowId] ?? "direct_sow";
+                return (
+                  <tr key={row.rowId} className="border-b border-black/5 align-middle">
+                    <td className="py-3 pr-3 min-w-0 align-top">
+                      <span className="text-sm font-medium text-black">{row.customName}</span>
+                      <span className="ml-1.5 text-xs text-emerald-600">(new)</span>
+                    </td>
+                    <td className="py-3 pr-3 align-middle">
+                      <div className="flex items-center gap-1.5" role="group">
+                        <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
+                        <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-3 min-w-[90px] align-middle">
+                      <span className="text-xs text-black/70">100% (new packet)</span>
+                    </td>
+                    <td className="py-3 pl-3 text-right align-middle">
+                      <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
+                    </td>
+                  </tr>
+                );
+              }
+              const { profile, packets } = row;
               const displayName = profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name;
               const hasF1 = packets.some((pk) => Array.isArray(pk.tags) && pk.tags.some((t) => String(t).toLowerCase() === "f1"));
               const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
@@ -388,7 +512,7 @@ function VaultPlantPageInner() {
                       {displayName} — No packets
                     </td>
                     <td className="py-3 pl-3 text-right align-middle w-[52px]">
-                      <button type="button" onClick={() => removeVarietyFromBatch(profile.id)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
+                      <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                     </td>
                   </tr>
                 );
@@ -485,7 +609,7 @@ function VaultPlantPageInner() {
                   <td className="py-3 pl-3 text-right align-middle">
                     <button
                       type="button"
-                      onClick={() => removeVarietyFromBatch(profile.id)}
+                      onClick={() => removeRowFromBatch(profile.id)}
                       className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50"
                       aria-label={`Remove ${displayName} from batch`}
                     >
@@ -495,9 +619,76 @@ function VaultPlantPageInner() {
                 </tr>
               );
             })}
+            <tr className="border-b border-black/5">
+              <td colSpan={4} className="py-2 pr-3 pl-3">
+                <button
+                  type="button"
+                  onClick={() => setAddSeedOpen(true)}
+                  className="flex items-center gap-2 w-full min-h-[44px] rounded-lg border-2 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50/80 hover:border-emerald-400 font-medium text-sm transition-colors"
+                  aria-label="Add seed to planting"
+                >
+                  <PlusIcon className="w-5 h-5 shrink-0" />
+                  Add Seed
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
+
+      {addSeedOpen && (
+        <>
+          <div className="fixed inset-0 z-[110] bg-black/40" aria-hidden onClick={() => { setAddSeedOpen(false); setAddSeedSearch(""); }} />
+          <div className="fixed left-4 right-4 top-1/2 z-[111] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto" role="dialog" aria-modal="true" aria-labelledby="add-seed-title">
+            <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
+              <h2 id="add-seed-title" className="text-lg font-semibold text-black">Add Seed</h2>
+              <button type="button" onClick={() => { setAddSeedOpen(false); setAddSeedSearch(""); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5" aria-label="Close">×</button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4">
+              <input
+                type="text"
+                value={addSeedSearch}
+                onChange={(e) => setAddSeedSearch(e.target.value)}
+                placeholder="Search existing or type new variety"
+                className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm mb-3"
+                aria-label="Search seeds or type new variety"
+              />
+              <div className="space-y-1 max-h-[280px] overflow-y-auto">
+                {addSeedSearch.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => addNewVarietyToBatch(addSeedSearch)}
+                    className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 min-h-[44px]"
+                  >
+                    + Add &quot;{addSeedSearch.trim()}&quot; as new variety
+                  </button>
+                )}
+                {availableProfilesForPicker
+                  .filter((r) => {
+                    const q = addSeedSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    const dn = (r.profile.variety_name?.trim() ? `${r.profile.name} (${r.profile.variety_name})` : r.profile.name).toLowerCase();
+                    return dn.includes(q) || r.profile.name.toLowerCase().includes(q) || (r.profile.variety_name ?? "").toLowerCase().includes(q);
+                  })
+                  .filter((r) => !rows.some((row) => "profile" in row && row.profile.id === r.profile.id))
+                  .map((r) => {
+                    const displayName = r.profile.variety_name?.trim() ? `${r.profile.name} (${r.profile.variety_name})` : r.profile.name;
+                    return (
+                      <button
+                        key={r.profile.id}
+                        type="button"
+                        onClick={() => addSeedToBatch(r)}
+                        className="w-full text-left px-4 py-3 rounded-lg text-sm text-black/80 hover:bg-black/5 min-h-[44px]"
+                      >
+                        {displayName}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {error && (
         <p className="mt-4 text-sm text-red-600" role="alert">
@@ -532,6 +723,7 @@ function VaultPlantPageInner() {
             confirming ||
             rows.length === 0 ||
             !rows.some((r) => {
+              if ("isNew" in r) return true;
               const ids = selectedPacketIdsByProfileId[r.profile.id] ?? (r.packets.length === 1 ? [r.packets[0].id] : []);
               return ids.some((pid) => (usePercentByPacketId[pid] ?? 0) > 0);
             })
@@ -561,6 +753,15 @@ function TrashIcon() {
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <line x1="10" y1="11" x2="10" y2="17" />
       <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   );
 }

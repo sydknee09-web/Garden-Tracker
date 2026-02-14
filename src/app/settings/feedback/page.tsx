@@ -11,6 +11,7 @@ type FeedbackRow = {
   message: string;
   category: string | null;
   page_url: string | null;
+  screenshot_path: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -29,7 +30,7 @@ export default function SettingsFeedbackPage() {
     if (!user?.id) return;
     const { data } = await supabase
       .from("user_feedback")
-      .select("id, created_at, message, category, page_url")
+      .select("id, created_at, message, category, page_url, screenshot_path")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -74,6 +75,15 @@ export default function SettingsFeedbackPage() {
                 )}
               </div>
               <p className="text-sm text-black/90 whitespace-pre-wrap">{row.message}</p>
+              {row.screenshot_path && (
+                <div className="mt-2 rounded-lg overflow-hidden border border-black/10 max-w-xs">
+                  <img
+                    src={supabase.storage.from("journal-photos").getPublicUrl(row.screenshot_path).data.publicUrl}
+                    alt="Screenshot"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+              )}
               {row.page_url && (
                 <p className="text-xs text-black/50 mt-2 truncate">From: {row.page_url}</p>
               )}

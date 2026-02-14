@@ -5,18 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  getZone10bScheduleForPlant,
-  toScheduleKey,
-  applyZone10bToProfileWithUser,
-} from "@/data/zone10b_schedule";
+import { getZone10bScheduleForPlant, applyZone10bToProfile } from "@/data/zone10b_schedule";
 import {
   getRareseedsSlugFromUrl,
   slugToSpaced,
   rareseedsAutotreatment,
 } from "@/lib/rareseedsAutotreatment";
-import type { PlantingData } from "@/data/zone10b_schedule";
-import { fetchScheduleDefaults } from "@/lib/scheduleDefaults";
 import { setReviewImportData, addProgressiveItem, clearProgressiveItems, getProgressiveItems } from "@/lib/reviewImportStorage";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
@@ -41,7 +35,7 @@ interface ImportItem {
   dataSource?: DataSource;
   /** Brain status note: new type added or linked to existing */
   brainStatus?: BrainStatus;
-  /** True only when a new plant type was successfully added to schedule_defaults (show "New Type" badge) */
+  /** True when a new plant type was created (show "New Type" badge) */
   newTypeAddedToBrain?: boolean;
   /** Set when link import (extract) succeeds; used to build review payload */
   extractResult?: ExtractResponse & { failed?: boolean };
@@ -243,7 +237,7 @@ export default function VaultImportPage() {
   const [processing, setProcessing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef(false);
-  const [scheduleDefaultsMap, setScheduleDefaultsMap] = useState<Record<string, PlantingData>>({});
+  const [knownPlantTypesFromProfiles, setKnownPlantTypesFromProfiles] = useState<string[]>([]);
   const [showNewPlantModal, setShowNewPlantModal] = useState(false);
   const [newPlantName, setNewPlantName] = useState("");
   const [newPlantForm, setNewPlantForm] = useState({
@@ -260,7 +254,10 @@ export default function VaultImportPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchScheduleDefaults(supabase).then(setScheduleDefaultsMap);
+    supabase.from("plant_profiles").select("name").eq("user_id", user.id).is("deleted_at", null).then(({ data }) => {
+      const types = [...new Set((data ?? []).map((r: { name?: string }) => (r.name ?? "").trim().split(/\s+/)[0]?.trim()).filter(Boolean))];
+      setKnownPlantTypesFromProfiles(types);
+    });
   }, [user?.id]);
 
   useEffect(() => {
@@ -268,9 +265,8 @@ export default function VaultImportPage() {
   }, [showNewPlantModal]);
 
   const hasScheduleForPlant = useCallback(
-    (plantName: string) =>
-      getZone10bScheduleForPlant(plantName) || scheduleDefaultsMap[toScheduleKey(plantName)],
-    [scheduleDefaultsMap]
+    (plantName: string) => !!getZone10bScheduleForPlant(plantName),
+    []
   );
 
   const updateItem = useCallback((index: number, update: Partial<ImportItem>) => {
@@ -291,7 +287,7 @@ export default function VaultImportPage() {
       vendorNotes: string | null,
       uploadedImagePath: string | null,
       scrapeData: Record<string, unknown>,
-      zone10bMerged: ReturnType<typeof applyZone10bToProfileWithUser>,
+      zone10bMerged: ReturnType<typeof applyZone10bToProfile>,
       opts?: { fromSaveToBrain?: boolean }
     ): Promise<{ ok: boolean; dataSource?: DataSource; brainStatus?: BrainStatus; newTypeAddedToBrain?: boolean }> => {
       const uid = user!.id;
@@ -413,7 +409,7 @@ export default function VaultImportPage() {
   );
 
   const processOneItem = useCallback(
-    async (i: number, cached: PendingImportItem | null, overrideScheduleMap?: Record<string, PlantingData>) => {
+    async (i: number, cached: PendingImportItem | null) => {
       const parsed = parseUrls(urlText);
       if (i >= parsed.length) {
         setProcessing(false);
@@ -422,7 +418,7 @@ export default function VaultImportPage() {
       }
       const url = parsed[i];
       const uid = user!.id;
-      const scheduleMap = overrideScheduleMap ?? scheduleDefaultsMap;
+      const knownPlantTypes = knownPlantTypesFromProfiles;
       updateItem(i, { status: "processing" });
 
       let plantName: string;
@@ -447,7 +443,7 @@ export default function VaultImportPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               url,
-              ...(isRareseeds && { knownPlantTypes: Object.keys(scheduleMap) }),
+              ...(isRareseeds && { knownPlantTypes }),
             }),
           });
           scrapeData = await scrapeRes.json().catch(() => ({}));
@@ -457,7 +453,7 @@ export default function VaultImportPage() {
             displayName: (scrapeData?.ogTitle as string) ?? deriveNameFromUrl(url),
             error: (scrapeData?.error as string) ?? "Scrape failed",
           });
-            processOneItem(i + 1, null, overrideScheduleMap);
+            processOneItem(i + 1, null);
             return;
           }
           plantName = ((scrapeData.plant ?? scrapeData.plant_name ?? scrapeData.ogTitle ?? deriveNameFromUrl(url)) as string)?.trim() || "Imported seed";
@@ -466,7 +462,7 @@ export default function VaultImportPage() {
           if (isRareseeds) {
             const slug = getRareseedsSlugFromUrl(url);
             if (slug) {
-              const result = rareseedsAutotreatment(slugToSpaced(slug), Object.keys(scheduleMap));
+              const result = rareseedsAutotreatment(slugToSpaced(slug), knownPlantTypes);
               plantName = result.plant_name;
               varietyName = result.variety_name.trim() || null;
             }
@@ -498,12 +494,12 @@ export default function VaultImportPage() {
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unknown error";
           updateItem(i, { status: "error", displayName: deriveNameFromUrl(url), error: message });
-          processOneItem(i + 1, null, overrideScheduleMap);
+          processOneItem(i + 1, null);
           return;
         }
       }
 
-      const hasSchedule = cached ? true : (getZone10bScheduleForPlant(plantName) || scheduleMap[toScheduleKey(plantName)]);
+      const hasSchedule = cached ? true : !!getZone10bScheduleForPlant(plantName);
       const needsDnaPopup = scrapeData.REQUIRE_CONFIG === true || !hasSchedule;
 
       if (!cached && needsDnaPopup) {
@@ -532,12 +528,12 @@ export default function VaultImportPage() {
       }
 
       const spec = normalizedSpecFromScrapeData(scrapeData);
-      const zone10bMerged = applyZone10bToProfileWithUser(plantName.trim(), {
+      const zone10bMerged = applyZone10bToProfile(plantName.trim(), {
         sun: spec.sun,
         plant_spacing: spec.plant_spacing,
         days_to_germination: spec.days_to_germination,
         harvest_days: spec.harvest_days,
-      }, scheduleMap);
+      });
 
       const result = await runCreateProfileAndPacket(
         i,
@@ -551,13 +547,13 @@ export default function VaultImportPage() {
         zone10bMerged
       );
       if (!result.ok) {
-        processOneItem(i + 1, null, overrideScheduleMap);
+        processOneItem(i + 1, null);
         return;
       }
 
-      processOneItem(i + 1, null, overrideScheduleMap);
+      processOneItem(i + 1, null);
     },
-    [urlText, user, updateItem, hasScheduleForPlant, scheduleDefaultsMap, runCreateProfileAndPacket]
+    [urlText, user, updateItem, knownPlantTypesFromProfiles, runCreateProfileAndPacket]
   );
 
   const handleCancel = useCallback(() => {
@@ -1139,58 +1135,32 @@ export default function VaultImportPage() {
     if ((allItems.length > 0 || reviewItems.length > 0)) router.push("/vault/review-import");
   }, [urlText, user?.id, router, updateItem, authSession?.access_token]);
 
-  const handleSaveToBrain = useCallback(async () => {
+  const handleAddNewPlant = useCallback(async () => {
     if (!user?.id || !newPlantName.trim() || !pendingImportItem) return;
     setBrainSaveError(null);
     setSavingBrain(true);
-    const maturityStr = newPlantForm.maturity.trim();
-    const maturityNum = maturityStr === "" ? null : parseInt(maturityStr.replace(/^(\d+).*/, "$1"), 10);
-    const payload = {
-      user_id: user.id,
-      plant_type: newPlantName.trim(),
-      sowing_method: newPlantForm.sowingMethod.trim() || null,
-      planting_window: newPlantForm.plantingWindow.trim() || null,
-      sun: newPlantForm.sun.trim() || null,
-      plant_spacing: newPlantForm.spacing.trim() || null,
-      days_to_germination: newPlantForm.germination.trim() || null,
-      harvest_days: maturityNum != null && !Number.isNaN(maturityNum) ? maturityNum : null,
-      updated_at: new Date().toISOString(),
-      sow_jan: false,
-      sow_feb: false,
-      sow_mar: false,
-      sow_apr: false,
-      sow_may: false,
-      sow_jun: false,
-      sow_jul: false,
-      sow_aug: false,
-      sow_sep: false,
-      sow_oct: false,
-      sow_nov: false,
-      sow_dec: false,
-      water: null,
-      sowing_depth: null,
-    };
-    const { error } = await supabase
-      .from("schedule_defaults")
-      .upsert(payload, { onConflict: "user_id,plant_type" });
-    if (error) {
-      setSavingBrain(false);
-      setBrainSaveError(error.message || "Could not save. Try again.");
-      return;
-    }
-    const nextMap = await fetchScheduleDefaults(supabase);
-    setScheduleDefaultsMap(nextMap);
     const pending = pendingImportItem;
     setPendingImportItem(null);
     setShowNewPlantModal(false);
 
     const spec = normalizedSpecFromScrapeData(pending.scrapeData as Record<string, unknown>);
-    const zone10bMerged = applyZone10bToProfileWithUser(pending.plantName.trim(), {
+    const zone10b = applyZone10bToProfile(pending.plantName.trim(), {
       sun: spec.sun,
       plant_spacing: spec.plant_spacing,
       days_to_germination: spec.days_to_germination,
       harvest_days: spec.harvest_days,
-    }, nextMap);
+    });
+    const maturityStr = newPlantForm.maturity.trim();
+    const maturityNum = maturityStr === "" ? null : parseInt(maturityStr.replace(/^(\d+).*/, "$1"), 10);
+    const zone10bMerged = {
+      ...zone10b,
+      sowing_method: newPlantForm.sowingMethod.trim() || zone10b.sowing_method,
+      planting_window: newPlantForm.plantingWindow.trim() || zone10b.planting_window,
+      sun: newPlantForm.sun.trim() || zone10b.sun,
+      plant_spacing: newPlantForm.spacing.trim() || zone10b.plant_spacing,
+      days_to_germination: newPlantForm.germination.trim() || zone10b.days_to_germination,
+      harvest_days: maturityNum != null && !Number.isNaN(maturityNum) ? maturityNum : zone10b.harvest_days,
+    };
 
     await runCreateProfileAndPacket(
       pending.index,
@@ -1202,10 +1172,10 @@ export default function VaultImportPage() {
       pending.uploadedImagePath,
       pending.scrapeData,
       zone10bMerged,
-      { fromSaveToBrain: true }
+      { fromSaveToBrain: true } // legacy param name; creates profile with form values
     );
     setSavingBrain(false);
-    processOneItem(pending.index + 1, null, nextMap);
+    processOneItem(pending.index + 1, null);
   }, [user?.id, newPlantName, newPlantForm, pendingImportItem, processOneItem, runCreateProfileAndPacket]);
 
   const completed = items.filter(
@@ -1304,12 +1274,12 @@ export default function VaultImportPage() {
               <div className="flex flex-row gap-3 justify-stretch sm:justify-end">
                 <button
                   type="button"
-                  onClick={handleSaveToBrain}
+                  onClick={handleAddNewPlant}
                   disabled={savingBrain}
                   style={{ backgroundColor: "#10b981", color: "#ffffff", border: "none" }}
                   className="min-h-[44px] min-w-[44px] flex-1 sm:flex-none px-5 py-3 rounded-lg font-semibold disabled:opacity-60 shadow-md border-0 !bg-emerald-600 !text-white hover:!bg-emerald-700"
                 >
-                  {savingBrain ? "Saving…" : "Save to Brain"}
+                  {savingBrain ? "Adding…" : "Add to Vault"}
                 </button>
                 <button
                   type="button"
@@ -1319,7 +1289,7 @@ export default function VaultImportPage() {
                       const pending = pendingImportItem;
                       setPendingImportItem(null);
                       updateItem(pending.index, { status: "skipped", displayName: pending.plantName });
-                      processOneItem(pending.index + 1, null, scheduleDefaultsMap);
+                      processOneItem(pending.index + 1, null);
                     } else {
                       setPendingImportItem(null);
                     }

@@ -2,7 +2,7 @@
  * Hierarchy of Truth for plant care display:
  * 1. User Overrides (seed_packets.user_notes) — when present, can override display
  * 2. Perenual API (plant_profiles.botanical_care_notes)
- * 3. Plant Defaults (schedule_defaults)
+ * 3. Zone 10b static schedule (fallback for sun, spacing, germination, harvest)
  * 4. Raw Scraper Data (profile fields)
  */
 
@@ -58,7 +58,7 @@ function orNum(n: unknown): number | null {
 }
 
 /**
- * Resolve care fields by hierarchy: Perenual (botanical_care_notes) > schedule_defaults > profile (scraper).
+ * Resolve care fields by hierarchy: Perenual (botanical_care_notes) > zone10b schedule > profile (scraper).
  * Optional packet.user_notes is not merged into structured fields here; display it separately as "Your notes".
  */
 export function getEffectiveCare(

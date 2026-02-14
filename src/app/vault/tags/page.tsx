@@ -49,8 +49,8 @@ export default function VaultTagsPage() {
   const loadVaultTags = useCallback(async () => {
     if (!user?.id) return;
     const [profilesRes, packetsRes] = await Promise.all([
-      supabase.from("plant_profiles").select("tags").eq("user_id", user.id),
-      supabase.from("seed_packets").select("tags").eq("user_id", user.id),
+      supabase.from("plant_profiles").select("tags").eq("user_id", user.id).is("deleted_at", null),
+      supabase.from("seed_packets").select("tags").eq("user_id", user.id).is("deleted_at", null),
     ]);
     const all = new Set<string>();
     const counts: Record<string, number> = {};
@@ -86,8 +86,8 @@ export default function VaultTagsPage() {
     async (tagName: string) => {
       if (!user?.id) return;
       const [profilesRes, packetsRes] = await Promise.all([
-        supabase.from("plant_profiles").select("id, tags").eq("user_id", user.id),
-        supabase.from("seed_packets").select("id, tags").eq("user_id", user.id),
+        supabase.from("plant_profiles").select("id, tags").eq("user_id", user.id).is("deleted_at", null),
+        supabase.from("seed_packets").select("id, tags").eq("user_id", user.id).is("deleted_at", null),
       ]);
       const toUpdateProfiles = (profilesRes.data ?? []).filter(
         (r: { tags?: string[] | null }) => Array.isArray(r.tags) && r.tags.includes(tagName)

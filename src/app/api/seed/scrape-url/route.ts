@@ -7,6 +7,7 @@ import {
   slugToSpaced,
   rareseedsAutotreatment,
 } from "@/lib/rareseedsAutotreatment";
+import { toCanonicalDisplay } from "@/lib/vendorNormalize";
 
 /** Root domains for allowed vendors (no www); subdomains and paths are allowed (e.g. shop.johnnyseeds.com, www.rareseeds.com) */
 const ALLOWED_HOST_ROOTS = [
@@ -739,7 +740,8 @@ function getStructuredNameVendor(
   }
   // Standardize Rare Seeds identity for Golden Record merging (rareseeds.com -> "Rare Seeds").
   if (host.includes("rareseeds.com")) vendor_name = "Rare Seeds";
-  return { plant_name, variety_name, vendor_name: vendor_name ?? "" };
+  const finalVendor = (vendor_name ?? "").trim();
+  return { plant_name, variety_name, vendor_name: finalVendor ? (toCanonicalDisplay(finalVendor) || finalVendor) : "" };
 }
 
 /** Prefer category key that matches the sanitized type (e.g. "Okra"), else match from plant name. */

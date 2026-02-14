@@ -8,6 +8,8 @@ import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
 import { setPendingManualAdd } from "@/lib/reviewImportStorage";
+import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { hapticSuccess } from "@/lib/haptics";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
@@ -35,6 +37,8 @@ interface QuickAddSeedProps {
   onOpenBatch?: () => void;
   /** Open Link Import (paste URL) flow; parent should close this modal and navigate to /vault/import */
   onOpenLinkImport?: () => void;
+  /** Open Purchase Order import (screenshot of cart/order); parent should close this modal and open PurchaseOrderImport */
+  onOpenPurchaseOrder?: () => void;
   /** When manual add has no matching profile; parent should navigate to /vault/import/manual */
   onStartManualImport?: () => void;
 }
@@ -52,7 +56,7 @@ function applyPrefillToForm(
   if (prefill.vendor) setters.setVendor(prefill.vendor);
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onStartManualImport }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport }: QuickAddSeedProps) {
   const { user } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
@@ -108,8 +112,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   useEffect(() => {
     if (!open) return;
     supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
-      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
-      setPlantSuggestions(types);
+      const raw = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(filterValidPlantTypes(raw));
     });
   }, [open]);
 
@@ -136,15 +140,15 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   useEffect(() => {
     if (!open || !user?.id) return;
     (async () => {
-      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id);
+      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id).is("deleted_at", null);
       const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
       if (ids.length === 0) {
         setVendorSuggestions([]);
         return;
       }
-      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids);
-      const vendors = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
-      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids).is("deleted_at", null);
+      const raw = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
+      setVendorSuggestions(dedupeVendorsForSuggestions(raw));
     })();
   }, [open, user?.id]);
 
@@ -186,6 +190,79 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     onClose();
   }
 
+  /** Save profile to vault without a packet (reference/wishlist). Shows in vault as out of stock. */
+  async function handleSaveForLater(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const name = plantName.trim();
+    if (!name) {
+      setError("Plant name is required.");
+      return;
+    }
+    if (!user?.id) {
+      setError("You must be signed in to save for later.");
+      return;
+    }
+    setSubmitting(true);
+    const userId = user.id;
+    const { coreVariety } = parseVarietyWithModifiers(varietyCultivar);
+    const varietyName = coreVariety || varietyCultivar.trim() || null;
+    const sourceUrlVal = sourceUrlToSave.trim() || null;
+    const nameNorm = normalizeForMatch(name);
+    const varietyNorm = normalizeForMatch(varietyName);
+
+    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null);
+    const match = (profilesWithNames ?? []).find(
+      (p: { name: string; variety_name: string | null }) =>
+        normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
+    );
+
+    let profileId: string;
+    if (match) {
+      profileId = match.id;
+      await supabase.from("plant_profiles").update({ status: "out_of_stock", updated_at: new Date().toISOString() }).eq("id", profileId).eq("user_id", userId);
+    } else {
+      const careNotes: Record<string, unknown> = {};
+      if (sourceUrlVal) careNotes.source_url = sourceUrlVal;
+      const { data: newProfile, error: profileErr } = await supabase
+        .from("plant_profiles")
+        .insert({
+          user_id: userId,
+          name: name.trim(),
+          variety_name: varietyName,
+          status: "out_of_stock",
+          tags: tagsToSave.length > 0 ? tagsToSave : undefined,
+          ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
+        })
+        .select("id")
+        .single();
+      if (profileErr) {
+        setError(profileErr.message);
+        setSubmitting(false);
+        return;
+      }
+      profileId = (newProfile as { id: string }).id;
+    }
+
+    const { error: listErr } = await supabase.from("shopping_list").upsert(
+      { user_id: userId, plant_profile_id: profileId, is_purchased: false },
+      { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
+    );
+    setSubmitting(false);
+    if (listErr) {
+      setError(listErr.message);
+      return;
+    }
+    hapticSuccess();
+    setPlantName("");
+    setVarietyCultivar("");
+    setVendor("");
+    setTagsToSave([]);
+    setSourceUrlToSave("");
+    onSuccess();
+    onClose();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -204,7 +281,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
 
     const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(varietyCultivar);
     const varietyName = coreVariety || varietyCultivar.trim() || null;
-    const vendorVal = vendor.trim() || null;
+    const vendorVal = vendor.trim() ? (toCanonicalDisplay(vendor.trim()) || vendor.trim()) : null;
     const sourceUrlVal = sourceUrlToSave.trim() || null;
     const volumeForDb = (typeof volume === "string" ? volume.toLowerCase() : "full") as Volume;
 
@@ -213,7 +290,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     const volToQty: Record<string, number> = { full: 100, partial: 50, low: 20, empty: 0 };
     const qtyStatus = volToQty[volumeForDb] ?? 100;
 
-    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId);
+    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null);
     const match = (profilesWithNames ?? []).find(
       (p: { name: string; variety_name: string | null }) =>
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
@@ -352,6 +429,21 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 Link Import
               </button>
             )}
+            {onOpenPurchaseOrder && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPurchaseOrder();
+                }}
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
+                  <OrderIcon />
+                </span>
+                Purchase Order
+              </button>
+            )}
             <div className="pt-4">
               <button
                 type="button"
@@ -431,40 +523,54 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               <p className="text-sm text-citrus font-medium">{error}</p>
             )}
             <p className="text-xs text-black/60">
-              Don&apos;t have this seed yet? Add it to your <strong>Shopping List</strong> and mark &quot;I bought this&quot; when you get it.
+              Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet) and shopping list. Add a packet when you buy.
             </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAddToShoppingList}
-                disabled={submitting}
-                className="flex-1 py-2.5 rounded-xl border border-emerald/60 text-emerald-700 bg-emerald/10 font-medium disabled:opacity-60"
-              >
-                {submitting ? "Adding…" : "Add to Shopping List"}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || addedToVault}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {addedToVault ? (
-                  <>
-                    <CheckmarkIcon className="w-5 h-5" />
-                    Added!
-                  </>
-                ) : submitting ? (
-                  "Adding…"
-                ) : (
-                  "Add to Vault"
-                )}
-              </button>
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveForLater}
+                  disabled={submitting}
+                  className="flex-1 py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-60"
+                  title="Add to vault without a packet — shows as out of stock, on shopping list"
+                >
+                  {submitting ? "Saving…" : "Save for later"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddToShoppingList}
+                  disabled={submitting}
+                  className="flex-1 py-2.5 rounded-xl border border-black/15 text-black/70 bg-white font-medium disabled:opacity-60"
+                  title="Wishlist placeholder — no vault entry until you add a packet"
+                >
+                  {submitting ? "Adding…" : "Shopping list only"}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || addedToVault}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {addedToVault ? (
+                    <>
+                      <CheckmarkIcon className="w-5 h-5" />
+                      Added!
+                    </>
+                  ) : submitting ? (
+                    "Adding…"
+                  ) : (
+                    "Add to Vault (with packet)"
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -511,6 +617,18 @@ function LinkIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function OrderIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
     </svg>
   );
 }

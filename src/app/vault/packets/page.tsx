@@ -36,7 +36,7 @@ export default function AllPacketsPage() {
 
       const profileIds = Array.from(new Set((packetData ?? []).map((p: { plant_profile_id: string }) => p.plant_profile_id)));
       const { data: profiles } = profileIds.length > 0
-        ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds)
+        ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds).is("deleted_at", null)
         : { data: [] };
 
       const nameMap: Record<string, { name: string; variety_name: string | null }> = {};

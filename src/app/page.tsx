@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
+import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
@@ -40,14 +41,8 @@ export default function HomePage() {
   const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
   const [upcomingCare, setUpcomingCare] = useState<UpcomingCare[]>([]);
-  const [userProfiles, setUserProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [userProfiles, setUserProfiles] = useState<{ id: string; name: string; variety_name: string | null; planting_window?: string | null }[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
-  const [scheduleDefaults, setScheduleDefaults] = useState<{
-    plant_type: string;
-    sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean;
-    sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean;
-    sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean;
-  }[]>([]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -110,12 +105,9 @@ export default function HomePage() {
         }))
       );
 
-      // Profiles + schedule defaults (for Sow Now)
-      const { data: profilesData } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", user!.id).is("deleted_at", null);
-      if (!cancelled) setUserProfiles((profilesData ?? []) as { id: string; name: string; variety_name: string | null }[]);
-
-      const { data: scheduleData } = await supabase.from("schedule_defaults").select("plant_type, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec").eq("user_id", user!.id);
-      if (!cancelled) setScheduleDefaults((scheduleData ?? []) as typeof scheduleDefaults);
+      // Profiles (for Plant This Month)
+      const { data: profilesData } = await supabase.from("plant_profiles").select("id, name, variety_name, planting_window").eq("user_id", user!.id).is("deleted_at", null);
+      if (!cancelled) setUserProfiles((profilesData ?? []) as { id: string; name: string; variety_name: string | null; planting_window?: string | null }[]);
 
       // Upcoming care schedules (next 14 days)
       const twoWeeksOut = new Date();
@@ -204,18 +196,13 @@ export default function HomePage() {
     } finally { setMarkingTaskDoneId(null); setSyncing(false); }
   }
 
-  const { startThisMonthProfiles, harvestTasksThisMonth } = useMemo(() => {
+  const { startThisMonthProfiles, startNextMonthProfiles, harvestTasksThisMonth, nextMonthName, nextMonthSowParam } = useMemo(() => {
     const now = new Date();
     const monthIndex = now.getMonth();
-    const monthCol = (["sow_jan","sow_feb","sow_mar","sow_apr","sow_may","sow_jun","sow_jul","sow_aug","sow_sep","sow_oct","sow_nov","sow_dec"] as const)[monthIndex];
-    const startPlantTypes = new Set(
-      scheduleDefaults.filter((s) => s[monthCol] === true).map((s) => s.plant_type.trim().toLowerCase())
-    );
-    const startProfiles = userProfiles.filter((p) => {
-      const nameNorm = (p.name ?? "").trim().toLowerCase();
-      const firstWord = nameNorm.split(/\s+/)[0];
-      return startPlantTypes.has(nameNorm) || startPlantTypes.has(firstWord ?? "") || Array.from(startPlantTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
-    });
+    const nextMonthIndex = (monthIndex + 1) % 12;
+    const nextYear = monthIndex === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    const startProfiles = userProfiles.filter((p) => isPlantableInMonth(p, monthIndex));
+    const nextProfiles = userProfiles.filter((p) => isPlantableInMonth(p, nextMonthIndex));
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const harvestTasks = pendingTasks.filter((t) => {
@@ -223,8 +210,16 @@ export default function HomePage() {
       const d = new Date(t.due_date);
       return d >= monthStart && d < nextMonthStart;
     });
-    return { startThisMonthProfiles: startProfiles, harvestTasksThisMonth: harvestTasks };
-  }, [userProfiles, scheduleDefaults, pendingTasks]);
+    const nextMonthName = new Date(nextYear, nextMonthIndex, 1).toLocaleString("en-US", { month: "long" });
+    const nextMonthSowParam = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}`;
+    return {
+      startThisMonthProfiles: startProfiles,
+      startNextMonthProfiles: nextProfiles,
+      harvestTasksThisMonth: harvestTasks,
+      nextMonthName,
+      nextMonthSowParam,
+    };
+  }, [userProfiles, pendingTasks]);
 
   const monthName = new Date().toLocaleString("en-US", { month: "long" });
 
@@ -324,6 +319,34 @@ export default function HomePage() {
                   ))}
                 </ul>
               )}
+
+              {/* Plant Next Month */}
+              <div className="pt-3 border-t border-black/5 mt-3">
+                <h3 className="text-sm font-semibold text-black mb-2 text-center">Plant Next Month ({nextMonthName})</h3>
+                {startNextMonthProfiles.length === 0 ? (
+                  <p className="text-xs text-black/50 text-center">No seeds match {nextMonthName}&apos;s planting window.</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-2">
+                    {startNextMonthProfiles.map((p) => (
+                      <li key={p.id}>
+                        <Link
+                          href={`/vault/${p.id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 text-sm text-sky-700 font-medium hover:bg-sky-100 transition-colors"
+                        >
+                          {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {startNextMonthProfiles.length > 0 && (
+                  <p className="text-xs text-center mt-2">
+                    <Link href={`/vault?sow=${nextMonthSowParam}`} className="text-sky-600 font-medium hover:underline">
+                      View all for {nextMonthName} &rarr;
+                    </Link>
+                  </p>
+                )}
+              </div>
 
               {/* Harvest this month */}
               <div className="pt-2 border-t border-black/5 mt-2">

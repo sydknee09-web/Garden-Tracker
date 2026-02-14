@@ -13,7 +13,7 @@ import {
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { identityKeyFromVariety } from "@/lib/identityKey";
-import { getZone10bScheduleForPlant, getDefaultSowMonthsForZone10b } from "@/data/zone10b_schedule";
+import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 
 type Phase = "idle" | "enrich" | "hero" | "schedule" | "done" | "error";
 
@@ -96,33 +96,6 @@ export default function ImportManualPage() {
         // non-fatal
       }
 
-      try {
-        setPhase("schedule");
-        if (plantName && user?.id) {
-          const { data: existingSchedule } = await supabase
-            .from("schedule_defaults")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("plant_type", plantName)
-            .maybeSingle();
-          if (!existingSchedule) {
-            const zone10b = getZone10bScheduleForPlant(plantName);
-            const sowMonths = getDefaultSowMonthsForZone10b(zone10b?.planting_window);
-            await supabase.from("schedule_defaults").upsert(
-              {
-                user_id: user.id,
-                plant_type: plantName,
-                updated_at: new Date().toISOString(),
-                ...sowMonths,
-              },
-              { onConflict: "user_id,plant_type" }
-            );
-          }
-        }
-      } catch {
-        // non-fatal
-      }
-
       setPhase("done");
 
       const identityKey = identityKeyFromVariety(plantName, variety);
@@ -182,8 +155,8 @@ export default function ImportManualPage() {
   const label = phaseLabels[phase];
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-6">
-      <div className="rounded-2xl bg-white shadow-card border border-black/5 p-8 max-w-sm w-full text-center">
+    <div className="min-h-screen min-h-[100dvh] bg-neutral-50 flex flex-col items-center justify-center p-6">
+      <div className="rounded-2xl bg-white shadow-card border border-black/5 p-8 max-w-sm w-full text-center mx-auto">
         <div className="animate-pulse flex justify-center mb-4">
           <div className="w-12 h-12 rounded-full bg-emerald/20" />
         </div>

@@ -40,7 +40,7 @@ export default function PlantingHistoryPage() {
 
       const [profilesRes, harvestRes] = await Promise.all([
         profileIds.length > 0 ? supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds) : { data: [] },
-        growIds.length > 0 ? supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).eq("entry_type", "harvest") : { data: [] },
+        growIds.length > 0 ? supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).eq("entry_type", "harvest").is("deleted_at", null) : { data: [] },
       ]);
 
       const nameMap: Record<string, { name: string; variety_name: string | null }> = {};

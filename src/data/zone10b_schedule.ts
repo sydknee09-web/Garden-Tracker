@@ -1,5 +1,7 @@
 
 // src/data/zone10b_schedule.ts
+// TODO: Zone-aware scheduling. user_settings.planting_zone is stored but not used.
+// All scheduling currently uses Zone 10b fallback.
 
 export interface PlantingData {
     // Zone Specific (Override scraped data)
@@ -484,8 +486,8 @@ export function applyZone10bToProfile(plantName: string, scraped: ScrapedBio): {
 }
 
 /**
- * Same as applyZone10bToProfile but merges in user-defined schedule_defaults (user wins over static).
- * Use when importing so "Teach the Brain" entries are applied.
+ * Same as applyZone10bToProfile but merges in user-defined overrides (e.g. from a map).
+ * Deprecated: Brain/schedule_defaults removed; use applyZone10bToProfile for imports.
  */
 export function applyZone10bToProfileWithUser(
   plantName: string,

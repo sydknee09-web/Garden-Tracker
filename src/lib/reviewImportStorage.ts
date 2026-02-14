@@ -52,6 +52,12 @@ export type ReviewImportItem = {
   secondary_urls?: string[];
   /** 0–1 from extract API; when < 0.7, UI can highlight row/inputs for review */
   confidence_score?: number;
+  /** Additional packet photos (base64). First image in imageBase64 + these are all saved to the packet. */
+  extraPacketImages?: string[];
+  /** Optional packet notes (saved to seed_packets.user_notes). */
+  user_notes?: string;
+  /** Optional storage location (e.g. box, drawer); saved to seed_packets.storage_location. */
+  storage_location?: string;
 };
 
 export type ReviewImportData = {

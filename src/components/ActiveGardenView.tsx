@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import type { WeatherSnapshotData } from "@/types/garden";
 
 type PendingItem = {
@@ -27,6 +28,11 @@ type GrowingBatch = {
   harvest_count: number;
   planting_method_badge: string | null;
   location?: string | null;
+  sun?: string | null;
+  plant_spacing?: string | null;
+  days_to_germination?: string | null;
+  harvest_days?: number | null;
+  tags?: string[] | null;
 };
 
 export function ActiveGardenView({
@@ -37,6 +43,13 @@ export function ActiveGardenView({
   onEndCrop,
   categoryFilter = null,
   onCategoryChipsLoaded,
+  varietyFilter = null,
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  tagFilters = [],
+  onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
   openBulkJournalRequest = false,
@@ -49,6 +62,20 @@ export function ActiveGardenView({
   onEndCrop: (batch: GrowingBatch) => void;
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  varietyFilter?: string | null;
+  sunFilter?: string | null;
+  spacingFilter?: string | null;
+  germinationFilter?: string | null;
+  maturityFilter?: string | null;
+  tagFilters?: string[];
+  onRefineChipsLoaded?: (chips: {
+    variety: { value: string; count: number }[];
+    sun: { value: string; count: number }[];
+    spacing: { value: string; count: number }[];
+    germination: { value: string; count: number }[];
+    maturity: { value: string; count: number }[];
+    tags: string[];
+  }) => void;
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
@@ -75,6 +102,10 @@ export function ActiveGardenView({
   const [endReason, setEndReason] = useState<string>("season_ended");
   const [endNote, setEndNote] = useState("");
   const [endSaving, setEndSaving] = useState(false);
+
+  // Delete batch confirmation
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<GrowingBatch | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   // Actions menu (per-batch dropdown to reduce icon clutter)
   const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
@@ -109,8 +140,8 @@ export function ActiveGardenView({
     if (!growRows?.length) { setGrowing([]); setLoading(false); return; }
 
     const profileIds = Array.from(new Set((growRows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id).filter(Boolean)));
-    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds);
-    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null }) => [p.id, p]));
+    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags").in("id", profileIds);
+    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null }) => [p.id, p]));
 
     const growIds = (growRows as { id: string }[]).map((r) => r.id);
     const [weatherRes, harvestRes] = await Promise.all([
@@ -150,6 +181,9 @@ export function ActiveGardenView({
           profile_name: p?.name ?? "Unknown", profile_variety_name: p?.variety_name ?? null,
           weather_snapshot: weatherByGrow.get(r.id) ?? null, harvest_count: harvestCountByGrow.get(r.id) ?? 0,
           planting_method_badge: badgeFromNote(note), location: r.location,
+          sun: p?.sun ?? null, plant_spacing: p?.plant_spacing ?? null,
+          days_to_germination: p?.days_to_germination ?? null, harvest_days: p?.harvest_days ?? null,
+          tags: p?.tags ?? null,
         };
       });
     setGrowing(batches);
@@ -157,6 +191,13 @@ export function ActiveGardenView({
   }, [user?.id]);
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
+
+  const maturityRange = (days: number | null | undefined): string => {
+    if (days == null || !Number.isFinite(days)) return "";
+    if (days < 60) return "<60";
+    if (days <= 90) return "60-90";
+    return "90+";
+  };
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -169,13 +210,68 @@ export function ActiveGardenView({
       .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
   }, [growing]);
 
+  const refineChips = useMemo(() => {
+    const varietyMap = new Map<string, number>();
+    const sunMap = new Map<string, number>();
+    const spacingMap = new Map<string, number>();
+    const germinationMap = new Map<string, number>();
+    const maturityMap = new Map<string, number>();
+    const tagSet = new Set<string>();
+    for (const b of growing) {
+      const v = (b.profile_variety_name ?? "").trim() || "—";
+      varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
+      const sun = (b.sun ?? "").trim();
+      if (sun) sunMap.set(sun, (sunMap.get(sun) ?? 0) + 1);
+      const sp = (b.plant_spacing ?? "").trim();
+      if (sp) spacingMap.set(sp, (spacingMap.get(sp) ?? 0) + 1);
+      const g = (b.days_to_germination ?? "").trim();
+      if (g) germinationMap.set(g, (germinationMap.get(g) ?? 0) + 1);
+      const m = maturityRange(b.harvest_days ?? null);
+      if (m) maturityMap.set(m, (maturityMap.get(m) ?? 0) + 1);
+      (b.tags ?? []).forEach((t) => tagSet.add(t));
+    }
+    return {
+      variety: Array.from(varietyMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      sun: Array.from(sunMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      spacing: Array.from(spacingMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
+      tags: Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    };
+  }, [growing]);
+
   const filteredGrowing = useMemo(() => {
-    if (!categoryFilter) return growing;
     return growing.filter((b) => {
-      const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
-      return first === categoryFilter;
+      if (categoryFilter) {
+        const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+        if (first !== categoryFilter) return false;
+      }
+      if (varietyFilter != null && varietyFilter !== "") {
+        const v = (b.profile_variety_name ?? "").trim();
+        if (v !== varietyFilter) return false;
+      }
+      if (sunFilter != null && sunFilter !== "") {
+        const sun = (b.sun ?? "").trim();
+        if (sun !== sunFilter) return false;
+      }
+      if (spacingFilter != null && spacingFilter !== "") {
+        const sp = (b.plant_spacing ?? "").trim();
+        if (sp !== spacingFilter) return false;
+      }
+      if (germinationFilter != null && germinationFilter !== "") {
+        const g = (b.days_to_germination ?? "").trim();
+        if (g !== germinationFilter) return false;
+      }
+      if (maturityFilter != null && maturityFilter !== "") {
+        if (maturityRange(b.harvest_days ?? null) !== maturityFilter) return false;
+      }
+      if (tagFilters.length > 0) {
+        const batchTags = b.tags ?? [];
+        if (!tagFilters.some((t) => batchTags.includes(t))) return false;
+      }
+      return true;
     });
-  }, [growing, categoryFilter]);
+  }, [growing, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
 
   const q = (searchQuery ?? "").trim().toLowerCase();
   const filteredBySearch = useMemo(() => {
@@ -195,6 +291,10 @@ export function ActiveGardenView({
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
+
+  useEffect(() => {
+    onRefineChipsLoaded?.(refineChips);
+  }, [refineChips, onRefineChipsLoaded]);
 
   useEffect(() => {
     onFilteredCountChange?.(filteredPending.length + filteredBySearch.length);
@@ -279,22 +379,32 @@ export function ActiveGardenView({
   const handleEndBatch = useCallback(async () => {
     if (!user?.id || !endBatchTarget) return;
     setEndSaving(true);
+    const batchId = endBatchTarget.id;
     const now = new Date().toISOString();
     const isDead = endReason === "plant_died";
     const status = isDead ? "dead" : "archived";
 
-    await supabase.from("grow_instances").update({
+    const { error: updateErr } = await supabase.from("grow_instances").update({
       status,
       ended_at: now,
       end_reason: endReason,
-    }).eq("id", endBatchTarget.id).eq("user_id", user.id);
+    }).eq("id", batchId).eq("user_id", user.id);
+
+    if (updateErr) {
+      setEndSaving(false);
+      setQuickToast(updateErr.message);
+      setTimeout(() => setQuickToast(null), 3000);
+      return;
+    }
+
+    await softDeleteTasksForGrowInstance(batchId, user.id);
 
     if (endNote.trim() || isDead) {
       const weather = await fetchWeatherSnapshot();
       await supabase.from("journal_entries").insert({
         user_id: user.id,
         plant_profile_id: endBatchTarget.plant_profile_id,
-        grow_instance_id: endBatchTarget.id,
+        grow_instance_id: batchId,
         note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
         entry_type: isDead ? "death" : "note",
         weather_snapshot: weather ?? undefined,
@@ -305,8 +415,31 @@ export function ActiveGardenView({
     setEndBatchTarget(null);
     setEndReason("season_ended");
     setEndNote("");
+    setGrowing((prev) => prev.filter((b) => b.id !== batchId));
     load();
   }, [user?.id, endBatchTarget, endReason, endNote, load]);
+
+  const handleDeleteBatch = useCallback(async () => {
+    if (!user?.id || !deleteBatchTarget) return;
+    setDeleteSaving(true);
+    const batchId = deleteBatchTarget.id;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("grow_instances")
+      .update({ deleted_at: now })
+      .eq("id", batchId)
+      .eq("user_id", user.id);
+    if (!error) await softDeleteTasksForGrowInstance(batchId, user.id);
+    setDeleteSaving(false);
+    setDeleteBatchTarget(null);
+    if (error) {
+      setQuickToast(error.message);
+      setTimeout(() => setQuickToast(null), 3000);
+      return;
+    }
+    setGrowing((prev) => prev.filter((b) => b.id !== batchId));
+    load();
+  }, [user?.id, deleteBatchTarget, load]);
 
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -359,6 +492,24 @@ export function ActiveGardenView({
         </div>
       )}
 
+      {/* Delete Batch Confirmation */}
+      {deleteBatchTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Delete Batch</h2>
+            <p className="text-sm text-neutral-600 mb-4">
+              Permanently remove {formatBatchDisplayName(deleteBatchTarget.profile_name, deleteBatchTarget.profile_variety_name)}? This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setDeleteBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+              <button type="button" onClick={handleDeleteBatch} disabled={deleteSaving} className="px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
+                {deleteSaving ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk mode: shown when entered from FAB "Add journal entry". Cancel exits; when batches selected, show quick actions + note. */}
       {bulkMode && (
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
@@ -397,24 +548,6 @@ export function ActiveGardenView({
             <p className="text-sm text-black/50">Select batches below to add a journal entry.</p>
           )}
         </div>
-      )}
-
-      {/* Pending tasks */}
-      {filteredPending.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-700 mb-3 flex items-center gap-2">Pending ({filteredPending.length})</h2>
-          <ul className="space-y-3">
-            {filteredPending.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                <span className="min-w-0 flex-1 text-sm font-medium text-black/90">{t.title.replace(/^Sow\s+/, "")}</span>
-                <div className="flex shrink-0 flex-col items-end gap-0.5 min-w-[120px]">
-                  <span className="text-xs text-black/60 whitespace-nowrap">Due {new Date(t.due_date).toLocaleDateString()}</span>
-                  <button type="button" onClick={() => router.push("/calendar")} className="text-xs font-medium text-amber-700 hover:underline">View Calendar</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
       )}
 
       {/* Growing batches */}
@@ -516,6 +649,9 @@ export function ActiveGardenView({
                             <button type="button" onClick={() => { setEndBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 text-amber-700">
                               <ArchiveIcon /> End batch
                             </button>
+                            <button type="button" onClick={() => { setDeleteBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 text-red-700">
+                              <TrashIcon /> Delete
+                            </button>
                           </div>
                         </>
                       )}
@@ -549,3 +685,4 @@ function CareHandsIcon() {
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
 function BasketIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.5 10H6.5L5 8z" /><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path d="M4 10h16" /></svg>; }
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>; }
+function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BottomNav } from "./BottomNav";
 import { FeedbackModal } from "./FeedbackModal";
 import { useSync } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 
@@ -21,13 +22,14 @@ function getPageTitle(pathname: string | null): string {
   return "";
 }
 
-function CloudSyncIcon({ syncing }: { syncing: boolean }) {
+function CloudSyncIcon({ syncing, offline }: { syncing: boolean; offline: boolean }) {
+  const color = offline ? "#9ca3af" : syncing ? "#eab308" : "#10b981";
   return (
     <span
       className="relative inline-flex items-center justify-center w-9 h-9 rounded-full min-w-[44px] min-h-[44px]"
-      title={syncing ? "Syncing to cloud…" : "All data saved"}
-      aria-label={syncing ? "Syncing to cloud" : "All data saved"}
-      style={{ color: syncing ? "#eab308" : "#10b981" }}
+      title={offline ? "Offline" : syncing ? "Syncing to cloud…" : "All data saved"}
+      aria-label={offline ? "Offline" : syncing ? "Syncing to cloud" : "All data saved"}
+      style={{ color }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={syncing ? "animate-pulse" : ""}>
         <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
@@ -66,7 +68,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
   const isVault = pathname === "/vault" || pathname?.startsWith("/vault/");
   const { syncing } = useSync();
+  const isOnline = useOnlineStatus();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    [headerRef.current, mainRef.current].forEach((el) => {
+      if (el) (el as HTMLElement & { inert?: boolean }).inert = feedbackOpen;
+    });
+  }, [feedbackOpen]);
 
   useEffect(() => {
     if (loading) return;
@@ -77,7 +88,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center text-black/60">
+      <main className="min-h-screen min-h-[100dvh] flex items-center justify-center text-black/60">
         Loading…
       </main>
     );
@@ -91,11 +102,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       {!isAuthPage && (
         <>
           <header
+            ref={headerRef}
             className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
             style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
             <div className="flex items-center gap-1 shrink-0">
-              <CloudSyncIcon syncing={syncing} />
+              <CloudSyncIcon syncing={syncing} offline={!isOnline} />
               <button
                 type="button"
                 onClick={() => setFeedbackOpen(true)}
@@ -125,6 +137,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </>
       )}
       <main
+        ref={mainRef}
         className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
       >
         {children}

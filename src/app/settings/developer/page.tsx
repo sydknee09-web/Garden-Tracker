@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 
 type ArchivedItem = {
   id: string;
@@ -93,6 +95,7 @@ export default function SettingsDeveloperPage() {
       .from("grow_instances")
       .select("id, plant_profile_id, sown_date, ended_at")
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .in("status", ["archived", "dead"])
       .order("ended_at", { ascending: false });
     if (!rows?.length) { setArchivedPlantings([]); setPlantingsLoading(false); return; }
@@ -123,6 +126,17 @@ export default function SettingsDeveloperPage() {
   useEffect(() => { loadArchivedPlantings(); }, [loadArchivedPlantings]);
   useEffect(() => { loadTrash(); }, [loadTrash]);
 
+  const [deletingPlantingId, setDeletingPlantingId] = useState<string | null>(null);
+  const handleDeleteArchivedPlanting = useCallback(async (growInstanceId: string) => {
+    if (!user?.id) return;
+    setDeletingPlantingId(growInstanceId);
+    const now = new Date().toISOString();
+    await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", growInstanceId).eq("user_id", user.id);
+    await softDeleteTasksForGrowInstance(growInstanceId, user.id);
+    setArchivedPlantings((prev) => prev.filter((p) => p.id !== growInstanceId));
+    setDeletingPlantingId(null);
+  }, [user?.id]);
+
   const handleUnarchive = useCallback(async (item: ArchivedItem) => {
     if (!user?.id) return;
     setUnarchivingId(item.id);
@@ -142,6 +156,7 @@ export default function SettingsDeveloperPage() {
   const permanentlyDeleteProfile = useCallback(async (profileId: string) => {
     if (!user?.id) return;
     setRestoringId(profileId);
+    await cascadeTasksAndShoppingForDeletedProfiles(supabase, [profileId], user.id);
     await supabase.from("plant_profiles").delete().eq("id", profileId).eq("user_id", user.id);
     setRestoringId(null);
     loadTrash();
@@ -283,15 +298,25 @@ export default function SettingsDeveloperPage() {
               {plantingsExpanded && (
                 <ul className="mt-2 border border-neutral-200 rounded-xl bg-white divide-y divide-neutral-100 overflow-hidden">
                   {archivedPlantings.map((item) => (
-                    <li key={item.id} className="px-4 py-3">
-                      <Link href={`/vault/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline">
-                        {item.name}{item.variety_name?.trim() ? ` (${item.variety_name})` : ""}
-                      </Link>
-                      <p className="text-sm text-neutral-500 mt-1">
-                        Planted {new Date(item.sown_date).toLocaleDateString()}
-                        {" - Harvested "}{item.harvest_count} {item.harvest_count === 1 ? "time" : "times"}
-                        {" - Ended "}{item.ended_at ? new Date(item.ended_at).toLocaleDateString() : "--"}
-                      </p>
+                    <li key={item.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/vault/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline">
+                          {item.name}{item.variety_name?.trim() ? ` (${item.variety_name})` : ""}
+                        </Link>
+                        <p className="text-sm text-neutral-500 mt-1">
+                          Planted {new Date(item.sown_date).toLocaleDateString()}
+                          {" - Harvested "}{item.harvest_count} {item.harvest_count === 1 ? "time" : "times"}
+                          {" - Ended "}{item.ended_at ? new Date(item.ended_at).toLocaleDateString() : "--"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteArchivedPlanting(item.id)}
+                        disabled={deletingPlantingId === item.id}
+                        className="shrink-0 min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingPlantingId === item.id ? "..." : "Delete"}
+                      </button>
                     </li>
                   ))}
                 </ul>

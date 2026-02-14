@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SeedVaultView, type StatusFilter } from "@/components/SeedVaultView";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
+import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
 import { QRScannerModal } from "@/components/QRScannerModal";
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +17,8 @@ import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { isPlantableInMonth, getSowingWindowLabel } from "@/lib/plantingWindow";
+import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 
 const SAVE_TOAST_DURATION_MS = 5000;
 
@@ -91,13 +95,15 @@ function VaultPageInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
+  const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
 
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
     setQrPrefill(null);
     setBatchAddOpen(false);
+    setPurchaseOrderOpen(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
@@ -130,7 +136,7 @@ function VaultPageInner() {
   const [hasPendingReview, setHasPendingReview] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
@@ -141,6 +147,7 @@ function VaultPageInner() {
   const [germinationFilter, setGerminationFilter] = useState<string | null>(null);
   const [maturityFilter, setMaturityFilter] = useState<string | null>(null);
   const [packetCountFilter, setPacketCountFilter] = useState<string | null>(null);
+  const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
   const [refineChips, setRefineChips] = useState<{
     variety: { value: string; count: number }[];
     vendor: { value: string; count: number }[];
@@ -155,6 +162,9 @@ function VaultPageInner() {
 
   const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setCategoryChips(chips);
+  }, []);
+  const handleSowingMonthChipsLoaded = useCallback((chips: { month: number; monthName: string; count: number }[]) => {
+    setSowingMonthChips(chips);
   }, []);
   const handleRefineChipsLoaded = useCallback((chips: {
     variety: { value: string; count: number }[];
@@ -191,16 +201,18 @@ function VaultPageInner() {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [tagDropdownOpen]);
 
-  // Load plant type options for list-view dropdown (schedule_defaults + common)
+  // Load plant type options for list-view dropdown (distinct first-words from plant_profiles + common)
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      const { data } = await supabase.from("schedule_defaults").select("plant_type").eq("user_id", user.id);
-      const fromSchedule = (data ?? []).map((r: { plant_type?: string }) => (r.plant_type ?? "").trim()).filter(Boolean);
+      const { data } = await supabase.from("plant_profiles").select("name").eq("user_id", user.id).is("deleted_at", null);
+      const fromProfiles = (data ?? [])
+        .map((r: { name?: string }) => (r.name ?? "").trim().split(/\s+/)[0]?.trim())
+        .filter(Boolean);
       const common = ["Imported seed", "Bean", "Cucumber", "Tomato", "Pepper", "Lettuce", "Squash", "Pea", "Carrot", "Basil"];
-      setAvailablePlantTypes(Array.from(new Set([...common, ...fromSchedule])).sort((a, b) => a.localeCompare(b)));
+      setAvailablePlantTypes(Array.from(new Set([...common, ...fromProfiles])).sort((a, b) => a.localeCompare(b)));
     })();
-  }, [user?.id]);
+  }, [user?.id, refetchTrigger]);
 
   const handlePlantTypeChange = useCallback(async (profileId: string, newName: string) => {
     if (!user?.id || !newName.trim()) return;
@@ -225,6 +237,8 @@ function VaultPageInner() {
     }
   }, [searchParams, router]);
 
+  const sowParam = searchParams.get("sow");
+
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -239,13 +253,18 @@ function VaultPageInner() {
       setStatusFilter(status);
       if (status === "vault") setSaveToastMessage("Added to Vault!");
     }
+    const sow = searchParams.get("sow");
+    if (sow) {
+      setViewMode("grid");
+      setStatusFilter("vault");
+    }
   }, [searchParams]);
 
   // Restore view/filter/search from sessionStorage when no URL params (cross-session continuity)
   const hasRestoredSession = useRef(false);
   useEffect(() => {
     if (hasRestoredSession.current || typeof window === "undefined") return;
-    if (searchParams.get("tab") || searchParams.get("status")) return;
+    if (searchParams.get("tab") || searchParams.get("status") || searchParams.get("sow")) return;
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
@@ -313,6 +332,7 @@ function VaultPageInner() {
     setBatchDeleting(true);
     let failed = false;
     const now = new Date().toISOString();
+    const profileIdsCascaded: string[] = [];
     for (const id of Array.from(selectedVarietyIds)) {
       const { data: softDeleted } = await supabase
         .from("plant_profiles")
@@ -320,13 +340,19 @@ function VaultPageInner() {
         .eq("id", id)
         .eq("user_id", uid)
         .select("id");
-      if (softDeleted && softDeleted.length > 0) continue;
+      if (softDeleted && softDeleted.length > 0) {
+        profileIdsCascaded.push(id);
+        continue;
+      }
       const { error: e2 } = await supabase.from("plant_varieties").delete().eq("id", id).eq("user_id", uid);
       if (e2) {
         setSaveToastMessage(`Could not delete: ${e2.message}`);
         failed = true;
         break;
       }
+    }
+    if (!failed && profileIdsCascaded.length > 0) {
+      await cascadeTasksAndShoppingForDeletedProfiles(supabase, profileIdsCascaded, uid);
     }
     setBatchDeleting(false);
     if (!failed) {
@@ -398,6 +424,7 @@ function VaultPageInner() {
       setMergeInProgress(false);
       return;
     }
+    await cascadeTasksAndShoppingForDeletedProfiles(supabase, sourceIds, user.id);
     setMergeInProgress(false);
     setMergeModalOpen(false);
     setSelectedVarietyIds(new Set());
@@ -411,91 +438,23 @@ function VaultPageInner() {
     setScheduleModalOpen(true);
   }, [selectedVarietyIds.size]);
 
-  const [scheduleProfiles, setScheduleProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
-  const [scheduleDefaults, setScheduleDefaults] = useState<{
-    plant_type: string;
-    planting_window?: string | null;
-    sow_jan: boolean;
-    sow_feb: boolean;
-    sow_mar: boolean;
-    sow_apr: boolean;
-    sow_may: boolean;
-    sow_jun: boolean;
-    sow_jul: boolean;
-    sow_aug: boolean;
-    sow_sep: boolean;
-    sow_oct: boolean;
-    sow_nov: boolean;
-    sow_dec: boolean;
-  }[]>([]);
+  const [scheduleProfiles, setScheduleProfiles] = useState<{ id: string; name: string; variety_name: string | null; planting_window?: string | null }[]>([]);
   const [scheduleDueDate, setScheduleDueDate] = useState(() => new Date().toISOString().slice(0, 10));
   useEffect(() => {
-    if (!scheduleModalOpen || !user?.id || selectedVarietyIds.size === 0) {
-      return;
-    }
+    if (!scheduleModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
     setScheduleDueDate(new Date().toISOString().slice(0, 10));
     let cancelled = false;
     (async () => {
       const ids = Array.from(selectedVarietyIds);
-      const [profilesRes, defaultsRes] = await Promise.all([
-        supabase.from("plant_profiles").select("id, name, variety_name").in("id", ids).eq("user_id", user.id),
-        supabase.from("schedule_defaults").select("plant_type, planting_window, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec").eq("user_id", user.id),
-      ]);
-      if (!cancelled) {
-        setScheduleProfiles((profilesRes.data ?? []) as { id: string; name: string; variety_name: string | null }[]);
-        setScheduleDefaults((defaultsRes.data ?? []) as {
-        plant_type: string;
-        planting_window?: string | null;
-        sow_jan: boolean;
-        sow_feb: boolean;
-        sow_mar: boolean;
-        sow_apr: boolean;
-        sow_may: boolean;
-        sow_jun: boolean;
-        sow_jul: boolean;
-        sow_aug: boolean;
-        sow_sep: boolean;
-        sow_oct: boolean;
-        sow_nov: boolean;
-        sow_dec: boolean;
-      }[]);
-      }
+      const { data } = await supabase
+        .from("plant_profiles")
+        .select("id, name, variety_name, planting_window")
+        .in("id", ids)
+        .eq("user_id", user.id);
+      if (!cancelled) setScheduleProfiles((data ?? []) as { id: string; name: string; variety_name: string | null; planting_window?: string | null }[]);
     })();
     return () => { cancelled = true; };
   }, [scheduleModalOpen, user?.id, selectedVarietyIds]);
-
-  const isSowNow = useCallback((profile: { name: string; variety_name: string | null }, defaults: { plant_type: string; sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean; sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean; sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean }[]) => {
-    const now = new Date();
-    const monthIndex = now.getMonth();
-    const monthCol = ["sow_jan", "sow_feb", "sow_mar", "sow_apr", "sow_may", "sow_jun", "sow_jul", "sow_aug", "sow_sep", "sow_oct", "sow_nov", "sow_dec"][monthIndex] as keyof (typeof defaults)[0];
-    const startPlantTypes = new Set(defaults.filter((s) => s[monthCol] === true).map((s) => s.plant_type.trim().toLowerCase()));
-    const nameNorm = (profile.name ?? "").trim().toLowerCase();
-    const firstWord = nameNorm.split(/\s+/)[0];
-    return startPlantTypes.has(nameNorm) || startPlantTypes.has(firstWord ?? "") || Array.from(startPlantTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
-  }, []);
-
-  const MONTH_ABBREV = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const getSowingWindowLabel = useCallback((profile: { name: string }, defaults: { plant_type: string; planting_window?: string | null; sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean; sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean; sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean }[]) => {
-    const nameNorm = (profile.name ?? "").trim().toLowerCase();
-    const firstWord = nameNorm.split(/\s+/)[0];
-    const row = defaults.find((s) => {
-      const t = (s.plant_type ?? "").trim().toLowerCase();
-      return t === nameNorm || t === (firstWord ?? "") || nameNorm.includes(t) || t.includes(nameNorm);
-    });
-    if (!row) return null;
-    if (row.planting_window?.trim()) return row.planting_window.trim();
-    const cols = ["sow_jan", "sow_feb", "sow_mar", "sow_apr", "sow_may", "sow_jun", "sow_jul", "sow_aug", "sow_sep", "sow_oct", "sow_nov", "sow_dec"] as const;
-    const indices = cols.map((_, i) => i).filter((i) => row[cols[i]] === true);
-    if (indices.length === 0) return null;
-    const runs: number[][] = [];
-    let run: number[] = [indices[0]!];
-    for (let i = 1; i < indices.length; i++) {
-      if (indices[i]! === indices[i - 1]! + 1) run.push(indices[i]!);
-      else { runs.push(run); run = [indices[i]!]; }
-    }
-    runs.push(run);
-    return runs.map((r) => r.length >= 2 ? `${MONTH_ABBREV[r[0]!]}–${MONTH_ABBREV[r[r.length - 1]!]}` : MONTH_ABBREV[r[0]!]).join(", ");
-  }, []);
 
   const handleConfirmSchedule = useCallback(async () => {
     if (!user?.id || scheduleProfiles.length === 0) return;
@@ -528,25 +487,9 @@ function VaultPageInner() {
   }, [selectedVarietyIds, router]);
 
   const [plantProfiles, setPlantProfiles] = useState<{ id: string; name: string; variety_name: string | null; harvest_days: number | null }[]>([]);
-  const [plantScheduleDefaults, setPlantScheduleDefaults] = useState<{
-    plant_type: string;
-    planting_window?: string | null;
-    sow_jan: boolean;
-    sow_feb: boolean;
-    sow_mar: boolean;
-    sow_apr: boolean;
-    sow_may: boolean;
-    sow_jun: boolean;
-    sow_jul: boolean;
-    sow_aug: boolean;
-    sow_sep: boolean;
-    sow_oct: boolean;
-    sow_nov: boolean;
-    sow_dec: boolean;
-  }[]>([]);
   const [plantDate, setPlantDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [plantNotes, setPlantNotes] = useState("");
-  type PlantProfileForModal = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
+  type PlantProfileForModal = { id: string; name: string; variety_name: string | null; harvest_days: number | null; planting_window?: string | null };
   type SeedPacketRow = { id: string; qty_status: number; created_at?: string };
   type PlantQuantityChoice = "50%" | "1 Pkt" | "All";
   type PlantModalRow = { profile: PlantProfileForModal; packets: SeedPacketRow[]; quantityChoice: PlantQuantityChoice };
@@ -558,9 +501,8 @@ function VaultPageInner() {
     let cancelled = false;
     (async () => {
       const ids = Array.from(selectedVarietyIds);
-      const [profilesRes, defaultsRes, packetsRes] = await Promise.all([
-        supabase.from("plant_profiles").select("id, name, variety_name, harvest_days").in("id", ids).eq("user_id", user.id),
-        supabase.from("schedule_defaults").select("plant_type, planting_window, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec").eq("user_id", user.id),
+      const [profilesRes, packetsRes] = await Promise.all([
+        supabase.from("plant_profiles").select("id, name, variety_name, harvest_days, planting_window").in("id", ids).eq("user_id", user.id),
         supabase.from("seed_packets").select("id, plant_profile_id, qty_status, created_at").in("plant_profile_id", ids).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: true }),
       ]);
       if (!cancelled && profilesRes.data) {
@@ -578,24 +520,6 @@ function VaultPageInner() {
           packets: byProfile.get(p.id) ?? [],
           quantityChoice: "1 Pkt" as PlantQuantityChoice,
         })));
-      }
-      if (!cancelled && defaultsRes.data) {
-        setPlantScheduleDefaults(defaultsRes.data as {
-          plant_type: string;
-          planting_window?: string | null;
-          sow_jan: boolean;
-          sow_feb: boolean;
-          sow_mar: boolean;
-          sow_apr: boolean;
-          sow_may: boolean;
-          sow_jun: boolean;
-          sow_jul: boolean;
-          sow_aug: boolean;
-          sow_sep: boolean;
-          sow_oct: boolean;
-          sow_nov: boolean;
-          sow_dec: boolean;
-        }[]);
       }
     })();
     return () => { cancelled = true; };
@@ -768,6 +692,35 @@ function VaultPageInner() {
     );
   }
 
+  function clearAllFilters() {
+    setStatusFilter("vault");
+    setTagFilters([]);
+    setCategoryFilter(null);
+    setVarietyFilter(null);
+    setVendorFilter(null);
+    setSunFilter(null);
+    setSpacingFilter(null);
+    setGerminationFilter(null);
+    setMaturityFilter(null);
+    setPacketCountFilter(null);
+    setRefineByOpen(false);
+    setRefineBySection(null);
+    if (sowParam) router.replace("/vault", { scroll: false });
+  }
+
+  const hasActiveFilters =
+    (statusFilter !== "" && statusFilter !== "vault") ||
+    tagFilters.length > 0 ||
+    categoryFilter !== null ||
+    varietyFilter !== null ||
+    vendorFilter !== null ||
+    sunFilter !== null ||
+    spacingFilter !== null ||
+    germinationFilter !== null ||
+    maturityFilter !== null ||
+    packetCountFilter !== null ||
+    (!!sowParam && /^\d{4}-\d{2}$/.test(sowParam));
+
   async function handleQRScan(value: string) {
     const trimmed = value.trim();
     const uuidRegex =
@@ -886,16 +839,28 @@ function VaultPageInner() {
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
                 <button
                   type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                    router.push(`/vault?sow=${sow}`);
+                  }}
+                  className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium shrink-0 ${
+                    sowParam && /^\d{4}-\d{2}$/.test(sowParam) && sowParam === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-black/10 bg-white text-black/80 hover:bg-black/5"
+                  }`}
+                  aria-label="Filter to plants you can sow this month"
+                >
+                  Plant Now
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
                   className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2 shrink-0"
                   aria-label="Refine by status, tags, plant type"
                 >
                   Refine by
-                  {(viewMode === "grid" || viewMode === "list") && (
-                    (statusFilter !== "" && statusFilter !== "vault") || tagFilters.length > 0 || categoryFilter !== null ||
-                    varietyFilter !== null || vendorFilter !== null || sunFilter !== null || spacingFilter !== null ||
-                    germinationFilter !== null || maturityFilter !== null || packetCountFilter !== null
-                  ) ? (
+                  {hasActiveFilters ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                       {[
                         statusFilter !== "" && statusFilter !== "vault",
@@ -908,10 +873,21 @@ function VaultPageInner() {
                         germinationFilter !== null,
                         maturityFilter !== null,
                         packetCountFilter !== null,
+                        !!sowParam && /^\d{4}-\d{2}$/.test(sowParam),
                       ].filter(Boolean).length}
                     </span>
                   ) : null}
                 </button>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
+                    aria-label="Clear all filters"
+                  >
+                    Clear filters
+                  </button>
+                )}
                 {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
                   <button
                     type="button"
@@ -972,16 +948,28 @@ function VaultPageInner() {
             aria-labelledby="refine-by-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
+            <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
               <h2 id="refine-by-title" className="text-lg font-semibold text-black">Refine by</h2>
-              <button
-                type="button"
-                onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-                aria-label="Close"
-              >
-                <span className="text-xl leading-none" aria-hidden>×</span>
-              </button>
+              <div className="flex items-center gap-1">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                    aria-label="Clear all filters"
+                  >
+                    Clear all
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
+                  aria-label="Close"
+                >
+                  <span className="text-xl leading-none" aria-hidden>×</span>
+                </button>
+              </div>
             </header>
             <div className="flex-1 overflow-y-auto">
               {/* Content for Plant Profiles / Seed Vault / Table */}
@@ -1000,7 +988,7 @@ function VaultPageInner() {
                     {refineBySection === "vault" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
                         {(["", "vault", "active", "low_inventory", "archived"] as const).map((value) => {
-                          const label = value === "" ? "All" : value === "vault" ? "Vaulted" : value === "active" ? "Active" : value === "low_inventory" ? "Low inventory" : "Archived";
+                          const label = value === "" ? "All" : value === "vault" ? "In storage" : value === "active" ? "Active" : value === "low_inventory" ? "Low inventory" : "Archived";
                           const selected = statusFilter === value;
                           return (
                             <button
@@ -1090,6 +1078,43 @@ function VaultPageInner() {
                       )}
                     </div>
                   )}
+                  <div className="border-b border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setRefineBySection((s) => (s === "sowingMonth" ? null : "sowingMonth"))}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                      aria-expanded={refineBySection === "sowingMonth"}
+                    >
+                      <span>Sowing month</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sowingMonth" ? "▴" : "▾"}</span>
+                    </button>
+                    {refineBySection === "sowingMonth" && (
+                      <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                        <button
+                          type="button"
+                          onClick={() => { router.replace("/vault", { scroll: false }); setRefineByOpen(false); setRefineBySection(null); }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm ${!sowParam ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                        >
+                          All
+                        </button>
+                        {sowingMonthChips.map(({ month, monthName, count }) => {
+                          const year = new Date().getFullYear();
+                          const sowVal = `${year}-${String(month).padStart(2, "0")}`;
+                          const selected = sowParam === sowVal;
+                          return (
+                            <button
+                              key={month}
+                              type="button"
+                              onClick={() => { router.push(`/vault?sow=${sowVal}`); setRefineByOpen(false); setRefineBySection(null); }}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                            >
+                              {monthName} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count (Seed Vault / Table) */}
                   {(viewMode === "grid" || viewMode === "list") && (
                     <>
@@ -1225,6 +1250,17 @@ function VaultPageInner() {
 
       {(viewMode === "grid" || viewMode === "list") && (
         <div className="relative z-10 pt-2">
+          {sowParam && /^\d{4}-\d{2}$/.test(sowParam) && (
+            <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-emerald-800">
+                Plant this month ({(() => {
+                  const [, m] = sowParam.split("-").map(Number);
+                  return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
+                })()})
+              </span>
+              <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</Link>
+            </div>
+          )}
           <SeedVaultView
             mode={viewMode}
             refetchTrigger={refetchTrigger}
@@ -1242,7 +1278,8 @@ function VaultPageInner() {
             onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
             availablePlantTypes={availablePlantTypes}
             onPlantTypeChange={handlePlantTypeChange}
-            plantNowFilter={false}
+            plantNowFilter={!!sowParam}
+            sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
             gridDisplayStyle={viewMode === "grid" ? gridDisplayStyle : undefined}
             categoryFilter={categoryFilter}
             onCategoryFilterChange={setCategoryFilter}
@@ -1255,6 +1292,7 @@ function VaultPageInner() {
             maturityFilter={maturityFilter}
             packetCountFilter={packetCountFilter}
             onRefineChipsLoaded={handleRefineChipsLoaded}
+            onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
             hideArchivedProfiles={false}
           />
         </div>
@@ -1362,8 +1400,8 @@ function VaultPageInner() {
                 <ul className="space-y-2">
                   {scheduleProfiles.map((p) => {
                     const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
-                    const sowNow = isSowNow(p, scheduleDefaults);
-                    const sowingWindow = getSowingWindowLabel(p, scheduleDefaults);
+                    const sowNow = isPlantableInMonth(p, new Date().getMonth());
+                    const sowingWindow = getSowingWindowLabel(p);
                     return (
                       <li key={p.id} className="py-2 px-3 rounded-lg bg-neutral-50 border border-black/5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -1448,7 +1486,7 @@ function VaultPageInner() {
                     const harvestLabel = p.harvest_days != null && p.harvest_days > 0
                       ? `Harvest in ~${p.harvest_days} days`
                       : "No maturity set";
-                    const sowingWindow = getSowingWindowLabel(p, plantScheduleDefaults);
+                    const sowingWindow = getSowingWindowLabel(p);
                     const packetCount = row.packets.length;
                     const effectiveTotal = row.packets.reduce((s, pk) => s + pk.qty_status / 100, 0);
                     const maxPct = packetCount > 0 ? Math.min(100, (effectiveTotal / Math.max(1, packetCount)) * 100) : 0;
@@ -1619,10 +1657,9 @@ function VaultPageInner() {
         }
       >
         {(viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0 ? (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="12" cy="6" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="12" cy="18" r="1.5" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
+            <path d="M7 6l4 6-4 6" />
+            <path d="M13 6l4 6-4 6" />
           </svg>
         ) : (
           <svg
@@ -1671,6 +1708,11 @@ function VaultPageInner() {
           setQuickAddOpen(false);
           router.push("/vault/import/manual");
         }}
+        onOpenPurchaseOrder={() => {
+          skipPopOnNavigateRef.current = true;
+          setQuickAddOpen(false);
+          setPurchaseOrderOpen(true);
+        }}
       />
 
       <BatchAddSeed
@@ -1682,6 +1724,11 @@ function VaultPageInner() {
           setBatchAddOpen(false);
           router.push("/vault/import/photos/hero");
         }}
+      />
+
+      <PurchaseOrderImport
+        open={purchaseOrderOpen}
+        onClose={() => setPurchaseOrderOpen(false)}
       />
 
       <QRScannerModal

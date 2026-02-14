@@ -21,7 +21,7 @@ await supabase.from("plant_profiles").insert({ user_id: user.id, name: "Tomato",
 await supabase.from("plant_profiles").insert({ name: "Tomato", ... });
 ```
 
-Every `SELECT`, `UPDATE`, and `DELETE` must also scope to `.eq("user_id", user.id)` unless the table is a shared/public cache (e.g., `global_plant_cache`, `schedule_defaults`).
+Every `SELECT`, `UPDATE`, and `DELETE` must also scope to `.eq("user_id", user.id)` unless the table is a shared/public cache (e.g., `global_plant_cache`).
 
 ---
 

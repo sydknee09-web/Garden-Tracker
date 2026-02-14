@@ -21,6 +21,11 @@ type PermanentPlant = {
   purchase_date: string | null;
   care_count: number;
   journal_count: number;
+  sun?: string | null;
+  plant_spacing?: string | null;
+  days_to_germination?: string | null;
+  harvest_days?: number | null;
+  tags?: string[] | null;
 };
 
 function formatPlantedAgo(dateStr: string | null | undefined): string | null {
@@ -44,6 +49,13 @@ export function MyPlantsView({
   onCloseAddModal,
   categoryFilter = null,
   onCategoryChipsLoaded,
+  varietyFilter = null,
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  tagFilters = [],
+  onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
   onAddClick,
@@ -56,6 +68,20 @@ export function MyPlantsView({
   onPermanentPlantAdded?: () => void;
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  varietyFilter?: string | null;
+  sunFilter?: string | null;
+  spacingFilter?: string | null;
+  germinationFilter?: string | null;
+  maturityFilter?: string | null;
+  tagFilters?: string[];
+  onRefineChipsLoaded?: (chips: {
+    variety: { value: string; count: number }[];
+    sun: { value: string; count: number }[];
+    spacing: { value: string; count: number }[];
+    germination: { value: string; count: number }[];
+    maturity: { value: string; count: number }[];
+    tags: string[];
+  }) => void;
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onAddClick?: () => void;
@@ -81,7 +107,7 @@ export function MyPlantsView({
 
     const { data: profiles } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, primary_image_path, hero_image_url, hero_image_path, status, profile_type, created_at, purchase_date")
+      .select("id, name, variety_name, primary_image_path, hero_image_url, hero_image_path, status, profile_type, created_at, purchase_date, sun, plant_spacing, days_to_germination, harvest_days, tags")
       .eq("user_id", user.id)
       .eq("profile_type", "permanent")
       .is("deleted_at", null)
@@ -98,7 +124,7 @@ export function MyPlantsView({
     // Count care schedules and journal entries
     const [careRes, journalRes] = await Promise.all([
       supabase.from("care_schedules").select("plant_profile_id").in("plant_profile_id", profileIds).eq("is_active", true).eq("user_id", user.id),
-      supabase.from("journal_entries").select("plant_profile_id").in("plant_profile_id", profileIds).eq("user_id", user.id),
+      supabase.from("journal_entries").select("plant_profile_id").in("plant_profile_id", profileIds).eq("user_id", user.id).is("deleted_at", null),
     ]);
 
     const careCounts = new Map<string, number>();
@@ -121,6 +147,13 @@ export function MyPlantsView({
 
   useEffect(() => { fetchPlants(); }, [fetchPlants, refetchTrigger]);
 
+  const maturityRange = (days: number | null | undefined): string => {
+    if (days == null || !Number.isFinite(days)) return "";
+    if (days < 60) return "<60";
+    if (days <= 90) return "60-90";
+    return "90+";
+  };
+
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of plants) {
@@ -132,13 +165,68 @@ export function MyPlantsView({
       .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
   }, [plants]);
 
+  const refineChips = useMemo(() => {
+    const varietyMap = new Map<string, number>();
+    const sunMap = new Map<string, number>();
+    const spacingMap = new Map<string, number>();
+    const germinationMap = new Map<string, number>();
+    const maturityMap = new Map<string, number>();
+    const tagSet = new Set<string>();
+    for (const p of plants) {
+      const v = (p.variety_name ?? "").trim() || "—";
+      varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
+      const sun = (p.sun ?? "").trim();
+      if (sun) sunMap.set(sun, (sunMap.get(sun) ?? 0) + 1);
+      const sp = (p.plant_spacing ?? "").trim();
+      if (sp) spacingMap.set(sp, (spacingMap.get(sp) ?? 0) + 1);
+      const g = (p.days_to_germination ?? "").trim();
+      if (g) germinationMap.set(g, (germinationMap.get(g) ?? 0) + 1);
+      const m = maturityRange(p.harvest_days ?? null);
+      if (m) maturityMap.set(m, (maturityMap.get(m) ?? 0) + 1);
+      (p.tags ?? []).forEach((t) => tagSet.add(t));
+    }
+    return {
+      variety: Array.from(varietyMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      sun: Array.from(sunMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      spacing: Array.from(spacingMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
+      tags: Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    };
+  }, [plants]);
+
   const filteredPlants = useMemo(() => {
-    if (!categoryFilter) return plants;
     return plants.filter((p) => {
-      const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
-      return first === categoryFilter;
+      if (categoryFilter) {
+        const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+        if (first !== categoryFilter) return false;
+      }
+      if (varietyFilter != null && varietyFilter !== "") {
+        const v = (p.variety_name ?? "").trim();
+        if (v !== varietyFilter) return false;
+      }
+      if (sunFilter != null && sunFilter !== "") {
+        const sun = (p.sun ?? "").trim();
+        if (sun !== sunFilter) return false;
+      }
+      if (spacingFilter != null && spacingFilter !== "") {
+        const sp = (p.plant_spacing ?? "").trim();
+        if (sp !== spacingFilter) return false;
+      }
+      if (germinationFilter != null && germinationFilter !== "") {
+        const g = (p.days_to_germination ?? "").trim();
+        if (g !== germinationFilter) return false;
+      }
+      if (maturityFilter != null && maturityFilter !== "") {
+        if (maturityRange(p.harvest_days ?? null) !== maturityFilter) return false;
+      }
+      if (tagFilters.length > 0) {
+        const plantTags = p.tags ?? [];
+        if (!tagFilters.some((t) => plantTags.includes(t))) return false;
+      }
+      return true;
     });
-  }, [plants, categoryFilter]);
+  }, [plants, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
 
   const q = (searchQuery ?? "").trim().toLowerCase();
   const filteredBySearch = useMemo(() => {
@@ -153,6 +241,10 @@ export function MyPlantsView({
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
+
+  useEffect(() => {
+    onRefineChipsLoaded?.(refineChips);
+  }, [refineChips, onRefineChipsLoaded]);
 
   useEffect(() => {
     onFilteredCountChange?.(filteredBySearch.length);

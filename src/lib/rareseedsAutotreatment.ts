@@ -1,6 +1,6 @@
 /**
  * Rareseeds (Baker Creek) autotreatment: derive plant_type and variety from URL slug
- * using schedule_defaults (Brain) so e.g. kohlrabi-blauer-speck → Kohlrabi / Blauer Speck.
+ * so e.g. kohlrabi-blauer-speck → Kohlrabi / Blauer Speck.
  */
 
 function toTitleCase(s: string): string {
@@ -52,7 +52,7 @@ export type RareSeedsAutotreatmentResult = {
  * - If a known plant_type matches at the start of the slug, use it as plant_name and the rest as variety_name.
  * - If no match, use first word as plant_name and the rest as variety_name (new type).
  * @param slugWithSpaces - e.g. "kohlrabi blauer speck" (from slug with hyphens replaced by spaces)
- * @param knownPlantTypes - plant_type values from schedule_defaults (Brain), title-case normalized
+ * @param knownPlantTypes - plant type values from plant_profiles (first word of name), title-case normalized
  */
 export function rareseedsAutotreatment(
   slugWithSpaces: string,

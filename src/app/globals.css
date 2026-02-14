@@ -109,6 +109,20 @@ input, select, textarea {
   .animate-fade-slide-in {
     animation: fade-slide-in 0.3s ease-out forwards;
   }
+  /* Vault selection FAB: double chevron slides in from left when entering batch mode */
+  @keyframes slide-in-chevron {
+    from {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .animate-slide-in-chevron {
+    animation: slide-in-chevron 0.25s ease-out forwards;
+  }
   /* Import review: highlight fields when AI is unsure (confidence_score < 0.7) */
   @keyframes soft-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.25); }

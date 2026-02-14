@@ -12,6 +12,8 @@ import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, getPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
+import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 
 /** Today's date in YYYY-MM-DD for default purchase date. */
 function todayISO(): string {
@@ -92,8 +94,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
   const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [shutterActive, setShutterActive] = useState(false);
-  const [burstMode, setBurstMode] = useState(false);
-  const [burstCount, setBurstCount] = useState(0);
   const queueScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,7 +108,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
       setProcessingAll(false);
       setGeminiProcessing(false);
       setSaving(false);
-      setBurstCount(0);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
@@ -129,12 +128,13 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
     if (!open || !user?.id) return;
     let cancelled = false;
     supabase
-      .from("schedule_defaults")
-      .select("plant_type")
+      .from("plant_profiles")
+      .select("name")
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .then(({ data }) => {
         if (cancelled) return;
-        const types = [...new Set((data ?? []).map((r: { plant_type: string }) => (r.plant_type ?? "").trim()).filter(Boolean))];
+        const types = [...new Set((data ?? []).map((r: { name?: string }) => (r.name ?? "").trim().split(/\s+/)[0]?.trim()).filter(Boolean))];
         setKnownPlantTypes(types);
       });
     return () => { cancelled = true; };
@@ -144,8 +144,8 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
   useEffect(() => {
     if (!open) return;
     supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
-      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
-      setPlantSuggestions(types);
+      const raw = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(filterValidPlantTypes(raw));
     });
   }, [open]);
 
@@ -168,15 +168,15 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
   useEffect(() => {
     if (!open || !user?.id) return;
     (async () => {
-      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id);
+      const { data: profileRows } = await supabase.from("plant_profiles").select("id").eq("user_id", user.id).is("deleted_at", null);
       const ids = (profileRows ?? []).map((r: { id: string }) => r.id);
       if (ids.length === 0) {
         setVendorSuggestions([]);
         return;
       }
-      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids);
-      const vendors = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
-      setVendorSuggestions([...new Set(vendors)].sort((a, b) => a.localeCompare(b)));
+      const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids).is("deleted_at", null);
+      const raw = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
+      setVendorSuggestions(dedupeVendorsForSuggestions(raw));
     })();
   }, [open, user?.id]);
 
@@ -447,7 +447,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
         purchaseDate: todayISO(),
       },
     ]);
-    if (burstMode) setBurstCount((c) => c + 1);
 
     canvas.toBlob(
       (blob) => {
@@ -626,7 +625,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: profileId,
         user_id: user.id,
-        vendor_name: item.vendor?.trim() || null,
+        vendor_name: item.vendor?.trim() ? (toCanonicalDisplay(item.vendor.trim()) || item.vendor.trim()) : null,
         qty_status: 100,
         primary_image_path: path,
         purchase_date: purchaseDate,
@@ -769,12 +768,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
               {shutterActive && (
                 <div className="absolute inset-0 bg-white animate-shutter-flash" aria-hidden />
               )}
-              {/* Burst mode counter */}
-              {burstMode && burstCount > 0 && (
-                <div className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-emerald text-white font-bold text-lg shadow-md">
-                  {burstCount}
-                </div>
-              )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
             <div className="flex gap-2 mb-2">
@@ -793,19 +786,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
                 Upload from Files
               </button>
             </div>
-            {/* Burst mode toggle */}
-            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={burstMode}
-                onChange={(e) => {
-                  setBurstMode(e.target.checked);
-                  if (!e.target.checked) setBurstCount(0);
-                }}
-                className="rounded border-black/20 text-emerald focus:ring-emerald"
-              />
-              <span className="text-sm text-black/80">Burst mode — camera stays open, tap to add more</span>
-            </label>
             <input
               ref={fileInputRef}
               type="file"

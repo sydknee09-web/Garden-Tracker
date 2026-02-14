@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { completeTask } from "@/lib/completeSowTask";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
+import { isPlantableInMonth } from "@/lib/plantingWindow";
 import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
@@ -28,6 +30,12 @@ const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
   { value: "general", label: "General" },
 ];
 
+const SOW_CATEGORIES = ["sow", "start_seed", "direct_sow", "transplant"];
+
+function isSowTask(category: string | null | undefined): boolean {
+  return !!category && SOW_CATEGORIES.includes(category);
+}
+
 /** Dot color for at-a-glance calendar indicators */
 function getCategoryDotColor(category: string): string {
   switch (category) {
@@ -49,6 +57,7 @@ function getCategoryDotColor(category: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,16 +75,18 @@ export default function CalendarPage() {
   const [savingTask, setSavingTask] = useState(false);
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
+  const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "overview">("overview");
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
   const [plantableInventoryPlantType, setPlantableInventoryPlantType] = useState<{ plantType: string; profiles: { id: string; name: string; variety_name: string | null }[] } | null>(null);
-  const [plantableAllOpen, setPlantableAllOpen] = useState(false);
   const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
   const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const swipeStartX = useRef<number | null>(null);
+  /** Collapsible date groups: which dates are expanded. Start with today expanded if it has tasks. */
+  const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -117,28 +128,21 @@ export default function CalendarPage() {
     fetchPacketsForProfileIds(ids);
   }, [plantableInventoryPlantType, fetchPacketsForProfileIds]);
 
-  // Fetch schedule_defaults + user profiles to compute "Plantable this month"
+  // Fetch plant_profiles and compute "Plantable this month" from planting_window
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const monthIndex = month.month; // 0-based
-      const monthCol = (["sow_jan","sow_feb","sow_mar","sow_apr","sow_may","sow_jun","sow_jul","sow_aug","sow_sep","sow_oct","sow_nov","sow_dec"] as const)[monthIndex];
-      const [{ data: schedules }, { data: profiles }] = await Promise.all([
-        supabase.from("schedule_defaults").select("plant_type, " + monthCol).eq("user_id", user.id),
-        supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", user.id),
-      ]);
+      const { data: profiles } = await supabase
+        .from("plant_profiles")
+        .select("id, name, variety_name, planting_window")
+        .eq("user_id", user.id)
+        .is("deleted_at", null);
       if (cancelled) return;
-      const plantTypes = new Set(
-        (schedules ?? [])
-          .filter((s) => typeof s === "object" && s !== null && !("error" in s) && (s as Record<string, unknown>)[monthCol] === true)
-          .map((s: { plant_type: string }) => s.plant_type.trim().toLowerCase())
-      );
-      const matches = (profiles ?? []).filter((p: { name: string }) => {
-        const n = (p.name ?? "").trim().toLowerCase();
-        const first = n.split(/\s+/)[0];
-        return plantTypes.has(n) || plantTypes.has(first ?? "") || Array.from(plantTypes).some((t) => n.includes(t) || t.includes(n));
-      }) as { id: string; name: string; variety_name: string | null }[];
+      const monthIndex = month.month;
+      const matches = (profiles ?? []).filter((p: { name: string; planting_window?: string | null }) =>
+        isPlantableInMonth(p, monthIndex)
+      ) as { id: string; name: string; variety_name: string | null }[];
       setPlantableProfiles(matches);
     })();
     return () => { cancelled = true; };
@@ -205,13 +209,23 @@ export default function CalendarPage() {
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
     const isHarvest = t.category === "harvest";
+    const isSow = isSowTask(t.category);
+    const plantLabel = t.plant_name ?? t.title ?? "Plant";
+
+    if (isSow) {
+      setPlantingCelebration(plantLabel);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+
     await completeTask(t, user.id);
     setRefetch((r) => r + 1);
     hapticSuccess();
+
     if (isHarvest) {
-      const plantLabel = t.plant_name ?? t.title ?? "Harvest";
       setHarvestCelebration(plantLabel);
       setTimeout(() => setHarvestCelebration(null), 2500);
+    } else if (isSow) {
+      setTimeout(() => setPlantingCelebration(null), 800);
     }
   }
 
@@ -272,11 +286,36 @@ export default function CalendarPage() {
   });
 
   const byDate: Record<string, (Task & { plant_name?: string })[]> = {};
-  tasks.forEach((t) => {
-    const d = t.due_date;
-    if (!byDate[d]) byDate[d] = [];
-    byDate[d].push(t);
-  });
+  tasks
+    .filter((t) => !t.completed_at)
+    .forEach((t) => {
+      const d = t.due_date;
+      if (!byDate[d]) byDate[d] = [];
+      byDate[d].push(t);
+    });
+
+  const expandedInitRef = useRef(false);
+  const lastMonthKey = useRef(`${month.year}-${month.month}`);
+  useEffect(() => {
+    const monthKey = `${month.year}-${month.month}`;
+    if (lastMonthKey.current !== monthKey) {
+      expandedInitRef.current = false;
+      lastMonthKey.current = monthKey;
+    }
+    if (expandedInitRef.current || tasks.length === 0) return;
+    expandedInitRef.current = true;
+    const todayTasks = tasks.filter((t) => t.due_date === todayStr);
+    setExpandedDateGroups(todayTasks.length > 0 ? new Set([todayStr]) : new Set());
+  }, [tasks, todayStr, month.year, month.month]);
+
+  const toggleDateGroup = useCallback((date: string) => {
+    setExpandedDateGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }, []);
 
   // Reminders view: only recurring (from care schedules) and not completed
   const remindersTasks = useMemo(
@@ -477,10 +516,13 @@ export default function CalendarPage() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => setPlantableAllOpen(true)}
+                  onClick={() => {
+                    const sowParam = `${month.year}-${String(month.month + 1).padStart(2, "0")}`;
+                    router.push(`/vault?sow=${sowParam}`);
+                  }}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white border border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors"
-                  title="Show all plantable"
-                  aria-label="Show all plantable for this month"
+                  title="View plantable in Vault"
+                  aria-label="View plantable for this month in Vault"
                 >
                   ∞
                 </button>
@@ -551,58 +593,6 @@ export default function CalendarPage() {
                   );
                 })
               )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Modal: all plantable (infinity) */}
-      {plantableAllOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setPlantableAllOpen(false)} />
-          <div
-            className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-lg border border-black/10 max-w-md mx-auto flex flex-col"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="plantable-all-title"
-          >
-            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
-              <h2 id="plantable-all-title" className="text-lg font-semibold text-black">
-                ∞ All plantable in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setPlantableAllOpen(false)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-4">
-              <ul className="space-y-2">
-                {plantableProfiles.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-black/10 p-3">
-                    <span className="flex-1 min-w-0 font-medium text-black truncate">
-                      {p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name}
-                    </span>
-                    <div className="flex gap-2 shrink-0">
-                      <Link
-                        href={`/vault/plant?ids=${p.id}`}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-                      >
-                        Plant
-                      </Link>
-                      <Link
-                        href={`/vault/${p.id}`}
-                        className="px-3 py-1.5 rounded-lg border border-black/15 text-black/70 text-sm font-medium hover:bg-black/5"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </>
@@ -705,8 +695,8 @@ export default function CalendarPage() {
 
       {!loading && !error && viewMode === "overview" && (
         <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-black/10">
-            <h2 className="text-sm font-semibold text-black">
+          <div className="relative px-4 py-4 flex items-center justify-center border-b border-black/10">
+            <h2 className="text-base font-bold text-black text-center">
               {selectedDate
                 ? `Tasks for ${new Date(selectedDate + "T12:00:00").toLocaleDateString("default", {
                     weekday: "short",
@@ -719,7 +709,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setSelectedDate(null)}
-                className="text-xs font-medium text-emerald-600 hover:underline"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-emerald-600 hover:underline min-h-[44px] min-w-[44px] flex items-center justify-end"
               >
                 Show all
               </button>
@@ -760,26 +750,49 @@ export default function CalendarPage() {
             <ul className="divide-y divide-black/5">
               {Object.entries(byDate)
                 .sort(([a], [b]) => a.localeCompare(b))
-                .map(([date, dayTasks]) => (
-                  <li key={date} className="p-4">
-                    <p className="text-xs font-medium text-black/50 mb-2">
-                      {new Date(date + "T12:00:00").toLocaleDateString("default", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </p>
-                    {dayTasks.map((t) => (
-                      <CalendarTaskRow
-                        key={t.id}
-                        task={t}
-                        onComplete={() => handleComplete(t)}
-                        onSnooze={(newDue) => handleSnooze(t, newDue)}
-                        onDeleteRequest={() => requestDeleteTask(t)}
-                      />
-                    ))}
-                  </li>
-                ))}
+                .map(([date, dayTasks]) => {
+                  const isExpanded = expandedDateGroups.has(date);
+                  const dateLabel = new Date(date + "T12:00:00").toLocaleDateString("default", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  });
+                  const sowCount = dayTasks.filter((t) =>
+                    ["sow", "start_seed", "direct_sow", "transplant"].includes(t.category)
+                  ).length;
+                  const summary =
+                    sowCount > 0 && sowCount === dayTasks.length
+                      ? `${sowCount} sowing${sowCount !== 1 ? "s" : ""}`
+                      : `${dayTasks.length} item${dayTasks.length !== 1 ? "s" : ""}`;
+                  return (
+                    <li key={date} className="border-b border-black/5 last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleDateGroup(date)}
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors"
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="text-sm font-medium text-black/80">
+                          {dateLabel} ({summary})
+                        </span>
+                        <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-2">
+                          {dayTasks.map((t) => (
+                            <CalendarTaskRow
+                              key={t.id}
+                              task={t}
+                              onComplete={() => handleComplete(t)}
+                              onSnooze={(newDue) => handleSnooze(t, newDue)}
+                              onDeleteRequest={() => requestDeleteTask(t)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
             </ul>
           )}
         </div>
@@ -795,26 +808,42 @@ export default function CalendarPage() {
             <ul className="divide-y divide-black/5">
               {Object.entries(byDateReminders)
                 .sort(([a], [b]) => a.localeCompare(b))
-                .map(([date, dayTasks]) => (
-                  <li key={date} className="p-4">
-                    <p className="text-xs font-medium text-black/50 mb-2">
-                      {new Date(date + "T12:00:00").toLocaleDateString("default", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </p>
-                    {dayTasks.map((t) => (
-                      <CalendarTaskRow
-                        key={t.id}
-                        task={t}
-                        onComplete={() => handleComplete(t)}
-                        onSnooze={(newDue) => handleSnooze(t, newDue)}
-                        onDeleteRequest={() => requestDeleteTask(t)}
-                      />
-                    ))}
-                  </li>
-                ))}
+                .map(([date, dayTasks]) => {
+                  const isExpanded = expandedDateGroups.has(date);
+                  const dateLabel = new Date(date + "T12:00:00").toLocaleDateString("default", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  });
+                  return (
+                    <li key={date} className="border-b border-black/5 last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleDateGroup(date)}
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors"
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="text-sm font-medium text-black/80">
+                          {dateLabel} ({dayTasks.length} reminder{dayTasks.length !== 1 ? "s" : ""})
+                        </span>
+                        <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-2">
+                          {dayTasks.map((t) => (
+                            <CalendarTaskRow
+                              key={t.id}
+                              task={t}
+                              onComplete={() => handleComplete(t)}
+                              onSnooze={(newDue) => handleSnooze(t, newDue)}
+                              onDeleteRequest={() => requestDeleteTask(t)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
             </ul>
           )}
         </div>
@@ -824,6 +853,24 @@ export default function CalendarPage() {
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
           <span aria-hidden>🌿</span>
           <span>Harvest logged! {harvestCelebration}</span>
+        </div>
+      )}
+
+      {plantingCelebration && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-emerald-500/90"
+          role="status"
+          aria-live="polite"
+          aria-label="Planting saved"
+        >
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
+              <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
+            </div>
+            <p className="text-white font-semibold text-lg">Planted!</p>
+            <p className="text-white/90 text-sm">{plantingCelebration}</p>
+          </div>
         </div>
       )}
 
@@ -1041,8 +1088,10 @@ function CalendarTaskRow({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      className={`flex flex-wrap items-center gap-2 py-2 px-3 rounded-xl text-sm ${
-        task.completed_at ? "bg-slate-100/80 text-slate-500" : "bg-emerald/10 text-black"
+      className={`flex flex-wrap items-center gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
+        task.completed_at
+          ? "bg-slate-50 border-slate-200/80 text-slate-500"
+          : "bg-white border-emerald-200/60 text-black shadow-sm hover:border-emerald-300/70"
       } ${task.id.startsWith("opt-") ? "opacity-60 animate-pulse" : ""}`}
     >
       <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
@@ -1060,9 +1109,13 @@ function CalendarTaskRow({
           <button
             type="button"
             onClick={onComplete}
-            className="text-xs font-medium text-emerald-600 hover:underline px-1"
+            className={
+              isSowTask(task.category)
+                ? "min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center"
+                : "text-xs font-medium text-emerald-600 hover:underline px-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            }
           >
-            Complete
+            {isSowTask(task.category) ? "Plant" : "Complete"}
           </button>
         </span>
       )}

@@ -90,11 +90,11 @@ export function OfflineIndicator() {
 
   return (
     <div
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-amber-600 text-white"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-amber-600 text-white text-center max-w-[min(20rem,calc(100vw-2rem))]"
       role="status"
       aria-live="polite"
     >
-      <span>Offline -- changes will sync when reconnected</span>
+      Offline — will sync when reconnected
     </div>
   );
 }
@@ -125,14 +125,27 @@ async function replayOneWrite(write: QueuedWrite): Promise<void> {
       break;
     }
     case "delete": {
-      let query = supabase.from(table).delete();
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          query = query.eq(key, value as string);
+      // Law 2: protected tables must use soft delete; never hard-delete on replay
+      const protectedTables = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks"];
+      if (protectedTables.includes(table)) {
+        let updateQuery = supabase.from(table).update({ deleted_at: new Date().toISOString() });
+        if (filters) {
+          for (const [key, value] of Object.entries(filters)) {
+            updateQuery = updateQuery.eq(key, value as string);
+          }
         }
+        const { error } = await updateQuery;
+        if (error) throw error;
+      } else {
+        let query = supabase.from(table).delete();
+        if (filters) {
+          for (const [key, value] of Object.entries(filters)) {
+            query = query.eq(key, value as string);
+          }
+        }
+        const { error } = await query;
+        if (error) throw error;
       }
-      const { error } = await query;
-      if (error) throw error;
       break;
     }
   }

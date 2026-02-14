@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { compressImage } from "@/lib/compressImage";
 
 const CATEGORIES = [
   { value: "", label: "Select type…" },
@@ -32,9 +33,44 @@ export function FeedbackModal({
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("");
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+  }, [open]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((el) => el.tabIndex !== -1);
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const msg = message.trim();
@@ -42,17 +78,30 @@ export function FeedbackModal({
     setError(null);
     setSending(true);
     try {
+      let screenshotPath: string | null = null;
+      if (screenshotFile) {
+        const { blob } = await compressImage(screenshotFile);
+        const path = `${user.id}/feedback-${crypto.randomUUID()}.jpg`;
+        const { error: uploadErr } = await supabase.storage
+          .from("journal-photos")
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        if (uploadErr) throw uploadErr;
+        screenshotPath = path;
+      }
       const { error: err } = await supabase.from("user_feedback").insert({
         user_id: user.id,
         message: msg,
         category: category || null,
         page_url: pageUrl || null,
         user_email: user.email || null,
+        screenshot_path: screenshotPath,
       });
       if (err) throw err;
       setSent(true);
       setMessage("");
       setCategory("");
+      setScreenshotFile(null);
+      setScreenshotPreview(null);
       setTimeout(() => {
         setSent(false);
         onClose();
@@ -63,32 +112,58 @@ export function FeedbackModal({
     } finally {
       setSending(false);
     }
-  }, [message, category, pageUrl, user?.id, user?.email, onClose]);
+  }, [message, category, screenshotFile, pageUrl, user?.id, user?.email, onClose]);
 
   const handleClose = useCallback(() => {
     if (!sending) {
       setMessage("");
       setCategory("");
+      setScreenshotFile(null);
+      setScreenshotPreview(null);
       setError(null);
       setSent(false);
       onClose();
     }
   }, [sending, onClose]);
 
+  const handleScreenshotChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file (JPEG, PNG, etc.).");
+      return;
+    }
+    setScreenshotPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    setScreenshotFile(file);
+    setError(null);
+  }, []);
+
+  const clearScreenshot = useCallback(() => {
+    setScreenshotFile(null);
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
+    setScreenshotPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [screenshotPreview]);
+
   if (!open) return null;
 
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/40"
+        className="fixed inset-0 z-[100] bg-black/40"
         aria-hidden
         onClick={handleClose}
       />
       <div
-        className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto"
+        ref={dialogRef}
+        className="fixed left-4 right-4 top-1/2 z-[100] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="feedback-title"
+        onKeyDown={handleKeyDown}
       >
         <div className="flex-shrink-0 flex items-center gap-2 p-4 border-b border-black/5">
           <span className="text-emerald-600" aria-hidden>
@@ -133,6 +208,47 @@ export function FeedbackModal({
               className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black placeholder:text-black/40 resize-y min-h-[100px]"
               aria-label="Feedback message"
               disabled={sending}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black/80 mb-1">
+              Screenshot (optional)
+            </label>
+            {screenshotPreview ? (
+              <div className="relative rounded-xl border border-black/10 overflow-hidden bg-neutral-50">
+                <div className="relative aspect-video max-h-40">
+                  <img
+                    src={screenshotPreview}
+                    alt="Screenshot attachment"
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={clearScreenshot}
+                  className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  aria-label="Remove screenshot"
+                >
+                  <span aria-hidden>×</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+                className="w-full min-h-[44px] rounded-xl border border-dashed border-black/20 px-4 py-3 text-sm text-black/60 hover:bg-black/5 hover:border-black/30 disabled:opacity-50"
+              >
+                Attach screenshot
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleScreenshotChange}
+              className="sr-only"
+              aria-label="Choose screenshot file"
             />
           </div>
           {pageUrl && (

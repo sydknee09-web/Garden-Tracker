@@ -18,6 +18,8 @@ import { compressImage } from "@/lib/compressImage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
+import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { Combobox } from "@/components/Combobox";
 import { hapticSuccess } from "@/lib/haptics";
 
@@ -101,128 +103,6 @@ function CheckmarkIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-/** Collapsible Technical Log panel: batch-level accordion, per-seed details with query and pass results. */
-function LogPanel({
-  logs,
-  isOpen,
-  onToggle,
-}: {
-  logs: ImportLogEntry[];
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
-  const batches = Array.from(new Set(logs.map((l) => l.batchId)));
-  const byBatch = batches.map((batchId) => ({
-    batchId,
-    entries: logs.filter((l) => l.batchId === batchId),
-  }));
-
-  if (logs.length === 0) return null;
-
-  return (
-    <div className="border border-black/10 rounded-xl bg-neutral-50/80 overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between py-2.5 px-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
-        aria-expanded={isOpen}
-      >
-        <span>Technical Log</span>
-        <span className="text-neutral-400 text-xs">{logs.length} entries</span>
-        <span className="text-neutral-400">{isOpen ? "▼" : "▶"}</span>
-      </button>
-      {isOpen && (
-        <div className="border-t border-black/10 max-h-[280px] overflow-y-auto">
-          {byBatch.map(({ batchId, entries }) => {
-            const batchOpen = expandedBatchId === batchId;
-            const itemIds = Array.from(new Set(entries.map((e) => e.itemId)));
-            const byItem = itemIds.map((itemId) => ({
-              itemId,
-              itemLabel: entries.find((e) => e.itemId === itemId)?.itemLabel ?? itemId.slice(0, 8),
-              itemEntries: entries.filter((e) => e.itemId === itemId),
-            }));
-            return (
-              <div key={batchId} className="border-b border-black/5 last:border-b-0">
-                <button
-                  type="button"
-                  onClick={() => setExpandedBatchId((prev) => (prev === batchId ? null : batchId))}
-                  className="w-full flex items-center justify-between py-2 px-3 text-left text-xs font-medium text-black/70 hover:bg-black/5"
-                >
-                  <span>Batch {batchId.replace("batch-", "")}</span>
-                  <span className="text-neutral-400">{batchOpen ? "▼" : "▶"}</span>
-                </button>
-                {batchOpen && (
-                  <div className="pl-3 pr-2 pb-2 space-y-1">
-                    {byItem.map(({ itemId, itemLabel, itemEntries }) => {
-                      const itemOpen = expandedItemId === itemId;
-                      const last = itemEntries[itemEntries.length - 1];
-                      const status = last?.resultStatus ?? "pending";
-                      return (
-                        <div key={itemId} className="rounded-lg border border-black/5 bg-white overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedItemId((prev) => (prev === itemId ? null : itemId))}
-                            className="w-full flex items-center justify-between py-1.5 px-2 text-left text-xs"
-                          >
-                            <span className="truncate font-medium text-black/80">{itemLabel || itemId.slice(0, 8)}</span>
-                            <span
-                              className={`shrink-0 ml-2 px-1.5 py-0.5 rounded text-xs ${
-                                status === "success"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : status === "failed"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {status}
-                            </span>
-                            <span className="ml-1 text-neutral-400">{itemOpen ? "▼" : "▶"}</span>
-                          </button>
-                          {itemOpen && (
-                            <div className="border-t border-black/5 px-2 py-1.5 space-y-1 text-xs text-neutral-600">
-                              {itemEntries.map((entry, i) => (
-                                <div key={i} className="flex flex-wrap gap-x-2 gap-y-0.5">
-                                  <span>Pass {entry.passNumber}</span>
-                                  <span title={entry.queryUsed} className="truncate max-w-[200px]">
-                                    Query: {entry.queryUsed}
-                                  </span>
-                                  <span className={entry.resultStatus === "success" ? "text-emerald-600" : entry.resultStatus === "failed" ? "text-red-600" : "text-amber-600"}>
-                                    {entry.resultStatus}
-                                  </span>
-                                  {entry.resultMessage && <span className="text-neutral-500">{entry.resultMessage}</span>}
-                                  <span className="text-neutral-400">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Single entry for the Technical Log (hero search pass). */
-export type ImportLogEntry = {
-  timestamp: string;
-  itemId: string;
-  itemLabel: string;
-  passNumber: number;
-  queryUsed: string;
-  resultStatus: "pending" | "success" | "failed";
-  resultMessage?: string;
-  batchId: string;
-};
 
 /** Persist a hero-photo pass to central import logs (Settings). Fire-and-forget so UI is not blocked. error_message is always set (mandatory diagnostic trace). */
 function persistHeroSearchLog(
@@ -316,20 +196,20 @@ export default function ReviewImportPage() {
   /** Item ids we tried in bulk search but no photo was found (show "No photo found" label) */
   const [noPhotoFoundIds, setNoPhotoFoundIds] = useState<Set<string>>(new Set());
   const [bulkHeroSearching, setBulkHeroSearching] = useState(false);
-  const [importLogs, setImportLogs] = useState<ImportLogEntry[]>([]);
-  const [logPanelOpen, setLogPanelOpen] = useState(false);
-  const initialBatchIdRef = useRef<string | null>(null);
   const saveSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
+  /** Full-screen lightbox for packet/hero image (tap to expand on mobile) */
+  const [expandedImageSrc, setExpandedImageSrc] = useState<string | null>(null);
+  const addPhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Plant suggestions from global_plant_cache
   useEffect(() => {
     if (items.length === 0) return;
     supabase.rpc("get_global_plant_cache_plant_types").then(({ data }) => {
-      const types = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
-      setPlantSuggestions(types);
+      const raw = ((data ?? []) as { plant_type: string | null }[]).map((r) => (r.plant_type ?? "").trim()).filter(Boolean);
+      setPlantSuggestions(filterValidPlantTypes(raw));
     });
   }, [items.length]);
 
@@ -419,7 +299,7 @@ export default function ReviewImportPage() {
         if (v) allVendors.add(v);
       });
 
-      setVendorSuggestions([...allVendors].sort((a, b) => a.localeCompare(b)));
+      setVendorSuggestions(dedupeVendorsForSuggestions([...allVendors]));
     })();
   }, [user?.id]);
 
@@ -427,8 +307,6 @@ export default function ReviewImportPage() {
   // Phase 0: fetch vault (import logs with status 200 + hero_image_url), then for each item missing hero either use vault URL (skip API) or call find-hero-photo. Always call persistHeroSearchLog for every API result (success or fail).
   useEffect(() => {
     if (items.length === 0) return;
-    const batchId = initialBatchIdRef.current ?? `batch-${Date.now()}`;
-    if (!initialBatchIdRef.current) initialBatchIdRef.current = batchId;
 
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -493,34 +371,12 @@ export default function ReviewImportPage() {
         const searchName = (item.originalType ?? item.type ?? "").trim() || "Unknown";
         const searchVariety = (item.originalVariety ?? item.variety ?? "").trim();
         const queryUsed = `${searchName} ${searchVariety}`.trim() || "—";
-        const itemLabel = (item.cleanVariety ?? item.variety ?? "").trim() || item.id.slice(0, 8);
-        setImportLogs((prev) => [
-          ...prev,
-          {
-            timestamp: new Date().toISOString(),
-            itemId: item.id,
-            itemLabel,
-            passNumber: 1,
-            queryUsed,
-            resultStatus: "pending" as const,
-            batchId,
-          },
-        ]);
-
         const identityKey = (item.identityKey ?? "").trim();
         const vaultUrl = identityKey ? vaultMap.get(identityKey) : undefined;
         const vaultProfileUrl = identityKey ? vaultProfileHeroMap.get(identityKey) : undefined;
         const heroUrlToUse = vaultUrl ?? vaultProfileUrl;
         if (heroUrlToUse) {
           // Phase 0 or 0.5 hit: use saved URL, skip API call entirely
-          const resultMsg = vaultUrl ? "Vault (Phase 0)" : "Vault (existing profile)";
-          setImportLogs((prev) => {
-            const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-            if (idx < 0) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], resultStatus: "success", resultMessage: resultMsg };
-            return next;
-          });
           setItems((prev) =>
             prev.map((i) =>
               i.id === item.id
@@ -572,13 +428,6 @@ export default function ReviewImportPage() {
                 /* non-fatal */
               }
             }
-            setImportLogs((prev) => {
-              const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-              if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = { ...next[idx], resultStatus: success ? "success" : "failed", resultMessage: success ? "Image found" : (data.error ?? "No image") };
-              return next;
-            });
             persistHeroSearchLog(item, 1, success, success ? 200 : res.status, queryUsed, success ? cleanedUrl : undefined);
             didLog = true;
             if (success) {
@@ -591,13 +440,6 @@ export default function ReviewImportPage() {
               );
             }
           } catch (err) {
-            setImportLogs((prev) => {
-              const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-              if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = { ...next[idx], resultStatus: "failed", resultMessage: (err as Error)?.message ?? "Request failed" };
-              return next;
-            });
             persistHeroSearchLog(item, 1, false, 0, queryUsed);
             didLog = true;
           } finally {
@@ -619,6 +461,27 @@ export default function ReviewImportPage() {
   const updateItem = useCallback((id: string, updates: Partial<ReviewImportItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
   }, []);
+
+  const handleAddPacketPhoto = useCallback(
+    async (itemId: string, file: File) => {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
+          else reject(new Error("Read failed"));
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === itemId ? { ...i, extraPacketImages: [...(i.extraPacketImages ?? []), base64] } : i
+        )
+      );
+    },
+    []
+  );
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => {
@@ -671,20 +534,6 @@ export default function ReviewImportPage() {
       return next;
     });
 
-    const batchId = `batch-${Date.now()}`;
-    setImportLogs((prev) => [
-      ...prev,
-      ...missing.map((item) => ({
-        timestamp: new Date().toISOString(),
-        itemId: item.id,
-        itemLabel: `${(item.type ?? "").trim()} ${(item.variety ?? "").trim()}`.trim() || item.id.slice(0, 8),
-        passNumber: 1,
-        queryUsed: `${(item.type ?? "").trim()} ${(item.variety ?? "").trim()}`.trim() || "—",
-        resultStatus: "pending" as const,
-        batchId,
-      })),
-    ]);
-
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token ?? null;
     const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
@@ -725,13 +574,6 @@ export default function ReviewImportPage() {
         const identityKeyBulk = (item.identityKey ?? "").trim();
         const vaultProfileUrl = identityKeyBulk ? vaultProfileHeroMap.get(identityKeyBulk) : undefined;
         if (vaultProfileUrl) {
-          setImportLogs((prev) => {
-            const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-            if (idx < 0) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], resultStatus: "success", resultMessage: "Vault (existing profile)" };
-            return next;
-          });
           persistHeroSearchLog(item, 1, true, 200, queryUsed, vaultProfileUrl);
           return {
             id: item.id,
@@ -781,17 +623,6 @@ export default function ReviewImportPage() {
             }
           }
           const isError = !res.ok && !url;
-          setImportLogs((prev) => {
-            const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-            if (idx < 0) return prev;
-            const next = [...prev];
-            next[idx] = {
-              ...next[idx],
-              resultStatus: url ? "success" : "failed",
-              resultMessage: url ? "Image found" : (data.error ?? "No image"),
-            };
-            return next;
-          });
           persistHeroSearchLog(item, 1, !!url, url ? 200 : res.status, queryUsed, url);
           didLog = true;
           return {
@@ -801,13 +632,6 @@ export default function ReviewImportPage() {
             variety: item.cleanVariety ?? item.variety ?? item.type ?? "",
           };
         } catch (err) {
-          setImportLogs((prev) => {
-            const idx = prev.findIndex((l) => l.itemId === item.id && l.batchId === batchId && l.resultStatus === "pending");
-            if (idx < 0) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], resultStatus: "failed", resultMessage: (err as Error)?.message ?? "Request failed" };
-            return next;
-          });
           persistHeroSearchLog(item, 1, false, 0, queryUsed);
           didLog = true;
           return {
@@ -936,7 +760,7 @@ export default function ReviewImportPage() {
         })
         .eq("id", profile.id)
         .eq("user_id", user.id);
-      const { data } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, botanical_care_notes").eq("user_id", user.id);
+      const { data } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, botanical_care_notes").eq("user_id", user.id).is("deleted_at", null);
       setProfiles((data ?? []) as ProfileMatch[]);
     },
     [getExistingProfile, user?.id]
@@ -951,6 +775,15 @@ export default function ReviewImportPage() {
       if (saveSuccessTimeoutRef.current) clearTimeout(saveSuccessTimeoutRef.current);
     };
   }, []);
+
+  // Lightbox: handle browser/phone back button to close
+  useEffect(() => {
+    if (!expandedImageSrc) return;
+    const handlePopState = () => setExpandedImageSrc(null);
+    window.history.pushState({ reviewImageExpanded: true }, "");
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [expandedImageSrc]);
 
   const handleSaveAll = useCallback(async () => {
     if (!user?.id || items.length === 0) return;
@@ -968,7 +801,7 @@ export default function ReviewImportPage() {
     }
 
     const newProfileIdsWithoutHero: string[] = [];
-    const savedItems: { item: ReviewImportItem; profileId: string }[] = [];
+    const savedItems: { item: ReviewImportItem; profileId: string; packetImagePath?: string }[] = [];
     for (const item of items) {
       const name = (item.type ?? "").trim() || "Unknown";
       const varietyName = (item.variety ?? "").trim() || null;
@@ -1088,28 +921,53 @@ export default function ReviewImportPage() {
         ...((item.secondary_urls ?? []).map((u) => (u ?? "").trim()).filter(Boolean)),
       ].filter(Boolean) as string[];
       const urlsToSave = allUrls.length > 0 ? allUrls : [null];
+      let firstPacketId: string | null = null;
+      const extraImages = item.extraPacketImages ?? [];
       for (let u = 0; u < urlsToSave.length; u++) {
         const purchaseUrl = urlsToSave[u];
         const isFirst = u === 0;
-        const { error: packetErr } = await supabase.from("seed_packets").insert({
+        const { data: packetRow, error: packetErr } = await supabase.from("seed_packets").insert({
           plant_profile_id: profileId,
           user_id: user.id,
-          vendor_name: (item.vendor ?? "").trim() || null,
+          vendor_name: (item.vendor ?? "").trim() ? (toCanonicalDisplay((item.vendor ?? "").trim()) || (item.vendor ?? "").trim()) : null,
           qty_status: 100,
           ...(isFirst && path && { primary_image_path: path }),
           purchase_date: purchaseDate,
           ...(purchaseUrl && { purchase_url: purchaseUrl }),
           ...(tagsToSave.length > 0 && { tags: tagsToSave }),
           ...(vendorSpecs && Object.keys(vendorSpecs).length > 0 && { vendor_specs: vendorSpecs }),
-        });
+          ...((item.user_notes ?? "").trim() && { user_notes: item.user_notes!.trim() }),
+          ...((item.storage_location ?? "").trim() && { storage_location: item.storage_location!.trim() }),
+        }).select("id").single();
         if (packetErr) {
           setError(packetErr.message);
           setSaving(false);
           return;
         }
+        if (isFirst && packetRow) firstPacketId = (packetRow as { id: string }).id;
+      }
+      // Upload extra packet images to packet_images table (first packet only)
+      if (firstPacketId && extraImages.length > 0) {
+        for (let i = 0; i < extraImages.length; i++) {
+          const extraPath = `${user.id}/${crypto.randomUUID()}.jpg`;
+          const rawBlob = base64ToBlob(extraImages[i], "image/jpeg");
+          const file = new File([rawBlob], `packet-extra-${i}.jpg`, { type: "image/jpeg" });
+          const { blob } = await compressImage(file);
+          const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(extraPath, blob, {
+            contentType: "image/jpeg",
+            upsert: false,
+          });
+          if (!uploadErr) {
+            await supabase.from("packet_images").insert({
+              seed_packet_id: firstPacketId,
+              image_path: extraPath,
+              sort_order: i,
+            });
+          }
+        }
       }
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
-      savedItems.push({ item, profileId });
+      savedItems.push({ item, profileId, packetImagePath: path ?? undefined });
     }
 
     // Phase: Download hero images to Supabase Storage + upsert plant_extract_cache
@@ -1119,19 +977,46 @@ export default function ReviewImportPage() {
     for (let chunkStart = 0; chunkStart < savedItems.length; chunkStart += DOWNLOAD_CONCURRENCY) {
       const chunk = savedItems.slice(chunkStart, chunkStart + DOWNLOAD_CONCURRENCY);
       await Promise.all(
-        chunk.map(async ({ item: savedItem, profileId: savedProfileId }) => {
+        chunk.map(async ({ item: savedItem, profileId: savedProfileId, packetImagePath }) => {
           const identityKey = (savedItem.identityKey ?? "").trim();
           const vendorStr = (savedItem.vendor ?? "").trim();
           const rawSourceUrl = (savedItem.source_url ?? "").trim();
           // Allow cache upsert for photo/manual: use synthetic source_url so same user benefits on re-import
           const sourceUrl = rawSourceUrl || (identityKey ? `photo:${identityKey}` : "");
-          if (!identityKey || !sourceUrl) return; // need at least identity key to cache
 
           let heroStoragePath: string | null = null;
           const rawHero = (savedItem.stock_photo_url ?? "").trim() || (savedItem.hero_image_url ?? "").trim();
           const shouldDownloadHero = savedItem.useStockPhotoAsHero !== false && rawHero.startsWith("http");
+          const shouldUsePacketAsHero = savedItem.useStockPhotoAsHero !== false && packetImagePath?.trim();
 
-          // A. Download and store hero image (5s timeout per image)
+          // A1. Photo import: use packet image as profile hero when checked (copy from seed-packets to journal-photos)
+          if (shouldUsePacketAsHero && !shouldDownloadHero) {
+            try {
+              const { data: blob, error: downloadErr } = await supabase.storage.from("seed-packets").download(packetImagePath!);
+              if (!downloadErr && blob) {
+                const sanitizedKey = ((vendorStr + "_" + identityKey).toLowerCase().replace(/[^a-z0-9]/g, "_")) || `hero-${savedProfileId}`;
+                const storagePath = `${user.id}/hero-cache/${sanitizedKey}.jpg`;
+                const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, blob, {
+                  contentType: blob.type || "image/jpeg",
+                  upsert: true,
+                });
+                if (!uploadErr) {
+                  heroStoragePath = storagePath;
+                  await supabase
+                    .from("plant_profiles")
+                    .update({ hero_image_path: storagePath, hero_image_url: null })
+                    .eq("id", savedProfileId)
+                    .eq("user_id", user.id);
+                }
+              }
+            } catch (e) {
+              console.warn("[save] Packet-as-hero copy failed:", (e instanceof Error ? e.message : String(e)));
+            }
+          }
+
+          if (!identityKey || !sourceUrl) return; // need at least identity key to cache
+
+          // A2. Download and store hero image from URL (5s timeout per image)
           if (shouldDownloadHero) {
             try {
               const controller = new AbortController();
@@ -1235,6 +1120,36 @@ export default function ReviewImportPage() {
 
   return (
     <div className="px-8 pt-8 pb-32 max-w-[1600px] mx-auto w-full">
+      {/* Full-screen image lightbox (tap thumbnail to expand, X or back to close) */}
+      {expandedImageSrc && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded image"
+        >
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+            aria-label="Close"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="absolute inset-0 -z-0"
+            aria-hidden
+          />
+          <img
+            src={expandedImageSrc}
+            alt=""
+            className="max-w-full max-h-[85vh] object-contain rounded-lg relative z-10"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
       <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
         ← Back to Vault
       </Link>
@@ -1314,7 +1229,13 @@ export default function ReviewImportPage() {
                   className={`flex flex-col md:flex-row gap-4 p-4 md:py-4 md:px-6 ${isDuplicate ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/70" : "hover:bg-black/[0.02]"}`}
                 >
                   <div className="md:w-52 shrink-0 flex flex-col gap-1.5">
-                      <div className="w-20 h-20 md:w-40 md:h-40 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => imgSrc && setExpandedImageSrc(imgSrc)}
+                        disabled={!imgSrc || heroLoading}
+                        className="w-20 h-20 md:w-40 md:h-40 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:cursor-default disabled:opacity-100"
+                        aria-label="Expand image"
+                      >
                         {heroLoading ? (
                           <div className="absolute inset-0 bg-neutral-200 animate-pulse rounded-lg" aria-hidden />
                         ) : null}
@@ -1322,7 +1243,7 @@ export default function ReviewImportPage() {
                           <img
                             src={imgSrc}
                             alt=""
-                            className="w-full h-full object-cover object-center relative z-10"
+                            className="w-full h-full object-cover object-center relative z-10 pointer-events-none"
                             referrerPolicy="no-referrer"
                             onError={(e) => {
                               console.error("Image failed to load:", item.hero_image_url);
@@ -1350,7 +1271,7 @@ export default function ReviewImportPage() {
                         >
                           No image
                         </span>
-                      </div>
+                      </button>
                       {noPhotoFoundIds.has(item.id) && !heroLoading && (
                         <p className="text-amber-700 text-xs mt-0.5" role="status">
                           No photo found
@@ -1383,6 +1304,62 @@ export default function ReviewImportPage() {
                         <p className="text-amber-700 text-xs" role="alert">
                           Please find or upload a photo first
                         </p>
+                      )}
+                      {/* Add photo: only for photo-import items (have packet image) */}
+                      {packetDataUrl && (
+                        <div className="mt-2 space-y-1">
+                          <input
+                            ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            aria-hidden
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await handleAddPacketPhoto(item.id, file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addPhotoInputRefs.current[item.id]?.click()}
+                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                          >
+                            + Add packet photo
+                          </button>
+                          {(item.extraPacketImages?.length ?? 0) > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(item.extraPacketImages ?? []).map((b64, idx) => {
+                                const src = b64.includes("data:") ? b64 : `data:image/jpeg;base64,${b64}`;
+                                return (
+                                  <div key={idx} className="relative w-10 h-10 rounded overflow-hidden bg-black/5 shrink-0 group">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedImageSrc(src)}
+                                      className="absolute inset-0 w-full h-full block z-[1]"
+                                      aria-label="Expand image"
+                                    />
+                                    <img src={src} alt="" className="w-full h-full object-cover pointer-events-none" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateItem(item.id, {
+                                          extraPacketImages: (item.extraPacketImages ?? []).filter((_, i) => i !== idx),
+                                        });
+                                      }}
+                                      className="absolute top-0 right-0 w-4 h-4 rounded-bl bg-black/60 text-white text-[10px] flex items-center justify-center hover:bg-black/80 z-[2] min-w-[16px] min-h-[16px]"
+                                      aria-label="Remove photo"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       )}
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
@@ -1473,6 +1450,28 @@ export default function ReviewImportPage() {
                       aria-label="Purchase date"
                     />
                     </div>
+                    <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Packet notes</label>
+                    <textarea
+                      value={item.user_notes ?? ""}
+                      onChange={(e) => updateItem(item.id, { user_notes: e.target.value })}
+                      placeholder="Optional"
+                      rows={2}
+                      className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                      aria-label="Packet notes"
+                    />
+                    </div>
+                    <div>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location</label>
+                    <input
+                      type="text"
+                      value={item.storage_location ?? ""}
+                      onChange={(e) => updateItem(item.id, { storage_location: e.target.value })}
+                      placeholder="e.g. Green box"
+                      className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                      aria-label="Storage location"
+                    />
+                    </div>
                     <div className="sm:col-span-2 lg:col-span-4 text-sm text-black/70">
                     {item.sowing_depth ?? item.spacing ?? item.sun_requirement ?? item.days_to_germination ?? item.days_to_maturity ? (
                       <div className="space-y-1">
@@ -1539,12 +1538,6 @@ export default function ReviewImportPage() {
             })}
         </div>
       </div>
-
-      {importLogs.length > 0 && (
-        <div className="mt-6 mb-4">
-          <LogPanel logs={importLogs} isOpen={logPanelOpen} onToggle={() => setLogPanelOpen((o) => !o)} />
-        </div>
-      )}
 
       <div
         className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper/95 border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"

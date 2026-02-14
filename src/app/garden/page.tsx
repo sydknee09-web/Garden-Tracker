@@ -6,11 +6,22 @@ import { ActiveGardenView } from "@/components/ActiveGardenView";
 import { MyPlantsView } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
 import { AddStoreBoughtPlantModal } from "@/components/AddStoreBoughtPlantModal";
+import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { compressImage } from "@/lib/compressImage";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+
+type RefineChips = {
+  variety: { value: string; count: number }[];
+  sun: { value: string; count: number }[];
+  spacing: { value: string; count: number }[];
+  germination: { value: string; count: number }[];
+  maturity: { value: string; count: number }[];
+  tags: string[];
+};
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
 
@@ -31,7 +42,21 @@ function GardenPageInner() {
   const [plantsHasItems, setPlantsHasItems] = useState(false);
   const [activeHasItems, setActiveHasItems] = useState(false);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"plantType" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | null>(null);
+  const [activeRefineChips, setActiveRefineChips] = useState<RefineChips | null>(null);
+  const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
+  const [activeVarietyFilter, setActiveVarietyFilter] = useState<string | null>(null);
+  const [activeSunFilter, setActiveSunFilter] = useState<string | null>(null);
+  const [activeSpacingFilter, setActiveSpacingFilter] = useState<string | null>(null);
+  const [activeGerminationFilter, setActiveGerminationFilter] = useState<string | null>(null);
+  const [activeMaturityFilter, setActiveMaturityFilter] = useState<string | null>(null);
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+  const [plantsVarietyFilter, setPlantsVarietyFilter] = useState<string | null>(null);
+  const [plantsSunFilter, setPlantsSunFilter] = useState<string | null>(null);
+  const [plantsSpacingFilter, setPlantsSpacingFilter] = useState<string | null>(null);
+  const [plantsGerminationFilter, setPlantsGerminationFilter] = useState<string | null>(null);
+  const [plantsMaturityFilter, setPlantsMaturityFilter] = useState<string | null>(null);
+  const [plantsTagFilters, setPlantsTagFilters] = useState<string[]>([]);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
@@ -59,6 +84,38 @@ function GardenPageInner() {
   const handlePlantsCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setPlantsCategoryChips(chips);
   }, []);
+  const handleActiveRefineChipsLoaded = useCallback((chips: RefineChips) => {
+    setActiveRefineChips(chips);
+  }, []);
+  const handlePlantsRefineChipsLoaded = useCallback((chips: RefineChips) => {
+    setPlantsRefineChips(chips);
+  }, []);
+
+  const toggleActiveTagFilter = useCallback((tag: string) => {
+    setActiveTagFilters((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+  }, []);
+  const togglePlantsTagFilter = useCallback((tag: string) => {
+    setPlantsTagFilters((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+  }, []);
+
+  const activeFilterCount = [
+    activeCategoryFilter !== null,
+    activeVarietyFilter !== null,
+    activeSunFilter !== null,
+    activeSpacingFilter !== null,
+    activeGerminationFilter !== null,
+    activeMaturityFilter !== null,
+    activeTagFilters.length > 0,
+  ].filter(Boolean).length;
+  const plantsFilterCount = [
+    plantsCategoryFilter !== null,
+    plantsVarietyFilter !== null,
+    plantsSunFilter !== null,
+    plantsSpacingFilter !== null,
+    plantsGerminationFilter !== null,
+    plantsMaturityFilter !== null,
+    plantsTagFilters.length > 0,
+  ].filter(Boolean).length;
 
   const openLogGrowth = useCallback((batch: GrowingBatchForLog) => {
     setLogGrowthBatch(batch);
@@ -82,8 +139,9 @@ function GardenPageInner() {
       .update({ status: "archived", ended_at: new Date().toISOString() })
       .eq("id", endCropConfirmBatch.id)
       .eq("user_id", user.id);
-    setEndCropConfirmBatch(null);
     if (error) return;
+    await softDeleteTasksForGrowInstance(endCropConfirmBatch.id, user.id);
+    setEndCropConfirmBatch(null);
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, endCropConfirmBatch]);
 
@@ -175,8 +233,10 @@ function GardenPageInner() {
                 aria-label="Refine by plant type"
               >
                 Refine by
-                {(viewMode === "active" && activeCategoryFilter !== null) || (viewMode === "plants" && plantsCategoryFilter !== null) ? (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
+                {(viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0) ? (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
+                    {viewMode === "active" ? activeFilterCount : plantsFilterCount}
+                  </span>
                 ) : null}
               </button>
               <span className="text-sm text-black/50">
@@ -232,6 +292,127 @@ function GardenPageInner() {
                     </div>
                   )}
                 </div>
+                {(() => {
+                  const chips = viewMode === "active" ? activeRefineChips : plantsRefineChips;
+                  const setVariety = viewMode === "active" ? setActiveVarietyFilter : setPlantsVarietyFilter;
+                  const setSun = viewMode === "active" ? setActiveSunFilter : setPlantsSunFilter;
+                  const setSpacing = viewMode === "active" ? setActiveSpacingFilter : setPlantsSpacingFilter;
+                  const setGermination = viewMode === "active" ? setActiveGerminationFilter : setPlantsGerminationFilter;
+                  const setMaturity = viewMode === "active" ? setActiveMaturityFilter : setPlantsMaturityFilter;
+                  const varietyFilter = viewMode === "active" ? activeVarietyFilter : plantsVarietyFilter;
+                  const sunFilter = viewMode === "active" ? activeSunFilter : plantsSunFilter;
+                  const spacingFilter = viewMode === "active" ? activeSpacingFilter : plantsSpacingFilter;
+                  const germinationFilter = viewMode === "active" ? activeGerminationFilter : plantsGerminationFilter;
+                  const maturityFilter = viewMode === "active" ? activeMaturityFilter : plantsMaturityFilter;
+                  const tagFilters = viewMode === "active" ? activeTagFilters : plantsTagFilters;
+                  const toggleTag = viewMode === "active" ? toggleActiveTagFilter : togglePlantsTagFilter;
+                  if (!chips) return null;
+                  return (
+                    <>
+                      {chips.variety.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "variety" ? null : "variety"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "variety"}>
+                            <span>Variety</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "variety" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              <button type="button" onClick={() => setVariety(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${varietyFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {chips.variety.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setVariety(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${varietyFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {chips.sun.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
+                            <span>Sun</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "sun" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              <button type="button" onClick={() => setSun(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${sunFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {chips.sun.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setSun(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${sunFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {chips.spacing.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
+                            <span>Spacing</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "spacing" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              <button type="button" onClick={() => setSpacing(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${spacingFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {chips.spacing.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setSpacing(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${spacingFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {chips.germination.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
+                            <span>Germination</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "germination" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              <button type="button" onClick={() => setGermination(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${germinationFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {chips.germination.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setGermination(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${germinationFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {chips.maturity.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
+                            <span>Maturity</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "maturity" && (
+                            <div className="px-4 pb-3 pt-0 space-y-0.5">
+                              <button type="button" onClick={() => setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${maturityFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              {chips.maturity.map(({ value, count }) => (
+                                <button key={value} type="button" onClick={() => setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${maturityFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {chips.tags.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "tags" ? null : "tags"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "tags"}>
+                            <span>Tags</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▴" : "▾"}</span>
+                          </button>
+                          {refineBySection === "tags" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              {chips.tags.map((tag) => {
+                                const checked = tagFilters.includes(tag);
+                                return (
+                                  <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                                    <input type="checkbox" checked={checked} onChange={() => toggleTag(tag)} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label={`Filter by ${tag}`} />
+                                    <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>{tag}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
                 <button
@@ -256,6 +437,13 @@ function GardenPageInner() {
               onEndCrop={handleEndCrop}
               categoryFilter={activeCategoryFilter}
               onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
+              varietyFilter={activeVarietyFilter}
+              sunFilter={activeSunFilter}
+              spacingFilter={activeSpacingFilter}
+              germinationFilter={activeGerminationFilter}
+              maturityFilter={activeMaturityFilter}
+              tagFilters={activeTagFilters}
+              onRefineChipsLoaded={handleActiveRefineChipsLoaded}
               onFilteredCountChange={setActiveFilteredCount}
               onEmptyStateChange={(empty) => setActiveHasItems(!empty)}
               openBulkJournalRequest={openBulkJournalForActive}
@@ -280,6 +468,13 @@ function GardenPageInner() {
               }}
               categoryFilter={plantsCategoryFilter}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
+              varietyFilter={plantsVarietyFilter}
+              sunFilter={plantsSunFilter}
+              spacingFilter={plantsSpacingFilter}
+              germinationFilter={plantsGerminationFilter}
+              maturityFilter={plantsMaturityFilter}
+              tagFilters={plantsTagFilters}
+              onRefineChipsLoaded={handlePlantsRefineChipsLoaded}
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
               onAddClick={() => setShowAddPermanentPlantModal(true)}
@@ -362,7 +557,7 @@ function GardenPageInner() {
         <>
           <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setFabMenuOpen(false)} />
           <div className="fixed right-6 z-30 flex flex-col gap-0.5 rounded-3xl border border-neutral-200 bg-white p-1.5 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
-            <button type="button" onClick={() => { router.push("/vault"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
+            <button type="button" onClick={() => { router.push("/vault/plant"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
               <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌿</span>
               <span>Plant from Seed Vault</span>
             </button>

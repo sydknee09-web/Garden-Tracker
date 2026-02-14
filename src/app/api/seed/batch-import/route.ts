@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { applyZone10bToProfile, toScheduleKey, getZone10bScheduleForPlant, getDefaultSowMonthsForZone10b } from "@/data/zone10b_schedule";
+import { applyZone10bToProfile, toScheduleKey, getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -85,12 +85,13 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const results: BatchImportResultItem[] = [];
 
-  const { data: scheduleRows } = await supabase
-    .from("schedule_defaults")
-    .select("plant_type")
-    .eq("user_id", userId);
+  const { data: profileRows } = await supabase
+    .from("plant_profiles")
+    .select("name")
+    .eq("user_id", userId)
+    .is("deleted_at", null);
   const knownPlantTypes = Array.from(new Set(
-    (scheduleRows ?? []).map((r: { plant_type: string }) => toScheduleKey(r.plant_type || "")).filter(Boolean)
+    (profileRows ?? []).map((r: { name?: string }) => toScheduleKey((r.name ?? "").trim().split(/\s+/)[0] || "")).filter(Boolean)
   ));
 
   for (const url of urls) {
@@ -151,13 +152,18 @@ export async function POST(request: Request) {
           if (proxyRes.ok) {
             const blob = await proxyRes.blob();
             if (blob.type.startsWith("image/")) {
-              // TODO: Add server-side image compression (e.g. sharp) for Law 4 compliance
-              const ext = blob.type.split("/")[1] || "jpg";
-              const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+              const arrayBuffer = await blob.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              const sharp = (await import("sharp")).default;
+              const compressed = await sharp(buffer)
+                .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+                .jpeg({ quality: 85 })
+                .toBuffer();
+              const path = `${userId}/${crypto.randomUUID()}.jpg`;
               const { error: uploadErr } = await supabase.storage
                 .from("seed-packets")
-                .upload(path, blob, {
-                  contentType: blob.type,
+                .upload(path, compressed, {
+                  contentType: "image/jpeg",
                   upsert: false,
                 });
               if (!uploadErr) primaryImagePath = path;
@@ -301,32 +307,6 @@ export async function POST(request: Request) {
         }
       } catch {
         // non-fatal
-      }
-
-      const plantType = plantName.trim();
-      if (plantType) {
-        const { data: existingSchedule } = await supabase
-          .from("schedule_defaults")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("plant_type", plantType)
-          .maybeSingle();
-        if (!existingSchedule) {
-          const zone10b = getZone10bScheduleForPlant(plantType);
-          const sowMonths = getDefaultSowMonthsForZone10b(zone10b?.planting_window);
-          await supabase.from("schedule_defaults").upsert(
-            {
-              user_id: userId,
-              plant_type: plantType,
-              updated_at: new Date().toISOString(),
-              ...sowMonths,
-              water: null,
-              sowing_depth: null,
-            },
-            { onConflict: "user_id,plant_type" }
-          );
-          logLines.push("(New template added to Brain).");
-        }
       }
 
       results.push({

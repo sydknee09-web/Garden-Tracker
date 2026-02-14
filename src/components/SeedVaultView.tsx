@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
+import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { normalizeSeedStockRows } from "@/lib/vault";
 import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
@@ -80,6 +82,10 @@ export type VaultCardItem = {
   vendor_display?: string | null;
   /** Average seed quantity % across packets (0–100), for inventory dot; null when no packets. */
   avg_qty_pct?: number | null;
+  /** Planting window (e.g. "Spring: Feb-May"); used for Plant Now / Sowing Month filters. */
+  planting_window?: string | null;
+  /** Sowing method (e.g. "Direct Sow", "Start Indoors / Transplant"); for display badge. */
+  sowing_method?: string | null;
 };
 
 export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
@@ -122,6 +128,16 @@ function getHealthColor(seed: VaultCardItem): string {
   if (avg <= 25) return "bg-amber-400";
   if (avg <= 50) return "bg-orange-500";
   return "bg-emerald-500";
+}
+
+/** Short sowing method badge: "Direct" or "Start indoors" when set. */
+function getSowingMethodBadge(sowing_method?: string | null): string | null {
+  const m = (sowing_method ?? "").toLowerCase().trim();
+  if (!m) return null;
+  if (/direct\s*sow|direct_sow/.test(m) && !/transplant|indoors/.test(m)) return "Direct";
+  if (/indoors|greenhouse|transplant/.test(m)) return "Start indoors";
+  if (/direct/.test(m)) return "Direct";
+  return null;
 }
 
 /** Card border by planting status: active = in garden, out_of_stock = muted, default = vault/dormant. */
@@ -202,6 +218,8 @@ export function SeedVaultView({
   availablePlantTypes = [],
   onPlantTypeChange,
   plantNowFilter = false,
+  /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
+  sowMonth = null,
   gridDisplayStyle = "condensed",
   categoryFilter: categoryFilterProp,
   onCategoryFilterChange,
@@ -233,11 +251,13 @@ export function SeedVaultView({
   onPendingHeroCountChange?: (count: number) => void;
   /** Called when vault empty state changes (no seeds at all). Parent can hide toolbar. */
   onEmptyStateChange?: (isEmpty: boolean) => void;
-  /** Options for the Plant Type dropdown in list view (e.g. from schedule_defaults + "Imported seed", "Bean", "Cucumber"). */
+  /** Options for the Plant Type dropdown in list view (e.g. from plant_profiles + "Imported seed", "Bean", "Cucumber"). */
   availablePlantTypes?: string[];
   /** Called when user changes plant type in list view; parent should update plant_profiles.name and refetch. */
   onPlantTypeChange?: (profileId: string, newName: string) => void;
   plantNowFilter?: boolean;
+  /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
+  sowMonth?: string | null;
   /** When mode is "grid", "photo" = image-dominant cards, "condensed" = compact data-focused cards. */
   gridDisplayStyle?: "photo" | "condensed";
   /** Controlled plant-type filter (first word of name); when set, Refine By panel can drive this. */
@@ -253,6 +273,8 @@ export function SeedVaultView({
   germinationFilter?: string | null;
   maturityFilter?: string | null;
   packetCountFilter?: string | null;
+  /** Called when sowing month chips (counts per month) are computed, for Refine By panel. */
+  onSowingMonthChipsLoaded?: (chips: { month: number; monthName: string; count: number }[]) => void;
   /** Called when refine chips (counts per dimension) are computed, for Refine By panel. */
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
@@ -271,21 +293,6 @@ export function SeedVaultView({
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [scheduleDefaults, setScheduleDefaults] = useState<{
-    plant_type: string;
-    sow_jan: boolean;
-    sow_feb: boolean;
-    sow_mar: boolean;
-    sow_apr: boolean;
-    sow_may: boolean;
-    sow_jun: boolean;
-    sow_jul: boolean;
-    sow_aug: boolean;
-    sow_sep: boolean;
-    sow_oct: boolean;
-    sow_nov: boolean;
-    sow_dec: boolean;
-  }[]>([]);
   const pendingSinceRef = useRef<Map<string, number>>(new Map());
   const [tick, setTick] = useState(0);
   const [listSortColumn, setListSortColumn] = useState<ListSortColumn | null>("name");
@@ -302,6 +309,7 @@ export function SeedVaultView({
   const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
   const [listColumnWidths, setListColumnWidths] = useState<Record<string, number>>(() => loadListTableState().columnWidths);
   const resizeRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
+  const isOnline = useOnlineStatus();
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
   const dragOverColIdRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -403,16 +411,13 @@ export function SeedVaultView({
     router.push(`/vault/${profileId}`);
   }
 
-  const isSowNow = useCallback((seed: VaultCardItem, defaults: { plant_type: string; sow_jan: boolean; sow_feb: boolean; sow_mar: boolean; sow_apr: boolean; sow_may: boolean; sow_jun: boolean; sow_jul: boolean; sow_aug: boolean; sow_sep: boolean; sow_oct: boolean; sow_nov: boolean; sow_dec: boolean }[]) => {
-    if (!defaults.length) return true;
-    const now = new Date();
-    const monthIndex = now.getMonth();
-    const monthCol = ["sow_jan", "sow_feb", "sow_mar", "sow_apr", "sow_may", "sow_jun", "sow_jul", "sow_aug", "sow_sep", "sow_oct", "sow_nov", "sow_dec"][monthIndex] as keyof (typeof defaults)[0];
-    const plantableTypes = new Set(defaults.filter((d) => d[monthCol] === true).map((d) => d.plant_type.trim().toLowerCase()));
-    const nameNorm = (seed.name ?? "").trim().toLowerCase();
-    const firstWord = nameNorm.split(/\s+/)[0];
-    return plantableTypes.has(nameNorm) || plantableTypes.has(firstWord ?? "") || Array.from(plantableTypes).some((t) => nameNorm.includes(t) || t.includes(nameNorm));
-  }, []);
+  const sowMonthIndex = useMemo(() => {
+    if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
+      const [, m] = sowMonth.split("-").map(Number);
+      return (m ?? 1) - 1;
+    }
+    return new Date().getMonth();
+  }, [sowMonth]);
 
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
@@ -461,7 +466,7 @@ export function SeedVaultView({
         const n = s.packet_count ?? 0;
         if (packetCountRange(n) !== packetCountFilter) return false;
       }
-      if (plantNowFilter && scheduleDefaults.length > 0 && !isSowNow(s, scheduleDefaults)) return false;
+      if (plantNowFilter && !isPlantableInMonth(s, sowMonthIndex)) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
         return false;
@@ -484,7 +489,7 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, scheduleDefaults, isSowNow]);
+  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -533,6 +538,18 @@ export function SeedVaultView({
       packetCount: ["0", "1", "2+"].filter((k) => packetCountMap.has(k)).map((value) => ({ value, count: packetCountMap.get(value) ?? 0 })),
     };
   }, [seeds]);
+
+  const sowingMonthChips = useMemo(() => {
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return MONTH_NAMES.map((monthName, monthIndex) => {
+      const count = seeds.filter((s) => isPlantableInMonth(s, monthIndex)).length;
+      return { month: monthIndex + 1, monthName, count };
+    });
+  }, [seeds]);
+
+  useEffect(() => {
+    onSowingMonthChipsLoaded?.(sowingMonthChips);
+  }, [sowingMonthChips, onSowingMonthChipsLoaded]);
 
   const uniquePlantNames = useMemo(
     () => Array.from(new Set(displayedSeeds.map((s) => s.name))).sort((a, b) => a.localeCompare(b)),
@@ -628,36 +645,6 @@ export function SeedVaultView({
     if (!loading) onEmptyStateChange?.(seeds.length === 0);
   }, [loading, seeds.length, onEmptyStateChange]);
 
-  // Load schedule_defaults when Plant Now filter is active (to filter by sow-this-month)
-  useEffect(() => {
-    if (!user?.id || !plantNowFilter) {
-      setScheduleDefaults([]);
-      return;
-    }
-    let cancelled = false;
-    supabase
-      .from("schedule_defaults")
-      .select("plant_type, sow_jan, sow_feb, sow_mar, sow_apr, sow_may, sow_jun, sow_jul, sow_aug, sow_sep, sow_oct, sow_nov, sow_dec")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (!cancelled && data) setScheduleDefaults(data as {
-          plant_type: string;
-          sow_jan: boolean;
-          sow_feb: boolean;
-          sow_mar: boolean;
-          sow_apr: boolean;
-          sow_may: boolean;
-          sow_jun: boolean;
-          sow_jul: boolean;
-          sow_aug: boolean;
-          sow_sep: boolean;
-          sow_oct: boolean;
-          sow_nov: boolean;
-          sow_dec: boolean;
-        }[]);
-      });
-    return () => { cancelled = true; };
-  }, [user?.id, plantNowFilter, refetchTrigger]);
 
   useEffect(() => {
     if (!user) {
@@ -672,18 +659,30 @@ export function SeedVaultView({
         setLoading(false);
         return;
       }
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setError("You're offline. Your vault will appear when you're back online.");
+        setSeeds([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
 
       const { data: profiles, error: profErr } = await supabase
         .from("plant_profiles")
-        .select("id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes")
+        .select("id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method")
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
 
       if (cancelled) return;
       if (profErr || !profiles?.length) {
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          setError("You're offline. Your vault will appear when you're back online.");
+          setSeeds([]);
+          setLoading(false);
+          return;
+        }
         const { data: legacyData, error: e } = await supabase
           .from("seed_stocks")
           .select("id, plant_variety_id, volume, created_at, plant_varieties!inner(name, variety_name, inventory_count, status, harvest_days, sun, plant_spacing, days_to_germination, tags, source_url)")
@@ -691,7 +690,9 @@ export function SeedVaultView({
           .order("created_at", { ascending: false });
         if (cancelled) return;
         if (e) {
-          setError(e.message);
+          setError(typeof navigator !== "undefined" && !navigator.onLine
+            ? "You're offline. Your vault will appear when you're back online."
+            : e.message);
           setSeeds([]);
           setLoading(false);
           return;
@@ -806,6 +807,8 @@ export function SeedVaultView({
             const vendors = vendorsByProfile.get(pid);
             return vendors && vendors.size > 0 ? Array.from(vendors).sort().join(", ") : null;
           })(),
+          planting_window: (p.planting_window as string | null) ?? null,
+          sowing_method: (p.sowing_method as string | null) ?? null,
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -873,9 +876,12 @@ export function SeedVaultView({
   }
 
   if (error) {
+    const isOffline = !isOnline || error.includes("offline");
     return (
       <div className="rounded-card bg-white p-6 shadow-card border border-black/5">
-        <p className="text-amber-600 font-medium">Could not load seed vault</p>
+        <p className={isOffline ? "text-slate-600 font-medium" : "text-amber-600 font-medium"}>
+          {isOffline ? "You're offline" : "Could not load seed vault"}
+        </p>
         <p className="text-sm text-slate-500 mt-1">{error}</p>
       </div>
     );
@@ -960,6 +966,9 @@ export function SeedVaultView({
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
                       )}
                       {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
+                      {getSowingMethodBadge(seed.sowing_method) && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-black/5 text-black/60 shrink-0">{getSowingMethodBadge(seed.sowing_method)}</span>
+                      )}
                     </div>
                   </div>
                 </>
@@ -1032,6 +1041,9 @@ export function SeedVaultView({
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
                     )}
                     {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
+                    {getSowingMethodBadge(seed.sowing_method) && (
+                      <span className="text-[8px] px-1 py-px rounded-full bg-black/5 text-black/60 shrink-0">{getSowingMethodBadge(seed.sowing_method)}</span>
+                    )}
                   </div>
                 </div>
               </>

@@ -10,7 +10,6 @@ const SETTINGS_ITEMS = [
   { href: "/settings/developer", label: "Developer", subtitle: "Archived plantings, import logs, cache, trash", devOnly: true },
   { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
   { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },
-  { href: "/settings/brain", label: "Brain", subtitle: "AI and research settings" },
 ] as const;
 
 export default function SettingsPage() {
