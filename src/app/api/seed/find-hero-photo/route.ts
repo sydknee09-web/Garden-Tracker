@@ -70,9 +70,11 @@ export async function POST(req: Request) {
           .limit(5);
         const vendorKeyExtract = normalizeVendorKey(vendor);
         const cachedRow = extractRows?.length
-          ? (vendorKeyExtract && extractRows.find((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKeyExtract)) ?? extractRows[0]
+          ? (vendorKeyExtract
+              ? extractRows.find((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKeyExtract) ?? extractRows[0]
+              : extractRows[0])
           : null;
-        if (cachedRow?.hero_storage_path) {
+        if (cachedRow && "hero_storage_path" in cachedRow && cachedRow.hero_storage_path) {
           const { data: pubUrl } = supabase.storage.from("journal-photos").getPublicUrl(cachedRow.hero_storage_path as string);
           if (pubUrl?.publicUrl) {
             console.log(`[find-hero-photo] Tier 2 cache hit (plant_extract_cache) for ${logLabel}`);
