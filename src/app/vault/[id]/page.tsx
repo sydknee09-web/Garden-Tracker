@@ -294,9 +294,10 @@ export default function VaultSeedPage() {
   // Skip placeholder URL so we use packet/journal/sprout per Law 7; avoids showing old icon when DB has placeholder.
   const useHeroUrl = heroUrl && !isPlaceholderHeroUrl(heroUrl);
   const fallbackStorageUrl = effectiveHeroPath ? supabase.storage.from(heroBucket).getPublicUrl(effectiveHeroPath).data.publicUrl : null;
-  const fallbackIcon = "/seedling-icon.svg";
-  const resolvedHeroUrl = useHeroUrl ? heroUrl! : (fallbackStorageUrl || fallbackIcon);
-  const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError;
+  const resolvedHeroUrl = useHeroUrl ? heroUrl! : (fallbackStorageUrl || "/seedling-icon.svg");
+  // Never show placeholder icon as image — show cute sprout fallback (Law 7) instead.
+  const isPlaceholderResolved = !resolvedHeroUrl || isPlaceholderHeroUrl(resolvedHeroUrl);
+  const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError && !isPlaceholderResolved;
   const heroImageUrl = hasHeroImage ? resolvedHeroUrl : null;
   const showHeroResearching = !heroImageUrl && (findingStockPhoto || heroPending);
 
