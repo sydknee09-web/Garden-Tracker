@@ -12,13 +12,15 @@
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:ci": "vitest run --coverage",
     "test:scrapers": "ts-node scripts/test-scrapers.ts",
     "discover-urls": "ts-node scripts/discover-urls.ts",
     "bulk-scrape": "tsx scripts/bulk-scrape.ts",
     "clean-bad-cache": "tsx scripts/clean-bad-cache.ts",
     "scrape-cleanup": "ts-node scripts/scrape-cleanup.ts",
     "normalize-global-cache": "ts-node -r tsconfig-paths/register scripts/normalize-global-plant-cache.ts",
-    "import-pdf-catalog": "tsx scripts/import-pdf-catalog.ts"
+    "import-pdf-catalog": "tsx scripts/import-pdf-catalog.ts",
+    "backfill-plant-descriptions": "tsx scripts/backfill-plant-descriptions.ts"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",
@@ -38,6 +40,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
+    "@vitest/coverage-v8": "^2.1.9",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@vitejs/plugin-react": "^4.7.0",

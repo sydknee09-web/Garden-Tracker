@@ -112,6 +112,12 @@ Never mix these up. The tab structure and available actions change based on prof
 
 ---
 
+## Law 12: Test Suite on Feature or Fix
+
+**Run the entire test suite whenever you implement a new feature or fix a bug.** Before committing or merging, run `npm run test:run` (or `npm run test:ci`) and fix any failures. Do not merge or ship code with failing tests. See [TESTING.md](../../TESTING.md#when-to-run-the-test-suite) for the full policy.
+
+---
+
 ## Architecture Quick Reference
 
 | Layer | Tech | Notes |

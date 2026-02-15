@@ -166,20 +166,10 @@ Rules:
 
 Use only text you actually see on the packet. Do not return filenames or numerical IDs. Use empty string for a field only when that information is truly not visible.`;
 
-const RESEARCH_PROMPT = `Using Google Search Grounding, find the official product page or a reliable gardening guide for this specific seed variety.
+import { researchVariety as researchVarietyLib } from "@/lib/researchVariety";
 
-Also: find a high-quality stock image URL or product photo that represents the Actual Plant or Fruit (not the seed packet) for this variety. Prefer a clear photo of the mature plant, flower, or harvest.
-
-Extract the following and return a single JSON object only (no markdown, no explanation):
-- sowing_depth: e.g. "0.25 inches" or "1/4 inch"
-- spacing: e.g. "12-18 inches" or "2 feet"
-- sun_requirement: e.g. "Full Sun", "Partial Shade", "Full Sun to Partial Shade"
-- days_to_germination: e.g. "7-14" or "10"
-- days_to_maturity: e.g. "65" or "55-70"
-- source_url: the URL of the page you used (so the user can verify)
-- stock_photo_url: a direct URL (https://...) to a high-quality stock image of the actual plant/fruit for this variety—not the packet. Use empty string if no suitable image found.
-
-Use standard units: inches for depth and spacing, days for germination and maturity. Use empty string for any field you cannot find. Return only valid JSON.`;
+// Re-export for enrich-from-name and other callers
+export { researchVariety } from "@/lib/researchVariety";
 
 const LINK_EXTRACT_PROMPT = `You are a botanical inventory expert. Using Google Search Grounding, visit the given URL (a seed or plant product page) and extract information.
 
@@ -201,6 +191,7 @@ Return a single JSON object only (no markdown, no explanation). Use these exact 
 - source_url: the URL you used (the given URL or the canonical product page)
 - stock_photo_url: direct URL (https://) to a high-quality stock image of the actual plant, flower, or fruit for this variety. Use empty string if the page is blocked or no suitable image found.
 - hero_image_url: same as stock_photo_url (use the same URL for profile hero).
+- plant_description: 2-4 factual sentences describing this plant/variety from the page (appearance, use, growing). Use empty string if not found.
 
 Use empty string for any field you cannot find. Return only valid JSON.`;
 
@@ -291,6 +282,7 @@ function parseLinkExtractJson(jsonStr: string, url: string): ExtractResponse | n
     source_url: safeStr(parsed, "source_url") || url,
     stock_photo_url: stockPhotoUrl || undefined,
     hero_image_url: stockPhotoUrl || undefined,
+    plant_description: safeStr(parsed, "plant_description") || undefined,
   };
 }
 
@@ -422,50 +414,15 @@ export async function extractFromUrl(apiKey: string, url: string): Promise<Extra
   }
 }
 
-/** Name+variety research (no vendor in query for better results). Exported for enrich-from-name (store-bought). */
-export async function researchVariety(
+/** Wrapper that logs and returns same shape as ExtractResponse for extract route callers. */
+async function researchVarietyForExtract(
   apiKey: string,
   plantType: string,
   variety: string,
   vendor: string
 ): Promise<Partial<ExtractResponse> | null> {
-  try {
-    console.log("[extract] Research variety (Gemini + Search) for", plantType, variety || "(no variety)");
-    const ai = new GoogleGenAI({ apiKey });
-    const searchQuery =
-      [vendor, plantType, variety].filter(Boolean).join(" ") || "seed planting guide";
-    const prompt = `${RESEARCH_PROMPT}\n\nSearch for: ${searchQuery}`;
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: { tools: [{ googleSearch: {} }] },
-    });
-    const text = response.text?.trim();
-    if (!text) return null;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    const getStr = (k: string) =>
-      typeof parsed[k] === "string" ? (parsed[k] as string).trim() : "";
-    let source_url = getStr("source_url");
-    if (!source_url && response.candidates?.[0]?.groundingMetadata?.groundingChunks?.length) {
-      const firstWeb = response.candidates[0].groundingMetadata.groundingChunks.find(
-        (c) => c.web?.uri
-      );
-      source_url = firstWeb?.web?.uri ?? "";
-    }
-    return {
-      sowing_depth: getStr("sowing_depth") || undefined,
-      spacing: getStr("spacing") || undefined,
-      sun_requirement: getStr("sun_requirement") || undefined,
-      days_to_germination: getStr("days_to_germination") || undefined,
-      days_to_maturity: getStr("days_to_maturity") || undefined,
-      source_url: source_url || undefined,
-      stock_photo_url: getStr("stock_photo_url") || undefined,
-    };
-  } catch {
-    return null;
-  }
+  console.log("[extract] Research variety (Gemini + Search) for", plantType, variety || "(no variety)");
+  return researchVarietyLib(apiKey, plantType, variety, vendor);
 }
 
 export async function POST(req: Request) {
@@ -629,7 +586,7 @@ export async function POST(req: Request) {
         };
 
         if (typeForNorm || varietyForResponse) {
-          const research = await researchVariety(apiKey, typeForNorm, varietyForResponse, vendor);
+          const research = await researchVarietyForExtract(apiKey, typeForNorm, varietyForResponse, vendor);
           if (research) {
             Object.assign(base, research);
           }

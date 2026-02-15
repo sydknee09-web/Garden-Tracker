@@ -17,6 +17,8 @@ export type EnrichFromNameResponse = {
   harvest_days?: number | null;
   sowing_depth?: string | null;
   source_url?: string | null;
+  plant_description?: string | null;
+  growing_notes?: string | null;
 };
 
 /** Enrich plant profile from name + variety only (no vendor in search). Used for store-bought new profiles. */
@@ -51,6 +53,8 @@ export async function POST(req: Request) {
       harvest_days: harvestDays,
       sowing_depth: result.sowing_depth?.trim() || null,
       source_url: result.source_url?.trim() || null,
+      plant_description: result.plant_description?.trim() || null,
+      growing_notes: result.growing_notes?.trim() || null,
     };
     return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
   } catch (e) {

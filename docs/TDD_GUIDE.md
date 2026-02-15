@@ -64,12 +64,15 @@ Then repeat for the next behavior.
 
 ### Step 1: Run the test suite
 
+**Rule: run the entire test suite whenever you implement a new feature or fix.** See [TESTING.md](../TESTING.md#when-to-run-the-test-suite) for the full policy.
+
 From the project root:
 
 - **Watch mode** (re-runs when you save): `npm test`
-- **Single run** (e.g. for CI or a quick check): `npm run test:run`
+- **Single run** (e.g. before commit or for CI): `npm run test:run`
+- **With coverage:** `npm run test:ci`
 
-Use this all the time: after writing a test (expect Red), after writing code (expect Green), and after refactoring (stay Green).
+Use this all the time: after writing a test (expect Red), after writing code (expect Green), and after refactoring (stay Green). Before you commit or merge, the full suite must pass.
 
 ### Step 2: Pick one small behavior
 

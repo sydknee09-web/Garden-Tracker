@@ -43,9 +43,10 @@ function parseHarvestDays(s: string | undefined): number | null {
 }
 
 /**
- * Fill in blanks: for profiles missing hero or metadata, look up global_plant_cache
- * by identity (free). Optionally use Gemini (find-hero-photo) for profiles still missing hero.
- * Does NOT use Tavily. Does NOT write to global_plant_cache.
+ * Fill in blanks: for profiles missing hero, metadata, or plant_description, look up
+ * global_plant_cache by identity (free). Optionally use Gemini for hero and for
+ * description/notes (enrich-from-name) when cache has nothing.
+ * Fill-blanks only: never overwrite existing profile data. Does NOT write to global_plant_cache.
  */
 export async function POST(req: Request) {
   try {
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
     // Profiles that need filling: missing hero (and optionally sparse metadata)
     const { data: profiles, error: profilesError } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name")
+      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes")
       .eq("user_id", user.id)
       .is("deleted_at", null);
 
@@ -102,10 +103,12 @@ export async function POST(req: Request) {
       return count < 2; // include if 0 or 1 of these set
     };
 
-    // Include profile if missing hero OR has empty/sparse metadata (so cache lookup can fill About)
+    const missingDescription = (p: { plant_description?: string | null }) => !(p.plant_description ?? "").trim();
+
+    // Include profile if missing hero OR sparse metadata OR missing description (so cache/AI can fill)
     const needFilling = profiles.filter(
-      (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }) =>
-        missingHero(p) || metadataSparse(p)
+      (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_description?: string | null }) =>
+        missingHero(p) || metadataSparse(p) || missingDescription(p)
     );
 
     if (needFilling.length === 0) {
@@ -154,6 +157,8 @@ export async function POST(req: Request) {
       days_to_germination?: string | null;
       harvest_days?: number | null;
       scientific_name?: string | null;
+      plant_description?: string | null;
+      growing_notes?: string | null;
     }>;
       for (let idx = 0; idx < arr.length; idx++) {
       const p = arr[idx];
@@ -232,9 +237,19 @@ export async function POST(req: Request) {
       if (!(p.scientific_name ?? "").trim() && typeof ed.scientific_name === "string" && ed.scientific_name.trim()) {
         updates.scientific_name = (ed.scientific_name as string).trim();
       }
+      // Fill description/notes from cache only when profile has none (fill blanks only)
+      if (!(p.plant_description ?? "").trim() && typeof ed.plant_description === "string" && ed.plant_description.trim()) {
+        updates.plant_description = (ed.plant_description as string).trim();
+        updates.description_source = "vendor";
+      }
+      if (!(p.growing_notes ?? "").trim() && typeof ed.growing_notes === "string" && ed.growing_notes.trim()) {
+        updates.growing_notes = (ed.growing_notes as string).trim();
+        if (!updates.description_source) updates.description_source = "vendor";
+      }
 
       if (Object.keys(updates).length === 0) {
         if (useGemini) {
+          let didAiUpdate = false;
           const aiHero = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
           if (aiHero) {
             const { error: upErr } = await supabase
@@ -242,9 +257,33 @@ export async function POST(req: Request) {
               .update({ hero_image_url: aiHero })
               .eq("id", p.id)
               .eq("user_id", user.id);
-            if (!upErr) fromAi++;
-            else failed++;
-          } else failed++;
+            if (!upErr) { fromAi++; didAiUpdate = true; }
+          }
+          // Try AI for description/notes when cache had nothing
+          const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          const origin = base.startsWith("http") ? base : `https://${base}`;
+          try {
+            const enrichRes = await fetch(`${origin}/api/seed/enrich-from-name`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ name, variety }),
+            });
+            if (enrichRes.ok) {
+              const data = (await enrichRes.json()) as { plant_description?: string; growing_notes?: string };
+              const aiDesc = (data.plant_description ?? "").trim();
+              const aiNotes = (data.growing_notes ?? "").trim();
+              if (aiDesc || aiNotes) {
+                const aiUpdates: Record<string, unknown> = { description_source: "ai" };
+                if (aiDesc) aiUpdates.plant_description = aiDesc;
+                if (aiNotes) aiUpdates.growing_notes = aiNotes;
+                const { error: aiErr } = await supabase.from("plant_profiles").update(aiUpdates).eq("id", p.id).eq("user_id", user.id);
+                if (!aiErr) { if (!didAiUpdate) fromAi++; didAiUpdate = true; }
+              }
+            }
+          } catch {
+            // ignore enrich failure
+          }
+          if (!didAiUpdate) failed++;
         } else failed++;
         continue;
       }

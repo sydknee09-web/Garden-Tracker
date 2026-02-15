@@ -395,12 +395,20 @@ export default function JournalPage() {
         });
       }
 
-      const withNames = (rows ?? []).map((r: JournalEntry & { plant_profile_id?: string | null }) => {
-        const id = r.plant_profile_id ?? r.plant_variety_id;
-        const plant_name = id ? (names[id] ?? "Unknown") : "General";
-        const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
-        return { ...r, plant_name, plant_display_name };
-      });
+      // Exclude orphaned entries: plant_profile or plant_variety was hard-deleted, so we have no name.
+      // Per Law 2, profiles should use soft delete; this handles existing hard-deleted data.
+      const withNames = (rows ?? [])
+        .map((r: JournalEntry & { plant_profile_id?: string | null }) => {
+          const id = r.plant_profile_id ?? r.plant_variety_id;
+          const plant_name = id ? (names[id] ?? "Unknown") : "General";
+          const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
+          return { ...r, plant_name, plant_display_name };
+        })
+        .filter((r: JournalEntryWithPlant) => {
+          const id = r.plant_profile_id ?? r.plant_variety_id;
+          if (!id) return true; // General entries always show
+          return (names as Record<string, string>)[id] != null; // hide entries whose profile no longer exists
+        });
       setEntries(withNames);
       setLoading(false);
     }
@@ -561,12 +569,18 @@ export default function JournalPage() {
         if (!displayNames[x.id]) displayNames[x.id] = x.name;
       });
     }
-    setEntries((rows ?? []).map((r: JournalEntry & { plant_profile_id?: string | null }) => {
-      const id = (r as { plant_profile_id?: string | null; plant_variety_id?: string | null }).plant_profile_id ?? (r as { plant_variety_id?: string | null }).plant_variety_id;
-      const plant_name = id ? (names[id] ?? "Unknown") : "General";
-      const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
-      return { ...r, plant_name, plant_display_name };
-    }));
+    setEntries((rows ?? [])
+      .map((r: JournalEntry & { plant_profile_id?: string | null }) => {
+        const id = (r as { plant_profile_id?: string | null; plant_variety_id?: string | null }).plant_profile_id ?? (r as { plant_variety_id?: string | null }).plant_variety_id;
+        const plant_name = id ? (names[id] ?? "Unknown") : "General";
+        const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
+        return { ...r, plant_name, plant_display_name };
+      })
+      .filter((r: JournalEntryWithPlant) => {
+        const id = r.plant_profile_id ?? r.plant_variety_id;
+        if (!id) return true;
+        return (names as Record<string, string>)[id] != null;
+      }));
   }
 
   const LONG_PRESS_MS = 500;

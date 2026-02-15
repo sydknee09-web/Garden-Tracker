@@ -24,6 +24,8 @@ Open [http://localhost:3001](http://localhost:3001) (or the port shown in the te
 
 **Data maintenance** (discover, scrape, cleanup, normalize): see [docs/DATA_MAINTENANCE.md](docs/DATA_MAINTENANCE.md).
 
+**Testing:** Run the full suite for every feature or fix: `npm run test:run` (or `npm test` in watch mode). See [TESTING.md](TESTING.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Structure
 
 - **Home** — Dashboard: pending tasks, recent activity, journal photos

@@ -563,6 +563,7 @@ export default function VaultSeedPage() {
         companion_plants: parseCommaList(editForm.companionPlants),
         avoid_plants: parseCommaList(editForm.avoidPlants),
         growing_notes: editForm.growingNotes.trim() || null,
+        ...(editForm.growingNotes.trim() && { description_source: "user" }),
       } : {}),
     };
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
