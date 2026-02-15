@@ -15,6 +15,7 @@ import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 // ---------------------------------------------------------------------------
@@ -217,7 +218,7 @@ export default function VaultSeedPage() {
       setProfile(profileData as ProfileData);
       // Packets (same scope as vault: all non-deleted; profile page shows archived too)
       const { data: packetData, error: packetErr } = await supabase.from("seed_packets")
-        .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, packet_photo_path, created_at, user_notes, storage_location, tags, vendor_specs, is_archived")
+        .select(SEED_PACKET_PROFILE_SELECT)
         .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
       const packetRows = packetErr ? [] : ((packetData ?? []) as SeedPacket[]);
       if (packetErr) setError(packetErr.message);
