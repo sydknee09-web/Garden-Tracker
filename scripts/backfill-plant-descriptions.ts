@@ -24,6 +24,7 @@
  * Run:
  *   npm run backfill-plant-descriptions
  *   npm run backfill-plant-descriptions -- --limit 20
+ *   npm run backfill-plant-descriptions -- --all     # run in batches of 50 until no sparse profiles left
  *   npm run backfill-plant-descriptions -- --dry-run
  */
 
@@ -71,19 +72,22 @@ if (!GEMINI_KEY) {
 const DEFAULT_LIMIT = 50;
 const AI_DELAY_MS = 2000;
 
-function parseArgs(): { limit: number; dryRun: boolean } {
+function parseArgs(): { limit: number; dryRun: boolean; runAll: boolean } {
   const args = process.argv.slice(2);
   let limit = DEFAULT_LIMIT;
   let dryRun = false;
+  let runAll = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--limit" && args[i + 1]) {
       limit = parseInt(args[i + 1], 10) || DEFAULT_LIMIT;
       i++;
     } else if (args[i] === "--dry-run") {
       dryRun = true;
+    } else if (args[i] === "--all") {
+      runAll = true;
     }
   }
-  return { limit, dryRun };
+  return { limit, dryRun, runAll };
 }
 
 function qualityRank(q: string): number {
@@ -192,19 +196,35 @@ function pickBestCacheRow<T extends { scrape_quality?: string; updated_at?: stri
 }
 
 async function main() {
-  const { limit, dryRun } = parseArgs();
+  const { limit, dryRun, runAll } = parseArgs();
+  const batchSize = runAll ? 50 : limit;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
   if (dryRun) {
     console.log("DRY RUN: no updates will be written.\n");
   }
+  if (runAll) {
+    console.log("--all: running in batches of 50 until no sparse profiles remain. You can leave this running.\n");
+  }
+
+  let totalFromCache = 0;
+  let totalFromAi = 0;
+  let totalFailed = 0;
+  const allUpdatedIds: string[] = [];
+  let round = 0;
+
+  while (true) {
+    round++;
+    if (runAll && round > 1) {
+      console.log(`\n--- Round ${round} (batch of ${batchSize}) ---`);
+    }
 
   const { data: rawProfiles, error: listError } = await admin
     .from("plant_profiles")
     .select("id, user_id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window")
     .is("deleted_at", null)
     .or("plant_description.is.null,sun.is.null,plant_spacing.is.null,days_to_germination.is.null,harvest_days.is.null,scientific_name.is.null,water.is.null,sowing_depth.is.null,sowing_method.is.null,planting_window.is.null")
-    .limit(limit * 2);
+    .limit(batchSize * 2);
 
   if (listError) {
     console.error("Failed to list profiles:", listError.message);
@@ -216,15 +236,21 @@ async function main() {
     process.exit(1);
   }
 
-  const profiles = (rawProfiles ?? []).filter((p: Record<string, unknown>) => isSparse(p as Parameters<typeof isSparse>[0])).slice(0, limit);
+  const profiles = (rawProfiles ?? []).filter((p: Record<string, unknown>) => isSparse(p as Parameters<typeof isSparse>[0])).slice(0, batchSize);
   if (!profiles.length) {
-    console.log("No sparse profiles (all key fields already filled).");
-    return;
+    if (runAll && round > 1) {
+      console.log("No more sparse profiles. All done.");
+    } else {
+      console.log("No sparse profiles (all key fields already filled).");
+    }
+    break;
   }
 
   console.log(`Found ${profiles.length} profile(s) with at least one empty field (sun, spacing, germination, harvest_days, water, sowing_depth, sowing_method, planting_window, scientific_name, description, notes).`);
-  console.log("Cache lookup order: 0) link (by purchase_url)  1) vendor+variety+plant  2) variety+plant  3) plant only. Never replace existing data. Then AI when cache has nothing.\n");
-  console.log("To verify in Supabase: Table Editor → plant_profiles → filter by id or description_source in ('vendor','ai').\n");
+  if (round === 1) {
+    console.log("Cache lookup order: 0) link (by purchase_url)  1) vendor+variety+plant  2) variety+plant  3) plant only. Never replace existing data. Then AI when cache has nothing.\n");
+    console.log("To verify in Supabase: Table Editor → plant_profiles → filter by id or description_source in ('vendor','ai').\n");
+  }
 
   const profileIds = profiles.map((p: { id: string }) => p.id);
   const { data: packets } = await admin
@@ -468,10 +494,22 @@ async function main() {
     }
   }
 
-  console.log("\nDone. From cache:", fromCache, "| From AI:", fromAi, "| Failed/skip:", failed);
-  if (updatedIds.length > 0 && !dryRun) {
+  totalFromCache += fromCache;
+  totalFromAi += fromAi;
+  totalFailed += failed;
+  allUpdatedIds.push(...updatedIds);
+
+  if (runAll) {
+    console.log(`\nRound ${round} done. Batch: cache ${fromCache} | AI ${fromAi} | failed ${failed}. Totals so far: cache ${totalFromCache} | AI ${totalFromAi} | failed ${totalFailed}.`);
+    continue;
+  }
+  break;
+  }
+
+  console.log("\nDone. From cache:", totalFromCache, "| From AI:", totalFromAi, "| Failed/skip:", totalFailed);
+  if (allUpdatedIds.length > 0 && !dryRun) {
     console.log("\nUpdated profile IDs (use in Supabase to verify):");
-    console.log(updatedIds.join("\n"));
+    console.log(allUpdatedIds.join("\n"));
     console.log("\nSupabase: Table Editor → plant_profiles → filter 'id' is one of these, or filter description_source in ('vendor','ai').");
   }
 }
