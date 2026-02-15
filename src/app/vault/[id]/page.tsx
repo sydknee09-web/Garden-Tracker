@@ -185,7 +185,16 @@ export default function VaultSeedPage() {
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
 
+  // Add packet modal (when profile has 0 packets or user wants to add another)
+  const [showAddPacketModal, setShowAddPacketModal] = useState(false);
+  const [addPacketVendor, setAddPacketVendor] = useState("");
+  const [addPacketPurchaseDate, setAddPacketPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [addPacketUrl, setAddPacketUrl] = useState("");
+  const [addPacketSaving, setAddPacketSaving] = useState(false);
+  const [addPacketError, setAddPacketError] = useState<string | null>(null);
+
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
+  useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
 
   // =========================================================================
   // Load data
@@ -407,6 +416,35 @@ export default function VaultSeedPage() {
     const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", user.id);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
   }, [user?.id]);
+
+  const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id || !id) return;
+    setAddPacketError(null);
+    setAddPacketSaving(true);
+    const purchaseDate = addPacketPurchaseDate.trim() || new Date().toISOString().slice(0, 10);
+    const purchaseUrl = addPacketUrl.trim() || null;
+    const vendorName = addPacketVendor.trim() || null;
+    const { error: packetErr } = await supabase.from("seed_packets").insert({
+      plant_profile_id: id,
+      user_id: user.id,
+      vendor_name: vendorName,
+      purchase_url: purchaseUrl,
+      purchase_date: purchaseDate,
+      qty_status: 100,
+    });
+    setAddPacketSaving(false);
+    if (packetErr) {
+      setAddPacketError(packetErr.message);
+      return;
+    }
+    await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", user.id);
+    setShowAddPacketModal(false);
+    setAddPacketVendor("");
+    setAddPacketPurchaseDate(new Date().toISOString().slice(0, 10));
+    setAddPacketUrl("");
+    await loadProfile();
+  }, [user?.id, id, addPacketVendor, addPacketPurchaseDate, addPacketUrl, loadProfile]);
 
   const fetchJournalForPacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
@@ -1029,7 +1067,14 @@ export default function VaultSeedPage() {
             {packets.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">No seed packets yet.</p>
-                <p className="text-neutral-400 text-xs mt-1">Add packets from the Vault import or manually.</p>
+                <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPacketModal(true)}
+                  className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                >
+                  Add seed packet
+                </button>
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
@@ -1126,6 +1171,15 @@ export default function VaultSeedPage() {
                     );
                   })}
                 </ul>
+                <div className="p-4 border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPacketModal(true)}
+                    className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    + Add another packet
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -1249,6 +1303,57 @@ export default function VaultSeedPage() {
         growInstanceId={harvestGrowId ?? ""}
         displayName={displayName}
       />
+
+      {/* Add seed packet modal (when profile has 0 packets or adding another) */}
+      {showAddPacketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-packet-title">
+          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
+            <h2 id="add-packet-title" className="text-lg font-bold text-neutral-900 mb-4">Add seed packet</h2>
+            <form onSubmit={handleAddPacketSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="add-packet-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor (optional)</label>
+                <input
+                  id="add-packet-vendor"
+                  type="text"
+                  value={addPacketVendor}
+                  onChange={(e) => setAddPacketVendor(e.target.value)}
+                  placeholder="e.g. Johnny's, Baker Creek"
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Vendor name"
+                />
+              </div>
+              <div>
+                <label htmlFor="add-packet-date" className="block text-sm font-medium text-neutral-700 mb-1">Purchase date</label>
+                <input
+                  id="add-packet-date"
+                  type="date"
+                  value={addPacketPurchaseDate}
+                  onChange={(e) => setAddPacketPurchaseDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Purchase date"
+                />
+              </div>
+              <div>
+                <label htmlFor="add-packet-url" className="block text-sm font-medium text-neutral-700 mb-1">Purchase URL (optional)</label>
+                <input
+                  id="add-packet-url"
+                  type="url"
+                  value={addPacketUrl}
+                  onChange={(e) => setAddPacketUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Purchase URL"
+                />
+              </div>
+              {addPacketError && <p className="text-sm text-red-600" role="alert">{addPacketError}</p>}
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setShowAddPacketModal(false)} disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPacketSaving ? "Adding…" : "Add packet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Packet photo lightbox (tap thumbnail or gallery image to view full-size, swipe/arrows for multiple) */}
       {imageLightbox && (
