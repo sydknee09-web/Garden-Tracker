@@ -107,7 +107,7 @@ function VaultPageInner() {
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("vault");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
@@ -157,9 +157,13 @@ function VaultPageInner() {
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
   }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [] });
+  const [vaultStatusChips, setVaultStatusChips] = useState<{ value: StatusFilter; label: string; count: number }[]>([]);
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
 
+  const handleVaultStatusChipsLoaded = useCallback((chips: { value: StatusFilter; label: string; count: number }[]) => {
+    setVaultStatusChips(chips);
+  }, []);
   const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setCategoryChips(chips);
   }, []);
@@ -226,6 +230,14 @@ function VaultPageInner() {
     if (searchParams.get("deleted") === "1") {
       setRefetchTrigger((t) => t + 1);
       router.replace("/vault", { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  // When landing after adding packets from Import Review, force refetch so new packet shows
+  useEffect(() => {
+    if (searchParams.get("added") === "1") {
+      setRefetchTrigger((t) => t + 1);
+      router.replace("/vault?status=vault", { scroll: false });
     }
   }, [searchParams, router]);
 
@@ -693,7 +705,7 @@ function VaultPageInner() {
   }
 
   function clearAllFilters() {
-    setStatusFilter("vault");
+    setStatusFilter("");
     setTagFilters([]);
     setCategoryFilter(null);
     setVarietyFilter(null);
@@ -971,17 +983,22 @@ function VaultPageInner() {
                     </button>
                     {refineBySection === "vault" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
-                        {(["", "vault", "active", "low_inventory", "archived"] as const).map((value) => {
-                          const label = value === "" ? "All" : value === "vault" ? "In storage" : value === "active" ? "Active" : value === "low_inventory" ? "Low inventory" : "Archived";
+                        {(vaultStatusChips.length > 0 ? vaultStatusChips : [
+                          { value: "" as StatusFilter, label: "All", count: 0 },
+                          { value: "vault" as StatusFilter, label: "In storage", count: 0 },
+                          { value: "active" as StatusFilter, label: "Active", count: 0 },
+                          { value: "low_inventory" as StatusFilter, label: "Low inventory", count: 0 },
+                          { value: "archived" as StatusFilter, label: "Archived", count: 0 },
+                        ]).map(({ value, label, count }) => {
                           const selected = statusFilter === value;
                           return (
                             <button
                               key={value || "all"}
                               type="button"
                               onClick={() => setStatusFilter(value)}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                             >
-                              {label}
+                              {label} ({count})
                             </button>
                           );
                         })}
@@ -1293,6 +1310,7 @@ function VaultPageInner() {
             maturityFilter={maturityFilter}
             packetCountFilter={packetCountFilter}
             onRefineChipsLoaded={handleRefineChipsLoaded}
+            onVaultStatusChipsLoaded={handleVaultStatusChipsLoaded}
             onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
             hideArchivedProfiles={false}
           />

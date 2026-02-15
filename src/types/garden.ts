@@ -175,6 +175,10 @@ export interface PlantProfile {
   scientific_name?: string | null;
   botanical_care_notes?: Record<string, unknown> | null;
   perenual_id?: number | null;
+  /** Companion plants (plant with); common names. */
+  companion_plants?: string[] | null;
+  /** Plants to avoid planting nearby. */
+  avoid_plants?: string[] | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;

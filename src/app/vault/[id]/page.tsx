@@ -50,6 +50,13 @@ function toDateInputValue(value: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Treat placeholder hero as "no hero" so we use packet/journal/sprout fallback (Law 7). */
+function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
+  const u = url?.trim();
+  if (!u) return true;
+  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+}
+
 function formatDisplayDate(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -153,6 +160,7 @@ export default function VaultSeedPage() {
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
     purchaseDate: "", growingNotes: "", status: "",
+    companionPlants: "", avoidPlants: "",
   });
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
@@ -187,7 +195,7 @@ export default function VaultSeedPage() {
     setError(null);
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants")
       .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -283,8 +291,13 @@ export default function VaultSeedPage() {
   const packetPath = typeof profile?.primary_image_path === "string" && profile.primary_image_path.trim() ? profile.primary_image_path : null;
   const effectiveHeroPath = heroPath || firstJournalPath || packetPath;
   const heroBucket = heroPath || firstJournalPath ? "journal-photos" : "seed-packets";
-  const hasHeroImage = (heroUrl || (effectiveHeroPath && effectiveHeroPath.trim() !== "")) && !imageError;
-  const heroImageUrl = hasHeroImage ? (heroUrl || (effectiveHeroPath ? supabase.storage.from(heroBucket).getPublicUrl(effectiveHeroPath).data.publicUrl : null)) : null;
+  // Skip placeholder URL so we use packet/journal/sprout per Law 7; avoids showing old icon when DB has placeholder.
+  const useHeroUrl = heroUrl && !isPlaceholderHeroUrl(heroUrl);
+  const fallbackStorageUrl = effectiveHeroPath ? supabase.storage.from(heroBucket).getPublicUrl(effectiveHeroPath).data.publicUrl : null;
+  const fallbackIcon = "/seedling-icon.svg";
+  const resolvedHeroUrl = useHeroUrl ? heroUrl! : (fallbackStorageUrl || fallbackIcon);
+  const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError;
+  const heroImageUrl = hasHeroImage ? resolvedHeroUrl : null;
   const showHeroResearching = !heroImageUrl && (findingStockPhoto || heroPending);
 
   // Quick stats

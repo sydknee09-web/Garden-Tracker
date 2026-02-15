@@ -241,6 +241,7 @@ export function SeedVaultView({
   packetCountFilter = null,
   onSowingMonthChipsLoaded,
   onRefineChipsLoaded,
+  onVaultStatusChipsLoaded,
   hideArchivedProfiles = false,
   onEmptyStateChange,
 }: {
@@ -294,6 +295,8 @@ export function SeedVaultView({
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
   }) => void;
+  /** Called when vault status counts (All, In storage, Active, Low inventory, Archived) are computed, for Refine By panel. */
+  onVaultStatusChipsLoaded?: (chips: { value: StatusFilter; label: string; count: number }[]) => void;
   /** When true, exclude plant profiles with no packets (archived) from list/table. */
   hideArchivedProfiles?: boolean;
 }) {
@@ -548,6 +551,32 @@ export function SeedVaultView({
     };
   }, [seeds]);
 
+  /** Vault status counts for Refine By panel: same buckets as status filter (All, In storage, Active, Low inventory, Archived). */
+  const vaultStatusChips = useMemo(() => {
+    const statuses: { value: StatusFilter; label: string }[] = [
+      { value: "", label: "All" },
+      { value: "vault", label: "In storage" },
+      { value: "active", label: "Active" },
+      { value: "low_inventory", label: "Low inventory" },
+      { value: "archived", label: "Archived" },
+    ];
+    return statuses.map(({ value, label }) => {
+      let count: number;
+      if (value === "") {
+        count = seeds.length;
+      } else if (value === "vault") {
+        count = seeds.filter((s) => (s.packet_count ?? 0) > 0 && (s.status ?? "").toLowerCase() !== "out_of_stock").length;
+      } else if (value === "active") {
+        count = seeds.filter((s) => (s.status ?? "").toLowerCase() === "active on hillside").length;
+      } else if (value === "low_inventory") {
+        count = seeds.filter((s) => (s.packet_count ?? 0) <= 1).length;
+      } else {
+        count = seeds.filter((s) => (s.status ?? "").toLowerCase() === "out_of_stock").length;
+      }
+      return { value, label, count };
+    });
+  }, [seeds]);
+
   const sowingMonthChips = useMemo(() => {
     const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     return MONTH_NAMES.map((monthName, monthIndex) => {
@@ -743,6 +772,7 @@ export function SeedVaultView({
         .from("seed_packets")
         .select("plant_profile_id, tags, vendor_name, qty_status")
         .eq("user_id", user.id)
+        .is("deleted_at", null)
         .or("is_archived.eq.false,is_archived.is.null");
       const countByProfile = new Map<string, number>();
       const sumQtyByProfile = new Map<string, number>();
@@ -768,6 +798,7 @@ export function SeedVaultView({
         .from("seed_packets")
         .select("plant_profile_id, primary_image_path")
         .eq("user_id", user.id)
+        .is("deleted_at", null)
         .not("primary_image_path", "is", null)
         .order("created_at", { ascending: true });
       const firstPacketImageByProfile = new Map<string, string>();
@@ -852,6 +883,10 @@ export function SeedVaultView({
   useEffect(() => {
     onRefineChipsLoaded?.(refineChips);
   }, [refineChips, onRefineChipsLoaded]);
+
+  useEffect(() => {
+    onVaultStatusChipsLoaded?.(vaultStatusChips);
+  }, [vaultStatusChips, onVaultStatusChipsLoaded]);
 
   const pendingHeroCount = useMemo(
     () => seeds.filter((s) => !(s.hero_image_url ?? "").trim() && !!s.hero_image_pending).length,
@@ -940,37 +975,40 @@ export function SeedVaultView({
             if (isPhotoCards) {
               const cardContent = (
                 <>
-                  <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden shrink-0 rounded-t-xl">
-                    {showResearching ? (
-                      <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
-                        <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
-                      </div>
-                    ) : showSeedling ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-4xl">🌱</div>
-                    ) : (
-                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
-                    )}
-                    {batchSelectMode && onToggleVarietySelection && (
-                      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedVarietyIds?.has(seed.id) ?? false}
-                          onChange={() => onToggleVarietySelection(seed.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded border-black/20 w-5 h-5"
-                          aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
-                        />
-                      </div>
-                    )}
+                  {/* Frame: 8px padding so photo doesn’t go edge-to-edge; consistent bg for placeholder and image */}
+                  <div className="px-2 pt-2 shrink-0">
+                    <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-lg">
+                      {showResearching ? (
+                        <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
+                          <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
+                        </div>
+                      ) : showSeedling ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-3xl">🌱</div>
+                      ) : (
+                        <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
+                      )}
+                      {batchSelectMode && onToggleVarietySelection && (
+                        <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedVarietyIds?.has(seed.id) ?? false}
+                            onChange={() => onToggleVarietySelection(seed.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded border-black/20 w-5 h-5"
+                            aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-2.5 flex flex-col items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-sm w-full flex items-center justify-center gap-1 min-w-0">
+                  <div className="p-2.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                    <h3 className="font-semibold text-black text-sm w-full min-h-[2.5rem] flex items-center justify-center gap-1 min-w-0">
                       <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
                       <HealthDot seed={seed} size="sm" />
+                      <span className="text-[10px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                     </h3>
-                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
-                      <span className="text-xs text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
-                      <span className="text-[10px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                    <div className="mt-0.5 text-xs text-black/60 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</div>
+                    <div className="mt-auto pt-1.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
                       )}
@@ -1022,30 +1060,32 @@ export function SeedVaultView({
             /* Condensed: same layout as photo cards (image on top, then name · variety, title, HealthDot + count) but smaller */
             const condensedContent = (
               <>
-                <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden shrink-0 rounded-t-lg">
-                  {showResearching ? (
-                    <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
-                      <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
-                    </div>
-                  ) : showSeedling ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-emerald/10 text-2xl">🌱</div>
-                  ) : (
-                    <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
-                  )}
-                  {batchSelectMode && onToggleVarietySelection && (
-                    <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-4 h-4" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
-                    </div>
-                  )}
+                <div className="px-1.5 pt-1.5 shrink-0">
+                  <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                    {showResearching ? (
+                      <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
+                        <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
+                      </div>
+                    ) : showSeedling ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
+                    ) : (
+                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
+                    )}
+                    {batchSelectMode && onToggleVarietySelection && (
+                      <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-4 h-4" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="p-1.5 flex flex-col items-center text-center min-w-0">
-                  <h3 className="font-semibold text-black text-xs w-full flex items-center justify-center gap-1 min-w-0">
+                <div className="p-1.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                  <h3 className="font-semibold text-black text-xs w-full min-h-[2.25rem] flex items-center justify-center gap-1 min-w-0">
                     <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
                     <HealthDot seed={seed} size="sm" />
+                    <span className="text-[9px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                   </h3>
-                  <div className="mt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
-                    <span className="text-[10px] text-black/60 truncate">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</span>
-                    <span className="text-[9px] text-black/50 shrink-0">{seed.packet_count} Pkt{seed.packet_count !== 1 ? "s" : ""}</span>
+                  <div className="mt-0.5 text-[10px] text-black/60 truncate w-full">{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</div>
+                  <div className="mt-auto pt-1 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                     {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
                     )}

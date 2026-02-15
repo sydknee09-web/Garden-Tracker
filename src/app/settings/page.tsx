@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const SETTINGS_ITEMS = [
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, household, account" },
   { href: "/settings/feedback", label: "Feedback", subtitle: "Your submitted feedback" },
+  { href: "/settings/import-catalog", label: "Import Vendor Catalog", subtitle: "Upload a PDF catalog to add to shared plant cache" },
   { href: "/settings/developer", label: "Developer", subtitle: "Fill in blanks, repair hero, cache, trash" },
   { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
   { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },

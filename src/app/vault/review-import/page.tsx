@@ -1155,7 +1155,7 @@ export default function ReviewImportPage() {
     setSaveSuccess(true);
     const t = setTimeout(() => {
       clearReviewImportData();
-      router.replace("/vault?status=vault");
+      router.replace("/vault?status=vault&added=1");
     }, 1500);
     saveSuccessTimeoutRef.current = t;
   }, [user?.id, items, router]);
@@ -1494,6 +1494,17 @@ export default function ReviewImportPage() {
                           <span className="inline-block text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
                             Existing Profile Found
                           </span>
+                          {(() => {
+                            const profile = getExistingProfile(item);
+                            const label = profile
+                              ? [profile.name, profile.variety_name].filter(Boolean).join(" — ") || "this variety"
+                              : "this variety";
+                            return (
+                              <span className="text-xs text-emerald-800/90">
+                                Packet will be added under <strong>{label}</strong>
+                              </span>
+                            );
+                          })()}
                           {(() => {
                             const profile = getExistingProfile(item);
                             const conflict = profile && careDiff(item, profile);

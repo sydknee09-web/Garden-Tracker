@@ -74,14 +74,20 @@ export function FeedbackModal({
 
   const handleSubmit = useCallback(async () => {
     const msg = message.trim();
-    if (!msg || !user?.id) return;
+    if (!msg) return;
     setError(null);
     setSending(true);
     try {
+      // Use fresh session so storage and table RLS see the same auth.uid()
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser?.id) {
+        setError("Please sign in again and try again.");
+        return;
+      }
       let screenshotPath: string | null = null;
       if (screenshotFile) {
         const { blob } = await compressImage(screenshotFile);
-        const path = `${user.id}/feedback-${crypto.randomUUID()}.jpg`;
+        const path = `${currentUser.id}/feedback-${crypto.randomUUID()}.jpg`;
         const { error: uploadErr } = await supabase.storage
           .from("journal-photos")
           .upload(path, blob, { contentType: "image/jpeg", upsert: false });
@@ -89,11 +95,11 @@ export function FeedbackModal({
         screenshotPath = path;
       }
       const { error: err } = await supabase.from("user_feedback").insert({
-        user_id: user.id,
+        user_id: currentUser.id,
         message: msg,
         category: category || null,
         page_url: pageUrl || null,
-        user_email: user.email || null,
+        user_email: currentUser.email ?? null,
         screenshot_path: screenshotPath,
       });
       if (err) throw err;
@@ -112,7 +118,7 @@ export function FeedbackModal({
     } finally {
       setSending(false);
     }
-  }, [message, category, screenshotFile, pageUrl, user?.id, user?.email, onClose]);
+  }, [message, category, screenshotFile, pageUrl, onClose]);
 
   const handleClose = useCallback(() => {
     if (!sending) {

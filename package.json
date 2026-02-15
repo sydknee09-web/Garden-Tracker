@@ -17,7 +17,8 @@
     "bulk-scrape": "tsx scripts/bulk-scrape.ts",
     "clean-bad-cache": "tsx scripts/clean-bad-cache.ts",
     "scrape-cleanup": "ts-node scripts/scrape-cleanup.ts",
-    "normalize-global-cache": "ts-node -r tsconfig-paths/register scripts/normalize-global-plant-cache.ts"
+    "normalize-global-cache": "ts-node -r tsconfig-paths/register scripts/normalize-global-plant-cache.ts",
+    "import-pdf-catalog": "tsx scripts/import-pdf-catalog.ts"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",
@@ -26,6 +27,7 @@
     "@tanstack/react-table": "^8.21.3",
     "html5-qrcode": "^2.3.8",
     "next": "^14.2.35",
+    "pdf-parse": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.34.5",
