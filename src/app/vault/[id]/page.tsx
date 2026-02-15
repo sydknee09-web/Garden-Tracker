@@ -625,10 +625,14 @@ export default function VaultSeedPage() {
               <p className="text-sm text-neutral-500 mt-1">Upload or choose from your Growth Gallery.</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-              <div>
-                <input type="file" accept="image/*" className="hidden" id="hero-upload-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
-                <label htmlFor={heroUploading ? undefined : "hero-upload-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {heroUploading ? "Uploading..." : "Take photo or choose from files"}
+              <div className="flex flex-col gap-2">
+                <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-camera-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
+                <input type="file" accept="image/*" className="hidden" id="hero-files-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
+                <label htmlFor={heroUploading ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                  Take photo
+                </label>
+                <label htmlFor={heroUploading ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                  {heroUploading ? "Uploading..." : "Choose from files"}
                 </label>
               </div>
               {heroUrl && (
