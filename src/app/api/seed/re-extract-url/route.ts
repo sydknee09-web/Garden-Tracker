@@ -125,6 +125,8 @@ export async function POST(req: Request) {
       water: (data.water as string)?.trim() || undefined,
       sun: data.sun ?? undefined,
       plant_spacing: data.plant_spacing ?? undefined,
+      sowing_method: (data.sowing_method as string)?.trim() || undefined,
+      planting_window: (data.planting_window as string)?.trim() || undefined,
       harvest_days:
         typeof rawHarvestDays === "number" && Number.isFinite(rawHarvestDays) ? rawHarvestDays : undefined,
     };

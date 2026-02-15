@@ -65,6 +65,8 @@ export async function POST(req: Request) {
       water: typeof body?.water === "string" ? body.water.trim() || undefined : undefined,
       sun: typeof body?.sun === "string" ? body.sun.trim() || undefined : undefined,
       plant_spacing: typeof body?.plant_spacing === "string" ? body.plant_spacing.trim() || undefined : undefined,
+      sowing_method: typeof body?.sowing_method === "string" ? body.sowing_method.trim() || undefined : undefined,
+      planting_window: typeof body?.planting_window === "string" ? body.planting_window.trim() || undefined : undefined,
     };
     const scraped_fields = Object.keys(extract_data).filter((k) => extract_data[k] != null && extract_data[k] !== "");
     const { error } = await admin.from("global_plant_cache").upsert(

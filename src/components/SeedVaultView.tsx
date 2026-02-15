@@ -138,16 +138,6 @@ function getHealthColor(seed: VaultCardItem): string {
   return "bg-emerald-500";
 }
 
-/** Short sowing method badge: "Direct" or "Start indoors" when set. */
-function getSowingMethodBadge(sowing_method?: string | null): string | null {
-  const m = (sowing_method ?? "").toLowerCase().trim();
-  if (!m) return null;
-  if (/direct\s*sow|direct_sow/.test(m) && !/transplant|indoors/.test(m)) return "Direct";
-  if (/indoors|greenhouse|transplant/.test(m)) return "Start indoors";
-  if (/direct/.test(m)) return "Direct";
-  return null;
-}
-
 /** Card border by planting status: active = in garden, out_of_stock = muted, default = vault/dormant. */
 function getCardBorderClass(seed: VaultCardItem): string {
   const active = (seed.status ?? "").toLowerCase().includes("active");
@@ -1013,9 +1003,6 @@ export function SeedVaultView({
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
                       )}
                       {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
-                      {getSowingMethodBadge(seed.sowing_method) && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-black/5 text-black/60 shrink-0">{getSowingMethodBadge(seed.sowing_method)}</span>
-                      )}
                     </div>
                   </div>
                 </>
@@ -1090,9 +1077,6 @@ export function SeedVaultView({
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
                     )}
                     {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
-                    {getSowingMethodBadge(seed.sowing_method) && (
-                      <span className="text-[8px] px-1 py-px rounded-full bg-black/5 text-black/60 shrink-0">{getSowingMethodBadge(seed.sowing_method)}</span>
-                    )}
                   </div>
                 </div>
               </>

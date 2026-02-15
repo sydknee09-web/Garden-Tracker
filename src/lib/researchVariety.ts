@@ -19,6 +19,9 @@ Extract the following and return a single JSON object only (no markdown, no expl
 - stock_photo_url: a direct URL (https://...) to a high-quality stock image of the actual plant/fruit for this variety—not the packet. Use empty string if no suitable image found.
 - plant_description: 2-4 factual sentences describing this plant/variety (appearance, use, growing context). Gardening-relevant only; no marketing fluff. Use empty string if not found.
 - growing_notes: optional short "how to grow" or seed-starting paragraph if easily found; otherwise empty string.
+- water: watering needs e.g. "Moderate", "Low", "Regular", "Drought tolerant". Use empty string if not found.
+- sowing_method: how to sow e.g. "Direct Sow", "Start Indoors / Transplant", "Direct Sow or Transplant". Use empty string if not found.
+- planting_window: when to plant e.g. "Spring: Mar-May", "After last frost", "Fall: Sep-Nov". Use empty string if not found.
 
 Use standard units: inches for depth and spacing, days for germination and maturity. Use empty string for any field you cannot find. Return only valid JSON.`;
 
@@ -32,6 +35,9 @@ export type ResearchVarietyResult = {
   stock_photo_url?: string;
   plant_description?: string;
   growing_notes?: string;
+  water?: string;
+  sowing_method?: string;
+  planting_window?: string;
 };
 
 /**
@@ -77,6 +83,9 @@ export async function researchVariety(
       stock_photo_url: getStr("stock_photo_url") || undefined,
       plant_description: getStr("plant_description") || undefined,
       growing_notes: getStr("growing_notes") || undefined,
+      water: getStr("water") || undefined,
+      sowing_method: getStr("sowing_method") || undefined,
+      planting_window: getStr("planting_window") || undefined,
     };
   } catch {
     return null;

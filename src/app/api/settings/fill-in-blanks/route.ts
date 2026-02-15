@@ -61,11 +61,12 @@ type CacheRow = { extract_data: Record<string, unknown>; original_hero_url?: str
 
 /** Build updates (metadata + hero) from a cache row. Never replace existing data — only fills empty profile fields. Hero URL is checked for accessibility. */
 async function buildUpdatesFromCacheRow(
-  p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; scientific_name?: string | null; plant_description?: string | null; growing_notes?: string | null; hero_image_url?: string | null; hero_image_path?: string | null },
+  p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; scientific_name?: string | null; plant_description?: string | null; growing_notes?: string | null; water?: string | null; sowing_depth?: string | null; sowing_method?: string | null; planting_window?: string | null; hero_image_url?: string | null; hero_image_path?: string | null },
   row: CacheRow
 ): Promise<Record<string, unknown>> {
   const ed = row.extract_data ?? {};
   const updates: Record<string, unknown> = {};
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "") || "";
   const heroFromRow =
     (row.original_hero_url as string)?.trim() ||
     (typeof ed.hero_image_url === "string" && ed.hero_image_url.trim()) ||
@@ -76,31 +77,27 @@ async function buildUpdatesFromCacheRow(
   if (heroUrl && !(p.hero_image_path ?? "").trim() && (!currentUrl || isPlaceholderHeroUrl(currentUrl))) {
     updates.hero_image_url = heroUrl;
   }
-  if (!(p.sun ?? "").trim() && typeof ed.sun_requirement === "string" && ed.sun_requirement.trim()) {
-    updates.sun = (ed.sun_requirement as string).trim();
-  }
-  if (!(p.plant_spacing ?? "").trim() && typeof ed.spacing === "string" && ed.spacing.trim()) {
-    updates.plant_spacing = (ed.spacing as string).trim();
-  }
-  if (!(p.days_to_germination ?? "").trim() && typeof ed.days_to_germination === "string" && ed.days_to_germination.trim()) {
-    updates.days_to_germination = (ed.days_to_germination as string).trim();
-  }
-  const maturityStr = typeof ed.days_to_maturity === "string" ? ed.days_to_maturity : undefined;
+  if (!(p.sun ?? "").trim() && str(ed.sun_requirement || ed.sun)) updates.sun = str(ed.sun_requirement || ed.sun);
+  if (!(p.plant_spacing ?? "").trim() && str(ed.spacing || ed.plant_spacing)) updates.plant_spacing = str(ed.spacing || ed.plant_spacing);
+  if (!(p.days_to_germination ?? "").trim() && str(ed.days_to_germination)) updates.days_to_germination = str(ed.days_to_germination);
+  const maturityStr = str(ed.days_to_maturity);
   if ((p.harvest_days == null || p.harvest_days === 0) && maturityStr) {
     const parsed = parseHarvestDays(maturityStr);
     if (parsed != null) updates.harvest_days = parsed;
   }
-  if (!(p.scientific_name ?? "").trim() && typeof ed.scientific_name === "string" && ed.scientific_name.trim()) {
-    updates.scientific_name = (ed.scientific_name as string).trim();
-  }
-  if (!(p.plant_description ?? "").trim() && typeof ed.plant_description === "string" && ed.plant_description.trim()) {
-    updates.plant_description = (ed.plant_description as string).trim();
+  if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) updates.scientific_name = str(ed.scientific_name);
+  if (!(p.plant_description ?? "").trim() && str(ed.plant_description)) {
+    updates.plant_description = str(ed.plant_description);
     updates.description_source = "vendor";
   }
-  if (!(p.growing_notes ?? "").trim() && typeof ed.growing_notes === "string" && ed.growing_notes.trim()) {
-    updates.growing_notes = (ed.growing_notes as string).trim();
+  if (!(p.growing_notes ?? "").trim() && str(ed.growing_notes)) {
+    updates.growing_notes = str(ed.growing_notes);
     if (!updates.description_source) updates.description_source = "vendor";
   }
+  if (!(p.water ?? "").trim() && str(ed.water)) updates.water = str(ed.water);
+  if (!(p.sowing_depth ?? "").trim() && str(ed.sowing_depth)) updates.sowing_depth = str(ed.sowing_depth);
+  if (!(p.sowing_method ?? "").trim() && str(ed.sowing_method)) updates.sowing_method = str(ed.sowing_method);
+  if (!(p.planting_window ?? "").trim() && str(ed.planting_window)) updates.planting_window = str(ed.planting_window);
   return updates;
 }
 
@@ -135,7 +132,7 @@ export async function POST(req: Request) {
     // Profiles that need filling: missing hero (and optionally sparse metadata)
     const { data: profiles, error: profilesError } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes")
+      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window")
       .eq("user_id", user.id)
       .is("deleted_at", null);
 
@@ -159,10 +156,10 @@ export async function POST(req: Request) {
       return isPlaceholderHeroUrl(url);
     };
 
-    // Metadata-sparse = missing most of sun, spacing, germination, harvest (so we try cache for "How to Grow")
-    const metadataSparse = (p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }) => {
+    // Metadata-sparse = missing most of sun, spacing, germination, harvest, water, sowing_depth, sowing_method, planting_window
+    const metadataSparse = (p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; water?: string | null; sowing_depth?: string | null; sowing_method?: string | null; planting_window?: string | null }) => {
       const has = (v: string | number | null | undefined) => (v != null && String(v).trim() !== "" && (typeof v !== "number" || Number.isFinite(v)));
-      const count = [p.sun, p.plant_spacing, p.days_to_germination, p.harvest_days].filter(has).length;
+      const count = [p.sun, p.plant_spacing, p.days_to_germination, p.harvest_days, p.water, p.sowing_depth, p.sowing_method, p.planting_window].filter(has).length;
       return count < 2; // include if 0 or 1 of these set
     };
 
@@ -170,7 +167,7 @@ export async function POST(req: Request) {
 
     // Include profile if missing hero OR sparse metadata OR missing description (so cache/AI can fill)
     const needFilling = profiles.filter(
-      (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_description?: string | null }) =>
+      (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_description?: string | null; water?: string | null; sowing_depth?: string | null; sowing_method?: string | null; planting_window?: string | null }) =>
         missingHero(p) || metadataSparse(p) || missingDescription(p)
     );
 
@@ -223,6 +220,10 @@ export async function POST(req: Request) {
       sun?: string | null;
       plant_spacing?: string | null;
       days_to_germination?: string | null;
+      water?: string | null;
+      sowing_depth?: string | null;
+      sowing_method?: string | null;
+      planting_window?: string | null;
       harvest_days?: number | null;
       scientific_name?: string | null;
       plant_description?: string | null;

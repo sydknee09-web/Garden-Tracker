@@ -14,6 +14,7 @@ import {
   type ReviewImportSource,
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
+import { buildPlantProfileInsertPayload } from "@/lib/reviewImportSave";
 import { getCanonicalKey } from "@/lib/canonicalKey";
 import { findExistingProfileByCanonical } from "@/lib/matchExistingProfile";
 import { identityKeyFromVariety } from "@/lib/identityKey";
@@ -876,37 +877,11 @@ export default function ReviewImportPage() {
           }
         }
       } else {
-        const researchSun = (item.sun_requirement ?? "").trim() || zone10b.sun;
-        const researchSpacing = (item.spacing ?? "").trim() || zone10b.plant_spacing;
-        const researchGerm = (item.days_to_germination ?? "").trim() || zone10b.days_to_germination;
-        const maturityStr = (item.days_to_maturity ?? "").trim();
-        const firstNum = maturityStr.match(/\d+/);
-        const harvestDaysFromResearch = firstNum ? parseInt(firstNum[0], 10) : undefined;
-        const harvestDays = zone10b.harvest_days ?? harvestDaysFromResearch ?? undefined;
-        const careNotes: Record<string, unknown> = {};
-        if ((item.sowing_depth ?? "").trim()) careNotes.sowing_depth = item.sowing_depth!.trim();
-        if ((item.source_url ?? "").trim()) careNotes.source_url = item.source_url!.trim();
-        const rawHeroNew = (item.stock_photo_url ?? "").trim() || (item.hero_image_url ?? "").trim();
-        const heroUrlForNew = item.useStockPhotoAsHero !== false && rawHeroNew ? rawHeroNew : "/seedling-icon.svg";
+        const payload = buildPlantProfileInsertPayload(item, zone10b, user.id, todayISO);
+        const heroUrlForNew = payload.hero_image_url;
         const { data: newProfile, error: profileErr } = await supabase
           .from("plant_profiles")
-          .insert({
-            user_id: user.id,
-            name: name.trim(),
-            variety_name: coreVarietyName || varietyName,
-            primary_image_path: null,
-            hero_image_url: heroUrlForNew,
-            tags: item.tags?.length ? item.tags : undefined,
-            ...(researchSun && { sun: researchSun }),
-            ...(researchSpacing && { plant_spacing: researchSpacing }),
-            ...(researchGerm && { days_to_germination: researchGerm }),
-            ...(harvestDays != null && { harvest_days: harvestDays }),
-            ...(zone10b.sowing_method && { sowing_method: zone10b.sowing_method }),
-            ...(zone10b.planting_window && { planting_window: zone10b.planting_window }),
-            ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
-            ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim(), description_source: "vendor" }),
-            ...((item.growing_notes ?? "").trim() && { growing_notes: item.growing_notes!.trim() }),
-          })
+          .insert(payload)
           .select("id")
           .single();
         if (profileErr) {
@@ -1125,6 +1100,9 @@ export default function ReviewImportPage() {
                 scientific_name: (savedItem.scientific_name ?? "").trim() || undefined,
                 plant_description: (savedItem.plant_description ?? "").trim() || undefined,
                 growing_notes: (savedItem.growing_notes ?? "").trim() || undefined,
+                water: (savedItem.water ?? "").trim() || undefined,
+                sowing_method: (savedItem.sowing_method ?? "").trim() || undefined,
+                planting_window: (savedItem.planting_window ?? "").trim() || undefined,
               }),
             }).catch(() => {});
           }

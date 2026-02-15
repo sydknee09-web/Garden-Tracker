@@ -167,6 +167,8 @@ export interface PlantProfile {
   status?: string | null;
   sowing_method?: string | null;
   planting_window?: string | null;
+  /** Seed sowing depth (e.g. "1/4 inch"). From vendor, AI, or cache. */
+  sowing_depth?: string | null;
   purchase_date?: string | null;
   /** Store-bought (no packet): vendor/seller name */
   purchase_vendor?: string | null;

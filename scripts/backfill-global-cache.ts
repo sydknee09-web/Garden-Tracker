@@ -98,14 +98,18 @@ function cacheRowNeedsFilling(row: CacheRow): boolean {
   const hasMaturity = has(ed.days_to_maturity);
   const hasDesc = has(ed.plant_description);
   const hasNotes = has(ed.growing_notes);
-  if (!hasSun || !hasSpacing || !hasGerm || !hasMaturity || !hasDesc || !hasNotes) return true;
+  const hasWater = has(ed.water);
+  const hasSowingDepth = has(ed.sowing_depth);
+  const hasSowingMethod = has(ed.sowing_method);
+  const hasPlantingWindow = has(ed.planting_window);
+  if (!hasSun || !hasSpacing || !hasGerm || !hasMaturity || !hasDesc || !hasNotes || !hasWater || !hasSowingDepth || !hasSowingMethod || !hasPlantingWindow) return true;
   return false;
 }
 
 /** Merge AI result into extract_data. Only set fields that are currently empty (never overwrite). */
 function mergeAiIntoExtractData(
   ed: Record<string, unknown>,
-  result: { sun_requirement?: string; spacing?: string; days_to_germination?: string; days_to_maturity?: string; plant_description?: string; growing_notes?: string; sowing_depth?: string; stock_photo_url?: string }
+  result: { sun_requirement?: string; spacing?: string; days_to_germination?: string; days_to_maturity?: string; plant_description?: string; growing_notes?: string; sowing_depth?: string; water?: string; sowing_method?: string; planting_window?: string; stock_photo_url?: string }
 ): Record<string, unknown> {
   const out = { ...ed };
   const setIfEmpty = (key: string, value: string | undefined) => {
@@ -121,6 +125,9 @@ function mergeAiIntoExtractData(
   setIfEmpty("plant_description", result.plant_description);
   setIfEmpty("growing_notes", result.growing_notes);
   setIfEmpty("sowing_depth", result.sowing_depth);
+  setIfEmpty("water", result.water);
+  setIfEmpty("sowing_method", result.sowing_method);
+  setIfEmpty("planting_window", result.planting_window);
   if (result.stock_photo_url?.trim().startsWith("http") && !out.hero_image_url && !out.original_hero_url) {
     out.hero_image_url = result.stock_photo_url.trim();
   }

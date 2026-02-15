@@ -66,6 +66,9 @@ Extract every distinct seed or plant product into a list. For each product retur
 - sun_requirement: or sun: string (optional) — e.g. "Full Sun", "Part Shade".
 - spacing: or plant_spacing: string (optional) — e.g. "18 inches", "24 in".
 - sowing_depth: string (optional).
+- water: string (optional) — e.g. "Moderate", "Low", "Drought tolerant".
+- sowing_method: string (optional) — e.g. "Direct Sow", "Start Indoors / Transplant".
+- planting_window: string (optional) — e.g. "Spring: Mar-May", "After last frost".
 - scientific_name: string (optional) — Latin name if present.
 - price: string (optional) — keep as shown (e.g. "$3.50") for reference only.
 - catalog_number: or item_code: string (optional) — SKU/item id if present.
@@ -191,6 +194,8 @@ export function toCacheRow(
     water: typeof raw.water === "string" ? raw.water.trim() || undefined : undefined,
     sun: (typeof raw.sun === "string" ? raw.sun : typeof raw.sun_requirement === "string" ? raw.sun_requirement : undefined)?.trim() || undefined,
     plant_spacing: (typeof raw.plant_spacing === "string" ? raw.plant_spacing : typeof raw.spacing === "string" ? raw.spacing : undefined)?.trim() || undefined,
+    sowing_method: typeof raw.sowing_method === "string" ? raw.sowing_method.trim() || undefined : undefined,
+    planting_window: typeof raw.planting_window === "string" ? raw.planting_window.trim() || undefined : undefined,
   };
   const scraped_fields = Object.keys(extract_data).filter(
     (k) => extract_data[k] != null && extract_data[k] !== ""

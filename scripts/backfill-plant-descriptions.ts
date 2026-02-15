@@ -18,6 +18,7 @@
  *
  * Prerequisites:
  *   - Migration 20250227000000_plant_profiles_description_notes.sql applied.
+ *   - Migration 20250228000000_plant_profiles_sowing_depth.sql applied (adds sowing_depth column).
  *   - .env.local: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_GENERATIVE_AI_API_KEY (optional for AI).
  *
  * Run:
@@ -107,6 +108,10 @@ function isSparse(p: {
   scientific_name?: string | null;
   plant_description?: string | null;
   growing_notes?: string | null;
+  water?: string | null;
+  sowing_depth?: string | null;
+  sowing_method?: string | null;
+  planting_window?: string | null;
 }): boolean {
   const hasStr = (v: string | null | undefined) => v != null && String(v).trim() !== "";
   const hasHarvest = (v: number | null | undefined) =>
@@ -118,7 +123,11 @@ function isSparse(p: {
     !hasHarvest(p.harvest_days) ||
     !hasStr(p.scientific_name) ||
     !hasStr(p.plant_description) ||
-    !hasStr(p.growing_notes)
+    !hasStr(p.growing_notes) ||
+    !hasStr(p.water) ||
+    !hasStr(p.sowing_depth) ||
+    !hasStr(p.sowing_method) ||
+    !hasStr(p.planting_window)
   );
 }
 
@@ -134,36 +143,37 @@ function buildUpdatesFromCacheRow(
     scientific_name?: string | null;
     plant_description?: string | null;
     growing_notes?: string | null;
+    water?: string | null;
+    sowing_depth?: string | null;
+    sowing_method?: string | null;
+    planting_window?: string | null;
   },
   row: CacheRow
 ): Record<string, unknown> {
   const ed = row.extract_data ?? {};
   const updates: Record<string, unknown> = {};
-  if (!(p.sun ?? "").trim() && typeof ed.sun_requirement === "string" && (ed.sun_requirement as string).trim()) {
-    updates.sun = (ed.sun_requirement as string).trim();
-  }
-  if (!(p.plant_spacing ?? "").trim() && typeof ed.spacing === "string" && (ed.spacing as string).trim()) {
-    updates.plant_spacing = (ed.spacing as string).trim();
-  }
-  if (!(p.days_to_germination ?? "").trim() && typeof ed.days_to_germination === "string" && (ed.days_to_germination as string).trim()) {
-    updates.days_to_germination = (ed.days_to_germination as string).trim();
-  }
-  const maturityStr = typeof ed.days_to_maturity === "string" ? (ed.days_to_maturity as string).trim() : "";
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "") || "";
+  if (!(p.sun ?? "").trim() && str(ed.sun_requirement || ed.sun)) updates.sun = str(ed.sun_requirement || ed.sun);
+  if (!(p.plant_spacing ?? "").trim() && str(ed.spacing || ed.plant_spacing)) updates.plant_spacing = str(ed.spacing || ed.plant_spacing);
+  if (!(p.days_to_germination ?? "").trim() && str(ed.days_to_germination)) updates.days_to_germination = str(ed.days_to_germination);
+  const maturityStr = str(ed.days_to_maturity);
   if ((p.harvest_days == null || p.harvest_days === 0) && maturityStr) {
     const parsed = parseHarvestDays(maturityStr);
     if (parsed != null) updates.harvest_days = parsed;
   }
-  if (!(p.scientific_name ?? "").trim() && typeof ed.scientific_name === "string" && (ed.scientific_name as string).trim()) {
-    updates.scientific_name = (ed.scientific_name as string).trim();
-  }
-  if (!(p.plant_description ?? "").trim() && typeof ed.plant_description === "string" && (ed.plant_description as string).trim()) {
-    updates.plant_description = (ed.plant_description as string).trim();
+  if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) updates.scientific_name = str(ed.scientific_name);
+  if (!(p.plant_description ?? "").trim() && str(ed.plant_description)) {
+    updates.plant_description = str(ed.plant_description);
     updates.description_source = "vendor";
   }
-  if (!(p.growing_notes ?? "").trim() && typeof ed.growing_notes === "string" && (ed.growing_notes as string).trim()) {
-    updates.growing_notes = (ed.growing_notes as string).trim();
+  if (!(p.growing_notes ?? "").trim() && str(ed.growing_notes)) {
+    updates.growing_notes = str(ed.growing_notes);
     if (!updates.description_source) updates.description_source = "vendor";
   }
+  if (!(p.water ?? "").trim() && str(ed.water)) updates.water = str(ed.water);
+  if (!(p.sowing_depth ?? "").trim() && str(ed.sowing_depth)) updates.sowing_depth = str(ed.sowing_depth);
+  if (!(p.sowing_method ?? "").trim() && str(ed.sowing_method)) updates.sowing_method = str(ed.sowing_method);
+  if (!(p.planting_window ?? "").trim() && str(ed.planting_window)) updates.planting_window = str(ed.planting_window);
   return updates;
 }
 
@@ -191,13 +201,18 @@ async function main() {
 
   const { data: rawProfiles, error: listError } = await admin
     .from("plant_profiles")
-    .select("id, user_id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes")
+    .select("id, user_id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window")
     .is("deleted_at", null)
-    .or("plant_description.is.null,sun.is.null,plant_spacing.is.null,days_to_germination.is.null,harvest_days.is.null,scientific_name.is.null")
+    .or("plant_description.is.null,sun.is.null,plant_spacing.is.null,days_to_germination.is.null,harvest_days.is.null,scientific_name.is.null,water.is.null,sowing_depth.is.null,sowing_method.is.null,planting_window.is.null")
     .limit(limit * 2);
 
   if (listError) {
     console.error("Failed to list profiles:", listError.message);
+    if (listError.message.includes("sowing_depth") && listError.message.includes("does not exist")) {
+      console.error("\nApply the migration that adds plant_profiles.sowing_depth:");
+      console.error("  supabase/migrations/20250228000000_plant_profiles_sowing_depth.sql");
+      console.error("  Run: supabase db push   OR  paste that migration's SQL into Supabase Dashboard → SQL Editor.");
+    }
     process.exit(1);
   }
 
@@ -207,7 +222,7 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${profiles.length} profile(s) with at least one empty field (sun, spacing, germination, harvest_days, scientific_name, description, notes).`);
+  console.log(`Found ${profiles.length} profile(s) with at least one empty field (sun, spacing, germination, harvest_days, water, sowing_depth, sowing_method, planting_window, scientific_name, description, notes).`);
   console.log("Cache lookup order: 0) link (by purchase_url)  1) vendor+variety+plant  2) variety+plant  3) plant only. Never replace existing data. Then AI when cache has nothing.\n");
   console.log("To verify in Supabase: Table Editor → plant_profiles → filter by id or description_source in ('vendor','ai').\n");
 
@@ -249,6 +264,10 @@ async function main() {
       scientific_name?: string | null;
       plant_description?: string | null;
       growing_notes?: string | null;
+      water?: string | null;
+      sowing_depth?: string | null;
+      sowing_method?: string | null;
+      planting_window?: string | null;
     };
     const name = (p.name ?? "").trim() || "Imported seed";
     const variety = (p.variety_name ?? "").trim();
@@ -365,6 +384,10 @@ async function main() {
         const parsed = parseHarvestDays(result.days_to_maturity);
         if (parsed != null) updates.harvest_days = parsed;
       }
+      if (!(p.water ?? "").trim() && result.water?.trim()) updates.water = result.water.trim();
+      if (!(p.sowing_depth ?? "").trim() && result.sowing_depth?.trim()) updates.sowing_depth = result.sowing_depth.trim();
+      if (!(p.sowing_method ?? "").trim() && result.sowing_method?.trim()) updates.sowing_method = result.sowing_method.trim();
+      if (!(p.planting_window ?? "").trim() && result.planting_window?.trim()) updates.planting_window = result.planting_window.trim();
       if (result.plant_description?.trim()) {
         updates.plant_description = result.plant_description.trim();
         updates.description_source = "ai";
@@ -407,6 +430,9 @@ async function main() {
               plant_description: result.plant_description?.trim() || undefined,
               growing_notes: result.growing_notes?.trim() || undefined,
               sowing_depth: result.sowing_depth?.trim() || undefined,
+              water: result.water?.trim() || undefined,
+              sowing_method: result.sowing_method?.trim() || undefined,
+              planting_window: result.planting_window?.trim() || undefined,
               hero_image_url: result.stock_photo_url?.trim().startsWith("http") ? result.stock_photo_url.trim() : undefined,
             };
             const scraped_fields = Object.keys(extractData).filter((k) => extractData[k] != null && extractData[k] !== "");
