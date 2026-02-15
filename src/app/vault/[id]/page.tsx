@@ -215,11 +215,12 @@ export default function VaultSeedPage() {
     }
     if (profileData) {
       setProfile(profileData as ProfileData);
-      // Packets
-      const { data: packetData } = await supabase.from("seed_packets")
+      // Packets (same scope as vault: all non-deleted; profile page shows archived too)
+      const { data: packetData, error: packetErr } = await supabase.from("seed_packets")
         .select("id, plant_profile_id, user_id, vendor_name, purchase_url, purchase_date, price, qty_status, scraped_details, primary_image_path, packet_photo_path, created_at, user_notes, storage_location, tags, vendor_specs, is_archived")
         .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
-      const packetRows = (packetData ?? []) as SeedPacket[];
+      const packetRows = packetErr ? [] : ((packetData ?? []) as SeedPacket[]);
+      if (packetErr) setError(packetErr.message);
       setPackets(packetRows);
       // Fetch packet_images for additional photos (e.g. front + back)
       const packetIds = packetRows.map((p) => p.id);

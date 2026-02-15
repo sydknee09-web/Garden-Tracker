@@ -758,12 +758,12 @@ export function SeedVaultView({
         return;
       }
 
+      // Count all non-deleted packets (including archived) so vault count matches profile page
       const { data: packets } = await supabase
         .from("seed_packets")
         .select("plant_profile_id, tags, vendor_name, qty_status")
         .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .or("is_archived.eq.false,is_archived.is.null");
+        .is("deleted_at", null);
       const countByProfile = new Map<string, number>();
       const sumQtyByProfile = new Map<string, number>();
       const vendorsByProfile = new Map<string, Set<string>>();
