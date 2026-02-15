@@ -626,9 +626,9 @@ export default function VaultSeedPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div>
-                <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-upload-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
+                <input type="file" accept="image/*" className="hidden" id="hero-upload-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
                 <label htmlFor={heroUploading ? undefined : "hero-upload-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {heroUploading ? "Uploading..." : "Upload photo"}
+                  {heroUploading ? "Uploading..." : "Take photo or choose from files"}
                 </label>
               </div>
               {heroUrl && (
