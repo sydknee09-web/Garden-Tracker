@@ -36,7 +36,13 @@ Runbook for keeping the global plant cache and vendor URL list up to date. Use a
    `npm run normalize-global-cache`  
    to backfill existing cache rows.
 
-6. **Single URL fix**  
+6. **Backfill cache (fill empty/failed rows with AI)**  
+   To make the cache robust — fill in any cache rows that have empty or failed data so you can rely on it when adding new plants:  
+   `npm run backfill-cache`  
+   Processes all cache rows that need filling (failed/partial quality or missing key fields). Uses Gemini; never overwrites existing data. Can take a long time.  
+   Optional: `npm run backfill-cache -- --limit 50` (cap how many to process), `npm run backfill-cache -- --dry-run` (see what would be updated).
+
+7. **Single URL fix**  
    In the app: **Settings → Developer → Re-extract this URL**. Use this when one specific link is wrong or stale; it overwrites that one cache row without running any scripts.
 
 ---

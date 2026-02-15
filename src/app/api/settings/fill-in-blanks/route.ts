@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { getCanonicalKey } from "@/lib/canonicalKey";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 
 export const maxDuration = 120;
@@ -19,6 +20,20 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 function qualityRank(q: string): number {
   const rank: Record<string, number> = { full: 3, partial: 2, ai_only: 1, failed: 0 };
   return rank[q] ?? -1;
+}
+
+/** Pick best cache row by scrape_quality then updated_at. */
+function pickBestCacheRow<T extends { scrape_quality?: string; updated_at?: string }>(rows: T[]): T | null {
+  if (!rows?.length) return null;
+  const sorted = [...rows].sort((a, b) => {
+    const qA = qualityRank((a.scrape_quality ?? "").trim());
+    const qB = qualityRank((b.scrape_quality ?? "").trim());
+    if (qB !== qA) return qB - qA;
+    const tA = new Date(a.updated_at ?? 0).getTime();
+    const tB = new Date(b.updated_at ?? 0).getTime();
+    return tB - tA;
+  });
+  return sorted[0] ?? null;
 }
 
 async function checkImageAccessible(url: string): Promise<boolean> {
@@ -42,11 +57,59 @@ function parseHarvestDays(s: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+type CacheRow = { extract_data: Record<string, unknown>; original_hero_url?: string | null; vendor?: string | null; scrape_quality?: string; updated_at?: string };
+
+/** Build updates (metadata + hero) from a cache row. Never replace existing data — only fills empty profile fields. Hero URL is checked for accessibility. */
+async function buildUpdatesFromCacheRow(
+  p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; scientific_name?: string | null; plant_description?: string | null; growing_notes?: string | null; hero_image_url?: string | null; hero_image_path?: string | null },
+  row: CacheRow
+): Promise<Record<string, unknown>> {
+  const ed = row.extract_data ?? {};
+  const updates: Record<string, unknown> = {};
+  const heroFromRow =
+    (row.original_hero_url as string)?.trim() ||
+    (typeof ed.hero_image_url === "string" && ed.hero_image_url.trim()) ||
+    "";
+  let heroUrl = heroFromRow.startsWith("http") ? heroFromRow : "";
+  if (heroUrl && !(await checkImageAccessible(heroUrl))) heroUrl = "";
+  const currentUrl = (p.hero_image_url ?? "").trim();
+  if (heroUrl && !(p.hero_image_path ?? "").trim() && (!currentUrl || isPlaceholderHeroUrl(currentUrl))) {
+    updates.hero_image_url = heroUrl;
+  }
+  if (!(p.sun ?? "").trim() && typeof ed.sun_requirement === "string" && ed.sun_requirement.trim()) {
+    updates.sun = (ed.sun_requirement as string).trim();
+  }
+  if (!(p.plant_spacing ?? "").trim() && typeof ed.spacing === "string" && ed.spacing.trim()) {
+    updates.plant_spacing = (ed.spacing as string).trim();
+  }
+  if (!(p.days_to_germination ?? "").trim() && typeof ed.days_to_germination === "string" && ed.days_to_germination.trim()) {
+    updates.days_to_germination = (ed.days_to_germination as string).trim();
+  }
+  const maturityStr = typeof ed.days_to_maturity === "string" ? ed.days_to_maturity : undefined;
+  if ((p.harvest_days == null || p.harvest_days === 0) && maturityStr) {
+    const parsed = parseHarvestDays(maturityStr);
+    if (parsed != null) updates.harvest_days = parsed;
+  }
+  if (!(p.scientific_name ?? "").trim() && typeof ed.scientific_name === "string" && ed.scientific_name.trim()) {
+    updates.scientific_name = (ed.scientific_name as string).trim();
+  }
+  if (!(p.plant_description ?? "").trim() && typeof ed.plant_description === "string" && ed.plant_description.trim()) {
+    updates.plant_description = (ed.plant_description as string).trim();
+    updates.description_source = "vendor";
+  }
+  if (!(p.growing_notes ?? "").trim() && typeof ed.growing_notes === "string" && ed.growing_notes.trim()) {
+    updates.growing_notes = (ed.growing_notes as string).trim();
+    if (!updates.description_source) updates.description_source = "vendor";
+  }
+  return updates;
+}
+
 /**
  * Fill in blanks: for profiles missing hero, metadata, or plant_description, look up
- * global_plant_cache by identity (free). Optionally use Gemini for hero and for
- * description/notes (enrich-from-name) when cache has nothing.
- * Fill-blanks only: never overwrite existing profile data. Does NOT write to global_plant_cache.
+ * global_plant_cache. Never replace existing data — only fill empty fields.
+ * Lookup order: 0) link (cache by purchase_url/source_url), 1) vendor+variety+plant,
+ * 2) variety+plant, 3) plant only. Then optionally Gemini for hero/description.
+ * Does NOT write to global_plant_cache.
  */
 export async function POST(req: Request) {
   try {
@@ -125,15 +188,20 @@ export async function POST(req: Request) {
     const profileIds = needFilling.map((p: { id: string }) => p.id);
     const { data: packets } = await supabase
       .from("seed_packets")
-      .select("plant_profile_id, vendor_name")
+      .select("plant_profile_id, vendor_name, purchase_url")
       .eq("user_id", user.id)
       .in("plant_profile_id", profileIds)
       .order("created_at", { ascending: true });
 
     const vendorByProfile: Record<string, string> = {};
-    (packets ?? []).forEach((row: { plant_profile_id: string; vendor_name: string | null }) => {
+    const urlByProfile: Record<string, string> = {};
+    (packets ?? []).forEach((row: { plant_profile_id: string; vendor_name: string | null; purchase_url?: string | null }) => {
       if (vendorByProfile[row.plant_profile_id] == null) {
         vendorByProfile[row.plant_profile_id] = (row.vendor_name ?? "").trim() || "";
+      }
+      if (urlByProfile[row.plant_profile_id] == null) {
+        const url = (row.purchase_url ?? "").trim();
+        if (url && url.startsWith("http")) urlByProfile[row.plant_profile_id] = url;
       }
     });
 
@@ -173,79 +241,54 @@ export async function POST(req: Request) {
       const vendor = vendorByProfile[p.id] ?? "";
       const vendorKey = vendor ? normalizeVendorKey(vendor) : "";
 
-      const { data: rows, error: cacheError } = await supabase
-        .from("global_plant_cache")
-        .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
-        .eq("identity_key", identityKey)
-        .limit(10);
+      let bestRow: CacheRow | null = null;
 
-      if (cacheError || !rows?.length) {
-        if (useGemini) {
-          const heroUrl = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
-          if (heroUrl) {
-            const { error: upErr } = await supabase
-              .from("plant_profiles")
-              .update({ hero_image_url: heroUrl })
-              .eq("id", p.id)
-              .eq("user_id", user.id);
-            if (!upErr) fromAi++;
-            else failed++;
-          } else failed++;
-        } else failed++;
-        continue;
+      // Tier 0: link — if we have a purchase_url, look up cache by that source_url first (never replace existing data)
+      const linkUrl = urlByProfile[p.id]?.trim();
+      if (linkUrl) {
+        const { data: linkRow, error: linkErr } = await supabase
+          .from("global_plant_cache")
+          .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
+          .eq("source_url", linkUrl)
+          .maybeSingle();
+        if (!linkErr && linkRow) bestRow = linkRow as CacheRow;
       }
 
-      const filtered =
-        vendorKey && rows.length > 1
-          ? rows.filter((r: { vendor?: string | null }) => normalizeVendorKey((r.vendor ?? "")) === vendorKey)
-          : rows;
-      const toSort = filtered.length > 0 ? filtered : rows;
-      const sorted = [...toSort].sort((a, b) => {
-        const qA = qualityRank((a as { scrape_quality?: string }).scrape_quality ?? "");
-        const qB = qualityRank((b as { scrape_quality?: string }).scrape_quality ?? "");
-        if (qB !== qA) return qB - qA;
-        const tA = new Date((a as { updated_at?: string }).updated_at ?? 0).getTime();
-        const tB = new Date((b as { updated_at?: string }).updated_at ?? 0).getTime();
-        return tB - tA;
-      });
-      const row = sorted[0] as { extract_data: Record<string, unknown>; original_hero_url?: string | null };
-      const ed = row.extract_data ?? {};
+      // Tiers 1–3: by identity_key then plant-only
+      if (!bestRow) {
+        const { data: rows, error: cacheError } = await supabase
+          .from("global_plant_cache")
+          .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
+          .eq("identity_key", identityKey)
+          .limit(10);
 
-      const heroFromRow =
-        (row.original_hero_url as string)?.trim() ||
-        (typeof ed.hero_image_url === "string" && ed.hero_image_url.trim()) ||
-        "";
-      let heroUrl = heroFromRow.startsWith("http") ? heroFromRow : "";
-      if (heroUrl && !(await checkImageAccessible(heroUrl))) heroUrl = "";
+        const typedRows = (cacheError ? [] : (rows ?? [])) as CacheRow[];
 
-      const updates: Record<string, unknown> = {};
-      if (heroUrl) updates.hero_image_url = heroUrl;
-      if (!(p.sun ?? "").trim() && typeof ed.sun_requirement === "string" && ed.sun_requirement.trim()) {
-        updates.sun = (ed.sun_requirement as string).trim();
+        // Tier 1: vendor + variety + plant
+        if (typedRows.length > 0 && vendorKey) {
+          const byVendor = typedRows.filter((r) => normalizeVendorKey((r.vendor ?? "")) === vendorKey);
+          if (byVendor.length > 0) bestRow = pickBestCacheRow(byVendor);
+        }
+        // Tier 2: variety + plant (any vendor)
+        if (!bestRow && typedRows.length > 0) {
+          bestRow = pickBestCacheRow(typedRows);
+        }
+        // Tier 3: plant only (any variety, any vendor)
+        if (!bestRow) {
+          const typeKey = getCanonicalKey(name);
+          if (typeKey) {
+            const { data: plantOnlyRows, error: plantErr } = await supabase
+              .from("global_plant_cache")
+              .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
+              .or(`identity_key.eq.${typeKey},identity_key.like.${typeKey}_%`)
+              .limit(10);
+            const plantRows = (plantErr ? [] : (plantOnlyRows ?? [])) as CacheRow[];
+            bestRow = pickBestCacheRow(plantRows);
+          }
+        }
       }
-      if (!(p.plant_spacing ?? "").trim() && typeof ed.spacing === "string" && ed.spacing.trim()) {
-        updates.plant_spacing = (ed.spacing as string).trim();
-      }
-      if (!(p.days_to_germination ?? "").trim() && typeof ed.days_to_germination === "string" && ed.days_to_germination.trim()) {
-        updates.days_to_germination = (ed.days_to_germination as string).trim();
-      }
-      const maturityStr = typeof ed.days_to_maturity === "string" ? ed.days_to_maturity : undefined;
-      if ((p.harvest_days == null || p.harvest_days === 0) && maturityStr) {
-        const parsed = parseHarvestDays(maturityStr);
-        if (parsed != null) updates.harvest_days = parsed;
-      }
-      if (!(p.scientific_name ?? "").trim() && typeof ed.scientific_name === "string" && ed.scientific_name.trim()) {
-        updates.scientific_name = (ed.scientific_name as string).trim();
-      }
-      // Fill description/notes from cache only when profile has none (fill blanks only)
-      if (!(p.plant_description ?? "").trim() && typeof ed.plant_description === "string" && ed.plant_description.trim()) {
-        updates.plant_description = (ed.plant_description as string).trim();
-        updates.description_source = "vendor";
-      }
-      if (!(p.growing_notes ?? "").trim() && typeof ed.growing_notes === "string" && ed.growing_notes.trim()) {
-        updates.growing_notes = (ed.growing_notes as string).trim();
-        if (!updates.description_source) updates.description_source = "vendor";
-      }
+
+      const updates = bestRow ? await buildUpdatesFromCacheRow(p, bestRow) : {};
 
       if (Object.keys(updates).length === 0) {
         if (useGemini) {
@@ -285,6 +328,8 @@ export async function POST(req: Request) {
           }
           if (!didAiUpdate) failed++;
         } else failed++;
+        const currentName = [name, variety].filter(Boolean).join(" — ") || name;
+        enqueue({ type: "progress", current: idx + 1, total, fromCache, fromAi, failed, currentName });
         continue;
       }
 
@@ -299,7 +344,7 @@ export async function POST(req: Request) {
       } else {
         fromCache++;
         // Cache had metadata but no usable hero; optionally fill hero via AI
-        if (useGemini && !heroUrl) {
+        if (useGemini && !updates.hero_image_url) {
           const aiHero = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
           if (aiHero) {
             const { error: upErr } = await supabase

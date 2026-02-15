@@ -34,6 +34,18 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 - **`src/lib/vault.test.ts`** — Vault seed data transforms (`normalizeSeedStockRow`, etc.)
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
 
+## Import flows – test coverage
+
+**The suite does not confirm that manual, link, photo, or purchase order import work.** Only one building block used by imports is tested: `findExistingProfileByCanonical()` (used on the review-import page when matching existing profiles before save). The extract API, review-import storage, URL parsing, and import UI are untested.
+
+To start confirming those flows, add these tests first (in order):
+
+1. **`src/lib/parseSeedFromImportUrl.test.ts`** — Test `parseSeedFromImportUrl()` (or the main exported parser) for link-import URLs: vendor URL → type/variety/tags, rareseeds autotreatment, and 11 functional tags. Use a few fixture URLs to lock behavior.
+2. **`src/lib/reviewImportStorage.test.ts`** — Test get/set/clear of review import data: `getReviewImportData()`, `setReviewImportData()`, `clearReviewImportData()`, and optionally `getPendingManualAdd()` / `setPendingManualAdd()` / `clearPendingManualAdd()`. Mock `localStorage` (or use jsdom’s) so shape and round-trip are asserted.
+3. **One extract API test** — e.g. **`src/app/api/seed/extract/route.test.ts`** or **`src/app/api/seed/enrich-from-name/route.test.ts`**. Mock Supabase and `NextRequest`; send a minimal POST and assert response shape and status. This confirms the API contract used by link import and manual import.
+
+After these, consider tests for `varietyModifiers` (used by manual import), `identityKeyFromVariety`, and the review-import save logic that writes to Supabase.
+
 ## Coverage
 
 Run `npm run test:ci` to generate coverage. Reports:
@@ -73,3 +85,14 @@ These are the main missing pieces; add them when you want more safety or documen
 3. **`src/lib/varietyNormalize.test.ts`** — `stripVarietySuffixes()` (and related helpers) drive identity keys and cache; worth locking down.
 4. **`src/lib/identityKey.test.ts`** — Depends on canonicalKey + varietyNormalize; test `identityKeyFromVariety` and `isGenericTrapName`.
 5. **`src/components/TagBadges.test.tsx`** — Test that tags render and `getTagStyle` returns the right class for known tags (and a default for unknowns).
+
+### Other gaps (beyond imports and general libs)
+
+| Area | What’s untested | Why it matters |
+|------|-----------------|----------------|
+| **Care schedule / tasks (Law 11)** | `generateCareTasks`, `advanceCareSchedule`, `copyCareTemplatesToInstance` | Task generation and schedule advancement are core to the calendar; regressions would break due dates and task creation. |
+| **Planting / sow flow (Law 3)** | `completeSowTask` (decrement packet, archive when empty, set `out_of_stock` / shopping list) | Directly affects seed packet volume and shopping list; must stay aligned with Law 3. |
+| **Planting calendar logic** | `plantingWindow.ts`, `getZone10bScheduleForPlant` (or `zone10b_schedule.ts`) | Drives “when to plant” and schedule suggestions; pure logic, good candidate for unit tests. |
+| **Image compression (Law 4)** | `compressImage` | All uploads must use it; testing input → output size/format would lock the contract (may need blob/file mocks). |
+| **Types / validation** | `src/types/garden.ts`, `vault.ts` | No runtime validation tests. Add if you introduce Zod (or similar) for request/DB shapes. |
+| **Household / sharing** | Invite, household members, shared data | Multi-tenant plus sharing is easy to break; tests would need Supabase mocks. |
