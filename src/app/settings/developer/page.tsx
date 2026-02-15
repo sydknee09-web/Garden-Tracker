@@ -64,6 +64,32 @@ export default function SettingsDeveloperPage() {
     skipped: number;
     message?: string;
   } | null>(null);
+  const [backfillDescriptionsRunning, setBackfillDescriptionsRunning] = useState(false);
+  const [backfillDescriptionsProgress, setBackfillDescriptionsProgress] = useState<{
+    round: number;
+    fromCache: number;
+    fromAi: number;
+    failed: number;
+  } | null>(null);
+  const [backfillDescriptionsResult, setBackfillDescriptionsResult] = useState<{
+    fromCache: number;
+    fromAi: number;
+    failed: number;
+    message?: string;
+  } | null>(null);
+  const [backfillCacheRunning, setBackfillCacheRunning] = useState(false);
+  const [backfillCacheProgress, setBackfillCacheProgress] = useState<{
+    round: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+  } | null>(null);
+  const [backfillCacheResult, setBackfillCacheResult] = useState<{
+    updated: number;
+    skipped: number;
+    failed: number;
+    message?: string;
+  } | null>(null);
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -359,6 +385,98 @@ export default function SettingsDeveloperPage() {
     }
   }, [user?.id, session?.access_token, fillInBlanksRunning]);
 
+  const runBackfillPlantDescriptions = useCallback(async () => {
+    if (!session?.access_token || backfillDescriptionsRunning) return;
+    setBackfillDescriptionsRunning(true);
+    setBackfillDescriptionsResult(null);
+    setBackfillDescriptionsProgress(null);
+    let round = 0;
+    let totalFromCache = 0;
+    let totalFromAi = 0;
+    let totalFailed = 0;
+    try {
+      for (;;) {
+        round++;
+        const res = await fetch("/api/developer/backfill-plant-descriptions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ batchSize: 50 }),
+        });
+        const data = (await res.json()) as { fromCache?: number; fromAi?: number; failed?: number; hasMore?: boolean; message?: string };
+        totalFromCache += data.fromCache ?? 0;
+        totalFromAi += data.fromAi ?? 0;
+        totalFailed += data.failed ?? 0;
+        setBackfillDescriptionsProgress({ round, fromCache: totalFromCache, fromAi: totalFromAi, failed: totalFailed });
+        if (!data.hasMore) {
+          setBackfillDescriptionsResult({
+            fromCache: totalFromCache,
+            fromAi: totalFromAi,
+            failed: totalFailed,
+            message: data.message,
+          });
+          break;
+        }
+      }
+    } catch (e) {
+      setBackfillDescriptionsResult({
+        fromCache: totalFromCache,
+        fromAi: totalFromAi,
+        failed: totalFailed,
+        message: e instanceof Error ? e.message : "Request failed",
+      });
+    } finally {
+      setBackfillDescriptionsRunning(false);
+      setBackfillDescriptionsProgress(null);
+    }
+  }, [session?.access_token, backfillDescriptionsRunning]);
+
+  const runBackfillCache = useCallback(async () => {
+    if (!session?.access_token || backfillCacheRunning) return;
+    setBackfillCacheRunning(true);
+    setBackfillCacheResult(null);
+    setBackfillCacheProgress(null);
+    let round = 0;
+    let totalUpdated = 0;
+    let totalSkipped = 0;
+    let totalFailed = 0;
+    let offset: number | undefined;
+    try {
+      for (;;) {
+        round++;
+        const res = await fetch("/api/developer/backfill-cache", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify(offset !== undefined ? { offset } : {}),
+        });
+        const data = (await res.json()) as { updated?: number; skipped?: number; failed?: number; hasMore?: boolean; nextOffset?: number; message?: string };
+        totalUpdated += data.updated ?? 0;
+        totalSkipped += data.skipped ?? 0;
+        totalFailed += data.failed ?? 0;
+        if (data.nextOffset !== undefined) offset = data.nextOffset;
+        setBackfillCacheProgress({ round, updated: totalUpdated, skipped: totalSkipped, failed: totalFailed });
+        if (!data.hasMore) {
+          setBackfillCacheResult({
+            updated: totalUpdated,
+            skipped: totalSkipped,
+            failed: totalFailed,
+            message: data.message,
+          });
+          break;
+        }
+      }
+    } catch (e) {
+      setBackfillCacheResult({
+        updated: totalUpdated,
+        skipped: totalSkipped,
+        failed: totalFailed,
+        message: e instanceof Error ? e.message : "Request failed",
+      });
+    } finally {
+      setBackfillCacheRunning(false);
+      setBackfillCacheProgress(null);
+    }
+  }, [session?.access_token, backfillCacheRunning]);
+
   const q = searchQuery.trim().toLowerCase();
   const matchesSection = (s: { title: string; desc: string }) =>
     !q || s.title.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q);
@@ -573,6 +691,68 @@ export default function SettingsDeveloperPage() {
               {fillInBlanksRunning ? "Running…" : "Cache + AI hero"}
             </button>
           </div>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Fill in Plant Profile Missing Dates", desc: "Description backfill" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fill in Plant Profile Missing Dates</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            Same as <code className="text-xs bg-neutral-100 px-1 rounded">npm run backfill-plant-descriptions</code>. Fills missing sun, spacing, germination, harvest_days, water, sowing_depth, sowing_method, planting_window, description, notes from cache then AI. Runs in batches until done; you can leave the page running.
+          </p>
+          {backfillDescriptionsProgress && backfillDescriptionsRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
+              <p className="text-sm text-neutral-700">Batch {backfillDescriptionsProgress.round} — From cache: {backfillDescriptionsProgress.fromCache} · From AI: {backfillDescriptionsProgress.fromAi} · Failed: {backfillDescriptionsProgress.failed}</p>
+            </div>
+          )}
+          {backfillDescriptionsResult && !backfillDescriptionsRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">Done. From cache: {backfillDescriptionsResult.fromCache}. From AI: {backfillDescriptionsResult.fromAi}. Failed: {backfillDescriptionsResult.failed}.</p>
+              {backfillDescriptionsResult.message && <p className="text-xs text-neutral-500 mt-1">{backfillDescriptionsResult.message}</p>}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={runBackfillPlantDescriptions}
+            disabled={backfillDescriptionsRunning}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+          >
+            {backfillDescriptionsRunning ? "Running…" : "Fill in Plant Profile Missing Dates"}
+          </button>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Backfill Cache", desc: "Global plant cache" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Backfill Cache</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            Same as <code className="text-xs bg-neutral-100 px-1 rounded">npm run backfill-cache</code>. Fills empty or failed rows in the global plant cache using AI. Runs in batches until done; you can leave the page running.
+          </p>
+          {backfillCacheProgress && backfillCacheRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
+              <p className="text-sm text-neutral-700">Batch {backfillCacheProgress.round} — Updated: {backfillCacheProgress.updated} · Skipped: {backfillCacheProgress.skipped} · Failed: {backfillCacheProgress.failed}</p>
+            </div>
+          )}
+          {backfillCacheResult && !backfillCacheRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">Done. Updated: {backfillCacheResult.updated}. Skipped: {backfillCacheResult.skipped}. Failed: {backfillCacheResult.failed}.</p>
+              {backfillCacheResult.message && <p className="text-xs text-neutral-500 mt-1">{backfillCacheResult.message}</p>}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={runBackfillCache}
+            disabled={backfillCacheRunning}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+          >
+            {backfillCacheRunning ? "Running…" : "Backfill Cache"}
+          </button>
         </div>
       </section>
       )}
