@@ -30,6 +30,7 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 
 - **`src/sanity.test.ts`** — Sanity check that the runner works
 - **`src/lib/canonicalKey.test.ts`** — `getCanonicalKey()` normalization
+- **`src/lib/matchExistingProfile.test.ts`** — Existing profile matching when adding a packet (canonical name/variety, modifiers stripped)
 - **`src/lib/vault.test.ts`** — Vault seed data transforms (`normalizeSeedStockRow`, etc.)
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
 

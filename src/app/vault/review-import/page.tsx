@@ -15,6 +15,7 @@ import {
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { getCanonicalKey } from "@/lib/canonicalKey";
+import { findExistingProfileByCanonical } from "@/lib/matchExistingProfile";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { compressImage } from "@/lib/compressImage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
@@ -256,6 +257,7 @@ export default function ReviewImportPage() {
       .from("plant_profiles")
       .select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, botanical_care_notes")
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .then(({ data }) => setProfiles((data ?? []) as ProfileMatch[]));
   }, [user?.id, items.length]);
 
@@ -720,19 +722,8 @@ export default function ReviewImportPage() {
   }, [itemsMissingHero, user?.id]);
 
   const getExistingProfile = useCallback(
-    (item: ReviewImportItem): ProfileMatch | null => {
-      const name = (item.type ?? "").trim() || "Unknown";
-      const { coreVariety } = parseVarietyWithModifiers(item.variety);
-      const varietyName = (coreVariety || (item.variety ?? "").trim()) || "";
-      const nameKey = getCanonicalKey(name);
-      const varietyKey = getCanonicalKey(varietyName);
-      const p = profiles.find(
-        (x) =>
-          getCanonicalKey(x.name ?? "") === nameKey &&
-          getCanonicalKey(x.variety_name ?? "") === varietyKey
-      );
-      return p ?? null;
-    },
+    (item: ReviewImportItem): ProfileMatch | null =>
+      findExistingProfileByCanonical(profiles, item.type ?? "", item.variety),
     [profiles]
   );
 
@@ -1502,8 +1493,17 @@ export default function ReviewImportPage() {
                               ? [profile.name, profile.variety_name].filter(Boolean).join(" — ") || "this variety"
                               : "this variety";
                             return (
-                              <span className="text-xs text-emerald-800/90">
+                              <span className="text-xs text-emerald-800/90 flex flex-wrap items-center gap-x-1 gap-y-0.5">
                                 Packet will be added under <strong>{label}</strong>
+                                {profile && (
+                                  <Link
+                                    href={`/vault/${profile.id}`}
+                                    className="text-emerald-700 underline hover:no-underline font-medium min-h-[44px] min-w-[44px] inline-flex items-center"
+                                    aria-label={`View ${label} profile`}
+                                  >
+                                    View profile
+                                  </Link>
+                                )}
                               </span>
                             );
                           })()}
