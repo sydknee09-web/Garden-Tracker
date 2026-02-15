@@ -238,6 +238,13 @@ export default function SettingsDeveloperPage() {
     ? "Enter a valid URL (http or https)"
     : null;
 
+  /** Treat placeholder hero URL as missing so we only repair profiles with no real hero (never overwrite uploaded or packet-approved hero). */
+  const isPlaceholderHeroUrl = (url: string | null | undefined): boolean => {
+    if (!url || !String(url).trim()) return false;
+    const u = String(url).trim().toLowerCase();
+    return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  };
+
   const runRepairMissingHeroPhotos = useCallback(async () => {
     if (!user?.id || repairHeroRunning) return;
     setRepairConfirmOpen(false);
@@ -245,12 +252,18 @@ export default function SettingsDeveloperPage() {
     setRepairHeroResult(null);
     const { data: profiles } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, hero_image_url, hero_image_path")
-      .eq("user_id", user.id);
+      .select("id, name, variety_name, scientific_name, hero_image_url, hero_image_path")
+      .eq("user_id", user.id)
+      .is("deleted_at", null);
     const withoutHero = (profiles ?? []).filter(
-      (p: { hero_image_url?: string | null; hero_image_path?: string | null }) =>
-        !(p.hero_image_url ?? "").trim() && !(p.hero_image_path ?? "").trim()
-    ) as { id: string; name: string; variety_name: string | null }[];
+      (p: { hero_image_url?: string | null; hero_image_path?: string | null }) => {
+        const path = (p.hero_image_path ?? "").trim();
+        if (path) return false;
+        const url = (p.hero_image_url ?? "").trim();
+        if (!url) return true;
+        return isPlaceholderHeroUrl(url);
+      }
+    ) as { id: string; name: string; variety_name: string | null; scientific_name: string | null }[];
     if (withoutHero.length === 0) {
       setRepairHeroProgress(null);
       setRepairHeroResult({ updated: 0, failed: 0 });
@@ -283,6 +296,7 @@ export default function SettingsDeveloperPage() {
             variety: p.variety_name ?? "",
             vendor: vendorByProfile[p.id] ?? "",
             identity_key: identityKey,
+            scientific_name: p.scientific_name ?? "",
           }),
         });
         const data = (await res.json()) as { hero_image_url?: string; error?: string };

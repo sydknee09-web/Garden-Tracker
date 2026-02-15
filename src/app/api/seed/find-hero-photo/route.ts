@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 
 export const maxDuration = 30;
@@ -344,13 +345,13 @@ export async function POST(req: Request) {
     // Write back to plant_extract_cache so next time we hit Tier 2 (no Gemini call)
     const cacheAuth = req.headers.get("authorization");
     const tokenForCache = cacheAuth?.startsWith("Bearer ") ? cacheAuth.slice(7).trim() : null;
+    const idKey = identity_key?.trim() || identityKeyFromVariety(name || "Imported seed", variety || "");
     if (url && tokenForCache) {
       try {
         const sb = createClient(supabaseUrl, supabaseAnonKey, {
           global: { headers: { Authorization: `Bearer ${tokenForCache}` } },
         });
         const { data: { user: cacheUser } } = await sb.auth.getUser(tokenForCache);
-        const idKey = identity_key?.trim() || identityKeyFromVariety(name || "Imported seed", variety || "");
         if (cacheUser?.id && idKey) {
           await sb.from("plant_extract_cache").upsert(
             {
@@ -367,6 +368,46 @@ export async function POST(req: Request) {
         }
       } catch {
         // non-fatal
+      }
+    }
+
+    // Write to global_plant_cache so future lookups (any user) can use this hero without AI. Only when identity_key is non-empty; update existing row with null hero first, else insert synthetic row.
+    if (url && idKey) {
+      try {
+        const admin = getSupabaseAdmin();
+        if (admin) {
+          const vendorNorm = normalizeVendorKey(vendor) || "default";
+          const { data: existing } = await admin
+            .from("global_plant_cache")
+            .select("id")
+            .eq("identity_key", idKey)
+            .is("original_hero_url", null)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (existing?.length && existing[0]?.id) {
+            await admin
+              .from("global_plant_cache")
+              .update({ original_hero_url: url, updated_at: new Date().toISOString() })
+              .eq("id", existing[0].id);
+          } else {
+            const syntheticSourceUrl = `hero:${idKey}:${vendorNorm}`;
+            await admin.from("global_plant_cache").upsert(
+              {
+                source_url: syntheticSourceUrl,
+                identity_key: idKey,
+                vendor: vendor?.trim() || null,
+                original_hero_url: url,
+                extract_data: { type: name || "Imported seed", variety: variety || "", vendor: vendor || "" },
+                scraped_fields: ["hero"],
+                scrape_quality: "ai_hero",
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "source_url" }
+            );
+          }
+        }
+      } catch {
+        // non-fatal: profile and plant_extract_cache already updated
       }
     }
 
