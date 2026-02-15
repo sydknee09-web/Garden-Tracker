@@ -54,7 +54,8 @@ async function extractTextFromPdf(pdfPath: string): Promise<{ text: string; nump
 }
 
 async function upsertGlobalCache(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   row: {
     source_url: string;
     identity_key: string;
@@ -65,7 +66,9 @@ async function upsertGlobalCache(
     scrape_quality: string;
   }
 ): Promise<boolean> {
-  const { error } = await supabase.from("global_plant_cache").upsert(
+  // Supabase client has no generated types for global_plant_cache; cast to satisfy typecheck.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from("global_plant_cache").upsert(
     { ...row, updated_at: new Date().toISOString() },
     { onConflict: "source_url" }
   );

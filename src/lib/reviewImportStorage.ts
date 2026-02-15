@@ -29,6 +29,8 @@ export type ReviewImportItem = {
   source_url?: string;
   /** Short description from scrape or research (passed to cache and profile). */
   plant_description?: string;
+  /** Detailed growing/seed-starting notes from scrape (passed to cache and profile). */
+  growing_notes?: string;
   /** Scientific name (e.g. Thunbergia alata) from extraction */
   scientific_name?: string;
   /** From link extraction: stock/vendor plant image URL for profile hero and review thumbnail */

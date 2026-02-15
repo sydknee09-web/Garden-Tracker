@@ -913,7 +913,8 @@ export default function ReviewImportPage() {
             ...(zone10b.sowing_method && { sowing_method: zone10b.sowing_method }),
             ...(zone10b.planting_window && { planting_window: zone10b.planting_window }),
             ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
-            ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim() }),
+            ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim(), description_source: "vendor" }),
+            ...((item.growing_notes ?? "").trim() && { growing_notes: item.growing_notes!.trim() }),
           })
           .select("id")
           .single();
@@ -1132,6 +1133,7 @@ export default function ReviewImportPage() {
                 days_to_maturity: (savedItem.days_to_maturity ?? "").trim() || undefined,
                 scientific_name: (savedItem.scientific_name ?? "").trim() || undefined,
                 plant_description: (savedItem.plant_description ?? "").trim() || undefined,
+                growing_notes: (savedItem.growing_notes ?? "").trim() || undefined,
               }),
             }).catch(() => {});
           }

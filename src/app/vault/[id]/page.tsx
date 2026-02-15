@@ -131,7 +131,7 @@ function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" f
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 
-type ProfileData = (PlantProfile & { source_url?: null; vendor?: null; growing_notes?: null; growing_info_from_source?: null; plant_description?: null }) | PlantVarietyProfile;
+type ProfileData = PlantProfile | PlantVarietyProfile;
 
 // ===========================================================================
 // Main component
@@ -195,7 +195,7 @@ export default function VaultSeedPage() {
     setError(null);
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source")
       .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -562,6 +562,7 @@ export default function VaultSeedPage() {
         planting_window: editForm.plantingWindow.trim() || null,
         companion_plants: parseCommaList(editForm.companionPlants),
         avoid_plants: parseCommaList(editForm.avoidPlants),
+        growing_notes: editForm.growingNotes.trim() || null,
       } : {}),
     };
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
@@ -816,6 +817,19 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "about" && (
           <>
+            {/* Description (profile-level: vendor or AI) */}
+            {!isLegacy && (profile as PlantProfile)?.plant_description?.trim() && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
+                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Description</h3>
+                <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).plant_description}</p>
+                {(profile as PlantProfile).description_source && (
+                  <p className="text-xs text-neutral-500 mt-2">
+                    Source: {(profile as PlantProfile).description_source === "vendor" ? "Vendor" : (profile as PlantProfile).description_source === "ai" ? "AI research" : "You"}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
               <h3 className="text-sm font-semibold text-neutral-700 mb-3">How to Grow</h3>
               <div className="space-y-4">

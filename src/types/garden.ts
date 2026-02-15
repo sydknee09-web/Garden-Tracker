@@ -179,6 +179,12 @@ export interface PlantProfile {
   companion_plants?: string[] | null;
   /** Plants to avoid planting nearby. */
   avoid_plants?: string[] | null;
+  /** Short description of the plant/variety (vendor or AI). Shown in About tab. */
+  plant_description?: string | null;
+  /** Detailed growing/seed-starting notes. Shown with description for full grow context. */
+  growing_notes?: string | null;
+  /** Source of description/notes: 'vendor' | 'ai' | 'user' for UI attribution. */
+  description_source?: string | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
