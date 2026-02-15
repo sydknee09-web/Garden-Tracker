@@ -279,7 +279,8 @@ export default function VaultImportPage() {
       const { data: allProfiles } = await supabase
         .from("plant_profiles")
         .select("id, name, variety_name")
-        .eq("user_id", uid);
+        .eq("user_id", uid)
+        .is("deleted_at", null);
       const exact = (allProfiles ?? []).find(
         (p: { name: string; variety_name: string | null }) =>
           getCanonicalKey(p.name ?? "") === nameKey &&
@@ -373,6 +374,7 @@ export default function VaultImportPage() {
         updateItem(i, { status: "error", displayName: safePlantName, error: packetErr.message });
         return { ok: false };
       }
+      // Reinstate profile when adding a packet (e.g. was out_of_stock / archived)
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", uid);
 
       const brainStatus: BrainStatus = matchedExisting ? "Linked to Existing Profile" : "New Type: Added to Brain";
