@@ -516,6 +516,8 @@ export default function VaultSeedPage() {
     if (!profile) return;
     const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null };
     const dateForInput = pp.purchase_date?.trim() || pp.created_at;
+    const companions = pp.companion_plants ?? [];
+    const avoid = pp.avoid_plants ?? [];
     setEditForm({
       plantType: profile.name ?? "",
       varietyName: profile.variety_name ?? "",
@@ -529,6 +531,8 @@ export default function VaultSeedPage() {
       purchaseDate: dateForInput ? toDateInputValue(dateForInput) : "",
       growingNotes: pp.growing_notes ?? "",
       status: profile.status ?? "",
+      companionPlants: Array.isArray(companions) ? companions.join(", ") : "",
+      avoidPlants: Array.isArray(avoid) ? avoid.join(", ") : "",
     });
     setShowEditModal(true);
   }, [profile]);
@@ -539,6 +543,10 @@ export default function VaultSeedPage() {
     const harvestDays = editForm.maturity.trim() === "" ? null : parseInt(editForm.maturity.trim(), 10);
     const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
     const table = isLeg ? "plant_varieties" : "plant_profiles";
+    const parseCommaList = (s: string): string[] | null => {
+      const arr = s.split(",").map((x) => x.trim()).filter(Boolean);
+      return arr.length > 0 ? arr : null;
+    };
     const updates: Record<string, unknown> = {
       name: editForm.plantType.trim() || null,
       variety_name: editForm.varietyName.trim() || null,
@@ -549,7 +557,12 @@ export default function VaultSeedPage() {
       harvest_days: harvestDays != null && !Number.isNaN(harvestDays) ? harvestDays : null,
       status: editForm.status.trim() || null,
       ...(isLeg ? { growing_notes: editForm.growingNotes.trim() || null } : {}),
-      ...(!isLeg ? { sowing_method: editForm.sowingMethod.trim() || null, planting_window: editForm.plantingWindow.trim() || null } : {}),
+      ...(!isLeg ? {
+        sowing_method: editForm.sowingMethod.trim() || null,
+        planting_window: editForm.plantingWindow.trim() || null,
+        companion_plants: parseCommaList(editForm.companionPlants),
+        avoid_plants: parseCommaList(editForm.avoidPlants),
+      } : {}),
     };
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
     setSavingEdit(false);
@@ -704,6 +717,14 @@ export default function VaultSeedPage() {
                 <label htmlFor="edit-growing-notes" className="block text-sm font-medium text-neutral-700 mb-1">Growing Notes</label>
                 <textarea id="edit-growing-notes" rows={3} value={editForm.growingNotes} onChange={(e) => setEditForm((f) => ({ ...f, growingNotes: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
               </div>
+              <div>
+                <label htmlFor="edit-companion-plants" className="block text-sm font-medium text-neutral-700 mb-1">Companion plants</label>
+                <input id="edit-companion-plants" type="text" value={editForm.companionPlants} onChange={(e) => setEditForm((f) => ({ ...f, companionPlants: e.target.value }))} placeholder="e.g. Basil, Carrot" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Companion plants" />
+              </div>
+              <div>
+                <label htmlFor="edit-avoid-plants" className="block text-sm font-medium text-neutral-700 mb-1">Avoid plants</label>
+                <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
+              </div>
             </div>
             <div className="flex-shrink-0 flex gap-3 justify-end p-4 border-t border-neutral-200 bg-white">
               <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
@@ -824,6 +845,49 @@ export default function VaultSeedPage() {
                 </div>
               </div>
             </div>
+
+            {/* Companion planting */}
+            {(() => {
+              const pp = profile as PlantProfile | null;
+              const companions = pp?.companion_plants ?? [];
+              const avoid = pp?.avoid_plants ?? [];
+              const hasCompanions = Array.isArray(companions) && companions.length > 0;
+              const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
+              const hasAny = hasCompanions || hasAvoid;
+              return (
+                <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Companion planting</h3>
+                  {hasAny ? (
+                    <div className="space-y-3">
+                      {hasCompanions && (
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">Plant with</p>
+                          <TagBadges tags={companions} />
+                        </div>
+                      )}
+                      {hasAvoid && (
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {avoid.map((name) => {
+                              const key = name.trim();
+                              if (!key) return null;
+                              return (
+                                <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
+                                  {key}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-500">None known</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Vendor recommendations (by packet) */}
             {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs).length > 0) && (
