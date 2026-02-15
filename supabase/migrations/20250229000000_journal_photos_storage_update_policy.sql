@@ -8,6 +8,5 @@ CREATE POLICY "Users can update own journal photos"
   )
   WITH CHECK (
     bucket_id = 'journal-photos'
-    AND (storage.foldername(name
-    ))[1] = auth.uid()::text
+    AND (storage.foldername(name))[1] = auth.uid()::text
   );

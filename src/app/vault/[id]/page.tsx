@@ -542,8 +542,9 @@ export default function VaultSeedPage() {
     if (!user?.id || !id) return;
     setHeroUploading(true);
     const { blob } = await compressImage(file);
-    const path = `${user.id}/hero-${id}.jpg`;
-    const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+    // Unique path per upload so we always INSERT (RLS allows INSERT). Avoids UPDATE which can fail depending on policy.
+    const path = `${user.id}/hero-${id}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+    const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
     setHeroUploading(false);
     if (uploadErr) { setError(uploadErr.message); return; }
     await setHeroFromPath(path);
