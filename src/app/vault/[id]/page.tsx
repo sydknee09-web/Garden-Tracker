@@ -188,6 +188,7 @@ export default function VaultSeedPage() {
   const [searchWebLoading, setSearchWebLoading] = useState(false);
   const [searchWebGalleryUrls, setSearchWebGalleryUrls] = useState<string[]>([]);
   const [searchWebError, setSearchWebError] = useState<string | null>(null);
+  const [galleryImageFailed, setGalleryImageFailed] = useState<Set<string>>(new Set());
   const searchWebAbortRef = useRef<AbortController | null>(null);
   const photoGalleryLoadedRef = useRef(false);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
@@ -228,6 +229,7 @@ export default function VaultSeedPage() {
     }
     setSearchWebGalleryUrls([]);
     setSearchWebError(null);
+    setGalleryImageFailed(new Set());
   }, [showSetPhotoModal]);
 
   // =========================================================================
@@ -808,9 +810,12 @@ export default function VaultSeedPage() {
       {showSetPhotoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-              <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-              <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or pick from web search results.</p>
+            <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
+                <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or pick from web search results.</p>
+              </div>
+              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Close">Cancel</button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div className="flex flex-col gap-2">
@@ -856,10 +861,21 @@ export default function VaultSeedPage() {
                       <button
                         key={`${url}-${idx}`}
                         type="button"
-                        onClick={async () => { await setHeroFromUrl(url); setShowSetPhotoModal(false); }}
-                        className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        onClick={async () => { if (!galleryImageFailed.has(url)) { await setHeroFromUrl(url); setShowSetPhotoModal(false); } }}
+                        disabled={galleryImageFailed.has(url)}
+                        className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-60 disabled:pointer-events-none"
                       >
-                        <img src={externalImageSrc(url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        {galleryImageFailed.has(url) ? (
+                          <div className="w-full h-full flex items-center justify-center bg-neutral-200 text-neutral-500 text-xs text-center p-2">Unavailable</div>
+                        ) : (
+                          <img
+                            src={externalImageSrc(url)}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={() => setGalleryImageFailed((prev) => new Set(prev).add(url))}
+                          />
+                        )}
                       </button>
                     ))}
                   </div>
