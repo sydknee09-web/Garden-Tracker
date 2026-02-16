@@ -1,6 +1,11 @@
 // src/data/zone10b_schedule.ts
 // Zone 10b planting reference (SDSC-style Zones 9/10). Used as fallback for vault profiles
 // and as the source of truth for the Planting Schedule reference guide (see /schedule).
+//
+// Source: Originally derived from San Diego Seed Company Quick-Glance (Zones 9/10).
+// Cross-reference: Almanac.com planting calendar for Vista 92084 / San Diego for frost-based
+// dates and additional crops: https://www.almanac.com/gardening/planting-calendar/zipcode/92084
+//
 // TODO: Zone-aware scheduling. user_settings.planting_zone is stored but not used.
 
 export interface PlantingData {
@@ -140,6 +145,15 @@ export interface PlantingData {
       spacing: "36-60 inches",
       days_to_maturity: "90-120 days"
     },
+    "Tomatillo": {
+      sowing_method: "Start Indoors / Transplant",
+      planting_window: "Spring: Feb-Apr",
+      notes: "Same family as tomatoes. Needs warm soil to transplant.",
+      sun: "Full Sun",
+      spacing: "24-36 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "75-100 days"
+    },
   
     // --- Cool Season & Year-Round Edibles ---
     "Lettuce": {
@@ -237,6 +251,60 @@ export interface PlantingData {
       spacing: "18-24 inches",
       days_to_maturity: "90-110 days"
     },
+    "Cabbage": {
+      sowing_method: "Start Indoors / Transplant",
+      planting_window: "Fall/Winter: Aug-Feb",
+      notes: "Cool-season staple. Short-day varieties best for SoCal.",
+      sun: "Full Sun",
+      spacing: "12-18 inches",
+      germination_time: "5-10 days",
+      days_to_maturity: "70-90 days"
+    },
+    "Fennel": {
+      sowing_method: "Direct Sow or Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Feb-Mar",
+      notes: "Bulb fennel prefers cool weather. Florence fennel for bulbs.",
+      sun: "Full Sun",
+      spacing: "8-12 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "65-90 days"
+    },
+    "Kohlrabi": {
+      sowing_method: "Direct Sow / Transplant",
+      planting_window: "Fall/Winter: Sep-Feb",
+      notes: "Cool-season. Harvest when bulb is 2-3 inches.",
+      sun: "Full Sun",
+      spacing: "6-8 inches",
+      germination_time: "5-10 days",
+      days_to_maturity: "45-60 days"
+    },
+    "Leeks": {
+      sowing_method: "Start Indoors / Transplant",
+      planting_window: "Fall/Winter: Oct-Feb",
+      notes: "Long season. Hill soil for blanched stems.",
+      sun: "Full Sun",
+      spacing: "6 inches",
+      germination_time: "10-14 days",
+      days_to_maturity: "90-120 days"
+    },
+    "Bok Choy": {
+      sowing_method: "Direct Sow / Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Feb-Apr",
+      notes: "Bolts in heat. Quick crop in cool weather.",
+      sun: "Full Sun / Part Shade",
+      spacing: "6-10 inches",
+      germination_time: "5-7 days",
+      days_to_maturity: "45-60 days"
+    },
+    "Turnips": {
+      sowing_method: "Direct Sow",
+      planting_window: "Fall/Winter: Sep-Feb",
+      notes: "Greens and roots. Thin for larger roots.",
+      sun: "Full Sun",
+      spacing: "3-4 inches",
+      germination_time: "5-10 days",
+      days_to_maturity: "40-60 days"
+    },
     "Artichoke": {
       sowing_method: "Transplant",
       planting_window: "Fall/Winter: Oct-Feb",
@@ -318,6 +386,14 @@ export interface PlantingData {
       spacing: "6-10 inches",
       germination_time: "14-28 days"
     },
+    "Chives": {
+      sowing_method: "Direct Sow or Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Jan-Mar",
+      notes: "Perennial. Divide clumps every few years.",
+      sun: "Full Sun",
+      spacing: "6-8 inches",
+      germination_time: "10-14 days"
+    },
   
     // --- Flowers ---
     "Celosia": {
@@ -375,6 +451,24 @@ export interface PlantingData {
       sun: "Full Sun",
       spacing: "6-8 inches",
       germination_time: "10-20 days"
+    },
+    "Nasturtium": {
+      sowing_method: "Direct Sow",
+      planting_window: "Spring/Summer: Mar-Jun",
+      notes: "Edible flowers and leaves. Prefers lean soil.",
+      sun: "Full Sun / Part Shade",
+      spacing: "8-12 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "50-60 days"
+    },
+    "Calendula": {
+      sowing_method: "Direct Sow / Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Feb-Apr",
+      notes: "Edible petals. Cool-season bloomer.",
+      sun: "Full Sun",
+      spacing: "8-12 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "45-60 days"
     },
     "Lisianthus": {
       sowing_method: "Start Indoors (Very Early)",

@@ -225,6 +225,10 @@ export async function POST(req: Request) {
         : finalQuery || name || "plant";
     const searchQuery = isPass4OrHigher ? searchQueryRaw : stripSeedsFromQuery(searchQueryRaw);
     const primaryQuery = `${searchQuery} botanical close-up "on the vine" OR "in the garden" -packet -seeds -plate -food`;
+    /** Quick mode: simple query that works for flowers and veggies (no "on the vine" narrowing). */
+    const quickQuery =
+      `${(varietyPart ? `${varietyPart} ` : "")}${name} flower plant -packet -seeds`.replace(/\s+/g, " ").trim() ||
+      `${name} plant -packet -seeds`;
     const promptFor = (query: string) => `${HERO_SEARCH_PROMPT}\n\nSearch for: ${query}`;
     const searchWithQuery = (query: string) =>
       ai.models.generateContent({
@@ -266,7 +270,8 @@ export async function POST(req: Request) {
     console.log(`[hero] Start: ${logLabel}${quick ? " (quick)" : ""}`);
     let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
     const timeoutMs = quick ? QUICK_PASS_TIMEOUT_MS : PASS_TIMEOUT_MS;
-    response = await searchWithTimeout(primaryQuery, timeoutMs);
+    const firstQuery = quick ? quickQuery : primaryQuery;
+    response = await searchWithTimeout(firstQuery, timeoutMs);
     if (!response && !quick) {
       const fallbackQuery = `${searchQuery} botanical close-up -packet -seeds -plate -food`;
       response = await searchWithTimeout(fallbackQuery, PASS_TIMEOUT_MS);
@@ -276,6 +281,15 @@ export async function POST(req: Request) {
     let url = parseUrlFromResponse(response);
     if (url && !(await checkImageAccessible(url, imageCheckMs))) {
       url = "";
+    }
+    // Quick mode: if first pass failed (timeout) or URL failed HEAD, try one simple fallback (e.g. "Alyssum Giga White flower")
+    if (quick && !url) {
+      const simpleQuery = `${name} ${variety} flower`.replace(/\s+/g, " ").trim() || `${name} plant`;
+      const fallbackResponse = await searchWithTimeout(simpleQuery, Math.min(QUICK_PASS_TIMEOUT_MS, 10_000));
+      url = parseUrlFromResponse(fallbackResponse);
+      if (url && !(await checkImageAccessible(url, imageCheckMs))) {
+        url = "";
+      }
     }
     if (!quick) {
       // Rare Seeds: if vendor-specific search failed or returned 403, strip vendor and search Plant Type + Variety + "high resolution"
