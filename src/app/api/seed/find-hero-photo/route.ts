@@ -8,20 +8,40 @@ import { normalizeVendorKey } from "@/lib/vendorNormalize";
 export const maxDuration = 30;
 
 const PASS_TIMEOUT_MS = 15_000;
+/** Single-pass timeout for "Search web" modal so we stay well under maxDuration (30s). */
+const QUICK_PASS_TIMEOUT_MS = 12_000;
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
+/** In quick mode use a shorter HEAD timeout so we fail fast and stay under maxDuration. */
+const QUICK_IMAGE_CHECK_TIMEOUT_MS = 3_000;
 
 /** Check if image URL is accessible (200). Returns false for 403 or other non-2xx so we skip blocked Rare Seeds etc. */
-async function checkImageAccessible(url: string): Promise<boolean> {
+async function checkImageAccessible(
+  url: string,
+  timeoutMs: number = IMAGE_CHECK_TIMEOUT_MS
+): Promise<boolean> {
   if (!url?.startsWith("http")) return false;
   try {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), IMAGE_CHECK_TIMEOUT_MS);
+    const t = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch(url, { method: "HEAD", signal: controller.signal });
     clearTimeout(t);
     return res.ok;
   } catch {
     return false;
   }
+}
+
+/** Check multiple URLs in parallel; return the first that is accessible (200), or null. */
+async function checkFirstAccessible(
+  urls: string[],
+  timeoutMs: number = IMAGE_CHECK_TIMEOUT_MS
+): Promise<string | null> {
+  const valid = urls.filter((u) => u?.trim().startsWith("http"));
+  if (valid.length === 0) return null;
+  const results = await Promise.all(
+    valid.map(async (url) => ((await checkImageAccessible(url, timeoutMs)) ? url : null))
+  );
+  return results.find((u) => u != null) ?? null;
 }
 
 const HERO_SEARCH_PROMPT = `You are a professional botanical curator. Using Google Search Grounding, find an image URL that follows these rules:
@@ -47,6 +67,8 @@ export async function POST(req: Request) {
     const vendor = typeof body?.vendor === "string" ? body.vendor.trim() : "";
     const scientific_name = typeof body?.scientific_name === "string" ? body.scientific_name.trim() : "";
     const identity_key = typeof body?.identity_key === "string" ? body.identity_key.trim() : "";
+    /** When true (e.g. Set Profile Photo modal), do one Gemini pass only so we stay under maxDuration and don't time out. */
+    const quick = body?.quick === true;
     const logLabel = `${name} ${(variety || "").trim()}`.trim() || name;
     if (!name) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
@@ -76,6 +98,7 @@ export async function POST(req: Request) {
               ? extractRows.find((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKeyExtract) ?? extractRows[0]
               : extractRows[0])
           : null;
+        const headTimeoutMs = quick ? QUICK_IMAGE_CHECK_TIMEOUT_MS : IMAGE_CHECK_TIMEOUT_MS;
         if (cachedRow && "hero_storage_path" in cachedRow && cachedRow.hero_storage_path) {
           const { data: pubUrl } = supabase.storage.from("journal-photos").getPublicUrl(cachedRow.hero_storage_path as string);
           if (pubUrl?.publicUrl) {
@@ -83,15 +106,21 @@ export async function POST(req: Request) {
             return NextResponse.json({ hero_image_url: pubUrl.publicUrl });
           }
         }
-        if (cachedRow && (cachedRow.original_hero_url as string)?.trim()?.startsWith("http")) {
-          const origUrl = (cachedRow.original_hero_url as string).trim();
-          if (await checkImageAccessible(origUrl)) {
+        const extractOrdered = vendorKeyExtract && extractRows?.length
+          ? [...extractRows.filter((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") === vendorKeyExtract), ...extractRows.filter((r) => normalizeVendorKey((r as { vendor?: string | null }).vendor ?? "") !== vendorKeyExtract)]
+          : extractRows ?? [];
+        const extractOrigUrls = extractOrdered
+          .map((r) => (r.original_hero_url as string)?.trim())
+          .filter((u): u is string => !!u && u.startsWith("http"));
+        if (extractOrigUrls.length > 0) {
+          const firstOk = await checkFirstAccessible(extractOrigUrls, headTimeoutMs);
+          if (firstOk) {
             console.log(`[find-hero-photo] Tier 2 cache hit (original_hero_url) for ${logLabel}`);
-            return NextResponse.json({ hero_image_url: origUrl });
+            return NextResponse.json({ hero_image_url: firstOk });
           }
         }
 
-        // Tier 0.5: global_plant_cache by identity_key (reuse bulk-scraped hero URLs; detailed-then-loosen: prefer vendor match)
+        // Tier 0.5: global_plant_cache by identity_key (reuse bulk-scraped hero URLs; check all candidates in parallel)
         const { data: gpcRows } = await supabase
           .from("global_plant_cache")
           .select("original_hero_url, extract_data, vendor")
@@ -100,15 +129,22 @@ export async function POST(req: Request) {
           .limit(5);
         if (gpcRows?.length) {
           const vendorKey = normalizeVendorKey(vendor);
-          const withVendor = vendorKey ? gpcRows.find((r) => normalizeVendorKey((r as { vendor?: string }).vendor ?? "") === vendorKey) : null;
-          const row = withVendor ?? gpcRows[0];
-          const ed = row?.extract_data as Record<string, unknown> | undefined;
-          const heroFromExtract = typeof ed?.hero_image_url === "string" ? String(ed.hero_image_url).trim() : "";
-          const heroFromRow =
-            (row?.original_hero_url as string)?.trim() || heroFromExtract || "";
-          if (heroFromRow.startsWith("http") && (await checkImageAccessible(heroFromRow))) {
-            console.log(`[find-hero-photo] Tier 0.5 cache hit (global_plant_cache) for ${logLabel}`);
-            return NextResponse.json({ hero_image_url: heroFromRow });
+          const ordered = vendorKey
+            ? [...gpcRows.filter((r) => normalizeVendorKey((r as { vendor?: string }).vendor ?? "") === vendorKey), ...gpcRows.filter((r) => normalizeVendorKey((r as { vendor?: string }).vendor ?? "") !== vendorKey)]
+            : gpcRows;
+          const gpcUrls = ordered
+            .map((row) => {
+              const ed = row?.extract_data as Record<string, unknown> | undefined;
+              const fromExtract = typeof ed?.hero_image_url === "string" ? String(ed.hero_image_url).trim() : "";
+              return (row?.original_hero_url as string)?.trim() || fromExtract || "";
+            })
+            .filter((u) => u.startsWith("http"));
+          if (gpcUrls.length > 0) {
+            const firstOk = await checkFirstAccessible(gpcUrls, headTimeoutMs);
+            if (firstOk) {
+              console.log(`[find-hero-photo] Tier 0.5 cache hit (global_plant_cache) for ${logLabel}`);
+              return NextResponse.json({ hero_image_url: firstOk });
+            }
           }
         }
 
@@ -124,7 +160,7 @@ export async function POST(req: Request) {
           .limit(1);
         if (!selectError && rows?.[0]?.hero_image_url) {
           const cachedUrl = (rows[0].hero_image_url as string).trim();
-          if (cachedUrl.startsWith("http") && (await checkImageAccessible(cachedUrl))) {
+          if (cachedUrl.startsWith("http") && (await checkImageAccessible(cachedUrl, headTimeoutMs))) {
             return NextResponse.json({ hero_image_url: cachedUrl });
           }
         }
@@ -197,6 +233,17 @@ export async function POST(req: Request) {
         config: { tools: [{ googleSearch: {} }] },
       });
 
+    const searchWithTimeout = (
+      query: string,
+      timeoutMs: number
+    ): Promise<Awaited<ReturnType<typeof ai.models.generateContent>> | null> =>
+      Promise.race([
+        searchWithQuery(query),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), timeoutMs)
+        ),
+      ]).catch(() => null);
+
     const parseUrlFromResponse = (response: Awaited<ReturnType<typeof ai.models.generateContent>> | null): string => {
       const text = response?.text?.trim() ?? "";
       if (!text) return "";
@@ -216,129 +263,122 @@ export async function POST(req: Request) {
       }
     };
 
-    console.log(`[hero] Start: ${logLabel}`);
+    console.log(`[hero] Start: ${logLabel}${quick ? " (quick)" : ""}`);
     let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
-    try {
-      response = await Promise.race([
-        searchWithQuery(primaryQuery),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("TIMEOUT")), PASS_TIMEOUT_MS)
-        ),
-      ]);
-    } catch (e) {
-      if (e instanceof Error && e.message === "TIMEOUT") {
-        const fallbackQuery = `${searchQuery} botanical close-up -packet -seeds -plate -food`;
-        response = await searchWithQuery(fallbackQuery);
-      } else {
-        throw e;
-      }
+    const timeoutMs = quick ? QUICK_PASS_TIMEOUT_MS : PASS_TIMEOUT_MS;
+    response = await searchWithTimeout(primaryQuery, timeoutMs);
+    if (!response && !quick) {
+      const fallbackQuery = `${searchQuery} botanical close-up -packet -seeds -plate -food`;
+      response = await searchWithTimeout(fallbackQuery, PASS_TIMEOUT_MS);
     }
 
+    const imageCheckMs = quick ? QUICK_IMAGE_CHECK_TIMEOUT_MS : IMAGE_CHECK_TIMEOUT_MS;
     let url = parseUrlFromResponse(response);
-    if (url && !(await checkImageAccessible(url))) {
+    if (url && !(await checkImageAccessible(url, imageCheckMs))) {
       url = "";
     }
-    // Rare Seeds: if vendor-specific search failed or returned 403, strip vendor and search Plant Type + Variety + "high resolution"
-    if (!url && isRareSeedsVendor && (name || varietyPart)) {
-      const relaxedQuery = `${finalQuery || name} ${varietyPart} high resolution`.replace(/\s+/g, " ").trim();
-      try {
-        const relaxedResponse = await Promise.race([
-          searchWithQuery(relaxedQuery),
-          new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error("TIMEOUT")), PASS_TIMEOUT_MS)
-          ),
-        ]).catch(() => null);
-        url = parseUrlFromResponse(relaxedResponse);
-        if (url && !(await checkImageAccessible(url))) url = "";
-      } catch {
-        // keep url empty
+    if (!quick) {
+      // Rare Seeds: if vendor-specific search failed or returned 403, strip vendor and search Plant Type + Variety + "high resolution"
+      if (!url && isRareSeedsVendor && (name || varietyPart)) {
+        const relaxedQuery = `${finalQuery || name} ${varietyPart} high resolution`.replace(/\s+/g, " ").trim();
+        try {
+          const relaxedResponse = await searchWithTimeout(relaxedQuery, PASS_TIMEOUT_MS);
+          url = parseUrlFromResponse(relaxedResponse);
+          if (url && !(await checkImageAccessible(url, imageCheckMs))) url = "";
+        } catch {
+          // keep url empty
+        }
+      }
+      // Multi-attempt bridge: if Pretty Name search found nothing, try Flat Name (apostrophes stripped, e.g. "Benarys Giant")
+      if (!url && varietyPart && varietyPart !== varietyPart.replace(/'/g, "")) {
+        const flatVarietyPart = varietyPart.replace(/'/g, "");
+        let searchQueryFlat = flatVarietyPart;
+        if (!isGenericPlantType(name) && !flatVarietyPart.toLowerCase().includes(name.toLowerCase())) {
+          searchQueryFlat = `${flatVarietyPart} ${name}`.trim();
+        }
+        searchQueryFlat = (isPass4OrHigher ? searchQueryFlat : stripSeedsFromQuery(searchQueryFlat)) || name || "plant";
+        const flatQuery = `${searchQueryFlat} botanical close-up -packet -seeds -plate -food`;
+        try {
+          const responseFlat = await searchWithTimeout(flatQuery, PASS_TIMEOUT_MS);
+          url = parseUrlFromResponse(responseFlat);
+          if (url && !(await checkImageAccessible(url, imageCheckMs))) url = "";
+        } catch {
+          // keep url empty
+        }
+      }
+      // Final retry (Spanish Eyes fix): type + variety + " botanical" to resolve to scientific/plant results
+      if (!url && (name || variety)) {
+        const botanicalQuery = `${name} ${variety} botanical`.replace(/\s+/g, " ").trim();
+        try {
+          const botResponse = await searchWithTimeout(botanicalQuery, PASS_TIMEOUT_MS);
+          url = parseUrlFromResponse(botResponse);
+          if (url && !(await checkImageAccessible(url, imageCheckMs))) url = "";
+        } catch {
+          // keep url empty
+        }
+      }
+      // Pass 5: scientific_name as primary anchor; -site:rareseeds.com to avoid blocked Rare Seeds images
+      if (!url && scientific_name) {
+        const pass5Query = `${scientific_name} ${variety} -site:rareseeds.com`.replace(/\s+/g, " ").trim();
+        try {
+          const pass5Response = await searchWithTimeout(
+            `${pass5Query} high resolution botanical -packet -seeds -plate -food`,
+            PASS_TIMEOUT_MS
+          );
+          url = parseUrlFromResponse(pass5Response);
+          if (url && !(await checkImageAccessible(url, imageCheckMs))) url = "";
+        } catch {
+          // keep url empty
+        }
       }
     }
-    // Multi-attempt bridge: if Pretty Name search found nothing, try Flat Name (apostrophes stripped, e.g. "Benarys Giant")
-    if (!url && varietyPart && varietyPart !== varietyPart.replace(/'/g, "")) {
-      const flatVarietyPart = varietyPart.replace(/'/g, "");
-      let searchQueryFlat = flatVarietyPart;
-      if (!isGenericPlantType(name) && !flatVarietyPart.toLowerCase().includes(name.toLowerCase())) {
-        searchQueryFlat = `${flatVarietyPart} ${name}`.trim();
+    if (!url) {
+      if (quick && !response) {
+        console.log(`[hero] Quick timeout: ${logLabel}`);
       }
-      searchQueryFlat = (isPass4OrHigher ? searchQueryFlat : stripSeedsFromQuery(searchQueryFlat)) || name || "plant";
-      const flatQuery = `${searchQueryFlat} botanical close-up -packet -seeds -plate -food`;
+      console.log(`[hero] Fail: ${logLabel}`);
+      const noResultError =
+        quick && !response
+          ? "Search took too long. Please try again."
+          : "No images found for this variety";
+      return NextResponse.json({ hero_image_url: "", error: noResultError });
+    }
+
+    // Prefer .jpg or .png for UI compatibility; if .webp or no extension, try one more search for jpg/png (skip in quick mode)
+    if (!quick) {
+      const needsJpgOrPng =
+        url.toLowerCase().endsWith(".webp") ||
+        !/\.(jpg|jpeg|png|gif)(\?|$)/i.test(url);
+      if (needsJpgOrPng) {
+        const jpgPrompt = `Using Google Search Grounding, find a direct URL to a high-quality .jpg or .png image of the actual plant/flower/fruit (not seed packet, not food on plate) for: ${searchQuery}. Prefer educational or nursery sources. Return only valid JSON: { "hero_image_url": "https://...jpg or ...png" }. Use empty string if none found.`;
         try {
-          const responseFlat = await Promise.race([
-            searchWithQuery(flatQuery),
+          const jpgResponse = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: jpgPrompt,
+              config: { tools: [{ googleSearch: {} }] },
+            }),
             new Promise<null>((_, reject) =>
               setTimeout(() => reject(new Error("TIMEOUT")), PASS_TIMEOUT_MS)
             ),
           ]).catch(() => null);
-          url = parseUrlFromResponse(responseFlat);
-          if (url && !(await checkImageAccessible(url))) url = "";
-        } catch {
-          // keep url empty
-        }
-    }
-    // Final retry (Spanish Eyes fix): type + variety + " botanical" to resolve to scientific/plant results
-    if (!url && (name || variety)) {
-      const botanicalQuery = `${name} ${variety} botanical`.replace(/\s+/g, " ").trim();
-      try {
-        const botResponse = await Promise.race([
-          searchWithQuery(botanicalQuery),
-          new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error("TIMEOUT")), PASS_TIMEOUT_MS)
-          ),
-        ]).catch(() => null);
-        url = parseUrlFromResponse(botResponse);
-        if (url && !(await checkImageAccessible(url))) url = "";
-      } catch {
-        // keep url empty
-      }
-    }
-    // Pass 5: scientific_name as primary anchor; -site:rareseeds.com to avoid blocked Rare Seeds images
-    if (!url && scientific_name) {
-      const pass5Query = `${scientific_name} ${variety} -site:rareseeds.com`.replace(/\s+/g, " ").trim();
-      try {
-        const pass5Response = await Promise.race([
-          searchWithQuery(`${pass5Query} high resolution botanical -packet -seeds -plate -food`),
-          new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error("TIMEOUT")), PASS_TIMEOUT_MS)
-          ),
-        ]).catch(() => null);
-        url = parseUrlFromResponse(pass5Response);
-        if (url && !(await checkImageAccessible(url))) url = "";
-      } catch {
-        // keep url empty
-      }
-    }
-    if (!url) {
-      console.log(`[hero] Fail: ${logLabel}`);
-      return NextResponse.json({ hero_image_url: "", error: "No images found for this variety" });
-    }
-
-    // Prefer .jpg or .png for UI compatibility; if .webp or no extension, try one more search for jpg/png
-    const needsJpgOrPng =
-      url.toLowerCase().endsWith(".webp") ||
-      !/\.(jpg|jpeg|png|gif)(\?|$)/i.test(url);
-    if (needsJpgOrPng) {
-      const jpgPrompt = `Using Google Search Grounding, find a direct URL to a high-quality .jpg or .png image of the actual plant/flower/fruit (not seed packet, not food on plate) for: ${searchQuery}. Prefer educational or nursery sources. Return only valid JSON: { "hero_image_url": "https://...jpg or ...png" }. Use empty string if none found.`;
-      try {
-        const jpgResponse = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: jpgPrompt,
-          config: { tools: [{ googleSearch: {} }] },
-        });
-        const jpgText = jpgResponse?.text?.trim() ?? "";
-        const jpgMatch = jpgText.match(/\{[\s\S]*\}/);
-        if (jpgMatch) {
-          const jpgParsed = JSON.parse(jpgMatch[0]) as Record<string, unknown>;
-          const jpgUrl =
-            (typeof jpgParsed.hero_image_url === "string" && jpgParsed.hero_image_url.trim()) ||
-            (typeof jpgParsed.image_url === "string" && jpgParsed.image_url.trim()) ||
-            "";
-          if (jpgUrl.startsWith("http") && /\.(jpg|jpeg|png)(\?|$)/i.test(jpgUrl)) {
-            if (await checkImageAccessible(jpgUrl)) url = jpgUrl;
+          if (jpgResponse) {
+            const jpgText = (jpgResponse as { text?: string })?.text?.trim() ?? "";
+            const jpgMatch = jpgText.match(/\{[\s\S]*\}/);
+            if (jpgMatch) {
+              const jpgParsed = JSON.parse(jpgMatch[0]) as Record<string, unknown>;
+              const jpgUrl =
+                (typeof jpgParsed.hero_image_url === "string" && jpgParsed.hero_image_url.trim()) ||
+                (typeof jpgParsed.image_url === "string" && jpgParsed.image_url.trim()) ||
+                "";
+              if (jpgUrl.startsWith("http") && /\.(jpg|jpeg|png)(\?|$)/i.test(jpgUrl)) {
+                if (await checkImageAccessible(jpgUrl, imageCheckMs)) url = jpgUrl;
+              }
+            }
           }
+        } catch {
+          // keep original url if jpg/png search fails
         }
-      } catch {
-        // keep original url if jpg/png search fails
       }
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 
@@ -104,11 +105,14 @@ export async function POST(req: Request) {
       heroUrl = "";
     }
 
+    const rawType = typeof ed.type === "string" ? ed.type : "Imported seed";
+    const rawVariety = typeof ed.variety === "string" ? ed.variety : "";
+    const rawScientific = typeof ed.scientific_name === "string" ? ed.scientific_name : "";
     const payload: ExtractResponse & { found: true } = {
       found: true,
       vendor: typeof ed.vendor === "string" ? ed.vendor : (row.vendor as string) ?? "",
-      type: typeof ed.type === "string" ? ed.type : "Imported seed",
-      variety: typeof ed.variety === "string" ? ed.variety : "",
+      type: stripHtmlForDisplay(rawType) || "Imported seed",
+      variety: stripHtmlForDisplay(rawVariety),
       tags: Array.isArray(ed.tags) ? (ed.tags as string[]).filter((t) => typeof t === "string") : [],
       sowing_depth: typeof ed.sowing_depth === "string" ? ed.sowing_depth : undefined,
       spacing: typeof ed.spacing === "string" ? ed.spacing : undefined,
@@ -116,7 +120,7 @@ export async function POST(req: Request) {
       days_to_germination: typeof ed.days_to_germination === "string" ? ed.days_to_germination : undefined,
       days_to_maturity: typeof ed.days_to_maturity === "string" ? ed.days_to_maturity : undefined,
       source_url: typeof ed.source_url === "string" ? ed.source_url : undefined,
-      scientific_name: typeof ed.scientific_name === "string" ? ed.scientific_name : undefined,
+      scientific_name: stripHtmlForDisplay(rawScientific) || undefined,
       plant_description: typeof ed.plant_description === "string" ? ed.plant_description : undefined,
       hero_image_url: heroUrl || undefined,
       stock_photo_url: heroUrl || undefined,

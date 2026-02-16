@@ -4,6 +4,7 @@
  * Also writes AI-derived enrich data back to global_plant_cache so future lookups benefit.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
@@ -102,7 +103,10 @@ export async function buildUpdatesFromCacheRow(
     const parsed = parseHarvestDays(maturityStr);
     if (parsed != null) updates.harvest_days = parsed;
   }
-  if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) updates.scientific_name = str(ed.scientific_name);
+  if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) {
+    const cleaned = stripHtmlForDisplay(ed.scientific_name);
+    if (cleaned) updates.scientific_name = cleaned;
+  }
   if (!(p.plant_description ?? "").trim() && str(ed.plant_description)) {
     updates.plant_description = str(ed.plant_description);
     updates.description_source = "vendor";

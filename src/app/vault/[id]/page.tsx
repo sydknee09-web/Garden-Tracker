@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -181,6 +181,7 @@ export default function VaultSeedPage() {
   const [searchWebLoading, setSearchWebLoading] = useState(false);
   const [searchWebResultUrl, setSearchWebResultUrl] = useState<string | null>(null);
   const [searchWebError, setSearchWebError] = useState<string | null>(null);
+  const searchWebAbortRef = useRef<AbortController | null>(null);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
@@ -538,7 +539,7 @@ export default function VaultSeedPage() {
 
   const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
 
-  /** Search web for a plant photo (from Set Profile Photo modal); shows result for user to accept or dismiss. */
+  /** Search web for a plant photo (from Set Profile Photo modal); shows result for user to accept or dismiss. Uses quick mode and client timeout to avoid timeouts. */
   const searchWebForPhoto = useCallback(async () => {
     if (!profile || searchWebLoading) return;
     setSearchWebLoading(true);
@@ -551,12 +552,24 @@ export default function VaultSeedPage() {
     const identityKey = identityKeyFromVariety(name, variety);
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    const controller = new AbortController();
+    searchWebAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 28_000);
     try {
       const res = await fetch("/api/seed/find-hero-photo", {
         method: "POST",
         headers,
-        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, scientific_name: scientific_name || undefined }),
+        body: JSON.stringify({
+          name,
+          variety,
+          vendor,
+          identity_key: identityKey ?? undefined,
+          scientific_name: scientific_name || undefined,
+          quick: true,
+        }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const text = await res.text();
       const result = parseFindHeroPhotoResponse(text, res.ok);
       if (result.success) {
@@ -565,11 +578,22 @@ export default function VaultSeedPage() {
         setSearchWebError(result.error);
       }
     } catch (e) {
-      setSearchWebError(e instanceof Error ? e.message : "Search failed.");
+      clearTimeout(timeoutId);
+      if (e instanceof Error && e.name === "AbortError") {
+        setSearchWebError("Search timed out. Please try again.");
+      } else {
+        setSearchWebError(e instanceof Error ? e.message : "Search failed.");
+      }
     } finally {
+      clearTimeout(timeoutId);
+      searchWebAbortRef.current = null;
       setSearchWebLoading(false);
     }
   }, [profile, packets, searchWebLoading, session?.access_token]);
+
+  const cancelSearchWeb = useCallback(() => {
+    searchWebAbortRef.current?.abort();
+  }, []);
 
   /** Copy packet image from seed-packets to journal-photos, then set as hero. Packet photos live in seed-packets but hero_image_path expects journal-photos. */
   const setHeroFromPacket = useCallback(async (packetStoragePath: string) => {
@@ -730,17 +754,31 @@ export default function VaultSeedPage() {
                 <label htmlFor={heroUploading ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {heroUploading ? "Uploading..." : "Choose from files"}
                 </label>
-                <button
-                  type="button"
-                  onClick={searchWebForPhoto}
-                  disabled={searchWebLoading || !profile}
-                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
-                >
-                  {searchWebLoading ? "Searching…" : "Search web"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={searchWebForPhoto}
+                    disabled={searchWebLoading || !profile}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
+                  >
+                    {searchWebLoading ? "Searching…" : "Search web"}
+                  </button>
+                  {searchWebLoading && (
+                    <button
+                      type="button"
+                      onClick={cancelSearchWeb}
+                      className="px-4 py-3 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-700 font-medium hover:bg-neutral-100 min-h-[44px]"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
               {searchWebError && (
-                <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">{searchWebError}</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">{searchWebError}</p>
+                  <p className="text-xs text-neutral-500">Click Search web again to retry.</p>
+                </div>
               )}
               {searchWebResultUrl && (
                 <div>

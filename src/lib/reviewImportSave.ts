@@ -3,6 +3,7 @@
  * Extracted so the payload shape and required fields can be unit tested (Law 12, import flows).
  */
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
+import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 
 export type Zone10bForProfile = {
@@ -43,8 +44,8 @@ export function buildPlantProfileInsertPayload(
   userId: string,
   todayISO: () => string
 ): PlantProfileInsertPayload {
-  const name = (item.type ?? "").trim() || "Unknown";
-  const varietyName = (item.variety ?? "").trim() || null;
+  const name = stripHtmlForDisplay(item.type ?? "").trim() || "Unknown";
+  const varietyName = stripHtmlForDisplay(item.variety ?? "").trim() || null;
   const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety);
   const coreVarietyName = coreVariety || varietyName;
 

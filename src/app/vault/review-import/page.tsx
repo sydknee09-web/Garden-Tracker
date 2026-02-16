@@ -19,7 +19,7 @@ import { getCanonicalKey } from "@/lib/canonicalKey";
 import { findExistingProfileByCanonical } from "@/lib/matchExistingProfile";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { compressImage } from "@/lib/compressImage";
-import { decodeHtmlEntities } from "@/lib/htmlEntities";
+import { decodeHtmlEntities, stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
@@ -860,7 +860,10 @@ export default function ReviewImportPage() {
         if (isSelectSeedsOrJohnnys && (name.trim() !== (exact.name ?? "").trim() || (coreVarietyName || varietyName || "").trim() !== (exact.variety_name ?? "").trim())) {
           await supabase
             .from("plant_profiles")
-            .update({ name: name.trim(), variety_name: (coreVarietyName || varietyName || "").trim() || null })
+            .update({
+              name: stripHtmlForDisplay(name).trim() || name.trim(),
+              variety_name: stripHtmlForDisplay(coreVarietyName || varietyName || "").trim() || null,
+            })
             .eq("id", profileId)
             .eq("user_id", user.id);
         }
@@ -1043,11 +1046,11 @@ export default function ReviewImportPage() {
 
           // B. Upsert full extraction into plant_extract_cache
           const extractData = {
-            type: (savedItem.type ?? "").trim(),
-            variety: (savedItem.variety ?? "").trim(),
+            type: stripHtmlForDisplay(savedItem.type ?? "").trim() || (savedItem.type ?? "").trim(),
+            variety: stripHtmlForDisplay(savedItem.variety ?? "").trim() || (savedItem.variety ?? "").trim(),
             vendor: vendorStr,
             tags: savedItem.tags ?? [],
-            scientific_name: (savedItem.scientific_name ?? "").trim() || undefined,
+            scientific_name: stripHtmlForDisplay(savedItem.scientific_name ?? "").trim() || undefined,
             sowing_depth: (savedItem.sowing_depth ?? "").trim() || undefined,
             spacing: (savedItem.spacing ?? "").trim() || undefined,
             sun_requirement: (savedItem.sun_requirement ?? "").trim() || undefined,
@@ -1089,8 +1092,8 @@ export default function ReviewImportPage() {
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({
                 source_url: rawSourceUrl,
-                type: (savedItem.type ?? "").trim() || "Imported seed",
-                variety: (savedItem.variety ?? "").trim(),
+                type: stripHtmlForDisplay(savedItem.type ?? "").trim() || "Imported seed",
+                variety: stripHtmlForDisplay(savedItem.variety ?? "").trim(),
                 vendor: vendorStr || undefined,
                 hero_image_url: rawHero?.startsWith("http") ? rawHero : undefined,
                 tags: savedItem.tags ?? [],
@@ -1099,7 +1102,7 @@ export default function ReviewImportPage() {
                 sun_requirement: (savedItem.sun_requirement ?? "").trim() || undefined,
                 days_to_germination: (savedItem.days_to_germination ?? "").trim() || undefined,
                 days_to_maturity: (savedItem.days_to_maturity ?? "").trim() || undefined,
-                scientific_name: (savedItem.scientific_name ?? "").trim() || undefined,
+                scientific_name: stripHtmlForDisplay(savedItem.scientific_name ?? "").trim() || undefined,
                 plant_description: (savedItem.plant_description ?? "").trim() || undefined,
                 growing_notes: (savedItem.growing_notes ?? "").trim() || undefined,
                 water: (savedItem.water ?? "").trim() || undefined,

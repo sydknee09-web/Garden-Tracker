@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,8 +39,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "source_url required (must start with http)" }, { status: 400 });
     }
 
-    const type = (typeof body?.type === "string" ? body.type.trim() : "") || "Imported seed";
-    const variety = (typeof body?.variety === "string" ? body.variety.trim() : "") || "";
+    const type = stripHtmlForDisplay(typeof body?.type === "string" ? body.type : "").trim() || "Imported seed";
+    const variety = stripHtmlForDisplay(typeof body?.variety === "string" ? body.variety : "").trim();
     const identityKey = identityKeyFromVariety(type, variety);
     if (!identityKey) {
       return NextResponse.json({ error: "type and variety required for identity_key" }, { status: 400 });
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
       sun_requirement: typeof body?.sun_requirement === "string" ? body.sun_requirement.trim() || undefined : undefined,
       days_to_germination: typeof body?.days_to_germination === "string" ? body.days_to_germination.trim() || undefined : undefined,
       days_to_maturity: typeof body?.days_to_maturity === "string" ? body.days_to_maturity.trim() || undefined : undefined,
-      scientific_name: typeof body?.scientific_name === "string" ? body.scientific_name.trim() || undefined : undefined,
+      scientific_name: stripHtmlForDisplay(typeof body?.scientific_name === "string" ? body.scientific_name : "").trim() || undefined,
       plant_description: typeof body?.plant_description === "string" ? body.plant_description.trim() || undefined : undefined,
       growing_notes: typeof body?.growing_notes === "string" ? body.growing_notes.trim() || undefined : undefined,
       hero_image_url: hero_image_url?.startsWith("http") ? hero_image_url : undefined,
