@@ -94,16 +94,17 @@ export async function POST(req: Request) {
           continue;
         }
         const listData = (await listRes.json()) as {
-          data?: { common_name?: string | null; scientific_name?: string[] | null }[];
+          data?: { common_name?: string | null; scientific_name?: string | string[] | null }[];
         };
         const first = listData.data?.[0];
         const commonName = (first?.common_name ?? "").trim();
-        const sciNameArr = first?.scientific_name;
-        const sciName = Array.isArray(sciNameArr) ? (sciNameArr[0] ?? "").trim() : typeof sciNameArr === "string" ? sciNameArr.trim() : "";
+        const sciNameRaw = first?.scientific_name;
+        const sciName = (Array.isArray(sciNameRaw) ? sciNameRaw[0] : sciNameRaw) ?? "";
+        const sciNameTrimmed = typeof sciName === "string" ? sciName.trim() : "";
 
         const updates: { name?: string; scientific_name?: string } = {};
-        if (sciName && looksLikeScientificName(sciName)) {
-          updates.scientific_name = sciName;
+        if (sciNameTrimmed && looksLikeScientificName(sciNameTrimmed)) {
+          updates.scientific_name = sciNameTrimmed;
         } else {
           updates.scientific_name = binomial;
         }
