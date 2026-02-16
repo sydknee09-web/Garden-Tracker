@@ -307,7 +307,9 @@ export default function VaultSeedPage() {
   // =========================================================================
   // Derived
   // =========================================================================
-  const displayName = profile?.variety_name?.trim() ? `${profile.name} – ${profile.variety_name}` : profile?.name ?? "";
+  const displayName = profile?.variety_name?.trim()
+    ? `${stripHtmlForDisplay(profile.name)} – ${stripHtmlForDisplay(profile.variety_name)}`
+    : stripHtmlForDisplay(profile?.name) ?? "";
   const isLegacy = profile ? "vendor" in profile && (profile as PlantVarietyProfile).vendor != null : false;
   const isPermanent = (profile as PlantProfile | null)?.profile_type === "permanent";
   const profileStatus = (profile?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_");

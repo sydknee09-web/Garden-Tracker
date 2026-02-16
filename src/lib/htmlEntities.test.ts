@@ -38,6 +38,12 @@ describe("stripHtmlForDisplay", () => {
     );
   });
 
+  it("strips attributes even with no space before class (scraped fragment)", () => {
+    expect(stripHtmlForDisplay('"-tulips"class="header__menu-item list-menu__item focus-inset"')).toBe(
+      '"-tulips"'
+    );
+  });
+
   it("collapses whitespace and trims", () => {
     expect(stripHtmlForDisplay("  Lobularia   maritima  ")).toBe("Lobularia maritima");
   });

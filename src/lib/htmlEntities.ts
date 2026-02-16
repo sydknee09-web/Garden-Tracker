@@ -25,15 +25,16 @@ export function decodeHtmlEntities(s: string | null | undefined): string {
 }
 
 /**
- * Strip HTML tags and common attribute fragments for safe display (e.g. scientific name).
- * Use when data may contain scraped HTML or fragments like `"-tulips" class="header__menu-item"`.
+ * Strip HTML tags and attribute fragments for safe display (e.g. scientific name).
+ * Removes tags, class/id/data-*="..." and any attr="value", so scraped fragments
+ * like `"-tulips" class="header__menu-item list-menu__item focus-inset"` become "-tulips".
  */
 export function stripHtmlForDisplay(s: string | null | undefined): string {
   if (s == null || typeof s !== "string") return "";
   let out = s
     .replace(/<[^>]*>/g, "")
-    .replace(/\s+class\s*=\s*["'][^"']*["']/gi, "")
-    .replace(/\s+id\s*=\s*["'][^"']*["']/gi, "")
+    // Remove any HTML attribute: space optional before attr, then attr="..." or attr='...'
+    .replace(/\s*[a-zA-Z][a-zA-Z0-9_-]*\s*=\s*["'][^"']*["']/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return decodeHtmlEntities(out);
