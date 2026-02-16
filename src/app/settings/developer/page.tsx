@@ -90,6 +90,13 @@ export default function SettingsDeveloperPage() {
     failed: number;
     message?: string;
   } | null>(null);
+  const [refillScientificRunning, setRefillScientificRunning] = useState(false);
+  const [refillScientificResult, setRefillScientificResult] = useState<{
+    updated: number;
+    skipped: number;
+    failed: number;
+    message?: string;
+  } | null>(null);
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -399,6 +406,44 @@ export default function SettingsDeveloperPage() {
     }
   }, [user?.id, session?.access_token, fillInBlanksRunning]);
 
+  const runRefillScientificNames = useCallback(async () => {
+    if (!user?.id || !session?.access_token || refillScientificRunning) return;
+    setRefillScientificRunning(true);
+    setRefillScientificResult(null);
+    try {
+      const res = await fetch("/api/settings/refill-scientific-names", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json()) as { updated?: number; skipped?: number; failed?: number; message?: string; error?: string };
+      if (!res.ok) {
+        setRefillScientificResult({
+          updated: 0,
+          skipped: 0,
+          failed: 0,
+          message: data.error ?? "Request failed",
+        });
+        return;
+      }
+      setRefillScientificResult({
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
+        failed: data.failed ?? 0,
+        message: data.message,
+      });
+    } catch (e) {
+      setRefillScientificResult({
+        updated: 0,
+        skipped: 0,
+        failed: 0,
+        message: e instanceof Error ? e.message : "Request failed",
+      });
+    } finally {
+      setRefillScientificRunning(false);
+    }
+  }, [user?.id, session?.access_token, refillScientificRunning]);
+
   const runBackfillPlantDescriptions = useCallback(async () => {
     if (!session?.access_token || backfillDescriptionsRunning) return;
     setBackfillDescriptionsRunning(true);
@@ -705,6 +750,32 @@ export default function SettingsDeveloperPage() {
               {fillInBlanksRunning ? "Running…" : "Cache + AI hero"}
             </button>
           </div>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Refill scientific names", desc: "Perenual Latin names" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Refill scientific names</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            For profiles missing a scientific name (e.g. after cleaning junk from the DB), look up Latin names from the Perenual API and save them. Requires PERENUAL_API_KEY. Only saves values that look like real scientific names.
+          </p>
+          {refillScientificResult && !refillScientificRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">Updated: {refillScientificResult.updated}. Skipped (no match or not valid): {refillScientificResult.skipped}. Failed: {refillScientificResult.failed}.</p>
+              {refillScientificResult.message && <p className="text-xs text-neutral-500 mt-1">{refillScientificResult.message}</p>}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={runRefillScientificNames}
+            disabled={refillScientificRunning}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+          >
+            {refillScientificRunning ? "Running…" : "Refill scientific names"}
+          </button>
         </div>
       </section>
       )}
