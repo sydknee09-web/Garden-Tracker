@@ -23,3 +23,18 @@ export function decodeHtmlEntities(s: string | null | undefined): string {
   }
   return out;
 }
+
+/**
+ * Strip HTML tags and common attribute fragments for safe display (e.g. scientific name).
+ * Use when data may contain scraped HTML or fragments like `"-tulips" class="header__menu-item"`.
+ */
+export function stripHtmlForDisplay(s: string | null | undefined): string {
+  if (s == null || typeof s !== "string") return "";
+  let out = s
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+class\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+id\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return decodeHtmlEntities(out);
+}

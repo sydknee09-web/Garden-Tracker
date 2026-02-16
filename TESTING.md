@@ -30,6 +30,7 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 
 - **`src/sanity.test.ts`** — Sanity check that the runner works
 - **`src/lib/canonicalKey.test.ts`** — `getCanonicalKey()` normalization
+- **`src/lib/htmlEntities.test.ts`** — `decodeHtmlEntities()`, `stripHtmlForDisplay()` (scientific name and other display-safe text)
 - **`src/lib/matchExistingProfile.test.ts`** — Existing profile matching when adding a packet (canonical name/variety, modifiers stripped)
 - **`src/lib/vault.test.ts`** — Vault seed data transforms (`normalizeSeedStockRow`, etc.)
 - **`src/lib/varietyModifiers.test.ts`** — `parseVarietyWithModifiers`, `normalizeForMatch` (manual/link import)
@@ -37,6 +38,7 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 - **`src/lib/reviewImportSave.test.ts`** — `buildPlantProfileInsertPayload` (review-import save to plant_profiles)
 - **`src/lib/seedPackets.test.ts`** — `SEED_PACKET_PROFILE_SELECT` includes `storage_location`; `SeedPacket` type (plant profile page)
 - **`src/lib/supabaseAuthGetUser.test.ts`** — Supabase `auth.getUser()` response shape (`data: { user }`, not `data: user`); prevents type error in API routes that destructure incorrectly
+- **`src/lib/parseFindHeroPhotoResponse.test.ts`** — Set Profile Photo “Search web” response parsing: valid JSON, invalid JSON / HTML / timeout bodies return friendly errors instead of “Unexpected token … is not valid JSON”
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
 
 ## Coverage

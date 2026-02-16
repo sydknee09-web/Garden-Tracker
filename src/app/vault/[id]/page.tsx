@@ -15,6 +15,8 @@ import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { parseFindHeroPhotoResponse } from "@/lib/parseFindHeroPhotoResponse";
+import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
@@ -553,12 +555,12 @@ export default function VaultSeedPage() {
         headers,
         body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, scientific_name: scientific_name || undefined }),
       });
-      const data = (await res.json()) as { hero_image_url?: string; error?: string };
-      const url = data.hero_image_url?.trim();
-      if (url?.startsWith("http")) {
-        setSearchWebResultUrl(url);
+      const text = await res.text();
+      const result = parseFindHeroPhotoResponse(text, res.ok);
+      if (result.success) {
+        setSearchWebResultUrl(result.url);
       } else {
-        setSearchWebError(data.error ?? "No image found for this variety.");
+        setSearchWebError(result.error);
       }
     } catch (e) {
       setSearchWebError(e instanceof Error ? e.message : "Search failed.");
@@ -877,9 +879,9 @@ export default function VaultSeedPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <div>
                 <h1 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h1>
-                {(profile as PlantProfile)?.scientific_name?.trim() && (
+                {stripHtmlForDisplay((profile as PlantProfile)?.scientific_name) && (
                   <p className="mt-0.5 text-sm text-neutral-500 italic" aria-label="Scientific name">
-                    {(profile as PlantProfile).scientific_name?.trim()}
+                    {stripHtmlForDisplay((profile as PlantProfile).scientific_name)}
                   </p>
                 )}
               </div>
