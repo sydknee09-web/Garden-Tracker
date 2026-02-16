@@ -176,6 +176,9 @@ export default function VaultSeedPage() {
   const [heroUploading, setHeroUploading] = useState(false);
   const [findingStockPhoto, setFindingStockPhoto] = useState(false);
   const [findHeroError, setFindHeroError] = useState<string | null>(null);
+  const [searchWebLoading, setSearchWebLoading] = useState(false);
+  const [searchWebResultUrl, setSearchWebResultUrl] = useState<string | null>(null);
+  const [searchWebError, setSearchWebError] = useState<string | null>(null);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
@@ -203,6 +206,13 @@ export default function VaultSeedPage() {
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
 
+  useEffect(() => {
+    if (showSetPhotoModal) {
+      setSearchWebResultUrl(null);
+      setSearchWebError(null);
+    }
+  }, [showSetPhotoModal]);
+
   // =========================================================================
   // Load data
   // =========================================================================
@@ -211,7 +221,7 @@ export default function VaultSeedPage() {
     setError(null);
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth")
       .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -342,8 +352,9 @@ export default function VaultSeedPage() {
   const profileWater = profile ? ("water" in profile ? (profile as { water?: string | null }).water : null) : null;
   const zone10bSchedule = getZone10bScheduleForPlant(profile?.name ?? "");
   const scheduleForCare = zone10bSchedule ? { ...zone10bSchedule, plant_spacing: zone10bSchedule.spacing, days_to_germination: zone10bSchedule.germination_time } : undefined;
+  const profileSowingDepth = (profile as PlantProfile & { sowing_depth?: string | null })?.sowing_depth?.trim() || null;
   const effectiveCare = !isLegacy && profileWithBotanical ? getEffectiveCare(
-    { sun: profile?.sun ?? null, water: profileWater ?? null, plant_spacing: profile?.plant_spacing ?? null, days_to_germination: profile?.days_to_germination ?? null, harvest_days: profile?.harvest_days ?? null, botanical_care_notes: profileWithBotanical.botanical_care_notes ?? null },
+    { sun: profile?.sun ?? null, water: profileWater ?? null, plant_spacing: profile?.plant_spacing ?? null, days_to_germination: profile?.days_to_germination ?? null, harvest_days: profile?.harvest_days ?? null, botanical_care_notes: profileWithBotanical.botanical_care_notes ?? null, sowing_depth: profileSowingDepth },
     scheduleForCare,
   ) : null;
   const profileWithSchedule = profile as PlantProfile & { sowing_method?: string | null; planting_window?: string | null; growing_notes?: string | null };
@@ -523,6 +534,39 @@ export default function VaultSeedPage() {
 
   const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
 
+  /** Search web for a plant photo (from Set Profile Photo modal); shows result for user to accept or dismiss. */
+  const searchWebForPhoto = useCallback(async () => {
+    if (!profile || searchWebLoading) return;
+    setSearchWebLoading(true);
+    setSearchWebResultUrl(null);
+    setSearchWebError(null);
+    const name = (profile.name ?? "").trim() || "Imported seed";
+    const variety = (profile.variety_name ?? "").trim();
+    const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
+    const scientific_name = (profile as PlantProfile).scientific_name?.trim() ?? "";
+    const identityKey = identityKeyFromVariety(name, variety);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    try {
+      const res = await fetch("/api/seed/find-hero-photo", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, scientific_name: scientific_name || undefined }),
+      });
+      const data = (await res.json()) as { hero_image_url?: string; error?: string };
+      const url = data.hero_image_url?.trim();
+      if (url?.startsWith("http")) {
+        setSearchWebResultUrl(url);
+      } else {
+        setSearchWebError(data.error ?? "No image found for this variety.");
+      }
+    } catch (e) {
+      setSearchWebError(e instanceof Error ? e.message : "Search failed.");
+    } finally {
+      setSearchWebLoading(false);
+    }
+  }, [profile, packets, searchWebLoading, session?.access_token]);
+
   /** Copy packet image from seed-packets to journal-photos, then set as hero. Packet photos live in seed-packets but hero_image_path expects journal-photos. */
   const setHeroFromPacket = useCallback(async (packetStoragePath: string) => {
     if (!user?.id || !id) return;
@@ -670,7 +714,7 @@ export default function VaultSeedPage() {
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex-shrink-0 p-4 border-b border-neutral-200">
               <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-              <p className="text-sm text-neutral-500 mt-1">Upload or choose from your Growth Gallery.</p>
+              <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or search the web.</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div className="flex flex-col gap-2">
@@ -682,7 +726,35 @@ export default function VaultSeedPage() {
                 <label htmlFor={heroUploading ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {heroUploading ? "Uploading..." : "Choose from files"}
                 </label>
+                <button
+                  type="button"
+                  onClick={searchWebForPhoto}
+                  disabled={searchWebLoading || !profile}
+                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
+                >
+                  {searchWebLoading ? "Searching…" : "Search web"}
+                </button>
               </div>
+              {searchWebError && (
+                <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">{searchWebError}</p>
+              )}
+              {searchWebResultUrl && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Found online</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">
+                      <img src={searchWebResultUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => { await setHeroFromUrl(searchWebResultUrl!); setShowSetPhotoModal(false); }}
+                      className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 min-h-[44px]"
+                    >
+                      Use this photo
+                    </button>
+                  </div>
+                </div>
+              )}
               {heroUrl && (
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
                   <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100"><img src={heroUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /></button>
@@ -715,8 +787,8 @@ export default function VaultSeedPage() {
       )}
 
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-0 sm:pb-4 bg-black/40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0" style={{ maxHeight: "min(85vh, calc(100dvh - 2rem))" }}>
             <div className="flex-shrink-0 p-6 pb-2"><h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2></div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
               {[
@@ -781,7 +853,7 @@ export default function VaultSeedPage() {
                 <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
               </div>
             </div>
-            <div className="flex-shrink-0 flex gap-3 justify-end p-4 border-t border-neutral-200 bg-white">
+            <div className="flex-shrink-0 flex gap-3 justify-end p-4 pb-4 border-t border-neutral-200 bg-white" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
             </div>

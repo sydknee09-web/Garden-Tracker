@@ -36,6 +36,7 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 - **`src/lib/identityKey.test.ts`** — `identityKeyFromVariety`, `isGenericTrapName` (import dedupe/cache)
 - **`src/lib/reviewImportSave.test.ts`** — `buildPlantProfileInsertPayload` (review-import save to plant_profiles)
 - **`src/lib/seedPackets.test.ts`** — `SEED_PACKET_PROFILE_SELECT` includes `storage_location`; `SeedPacket` type (plant profile page)
+- **`src/lib/supabaseAuthGetUser.test.ts`** — Supabase `auth.getUser()` response shape (`data: { user }`, not `data: user`); prevents type error in API routes that destructure incorrectly
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
 
 ## Coverage
