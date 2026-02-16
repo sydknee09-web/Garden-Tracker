@@ -14,11 +14,19 @@ const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "";
   if (pathname === "/") return "Home";
+  if (pathname === "/shopping-list") return "Shopping List";
+  if (pathname === "/garden" || pathname.startsWith("/garden/")) return "Garden";
+  if (pathname === "/vault/import" || pathname.startsWith("/vault/import/")) return "Import";
+  if (pathname === "/vault/review-import") return "Review import";
+  if (pathname.startsWith("/vault/plant")) return "Plant";
+  if (pathname.startsWith("/vault/history")) return "History";
+  if (pathname.startsWith("/vault/packets")) return "Packets";
+  if (pathname.startsWith("/vault/tags")) return "Tags";
   if (pathname.startsWith("/vault")) return "Vault";
-  if (pathname.startsWith("/garden")) return "Garden";
   if (pathname.startsWith("/journal")) return "Journal";
   if (pathname.startsWith("/calendar")) return "Calendar";
   if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/chat")) return "Chat";
   return "";
 }
 
@@ -61,6 +69,24 @@ function FeedbackIcon() {
   );
 }
 
+function ShoppingBagIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -72,6 +98,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+
+  const topLevelPaths = ["/", "/vault", "/garden", "/calendar", "/journal", "/settings", "/shopping-list"];
+  const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
 
   useEffect(() => {
     [headerRef.current, mainRef.current].forEach((el) => {
@@ -107,6 +136,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
             <div className="flex items-center gap-1 shrink-0">
+              {isNestedRoute ? (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
+                  aria-label="Back"
+                >
+                  <ChevronLeftIcon />
+                </button>
+              ) : null}
               <CloudSyncIcon syncing={syncing} offline={!isOnline} />
               <button
                 type="button"
@@ -121,13 +160,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
               {getPageTitle(pathname) || "\u00A0"}
             </h1>
-            <Link
-              href="/settings"
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 text-black/60 hover:text-black"
-              aria-label="Settings"
-            >
-              <SettingsIcon />
-            </Link>
+            <div className="flex items-center shrink-0 gap-0">
+              <Link
+                href="/shopping-list"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                aria-label="Shopping List"
+                title="Shopping List"
+              >
+                <ShoppingBagIcon />
+              </Link>
+              <Link
+                href="/settings"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                aria-label="Settings"
+              >
+                <SettingsIcon />
+              </Link>
+            </div>
           </header>
           <FeedbackModal
             open={feedbackOpen}

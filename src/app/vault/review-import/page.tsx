@@ -814,7 +814,7 @@ export default function ReviewImportPage() {
       return;
     }
 
-    const newProfileIdsWithoutHero: string[] = [];
+    const newProfileIds: string[] = [];
     const savedItems: { item: ReviewImportItem; profileId: string; packetImagePath?: string }[] = [];
     for (const item of items) {
       const name = (item.type ?? "").trim() || "Unknown";
@@ -891,7 +891,7 @@ export default function ReviewImportPage() {
           return;
         }
         profileId = (newProfile as { id: string }).id;
-        if (!heroUrlForNew) newProfileIdsWithoutHero.push(profileId);
+        newProfileIds.push(profileId);
       }
       const purchaseDate = (item.purchaseDate ?? "").trim() || todayISO();
       const tagsToSave = packetTags?.length ? packetTags : (item.tags ?? []);
@@ -1113,12 +1113,12 @@ export default function ReviewImportPage() {
     }
     setSavingPhase("Saving\u2026");
 
-    if (token) {
-      newProfileIdsWithoutHero.forEach((profileId) => {
-        fetch("/api/seed/background-hero-for-profile", {
+    if (token && newProfileIds.length > 0) {
+      newProfileIds.forEach((profileId) => {
+        fetch("/api/seed/fill-blanks-for-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ profileId }),
+          body: JSON.stringify({ profileId, useGemini: true }),
         }).catch(() => {});
       });
     }

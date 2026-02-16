@@ -86,6 +86,8 @@ export type VaultCardItem = {
   planting_window?: string | null;
   /** Sowing method (e.g. "Direct Sow", "Start Indoors / Transplant"); for display badge. */
   sowing_method?: string | null;
+  /** Latest purchase_date among packets for this profile (YYYY-MM-DD); for sort by purchase date. */
+  latest_purchase_date?: string | null;
 };
 
 export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
@@ -114,6 +116,8 @@ function getThumbnailUrl(seed: VaultCardItem): string | null {
 
 const HERO_PENDING_TIMEOUT_MS = 30000;
 export type GridSortBy = "name" | "dateAdded";
+/** Sort options from Refine By modal (vault page). When set, overrides internal grid/list sort. */
+export type VaultSortBy = "purchase_date" | "name" | "date_added" | "variety" | "packet_count";
 
 const VOLUME_LABELS: Record<string, string> = {
   full: "Full",
@@ -218,7 +222,7 @@ export function SeedVaultView({
   plantNowFilter = false,
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth = null,
-  gridDisplayStyle = "condensed",
+  gridDisplayStyle = "condensed" as const,
   categoryFilter: categoryFilterProp,
   onCategoryFilterChange,
   onCategoryChipsLoaded,
@@ -234,6 +238,8 @@ export function SeedVaultView({
   onVaultStatusChipsLoaded,
   hideArchivedProfiles = false,
   onEmptyStateChange,
+  sortBy: sortByProp = null,
+  sortDirection: sortDirectionProp = "asc",
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -258,8 +264,8 @@ export function SeedVaultView({
   plantNowFilter?: boolean;
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth?: string | null;
-  /** When mode is "grid", "photo" = image-dominant cards, "condensed" = compact data-focused cards. */
-  gridDisplayStyle?: "photo" | "condensed";
+  /** When mode is "grid", "photo" = image-dominant cards, "condensed" = compact data-focused, "gallery" = photos-first large single column. */
+  gridDisplayStyle?: "photo" | "condensed" | "gallery";
   /** Controlled plant-type filter (first word of name); when set, Refine By panel can drive this. */
   categoryFilter?: string | null;
   onCategoryFilterChange?: (value: string | null) => void;
@@ -289,6 +295,9 @@ export function SeedVaultView({
   onVaultStatusChipsLoaded?: (chips: { value: StatusFilter; label: string; count: number }[]) => void;
   /** When true, exclude plant profiles with no packets (archived) from list/table. */
   hideArchivedProfiles?: boolean;
+  /** Sort from Refine By (vault page). When set, overrides internal grid/list sort. */
+  sortBy?: VaultSortBy | null;
+  sortDirection?: "asc" | "desc";
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -590,9 +599,48 @@ export function SeedVaultView({
     return uniquePlantNames.filter((name) => name.toLowerCase().includes(q));
   }, [uniquePlantNames, plantFilterSearch]);
 
+  /** Single comparator for Refine By sort (purchase_date, name, date_added, variety, packet_count). */
+  const vaultSortCmp = useCallback(
+    (a: VaultCardItem, b: VaultCardItem): number => {
+      if (!sortByProp) return 0;
+      let v: number;
+      switch (sortByProp) {
+        case "purchase_date": {
+          const da = a.latest_purchase_date ? new Date(a.latest_purchase_date).getTime() : 0;
+          const db = b.latest_purchase_date ? new Date(b.latest_purchase_date).getTime() : 0;
+          v = da - db;
+          break;
+        }
+        case "name":
+          v = (a.name?.trim() ?? "").localeCompare(b.name?.trim() ?? "", undefined, { sensitivity: "base" });
+          break;
+        case "date_added": {
+          const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+          v = da - db;
+          break;
+        }
+        case "variety":
+          v = (a.variety?.trim() ?? "").localeCompare(b.variety?.trim() ?? "", undefined, { sensitivity: "base" });
+          break;
+        case "packet_count":
+          v = (a.packet_count ?? 0) - (b.packet_count ?? 0);
+          break;
+        default:
+          return 0;
+      }
+      return sortDirectionProp === "asc" ? v : -v;
+    },
+    [sortByProp, sortDirectionProp]
+  );
+
   const sortedListSeeds = useMemo(() => {
-    if (listSortColumn == null) return [...filteredSeeds];
     const list = [...filteredSeeds];
+    if (sortByProp) {
+      list.sort(vaultSortCmp);
+      return list;
+    }
+    if (listSortColumn == null) return list;
     const cmp = (a: VaultCardItem, b: VaultCardItem): number => {
       let va: string | number | null | undefined;
       let vb: string | number | null | undefined;
@@ -638,10 +686,14 @@ export function SeedVaultView({
       return listSortDir === "asc" ? v : -v;
     });
     return list;
-  }, [filteredSeeds, listSortColumn, listSortDir]);
+  }, [filteredSeeds, listSortColumn, listSortDir, sortByProp, vaultSortCmp]);
 
   const sortedGridSeeds = useMemo(() => {
     const list = [...filteredSeeds];
+    if (sortByProp) {
+      list.sort(vaultSortCmp);
+      return list;
+    }
     if (gridSortBy === "name") {
       list.sort((a, b) => (a.name?.trim() ?? "").localeCompare(b.name?.trim() ?? "", undefined, { sensitivity: "base" }));
     } else {
@@ -652,7 +704,7 @@ export function SeedVaultView({
       });
     }
     return list;
-  }, [filteredSeeds, gridSortBy]);
+  }, [filteredSeeds, gridSortBy, sortByProp, vaultSortCmp]);
 
   function getThumbState(seed: VaultCardItem) {
     const showResearching = !(seed.hero_image_url ?? "").trim() && !!seed.hero_image_pending;
@@ -758,18 +810,20 @@ export function SeedVaultView({
         return;
       }
 
-      // Count all non-deleted packets (including archived) so vault count matches profile page
+      // Count all non-deleted packets (including archived) so vault count matches profile page; include purchase_date for sort
       const { data: packets } = await supabase
         .from("seed_packets")
-        .select("plant_profile_id, tags, vendor_name, qty_status")
+        .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date")
         .eq("user_id", user.id)
         .is("deleted_at", null);
       const countByProfile = new Map<string, number>();
       const sumQtyByProfile = new Map<string, number>();
       const vendorsByProfile = new Map<string, Set<string>>();
       const f1ProfileIds = new Set<string>();
+      /** Latest (max) purchase_date per profile for sort by purchase date. */
+      const latestPurchaseByProfile = new Map<string, string>();
       for (const p of packets ?? []) {
-        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number };
+        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number; purchase_date?: string | null };
         const pid = row.plant_profile_id;
         countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
         const qty = typeof row.qty_status === "number" ? row.qty_status : 100;
@@ -782,6 +836,11 @@ export function SeedVaultView({
         }
         const tags = row.tags;
         if (Array.isArray(tags) && tags.some((t) => String(t).toLowerCase() === "f1")) f1ProfileIds.add(pid);
+        const pd = (row.purchase_date ?? "").trim().slice(0, 10);
+        if (pd) {
+          const cur = latestPurchaseByProfile.get(pid);
+          if (!cur || pd > cur) latestPurchaseByProfile.set(pid, pd);
+        }
       }
 
       const { data: packetImages } = await supabase
@@ -839,6 +898,7 @@ export function SeedVaultView({
           })(),
           planting_window: (p.planting_window as string | null) ?? null,
           sowing_method: (p.sowing_method as string | null) ?? null,
+          latest_purchase_date: latestPurchaseByProfile.get(pid) ?? null,
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -953,21 +1013,65 @@ export function SeedVaultView({
 
   if (mode === "grid") {
     const isPhotoCards = gridDisplayStyle === "photo";
+    const isGallery = gridDisplayStyle === "gallery";
 
     return (
-      <div className="relative z-10 space-y-3">
-        <ul className={`grid gap-3 ${isPhotoCards ? "grid-cols-2" : "grid-cols-3"}`} role="list">
+      <div className="relative z-10 space-y-2">
+        <ul className={`grid ${isGallery ? "grid-cols-1 gap-1" : isPhotoCards ? "grid-cols-2 gap-1.5" : "grid-cols-3 gap-3"}`} role="list">
           {sortedGridSeeds.map((seed, idx) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
 
+            if (isGallery) {
+              const galleryContent = (
+                <div className="relative w-full aspect-[4/5] bg-neutral-100 overflow-hidden rounded-lg">
+                  {showResearching ? (
+                    <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
+                      <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
+                    </div>
+                  ) : showSeedling ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-4xl">🌱</div>
+                  ) : (
+                    <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 pt-12 pb-2 px-2 bg-gradient-to-t from-black/70 to-transparent">
+                    <p className="text-white font-semibold text-sm truncate">{decodeHtmlEntities(seed.name)}</p>
+                    {seed.variety && seed.variety !== "—" && <p className="text-white/90 text-xs truncate">{decodeHtmlEntities(seed.variety)}</p>}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <HealthDot seed={seed} size="sm" />
+                      <span className="text-white/80 text-xs">{seed.packet_count} pkt</span>
+                      {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-amber-300 text-xs">Out</span>}
+                    </div>
+                  </div>
+                  {batchSelectMode && onToggleVarietySelection && (
+                    <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-5 h-5" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                    </div>
+                  )}
+                </div>
+              );
+              return (
+                <li key={seed.id} className="min-w-0 animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
+                  {batchSelectMode ? (
+                    <article role="button" tabIndex={0} onClick={() => onToggleVarietySelection?.(seed.id)} className={`rounded-lg overflow-hidden cursor-pointer ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500 ring-inset" : ""}`}>
+                      {galleryContent}
+                    </article>
+                  ) : (
+                    <div role="link" tabIndex={0} className="block cursor-pointer" onClick={lp ? () => lp.handleClick() : () => goToProfile(seed.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }} {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}>
+                      <article className="rounded-lg overflow-hidden hover:opacity-95 transition-opacity w-full">{galleryContent}</article>
+                    </div>
+                  )}
+                </li>
+              );
+            }
+
             if (isPhotoCards) {
               const cardContent = (
                 <>
                   {/* Frame: 8px padding so photo doesn’t go edge-to-edge; consistent bg for placeholder and image */}
-                  <div className="px-2 pt-2 shrink-0">
-                    <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-lg">
+                  <div className="p-1 shrink-0">
+                    <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
                       {showResearching ? (
                         <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                           <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
@@ -991,7 +1095,7 @@ export function SeedVaultView({
                       )}
                     </div>
                   </div>
-                  <div className="p-2.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                  <div className="p-2 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
                     <h3 className="font-semibold text-black text-sm w-full min-h-[2.5rem] flex items-center justify-center gap-1 min-w-0">
                       <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
                       <HealthDot seed={seed} size="sm" />
@@ -1015,7 +1119,7 @@ export function SeedVaultView({
                       role="button"
                       tabIndex={0}
                       onClick={() => onToggleVarietySelection?.(seed.id)}
-                      className={`rounded-xl bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
+                      className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
                     >
                       {cardContent}
                     </article>
@@ -1035,7 +1139,7 @@ export function SeedVaultView({
                           }
                         : {})}
                     >
-                      <article className="rounded-xl bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full">
+                      <article className="rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full">
                         {cardContent}
                       </article>
                     </div>
@@ -1234,7 +1338,51 @@ export function SeedVaultView({
 
   return (
     <div className="relative z-10 space-y-2">
-      <div className="overflow-x-auto rounded-xl border border-black/10 bg-white">
+      {/* Compact list for small screens (no horizontal scroll) */}
+      <div className="sm:hidden rounded-xl border border-black/10 bg-white overflow-hidden">
+        <ul className="divide-y divide-black/5" role="list">
+          {sortedListSeeds.map((seed) => {
+            const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
+            const { thumbUrl, showResearching } = getThumbState(seed);
+            const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
+            return (
+              <li key={seed.id}>
+                <button
+                  type="button"
+                  onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
+                  {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                >
+                  {batchSelectMode && onToggleVarietySelection && (
+                    <span className="shrink-0 flex items-center min-w-[44px] min-h-[44px] justify-center" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-5 h-5" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                    </span>
+                  )}
+                  <span className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
+                    {showResearching ? (
+                      <span className="text-[9px] font-medium text-neutral-500">🔍</span>
+                    ) : showSeedling ? (
+                      <span className="text-lg">🌱</span>
+                    ) : (
+                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                    )}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
+                    <span className="block text-sm text-neutral-600 truncate">{decodeHtmlEntities(seed.variety)}</span>
+                  </span>
+                  <span className="shrink-0 inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
+                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Out</span>}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      {/* Full table for sm and up */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white">
       <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: (batchSelectMode ? 40 : 0) + 44 + listColumnOrder.reduce((s, id) => s + (listColumnWidths[id] ?? DEFAULT_LIST_COLUMN_WIDTHS[id]), 0) }}>
         <colgroup>
           {batchSelectMode && <col style={{ width: 40 }} />}

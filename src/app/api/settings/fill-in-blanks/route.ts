@@ -1,112 +1,26 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
-import { getCanonicalKey } from "@/lib/canonicalKey";
-import { normalizeVendorKey } from "@/lib/vendorNormalize";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  buildUpdatesFromCacheRow,
+  getBestCacheRow,
+  isPlaceholderHeroUrl,
+  writeEnrichToGlobalCache,
+  type EnrichDataForCache,
+} from "@/lib/fillBlanksCache";
 
 export const maxDuration = 120;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const IMAGE_CHECK_TIMEOUT_MS = 5_000;
-
-/** Placeholder hero URL (generic icon). Treat as "no hero" so we try to find a real photo. */
-function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
-  if (!url || !String(url).trim()) return false;
-  const u = String(url).trim().toLowerCase();
-  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
-}
-
-function qualityRank(q: string): number {
-  const rank: Record<string, number> = { full: 3, partial: 2, ai_only: 1, failed: 0 };
-  return rank[q] ?? -1;
-}
-
-/** Pick best cache row by scrape_quality then updated_at. */
-function pickBestCacheRow<T extends { scrape_quality?: string; updated_at?: string }>(rows: T[]): T | null {
-  if (!rows?.length) return null;
-  const sorted = [...rows].sort((a, b) => {
-    const qA = qualityRank((a.scrape_quality ?? "").trim());
-    const qB = qualityRank((b.scrape_quality ?? "").trim());
-    if (qB !== qA) return qB - qA;
-    const tA = new Date(a.updated_at ?? 0).getTime();
-    const tB = new Date(b.updated_at ?? 0).getTime();
-    return tB - tA;
-  });
-  return sorted[0] ?? null;
-}
-
-async function checkImageAccessible(url: string): Promise<boolean> {
-  if (!url?.startsWith("http")) return false;
-  try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), IMAGE_CHECK_TIMEOUT_MS);
-    const res = await fetch(url, { method: "HEAD", signal: controller.signal });
-    clearTimeout(t);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-/** Parse "65" or "55-70" to number (first number). */
-function parseHarvestDays(s: string | undefined): number | null {
-  if (typeof s !== "string" || !s.trim()) return null;
-  const first = s.trim().replace(/,/g, "").match(/^\d+/);
-  const n = first ? parseInt(first[0], 10) : NaN;
-  return Number.isFinite(n) ? n : null;
-}
-
-type CacheRow = { extract_data: Record<string, unknown>; original_hero_url?: string | null; vendor?: string | null; scrape_quality?: string; updated_at?: string };
-
-/** Build updates (metadata + hero) from a cache row. Never replace existing data — only fills empty profile fields. Hero URL is checked for accessibility. */
-async function buildUpdatesFromCacheRow(
-  p: { sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; scientific_name?: string | null; plant_description?: string | null; growing_notes?: string | null; water?: string | null; sowing_depth?: string | null; sowing_method?: string | null; planting_window?: string | null; hero_image_url?: string | null; hero_image_path?: string | null },
-  row: CacheRow
-): Promise<Record<string, unknown>> {
-  const ed = row.extract_data ?? {};
-  const updates: Record<string, unknown> = {};
-  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "") || "";
-  const heroFromRow =
-    (row.original_hero_url as string)?.trim() ||
-    (typeof ed.hero_image_url === "string" && ed.hero_image_url.trim()) ||
-    "";
-  let heroUrl = heroFromRow.startsWith("http") ? heroFromRow : "";
-  if (heroUrl && !(await checkImageAccessible(heroUrl))) heroUrl = "";
-  const currentUrl = (p.hero_image_url ?? "").trim();
-  if (heroUrl && !(p.hero_image_path ?? "").trim() && (!currentUrl || isPlaceholderHeroUrl(currentUrl))) {
-    updates.hero_image_url = heroUrl;
-  }
-  if (!(p.sun ?? "").trim() && str(ed.sun_requirement || ed.sun)) updates.sun = str(ed.sun_requirement || ed.sun);
-  if (!(p.plant_spacing ?? "").trim() && str(ed.spacing || ed.plant_spacing)) updates.plant_spacing = str(ed.spacing || ed.plant_spacing);
-  if (!(p.days_to_germination ?? "").trim() && str(ed.days_to_germination)) updates.days_to_germination = str(ed.days_to_germination);
-  const maturityStr = str(ed.days_to_maturity);
-  if ((p.harvest_days == null || p.harvest_days === 0) && maturityStr) {
-    const parsed = parseHarvestDays(maturityStr);
-    if (parsed != null) updates.harvest_days = parsed;
-  }
-  if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) updates.scientific_name = str(ed.scientific_name);
-  if (!(p.plant_description ?? "").trim() && str(ed.plant_description)) {
-    updates.plant_description = str(ed.plant_description);
-    updates.description_source = "vendor";
-  }
-  if (!(p.growing_notes ?? "").trim() && str(ed.growing_notes)) {
-    updates.growing_notes = str(ed.growing_notes);
-    if (!updates.description_source) updates.description_source = "vendor";
-  }
-  if (!(p.water ?? "").trim() && str(ed.water)) updates.water = str(ed.water);
-  if (!(p.sowing_depth ?? "").trim() && str(ed.sowing_depth)) updates.sowing_depth = str(ed.sowing_depth);
-  if (!(p.sowing_method ?? "").trim() && str(ed.sowing_method)) updates.sowing_method = str(ed.sowing_method);
-  if (!(p.planting_window ?? "").trim() && str(ed.planting_window)) updates.planting_window = str(ed.planting_window);
-  return updates;
-}
 
 /**
  * Fill in blanks: for profiles missing hero, metadata, or plant_description, look up
  * global_plant_cache. Never replace existing data — only fill empty fields.
  * Lookup order: 0) link (cache by purchase_url/source_url), 1) vendor+variety+plant,
  * 2) variety+plant, 3) plant only. Then optionally Gemini for hero/description.
- * Does NOT write to global_plant_cache.
+ * When AI is used for description, we write to global_plant_cache so future lookups benefit.
  */
 export async function POST(req: Request) {
   try {
@@ -240,55 +154,8 @@ export async function POST(req: Request) {
       }
 
       const vendor = vendorByProfile[p.id] ?? "";
-      const vendorKey = vendor ? normalizeVendorKey(vendor) : "";
-
-      let bestRow: CacheRow | null = null;
-
-      // Tier 0: link — if we have a purchase_url, look up cache by that source_url first (never replace existing data)
       const linkUrl = urlByProfile[p.id]?.trim();
-      if (linkUrl) {
-        const { data: linkRow, error: linkErr } = await supabase
-          .from("global_plant_cache")
-          .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
-          .eq("source_url", linkUrl)
-          .maybeSingle();
-        if (!linkErr && linkRow) bestRow = linkRow as CacheRow;
-      }
-
-      // Tiers 1–3: by identity_key then plant-only
-      if (!bestRow) {
-        const { data: rows, error: cacheError } = await supabase
-          .from("global_plant_cache")
-          .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
-          .eq("identity_key", identityKey)
-          .limit(10);
-
-        const typedRows = (cacheError ? [] : (rows ?? [])) as CacheRow[];
-
-        // Tier 1: vendor + variety + plant
-        if (typedRows.length > 0 && vendorKey) {
-          const byVendor = typedRows.filter((r) => normalizeVendorKey((r.vendor ?? "")) === vendorKey);
-          if (byVendor.length > 0) bestRow = pickBestCacheRow(byVendor);
-        }
-        // Tier 2: variety + plant (any vendor)
-        if (!bestRow && typedRows.length > 0) {
-          bestRow = pickBestCacheRow(typedRows);
-        }
-        // Tier 3: plant only (any variety, any vendor)
-        if (!bestRow) {
-          const typeKey = getCanonicalKey(name);
-          if (typeKey) {
-            const { data: plantOnlyRows, error: plantErr } = await supabase
-              .from("global_plant_cache")
-              .select("id, extract_data, original_hero_url, vendor, scrape_quality, updated_at")
-              .or(`identity_key.eq.${typeKey},identity_key.like.${typeKey}_%`)
-              .limit(10);
-            const plantRows = (plantErr ? [] : (plantOnlyRows ?? [])) as CacheRow[];
-            bestRow = pickBestCacheRow(plantRows);
-          }
-        }
-      }
-
+      const bestRow = await getBestCacheRow(supabase, identityKey, linkUrl ?? null, vendor);
       const updates = bestRow ? await buildUpdatesFromCacheRow(p, bestRow) : {};
 
       if (Object.keys(updates).length === 0) {
@@ -313,7 +180,18 @@ export async function POST(req: Request) {
               body: JSON.stringify({ name, variety }),
             });
             if (enrichRes.ok) {
-              const data = (await enrichRes.json()) as { plant_description?: string; growing_notes?: string };
+              const data = (await enrichRes.json()) as {
+                plant_description?: string;
+                growing_notes?: string;
+                sun_requirement?: string;
+                spacing?: string;
+                days_to_germination?: string;
+                days_to_maturity?: string;
+                sowing_depth?: string;
+                water?: string;
+                sowing_method?: string;
+                planting_window?: string;
+              };
               const aiDesc = (data.plant_description ?? "").trim();
               const aiNotes = (data.growing_notes ?? "").trim();
               if (aiDesc || aiNotes) {
@@ -321,7 +199,26 @@ export async function POST(req: Request) {
                 if (aiDesc) aiUpdates.plant_description = aiDesc;
                 if (aiNotes) aiUpdates.growing_notes = aiNotes;
                 const { error: aiErr } = await supabase.from("plant_profiles").update(aiUpdates).eq("id", p.id).eq("user_id", user.id);
-                if (!aiErr) { if (!didAiUpdate) fromAi++; didAiUpdate = true; }
+                if (!aiErr) {
+                  if (!didAiUpdate) fromAi++;
+                  didAiUpdate = true;
+                  const admin = getSupabaseAdmin();
+                  if (admin) {
+                    const enrichData: EnrichDataForCache = {
+                      plant_description: aiDesc || undefined,
+                      growing_notes: aiNotes || undefined,
+                      sun_requirement: data.sun_requirement ?? undefined,
+                      spacing: data.spacing ?? undefined,
+                      days_to_germination: data.days_to_germination ?? undefined,
+                      days_to_maturity: data.days_to_maturity ?? undefined,
+                      sowing_depth: data.sowing_depth ?? undefined,
+                      water: data.water ?? undefined,
+                      sowing_method: data.sowing_method ?? undefined,
+                      planting_window: data.planting_window ?? undefined,
+                    };
+                    await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
+                  }
+                }
               }
             }
           } catch {

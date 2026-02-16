@@ -1107,7 +1107,7 @@ export default function JournalPage() {
         </div>
       )}
 
-      {selectedEntryIds.length > 0 && (
+      {selectedEntryIds.length > 0 && !deleteConfirmEntryIds && (
         <div
           className="fixed left-4 right-4 z-30 flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-white border border-black/10 shadow-lg max-w-md mx-auto"
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}

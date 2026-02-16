@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SeedVaultView, type StatusFilter } from "@/components/SeedVaultView";
+import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
@@ -86,6 +86,16 @@ function CondensedGridIcon() {
     </svg>
   );
 }
+/** Gallery = full-width stacked photos (single column). */
+function GalleryStackIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="2" width="20" height="6" rx="1" />
+      <rect x="2" y="10" width="20" height="6" rx="1" />
+      <rect x="2" y="18" width="20" height="4" rx="1" />
+    </svg>
+  );
+}
 
 function VaultPageInner() {
   const { user } = useAuth();
@@ -134,9 +144,11 @@ function VaultPageInner() {
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
-  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
+  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed" | "gallery">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"vault" | "tags" | "plantType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "plantType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
+  const [sortBy, setSortBy] = useState<VaultSortBy>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
@@ -283,11 +295,21 @@ function VaultPageInner() {
       if (savedView === "grid" || savedView === "list" || savedView === "active" || savedView === "plants") setViewMode(savedView);
       else if (savedView === "table") setViewMode("list");
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
-      if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
+      if (savedGridStyle === "photo" || savedGridStyle === "condensed" || savedGridStyle === "gallery") setGridDisplayStyle(savedGridStyle);
       const savedStatus = sessionStorage.getItem("vault-status-filter");
       if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") setStatusFilter(savedStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
       if (typeof savedSearch === "string") setSearchQuery(savedSearch);
+      const savedSort = sessionStorage.getItem("vault-sort");
+      if (savedSort) {
+        try {
+          const { sortBy: sb, sortDirection: sd } = JSON.parse(savedSort) as { sortBy?: string; sortDirection?: "asc" | "desc" };
+          if (sb === "purchase_date" || sb === "name" || sb === "date_added" || sb === "variety" || sb === "packet_count") setSortBy(sb);
+          if (sd === "asc" || sd === "desc") setSortDirection(sd);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -319,6 +341,14 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [searchQuery]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-sort", JSON.stringify({ sortBy, sortDirection }));
+    } catch {
+      /* ignore */
+    }
+  }, [sortBy, sortDirection]);
 
   const toggleVarietySelection = useCallback((plantVarietyId: string) => {
     setSelectedVarietyIds((prev) => {
@@ -896,12 +926,12 @@ function VaultPageInner() {
                 {viewMode === "grid" && (
                   <button
                     type="button"
-                    onClick={() => setGridDisplayStyle((s) => (s === "photo" ? "condensed" : "photo"))}
+                    onClick={() => setGridDisplayStyle((s) => (s === "condensed" ? "photo" : s === "photo" ? "gallery" : "condensed"))}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                    title={gridDisplayStyle === "photo" ? "Switch to condensed view" : "Switch to photo cards"}
-                    aria-label={gridDisplayStyle === "photo" ? "Switch to condensed view" : "Switch to photo cards"}
+                    title={gridDisplayStyle === "condensed" ? "Photo cards" : gridDisplayStyle === "photo" ? "Gallery view" : "Condensed grid"}
+                    aria-label={gridDisplayStyle === "condensed" ? "Switch to photo cards" : gridDisplayStyle === "photo" ? "Switch to gallery view" : "Switch to condensed grid"}
                   >
-                    {gridDisplayStyle === "photo" ? <CondensedGridIcon /> : <PhotoCardsGridIcon />}
+                    {gridDisplayStyle === "condensed" ? <PhotoCardsGridIcon /> : gridDisplayStyle === "photo" ? <GalleryStackIcon /> : <CondensedGridIcon />}
                   </button>
                 )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
@@ -971,6 +1001,45 @@ function VaultPageInner() {
               {/* Content for Plant Profiles / Seed Vault / Table */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
+                  <div className="border-b border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setRefineBySection((s) => (s === "sort" ? null : "sort"))}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                      aria-expanded={refineBySection === "sort"}
+                    >
+                      <span>Sort</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▴" : "▾"}</span>
+                    </button>
+                    {refineBySection === "sort" && (
+                      <div className="px-4 pb-3 pt-0 space-y-0.5">
+                        {[
+                          { sortBy: "purchase_date" as const, sortDirection: "desc" as const, label: "Purchase date (newest first)" },
+                          { sortBy: "purchase_date" as const, sortDirection: "asc" as const, label: "Purchase date (oldest first)" },
+                          { sortBy: "name" as const, sortDirection: "asc" as const, label: "Name (A–Z)" },
+                          { sortBy: "name" as const, sortDirection: "desc" as const, label: "Name (Z–A)" },
+                          { sortBy: "date_added" as const, sortDirection: "desc" as const, label: "Date added (newest first)" },
+                          { sortBy: "date_added" as const, sortDirection: "asc" as const, label: "Date added (oldest first)" },
+                          { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (A–Z)" },
+                          { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (Z–A)" },
+                          { sortBy: "packet_count" as const, sortDirection: "desc" as const, label: "Packet count (most first)" },
+                          { sortBy: "packet_count" as const, sortDirection: "asc" as const, label: "Packet count (fewest first)" },
+                        ].map(({ sortBy: sb, sortDirection: sd, label }) => {
+                          const selected = sortBy === sb && sortDirection === sd;
+                          return (
+                            <button
+                              key={`${sb}-${sd}`}
+                              type="button"
+                              onClick={() => { setSortBy(sb); setSortDirection(sd); }}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <div className="border-b border-black/5">
                     <button
                       type="button"
@@ -1313,6 +1382,8 @@ function VaultPageInner() {
             onVaultStatusChipsLoaded={handleVaultStatusChipsLoaded}
             onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
             hideArchivedProfiles={false}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
           />
         </div>
       )}

@@ -1,11 +1,15 @@
 /**
  * Offline queue using IndexedDB.
  * Queues failed Supabase writes when offline, replays on reconnect.
+ * Law 2: For protected tables we never store a raw "delete"; we convert to soft-delete update.
  */
 
 const DB_NAME = "seed-vault-offline";
 const DB_VERSION = 1;
 const STORE_NAME = "pending_writes";
+
+/** Tables that must use soft delete only. Never enqueue operation "delete" for these. */
+const PROTECTED_TABLES = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks"];
 
 export interface QueuedWrite {
   id: string;
@@ -38,8 +42,20 @@ function openDB(): Promise<IDBDatabase> {
 export async function enqueueWrite(write: Omit<QueuedWrite, "id" | "created_at" | "retries">): Promise<string> {
   const db = await openDB();
   const id = crypto.randomUUID();
+
+  // Law 2: Never store a raw "delete" for protected tables; convert to soft-delete update.
+  let normalizedWrite = write;
+  if (write.operation === "delete" && PROTECTED_TABLES.includes(write.table)) {
+    normalizedWrite = {
+      table: write.table,
+      operation: "update" as const,
+      payload: { deleted_at: new Date().toISOString() },
+      filters: write.filters ?? {},
+    };
+  }
+
   const entry: QueuedWrite = {
-    ...write,
+    ...normalizedWrite,
     id,
     created_at: new Date().toISOString(),
     retries: 0,

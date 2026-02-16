@@ -26,13 +26,13 @@ Add these for **Production**, **Preview**, and **Development** as needed.
 
 - **Framework**: Next.js (auto-detected)
 - **Install command**: `npm install --legacy-peer-deps` (already in `vercel.json`)
-- **Node**: 18.17+ (set via `package.json` `engines`)
+- **Node**: 24.x (per `package.json` `engines`)
 
 ## If the build fails
 
 1. **Check the build log** on Vercel for the exact error (TypeScript, missing module, etc.).
 2. **Env at build time**: `NEXT_PUBLIC_*` vars must be set in Vercel so they are inlined at build time. If they’re missing, the app may build but fail at runtime with Supabase/auth errors.
-3. **Node version**: Vercel uses Node 18 by default; this project specifies `>=18.17.0` in `package.json`.
+3. **Node version**: Vercel uses Node 18 by default; this project specifies Node 24.x in `package.json` `engines`.
 4. **Large API routes**: If you see “function size” or timeout errors, the `/api/seed/scrape-url` route is large; consider splitting or increasing function timeout in `vercel.json` if needed.
 
 ## After deploy

@@ -67,7 +67,7 @@ These are the main missing pieces; add them when you want more safety or documen
 | **API route tests** | Routes hold a lot of business logic; one request/response test per handler would catch regressions. | Medium (need to mock Supabase + `NextRequest`) |
 | **More component tests** | Only Settings page is tested. Small components (e.g. `TagBadges`, `getTagStyle`) are good next targets. | Low–medium |
 | **Shared test helpers** | No shared mocks (e.g. Supabase client, `user`, or fake DB rows). Adding `src/test/helpers.ts` or `mocks/` would reduce duplication once you test API routes or auth-dependent code. | Low to add as you need them |
-| **E2E tests** | No end-to-end tests (Playwright/Cypress). Useful for critical flows (e.g. login → vault → add seed). | Higher (new runner, env, selectors) |
+| **E2E tests** | No end-to-end tests (Playwright/Cypress). Useful for critical flows (e.g. login → vault → add seed). E2E would especially help **mobile critical paths** (add seed → plant → harvest) if you prioritize mobile. | Higher (new runner, env, selectors) |
 | **Coverage thresholds** | Coverage is reported but doesn’t fail the build. Optional: set `coverage.lines: 80` (or similar) in `vitest.config.mts` to enforce a minimum. | Low |
 
 ### Recommended next tests (high value, low effort)

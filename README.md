@@ -1,6 +1,6 @@
 # Garden Tracker
 
-Universal Garden Management PWA — **Garden Tracker / Seed Vault**. Next.js (App Router), TypeScript, Tailwind CSS. Supabase + Vercel AI SDK planned.
+Universal Garden Management PWA — **Garden Tracker / Seed Vault**. Next.js (App Router), TypeScript, Tailwind CSS. Supabase + Google Gemini for extraction/AI.
 
 ## Design system
 
@@ -20,7 +20,7 @@ Open [http://localhost:3001](http://localhost:3001) (or the port shown in the te
 
 **Auth sync:** Set `NEXT_PUBLIC_DEV_USER_ID` in `.env.local` to your Supabase user id so all data (vault, journal, tasks, batches) is saved and loaded for your account.
 
-**Database:** Run `supabase/migrations/20250204000000_garden_tables.sql` in the Supabase SQL Editor if you haven’t already (creates `tasks`, `grow_instances`, `journal_entries`, and optional columns on `plant_varieties`).
+**Database:** Apply all migrations in `supabase/migrations/` in order (e.g. via Supabase CLI `supabase db push`, or run each `.sql` file in the Supabase SQL Editor). The foundation migration assumes `plant_profiles`, `seed_packets`, `grow_instances`, and related tables exist from earlier migrations.
 
 **Data maintenance** (discover, scrape, cleanup, normalize): see [docs/DATA_MAINTENANCE.md](docs/DATA_MAINTENANCE.md).
 
@@ -28,14 +28,15 @@ Open [http://localhost:3001](http://localhost:3001) (or the port shown in the te
 
 ## Structure
 
-- **Home** — Dashboard: pending tasks, recent activity, journal photos
-- **Vault** — Seed Vault (Icon Grid / Detailed List). Click a plant → `/vault/[id]` (Specs, Journal, Batches)
+- **Home** — Dashboard: pending tasks, recent activity, journal photos; link to Shopping List
+- **Vault** — Seed Vault (grid / list / active / plants). Import (link, photo, manual), review, plant; profile detail at `/vault/[id]` (About, Packets, Plantings, Journal). Also: history, packets list, tags
+- **Garden** — Active plantings, quick-tap care (water/fertilize/spray), harvest, bulk notes
 - **Calendar** — Tasks from Supabase by month (Sow/Harvest from batches)
-- **Journal** — Journal entries from Supabase (notes/photos by plant)
-- **Chat** — AI assistant (planned)
+- **Journal** — Journal entries (table / grid / timeline), new entry
+- **Shopping List** — Out-of-stock items + wishlist placeholders (linked from dashboard)
+- **Settings** — Zone, location, weather, export, trash, household, developer tools, etc.
+- **Chat** — AI assistant at `/chat` (coming soon; not in bottom nav)
 
-## 3-tier data (planned)
+## Data architecture
 
-1. **Tier 1:** Plant Variety (master care specs)
-2. **Tier 2:** Seed Stock (inventory: Full / Partial / Low / Empty)
-3. **Tier 3:** Grow Instance (seasonal record linking 1 & 2)
+Plant Profile (master) → Seed Packets (inventory) → Grow Instances (seasonal plantings). Care schedules, tasks, and journal entries tie to profiles and instances.

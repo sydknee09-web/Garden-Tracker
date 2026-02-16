@@ -139,6 +139,8 @@ Never mix these up. The tab structure and available actions change based on prof
 `user_settings` (zone, location, weather coords)
 `households` + `household_members` (family sharing)
 
+**Key routes:** Shopping List at `/shopping-list` (linked from dashboard). Chat at `/chat` (planned; placeholder).
+
 ### Mobile-First Touch Targets
 
 All interactive elements must have `min-w-[44px] min-h-[44px]` for accessibility. Modals use `max-h-[85vh]` with internal scroll. Fixed bottom nav is 80px tall -- content must not be obscured.

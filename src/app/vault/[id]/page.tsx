@@ -131,6 +131,7 @@ const PROFILE_STATUS_OPTIONS: { value: string; label: string }[] = [
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
+function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
 
 type ProfileData = PlantProfile | PlantVarietyProfile;
 
@@ -180,6 +181,11 @@ export default function VaultSeedPage() {
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
   const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
 
+  // About tab: which sections are collapsed (default all open)
+  const [aboutCollapsed, setAboutCollapsed] = useState<Record<string, boolean>>({});
+  const isAboutOpen = (key: string) => !aboutCollapsed[key];
+  const toggleAboutSection = (key: string) => setAboutCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+
   // Harvest modal
   const [harvestGrowId, setHarvestGrowId] = useState<string | null>(null);
 
@@ -205,7 +211,7 @@ export default function VaultSeedPage() {
     setError(null);
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name")
       .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -293,6 +299,7 @@ export default function VaultSeedPage() {
   const isLegacy = profile ? "vendor" in profile && (profile as PlantVarietyProfile).vendor != null : false;
   const isPermanent = (profile as PlantProfile | null)?.profile_type === "permanent";
   const profileStatus = (profile?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  const profileStatusLabel = PROFILE_STATUS_OPTIONS.find((o) => o.value === profileStatus)?.label ?? profileStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const profileWithHero = profile as (typeof profile) & { hero_image_path?: string | null; hero_image_url?: string | null; hero_image_pending?: boolean | null };
   const heroPath = profileWithHero?.hero_image_path?.trim();
@@ -796,9 +803,16 @@ export default function VaultSeedPage() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h1>
+                {(profile as PlantProfile)?.scientific_name?.trim() && (
+                  <p className="mt-0.5 text-sm text-neutral-500 italic" aria-label="Scientific name">
+                    {(profile as PlantProfile).scientific_name?.trim()}
+                  </p>
+                )}
+              </div>
               {profileStatus && STATUS_COLORS[profileStatus] && (
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[profileStatus]}`}>{profileStatus.replace("_", " ")}</span>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[profileStatus]}`}>{profileStatusLabel}</span>
               )}
               {isPlantableNow && (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Plant now</span>
@@ -866,20 +880,46 @@ export default function VaultSeedPage() {
           <>
             {/* Description (profile-level: vendor or AI) */}
             {!isLegacy && (profile as PlantProfile)?.plant_description?.trim() && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Description</h3>
-                <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).plant_description}</p>
-                {(profile as PlantProfile).description_source && (
-                  <p className="text-xs text-neutral-500 mt-2">
-                    Source: {(profile as PlantProfile).description_source === "vendor" ? "Vendor" : (profile as PlantProfile).description_source === "ai" ? "AI research" : "You"}
-                  </p>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("description")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("description")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Description</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("description") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("description") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).plant_description}</p>
+                    {(profile as PlantProfile).description_source && (
+                      <p className="text-xs text-neutral-500 mt-2">
+                        Source: {(profile as PlantProfile).description_source === "vendor" ? "Vendor" : (profile as PlantProfile).description_source === "ai" ? "AI research" : "You"}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-              <h3 className="text-sm font-semibold text-neutral-700 mb-3">How to Grow</h3>
-              <div className="space-y-4">
+            {/* Growing Notes — moved up so it’s visible; under Description, above How to Grow */}
+            {growingNotes && (
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("growingNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growingNotes")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Growing Notes</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growingNotes") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("growingNotes") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+              <button type="button" onClick={() => toggleAboutSection("howToGrow")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("howToGrow")}>
+                <h3 className="text-sm font-semibold text-neutral-700">How to Grow</h3>
+                <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("howToGrow") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+              </button>
+              {isAboutOpen("howToGrow") && (
+              <div className="px-4 pb-4 pt-0 space-y-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-2">Planting</p>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -905,6 +945,7 @@ export default function VaultSeedPage() {
                   </dl>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Companion planting */}
@@ -916,8 +957,13 @@ export default function VaultSeedPage() {
               const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
               const hasAny = hasCompanions || hasAvoid;
               return (
-                <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Companion planting</h3>
+                <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                  <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("companion")}>
+                    <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
+                    <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  </button>
+                  {isAboutOpen("companion") && (
+                  <div className="px-4 pb-4 pt-0">
                   {hasAny ? (
                     <div className="space-y-3">
                       {hasCompanions && (
@@ -946,14 +992,21 @@ export default function VaultSeedPage() {
                   ) : (
                     <p className="text-sm text-neutral-500">None known</p>
                   )}
+                  </div>
+                  )}
                 </div>
               );
             })()}
 
             {/* Vendor recommendations (by packet) */}
             {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs).length > 0) && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Vendor recommendations</h3>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("vendorRecs")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("vendorRecs")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Vendor recommendations</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("vendorRecs") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("vendorRecs") && (
+                <div className="px-4 pb-4 pt-0">
                 <p className="text-xs text-neutral-500 mb-3">What each packet or vendor says about growing this variety.</p>
                 <ul className="space-y-4">
                   {packets
@@ -983,60 +1036,89 @@ export default function VaultSeedPage() {
                       );
                     })}
                 </ul>
+                </div>
+                )}
               </div>
             )}
 
             {/* Tags */}
             {profile?.tags && profile.tags.length > 0 && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Tags</h3>
-                <TagBadges tags={profile.tags} />
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("tags")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("tags") && (
+                <div className="px-4 pb-4 pt-0">
+                  <TagBadges tags={profile.tags} />
+                </div>
+                )}
               </div>
             )}
 
             {/* Care Templates (seed profiles -- auto-copy to plantings) */}
             {!isPermanent && !isLegacy && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Care Templates</h3>
-                <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
-                <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
-              </div>
-            )}
-
-            {/* Growing Notes */}
-            {growingNotes && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Growing Notes</h3>
-                <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("careTemplates")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("careTemplates")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Care Templates</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careTemplates") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("careTemplates") && (
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
+                </div>
+                )}
               </div>
             )}
 
             {/* Source URL */}
             {packets.length > 0 && packets[0].purchase_url?.trim() && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Source</h3>
-                <a href={packets[0].purchase_url} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline break-all">{packets[0].purchase_url}</a>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("source")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("source")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Source</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("source") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("source") && (
+                <div className="px-4 pb-4 pt-0">
+                  <a href={packets[0].purchase_url} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline break-all">{packets[0].purchase_url}</a>
+                </div>
+                )}
               </div>
             )}
 
             {/* Growth Gallery */}
             {journalPhotos.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Growth Gallery</h3>
-                <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
-                  {journalPhotos.map((photo) => {
-                    const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
-                    return <div key={photo.id} className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center"><Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} /></div>;
-                  })}
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("growthGallery")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growthGallery")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Growth Gallery</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growthGallery") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("growthGallery") && (
+                <div className="px-4 pb-4 pt-0">
+                  <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
+                    {journalPhotos.map((photo) => {
+                      const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
+                      return <div key={photo.id} className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center"><Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} /></div>;
+                    })}
+                  </div>
                 </div>
+                )}
               </div>
             )}
 
             {/* Legacy content */}
             {isLegacy && legacyNotes.trim() && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Notes</h3>
-                <p className="text-neutral-700 whitespace-pre-wrap text-sm">{legacyNotes}</p>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("legacyNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyNotes")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Notes</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyNotes") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("legacyNotes") && (
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-neutral-700 whitespace-pre-wrap text-sm">{legacyNotes}</p>
+                </div>
+                )}
               </div>
             )}
             {(legacyPlantDesc?.trim() || legacyGrowingInfo?.trim()) && (
@@ -1054,9 +1136,16 @@ export default function VaultSeedPage() {
               </div>
             )}
             {isLegacy && legacySourceUrl?.trim() && (
-              <div className="bg-white rounded-xl border border-neutral-200 p-4 mb-4">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-2">Import link</h3>
-                <a href={legacySourceUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all text-sm">{legacySourceUrl}</a>
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("legacyImport")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyImport")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Import link</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyImport") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("legacyImport") && (
+                <div className="px-4 pb-4 pt-0">
+                  <a href={legacySourceUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all text-sm">{legacySourceUrl}</a>
+                </div>
+                )}
               </div>
             )}
           </>

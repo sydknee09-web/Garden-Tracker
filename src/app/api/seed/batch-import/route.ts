@@ -154,6 +154,7 @@ export async function POST(request: Request) {
             if (blob.type.startsWith("image/")) {
               const arrayBuffer = await blob.arrayBuffer();
               const buffer = Buffer.from(arrayBuffer);
+              // Law 4: server-side compression (align with client ~800KB target)
               const sharp = (await import("sharp")).default;
               const compressed = await sharp(buffer)
                 .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
