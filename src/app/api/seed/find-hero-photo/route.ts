@@ -285,7 +285,41 @@ Return only valid JSON with no markdown: { "urls": [ "https://...", "https://...
       if (urls.length === 0 && !galleryResponse) {
         return NextResponse.json({ urls: [], error: "Search took too long. Please try again." });
       }
-      const accessible = await filterAccessibleUrls(urls);
+      let accessible = await filterAccessibleUrls(urls);
+      if (accessible.length === 0 && urls.length > 0) {
+        const wikimediaPrompt = `Using Google Search, find 6 to 10 direct image URLs only from upload.wikimedia.org or commons.wikimedia.org for this plant: "${galleryQuery}". Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.org/...", ... ] }. Each URL must be from wikimedia.org.`;
+        let wikimediaResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+        try {
+          wikimediaResponse = await Promise.race([
+            ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: wikimediaPrompt,
+              config: { tools: [{ googleSearch: {} }] },
+            }),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 10_000)),
+          ]).catch(() => null);
+        } catch {
+          wikimediaResponse = null;
+        }
+        const wText = wikimediaResponse?.text?.trim() ?? "";
+        const wMatch = wText.match(/\{[\s\S]*\}/);
+        const wikimediaUrls: string[] = [];
+        if (wMatch) {
+          try {
+            const parsed = JSON.parse(wMatch[0]) as { urls?: unknown };
+            const raw = Array.isArray(parsed?.urls) ? parsed.urls : [];
+            for (const u of raw) {
+              if (typeof u === "string" && u.trim().startsWith("http") && /wikimedia\.org/i.test(u.trim())) wikimediaUrls.push(u.trim());
+            }
+          } catch {
+            // leave empty
+          }
+        }
+        if (wikimediaUrls.length > 0) {
+          accessible = await filterAccessibleUrls(wikimediaUrls);
+          console.log(`[hero] Gallery Wikimedia fallback: ${logLabel} → ${wikimediaUrls.length} wikimedia, ${accessible.length} accessible`);
+        }
+      }
       const finalUrls = accessible.length > 0 ? accessible : urls;
       console.log(`[hero] Gallery: ${logLabel} → ${urls.length} urls, ${accessible.length} accessible`);
       return NextResponse.json({ urls: finalUrls });

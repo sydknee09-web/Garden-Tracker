@@ -189,6 +189,8 @@ export default function VaultSeedPage() {
   const [searchWebGalleryUrls, setSearchWebGalleryUrls] = useState<string[]>([]);
   const [searchWebError, setSearchWebError] = useState<string | null>(null);
   const [galleryImageFailed, setGalleryImageFailed] = useState<Set<string>>(new Set());
+  const [savingWebHero, setSavingWebHero] = useState(false);
+  const [saveHeroError, setSaveHeroError] = useState<string | null>(null);
   const searchWebAbortRef = useRef<AbortController | null>(null);
   const photoGalleryLoadedRef = useRef(false);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
@@ -230,6 +232,7 @@ export default function VaultSeedPage() {
     setSearchWebGalleryUrls([]);
     setSearchWebError(null);
     setGalleryImageFailed(new Set());
+    setSaveHeroError(null);
   }, [showSetPhotoModal]);
 
   // =========================================================================
@@ -857,31 +860,52 @@ export default function VaultSeedPage() {
                   <p className="text-xs text-neutral-500">Click Refresh photos to try again.</p>
                 </div>
               )}
+              {saveHeroError && (
+                <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">{saveHeroError}</p>
+              )}
               {searchWebGalleryUrls.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Pick a photo</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">
+                    {savingWebHero ? "Saving…" : "Pick a photo"}
+                  </p>
                   <div className="grid grid-cols-3 gap-2">
                     {searchWebGalleryUrls.map((url, idx) => (
                       <button
                         key={`${url}-${idx}`}
                         type="button"
                         onClick={async () => {
-                          if (galleryImageFailed.has(url)) return;
-                          await setHeroFromUrl(url);
-                          setShowSetPhotoModal(false);
-                          const name = (profile?.name ?? "").trim() || "Imported seed";
-                          const variety = (profile?.variety_name ?? "").trim() ?? "";
-                          const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
-                          const identityKey = identityKeyFromVariety(name, variety);
-                          if (identityKey && session?.access_token) {
-                            fetch("/api/seed/save-hero-to-cache", {
+                          if (galleryImageFailed.has(url) || savingWebHero || !user?.id || !id || !session?.access_token) return;
+                          setSaveHeroError(null);
+                          setSavingWebHero(true);
+                          try {
+                            const res = await fetch("/api/seed/save-hero-from-url", {
                               method: "POST",
                               headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-                              body: JSON.stringify({ identity_key: identityKey, hero_image_url: url, name, variety, vendor }),
-                            }).catch((err) => console.error("[save-hero-to-cache]", err));
+                              body: JSON.stringify({ url, profile_id: id }),
+                            });
+                            const data = (await res.json()) as { path?: string; error?: string };
+                            if (res.ok && data.path) {
+                              await setHeroFromPath(data.path);
+                              setShowSetPhotoModal(false);
+                              const name = (profile?.name ?? "").trim() || "Imported seed";
+                              const variety = (profile?.variety_name ?? "").trim() ?? "";
+                              const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
+                              const identityKey = identityKeyFromVariety(name, variety);
+                              if (identityKey) {
+                                fetch("/api/seed/save-hero-to-cache", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                                  body: JSON.stringify({ identity_key: identityKey, hero_image_url: url, name, variety, vendor }),
+                                }).catch((err) => console.error("[save-hero-to-cache]", err));
+                              }
+                            } else {
+                              setSaveHeroError(data.error ?? "Couldn't save image. Try another tile or Refresh photos.");
+                            }
+                          } finally {
+                            setSavingWebHero(false);
                           }
                         }}
-                        disabled={galleryImageFailed.has(url)}
+                        disabled={galleryImageFailed.has(url) || savingWebHero}
                         className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-60 disabled:pointer-events-none"
                       >
                         {galleryImageFailed.has(url) ? (
