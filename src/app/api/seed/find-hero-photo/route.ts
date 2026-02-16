@@ -46,6 +46,17 @@ async function checkFirstAccessible(
   return results.find((u) => u != null) ?? null;
 }
 
+/** Filter to only URLs that return 200 on HEAD (for gallery: fewer broken tiles). */
+const GALLERY_IMAGE_CHECK_TIMEOUT_MS = 2_500;
+async function filterAccessibleUrls(urls: string[], timeoutMs: number = GALLERY_IMAGE_CHECK_TIMEOUT_MS): Promise<string[]> {
+  const valid = urls.filter((u) => u?.trim().startsWith("http"));
+  if (valid.length === 0) return [];
+  const results = await Promise.all(
+    valid.map(async (url) => ((await checkImageAccessible(url, timeoutMs)) ? url : null))
+  );
+  return results.filter((u): u is string => u != null);
+}
+
 const HERO_SEARCH_PROMPT = `You are a professional botanical curator. Using Google Search Grounding, find an image URL that follows these rules:
 
 Subject: Must show the actual growing plant, flower, or fruit (not a seed packet).
@@ -241,7 +252,7 @@ export async function POST(req: Request) {
         ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
         : "";
       const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower. Use only the plant and variety name in your search—do not add phrases like "on the vine", "in the garden", or other decorative text. Search for: "${galleryQuery}".${scientificHint}
-Important: Prefer images from Wikimedia Commons (upload.wikimedia.org or commons.wikimedia.org) and other sites that allow direct image linking—these must be direct URLs to image files (.jpg, .png, etc.), not web pages. Avoid seed packet images.
+Critical for embedding: Prefer and prioritize images from Wikimedia Commons (upload.wikimedia.org, commons.wikimedia.org) and other sites that allow direct hotlinking—these must be direct URLs to image files (.jpg, .png), not web pages. Include as many Wikimedia/Commons URLs as possible so they load in an app. Avoid seed packet images and sites that block embedding (e.g. many stock photo sites).
 Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL (e.g. https://upload.wikimedia.org/...).`;
       const galleryTimeoutMs = GALLERY_PASS_TIMEOUT_MS;
       let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
@@ -274,8 +285,10 @@ Return only valid JSON with no markdown: { "urls": [ "https://...", "https://...
       if (urls.length === 0 && !galleryResponse) {
         return NextResponse.json({ urls: [], error: "Search took too long. Please try again." });
       }
-      console.log(`[hero] Gallery: ${logLabel} → ${urls.length} urls`);
-      return NextResponse.json({ urls });
+      const accessible = await filterAccessibleUrls(urls);
+      const finalUrls = accessible.length > 0 ? accessible : urls;
+      console.log(`[hero] Gallery: ${logLabel} → ${urls.length} urls, ${accessible.length} accessible`);
+      return NextResponse.json({ urls: finalUrls });
     }
 
     const passNum = typeof body?.pass === "number" ? body.pass : 0;

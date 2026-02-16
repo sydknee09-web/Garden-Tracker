@@ -885,7 +885,7 @@ export default function VaultSeedPage() {
                         className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-60 disabled:pointer-events-none"
                       >
                         {galleryImageFailed.has(url) ? (
-                          <div className="w-full h-full flex items-center justify-center bg-neutral-200 text-neutral-500 text-xs text-center p-2">Unavailable</div>
+                          <div className="w-full h-full flex items-center justify-center bg-neutral-200 text-neutral-500 text-xs text-center p-2">This image couldn&apos;t be loaded. Try another tile or Refresh photos.</div>
                         ) : (
                           <img
                             src={externalImageSrc(url)}
