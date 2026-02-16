@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeHtmlEntities, stripHtmlForDisplay } from "./htmlEntities";
+import { decodeHtmlEntities, stripHtmlForDisplay, looksLikeScientificName } from "./htmlEntities";
 
 describe("decodeHtmlEntities", () => {
   it("returns empty string for null or undefined", () => {
@@ -46,5 +46,28 @@ describe("stripHtmlForDisplay", () => {
 
   it("collapses whitespace and trims", () => {
     expect(stripHtmlForDisplay("  Lobularia   maritima  ")).toBe("Lobularia maritima");
+  });
+});
+
+describe("looksLikeScientificName", () => {
+  it("returns false for null or undefined", () => {
+    expect(looksLikeScientificName(null)).toBe(false);
+    expect(looksLikeScientificName(undefined)).toBe(false);
+  });
+
+  it("returns false for scraped HTML/code fragments", () => {
+    expect(looksLikeScientificName('"-tulips" class="header__menu-item list-menu__item focus-inset"')).toBe(false);
+    expect(looksLikeScientificName('"-tulips"')).toBe(false);
+    expect(looksLikeScientificName("class=\"foo\"")).toBe(false);
+  });
+
+  it("returns true for plausible scientific names", () => {
+    expect(looksLikeScientificName("Lobularia maritima")).toBe(true);
+    expect(looksLikeScientificName("Solanum lycopersicum")).toBe(true);
+  });
+
+  it("returns false for too short or empty", () => {
+    expect(looksLikeScientificName("")).toBe(false);
+    expect(looksLikeScientificName("A")).toBe(false);
   });
 });

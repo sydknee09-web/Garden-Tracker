@@ -16,7 +16,7 @@ import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoResponse } from "@/lib/parseFindHeroPhotoResponse";
-import { stripHtmlForDisplay } from "@/lib/htmlEntities";
+import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
@@ -919,7 +919,7 @@ export default function VaultSeedPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <div>
                 <h1 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h1>
-                {stripHtmlForDisplay((profile as PlantProfile)?.scientific_name) && (
+                {looksLikeScientificName((profile as PlantProfile)?.scientific_name) && (
                   <p className="mt-0.5 text-sm text-neutral-500 italic" aria-label="Scientific name">
                     {stripHtmlForDisplay((profile as PlantProfile).scientific_name)}
                   </p>

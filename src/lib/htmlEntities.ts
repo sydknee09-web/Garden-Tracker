@@ -39,3 +39,19 @@ export function stripHtmlForDisplay(s: string | null | undefined): string {
     .trim();
   return decodeHtmlEntities(out);
 }
+
+/**
+ * True only when the string looks like a plausible scientific name (e.g. Latin binomial),
+ * not scraped HTML/code. Use to avoid showing junk like `"-tulips" class="header__..."`.
+ */
+export function looksLikeScientificName(s: string | null | undefined): boolean {
+  const raw = s?.trim() ?? "";
+  if (raw.length < 2 || raw.length > 120) return false;
+  if (/class\s*=\s*["']|id\s*=\s*["']|__|<\s*\w|>\s*\w/i.test(raw)) return false;
+  const stripped = stripHtmlForDisplay(raw);
+  if (stripped.length < 2) return false;
+  if (/class\s*=|__|<\w|>\w/i.test(stripped)) return false;
+  if (/^"[^"]*"$/.test(stripped)) return false;
+  if (!stripped.includes(" ") && (stripped.startsWith('"') || stripped.startsWith("-"))) return false;
+  return true;
+}
