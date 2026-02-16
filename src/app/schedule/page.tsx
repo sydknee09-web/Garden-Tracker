@@ -41,7 +41,7 @@ export default function SchedulePage() {
       </p>
 
       <nav
-        className="flex rounded-xl border border-black/10 bg-white p-1 mb-6"
+        className="flex rounded-xl border border-black/15 bg-white p-1 mb-4"
         aria-label="Schedule views"
       >
         {TABS.map((tab) => {
@@ -51,10 +51,10 @@ export default function SchedulePage() {
             <Link
               key={tab.value}
               href={href}
-              className={`flex-1 min-h-[44px] flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+              className={`flex-1 min-h-[44px] flex items-center justify-center rounded-lg text-sm font-medium transition-colors border-2 ${
                 isActive
-                  ? "bg-emerald-500 text-white"
-                  : "text-black/70 hover:bg-black/5"
+                  ? "border-emerald-500 bg-emerald-500 text-white"
+                  : "border-transparent text-black/70 hover:bg-black/5"
               }`}
               aria-current={isActive ? "page" : undefined}
             >

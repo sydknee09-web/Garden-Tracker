@@ -51,6 +51,14 @@ export default function HomePage() {
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
   const [upcomingCare, setUpcomingCare] = useState<UpcomingCare[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
+  const [insightDismissed, setInsightDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("home-insight-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -214,14 +222,27 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ---- Insight Banner (most valuable info first) ---- */}
-      {weather && sowingOk && !heatAlert && (
-        <div className="mb-4 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 shadow-card-soft flex items-center gap-3">
-          <span className="text-2xl shrink-0" aria-hidden>🌱</span>
-          <div>
-            <p className="text-xs font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
-            <p className="text-base font-semibold text-white">Great weather for sowing!</p>
+      {/* ---- Insight Banner (dismissible, compact) ---- */}
+      {weather && sowingOk && !heatAlert && !insightDismissed && (
+        <div className="mb-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 shadow-card-soft flex items-center gap-2">
+          <span className="text-lg shrink-0" aria-hidden>🌱</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
+            <p className="text-sm font-semibold text-white truncate">Great weather for sowing!</p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setInsightDismissed(true);
+              try {
+                localStorage.setItem("home-insight-dismissed", "1");
+              } catch {}
+            }}
+            className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 rounded-lg text-white/90 hover:bg-white/20 hover:text-white transition-colors"
+            aria-label="Dismiss insight"
+          >
+            <span className="text-lg font-bold leading-none">×</span>
+          </button>
         </div>
       )}
 

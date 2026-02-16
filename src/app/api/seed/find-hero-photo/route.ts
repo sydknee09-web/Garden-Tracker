@@ -280,15 +280,16 @@ export async function POST(req: Request) {
     const imageCheckMs = quick ? QUICK_IMAGE_CHECK_TIMEOUT_MS : IMAGE_CHECK_TIMEOUT_MS;
     let url = parseUrlFromResponse(response);
     if (url && !(await checkImageAccessible(url, imageCheckMs))) {
-      url = "";
+      if (!quick) url = "";
+      // Quick mode: keep URL even when HEAD fails — many hosts block server HEAD but allow browser; user can still try.
     }
-    // Quick mode: if first pass failed (timeout) or URL failed HEAD, try one simple fallback (e.g. "Alyssum Giga White flower")
+    // Quick mode: if first pass failed (timeout) or no URL yet, try one simple fallback (e.g. "Alyssum Giga White flower")
     if (quick && !url) {
       const simpleQuery = `${name} ${variety} flower`.replace(/\s+/g, " ").trim() || `${name} plant`;
       const fallbackResponse = await searchWithTimeout(simpleQuery, Math.min(QUICK_PASS_TIMEOUT_MS, 10_000));
       url = parseUrlFromResponse(fallbackResponse);
       if (url && !(await checkImageAccessible(url, imageCheckMs))) {
-        url = "";
+        // Keep URL in quick mode so browser can try (referrerPolicy no-referrer often works when HEAD fails).
       }
     }
     if (!quick) {

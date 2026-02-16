@@ -554,7 +554,7 @@ export default function VaultSeedPage() {
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     const controller = new AbortController();
     searchWebAbortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 28_000);
+    const timeoutId = setTimeout(() => controller.abort(), 32_000);
     try {
       const res = await fetch("/api/seed/find-hero-photo", {
         method: "POST",
