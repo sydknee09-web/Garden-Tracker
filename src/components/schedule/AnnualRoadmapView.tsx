@@ -80,7 +80,7 @@ export function AnnualRoadmapView() {
             ))}
 
             {/* Data rows: crop name (sticky) + bar cell spanning 12 cols; zebra + today line in timeline area */}
-            {entries.slice(0, 24).map((crop, rowIndex) => {
+            {entries.map((crop, rowIndex) => {
               const sow = getSowMonthsForGuide(crop.planting_window);
               const indices = SOW_KEYS.map((_, i) => i).filter((i) => sow[SOW_KEYS[i]!] === true);
               const first = indices[0];
