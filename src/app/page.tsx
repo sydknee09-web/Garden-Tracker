@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
-import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
@@ -51,7 +50,6 @@ export default function HomePage() {
   const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
   const [upcomingCare, setUpcomingCare] = useState<UpcomingCare[]>([]);
-  const [userProfiles, setUserProfiles] = useState<{ id: string; name: string; variety_name: string | null; planting_window?: string | null }[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
 
   useEffect(() => {
@@ -114,10 +112,6 @@ export default function HomePage() {
           variety_name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.variety_name ?? null) : (r.placeholder_variety ?? null),
         }))
       );
-
-      // Profiles (for Plant This Month)
-      const { data: profilesData } = await supabase.from("plant_profiles").select("id, name, variety_name, planting_window").eq("user_id", user!.id).is("deleted_at", null);
-      if (!cancelled) setUserProfiles((profilesData ?? []) as { id: string; name: string; variety_name: string | null; planting_window?: string | null }[]);
 
       // Upcoming care schedules (next 14 days)
       const twoWeeksOut = new Date();
@@ -206,33 +200,6 @@ export default function HomePage() {
     } finally { setMarkingTaskDoneId(null); setSyncing(false); }
   }
 
-  const { startThisMonthProfiles, startNextMonthProfiles, harvestTasksThisMonth, nextMonthName, nextMonthSowParam } = useMemo(() => {
-    const now = new Date();
-    const monthIndex = now.getMonth();
-    const nextMonthIndex = (monthIndex + 1) % 12;
-    const nextYear = monthIndex === 11 ? now.getFullYear() + 1 : now.getFullYear();
-    const startProfiles = userProfiles.filter((p) => isPlantableInMonth(p, monthIndex));
-    const nextProfiles = userProfiles.filter((p) => isPlantableInMonth(p, nextMonthIndex));
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const harvestTasks = pendingTasks.filter((t) => {
-      if (t.category !== "harvest") return false;
-      const d = new Date(t.due_date);
-      return d >= monthStart && d < nextMonthStart;
-    });
-    const nextMonthName = new Date(nextYear, nextMonthIndex, 1).toLocaleString("en-US", { month: "long" });
-    const nextMonthSowParam = `${nextYear}-${String(nextMonthIndex + 1).padStart(2, "0")}`;
-    return {
-      startThisMonthProfiles: startProfiles,
-      startNextMonthProfiles: nextProfiles,
-      harvestTasksThisMonth: harvestTasks,
-      nextMonthName,
-      nextMonthSowParam,
-    };
-  }, [userProfiles, pendingTasks]);
-
-  const monthName = new Date().toLocaleString("en-US", { month: "long" });
-
   return (
     <div className="px-6 pt-2 pb-6 max-w-2xl mx-auto">
       {/* ---- Frost Alert Banner ---- */}
@@ -290,106 +257,6 @@ export default function HomePage() {
                   Extreme Heat: Check irrigation.
                 </span>
               )}
-            </div>
-
-            {/* ---- Sow Now (linked to actual seeds) ---- */}
-            <div className="mt-3 pt-3 border-t border-black/10 space-y-3">
-              <h3 className="text-sm font-bold text-black text-center pb-1 border-b border-black/5">Plant This {monthName}</h3>
-              {startThisMonthProfiles.length === 0 ? (
-                <div>
-                  <div className="flex flex-col items-center gap-1.5 mb-2">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/20" aria-hidden>
-                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <p className="text-xs text-black/50 text-center">No seeds in your vault match this month&apos;s planting window.</p>
-                  </div>
-                  <p className="text-xs font-medium text-black/70 mb-2 text-center">Suggested for {locationLabel}</p>
-                  <ul className="flex flex-wrap gap-2 justify-center">
-                    {(["Peppers", "Tomatoes", "Marigolds", "Lettuce"] as const).map((name) => (
-                      <li key={name}>
-                        <Link href="/vault" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/80 text-xs font-medium text-emerald-700 border border-emerald-200/60 hover:bg-emerald-50/80 transition-colors">
-                          {name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="overflow-x-auto -mx-1 px-1 pb-1">
-                  <ul className="flex gap-2 min-w-max sm:flex-wrap sm:min-w-0 sm:justify-center">
-                    {startThisMonthProfiles.map((p) => (
-                      <li key={p.id} className="shrink-0">
-                        <Link
-                          href={`/vault/${p.id}`}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-sm text-emerald-800 hover:bg-emerald-100 transition-colors border border-emerald-100/80"
-                        >
-                          <span className="font-semibold">{p.name}</span>
-                          {p.variety_name?.trim() && <span className="text-emerald-600/80 text-xs">({p.variety_name})</span>}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Plant Next Month */}
-              <div className="pt-3 border-t border-black/10 mt-3">
-                <h3 className="text-sm font-bold text-black text-center pb-1 mb-2 border-b border-black/5">Plant Next Month ({nextMonthName})</h3>
-                {startNextMonthProfiles.length === 0 ? (
-                  <p className="text-xs text-black/50 text-center">No seeds match {nextMonthName}&apos;s planting window.</p>
-                ) : (
-                  <>
-                    <ul className="flex flex-wrap gap-2">
-                      {startNextMonthProfiles.slice(0, 6).map((p) => (
-                        <li key={p.id}>
-                          <Link
-                            href={`/vault/${p.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-50 text-sm text-sky-800 hover:bg-sky-100 transition-colors border border-sky-100/80"
-                          >
-                            <span className="font-semibold">{p.name}</span>
-                            {p.variety_name?.trim() && <span className="text-sky-600/80 text-xs">({p.variety_name})</span>}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-xs text-center mt-2">
-                      <Link href={`/vault?sow=${nextMonthSowParam}`} className="text-sky-600 font-medium hover:underline">
-                        View all for {nextMonthName} &rarr;
-                      </Link>
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Harvest this month */}
-              <div className="pt-2 border-t border-black/10 mt-2">
-                <h3 className="text-sm font-bold text-black mb-1.5 text-center pb-1 border-b border-black/5">Harvest this month</h3>
-                {harvestTasksThisMonth.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 py-3">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
-                      <path d="M5 8h14l-1.5 10H6.5L5 8z" />
-                      <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                      <path d="M3 10h18" strokeDasharray="2 2" />
-                    </svg>
-                    <p className="text-xs text-black/50 text-center">No harvest tasks due this month.</p>
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {harvestTasksThisMonth.map((t) => (
-                      <li key={t.id}>
-                        <Link
-                          href={(t.plant_profile_id ?? t.plant_variety_id) ? `/vault/${t.plant_profile_id ?? t.plant_variety_id}` : "/calendar"}
-                          className="text-sm text-emerald-600 font-medium hover:underline"
-                        >
-                          {t.plant_name ?? t.title ?? t.category}
-                          {t.due_date && ` (${new Date(t.due_date).toLocaleDateString()})`}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
             </div>
           </>
         ) : (
