@@ -15,7 +15,7 @@ import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
-import { parseFindHeroPhotoResponse } from "@/lib/parseFindHeroPhotoResponse";
+import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
 import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
@@ -179,13 +179,18 @@ export default function VaultSeedPage() {
   const [findingStockPhoto, setFindingStockPhoto] = useState(false);
   const [findHeroError, setFindHeroError] = useState<string | null>(null);
   const [searchWebLoading, setSearchWebLoading] = useState(false);
-  const [searchWebResultUrl, setSearchWebResultUrl] = useState<string | null>(null);
+  const [searchWebGalleryUrls, setSearchWebGalleryUrls] = useState<string[]>([]);
   const [searchWebError, setSearchWebError] = useState<string | null>(null);
   const searchWebAbortRef = useRef<AbortController | null>(null);
+  const photoGalleryLoadedRef = useRef(false);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
   const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+
+  // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
+  const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // About tab: which sections are collapsed (default all open)
   const [aboutCollapsed, setAboutCollapsed] = useState<Record<string, boolean>>({});
@@ -210,10 +215,12 @@ export default function VaultSeedPage() {
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
 
   useEffect(() => {
-    if (showSetPhotoModal) {
-      setSearchWebResultUrl(null);
-      setSearchWebError(null);
+    if (!showSetPhotoModal) {
+      photoGalleryLoadedRef.current = false;
+      return;
     }
+    setSearchWebGalleryUrls([]);
+    setSearchWebError(null);
   }, [showSetPhotoModal]);
 
   // =========================================================================
@@ -305,8 +312,38 @@ export default function VaultSeedPage() {
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
+  // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("plant_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("name", { ascending: true });
+      if (!cancelled && data) setOrderedProfileIds((data as { id: string }[]).map((r) => r.id));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   // =========================================================================
   // Derived
+  // =========================================================================
+  const prevNext = useMemo(() => {
+    if (!id || orderedProfileIds.length === 0) return { prevId: null, nextId: null };
+    const idx = orderedProfileIds.indexOf(id);
+    if (idx < 0) return { prevId: null, nextId: null };
+    return {
+      prevId: idx > 0 ? orderedProfileIds[idx - 1]! : null,
+      nextId: idx < orderedProfileIds.length - 1 ? orderedProfileIds[idx + 1]! : null,
+    };
+  }, [id, orderedProfileIds]);
+  const { prevId, nextId } = prevNext;
+
+  // =========================================================================
+  // Derived (continued)
   // =========================================================================
   const displayName = profile?.variety_name?.trim()
     ? `${stripHtmlForDisplay(profile.name)} – ${stripHtmlForDisplay(profile.variety_name)}`
@@ -371,6 +408,25 @@ export default function VaultSeedPage() {
   const legacyNotes = isLegacy ? [(profile as PlantVarietyProfile).growing_notes, (profile as PlantVarietyProfile).growing_info_from_source].filter(Boolean).join("\n\n") : "";
   const legacyPlantDesc = isLegacy ? (profile as PlantVarietyProfile).plant_description : null;
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
+
+  // Swipe to prev/next profile (mobile); only when no modal is open
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || harvestGrowId != null;
+  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
+    swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
+  }, []);
+  const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (start == null || modalOpen) return;
+    const end = e.changedTouches[0];
+    if (!end) return;
+    const deltaX = end.clientX - start.x;
+    const deltaY = end.clientY - start.y;
+    if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    const tab = validTab !== "about" ? `?tab=${validTab}` : "";
+    if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}`);
+    else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}`);
+  }, [modalOpen, nextId, prevId, router, validTab]);
 
   // =========================================================================
   // Handlers
@@ -539,16 +595,15 @@ export default function VaultSeedPage() {
 
   const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
 
-  /** Search web for a plant photo (from Set Profile Photo modal); shows result for user to accept or dismiss. Uses quick mode and client timeout to avoid timeouts. */
-  const searchWebForPhoto = useCallback(async () => {
+  /** Load photo gallery for Set Profile Photo modal: search variety + plant, show multiple images for user to pick. */
+  const loadPhotoGallery = useCallback(async () => {
     if (!profile || searchWebLoading) return;
     setSearchWebLoading(true);
-    setSearchWebResultUrl(null);
+    setSearchWebGalleryUrls([]);
     setSearchWebError(null);
     const name = (profile.name ?? "").trim() || "Imported seed";
     const variety = (profile.variety_name ?? "").trim();
     const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
-    const scientific_name = (profile as PlantProfile).scientific_name?.trim() ?? "";
     const identityKey = identityKeyFromVariety(name, variety);
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
@@ -564,16 +619,15 @@ export default function VaultSeedPage() {
           variety,
           vendor,
           identity_key: identityKey ?? undefined,
-          scientific_name: scientific_name || undefined,
-          quick: true,
+          gallery: true,
         }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
       const text = await res.text();
-      const result = parseFindHeroPhotoResponse(text, res.ok);
+      const result = parseFindHeroPhotoGalleryResponse(text, res.ok);
       if (result.success) {
-        setSearchWebResultUrl(result.url);
+        setSearchWebGalleryUrls(result.urls);
       } else {
         setSearchWebError(result.error);
       }
@@ -594,6 +648,13 @@ export default function VaultSeedPage() {
   const cancelSearchWeb = useCallback(() => {
     searchWebAbortRef.current?.abort();
   }, []);
+
+  // Auto-load photo gallery when Set Profile Photo modal opens (once per open).
+  useEffect(() => {
+    if (!showSetPhotoModal || !profile || photoGalleryLoadedRef.current || searchWebLoading) return;
+    photoGalleryLoadedRef.current = true;
+    loadPhotoGallery();
+  }, [showSetPhotoModal, profile, searchWebLoading, loadPhotoGallery]);
 
   /** Copy packet image from seed-packets to journal-photos, then set as hero. Packet photos live in seed-packets but hero_image_path expects journal-photos. */
   const setHeroFromPacket = useCallback(async (packetStoragePath: string) => {
@@ -742,7 +803,7 @@ export default function VaultSeedPage() {
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex-shrink-0 p-4 border-b border-neutral-200">
               <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-              <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or search the web.</p>
+              <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or pick from web search results.</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               <div className="flex flex-col gap-2">
@@ -757,11 +818,11 @@ export default function VaultSeedPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={searchWebForPhoto}
+                    onClick={loadPhotoGallery}
                     disabled={searchWebLoading || !profile}
                     className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
                   >
-                    {searchWebLoading ? "Searching…" : "Search web"}
+                    {searchWebLoading ? "Searching…" : "Refresh photos"}
                   </button>
                   {searchWebLoading && (
                     <button
@@ -777,23 +838,23 @@ export default function VaultSeedPage() {
               {searchWebError && (
                 <div className="space-y-1">
                   <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">{searchWebError}</p>
-                  <p className="text-xs text-neutral-500">Click Search web again to retry.</p>
+                  <p className="text-xs text-neutral-500">Click Refresh photos to try again.</p>
                 </div>
               )}
-              {searchWebResultUrl && (
+              {searchWebGalleryUrls.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Found online</p>
-                  <div className="flex flex-col gap-2">
-                    <div className="aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">
-                      <img src={searchWebResultUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => { await setHeroFromUrl(searchWebResultUrl!); setShowSetPhotoModal(false); }}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 min-h-[44px]"
-                    >
-                      Use this photo
-                    </button>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Pick a photo</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {searchWebGalleryUrls.map((url, idx) => (
+                      <button
+                        key={`${url}-${idx}`}
+                        type="button"
+                        onClick={async () => { await setHeroFromUrl(url); setShowSetPhotoModal(false); }}
+                        className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      >
+                        <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -904,9 +965,36 @@ export default function VaultSeedPage() {
       )}
 
       {/* ================================================================ */}
-      {/* Main Content                                                     */}
+      {/* Main Content (swipe left/right on mobile to change profile)       */}
       {/* ================================================================ */}
-      <div className="mx-auto max-w-2xl px-6 pt-6">
+      <div
+        className="mx-auto max-w-2xl px-6 pt-6 relative touch-pan-y"
+        onTouchStart={handleSwipeStart}
+        onTouchEnd={handleSwipeEnd}
+      >
+        {/* Prev/next profile arrows (mobile-friendly tap targets) */}
+        {(prevId ?? nextId) && (
+          <>
+            {prevId ? (
+              <Link
+                href={validTab !== "about" ? `/vault/${prevId}?tab=${validTab}` : `/vault/${prevId}`}
+                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                aria-label="Previous plant profile"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+              </Link>
+            ) : null}
+            {nextId ? (
+              <Link
+                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}` : `/vault/${nextId}`}
+                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                aria-label="Next plant profile"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
+              </Link>
+            ) : null}
+          </>
+        )}
         {validTab === "journal" ? (
           <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
         ) : (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFindHeroPhotoResponse } from "./parseFindHeroPhotoResponse";
+import { parseFindHeroPhotoResponse, parseFindHeroPhotoGalleryResponse } from "./parseFindHeroPhotoResponse";
 
 describe("parseFindHeroPhotoResponse", () => {
   it("returns url when response is valid JSON with hero_image_url", () => {
@@ -53,5 +53,31 @@ describe("parseFindHeroPhotoResponse", () => {
     const body = JSON.stringify({ hero_image_url: "not-a-url" });
     const result = parseFindHeroPhotoResponse(body, true);
     expect(result).toEqual({ success: false, error: "No image found for this variety." });
+  });
+});
+
+describe("parseFindHeroPhotoGalleryResponse", () => {
+  it("returns urls when response is valid JSON with urls array", () => {
+    const body = JSON.stringify({ urls: ["https://a.com/1.jpg", "https://b.com/2.png"] });
+    const result = parseFindHeroPhotoGalleryResponse(body, true);
+    expect(result).toEqual({ success: true, urls: ["https://a.com/1.jpg", "https://b.com/2.png"] });
+  });
+
+  it("filters out non-http entries and returns success when at least one url", () => {
+    const body = JSON.stringify({ urls: ["https://ok.com/x.jpg", "not-a-url", "ftp://old.com/y.gif"] });
+    const result = parseFindHeroPhotoGalleryResponse(body, true);
+    expect(result).toEqual({ success: true, urls: ["https://ok.com/x.jpg"] });
+  });
+
+  it("returns error when urls is empty and error field present", () => {
+    const body = JSON.stringify({ urls: [], error: "Search took too long. Please try again." });
+    const result = parseFindHeroPhotoGalleryResponse(body, true);
+    expect(result).toEqual({ success: false, error: "Search took too long. Please try again." });
+  });
+
+  it("returns friendly error when body is invalid JSON", () => {
+    const result = parseFindHeroPhotoGalleryResponse("<html/>", false);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).not.toMatch(/Unexpected token|valid JSON/i);
   });
 });

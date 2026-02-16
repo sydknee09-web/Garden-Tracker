@@ -9,7 +9,7 @@ export const maxDuration = 30;
 
 const PASS_TIMEOUT_MS = 15_000;
 /** Single-pass timeout for "Search web" modal so we stay well under maxDuration (30s). */
-const QUICK_PASS_TIMEOUT_MS = 12_000;
+const QUICK_PASS_TIMEOUT_MS = 16_000;
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
 /** In quick mode use a shorter HEAD timeout so we fail fast and stay under maxDuration. */
 const QUICK_IMAGE_CHECK_TIMEOUT_MS = 3_000;
@@ -69,15 +69,17 @@ export async function POST(req: Request) {
     const identity_key = typeof body?.identity_key === "string" ? body.identity_key.trim() : "";
     /** When true (e.g. Set Profile Photo modal), do one Gemini pass only so we stay under maxDuration and don't time out. */
     const quick = body?.quick === true;
+    /** When true, return multiple image URLs for gallery picker; no heavy filtering, user picks. */
+    const gallery = body?.gallery === true;
     const logLabel = `${name} ${(variety || "").trim()}`.trim() || name;
     if (!name) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
     }
 
-    // Phase 0 (Vault check): if we have identity_key and auth, return cached hero URL when status was 200
+    // Phase 0 (Vault check): if we have identity_key and auth, return cached hero URL when status was 200 (skip for gallery)
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (identity_key && token) {
+    if (!gallery && identity_key && token) {
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: `Bearer ${token}` } },
       });
@@ -183,6 +185,46 @@ export async function POST(req: Request) {
     }
 
     const ai = new GoogleGenAI({ apiKey });
+
+    // Gallery mode: one search for variety + plant, return multiple URLs for user to pick (no heavy filtering)
+    if (gallery) {
+      const galleryQuery = [variety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
+      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower: "${galleryQuery}". Prefer real plant/flower photos; avoid seed packet images. Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL.`;
+      const galleryTimeoutMs = QUICK_PASS_TIMEOUT_MS;
+      let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+      try {
+        galleryResponse = await Promise.race([
+          ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: galleryPrompt,
+            config: { tools: [{ googleSearch: {} }] },
+          }),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), galleryTimeoutMs)),
+        ]).catch(() => null);
+      } catch {
+        galleryResponse = null;
+      }
+      const text = galleryResponse?.text?.trim() ?? "";
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const urls: string[] = [];
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]) as { urls?: unknown };
+          const raw = Array.isArray(parsed?.urls) ? parsed.urls : [];
+          for (const u of raw) {
+            if (typeof u === "string" && u.trim().startsWith("http")) urls.push(u.trim());
+          }
+        } catch {
+          // leave urls empty
+        }
+      }
+      if (urls.length === 0 && !galleryResponse) {
+        return NextResponse.json({ urls: [], error: "Search took too long. Please try again." });
+      }
+      console.log(`[hero] Gallery: ${logLabel} → ${urls.length} urls`);
+      return NextResponse.json({ urls });
+    }
+
     const passNum = typeof body?.pass === "number" ? body.pass : 0;
     const isPass4OrHigher = passNum >= 4;
     const stripSeedsFromQuery = (q: string) =>
