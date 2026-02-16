@@ -10,6 +10,8 @@ export const maxDuration = 30;
 const PASS_TIMEOUT_MS = 15_000;
 /** Single-pass timeout for "Search web" modal so we stay well under maxDuration (30s). */
 const QUICK_PASS_TIMEOUT_MS = 16_000;
+/** Gallery mode: one Gemini pass only; keep under 20s client timeout. */
+const GALLERY_PASS_TIMEOUT_MS = 15_000;
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
 /** In quick mode use a shorter HEAD timeout so we fail fast and stay under maxDuration. */
 const QUICK_IMAGE_CHECK_TIMEOUT_MS = 3_000;
@@ -232,13 +234,16 @@ export async function POST(req: Request) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Gallery mode: one search for variety + plant, return multiple URLs for user to pick (no heavy filtering)
+    // Gallery mode: one search for variety + plant only (looser; no "on the vine" etc.), return multiple URLs for user to pick
     if (gallery) {
       const galleryQuery = [variety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
-      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower: "${galleryQuery}". 
+      const scientificHint = scientific_name
+        ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
+        : "";
+      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower. Use only the plant and variety name in your search—do not add phrases like "on the vine", "in the garden", or other decorative text. Search for: "${galleryQuery}".${scientificHint}
 Important: Prefer images from Wikimedia Commons (upload.wikimedia.org or commons.wikimedia.org) and other sites that allow direct image linking—these must be direct URLs to image files (.jpg, .png, etc.), not web pages. Avoid seed packet images.
 Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL (e.g. https://upload.wikimedia.org/...).`;
-      const galleryTimeoutMs = QUICK_PASS_TIMEOUT_MS;
+      const galleryTimeoutMs = GALLERY_PASS_TIMEOUT_MS;
       let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
         galleryResponse = await Promise.race([

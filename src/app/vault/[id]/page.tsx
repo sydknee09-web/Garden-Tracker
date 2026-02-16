@@ -618,7 +618,7 @@ export default function VaultSeedPage() {
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     const controller = new AbortController();
     searchWebAbortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 32_000);
+    const timeoutId = setTimeout(() => controller.abort(), 20_000);
     try {
       const res = await fetch("/api/seed/find-hero-photo", {
         method: "POST",
@@ -629,6 +629,7 @@ export default function VaultSeedPage() {
           vendor,
           identity_key: identityKey ?? undefined,
           gallery: true,
+          scientific_name: (profile as { scientific_name?: string | null })?.scientific_name?.trim() || undefined,
         }),
         signal: controller.signal,
       });
@@ -813,7 +814,7 @@ export default function VaultSeedPage() {
             <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-                <p className="text-sm text-neutral-500 mt-1">Upload, choose from Growth Gallery, or pick from web search results.</p>
+                <p className="text-sm text-neutral-500 mt-1">Take a photo, choose from files, or pick from web images.</p>
               </div>
               <button type="button" onClick={() => setShowSetPhotoModal(false)} className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Close">Cancel</button>
             </div>
@@ -827,24 +828,27 @@ export default function VaultSeedPage() {
                 <label htmlFor={heroUploading ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {heroUploading ? "Uploading..." : "Choose from files"}
                 </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={loadPhotoGallery}
-                    disabled={searchWebLoading || !profile}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
-                  >
-                    {searchWebLoading ? "Searching…" : "Refresh photos"}
-                  </button>
-                  {searchWebLoading && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Choose from web images</p>
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={cancelSearchWeb}
-                      className="px-4 py-3 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-700 font-medium hover:bg-neutral-100 min-h-[44px]"
+                      onClick={loadPhotoGallery}
+                      disabled={searchWebLoading || !profile}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-medium hover:bg-emerald-100 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}
                     >
-                      Cancel
+                      {searchWebLoading ? "Loading web images…" : "Refresh photos"}
                     </button>
-                  )}
+                    {searchWebLoading && (
+                      <button
+                        type="button"
+                        onClick={cancelSearchWeb}
+                        className="px-4 py-3 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-700 font-medium hover:bg-neutral-100 min-h-[44px]"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               {searchWebError && (
@@ -861,7 +865,22 @@ export default function VaultSeedPage() {
                       <button
                         key={`${url}-${idx}`}
                         type="button"
-                        onClick={async () => { if (!galleryImageFailed.has(url)) { await setHeroFromUrl(url); setShowSetPhotoModal(false); } }}
+                        onClick={async () => {
+                          if (galleryImageFailed.has(url)) return;
+                          await setHeroFromUrl(url);
+                          setShowSetPhotoModal(false);
+                          const name = (profile?.name ?? "").trim() || "Imported seed";
+                          const variety = (profile?.variety_name ?? "").trim() ?? "";
+                          const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
+                          const identityKey = identityKeyFromVariety(name, variety);
+                          if (identityKey && session?.access_token) {
+                            fetch("/api/seed/save-hero-to-cache", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                              body: JSON.stringify({ identity_key: identityKey, hero_image_url: url, name, variety, vendor }),
+                            }).catch((err) => console.error("[save-hero-to-cache]", err));
+                          }
+                        }}
                         disabled={galleryImageFailed.has(url)}
                         className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-60 disabled:pointer-events-none"
                       >
