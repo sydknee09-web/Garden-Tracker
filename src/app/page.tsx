@@ -397,6 +397,37 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
+      <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
+        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Planting Schedule</h2>
+        <p className="text-xs text-black/50 mb-3">Zone 10b reference guide — when to start indoors or plant outside. Not your vault.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Link
+            href="/schedule?view=action"
+            className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100/80 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors"
+          >
+            Action now
+          </Link>
+          <Link
+            href="/schedule?view=heatmap"
+            className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-sky-50 border border-sky-100/80 px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-sky-100 transition-colors"
+          >
+            Monthly pulse
+          </Link>
+          <Link
+            href="/schedule?view=roadmap"
+            className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-amber-50 border border-amber-100/80 px-4 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
+          >
+            Annual roadmap
+          </Link>
+        </div>
+        <p className="text-xs text-black/50 mt-2 text-center">
+          <Link href="/schedule" className="text-emerald-600 font-medium hover:underline">
+            View full schedule &rarr;
+          </Link>
+        </p>
+      </section>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* ---- Shopping List ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
@@ -534,7 +565,7 @@ export default function HomePage() {
       {/* ---- Planting Calendars (SDSC + Farmers' Almanac) ---- */}
       <section className="mt-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
         <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Planting calendars</h2>
-        <p className="text-xs text-black/50 mb-3">Zone charts and frost dates — open in a new tab to view or print.</p>
+        <p className="text-xs text-black/50 mb-3">Zone charts and frost dates — open in a new tab to view or print. Or use our in-app <Link href="/schedule" className="text-emerald-600 font-medium hover:underline">Planting Schedule</Link> (Zone 10b reference).</p>
         <div className="space-y-3">
           {PLANTING_CALENDAR_LINKS.filter((c) => c.primary).map((cal) => (
             <a

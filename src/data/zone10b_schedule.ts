@@ -1,7 +1,7 @@
-
 // src/data/zone10b_schedule.ts
+// Zone 10b planting reference (SDSC-style Zones 9/10). Used as fallback for vault profiles
+// and as the source of truth for the Planting Schedule reference guide (see /schedule).
 // TODO: Zone-aware scheduling. user_settings.planting_zone is stored but not used.
-// All scheduling currently uses Zone 10b fallback.
 
 export interface PlantingData {
     // Zone Specific (Override scraped data)

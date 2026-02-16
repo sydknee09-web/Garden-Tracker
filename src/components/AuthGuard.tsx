@@ -25,6 +25,7 @@ function getPageTitle(pathname: string | null): string {
   if (pathname.startsWith("/vault")) return "Vault";
   if (pathname.startsWith("/journal")) return "Journal";
   if (pathname.startsWith("/calendar")) return "Calendar";
+  if (pathname.startsWith("/schedule")) return "Planting Schedule";
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/chat")) return "Chat";
   return "";
