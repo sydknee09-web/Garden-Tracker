@@ -104,7 +104,7 @@ export async function buildUpdatesFromCacheRow(
     if (parsed != null) updates.harvest_days = parsed;
   }
   if (!(p.scientific_name ?? "").trim() && str(ed.scientific_name)) {
-    const cleaned = stripHtmlForDisplay(ed.scientific_name);
+    const cleaned = stripHtmlForDisplay(str(ed.scientific_name));
     if (cleaned) updates.scientific_name = cleaned;
   }
   if (!(p.plant_description ?? "").trim() && str(ed.plant_description)) {
