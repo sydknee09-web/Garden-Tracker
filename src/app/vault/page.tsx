@@ -86,17 +86,6 @@ function CondensedGridIcon() {
     </svg>
   );
 }
-/** Gallery = full-width stacked photos (single column). */
-function GalleryStackIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="2" width="20" height="6" rx="1" />
-      <rect x="2" y="10" width="20" height="6" rx="1" />
-      <rect x="2" y="18" width="20" height="4" rx="1" />
-    </svg>
-  );
-}
-
 function VaultPageInner() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "active" | "plants">("grid");
@@ -144,7 +133,7 @@ function VaultPageInner() {
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
-  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed" | "gallery">("condensed");
+  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "plantType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | null>(null);
   const [sortBy, setSortBy] = useState<VaultSortBy>("name");
@@ -295,7 +284,8 @@ function VaultPageInner() {
       if (savedView === "grid" || savedView === "list" || savedView === "active" || savedView === "plants") setViewMode(savedView);
       else if (savedView === "table") setViewMode("list");
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
-      if (savedGridStyle === "photo" || savedGridStyle === "condensed" || savedGridStyle === "gallery") setGridDisplayStyle(savedGridStyle);
+      if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
+      else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
       const savedStatus = sessionStorage.getItem("vault-status-filter");
       if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") setStatusFilter(savedStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
@@ -926,12 +916,12 @@ function VaultPageInner() {
                 {viewMode === "grid" && (
                   <button
                     type="button"
-                    onClick={() => setGridDisplayStyle((s) => (s === "condensed" ? "photo" : s === "photo" ? "gallery" : "condensed"))}
+                    onClick={() => setGridDisplayStyle((s) => (s === "condensed" ? "photo" : "condensed"))}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                    title={gridDisplayStyle === "condensed" ? "Photo cards" : gridDisplayStyle === "photo" ? "Gallery view" : "Condensed grid"}
-                    aria-label={gridDisplayStyle === "condensed" ? "Switch to photo cards" : gridDisplayStyle === "photo" ? "Switch to gallery view" : "Switch to condensed grid"}
+                    title={gridDisplayStyle === "condensed" ? "Photo cards" : "Condensed grid"}
+                    aria-label={gridDisplayStyle === "condensed" ? "Switch to photo cards" : "Switch to condensed grid"}
                   >
-                    {gridDisplayStyle === "condensed" ? <PhotoCardsGridIcon /> : gridDisplayStyle === "photo" ? <GalleryStackIcon /> : <CondensedGridIcon />}
+                    {gridDisplayStyle === "condensed" ? <PhotoCardsGridIcon /> : <CondensedGridIcon />}
                   </button>
                 )}
                 {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (

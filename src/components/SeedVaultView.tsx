@@ -264,8 +264,8 @@ export function SeedVaultView({
   plantNowFilter?: boolean;
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth?: string | null;
-  /** When mode is "grid", "photo" = image-dominant cards, "condensed" = compact data-focused, "gallery" = photos-first large single column. */
-  gridDisplayStyle?: "photo" | "condensed" | "gallery";
+  /** When mode is "grid", "photo" = image-dominant 2-col cards, "condensed" = compact 3-col. */
+  gridDisplayStyle?: "photo" | "condensed";
   /** Controlled plant-type filter (first word of name); when set, Refine By panel can drive this. */
   categoryFilter?: string | null;
   onCategoryFilterChange?: (value: string | null) => void;
@@ -1013,58 +1013,16 @@ export function SeedVaultView({
 
   if (mode === "grid") {
     const isPhotoCards = gridDisplayStyle === "photo";
-    const isGallery = gridDisplayStyle === "gallery";
+    /* Tight gap (8px) for both views so cards sit closer like My Garden. */
+    const gridClass = isPhotoCards ? "grid-cols-2 gap-2" : "grid-cols-3 gap-2";
 
     return (
       <div className="relative z-10 space-y-2">
-        <ul className={`grid ${isGallery ? "grid-cols-1 gap-1" : isPhotoCards ? "grid-cols-2 gap-1.5" : "grid-cols-3 gap-3"}`} role="list">
+        <ul className={`grid ${gridClass}`} role="list">
           {sortedGridSeeds.map((seed, idx) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
-
-            if (isGallery) {
-              const galleryContent = (
-                <div className="relative w-full aspect-[4/5] bg-neutral-100 overflow-hidden rounded-lg">
-                  {showResearching ? (
-                    <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
-                      <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
-                    </div>
-                  ) : showSeedling ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-4xl">🌱</div>
-                  ) : (
-                    <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 pt-12 pb-2 px-2 bg-gradient-to-t from-black/70 to-transparent">
-                    <p className="text-white font-semibold text-sm truncate">{decodeHtmlEntities(seed.name)}</p>
-                    {seed.variety && seed.variety !== "—" && <p className="text-white/90 text-xs truncate">{decodeHtmlEntities(seed.variety)}</p>}
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <HealthDot seed={seed} size="sm" />
-                      <span className="text-white/80 text-xs">{seed.packet_count} pkt</span>
-                      {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-amber-300 text-xs">Out</span>}
-                    </div>
-                  </div>
-                  {batchSelectMode && onToggleVarietySelection && (
-                    <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-5 h-5" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
-                    </div>
-                  )}
-                </div>
-              );
-              return (
-                <li key={seed.id} className="min-w-0 animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
-                  {batchSelectMode ? (
-                    <article role="button" tabIndex={0} onClick={() => onToggleVarietySelection?.(seed.id)} className={`rounded-lg overflow-hidden cursor-pointer ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500 ring-inset" : ""}`}>
-                      {galleryContent}
-                    </article>
-                  ) : (
-                    <div role="link" tabIndex={0} className="block cursor-pointer" onClick={lp ? () => lp.handleClick() : () => goToProfile(seed.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }} {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}>
-                      <article className="rounded-lg overflow-hidden hover:opacity-95 transition-opacity w-full">{galleryContent}</article>
-                    </div>
-                  )}
-                </li>
-              );
-            }
 
             if (isPhotoCards) {
               const cardContent = (
