@@ -2,9 +2,9 @@
 // Zone 10b planting reference (SDSC-style Zones 9/10). Used as fallback for vault profiles
 // and as the source of truth for the Planting Schedule reference guide (see /schedule).
 //
-// Source: Originally derived from San Diego Seed Company Quick-Glance (Zones 9/10).
-// Cross-reference: Almanac.com planting calendar for Vista 92084 / San Diego for frost-based
-// dates and additional crops: https://www.almanac.com/gardening/planting-calendar/zipcode/92084
+// Source: San Diego Seed Company Planting Chart (Zones 9/10). Aligned with SDSC PDF
+// planting windows (Cool/Shoulder/Warm) and crop notes. Cross-reference: Almanac.com
+// Vista 92084 https://www.almanac.com/gardening/planting-calendar/zipcode/92084
 //
 // TODO: Zone-aware scheduling. user_settings.planting_zone is stored but not used.
 
@@ -290,7 +290,16 @@ export interface PlantingData {
     "Bok Choy": {
       sowing_method: "Direct Sow / Transplant",
       planting_window: "Fall/Spring: Sep-Nov, Feb-Apr",
-      notes: "Bolts in heat. Quick crop in cool weather.",
+      notes: "Bolts in heat. Quick crop in cool weather. Pac Choi = same crop (SDSC).",
+      sun: "Full Sun / Part Shade",
+      spacing: "6-10 inches",
+      germination_time: "5-7 days",
+      days_to_maturity: "45-60 days"
+    },
+    "Pac Choi": {
+      sowing_method: "Direct Sow / Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Feb-Apr",
+      notes: "Heat-loving tender winter green; thrives in fall. Same as Bok Choy (SDSC).",
       sun: "Full Sun / Part Shade",
       spacing: "6-10 inches",
       germination_time: "5-7 days",
@@ -299,11 +308,45 @@ export interface PlantingData {
     "Turnips": {
       sowing_method: "Direct Sow",
       planting_window: "Fall/Winter: Sep-Feb",
-      notes: "Greens and roots. Thin for larger roots.",
+      notes: "Greens and roots. Thin for larger roots. Cool season crop (SDSC).",
       sun: "Full Sun",
       spacing: "3-4 inches",
       germination_time: "5-10 days",
       days_to_maturity: "40-60 days"
+    },
+    "Rutabaga": {
+      sowing_method: "Direct Sow",
+      planting_window: "Fall/Winter: Sep-Feb",
+      notes: "Cool season root crop. Direct sow and thin accordingly (SDSC).",
+      sun: "Full Sun",
+      spacing: "4-6 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "90-100 days"
+    },
+    "Mustard Greens": {
+      sowing_method: "Direct Sow / Transplant",
+      planting_window: "Fall/Spring: Sep-May",
+      notes: "Best in cool season; use shade cloth in warm season (SDSC).",
+      sun: "Full Sun / Part Shade",
+      spacing: "6-8 inches",
+      germination_time: "5-10 days",
+      days_to_maturity: "40-50 days"
+    },
+    "Scallions": {
+      sowing_method: "Direct Sow or Transplant",
+      planting_window: "Sep-May (avoid peak summer)",
+      notes: "Green onion. Can be grown all months except hottest summer (SDSC).",
+      sun: "Full Sun",
+      spacing: "2-3 inches",
+      germination_time: "7-14 days",
+      days_to_maturity: "60-70 days"
+    },
+    "Sorrel": {
+      sowing_method: "Direct Sow or Cuttings",
+      planting_window: "Year Round",
+      notes: "Thrives year round in mild areas. Propagate by cuttings (SDSC).",
+      sun: "Full Sun / Part Shade",
+      spacing: "8-12 inches"
     },
     "Artichoke": {
       sowing_method: "Transplant",
@@ -389,10 +432,33 @@ export interface PlantingData {
     "Chives": {
       sowing_method: "Direct Sow or Transplant",
       planting_window: "Fall/Spring: Sep-Nov, Jan-Mar",
-      notes: "Perennial. Divide clumps every few years.",
+      notes: "Perennial. Easily grown year round (SDSC). Divide clumps every few years.",
       sun: "Full Sun",
       spacing: "6-8 inches",
       germination_time: "10-14 days"
+    },
+    "Anise": {
+      sowing_method: "Transplant",
+      planting_window: "Spring/Fall: Mar-Oct",
+      notes: "Flower and herb. Small seed best when transplanted (SDSC).",
+      sun: "Full Sun",
+      spacing: "8-12 inches",
+      germination_time: "14-21 days"
+    },
+    "Sweet Marjoram": {
+      sowing_method: "Transplant",
+      planting_window: "Spring: Feb-May",
+      notes: "Perennial. Small seed best when transplanted (SDSC).",
+      sun: "Full Sun",
+      spacing: "8-10 inches",
+      germination_time: "7-14 days"
+    },
+    "Lovage": {
+      sowing_method: "Transplant",
+      planting_window: "Fall/Spring: Sep-Nov, Feb-Mar",
+      notes: "Medicinal and culinary herb. Transplanting preferred (SDSC).",
+      sun: "Full Sun / Part Shade",
+      spacing: "18-24 inches"
     },
   
     // --- Flowers ---
