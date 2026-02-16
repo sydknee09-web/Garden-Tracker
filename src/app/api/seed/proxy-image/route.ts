@@ -16,12 +16,20 @@ const ALLOWED_HOSTS = [
   "edenbrothers.com",
   "www.edenbrothers.com",
   "images.johnnyseeds.com",
+  // Hero search / gallery often returns these (Wikimedia, CDNs, extensions)
+  "upload.wikimedia.org",
+  "commons.wikimedia.org",
+  "static.wikia.nocookie.net",
+  "i.etsystatic.com",
+  "images.unsplash.com",
+  "images.pexels.com",
 ];
 
 function isAllowedImageUrl(url: URL): boolean {
   const host = url.hostname.toLowerCase();
   if (ALLOWED_HOSTS.some((h) => h === host)) return true;
   if (host.endsWith(".johnnyseeds.com") || host.endsWith(".rareseeds.com") || host.endsWith(".burpee.com") || host.endsWith(".botanicalinterests.com")) return true;
+  if (host.endsWith(".wikimedia.org")) return true;
   if (host.startsWith("cdn.")) return true;
   return false;
 }
@@ -40,9 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid URL." }, { status: 400 });
   }
 
-  if (!isAllowedImageUrl(url)) {
-    return NextResponse.json({ error: "Image URL domain not allowed." }, { status: 400 });
-  }
+  const strictAllowlist = isAllowedImageUrl(url);
 
   try {
     const res = await fetch(url.href, {
@@ -68,6 +74,13 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: "URL did not return an image (wrong content-type)." },
         { status: 502 }
+      );
+    }
+    // For domains not on the allowlist, only allow through if response is actually an image (avoids open proxy)
+    if (!strictAllowlist && !isImage) {
+      return NextResponse.json(
+        { error: "Image URL domain not allowed." },
+        { status: 400 }
       );
     }
 

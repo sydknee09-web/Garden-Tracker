@@ -57,22 +57,6 @@ export function AnnualRoadmapView() {
 
       <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
         <div className="overflow-x-auto relative" ref={scrollRef}>
-          {/* Single full-height "today" line behind bars (timeline area only) */}
-          <div
-            className="absolute pointer-events-none z-0"
-            style={{
-              top: ROW_HEIGHT,
-              marginLeft: CROP_COL_WIDTH,
-              width: monthsWidth,
-              height: entries.slice(0, 24).length * ROW_HEIGHT,
-            }}
-          >
-            <div
-              className="absolute top-0 bottom-0 w-1 bg-orange-500 translate-x-[-50%]"
-              style={{ left: nowPosition }}
-              aria-hidden
-            />
-          </div>
           <div
             style={{
               minWidth: CROP_COL_WIDTH + monthsWidth,
@@ -115,13 +99,19 @@ export function AnnualRoadmapView() {
                   >
                     <span className="text-xs font-medium text-black truncate">{crop.name}</span>
                   </div>
-                  <div
-                    key={`${crop.name}-bar`}
-                    className="relative col-span-12 flex items-center"
-                    style={{ gridColumn: "2 / -1", minHeight: ROW_HEIGHT }}
-                  >
+                    <div
+                      key={`${crop.name}-bar`}
+                      className="relative col-span-12 flex items-center"
+                      style={{ gridColumn: "2 / -1", minHeight: ROW_HEIGHT }}
+                    >
                     <div
                       className={`absolute inset-0 ${isEven ? "bg-white" : "bg-black/[0.03]"}`}
+                      aria-hidden
+                    />
+                    {/* Today line segment in this row (one per row so we never skip any); dashed for segmented look */}
+                    <div
+                      className="absolute top-0 bottom-0 w-px pointer-events-none z-[1] translate-x-[-50%] border-l border-orange-500 border-dashed"
+                      style={{ left: nowPosition }}
                       aria-hidden
                     />
                     <div className="relative flex items-center w-full h-5" style={{ width: monthsWidth }}>

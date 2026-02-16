@@ -23,6 +23,13 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+/** Use proxy for external image URLs so they load in the app (avoids hotlink/referrer blocking). */
+function externalImageSrc(url: string): string {
+  if (!url?.startsWith("http")) return url;
+  if (url.includes("supabase.co")) return url;
+  return `/api/seed/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
 type JournalPhoto = { id: string; image_file_path: string; created_at: string };
 
 function formatVendorDetails(plantDescription: string | null, growingInfo: string | null): { title: string; body: string }[] {
@@ -852,7 +859,7 @@ export default function VaultSeedPage() {
                         onClick={async () => { await setHeroFromUrl(url); setShowSetPhotoModal(false); }}
                         className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       >
-                        <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <img src={externalImageSrc(url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </button>
                     ))}
                   </div>
@@ -860,7 +867,7 @@ export default function VaultSeedPage() {
               )}
               {heroUrl && (
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
-                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100"><img src={heroUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /></button>
+                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100"><img src={externalImageSrc(heroUrl)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /></button>
                 </div>
               )}
               {packets.filter((p) => p.primary_image_path?.trim()).length > 0 && (
