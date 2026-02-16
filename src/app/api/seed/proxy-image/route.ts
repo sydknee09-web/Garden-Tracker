@@ -23,6 +23,13 @@ const ALLOWED_HOSTS = [
   "i.etsystatic.com",
   "images.unsplash.com",
   "images.pexels.com",
+  // Common plant/botanical image sources that allow embedding
+  "cdn.pixabay.com",
+  "pixabay.com",
+  "live.staticflickr.com",
+  "extension.illinois.edu",
+  "imgur.com",
+  "i.imgur.com",
 ];
 
 function isAllowedImageUrl(url: URL): boolean {
@@ -30,6 +37,8 @@ function isAllowedImageUrl(url: URL): boolean {
   if (ALLOWED_HOSTS.some((h) => h === host)) return true;
   if (host.endsWith(".johnnyseeds.com") || host.endsWith(".rareseeds.com") || host.endsWith(".burpee.com") || host.endsWith(".botanicalinterests.com")) return true;
   if (host.endsWith(".wikimedia.org")) return true;
+  if (host.endsWith(".staticflickr.com") || host.includes("staticflickr.com")) return true;
+  if (host.endsWith(".pixabay.com") || host.endsWith(".imgur.com")) return true;
   if (host.startsWith("cdn.")) return true;
   return false;
 }

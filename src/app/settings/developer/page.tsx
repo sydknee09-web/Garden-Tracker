@@ -104,6 +104,13 @@ export default function SettingsDeveloperPage() {
     failed: number;
     message?: string;
   } | null>(null);
+  const [fixScientificDisplayRunning, setFixScientificDisplayRunning] = useState(false);
+  const [fixScientificDisplayResult, setFixScientificDisplayResult] = useState<{
+    updated: number;
+    skipped: number;
+    failed: number;
+    message?: string;
+  } | null>(null);
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -489,6 +496,44 @@ export default function SettingsDeveloperPage() {
     }
   }, [user?.id, session?.access_token, refillCacheScientificRunning]);
 
+  const runFixScientificDisplayNames = useCallback(async () => {
+    if (!user?.id || !session?.access_token || fixScientificDisplayRunning) return;
+    setFixScientificDisplayRunning(true);
+    setFixScientificDisplayResult(null);
+    try {
+      const res = await fetch("/api/settings/fix-scientific-display-names", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json()) as { updated?: number; skipped?: number; failed?: number; message?: string; error?: string };
+      if (!res.ok) {
+        setFixScientificDisplayResult({
+          updated: 0,
+          skipped: 0,
+          failed: 0,
+          message: data.error ?? "Request failed",
+        });
+        return;
+      }
+      setFixScientificDisplayResult({
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
+        failed: data.failed ?? 0,
+        message: data.message,
+      });
+    } catch (e) {
+      setFixScientificDisplayResult({
+        updated: 0,
+        skipped: 0,
+        failed: 0,
+        message: e instanceof Error ? e.message : "Request failed",
+      });
+    } finally {
+      setFixScientificDisplayRunning(false);
+    }
+  }, [user?.id, session?.access_token, fixScientificDisplayRunning]);
+
   const runBackfillPlantDescriptions = useCallback(async () => {
     if (!session?.access_token || backfillDescriptionsRunning) return;
     setBackfillDescriptionsRunning(true);
@@ -839,6 +884,32 @@ export default function SettingsDeveloperPage() {
               {refillCacheScientificRunning ? "Running…" : "Refill cache (global_plant_cache)"}
             </button>
           </div>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Fix scientific display names", desc: "GeoSeed common name" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fix scientific display names (GeoSeed)</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            For profiles where the display name is a scientific name (e.g. Eschscholzia, Helianthus from GeoSeed), look up the common name from Perenual and set <strong>name</strong> to the common name (e.g. California Poppy, Sunflower) and <strong>scientific_name</strong> to the Latin binomial. Variety is left unchanged. Requires PERENUAL_API_KEY.
+          </p>
+          {fixScientificDisplayResult && !fixScientificDisplayRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">Updated: {fixScientificDisplayResult.updated}. Skipped: {fixScientificDisplayResult.skipped}. Failed: {fixScientificDisplayResult.failed}.</p>
+              {fixScientificDisplayResult.message && <p className="text-xs text-neutral-500 mt-1">{fixScientificDisplayResult.message}</p>}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={runFixScientificDisplayNames}
+            disabled={fixScientificDisplayRunning}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
+            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+          >
+            {fixScientificDisplayRunning ? "Running…" : "Fix existing profiles now"}
+          </button>
         </div>
       </section>
       )}

@@ -235,7 +235,9 @@ export async function POST(req: Request) {
     // Gallery mode: one search for variety + plant, return multiple URLs for user to pick (no heavy filtering)
     if (gallery) {
       const galleryQuery = [variety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
-      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower: "${galleryQuery}". Prefer real plant/flower photos; avoid seed packet images. Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL.`;
+      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower: "${galleryQuery}". 
+Important: Prefer images from Wikimedia Commons (upload.wikimedia.org or commons.wikimedia.org) and other sites that allow direct image linking—these must be direct URLs to image files (.jpg, .png, etc.), not web pages. Avoid seed packet images.
+Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL (e.g. https://upload.wikimedia.org/...).`;
       const galleryTimeoutMs = QUICK_PASS_TIMEOUT_MS;
       let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
