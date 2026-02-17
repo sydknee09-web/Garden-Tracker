@@ -189,6 +189,7 @@ export default function VaultSeedPage() {
   const [searchWebGalleryUrls, setSearchWebGalleryUrls] = useState<string[]>([]);
   const [searchWebError, setSearchWebError] = useState<string | null>(null);
   const [galleryImageFailed, setGalleryImageFailed] = useState<Set<string>>(new Set());
+  const [stockPhotoCurrentFailed, setStockPhotoCurrentFailed] = useState(false);
   const [savingWebHero, setSavingWebHero] = useState(false);
   const [saveHeroError, setSaveHeroError] = useState<string | null>(null);
   const searchWebAbortRef = useRef<AbortController | null>(null);
@@ -232,6 +233,7 @@ export default function VaultSeedPage() {
     setSearchWebGalleryUrls([]);
     setSearchWebError(null);
     setGalleryImageFailed(new Set());
+    setStockPhotoCurrentFailed(false);
     setSaveHeroError(null);
   }, [showSetPhotoModal]);
 
@@ -823,14 +825,27 @@ export default function VaultSeedPage() {
       {showSetPhotoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-                <p className="text-sm text-neutral-500 mt-1">Take a photo, choose from files, or pick from web images.</p>
-              </div>
-              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Close">Cancel</button>
+            <div className="flex-shrink-0 p-4 border-b border-neutral-200">
+              <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
+              <p className="text-sm text-neutral-500 mt-1">Take a photo, choose from files, or pick from web images.</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+              {heroImageUrl && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Current profile photo</p>
+                  <div className="relative inline-block aspect-video w-full max-w-[200px] rounded-lg overflow-hidden border-2 border-neutral-300 bg-neutral-100">
+                    <img src={heroImageUrl} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { removeHeroImage(); setShowSetPhotoModal(false); }}
+                      className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 focus:ring-2 focus:ring-red-400"
+                      aria-label="Remove current photo"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-camera-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
                 <input type="file" accept="image/*" className="hidden" id="hero-files-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
@@ -935,7 +950,15 @@ export default function VaultSeedPage() {
               )}
               {heroUrl && (
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
-                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100"><img src={externalImageSrc(heroUrl)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /></button>
+                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">
+                    {stockPhotoCurrentFailed ? (
+                      <div className="w-full h-full flex items-center justify-center bg-neutral-100">
+                        <img src="/seedling-icon.svg" alt="" className="w-16 h-16 text-emerald-600" aria-hidden />
+                      </div>
+                    ) : (
+                      <img src={externalImageSrc(heroUrl)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setStockPhotoCurrentFailed(true)} />
+                    )}
+                  </button>
                 </div>
               )}
               {packets.filter((p) => p.primary_image_path?.trim()).length > 0 && (
@@ -957,11 +980,8 @@ export default function VaultSeedPage() {
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 p-4 border-t border-neutral-200 flex flex-col gap-2">
-              {heroImageUrl && (
-                <button type="button" onClick={() => { removeHeroImage(); setShowSetPhotoModal(false); }} className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 font-medium hover:bg-red-50">Remove current photo</button>
-              )}
-              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="w-full py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+            <div className="flex-shrink-0 p-4 border-t border-neutral-200">
+              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="w-full py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]">Done</button>
             </div>
           </div>
         </div>
@@ -970,7 +990,12 @@ export default function VaultSeedPage() {
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-0 sm:pb-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0" style={{ maxHeight: "min(85vh, calc(100dvh - 2rem))" }}>
-            <div className="flex-shrink-0 p-6 pb-2"><h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2></div>
+            <div className="flex-shrink-0 p-4 pb-2 flex items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2>
+              <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
               {[
                 { id: "edit-plant-type", label: "Plant Type", key: "plantType" as const },
@@ -1034,9 +1059,8 @@ export default function VaultSeedPage() {
                 <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
               </div>
             </div>
-            <div className="flex-shrink-0 flex gap-3 justify-end p-4 pb-4 border-t border-neutral-200 bg-white" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-              <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
+            <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
             </div>
           </div>
         </div>
@@ -1112,8 +1136,7 @@ export default function VaultSeedPage() {
           {heroImageUrl ? (
             <>
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
-              <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
-                <button type="button" onClick={removeHeroImage} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-red-600 shadow hover:bg-red-50 min-w-[44px] min-h-[44px] flex items-center justify-center">Remove</button>
+              <div className="absolute bottom-3 right-3">
                 <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
               </div>
             </>
