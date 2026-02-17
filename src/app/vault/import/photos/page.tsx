@@ -244,7 +244,7 @@ export default function ImportPhotosPage() {
         source_url: r.source_url,
         stock_photo_url: r.stock_photo_url?.trim() || undefined,
         hero_image_url: heroUrl || "/seedling-icon.svg",
-        useStockPhotoAsHero: !!heroUrl,
+        useStockPhotoAsHero: true,
         identityKey: identityKey || undefined,
       };
     });

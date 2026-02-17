@@ -761,7 +761,8 @@ export default function SettingsDeveloperPage() {
       </section>
       )}
 
-      {matchesSection({ title: "Repair Hero Photos", desc: "Find and set stock photos" }) && (
+      {/* Repair Hero Photos removed — subsumed by Repair & Complete Profiles below */}
+      {false && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Repair Hero Photos</h3>
@@ -791,16 +792,16 @@ export default function SettingsDeveloperPage() {
       </section>
       )}
 
-      {matchesSection({ title: "Fill in blanks", desc: "Cache and hero" }) && (
+      {matchesSection({ title: "Repair & Complete Profiles", desc: "Cover photos hero details descriptions cache AI fill blanks" }) && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fill in blanks</h3>
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Repair & Complete Profiles</h3>
           <p className="text-sm text-neutral-500 mb-3">
-            Add missing cover photos and basic details to your plant profiles. Uses a shared plant database first (no cost), then AI for anything not found. Your data stays private.
+            Add missing cover photos, growing info (sun, spacing, germination, harvest, watering, sowing), and descriptions to your plant profiles. Uses the shared plant database first (no cost), then AI for anything not found. Your data stays private.
           </p>
           {fillInBlanksResult && !fillInBlanksRunning && (
             <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
-              <p className="text-sm text-neutral-700">From cache: {fillInBlanksResult.fromCache}. From AI: {fillInBlanksResult.fromAi}. No match: {fillInBlanksResult.failed}. Skipped (already had hero): {fillInBlanksResult.skipped}.</p>
+              <p className="text-sm text-neutral-700">From cache: {fillInBlanksResult.fromCache}. From AI: {fillInBlanksResult.fromAi}. No match: {fillInBlanksResult.failed}. Skipped (already complete): {fillInBlanksResult.skipped}.</p>
               {fillInBlanksResult.message && <p className="text-xs text-neutral-500 mt-1">{fillInBlanksResult.message}</p>}
             </div>
           )}
@@ -837,7 +838,7 @@ export default function SettingsDeveloperPage() {
               className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
               style={{ backgroundColor: "#059669", color: "#ffffff" }}
             >
-              {fillInBlanksRunning ? "Running…" : "Cache + AI hero"}
+              {fillInBlanksRunning ? "Running…" : "Cache + AI"}
             </button>
           </div>
         </div>
@@ -914,7 +915,8 @@ export default function SettingsDeveloperPage() {
       </section>
       )}
 
-      {matchesSection({ title: "Complete plant details", desc: "Description backfill" }) && (
+      {/* Complete plant details removed — subsumed by Repair & Complete Profiles above */}
+      {false && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Complete plant details</h3>

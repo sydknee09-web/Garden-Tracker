@@ -1098,7 +1098,10 @@ export default function VaultSeedPage() {
         {/* Hero */}
         <div className="mb-4 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
           {heroImageUrl ? (
-            <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
+            <>
+              <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
+              <button type="button" onClick={() => setShowSetPhotoModal(true)} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
+            </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative">
               <div className="absolute inset-0 bg-neutral-200/80 animate-pulse" aria-hidden />
@@ -1108,11 +1111,10 @@ export default function VaultSeedPage() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
               <span className="text-5xl text-neutral-300" aria-hidden>🌱</span>
-              <button type="button" onClick={findAndSetStockPhoto} disabled={findingStockPhoto} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 disabled:opacity-50">{findingStockPhoto ? "Searching..." : "Find Stock Photo"}</button>
+              <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
           )}
-          <button type="button" onClick={() => setShowSetPhotoModal(true)} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white">Change photo</button>
         </div>
 
         {/* Quick Stats */}

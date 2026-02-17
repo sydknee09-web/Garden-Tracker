@@ -8,8 +8,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
- * Write one link-import result to global_plant_cache so other users benefit.
- * Called from review-import Save All when the item was not from cache (scrape or rescue succeeded).
+ * Write one import result to global_plant_cache so other users benefit.
+ * Called from review-import Save All for link, photo, and manual imports.
+ * Accepts HTTP URLs (link imports) and synthetic source_urls (photo:/manual: prefixed).
  * Uses service role; requires authenticated user.
  */
 export async function POST(req: Request) {
@@ -35,8 +36,10 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const source_url = typeof body?.source_url === "string" ? body.source_url.trim() : "";
-    if (!source_url || !source_url.startsWith("http")) {
-      return NextResponse.json({ error: "source_url required (must start with http)" }, { status: 400 });
+    const isHttpUrl = source_url.startsWith("http");
+    const isSyntheticUrl = /^(photo|manual):/.test(source_url);
+    if (!source_url || (!isHttpUrl && !isSyntheticUrl)) {
+      return NextResponse.json({ error: "source_url required (http or photo:/manual: prefix)" }, { status: 400 });
     }
 
     const type = stripHtmlForDisplay(typeof body?.type === "string" ? body.type : "").trim() || "Imported seed";
@@ -70,6 +73,20 @@ export async function POST(req: Request) {
       planting_window: typeof body?.planting_window === "string" ? body.planting_window.trim() || undefined : undefined,
     };
     const scraped_fields = Object.keys(extract_data).filter((k) => extract_data[k] != null && extract_data[k] !== "");
+    const scrapeQuality = isHttpUrl ? "user_import" : "user_import";
+    // For synthetic URLs, check if a better-quality row already exists for this identity_key
+    // (don't overwrite a full scrape with a photo-only import)
+    if (isSyntheticUrl) {
+      const { data: existingRows } = await admin
+        .from("global_plant_cache")
+        .select("scrape_quality")
+        .eq("identity_key", identityKey)
+        .in("scrape_quality", ["full", "partial"])
+        .limit(1);
+      if (existingRows && existingRows.length > 0) {
+        return NextResponse.json({ ok: true, identity_key: identityKey, skipped: "better_quality_exists" });
+      }
+    }
     const { error } = await admin.from("global_plant_cache").upsert(
       {
         source_url,
@@ -78,7 +95,7 @@ export async function POST(req: Request) {
         extract_data,
         original_hero_url: hero_image_url?.startsWith("http") ? hero_image_url : null,
         scraped_fields,
-        scrape_quality: "user_import",
+        scrape_quality: scrapeQuality,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "source_url" }

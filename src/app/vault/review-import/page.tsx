@@ -815,7 +815,7 @@ export default function ReviewImportPage() {
     }
 
     const newProfileIds: string[] = [];
-    const savedItems: { item: ReviewImportItem; profileId: string; packetImagePath?: string }[] = [];
+    const savedItems: { item: ReviewImportItem; profileId: string; packetImagePath?: string; skipPacketAsHero?: boolean }[] = [];
     for (const item of items) {
       const name = (item.type ?? "").trim() || "Unknown";
       const varietyName = (item.variety ?? "").trim() || null;
@@ -852,6 +852,7 @@ export default function ReviewImportPage() {
           getCanonicalKey(p.name ?? "") === nameKey && getCanonicalKey(p.variety_name ?? "") === varietyKey
       );
       let profileId: string;
+      let profileAlreadyHadHero = false;
       if (exact) {
         profileId = exact.id;
         // Display priority: prefer name/variety from Select Seeds or Johnny's over Rare Seeds slug-rescue name
@@ -875,8 +876,12 @@ export default function ReviewImportPage() {
             .select("hero_image_path, hero_image_url")
             .eq("id", profileId)
             .single();
-          const hasHero = (existing as { hero_image_path?: string; hero_image_url?: string } | null)?.hero_image_path?.trim() || (existing as { hero_image_url?: string } | null)?.hero_image_url?.trim();
-          if (!hasHero) {
+          const heroPath = (existing as { hero_image_path?: string; hero_image_url?: string } | null)?.hero_image_path?.trim();
+          const heroUrl = (existing as { hero_image_url?: string } | null)?.hero_image_url?.trim();
+          const hasHero = heroPath || (heroUrl && !heroUrl.endsWith("seedling-icon.svg"));
+          if (hasHero) {
+            profileAlreadyHadHero = true;
+          } else {
             await supabase.from("plant_profiles").update({ hero_image_url: heroUrlToSet }).eq("id", profileId).eq("user_id", user.id);
           }
         }
@@ -961,7 +966,7 @@ export default function ReviewImportPage() {
       }
       // Reinstate profile when adding a packet (e.g. was out_of_stock / archived)
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
-      savedItems.push({ item, profileId, packetImagePath: path ?? undefined });
+      savedItems.push({ item, profileId, packetImagePath: path ?? undefined, skipPacketAsHero: profileAlreadyHadHero });
     }
 
     // Phase: Download hero images to Supabase Storage + upsert plant_extract_cache
@@ -971,7 +976,7 @@ export default function ReviewImportPage() {
     for (let chunkStart = 0; chunkStart < savedItems.length; chunkStart += DOWNLOAD_CONCURRENCY) {
       const chunk = savedItems.slice(chunkStart, chunkStart + DOWNLOAD_CONCURRENCY);
       await Promise.all(
-        chunk.map(async ({ item: savedItem, profileId: savedProfileId, packetImagePath }) => {
+        chunk.map(async ({ item: savedItem, profileId: savedProfileId, packetImagePath, skipPacketAsHero }) => {
           const identityKey = (savedItem.identityKey ?? "").trim();
           const vendorStr = (savedItem.vendor ?? "").trim();
           const rawSourceUrl = (savedItem.source_url ?? "").trim();
@@ -984,7 +989,8 @@ export default function ReviewImportPage() {
           const shouldUsePacketAsHero = savedItem.useStockPhotoAsHero !== false && packetImagePath?.trim();
 
           // A1. Photo import: use packet image as profile hero when checked (copy from seed-packets to journal-photos)
-          if (shouldUsePacketAsHero && !shouldDownloadHero) {
+          // Skip if the existing profile already has a real hero (guard against overwriting)
+          if (shouldUsePacketAsHero && !shouldDownloadHero && !skipPacketAsHero) {
             try {
               const { data: blob, error: downloadErr } = await supabase.storage.from("seed-packets").download(packetImagePath!);
               if (!downloadErr && blob) {
@@ -1079,11 +1085,15 @@ export default function ReviewImportPage() {
             console.warn("[save] plant_extract_cache upsert failed:", cacheErr.message);
           }
 
-          // C. When link import was not from cache, write to global_plant_cache so other users benefit
+          // C. Write to global_plant_cache so other users benefit (link, photo, and manual imports)
           const wasFromCache = (savedItem as { extractResult?: { cached?: boolean } }).extractResult?.cached === true;
+          const vendorNormForCache = (vendorStr || "").toLowerCase().replace(/[^a-z0-9]/g, "_") || "unknown";
+          const globalCacheSourceUrl = rawSourceUrl.startsWith("http")
+            ? rawSourceUrl
+            : (identityKey ? `photo:${identityKey}:${vendorNormForCache}` : "");
           if (
             token &&
-            rawSourceUrl.startsWith("http") &&
+            globalCacheSourceUrl &&
             !wasFromCache &&
             identityKey
           ) {
@@ -1091,7 +1101,7 @@ export default function ReviewImportPage() {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({
-                source_url: rawSourceUrl,
+                source_url: globalCacheSourceUrl,
                 type: stripHtmlForDisplay(savedItem.type ?? "").trim() || "Imported seed",
                 variety: stripHtmlForDisplay(savedItem.variety ?? "").trim(),
                 vendor: vendorStr || undefined,
@@ -1122,6 +1132,20 @@ export default function ReviewImportPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ profileId, useGemini: true }),
+        }).catch(() => {});
+      });
+    }
+
+    // Fire background-hero-for-profile for ALL saved profiles (new + existing).
+    // The endpoint checks if a real hero already exists and returns early, so this is
+    // cheap for profiles that already have one. For profiles with only a packet-as-hero
+    // or placeholder, it searches for a proper plant photo and upgrades asynchronously.
+    if (token && savedItems.length > 0) {
+      savedItems.forEach(({ profileId }) => {
+        fetch("/api/seed/background-hero-for-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ profileId }),
         }).catch(() => {});
       });
     }

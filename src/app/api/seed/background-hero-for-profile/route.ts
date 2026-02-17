@@ -67,7 +67,8 @@ export async function POST(req: Request) {
     }
 
     const p = profile as { id: string; name: string; variety_name: string | null; user_id: string; hero_image_url?: string | null };
-    if ((p.hero_image_url ?? "").trim()) {
+    const existingHeroUrl = (p.hero_image_url ?? "").trim();
+    if (existingHeroUrl && !existingHeroUrl.endsWith("seedling-icon.svg")) {
       return NextResponse.json({ ok: true, updated: false });
     }
 
