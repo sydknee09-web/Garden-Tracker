@@ -576,6 +576,15 @@ export default function VaultSeedPage() {
     }
   }, [user?.id, id, profile, loadProfile]);
 
+  const removeHeroImage = useCallback(async () => {
+    if (!user?.id || !id) return;
+    const { error } = await supabase.from("plant_profiles").update({ hero_image_url: null, hero_image_path: null }).eq("id", id).eq("user_id", user.id);
+    if (!error) {
+      if (profile) { const key = buildIdentityKey(profile.name ?? "", profile.variety_name ?? ""); if (key) syncExtractCache(user.id, key, { originalHeroUrl: null, heroStoragePath: null }); }
+      await loadProfile();
+    }
+  }, [user?.id, id, profile, loadProfile]);
+
   const findAndSetStockPhoto = useCallback(async () => {
     if (!profile || findingStockPhoto) return;
     setFindingStockPhoto(true);
@@ -948,7 +957,10 @@ export default function VaultSeedPage() {
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 p-4 border-t border-neutral-200">
+            <div className="flex-shrink-0 p-4 border-t border-neutral-200 flex flex-col gap-2">
+              {heroImageUrl && (
+                <button type="button" onClick={() => { removeHeroImage(); setShowSetPhotoModal(false); }} className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 font-medium hover:bg-red-50">Remove current photo</button>
+              )}
               <button type="button" onClick={() => setShowSetPhotoModal(false)} className="w-full py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
             </div>
           </div>
@@ -1100,7 +1112,10 @@ export default function VaultSeedPage() {
           {heroImageUrl ? (
             <>
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
-              <button type="button" onClick={() => setShowSetPhotoModal(true)} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                <button type="button" onClick={removeHeroImage} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-red-600 shadow hover:bg-red-50 min-w-[44px] min-h-[44px] flex items-center justify-center">Remove</button>
+                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
+              </div>
             </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative">
