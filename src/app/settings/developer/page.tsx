@@ -933,17 +933,27 @@ export default function SettingsDeveloperPage() {
           <p className="text-sm text-neutral-500 mb-3">
             Add missing growing info to your plant profiles—sun needs, spacing, days to germination, harvest time, watering, how to sow, and a short description. Uses a shared database first, then AI. Runs in the background; you can leave this page open.
           </p>
-          {backfillDescriptionsProgress && backfillDescriptionsRunning && (
-            <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
-              <p className="text-sm text-neutral-700">Batch {backfillDescriptionsProgress.round} — From cache: {backfillDescriptionsProgress.fromCache} · From AI: {backfillDescriptionsProgress.fromAi} · Failed: {backfillDescriptionsProgress.failed}</p>
-            </div>
-          )}
-          {backfillDescriptionsResult && !backfillDescriptionsRunning && (
-            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
-              <p className="text-sm text-neutral-700">Done. From cache: {backfillDescriptionsResult.fromCache}. From AI: {backfillDescriptionsResult.fromAi}. Failed: {backfillDescriptionsResult.failed}.</p>
-              {backfillDescriptionsResult.message && <p className="text-xs text-neutral-500 mt-1">{backfillDescriptionsResult.message}</p>}
-            </div>
-          )}
+          {backfillDescriptionsProgress != null && backfillDescriptionsRunning
+            ? (() => {
+                const p = backfillDescriptionsProgress as NonNullable<typeof backfillDescriptionsProgress>;
+                return (
+                  <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                    <p className="text-sm text-neutral-700">Batch {p.round} — From cache: {p.fromCache} · From AI: {p.fromAi} · Failed: {p.failed}</p>
+                  </div>
+                );
+              })()
+            : null}
+          {backfillDescriptionsResult != null && !backfillDescriptionsRunning
+            ? (() => {
+                const r = backfillDescriptionsResult as NonNullable<typeof backfillDescriptionsResult>;
+                return (
+                  <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+                    <p className="text-sm text-neutral-700">Done. From cache: {r.fromCache}. From AI: {r.fromAi}. Failed: {r.failed}.</p>
+                    {r.message ? <p className="text-xs text-neutral-500 mt-1">{r.message}</p> : null}
+                  </div>
+                );
+              })()
+            : null}
           <button
             type="button"
             onClick={runBackfillPlantDescriptions}
