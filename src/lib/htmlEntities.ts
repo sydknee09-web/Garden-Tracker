@@ -55,3 +55,31 @@ export function looksLikeScientificName(s: string | null | undefined): boolean {
   if (!stripped.includes(" ") && (stripped.startsWith('"') || stripped.startsWith("-"))) return false;
   return true;
 }
+
+/**
+ * Title-case a string for display (e.g. "giga white" → "Giga White").
+ * Used for cultivar/series names so vault cards have consistent capitalization.
+ */
+export function toTitleCase(s: string | null | undefined): string {
+  if (s == null || typeof s !== "string") return "";
+  const trimmed = s.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Format variety/subtitle for vault cards: scientific names stay as-is (lowercase) and italic;
+ * cultivar/series names get title case and upright. Call after decodeHtmlEntities.
+ */
+export function formatVarietyForDisplay(
+  variety: string | null | undefined,
+  isScientific: boolean
+): string {
+  if (variety == null || typeof variety !== "string") return "";
+  const decoded = decodeHtmlEntities(variety).trim();
+  if (!decoded || decoded === "—") return "";
+  return isScientific ? decoded : toTitleCase(decoded);
+}

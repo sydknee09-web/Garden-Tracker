@@ -19,6 +19,7 @@
     "clean-bad-cache": "tsx scripts/clean-bad-cache.ts",
     "scrape-cleanup": "ts-node scripts/scrape-cleanup.ts",
     "normalize-global-cache": "tsx scripts/normalize-global-plant-cache.ts",
+    "generate-pwa-icons": "tsx scripts/generate-pwa-icons.ts",
     "import-pdf-catalog": "tsx scripts/import-pdf-catalog.ts",
     "backfill-plant-descriptions": "tsx scripts/backfill-plant-descriptions.ts",
     "backfill-cache": "tsx scripts/backfill-global-cache.ts"

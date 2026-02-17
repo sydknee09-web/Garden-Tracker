@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeHtmlEntities, stripHtmlForDisplay, looksLikeScientificName } from "./htmlEntities";
+import { decodeHtmlEntities, stripHtmlForDisplay, looksLikeScientificName, toTitleCase, formatVarietyForDisplay } from "./htmlEntities";
 
 describe("decodeHtmlEntities", () => {
   it("returns empty string for null or undefined", () => {
@@ -69,5 +69,35 @@ describe("looksLikeScientificName", () => {
   it("returns false for too short or empty", () => {
     expect(looksLikeScientificName("")).toBe(false);
     expect(looksLikeScientificName("A")).toBe(false);
+  });
+});
+
+describe("toTitleCase", () => {
+  it("returns empty for null or undefined", () => {
+    expect(toTitleCase(null)).toBe("");
+    expect(toTitleCase(undefined)).toBe("");
+  });
+  it("title-cases lowercase words", () => {
+    expect(toTitleCase("giga white")).toBe("Giga White");
+    expect(toTitleCase("king size series")).toBe("King Size Series");
+  });
+  it("normalizes all-caps", () => {
+    expect(toTitleCase("RUTGERS PASSION")).toBe("Rutgers Passion");
+  });
+  it("preserves hyphenated parts as words", () => {
+    expect(toTitleCase("duchesse formula")).toBe("Duchesse Formula");
+  });
+});
+
+describe("formatVarietyForDisplay", () => {
+  it("returns empty for empty or dash", () => {
+    expect(formatVarietyForDisplay("", false)).toBe("");
+    expect(formatVarietyForDisplay("—", false)).toBe("");
+  });
+  it("title-cases when not scientific", () => {
+    expect(formatVarietyForDisplay("giga white", false)).toBe("Giga White");
+  });
+  it("preserves when scientific", () => {
+    expect(formatVarietyForDisplay("fascicularis", true)).toBe("fascicularis");
   });
 });

@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
-import { decodeHtmlEntities, looksLikeScientificName } from "@/lib/htmlEntities";
+import { decodeHtmlEntities, formatVarietyForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { normalizeSeedStockRows } from "@/lib/vault";
 import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
 
@@ -1027,7 +1027,9 @@ export function SeedVaultView({
             const firstSegmentOfVariety = varietyPart.split(/\s*[-–—]\s*/)[0]?.trim() ?? "";
             const isSingleWord = firstSegmentOfVariety.indexOf(" ") === -1 && firstSegmentOfVariety.length > 0;
             const binomial = `${seed.name} ${firstSegmentOfVariety}`.trim();
-            const isScientific = isSingleWord && looksLikeScientificName(binomial);
+            // Italic only for lowercase species epithets (botanical convention); cultivar/series stay upright
+            const isScientific = isSingleWord && firstSegmentOfVariety === firstSegmentOfVariety.toLowerCase() && looksLikeScientificName(binomial);
+            const varietyDisplay = formatVarietyForDisplay(seed.variety, isScientific);
 
             if (isPhotoCards) {
               const cardContent = (
@@ -1059,12 +1061,12 @@ export function SeedVaultView({
                     </div>
                   </div>
                   <div className="px-2 pt-1 pb-1.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-sm leading-tight w-full min-h-0 flex items-center justify-center gap-1 min-w-0 mb-0.5">
-                      <span className={`truncate ${isScientific ? "italic" : ""}`}>{decodeHtmlEntities(seed.name)}</span>
+                    <h3 className="font-semibold text-black text-sm leading-tight w-full min-h-[2.25rem] flex items-center justify-center gap-1 min-w-0 mb-0.5">
+                      <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
                       <HealthDot seed={seed} size="sm" />
                       <span className="text-[10px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                     </h3>
-                    <div className={`text-[11px] leading-tight text-black/60 truncate w-full ${isScientific ? "italic" : ""}`}>{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</div>
+                    <div className={`text-[11px] leading-tight text-black/60 w-full min-h-[2rem] line-clamp-2 break-words ${varietyDisplay ? (isScientific ? "italic" : "") : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                     <div className="mt-auto pt-1 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
@@ -1133,12 +1135,12 @@ export function SeedVaultView({
                   </div>
                 </div>
                 <div className="px-1.5 pt-1 pb-1 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                  <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-0 flex items-center justify-center gap-1 min-w-0 mb-px">
-                    <span className={`truncate ${isScientific ? "italic" : ""}`}>{decodeHtmlEntities(seed.name)}</span>
+                  <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[2rem] flex items-center justify-center gap-1 min-w-0 mb-px">
+                    <span className="truncate">{decodeHtmlEntities(seed.name)}</span>
                     <HealthDot seed={seed} size="sm" />
                     <span className="text-[9px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                   </h3>
-                  <div className={`text-[10px] leading-tight text-black/60 truncate w-full ${isScientific ? "italic" : ""}`}>{decodeHtmlEntities(seed.variety && seed.variety !== "—" ? seed.variety : "")}</div>
+                  <div className={`text-[10px] leading-tight text-black/60 w-full min-h-[1.75rem] line-clamp-2 break-words ${varietyDisplay ? (isScientific ? "italic" : "") : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                   <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                     {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
