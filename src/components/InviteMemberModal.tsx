@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -12,6 +13,15 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setError(null);
+    setSuccess(false);
+    setEmail("");
+    onClose();
+  }, [onClose]);
+
+  useEscapeKey(open, handleClose);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,13 +50,6 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
       setError("Something went wrong. Try again.");
     }
     setLoading(false);
-  }
-
-  function handleClose() {
-    setError(null);
-    setSuccess(false);
-    setEmail("");
-    onClose();
   }
 
   if (!open) return null;
@@ -110,7 +113,7 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
+                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Sending…" : "Send invite"}
               </button>

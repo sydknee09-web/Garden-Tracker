@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 
@@ -21,6 +22,7 @@ export function AddStoreBoughtPlantModal({
   const { user } = useAuth();
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
+  useEscapeKey(open, onClose);
   const [mode, setMode] = useState<"existing" | "new">("new");
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");

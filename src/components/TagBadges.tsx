@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 const TAG_STYLES: Record<string, string> = {
   Heirloom: "bg-amber-100 text-amber-800 border-amber-200",
   Organic: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -17,7 +19,7 @@ export function getTagStyle(tag: string): string {
   return TAG_STYLES[tag.trim()] ?? DEFAULT_STYLE;
 }
 
-export function TagBadges({ tags, className = "" }: { tags: string[]; className?: string }) {
+export const TagBadges = memo(function TagBadges({ tags, className = "" }: { tags: string[]; className?: string }) {
   if (!tags?.length) return null;
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
@@ -36,4 +38,4 @@ export function TagBadges({ tags, className = "" }: { tags: string[]; className?
       })}
     </div>
   );
-}
+});

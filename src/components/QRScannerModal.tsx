@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 interface QRScannerModalProps {
   open: boolean;
@@ -13,6 +14,8 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerId = "qr-reader";
+
+  useEscapeKey(open, onClose);
 
   useEffect(() => {
     if (!open) return;

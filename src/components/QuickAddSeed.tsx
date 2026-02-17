@@ -531,7 +531,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   type="button"
                   onClick={handleSaveForLater}
                   disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-60"
+                  className="flex-1 py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Add to vault without a packet — shows as out of stock, on shopping list"
                 >
                   {submitting ? "Saving…" : "Save for later"}
@@ -540,7 +540,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   type="button"
                   onClick={handleAddToShoppingList}
                   disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl border border-black/15 text-black/70 bg-white font-medium disabled:opacity-60"
+                  className="flex-1 py-2.5 rounded-xl border border-black/15 text-black/70 bg-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Wishlist placeholder — no vault entry until you add a packet"
                 >
                   {submitting ? "Adding…" : "Shopping list only"}
@@ -557,7 +557,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 <button
                   type="submit"
                   disabled={submitting || addedToVault}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {addedToVault ? (
                     <>

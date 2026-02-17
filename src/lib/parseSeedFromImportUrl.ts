@@ -1,6 +1,7 @@
 import type { SeedQRPrefill } from "./parseSeedFromQR";
 import { getRareseedsSlugFromUrl, rareseedsAutotreatment, slugToSpaced } from "./rareseedsAutotreatment";
 import { getVendorFromUrl } from "./vendorNormalize";
+import { toTitleCase } from "./toTitleCase";
 
 /**
  * 11 Functional Tags: scan URL slug and plant name for these keywords.
@@ -34,12 +35,6 @@ function cleanPath(pathname: string): string {
 
 function slugToWords(slug: string): string[] {
   return decodeURIComponent(slug.replace(/-/g, " ")).trim().split(/\s+/).filter(Boolean);
-}
-
-/** PROPER-style: first letter of each word capitalized (e.g. "chocolate sunflower" → "Chocolate Sunflower") */
-function toTitleCase(s: string): string {
-  if (!s || !s.trim()) return s;
-  return s.trim().replace(/(^|\s)(\w)/g, (_, before, letter) => before + letter.toUpperCase());
 }
 
 function extractTagsFromText(text: string): string[] {

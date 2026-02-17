@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 export type PacketSelection = { packetId: string; percentUsed: number };
 
@@ -50,6 +51,8 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
         setLoading(false);
       });
   }, [open, user?.id, profileId]);
+
+  useEscapeKey(open, onClose);
 
   const togglePacket = useCallback((id: string, maxQty: number) => {
     setSelected((prev) => {

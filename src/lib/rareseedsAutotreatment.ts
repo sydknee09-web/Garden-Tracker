@@ -3,9 +3,7 @@
  * so e.g. kohlrabi-blauer-speck → Kohlrabi / Blauer Speck.
  */
 
-function toTitleCase(s: string): string {
-  return s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { toTitleCase } from "./toTitleCase";
 
 /**
  * Extract slug from a rareseeds.com URL (path segment after last slash, no extension).

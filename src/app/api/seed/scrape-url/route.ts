@@ -8,6 +8,7 @@ import {
   rareseedsAutotreatment,
 } from "@/lib/rareseedsAutotreatment";
 import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { toTitleCase } from "@/lib/toTitleCase";
 
 /** Root domains for allowed vendors (no www); subdomains and paths are allowed (e.g. shop.johnnyseeds.com, www.rareseeds.com) */
 const ALLOWED_HOST_ROOTS = [
@@ -222,12 +223,6 @@ function parseFedcoSlug(slug: string): { plant_name: string; variety_name: strin
   if (cleaned.length === 0) return { plant_name: "General", variety_name: "" };
   if (cleaned.length === 1) return { plant_name: toTitleCase(cleaned[0]!), variety_name: "" };
   return { plant_name: toTitleCase(cleaned[cleaned.length - 1]!), variety_name: toTitleCase(cleaned.slice(0, -1).join(" ")) };
-}
-
-/** PROPER-style: first letter of each word capitalized. */
-function toTitleCase(s: string): string {
-  if (!s || !s.trim()) return s;
-  return s.trim().replace(/(^|\s)(\w)/g, (_, before, letter) => before + letter.toUpperCase());
 }
 
 /** Host (lowercase, with or without www) -> vendor display name. Fallback when getVendorFromUrl returns "Vendor". */

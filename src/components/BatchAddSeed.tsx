@@ -956,7 +956,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
                 type="button"
                 onClick={handleLoadPlantProfilePicture}
                 disabled={saving || pendingCount === 0}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium disabled:opacity-60"
+                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Preparing…" : "Load Plant Profile Picture"}
               </button>

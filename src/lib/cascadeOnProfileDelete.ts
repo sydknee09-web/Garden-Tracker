@@ -11,23 +11,28 @@ export async function cascadeTasksAndShoppingForDeletedProfiles(
   userId: string
 ): Promise<void> {
   if (profileIds.length === 0) return;
-  const now = new Date().toISOString();
 
-  await supabase
-    .from("tasks")
-    .update({ deleted_at: now })
-    .in("plant_profile_id", profileIds)
-    .eq("user_id", userId);
+  try {
+    const now = new Date().toISOString();
 
-  await supabase
-    .from("tasks")
-    .update({ deleted_at: now })
-    .in("plant_variety_id", profileIds)
-    .eq("user_id", userId);
+    await supabase
+      .from("tasks")
+      .update({ deleted_at: now })
+      .in("plant_profile_id", profileIds)
+      .eq("user_id", userId);
 
-  await supabase
-    .from("shopping_list")
-    .delete()
-    .in("plant_profile_id", profileIds)
-    .eq("user_id", userId);
+    await supabase
+      .from("tasks")
+      .update({ deleted_at: now })
+      .in("plant_variety_id", profileIds)
+      .eq("user_id", userId);
+
+    await supabase
+      .from("shopping_list")
+      .delete()
+      .in("plant_profile_id", profileIds)
+      .eq("user_id", userId);
+  } catch (err) {
+    console.error("cascadeTasksAndShoppingForDeletedProfiles: unexpected error", err);
+  }
 }

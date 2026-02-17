@@ -261,7 +261,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
                 type="button"
                 onClick={handleExtract}
                 disabled={isExtracting}
-                className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isExtracting ? (
                   <>

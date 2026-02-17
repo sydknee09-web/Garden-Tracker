@@ -315,64 +315,82 @@ export function ActiveGardenView({
   // Quick-tap handler
   const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
     if (!user?.id) return;
-    const weather = await fetchWeatherSnapshot();
-    const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-    await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      plant_profile_id: batch.plant_profile_id,
-      grow_instance_id: batch.id,
-      note: notes[action],
-      entry_type: "quick",
-      weather_snapshot: weather ?? undefined,
-    });
-    setQuickToast(`${notes[action]} ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`);
-    setTimeout(() => setQuickToast(null), 2000);
+    try {
+      const weather = await fetchWeatherSnapshot();
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const { error } = await supabase.from("journal_entries").insert({
+        user_id: user.id,
+        plant_profile_id: batch.plant_profile_id,
+        grow_instance_id: batch.id,
+        note: notes[action],
+        entry_type: "quick",
+        weather_snapshot: weather ?? undefined,
+      });
+      if (error) { setQuickToast("Failed to save — try again"); } else { setQuickToast(`${notes[action]} ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`); }
+      setTimeout(() => setQuickToast(null), 2000);
+    } catch {
+      setQuickToast("Failed to save — try again");
+      setTimeout(() => setQuickToast(null), 2000);
+    }
   }, [user?.id]);
 
   // Bulk journal
   const handleBulkSubmit = useCallback(async () => {
     if (!user?.id || bulkSelected.size === 0 || !bulkNote.trim()) return;
     setBulkSaving(true);
-    const weather = await fetchWeatherSnapshot();
-    const entries = Array.from(bulkSelected).map((growId) => {
-      const batch = growing.find((b) => b.id === growId);
-      return {
-        user_id: user.id,
-        plant_profile_id: batch?.plant_profile_id ?? null,
-        grow_instance_id: growId,
-        note: bulkNote.trim(),
-        entry_type: "note" as const,
-        weather_snapshot: weather ?? undefined,
-      };
-    });
-    await supabase.from("journal_entries").insert(entries);
-    setBulkSaving(false);
-    setBulkNote("");
-    setBulkSelected(new Set());
-    setBulkMode(false);
+    try {
+      const weather = await fetchWeatherSnapshot();
+      const entries = Array.from(bulkSelected).map((growId) => {
+        const batch = growing.find((b) => b.id === growId);
+        return {
+          user_id: user.id,
+          plant_profile_id: batch?.plant_profile_id ?? null,
+          grow_instance_id: growId,
+          note: bulkNote.trim(),
+          entry_type: "note" as const,
+          weather_snapshot: weather ?? undefined,
+        };
+      });
+      const { error } = await supabase.from("journal_entries").insert(entries);
+      if (error) { setQuickToast("Failed to save journal entries"); setTimeout(() => setQuickToast(null), 2500); }
+      setBulkNote("");
+      setBulkSelected(new Set());
+      setBulkMode(false);
+    } catch {
+      setQuickToast("Failed to save — try again");
+      setTimeout(() => setQuickToast(null), 2500);
+    } finally {
+      setBulkSaving(false);
+    }
   }, [user?.id, bulkSelected, bulkNote, growing]);
 
   // Bulk quick actions (water / fertilize / spray on all selected)
   const handleBulkQuickTap = useCallback(async (action: "water" | "fertilize" | "spray") => {
     if (!user?.id || bulkSelected.size === 0) return;
     setBulkSaving(true);
-    const weather = await fetchWeatherSnapshot();
-    const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-    const entries = Array.from(bulkSelected).map((growId) => {
-      const batch = growing.find((b) => b.id === growId);
-      return {
-        user_id: user.id,
-        plant_profile_id: batch?.plant_profile_id ?? null,
-        grow_instance_id: growId,
-        note: notes[action],
-        entry_type: "quick" as const,
-        weather_snapshot: weather ?? undefined,
-      };
-    });
-    await supabase.from("journal_entries").insert(entries);
-    setBulkSaving(false);
-    setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`);
-    setTimeout(() => setQuickToast(null), 2000);
+    try {
+      const weather = await fetchWeatherSnapshot();
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const entries = Array.from(bulkSelected).map((growId) => {
+        const batch = growing.find((b) => b.id === growId);
+        return {
+          user_id: user.id,
+          plant_profile_id: batch?.plant_profile_id ?? null,
+          grow_instance_id: growId,
+          note: notes[action],
+          entry_type: "quick" as const,
+          weather_snapshot: weather ?? undefined,
+        };
+      });
+      const { error } = await supabase.from("journal_entries").insert(entries);
+      if (error) { setQuickToast("Failed to save — try again"); } else { setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`); }
+      setTimeout(() => setQuickToast(null), 2000);
+    } catch {
+      setQuickToast("Failed to save — try again");
+      setTimeout(() => setQuickToast(null), 2000);
+    } finally {
+      setBulkSaving(false);
+    }
   }, [user?.id, bulkSelected, growing]);
 
   // End batch with reason

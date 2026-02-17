@@ -8,9 +8,13 @@ export async function softDeleteTasksForGrowInstance(
   growInstanceId: string,
   userId: string
 ): Promise<void> {
-  await supabase
-    .from("tasks")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("grow_instance_id", growInstanceId)
-    .eq("user_id", userId);
+  try {
+    await supabase
+      .from("tasks")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("grow_instance_id", growInstanceId)
+      .eq("user_id", userId);
+  } catch (err) {
+    console.error("softDeleteTasksForGrowInstance: unexpected error", err);
+  }
 }

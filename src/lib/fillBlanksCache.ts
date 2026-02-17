@@ -35,14 +35,15 @@ function pickBestCacheRow<T extends { scrape_quality?: string; updated_at?: stri
 
 export async function checkImageAccessible(url: string): Promise<boolean> {
   if (!url?.startsWith("http")) return false;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), IMAGE_CHECK_TIMEOUT_MS);
   try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), IMAGE_CHECK_TIMEOUT_MS);
     const res = await fetch(url, { method: "HEAD", signal: controller.signal });
-    clearTimeout(t);
     return res.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(t);
   }
 }
 

@@ -55,40 +55,54 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged }:
     setShowAdd(true);
   }, []);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleSave = useCallback(async () => {
     if (!userId || !title.trim()) return;
     setSaving(true);
+    setSaveError(null);
 
-    const payload = {
-      plant_profile_id: profileId,
-      user_id: userId,
-      title: title.trim(),
-      category,
-      recurrence_type: recurrenceType,
-      interval_days: recurrenceType === "interval" ? parseInt(intervalDays) || 30 : null,
-      day_of_month: recurrenceType === "monthly" ? parseInt(dayOfMonth) || 1 : null,
-      months: recurrenceType === "yearly" ? selectedMonths : null,
-      next_due_date: nextDueDate || null,
-      notes: notes.trim() || null,
-      is_active: true,
-      is_template: true,
-    };
+    try {
+      const payload = {
+        plant_profile_id: profileId,
+        user_id: userId,
+        title: title.trim(),
+        category,
+        recurrence_type: recurrenceType,
+        interval_days: recurrenceType === "interval" ? parseInt(intervalDays) || 30 : null,
+        day_of_month: recurrenceType === "monthly" ? Math.min(parseInt(dayOfMonth) || 1, 28) : null,
+        months: recurrenceType === "yearly" ? selectedMonths : null,
+        next_due_date: nextDueDate || null,
+        notes: notes.trim() || null,
+        is_active: true,
+        is_template: true,
+      };
 
-    if (editingId) {
-      await supabase.from("care_schedules").update(payload).eq("id", editingId).eq("user_id", userId);
-    } else {
-      await supabase.from("care_schedules").insert(payload);
+      const { error } = editingId
+        ? await supabase.from("care_schedules").update(payload).eq("id", editingId).eq("user_id", userId)
+        : await supabase.from("care_schedules").insert(payload);
+
+      if (error) { setSaveError("Failed to save schedule. Try again."); setSaving(false); return; }
+
+      resetForm();
+      onChanged();
+    } catch {
+      setSaveError("Something went wrong. Try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    resetForm();
-    onChanged();
   }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, editingId, resetForm, onChanged]);
 
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
-    await supabase.from("care_schedules").update({ is_active: false }).eq("id", scheduleId).eq("user_id", userId);
-    onChanged();
+    try {
+      const { error } = await supabase.from("care_schedules").update({ is_active: false }).eq("id", scheduleId).eq("user_id", userId);
+      if (error) { setSaveError("Failed to remove schedule."); return; }
+      setSaveError(null);
+      onChanged();
+    } catch {
+      setSaveError("Something went wrong. Try again.");
+    }
   }, [userId, onChanged]);
 
   const toggleMonth = useCallback((month: number) => {
@@ -117,6 +131,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged }:
 
   return (
     <div>
+      {saveError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{saveError}</p>}
       {schedules.length === 0 && !showAdd ? (
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
           <span className="text-3xl mb-2 block" aria-hidden>📋</span>

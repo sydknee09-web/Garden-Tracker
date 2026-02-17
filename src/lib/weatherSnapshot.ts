@@ -65,8 +65,8 @@ export async function fetchWeatherSnapshot(coords?: WeatherCoords | null): Promi
     const data = await res.json();
     const cur = data?.current;
     if (!cur) return null;
-    const code = Number(cur.weather_code) ?? 0;
-    const windKmh = Number(cur.wind_speed_10m) ?? 0;
+    const code = Number(cur.weather_code) || 0;
+    const windKmh = Number(cur.wind_speed_10m) || 0;
     const windMph = Math.round(windKmh * 0.621371);
     return {
       temp: Number(cur.temperature_2m),

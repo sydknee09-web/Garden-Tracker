@@ -284,7 +284,7 @@ export default function VaultSeedPage() {
       // Grow instances
       const { data: grows } = await supabase.from("grow_instances")
         .select("id, plant_profile_id, plant_variety_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
-        .eq("plant_profile_id", id).eq("user_id", user.id).order("sown_date", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
       setGrowInstances((grows ?? []) as GrowInstance[]);
 
       // All journal entries for this profile

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 interface Props {
   open: boolean;
@@ -38,39 +39,47 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
     e.target.value = "";
   }, []);
 
+  useEscapeKey(open, onClose);
+
   const handleSave = useCallback(async () => {
     if (!user?.id) return;
     setSaving(true);
+    try {
+      let imagePath: string | null = null;
+      if (photo) {
+        const { blob } = await compressImage(photo);
+        const path = `${user.id}/harvest-${growInstanceId}-${Date.now()}.jpg`;
+        const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+        if (!uploadErr) imagePath = path;
+      }
 
-    let imagePath: string | null = null;
-    if (photo) {
-      const { blob, fileName } = await compressImage(photo);
-      const path = `${user.id}/harvest-${growInstanceId}-${Date.now()}.jpg`;
-      const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-      if (!uploadErr) imagePath = path;
+      const weather = await fetchWeatherSnapshot();
+      const weightNum = weight.trim() ? parseFloat(weight) : null;
+      const qtyNum = quantity.trim() ? parseFloat(quantity) : null;
+
+      const { error } = await supabase.from("journal_entries").insert({
+        user_id: user.id,
+        plant_profile_id: profileId,
+        grow_instance_id: growInstanceId,
+        note: note.trim() || `Harvested ${displayName}`,
+        entry_type: "harvest",
+        harvest_weight: weightNum,
+        harvest_unit: unit,
+        harvest_quantity: qtyNum,
+        image_file_path: imagePath,
+        weather_snapshot: weather ?? undefined,
+      });
+
+      if (error) { console.error("HarvestModal save error", error.message); }
+
+      setWeight(""); setUnit("lbs"); setQuantity(""); setNote(""); setPhoto(null); setPhotoPreview(null);
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error("HarvestModal: unexpected error", err);
+    } finally {
+      setSaving(false);
     }
-
-    const weather = await fetchWeatherSnapshot();
-    const weightNum = weight.trim() ? parseFloat(weight) : null;
-    const qtyNum = quantity.trim() ? parseFloat(quantity) : null;
-
-    await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      plant_profile_id: profileId,
-      grow_instance_id: growInstanceId,
-      note: note.trim() || `Harvested ${displayName}`,
-      entry_type: "harvest",
-      harvest_weight: weightNum,
-      harvest_unit: unit,
-      harvest_quantity: qtyNum,
-      image_file_path: imagePath,
-      weather_snapshot: weather ?? undefined,
-    });
-
-    setSaving(false);
-    setWeight(""); setUnit("lbs"); setQuantity(""); setNote(""); setPhoto(null); setPhotoPreview(null);
-    onSaved();
-    onClose();
   }, [user?.id, weight, unit, quantity, note, photo, profileId, growInstanceId, displayName, onSaved, onClose]);
 
   if (!open) return null;
