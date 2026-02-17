@@ -767,15 +767,20 @@ export default function SettingsDeveloperPage() {
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
           <h3 className="text-base font-semibold text-neutral-800 mb-1">Repair Hero Photos</h3>
           <p className="text-sm text-neutral-500 mb-3">Add cover photos to plant varieties that don’t have one, so your Vault and cards look complete.</p>
-          {repairHeroProgress ? (
-            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
-              <p className="text-sm font-medium text-neutral-700">{repairHeroProgress.label}</p>
-              <p className="text-xs text-neutral-400 mt-1">{repairHeroProgress.current} of {repairHeroProgress.total}</p>
-              <div className="mt-2 h-2 rounded-full bg-neutral-200 overflow-hidden">
-                <div className="h-full bg-emerald-600 transition-all" style={{ width: `${(repairHeroProgress.current / repairHeroProgress.total) * 100}%` }} />
-              </div>
-            </div>
-          ) : null}
+          {repairHeroProgress != null
+            ? (() => {
+                const p = repairHeroProgress as NonNullable<typeof repairHeroProgress>;
+                return (
+                  <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+                    <p className="text-sm font-medium text-neutral-700">{p.label}</p>
+                    <p className="text-xs text-neutral-400 mt-1">{p.current} of {p.total}</p>
+                    <div className="mt-2 h-2 rounded-full bg-neutral-200 overflow-hidden">
+                      <div className="h-full bg-emerald-600 transition-all" style={{ width: `${(p.current / p.total) * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })()
+            : null}
           {repairHeroResult && !repairHeroRunning && (
             <p className="mb-3 text-sm text-neutral-600">Done. Updated: {repairHeroResult.updated}, no photo found: {repairHeroResult.failed}.</p>
           )}
