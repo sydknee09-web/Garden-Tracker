@@ -781,9 +781,14 @@ export default function SettingsDeveloperPage() {
                 );
               })()
             : null}
-          {repairHeroResult && !repairHeroRunning && (
-            <p className="mb-3 text-sm text-neutral-600">Done. Updated: {repairHeroResult.updated}, no photo found: {repairHeroResult.failed}.</p>
-          )}
+          {repairHeroResult != null && !repairHeroRunning
+            ? (() => {
+                const r = repairHeroResult as NonNullable<typeof repairHeroResult>;
+                return (
+                  <p className="mb-3 text-sm text-neutral-600">Done. Updated: {r.updated}, no photo found: {r.failed}.</p>
+                );
+              })()
+            : null}
           <button
             type="button"
             onClick={() => setRepairConfirmOpen(true)}
