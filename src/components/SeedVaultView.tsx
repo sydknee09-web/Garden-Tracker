@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
-import { decodeHtmlEntities, formatVarietyForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
+import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
 import { normalizeSeedStockRows } from "@/lib/vault";
 import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
 
@@ -1023,13 +1023,7 @@ export function SeedVaultView({
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
-            const varietyPart = (seed.variety && seed.variety !== "—" ? seed.variety : "").trim();
-            const firstSegmentOfVariety = varietyPart.split(/\s*[-–—]\s*/)[0]?.trim() ?? "";
-            const isSingleWord = firstSegmentOfVariety.indexOf(" ") === -1 && firstSegmentOfVariety.length > 0;
-            const binomial = `${seed.name} ${firstSegmentOfVariety}`.trim();
-            // Italic only for lowercase species epithets (botanical convention); cultivar/series stay upright
-            const isScientific = isSingleWord && firstSegmentOfVariety === firstSegmentOfVariety.toLowerCase() && looksLikeScientificName(binomial);
-            const varietyDisplay = formatVarietyForDisplay(seed.variety, isScientific);
+            const varietyDisplay = formatVarietyForDisplay(seed.variety, false);
 
             if (isPhotoCards) {
               const cardContent = (
@@ -1066,7 +1060,7 @@ export function SeedVaultView({
                       <HealthDot seed={seed} size="sm" />
                       <span className="text-[10px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                     </h3>
-                    <div className={`text-[11px] leading-tight text-black/60 w-full min-h-[2rem] line-clamp-2 break-words ${varietyDisplay ? (isScientific ? "italic" : "") : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
+                    <div className={`text-[11px] leading-tight text-black/60 w-full min-h-[2rem] line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                     <div className="mt-auto pt-1 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                         <span className="text-[10px] font-medium text-amber-700 shrink-0">Out</span>
@@ -1140,7 +1134,7 @@ export function SeedVaultView({
                     <HealthDot seed={seed} size="sm" />
                     <span className="text-[9px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                   </h3>
-                  <div className={`text-[10px] leading-tight text-black/60 w-full min-h-[1.75rem] line-clamp-2 break-words ${varietyDisplay ? (isScientific ? "italic" : "") : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
+                  <div className={`text-[10px] leading-tight text-black/60 w-full min-h-[1.75rem] line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                   <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                     {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
                       <span className="text-[9px] font-medium text-amber-700 shrink-0">Out</span>
