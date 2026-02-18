@@ -248,9 +248,10 @@ function VaultPlantPageInner() {
           break;
         }
         profile = newProfile as Profile;
+        const newVarietyVendor = (newPacketVendorByProfileId[row.rowId] ?? "").trim() || null;
         const { data: newPacket, error: packetErr } = await supabase
           .from("seed_packets")
-          .insert({ user_id: user.id, plant_profile_id: profile.id, qty_status: 100, vendor_name: null })
+          .insert({ user_id: user.id, plant_profile_id: profile.id, qty_status: 100, vendor_name: newVarietyVendor })
           .select("id")
           .single();
         if (packetErr || !newPacket) {
@@ -529,21 +530,33 @@ function VaultPlantPageInner() {
               if ("isNew" in row) {
                 const method = sowingMethodByProfileId[row.rowId] ?? "direct_sow";
                 return (
-                  <tr key={row.rowId} className="border-b border-black/5 align-middle">
-                    <td className="py-3 pr-3 min-w-0 align-top">
-                      <span className="text-sm font-medium text-black">{row.customName}</span>
-                      <span className="ml-1.5 text-xs text-emerald-600">(new)</span>
+                  <tr key={row.rowId} className="border-b border-black/5 align-top">
+                    <td className="py-2 pr-3 min-w-0 align-top">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-medium text-black">{row.customName}</span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">New variety</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={newPacketVendorByProfileId[row.rowId] ?? ""}
+                          onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
+                          placeholder="Vendor (optional)"
+                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+                          aria-label={`Vendor for new ${row.customName} packet`}
+                        />
+                      </div>
                     </td>
-                    <td className="py-3 pr-3 align-middle">
+                    <td className="py-2 pr-3 align-middle">
                       <div className="flex items-center gap-1.5" role="group">
                         <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
                         <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
                       </div>
                     </td>
-                    <td className="py-3 pr-3 min-w-[90px] align-middle">
-                      <span className="text-xs text-black/70">100% (new packet)</span>
+                    <td className="py-2 pr-3 min-w-[90px] align-middle">
+                      <span className="text-xs text-black/70">100% (full packet)</span>
                     </td>
-                    <td className="py-3 pl-3 text-right align-middle">
+                    <td className="py-2 pl-3 text-right align-middle">
                       <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
                     </td>
                   </tr>
@@ -560,8 +573,8 @@ function VaultPlantPageInner() {
                 const remainingPct = 100 - newUsePct;
                 return (
                   <tr key={profile.id} className="border-b border-black/5 align-top">
-                    <td className="py-3 pr-3 min-w-0 align-top">
-                      <div className="flex flex-col gap-2">
+                    <td className="py-2 pr-3 min-w-0 align-top">
+                      <div className="flex flex-col gap-1.5">
                         <span className="text-sm font-medium text-black line-clamp-2">{displayName}</span>
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 self-start">New packet</span>
                         <input
@@ -574,13 +587,13 @@ function VaultPlantPageInner() {
                         />
                       </div>
                     </td>
-                    <td className="py-3 pr-3 align-middle">
+                    <td className="py-2 pr-3 align-middle">
                       <div className="flex items-center gap-1.5" role="group" aria-label={`${displayName} sowing method`}>
                         <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
                         <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
                       </div>
                     </td>
-                    <td className="py-3 pr-3 min-w-[90px] align-middle">
+                    <td className="py-2 pr-3 min-w-[90px] align-middle">
                       <div className="flex items-center gap-2 min-h-[44px]">
                         <input
                           type="range"
@@ -595,7 +608,7 @@ function VaultPlantPageInner() {
                         <span className="text-xs text-black/70 tabular-nums shrink-0">{remainingPct}%</span>
                       </div>
                     </td>
-                    <td className="py-3 pl-3 text-right align-middle">
+                    <td className="py-2 pl-3 text-right align-middle">
                       <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                     </td>
                   </tr>
@@ -603,17 +616,22 @@ function VaultPlantPageInner() {
               }
               return (
                 <tr key={profile.id} className="border-b border-black/5 align-middle">
-                  <td className="py-3 pr-3 min-w-0 align-top">
-                    <div className="flex flex-col gap-1.5">
+                  <td className="py-2 pr-3 min-w-0 align-top">
+                    <div className="flex flex-col gap-1">
                       <span className="text-sm font-medium text-black line-clamp-2 inline-flex items-center gap-1.5 flex-wrap" title={displayName}>
                         {displayName}
                         {hasF1 && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
                       </span>
+                      {packets.length === 1 && (
+                        <span className="text-xs text-black/45 truncate">
+                          {(packets[0].vendor_name ?? "").trim() || "—"}
+                        </span>
+                      )}
                       {packets.length > 1 && (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1" role="group" aria-label={`Select packets for ${displayName}`}>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-0.5" role="group" aria-label={`Select packets for ${displayName}`}>
                           {packets.map((pk, idx) => {
                             const checked = selectedIds.includes(pk.id);
-                            const vendor = (pk.vendor_name ?? "").trim() || "Vendor";
+                            const vendor = (pk.vendor_name ?? "").trim() || "—";
                             const sameVendorCount = packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).length;
                             const label = sameVendorCount > 1
                               ? `${vendor} (${packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).findIndex((p) => p.id === pk.id) + 1})`
@@ -634,7 +652,7 @@ function VaultPlantPageInner() {
                       )}
                     </div>
                   </td>
-                  <td className="py-3 pr-3 align-middle">
+                  <td className="py-2 pr-3 align-middle">
                     <div className="flex items-center gap-1.5" role="group" aria-label={`${displayName} sowing method`}>
                       <button
                         type="button"
@@ -656,8 +674,8 @@ function VaultPlantPageInner() {
                       </button>
                     </div>
                   </td>
-                  <td className="py-3 pr-3 min-w-[90px] align-middle">
-                    <div className="flex flex-col gap-2">
+                  <td className="py-2 pr-3 min-w-[90px] align-middle">
+                    <div className="flex flex-col gap-1.5">
                       {selectedPackets.length === 0 ? (
                         <span className="text-xs text-black/50">Select packets above</span>
                       ) : (
@@ -665,8 +683,8 @@ function VaultPlantPageInner() {
                           const usePct = usePercentByPacketId[pk.id] ?? 0;
                           const remainingPct = 100 - usePct;
                           const pktQty = pk.qty_status / 100;
-                          const vendor = (pk.vendor_name ?? "").trim() || "Vendor";
-                          const sameVendor = selectedPackets.filter((p) => ((p.vendor_name ?? "").trim() || "") === (vendor === "Vendor" ? "" : vendor));
+                          const vendor = (pk.vendor_name ?? "").trim() || "—";
+                          const sameVendor = selectedPackets.filter((p) => ((p.vendor_name ?? "").trim() || "") === (vendor === "—" ? "" : vendor));
                           const label = selectedPackets.length > 1 ? (sameVendor.length > 1 ? `${vendor} (${sameVendor.findIndex((p) => p.id === pk.id) + 1})` : vendor) : null;
                           return (
                             <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
@@ -690,7 +708,7 @@ function VaultPlantPageInner() {
                       )}
                     </div>
                   </td>
-                  <td className="py-3 pl-3 text-right align-middle">
+                  <td className="py-2 pl-3 text-right align-middle">
                     <button
                       type="button"
                       onClick={() => removeRowFromBatch(profile.id)}
@@ -802,8 +820,8 @@ function VaultPlantPageInner() {
       )}
 
       <div
-        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper border-t border-black/10 shadow-card"
-        style={{ paddingBottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))" }}
+        className="fixed left-0 right-0 bottom-20 z-[100] px-4 py-2.5 bg-paper border-t border-black/10 shadow-card"
+        style={{ paddingBottom: "max(0.625rem, calc(0.625rem + env(safe-area-inset-bottom, 0px)))" }}
       >
         <button
           type="button"
@@ -819,7 +837,7 @@ function VaultPlantPageInner() {
             })
           }
           onClick={handleConfirm}
-          className="w-full min-h-[56px] rounded-xl bg-emerald-500 text-white text-lg font-semibold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
+          className="w-full min-h-[44px] rounded-xl bg-emerald-500 text-white text-base font-semibold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
         >
           {confirming ? "Planting…" : "Confirm Planting"}
         </button>
