@@ -287,7 +287,8 @@ function VaultPageInner() {
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
       const savedStatus = sessionStorage.getItem("vault-status-filter");
-      if (savedStatus === "" || savedStatus === "vault" || savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") setStatusFilter(savedStatus);
+      // Restore only explicit non-default filters; treat "" and legacy "vault" (In storage) as All
+      if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") setStatusFilter(savedStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
       if (typeof savedSearch === "string") setSearchQuery(savedSearch);
       const savedSort = sessionStorage.getItem("vault-sort");
@@ -741,7 +742,7 @@ function VaultPageInner() {
   }
 
   const hasActiveFilters =
-    (statusFilter !== "" && statusFilter !== "vault") ||
+    statusFilter !== "" ||
     tagFilters.length > 0 ||
     categoryFilter !== null ||
     varietyFilter !== null ||
@@ -879,7 +880,7 @@ function VaultPageInner() {
                   {hasActiveFilters ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                       {[
-                        statusFilter !== "" && statusFilter !== "vault",
+                        statusFilter !== "",
                         tagFilters.length > 0,
                         categoryFilter !== null,
                         varietyFilter !== null,

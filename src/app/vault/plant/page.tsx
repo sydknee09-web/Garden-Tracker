@@ -49,6 +49,10 @@ function VaultPlantPageInner() {
   const [addSeedOpen, setAddSeedOpen] = useState(false);
   const [addSeedSearch, setAddSeedSearch] = useState("");
   const [availableProfilesForPicker, setAvailableProfilesForPicker] = useState<ProfileWithPackets[]>([]);
+  /** For profiles with no existing packets: vendor name for the new packet to create */
+  const [newPacketVendorByProfileId, setNewPacketVendorByProfileId] = useState<Record<string, string>>({});
+  /** For profiles with no existing packets: % of the new packet to use (0–100, default 100) */
+  const [newPacketUsePctByProfileId, setNewPacketUsePctByProfileId] = useState<Record<string, number>>({});
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
@@ -69,11 +73,9 @@ function VaultPlantPageInner() {
 
   const removeRowFromBatch = useCallback((id: string) => {
     setRows((prev) => prev.filter((r) => ("profile" in r ? r.profile.id : r.rowId) !== id));
-    setSowingMethodByProfileId((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setSowingMethodByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setNewPacketVendorByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setNewPacketUsePctByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }, []);
 
   const setSowingMethodForProfile = useCallback((profileId: string, method: SowingMethod) => {
@@ -99,6 +101,9 @@ function VaultPlantPageInner() {
       if (packets.length) {
         setSelectedPacketIdsByProfileId((p) => ({ ...p, [profile.id]: [packets[0].id] }));
         packets.forEach((p) => setUsePercentByPacketId((u) => ({ ...u, [p.id]: 100 })));
+      } else {
+        // No existing packets — default new packet to 100% use
+        setNewPacketUsePctByProfileId((p) => ({ ...p, [profile.id]: 100 }));
       }
     }
     setAddSeedOpen(false);
@@ -161,14 +166,19 @@ function VaultPlantPageInner() {
       setRows(ordered);
       const initialSelected: Record<string, string[]> = {};
       const initialUsePercent: Record<string, number> = {};
+      const initialNewPktUsePct: Record<string, number> = {};
       ordered.forEach(({ profile, packets }) => {
         if (packets.length) {
           initialSelected[profile.id] = [packets[0].id];
           packets.forEach((p) => { initialUsePercent[p.id] = 100; });
+        } else {
+          // No existing packets — pre-seed new-packet state so the row is interactive immediately
+          initialNewPktUsePct[profile.id] = 100;
         }
       });
       setSelectedPacketIdsByProfileId(initialSelected);
       setUsePercentByPacketId(initialUsePercent);
+      setNewPacketUsePctByProfileId(initialNewPktUsePct);
       const methodByProfile: Record<string, SowingMethod> = {};
       ordered.forEach(({ profile }) => {
         const useGreenhouse = suggestsGreenhouse(profile.name);
@@ -207,8 +217,7 @@ function VaultPlantPageInner() {
         byProfile.set(p.plant_profile_id, list);
       });
       const withPackets = profiles
-        .map((p) => ({ profile: p as Profile, packets: byProfile.get(p.id) ?? [] }))
-        .filter((r) => r.packets.length > 0) as ProfileWithPackets[];
+        .map((p) => ({ profile: p as Profile, packets: byProfile.get(p.id) ?? [] })) as ProfileWithPackets[];
       if (!cancelled) setAvailableProfilesForPicker(withPackets);
     })();
     return () => { cancelled = true; };
@@ -253,22 +262,20 @@ function VaultPlantPageInner() {
       } else {
         const { profile: p, packets } = row;
         profile = p;
-        const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
-        totalUsed = 0;
-        for (const pk of packets) {
-          if (!selectedIds.includes(pk.id)) continue;
-          const usePct = usePercentByPacketId[pk.id] ?? 0;
-          if (usePct <= 0) continue;
-          const packetValue = pk.qty_status / 100;
-          const take = packetValue * (usePct / 100);
-          totalUsed += take;
-          const remaining = Math.round((packetValue - take) * 100);
-          const newQty = Math.max(0, Math.min(100, remaining));
-          const now = new Date().toISOString();
-          if (newQty <= 0) {
-            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
-          } else {
-            await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
+        if (packets.length === 0) {
+          // No existing packets — a new one will be created on confirm
+          totalUsed = (newPacketUsePctByProfileId[profile.id] ?? 100) / 100;
+        } else {
+          const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
+          totalUsed = 0;
+          // Pre-calculate totalUsed — don't write packets yet (write after grow_instance succeeds)
+          for (const pk of packets) {
+            if (!selectedIds.includes(pk.id)) continue;
+            const usePct = usePercentByPacketId[pk.id] ?? 0;
+            if (usePct <= 0) continue;
+            const packetValue = pk.qty_status / 100;
+            const take = packetValue * (usePct / 100);
+            totalUsed += take;
           }
         }
       }
@@ -282,6 +289,7 @@ function VaultPlantPageInner() {
           ? new Date(new Date(today).getTime() + harvestDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
           : null;
 
+      // Create grow_instance FIRST — if this fails we don't want to have already archived the packet
       const { data: growRow, error: growErr } = await supabase
         .from("grow_instances")
         .insert({
@@ -297,6 +305,48 @@ function VaultPlantPageInner() {
       if (growErr || !growRow?.id) {
         errMsg = growErr?.message ?? "Could not create planting record.";
         break;
+      }
+
+      // Grow instance saved — now safe to write/create packets
+      if (!("isNew" in row)) {
+        const { profile: p2, packets } = row as ProfileWithPackets;
+        const now = new Date().toISOString();
+        if (packets.length === 0) {
+          // Create a new seed packet on-the-fly for this profile
+          const vendorName = (newPacketVendorByProfileId[p2.id] ?? "").trim() || null;
+          const usePct = newPacketUsePctByProfileId[p2.id] ?? 100;
+          const newQty = Math.max(0, 100 - usePct);
+          const { data: newPkt } = await supabase
+            .from("seed_packets")
+            .insert({ user_id: user.id, plant_profile_id: p2.id, qty_status: 100, vendor_name: vendorName })
+            .select("id")
+            .single();
+          if (newPkt?.id) {
+            if (newQty <= 0) {
+              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", newPkt.id).eq("user_id", user.id);
+            } else {
+              await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", newPkt.id).eq("user_id", user.id);
+            }
+            // Link the new packet back to the grow instance
+            await supabase.from("grow_instances").update({ seed_packet_id: newPkt.id }).eq("id", growRow.id).eq("user_id", user.id);
+          }
+        } else {
+          const selectedIds = selectedPacketIdsByProfileId[p2.id] ?? (packets.length === 1 ? [packets[0].id] : []);
+          for (const pk of packets) {
+            if (!selectedIds.includes(pk.id)) continue;
+            const usePct = usePercentByPacketId[pk.id] ?? 0;
+            if (usePct <= 0) continue;
+            const packetValue = pk.qty_status / 100;
+            const take = packetValue * (usePct / 100);
+            const remaining = Math.round((packetValue - take) * 100);
+            const newQty = Math.max(0, Math.min(100, remaining));
+            if (newQty <= 0) {
+              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
+            } else {
+              await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
+            }
+          }
+        }
       }
 
       const methodLabel = method === "greenhouse" ? "Greenhouse" : "Direct Sow";
@@ -506,12 +556,46 @@ function VaultPlantPageInner() {
               const selectedPackets = packets.filter((p) => selectedIds.includes(p.id));
               const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
               if (packets.length === 0) {
+                const newUsePct = newPacketUsePctByProfileId[profile.id] ?? 100;
+                const remainingPct = 100 - newUsePct;
                 return (
-                  <tr key={profile.id} className="border-b border-black/5 align-middle">
-                    <td colSpan={3} className="py-3 pr-3 text-xs text-black/50">
-                      {displayName} — No packets
+                  <tr key={profile.id} className="border-b border-black/5 align-top">
+                    <td className="py-3 pr-3 min-w-0 align-top">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-black line-clamp-2">{displayName}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 self-start">New packet</span>
+                        <input
+                          type="text"
+                          value={newPacketVendorByProfileId[profile.id] ?? ""}
+                          onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                          placeholder="Vendor (optional)"
+                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+                          aria-label={`Vendor for new ${displayName} packet`}
+                        />
+                      </div>
                     </td>
-                    <td className="py-3 pl-3 text-right align-middle w-[52px]">
+                    <td className="py-3 pr-3 align-middle">
+                      <div className="flex items-center gap-1.5" role="group" aria-label={`${displayName} sowing method`}>
+                        <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
+                        <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-3 min-w-[90px] align-middle">
+                      <div className="flex items-center gap-2 min-h-[44px]">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={remainingPct}
+                          onChange={(e) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: 100 - Number(e.target.value) }))}
+                          className="range-thumb-lg flex-1 min-w-0"
+                          style={{ touchAction: "none" }}
+                          aria-label={`${displayName} new packet remaining`}
+                        />
+                        <span className="text-xs text-black/70 tabular-nums shrink-0">{remainingPct}%</span>
+                      </div>
+                    </td>
+                    <td className="py-3 pl-3 text-right align-middle">
                       <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                     </td>
                   </tr>
@@ -673,14 +757,18 @@ function VaultPlantPageInner() {
                   .filter((r) => !rows.some((row) => "profile" in row && row.profile.id === r.profile.id))
                   .map((r) => {
                     const displayName = r.profile.variety_name?.trim() ? `${r.profile.name} (${r.profile.variety_name})` : r.profile.name;
+                    const noPackets = r.packets.length === 0;
                     return (
                       <button
                         key={r.profile.id}
                         type="button"
                         onClick={() => addSeedToBatch(r)}
-                        className="w-full text-left px-4 py-3 rounded-lg text-sm text-black/80 hover:bg-black/5 min-h-[44px]"
+                        className="w-full text-left px-4 py-3 rounded-lg text-sm text-black/80 hover:bg-black/5 min-h-[44px] flex items-center justify-between gap-2"
                       >
-                        {displayName}
+                        <span>{displayName}</span>
+                        {noPackets && (
+                          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">+ new packet</span>
+                        )}
                       </button>
                     );
                   })}
@@ -724,6 +812,8 @@ function VaultPlantPageInner() {
             rows.length === 0 ||
             !rows.some((r) => {
               if ("isNew" in r) return true;
+              // No existing packets: allow if the new-packet use% > 0
+              if (r.packets.length === 0) return (newPacketUsePctByProfileId[r.profile.id] ?? 100) > 0;
               const ids = selectedPacketIdsByProfileId[r.profile.id] ?? (r.packets.length === 1 ? [r.packets[0].id] : []);
               return ids.some((pid) => (usePercentByPacketId[pid] ?? 0) > 0);
             })

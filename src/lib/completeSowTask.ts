@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { advanceCareSchedule } from "@/lib/generateCareTasks";
 import type { Task } from "@/types/garden";
 
 /**
@@ -39,7 +40,7 @@ export async function completeTask(
 
     // ---- Sow task for plant_profiles (new schema) ----
     if (
-      (task.category === "sow" || task.category === "start_seed") &&
+      (task.category === "sow" || task.category === "start_seed" || task.category === "direct_sow") &&
       task.plant_profile_id
     ) {
       if (!task.grow_instance_id) {
@@ -153,6 +154,12 @@ export async function completeTask(
     // ---- Transplant status update (legacy) ----
     if (task.category === "transplant" && task.plant_variety_id) {
       await supabase.from("plant_varieties").update({ status: "Active on Hillside" }).eq("id", task.plant_variety_id).eq("user_id", userId);
+    }
+
+    // ---- Advance recurring care schedule so next task generates on time ----
+    const careScheduleId = (task as Task & { care_schedule_id?: string | null }).care_schedule_id;
+    if (careScheduleId) {
+      await advanceCareSchedule(careScheduleId, userId);
     }
   } catch (err) {
     console.error("completeTask: unexpected error", err);

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { completeTask } from "@/lib/completeSowTask";
+import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import type { Task, TaskType } from "@/types/garden";
@@ -74,11 +75,14 @@ export default function CalendarPage() {
   const [newTaskCategory, setNewTaskCategory] = useState<TaskType>("maintenance");
   const [newTaskPlantId, setNewTaskPlantId] = useState<string>("");
   const [varieties, setVarieties] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [newTaskProfileId, setNewTaskProfileId] = useState<string>("");
+  const [newTaskGrowId, setNewTaskGrowId] = useState<string>("");
+  const [taskProfiles, setTaskProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [taskGrowInstances, setTaskGrowInstances] = useState<{ id: string; sown_date: string; location: string | null; status: string }[]>([]);
   const [savingTask, setSavingTask] = useState(false);
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "overview">("overview");
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
@@ -166,15 +170,20 @@ export default function CalendarPage() {
     let cancelled = false;
 
     async function fetchTasks() {
-      const start = new Date(month.year, month.month, 1).toISOString().slice(0, 10);
-      const end = new Date(month.year, month.month + 1, 0).toISOString().slice(0, 10);
+      // Generate any newly-due care tasks before fetching
+      await generateCareTasks(userId);
+
+      // Fetch all upcoming tasks (from today, up to 1 year out)
+      const oneYearOut = new Date();
+      oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
+      const futureLimit = oneYearOut.toISOString().slice(0, 10);
 
       let tasksQuery = supabase
         .from("tasks")
         .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id")
         .is("deleted_at", null)
-        .gte("due_date", start)
-        .lte("due_date", end)
+        .gte("due_date", todayStr)
+        .lte("due_date", futureLimit)
         .order("due_date");
       if (householdViewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
       const { data: taskRows, error: e } = await tasksQuery;
@@ -213,7 +222,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, month.year, month.month, refetch, householdViewMode]);
+  }, [user?.id, refetch, householdViewMode]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -376,20 +385,6 @@ export default function CalendarPage() {
     setRefetch((r) => r + 1);
   }, [user, selectedIds]);
 
-  // Reminders view: only recurring (from care schedules) and not completed
-  const remindersTasks = useMemo(
-    () =>
-      tasks.filter(
-        (t) => (t as Task & { care_schedule_id?: string | null }).care_schedule_id != null && !t.completed_at
-      ) as (Task & { plant_name?: string })[],
-    [tasks]
-  );
-  const byDateReminders: Record<string, (Task & { plant_name?: string })[]> = {};
-  remindersTasks.forEach((t) => {
-    const d = t.due_date;
-    if (!byDateReminders[d]) byDateReminders[d] = [];
-    byDateReminders[d].push(t);
-  });
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();
   const totalCells = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
@@ -420,9 +415,44 @@ export default function CalendarPage() {
         .eq("status", "Active on Hillside")
         .order("name");
       if (!cancelled && data) setVarieties(data);
+
+      const { data: profiles } = await supabase
+        .from("plant_profiles")
+        .select("id, name, variety_name")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("name");
+      if (!cancelled && profiles) setTaskProfiles(profiles as { id: string; name: string; variety_name: string | null }[]);
     })();
     return () => { cancelled = true; };
   }, [user?.id, newTaskOpen]);
+
+  // Load active grow instances whenever a profile is selected in the new task form
+  useEffect(() => {
+    if (!user || !newTaskProfileId) {
+      setTaskGrowInstances([]);
+      setNewTaskGrowId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("grow_instances")
+        .select("id, sown_date, location, status")
+        .eq("plant_profile_id", newTaskProfileId)
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .in("status", ["growing", "pending"])
+        .order("sown_date", { ascending: false });
+      if (!cancelled) {
+        setTaskGrowInstances((data ?? []) as { id: string; sown_date: string; location: string | null; status: string }[]);
+        // Auto-select the most recent active grow instance
+        if (data && data.length === 1) setNewTaskGrowId(data[0].id);
+        else setNewTaskGrowId("");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, newTaskProfileId]);
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
@@ -437,14 +467,25 @@ export default function CalendarPage() {
     const savedDue = newTaskDue;
     const savedCategory = newTaskCategory;
     const savedPlantId = newTaskPlantId;
-    const plantName = savedPlantId ? varieties.find((v) => v.id === savedPlantId) : null;
-    const displayName = plantName ? (plantName.variety_name?.trim() ? `${plantName.name} (${plantName.variety_name})` : plantName.name) : null;
+    const savedProfileId = newTaskProfileId;
+    const savedGrowId = newTaskGrowId;
+
+    // Resolve display name — prefer plant_profile, fall back to legacy variety
+    let displayName: string | null = null;
+    if (savedProfileId) {
+      const p = taskProfiles.find((v) => v.id === savedProfileId);
+      displayName = p ? (p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name) : null;
+    } else if (savedPlantId) {
+      const v = varieties.find((v) => v.id === savedPlantId);
+      displayName = v ? (v.variety_name?.trim() ? `${v.name} (${v.variety_name})` : v.name) : null;
+    }
+
     const optimisticId = `opt-${Date.now()}`;
     const optimisticTask: Task & { plant_name?: string } = {
       id: optimisticId,
       plant_variety_id: savedPlantId || null,
-      plant_profile_id: null,
-      grow_instance_id: null,
+      plant_profile_id: savedProfileId || null,
+      grow_instance_id: savedGrowId || null,
       category: savedCategory,
       due_date: savedDue,
       completed_at: null,
@@ -457,11 +498,14 @@ export default function CalendarPage() {
     setNewTaskDue(new Date().toISOString().slice(0, 10));
     setNewTaskCategory("maintenance");
     setNewTaskPlantId("");
+    setNewTaskProfileId("");
+    setNewTaskGrowId("");
     setTasks((prev) => [...prev, optimisticTask]);
     const { error: err } = await supabase.from("tasks").insert({
       user_id: user.id,
       plant_variety_id: savedPlantId || null,
-      grow_instance_id: null,
+      plant_profile_id: savedProfileId || null,
+      grow_instance_id: savedGrowId || null,
       category: savedCategory,
       due_date: savedDue,
       title: titleTrim,
@@ -471,6 +515,8 @@ export default function CalendarPage() {
       setNewTaskOpen(true);
       setNewTaskTitle(titleTrim);
       setNewTaskPlantId(savedPlantId);
+      setNewTaskProfileId(savedProfileId);
+      setNewTaskGrowId(savedGrowId);
       setNewTaskDue(savedDue);
       setNewTaskCategory(savedCategory);
       setNewTaskError(err.message);
@@ -483,30 +529,6 @@ export default function CalendarPage() {
 
   return (
     <div className="px-6 pt-2 pb-6">
-      <div className="flex mb-3">
-        <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Calendar view">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "overview"}
-            onClick={() => setViewMode("overview")}
-            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "list"}
-            aria-label="Reminders view: recurring care tasks, excluding completed"
-            onClick={() => setViewMode("list")}
-            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
-          >
-            Reminders
-          </button>
-        </div>
-      </div>
-
       <div
         className="flex items-center justify-center gap-2 mb-2 touch-pan-y"
         onTouchStart={(e) => {
@@ -666,7 +688,7 @@ export default function CalendarPage() {
           <p className="text-citrus font-medium">Could not load tasks</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
         </div>
-      ) : viewMode === "overview" ? (
+      ) : (
         <div
           className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden"
           onTouchStart={(e) => {
@@ -750,9 +772,9 @@ export default function CalendarPage() {
             })}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {!loading && !error && viewMode === "overview" && (
+      {!loading && !error && (
         <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
           <div className="relative px-4 py-4 flex items-center justify-center border-b border-black/10">
             <h2 className="text-base font-bold text-black text-center">
@@ -762,7 +784,7 @@ export default function CalendarPage() {
                     month: "short",
                     day: "numeric",
                   })}`
-                : "Tasks this month"}
+                : "Upcoming Tasks"}
             </h2>
             {selectedDate && (
               <button
@@ -777,10 +799,10 @@ export default function CalendarPage() {
           {tasks.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-black/60 text-sm font-medium">
-                No tasks scheduled for {new Date(month.year, month.month).toLocaleString("default", { month: "long" })}.
+                No upcoming tasks scheduled.
               </p>
               <p className="text-sm text-black/50 mt-2">
-                Add a reminder to start your spring seedlings, or plant from a profile to generate tasks.
+                Tap + to add a task, or plant from a profile to generate tasks automatically.
               </p>
             </div>
           ) : selectedDate ? (
@@ -864,61 +886,6 @@ export default function CalendarPage() {
           )}
         </div>
       )}
-
-      {!loading && !error && viewMode === "list" ? (
-        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
-          {remindersTasks.length === 0 ? (
-            <div className="p-8 text-center text-black/50 text-sm">
-              No recurring reminders this month. Care schedules generate reminder tasks when you plant.
-            </div>
-          ) : (
-            <ul className="divide-y divide-black/5">
-              {Object.entries(byDateReminders)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([date, dayTasks]) => {
-                  const isExpanded = expandedDateGroups.has(date);
-                  const dateLabel = new Date(date + "T12:00:00").toLocaleDateString("default", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  });
-                  return (
-                    <li key={date} className="border-b border-black/5 last:border-b-0">
-                      <button
-                        type="button"
-                        onClick={() => toggleDateGroup(date)}
-                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors"
-                        aria-expanded={isExpanded}
-                      >
-                        <span className="text-sm font-medium text-black/80">
-                          {dateLabel} ({dayTasks.length} reminder{dayTasks.length !== 1 ? "s" : ""})
-                        </span>
-                        <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>
-                      </button>
-                      {isExpanded && (
-                        <div className="px-4 pb-4 space-y-2">
-                          {dayTasks.map((t) => (
-                            <CalendarTaskRow
-                              key={t.id}
-                              task={t}
-                              onComplete={() => handleComplete(t)}
-                              onSnooze={(newDue) => handleSnooze(t, newDue)}
-                              onDeleteRequest={() => requestDeleteTask(t)}
-                              selectMode={selectMode}
-                              isSelected={selectedIds.has(t.id)}
-                              onLongPress={() => handleLongPressTask(t.id)}
-                              onToggleSelect={() => toggleTaskSelect(t.id)}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-            </ul>
-          )}
-        </div>
-      ) : null}
 
       {/* Batch select action bar */}
       {selectMode && (
@@ -1037,8 +1004,10 @@ export default function CalendarPage() {
           setNewTaskOpen(true);
           setNewTaskTitle("");
           setNewTaskDue(new Date().toISOString().slice(0, 10));
-          setNewTaskCategory(viewMode === "list" ? "general" : "maintenance");
+          setNewTaskCategory("maintenance");
           setNewTaskPlantId("");
+          setNewTaskProfileId("");
+          setNewTaskGrowId("");
           setNewTaskError(null);
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
@@ -1101,7 +1070,7 @@ export default function CalendarPage() {
             aria-labelledby="new-task-title"
           >
             <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-              {viewMode === "list" ? "New Reminder" : "New Task"}
+              New Task
             </h2>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
@@ -1147,27 +1116,48 @@ export default function CalendarPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="task-plant" className="block text-sm font-medium text-black/80 mb-1">
+                <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
                   Link to plant (optional)
                 </label>
                 <select
-                  id="task-plant"
-                  value={newTaskPlantId}
-                  onChange={(e) => setNewTaskPlantId(e.target.value)}
+                  id="task-profile"
+                  value={newTaskProfileId}
+                  onChange={(e) => { setNewTaskProfileId(e.target.value); setNewTaskGrowId(""); }}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
                 >
                   <option value="">None</option>
-                  {varieties.length === 0 ? (
-                    <option value="" disabled>No active plants found. Start a Sowing first.</option>
-                  ) : (
-                    varieties.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
-                      </option>
-                    ))
-                  )}
+                  {taskProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
+                    </option>
+                  ))}
+                  {taskProfiles.length === 0 && varieties.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
+              {taskGrowInstances.length > 0 && (
+                <div>
+                  <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
+                    Active planting (optional)
+                  </label>
+                  <select
+                    id="task-grow"
+                    value={newTaskGrowId}
+                    onChange={(e) => setNewTaskGrowId(e.target.value)}
+                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                  >
+                    <option value="">Any / not specific</option>
+                    {taskGrowInstances.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        Sown {g.sown_date}{g.location ? ` · ${g.location}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {newTaskError && <p className="text-sm text-citrus font-medium">{newTaskError}</p>}
               <div className="space-y-2 pt-2">
                 <button
@@ -1175,7 +1165,7 @@ export default function CalendarPage() {
                   disabled={savingTask}
                   className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  {savingTask ? "Saving…" : viewMode === "list" ? "Add Reminder" : "Save Task"}
+                  {savingTask ? "Saving…" : "Save Task"}
                 </button>
                 <button
                   type="button"
