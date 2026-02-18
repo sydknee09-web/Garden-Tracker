@@ -18,9 +18,11 @@ interface Props {
   userId: string;
   schedules: CareSchedule[];
   onChanged: () => void;
+  /** False for permanent plants — schedules are active immediately, not copy-on-plant templates. */
+  isTemplate?: boolean;
 }
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -75,7 +77,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged }:
         next_due_date: nextDueDate || null,
         notes: notes.trim() || null,
         is_active: true,
-        is_template: true,
+        is_template: isTemplate,
       };
 
       const { error } = editingId
