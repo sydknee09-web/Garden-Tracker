@@ -116,51 +116,10 @@ export async function POST(req: Request) {
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
 
     // -------------------------------------------------------------------------
-    // Gallery cache: return any cached hero URLs immediately (no Gemini call).
+    // Gallery mode always goes straight to Gemini — no cache.
+    // The gallery is the user's explicit "browse and pick" action, so they need
+    // fresh embeddable results every time, not stale single-image cache entries.
     // -------------------------------------------------------------------------
-    if (gallery && identity_key && token) {
-      const supabaseGallery = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
-      const { data: { user }, error: authError } = await supabaseGallery.auth.getUser(token);
-      if (!authError && user?.id) {
-        const collected: string[] = [];
-        const { data: extractRows } = await supabaseGallery
-          .from("plant_extract_cache")
-          .select("hero_storage_path, original_hero_url")
-          .eq("user_id", user.id)
-          .eq("identity_key", identity_key)
-          .or("hero_storage_path.not.is.null,original_hero_url.not.is.null")
-          .limit(10);
-        for (const r of extractRows ?? []) {
-          const path = (r as { hero_storage_path?: string | null }).hero_storage_path;
-          if (path?.trim()) {
-            const { data: pub } = supabaseGallery.storage.from("journal-photos").getPublicUrl(path.trim());
-            if (pub?.publicUrl) collected.push(pub.publicUrl);
-          }
-          const orig = (r as { original_hero_url?: string | null }).original_hero_url;
-          if (typeof orig === "string" && orig.trim().startsWith("http")) collected.push(orig.trim());
-        }
-        const { data: gpcRows } = await supabaseGallery
-          .from("global_plant_cache")
-          .select("original_hero_url, extract_data")
-          .eq("identity_key", identity_key)
-          .not("original_hero_url", "is", null)
-          .limit(10);
-        for (const row of gpcRows ?? []) {
-          const u = (row as { original_hero_url?: string }).original_hero_url?.trim();
-          if (u && u.startsWith("http")) collected.push(u);
-          const ed = (row as { extract_data?: { hero_image_url?: string } }).extract_data;
-          const fromExtract = typeof ed?.hero_image_url === "string" ? ed.hero_image_url.trim() : "";
-          if (fromExtract.startsWith("http")) collected.push(fromExtract);
-        }
-        const deduped = [...new Set(collected)];
-        if (deduped.length > 0) {
-          console.log(`[find-hero-photo] Gallery cache hit: ${logLabel} → ${deduped.length} urls`);
-          return NextResponse.json({ urls: deduped });
-        }
-      }
-    }
 
     // -------------------------------------------------------------------------
     // Non-gallery cache: return cached hero URL without any Gemini call.
