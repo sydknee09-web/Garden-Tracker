@@ -607,11 +607,6 @@ function VaultPlantPageInner() {
                     <span className="text-sm font-semibold text-black">{displayName}</span>
                     {hasF1 && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
                   </div>
-                  {packets.length === 1 && (
-                    <span className="text-xs text-black/45 block mt-0.5 truncate">
-                      {(packets[0].vendor_name ?? "").trim() || "—"}
-                    </span>
-                  )}
                   {packets.length > 1 && (
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5" role="group" aria-label={`Select packets for ${displayName}`}>
                       {packets.map((pk) => {
@@ -651,9 +646,7 @@ function VaultPlantPageInner() {
                     const vendor = (pk.vendor_name ?? "").trim();
                     return (
                       <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
-                        {selectedPackets.length > 1 && (
-                          <span className="text-[10px] text-black/45 w-20 truncate shrink-0">{vendor || "—"}</span>
-                        )}
+                        <span className="text-[10px] text-black/45 w-20 truncate shrink-0">{vendor || "—"}</span>
                         <input
                           type="range"
                           min={0}
