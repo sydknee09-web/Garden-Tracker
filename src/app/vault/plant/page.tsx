@@ -485,7 +485,10 @@ function VaultPlantPageInner() {
       </div>
 
       <section className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-2.5" aria-label="Apply to All Packets">
-        <h2 className="text-xs font-semibold text-emerald-900 mb-1.5">Set All</h2>
+        <div className="flex items-baseline gap-2 mb-1.5">
+          <h2 className="text-xs font-semibold text-emerald-900">Set All Rows</h2>
+          <span className="text-[10px] text-emerald-700/70">override per row below</span>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2" role="group" aria-label="Sowing method for all">
             <span className="text-xs font-medium text-black/70">Sowing</span>
@@ -515,223 +518,174 @@ function VaultPlantPageInner() {
         </div>
       </section>
 
-      <div className="overflow-x-auto -mx-6 px-6">
-        <table className="w-full border-collapse text-sm" role="grid" aria-label="Planting varieties">
-          <thead>
-            <tr className="border-b border-black/10">
-              <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 w-[36%] min-w-[100px]">Variety Name</th>
-              <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 w-[22%]">Sowing Method</th>
-              <th className="text-left py-2.5 pr-3 text-xs font-semibold text-black/70 min-w-[90px]">Remaining Inventory</th>
-              <th className="text-right py-2.5 pl-3 text-xs font-semibold text-black/70 w-[52px]">Remove</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              if ("isNew" in row) {
-                const method = sowingMethodByProfileId[row.rowId] ?? "direct_sow";
-                return (
-                  <tr key={row.rowId} className="border-b border-black/5 align-top">
-                    <td className="py-2 pr-3 min-w-0 align-top">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-sm font-medium text-black">{row.customName}</span>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">New variety</span>
-                        </div>
-                        <input
-                          type="text"
-                          value={newPacketVendorByProfileId[row.rowId] ?? ""}
-                          onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
-                          placeholder="Vendor (optional)"
-                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
-                          aria-label={`Vendor for new ${row.customName} packet`}
-                        />
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 align-middle">
-                      <div className="flex items-center gap-1.5" role="group">
-                        <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
-                        <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 min-w-[90px] align-middle">
-                      <span className="text-xs text-black/70">100% (full packet)</span>
-                    </td>
-                    <td className="py-2 pl-3 text-right align-middle">
-                      <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
-                    </td>
-                  </tr>
-                );
-              }
-              const { profile, packets } = row;
-              const displayName = profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name;
-              const hasF1 = packets.some((pk) => Array.isArray(pk.tags) && pk.tags.some((t) => String(t).toLowerCase() === "f1"));
-              const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
-              const selectedPackets = packets.filter((p) => selectedIds.includes(p.id));
-              const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
-              if (packets.length === 0) {
-                const newUsePct = newPacketUsePctByProfileId[profile.id] ?? 100;
-                const remainingPct = 100 - newUsePct;
-                return (
-                  <tr key={profile.id} className="border-b border-black/5 align-top">
-                    <td className="py-2 pr-3 min-w-0 align-top">
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-sm font-medium text-black line-clamp-2">{displayName}</span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 self-start">New packet</span>
-                        <input
-                          type="text"
-                          value={newPacketVendorByProfileId[profile.id] ?? ""}
-                          onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value }))}
-                          placeholder="Vendor (optional)"
-                          className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
-                          aria-label={`Vendor for new ${displayName} packet`}
-                        />
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 align-middle">
-                      <div className="flex items-center gap-1.5" role="group" aria-label={`${displayName} sowing method`}>
-                        <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
-                        <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Greenhouse</button>
-                      </div>
-                    </td>
-                    <td className="py-2 pr-3 min-w-[90px] align-middle">
-                      <div className="flex items-center gap-2 min-h-[44px]">
+      <div className="flex flex-col divide-y divide-black/8" role="list" aria-label="Planting varieties">
+        {rows.map((row) => {
+          if ("isNew" in row) {
+            const method = sowingMethodByProfileId[row.rowId] ?? "direct_sow";
+            return (
+              <div key={row.rowId} className="py-3" role="listitem">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                      <span className="text-sm font-semibold text-black">{row.customName}</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">New variety</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={newPacketVendorByProfileId[row.rowId] ?? ""}
+                      onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
+                      placeholder="Vendor (optional)"
+                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+                      aria-label={`Vendor for new ${row.customName} packet`}
+                    />
+                  </div>
+                  <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 shrink-0" role="group" aria-label={`${row.customName} sowing method`}>
+                    <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
+                    <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
+                  </div>
+                  <span className="ml-auto text-xs text-black/50">Full packet</span>
+                </div>
+              </div>
+            );
+          }
+          const { profile, packets } = row;
+          const displayName = profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name;
+          const hasF1 = packets.some((pk) => Array.isArray(pk.tags) && pk.tags.some((t) => String(t).toLowerCase() === "f1"));
+          const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
+          const selectedPackets = packets.filter((p) => selectedIds.includes(p.id));
+          const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
+          if (packets.length === 0) {
+            const newUsePct = newPacketUsePctByProfileId[profile.id] ?? 100;
+            const remainingPct = 100 - newUsePct;
+            return (
+              <div key={profile.id} className="py-3" role="listitem">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                      <span className="text-sm font-semibold text-black line-clamp-2">{displayName}</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">New packet</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={newPacketVendorByProfileId[profile.id] ?? ""}
+                      onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                      placeholder="Vendor (optional)"
+                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+                      aria-label={`Vendor for new ${displayName} packet`}
+                    />
+                  </div>
+                  <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 shrink-0" role="group" aria-label={`${displayName} sowing method`}>
+                    <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
+                    <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={remainingPct}
+                    onChange={(e) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: 100 - Number(e.target.value) }))}
+                    className="range-thumb-lg flex-1 min-w-0"
+                    style={{ touchAction: "none" }}
+                    aria-label={`${displayName} new packet remaining`}
+                  />
+                  <span className="text-xs text-black/70 tabular-nums shrink-0">{remainingPct}%</span>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={profile.id} className="py-3" role="listitem">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap" title={displayName}>
+                    <span className="text-sm font-semibold text-black">{displayName}</span>
+                    {hasF1 && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
+                  </div>
+                  {packets.length === 1 && (
+                    <span className="text-xs text-black/45 block mt-0.5 truncate">
+                      {(packets[0].vendor_name ?? "").trim() || "—"}
+                    </span>
+                  )}
+                  {packets.length > 1 && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5" role="group" aria-label={`Select packets for ${displayName}`}>
+                      {packets.map((pk) => {
+                        const checked = selectedIds.includes(pk.id);
+                        const vendor = (pk.vendor_name ?? "").trim() || "—";
+                        const sameVendorCount = packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).length;
+                        const label = sameVendorCount > 1
+                          ? `${vendor} (${packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).findIndex((p) => p.id === pk.id) + 1})`
+                          : vendor;
+                        return (
+                          <label key={pk.id} className="flex items-center gap-1.5 cursor-pointer text-xs text-black/70 min-h-[28px]">
+                            <input type="checkbox" checked={checked} onChange={() => togglePacketSelection(profile.id, pk.id)} className="rounded border-gray-400" />
+                            <span>{label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
+              </div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex gap-1 shrink-0" role="group" aria-label={`${displayName} sowing method`}>
+                  <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
+                  <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
+                </div>
+                {selectedPackets.length === 0 && (
+                  <span className="text-xs text-black/50 ml-2">Select a packet above</span>
+                )}
+              </div>
+              {selectedPackets.length > 0 && (
+                <div className="flex flex-col gap-1.5 pl-1">
+                  {selectedPackets.map((pk, idx) => {
+                    const usePct = usePercentByPacketId[pk.id] ?? 0;
+                    const remainingPct = 100 - usePct;
+                    const pktQty = pk.qty_status / 100;
+                    const vendor = (pk.vendor_name ?? "").trim();
+                    return (
+                      <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
+                        {selectedPackets.length > 1 && (
+                          <span className="text-[10px] text-black/45 w-20 truncate shrink-0">{vendor || "—"}</span>
+                        )}
                         <input
                           type="range"
                           min={0}
                           max={100}
                           value={remainingPct}
-                          onChange={(e) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: 100 - Number(e.target.value) }))}
+                          onChange={(e) => setUsePercentForPacket(pk.id, 100 - Number(e.target.value))}
                           className="range-thumb-lg flex-1 min-w-0"
                           style={{ touchAction: "none" }}
-                          aria-label={`${displayName} new packet remaining`}
+                          aria-label={`${displayName} packet ${idx + 1} remaining (${pktQty.toFixed(1)} pkts)`}
                         />
-                        <span className="text-xs text-black/70 tabular-nums shrink-0">{remainingPct}%</span>
-                      </div>
-                    </td>
-                    <td className="py-2 pl-3 text-right align-middle">
-                      <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
-                    </td>
-                  </tr>
-                );
-              }
-              return (
-                <tr key={profile.id} className="border-b border-black/5 align-middle">
-                  <td className="py-2 pr-3 min-w-0 align-top">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-medium text-black line-clamp-2 inline-flex items-center gap-1.5 flex-wrap" title={displayName}>
-                        {displayName}
-                        {hasF1 && <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="F1 hybrid – seeds may not breed true">F1</span>}
-                      </span>
-                      {packets.length === 1 && (
-                        <span className="text-xs text-black/45 truncate">
-                          {(packets[0].vendor_name ?? "").trim() || "—"}
+                        <span className="text-xs text-black/70 tabular-nums shrink-0">
+                          {remainingPct}% <span className="text-black/50">({pktQty.toFixed(1)})</span>
                         </span>
-                      )}
-                      {packets.length > 1 && (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-0.5" role="group" aria-label={`Select packets for ${displayName}`}>
-                          {packets.map((pk, idx) => {
-                            const checked = selectedIds.includes(pk.id);
-                            const vendor = (pk.vendor_name ?? "").trim() || "—";
-                            const sameVendorCount = packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).length;
-                            const label = sameVendorCount > 1
-                              ? `${vendor} (${packets.filter((p) => ((p.vendor_name ?? "").trim() || "") === ((pk.vendor_name ?? "").trim() || "")).findIndex((p) => p.id === pk.id) + 1})`
-                              : vendor;
-                            return (
-                              <label key={pk.id} className="flex items-center gap-1.5 cursor-pointer text-xs text-black/70">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => togglePacketSelection(profile.id, pk.id)}
-                                  className="rounded border-gray-400"
-                                />
-                                <span>{label}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 pr-3 align-middle">
-                    <div className="flex items-center gap-1.5" role="group" aria-label={`${displayName} sowing method`}>
-                      <button
-                        type="button"
-                        onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")}
-                        className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"
-                        }`}
-                      >
-                        Direct
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")}
-                        className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"
-                        }`}
-                      >
-                        Greenhouse
-                      </button>
-                    </div>
-                  </td>
-                  <td className="py-2 pr-3 min-w-[90px] align-middle">
-                    <div className="flex flex-col gap-1.5">
-                      {selectedPackets.length === 0 ? (
-                        <span className="text-xs text-black/50">Select packets above</span>
-                      ) : (
-                        selectedPackets.map((pk, idx) => {
-                          const usePct = usePercentByPacketId[pk.id] ?? 0;
-                          const remainingPct = 100 - usePct;
-                          const pktQty = pk.qty_status / 100;
-                          return (
-                            <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
-                              <input
-                                type="range"
-                                min={0}
-                                max={100}
-                                value={remainingPct}
-                                onChange={(e) => setUsePercentForPacket(pk.id, 100 - Number(e.target.value))}
-                                className="range-thumb-lg flex-1 min-w-0"
-                                style={{ touchAction: "none" }}
-                                aria-label={`${displayName} packet ${idx + 1} remaining (${pktQty.toFixed(1)} pkts)`}
-                              />
-                              <span className="text-xs text-black/70 tabular-nums shrink-0">
-                                {remainingPct}% <span className="text-black/50">({pktQty.toFixed(1)})</span>
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 pl-3 text-right align-middle">
-                    <button
-                      type="button"
-                      onClick={() => removeRowFromBatch(profile.id)}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50"
-                      aria-label={`Remove ${displayName} from batch`}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            <tr className="border-b border-black/5">
-              <td colSpan={4} className="py-2 pr-3 pl-3">
-                <button
-                  type="button"
-                  onClick={() => setAddSeedOpen(true)}
-                  className="flex items-center gap-2 w-full min-h-[44px] rounded-lg border-2 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50/80 hover:border-emerald-400 font-medium text-sm transition-colors"
-                  aria-label="Add seed to planting"
-                >
-                  <PlusIcon className="w-5 h-5 shrink-0" />
-                  Add Seed
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="pt-2 pb-1">
+          <button
+            type="button"
+            onClick={() => setAddSeedOpen(true)}
+            className="flex items-center gap-2 w-full min-h-[44px] rounded-lg border-2 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50/80 hover:border-emerald-400 font-medium text-sm transition-colors"
+            aria-label="Add seed to planting"
+          >
+            <PlusIcon className="w-5 h-5 shrink-0" />
+            Add Seed
+          </button>
+        </div>
       </div>
 
       {addSeedOpen && (
