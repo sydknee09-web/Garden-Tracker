@@ -1021,7 +1021,7 @@ export default function CalendarPage() {
                   disabled={savingTask}
                   className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  {savingTask ? "Saving…" : "Save task"}
+                  {savingTask ? "Saving…" : viewMode === "list" ? "Add Reminder" : "Save Task"}
                 </button>
                 <button
                   type="button"
