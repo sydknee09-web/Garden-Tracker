@@ -141,7 +141,7 @@ export async function POST(req: Request) {
       if (heroPath) {
         // Stored in our own bucket — never breaks
         const { data: pubUrl } = supabase.storage.from("journal-photos").getPublicUrl(heroPath);
-        updates = { hero_image_path: heroPath, hero_image_url: pubUrl?.publicUrl ?? heroUrl || null };
+        updates = { hero_image_path: heroPath, hero_image_url: (pubUrl?.publicUrl ?? heroUrl) || null };
       } else if (heroUrl) {
         updates = { hero_image_url: heroUrl };
       } else if (packetPath) {

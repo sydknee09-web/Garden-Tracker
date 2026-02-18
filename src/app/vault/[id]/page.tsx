@@ -822,15 +822,20 @@ export default function VaultSeedPage() {
       {showSetPhotoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-              <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
-              <p className="text-sm text-neutral-500 mt-1">Take a photo, choose from files, or pick from web images.</p>
+            <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold text-neutral-900">Set Profile Photo</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">Take a photo, choose from files, or pick from web images.</p>
+              </div>
+              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex-shrink-0" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {heroImageUrl && (
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Current profile photo</p>
-                  <div className="relative inline-block aspect-video w-full max-w-[200px] rounded-lg overflow-hidden border-2 border-neutral-300 bg-neutral-100">
+                  <div className="relative inline-block w-20 h-20 rounded-lg overflow-hidden border-2 border-neutral-300 bg-neutral-100">
                     <img src={heroImageUrl} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
@@ -945,16 +950,11 @@ export default function VaultSeedPage() {
                   </div>
                 </div>
               )}
-              {heroUrl && (
-                <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
-                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="block w-full aspect-video rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">
-                    {stockPhotoCurrentFailed ? (
-                      <div className="w-full h-full flex items-center justify-center bg-neutral-100">
-                        <img src="/seedling-icon.svg" alt="" className="w-16 h-16 text-emerald-600" aria-hidden />
-                      </div>
-                    ) : (
-                      <img src={externalImageSrc(heroUrl)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setStockPhotoCurrentFailed(true)} />
-                    )}
+              {heroUrl && !stockPhotoCurrentFailed && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
+                  <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="inline-block w-20 h-20 rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">
+                    <img src={externalImageSrc(heroUrl)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setStockPhotoCurrentFailed(true)} />
                   </button>
                 </div>
               )}
@@ -1025,7 +1025,7 @@ export default function VaultSeedPage() {
                       )}
                     </select>
                   ) : (
-                    <input id={f.id} type="text" value={editForm[f.key]} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={(f as { placeholder?: string }).placeholder} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+                    <input id={f.id} type="text" value={editForm[f.key]} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} placeholder={(f as { placeholder?: string }).placeholder} className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
                   )}
                   {f.key === "plantingWindow" && !editForm.plantingWindow.trim() && (
                     <p className="text-xs text-amber-600 mt-1">
