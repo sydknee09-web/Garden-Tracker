@@ -199,6 +199,7 @@ function VaultPlantPageInner() {
     for (const row of rows) {
       let profile: Profile;
       let totalUsed: number;
+      let primaryPacketId: string | null = null;
 
       if ("isNew" in row) {
         const { name, variety_name } = parseNameVariety(row.customName);
@@ -223,7 +224,7 @@ function VaultPlantPageInner() {
           errMsg = packetErr?.message ?? "Could not create seed packet.";
           break;
         }
-        await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: new Date().toISOString() }).eq("id", newPacket.id).eq("user_id", user.id);
+        await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", newPacket.id).eq("user_id", user.id);
         totalUsed = 1;
       } else {
         const { profile: p, packets } = row;
@@ -233,6 +234,7 @@ function VaultPlantPageInner() {
           totalUsed = (newPacketUsePctByProfileId[profile.id] ?? 100) / 100;
         } else {
           const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
+          primaryPacketId = selectedIds[0] ?? null;
           totalUsed = 0;
           // Pre-calculate totalUsed — don't write packets yet (write after grow_instance succeeds)
           for (const pk of packets) {
@@ -260,6 +262,7 @@ function VaultPlantPageInner() {
         .insert({
           user_id: user.id,
           plant_profile_id: profile.id,
+          seed_packet_id: primaryPacketId,
           sown_date: today,
           expected_harvest_date: expectedHarvestDate ?? null,
           status: "growing",
@@ -288,7 +291,7 @@ function VaultPlantPageInner() {
             .single();
           if (newPkt?.id) {
             if (newQty <= 0) {
-              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", newPkt.id).eq("user_id", user.id);
+              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", newPkt.id).eq("user_id", user.id);
             } else {
               await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", newPkt.id).eq("user_id", user.id);
             }
@@ -306,7 +309,7 @@ function VaultPlantPageInner() {
             const remaining = Math.round((packetValue - take) * 100);
             const newQty = Math.max(0, Math.min(100, remaining));
             if (newQty <= 0) {
-              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
+              await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", pk.id).eq("user_id", user.id);
             } else {
               await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
             }
