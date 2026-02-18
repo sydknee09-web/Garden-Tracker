@@ -594,14 +594,18 @@ export default function VaultSeedPage() {
       const res = await fetch("/api/seed/find-hero-photo", {
         method: "POST",
         headers,
-        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined }),
+        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, profile_id: id }),
       });
-      const data = (await res.json()) as { hero_image_url?: string; error?: string };
+      const data = (await res.json()) as { hero_image_url?: string; hero_image_path?: string; error?: string };
+      const storagePath = data.hero_image_path?.trim();
       const url = data.hero_image_url?.trim();
-      if (url) {
+      if (storagePath) {
+        // Auto-downloaded to our storage — use path so it never breaks
+        await setHeroFromPath(storagePath);
+      } else if (url) {
         await setHeroFromUrl(url);
-        router.refresh();
       }
+      if (storagePath || url) router.refresh();
       if (data.error) setFindHeroError(data.error);
       await loadProfile();
     } finally {
