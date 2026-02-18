@@ -180,8 +180,8 @@ function GardenPageInner() {
   return (
     <div className="min-h-screen pb-24">
       <div className="px-4 pt-2 pb-4">
-        <div className="flex mb-3 -mx-4 px-4" role="tablist" aria-label="View">
-          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+        <div className="flex mb-3">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="View">
             <button
               type="button"
               role="tab"
