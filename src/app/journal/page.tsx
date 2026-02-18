@@ -112,7 +112,7 @@ function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string;
 
 /** Insert year/month section headers into table rows for glanceable timeline. */
 function tableRowsWithSections(
-  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; entryIds: string[] }[]
+  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null }[]
 ): ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] {
   const out: ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] = [];
   let lastYM = "";
