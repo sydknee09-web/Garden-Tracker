@@ -427,7 +427,7 @@ export default function CalendarPage() {
 
   return (
     <div className="px-6 pt-2 pb-6">
-      <div className="flex justify-center mb-3">
+      <div className="flex mb-3">
         <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Calendar view">
           <button
             type="button"
