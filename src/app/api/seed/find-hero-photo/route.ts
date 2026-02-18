@@ -220,101 +220,103 @@ export async function POST(req: Request) {
     const ai = new GoogleGenAI({ apiKey });
 
     // -----------------------------------------------------------------------
-    // Gallery mode: one Gemini pass, return multiple URLs for the user to pick.
-    // HEAD-filter in gallery so broken tiles don't clutter the grid.
+    // Gallery mode: Wikimedia Commons API first (no AI, no rate limits,
+    // guaranteed embeddable URLs). Gemini only supplements if needed.
     // -----------------------------------------------------------------------
     if (gallery) {
-      // Strip catalog-only suffixes that confuse botanical image searches
       const CATALOG_SUFFIXES = /\b(Series|Mix|Blend|Formula|Collection|Mixture|Hybrid|F1)\b/gi;
       const cleanedVariety = variety.replace(CATALOG_SUFFIXES, "").replace(/\s+/g, " ").trim();
-      const galleryQuery = [cleanedVariety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
-      const scientificHint = scientific_name
-        ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
-        : "";
-      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show the actual plant, flower, or fruit for: "${galleryQuery}".${scientificHint}
+      // Build queries: specific first (e.g. "French Durango Marigold"), then genus-only ("Marigold")
+      const specificQuery = [cleanedVariety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      const genericQuery = (scientific_name?.trim() || name || "").trim();
+      const searchQueries = [...new Set([specificQuery, genericQuery].filter(Boolean))];
 
-SOURCE PRIORITY — return as many from these embeddable sources as you can find:
-1. upload.wikimedia.org or commons.wikimedia.org (best — always embeddable)
-2. pixabay.com, unsplash.com, pexels.com
-3. staticflickr.com or live.staticflickr.com
-4. University extension sites (.edu), botanical gardens, or reputable nurseries
+      // ---- Wikimedia Commons API ----
+      const wikimediaUrls: string[] = [];
+      for (const q of searchQueries) {
+        if (wikimediaUrls.length >= 9) break;
+        try {
+          const wikiApiUrl =
+            `https://commons.wikimedia.org/w/api.php` +
+            `?action=query&generator=search` +
+            `&gsrsearch=${encodeURIComponent(q)}` +
+            `&gsrnamespace=6&gsrlimit=20` +
+            `&prop=imageinfo&iiprop=url|mime` +
+            `&format=json&origin=*`;
+          const wikiRes = await fetch(wikiApiUrl, {
+            headers: { "User-Agent": "GardenTracker/1.0 (botanical app)" },
+          }).catch(() => null);
+          if (!wikiRes?.ok) continue;
+          const wikiData = await wikiRes.json() as {
+            query?: { pages?: Record<string, { imageinfo?: Array<{ url: string; mime: string }> }> };
+          };
+          const pages = Object.values(wikiData?.query?.pages ?? {});
+          for (const page of pages) {
+            const info = page.imageinfo?.[0];
+            if (!info?.url) continue;
+            const mime = (info.mime ?? "").toLowerCase();
+            // Skip SVG, GIF, and non-images
+            if (!mime.startsWith("image/") || mime.includes("svg") || mime.includes("gif")) continue;
+            if (!wikimediaUrls.includes(info.url)) wikimediaUrls.push(info.url);
+            if (wikimediaUrls.length >= 12) break;
+          }
+        } catch { /* non-fatal */ }
+      }
 
-NEVER include URLs from: shutterstock.com, alamy.com, dreamstime.com, istockphoto.com, gettyimages.com, 123rf.com, depositphotos.com, stock.adobe.com, or any seed vendor shop (burpee.com, rareseeds.com, johnnyseeds.com, botanicalinterests.com, edenbrothers.com).
-Do NOT include seed packet images, logos, or product shots — only photos of the actual plant.
-Each URL must be a direct link to an image file (.jpg, .jpeg, .png, .webp), NOT a web page.
-Return as many qualifying URLs as you can find, even if they are not all from Wikimedia.
+      console.log(`[hero] Gallery Wikimedia: ${logLabel} → ${wikimediaUrls.length} urls`);
 
-Return only valid JSON with no markdown: { "urls": [ "https://...", ... ] }.`;
+      // If Wikimedia gave us plenty, return immediately — no Gemini needed
+      if (wikimediaUrls.length >= 4) {
+        return NextResponse.json({ urls: wikimediaUrls });
+      }
 
-      let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+      // ---- Gemini supplement (for plants with few Wikimedia photos) ----
+      const geminiQuery = specificQuery || genericQuery || "plant";
+      const geminiPrompt = `Using Google Search, find 8 direct image URLs (https) of the actual plant, flower, or fruit for: "${geminiQuery}". Only photos of the growing plant — no seed packets, no product shots, no watermarked stock previews (shutterstock, alamy, dreamstime, getty, 123rf). Prefer pixabay.com, unsplash.com, pexels.com, staticflickr.com, and .edu sites. Each URL must be a direct image file (.jpg, .jpeg, .png, .webp). Return only valid JSON: { "urls": ["https://...", ...] }.`;
+
+      let geminiResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
-        galleryResponse = await Promise.race([
+        geminiResponse = await Promise.race([
           ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: galleryPrompt,
+            contents: geminiPrompt,
             config: { tools: [{ googleSearch: {} }] },
           }),
           new Promise<null>((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 20_000)),
         ]).catch(() => null);
       } catch {
-        galleryResponse = null;
+        geminiResponse = null;
       }
-      const text = galleryResponse?.text?.trim() ?? "";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const urls: string[] = [];
-      if (jsonMatch) {
+
+      const geminiUrls: string[] = [];
+      const geminiText = geminiResponse?.text?.trim() ?? "";
+      const geminiMatch = geminiText.match(/\{[\s\S]*\}/);
+      if (geminiMatch) {
         try {
-          const parsed = JSON.parse(jsonMatch[0]) as { urls?: unknown };
+          const parsed = JSON.parse(geminiMatch[0]) as { urls?: unknown };
           const raw = Array.isArray(parsed?.urls) ? parsed.urls : [];
           for (const u of raw) {
-            if (typeof u === "string" && u.trim().startsWith("http")) urls.push(u.trim());
+            if (typeof u === "string" && u.trim().startsWith("http")) geminiUrls.push(u.trim());
           }
-        } catch { /* leave urls empty */ }
-      }
-      if (urls.length === 0 && !galleryResponse) {
-        return NextResponse.json({ urls: [], error: "Search took too long. Please try again." });
+        } catch { /* leave empty */ }
       }
 
-      // Filter accessible so broken tiles don't show; fall back to unfiltered if all fail
-      let accessible = await filterAccessibleUrls(urls);
-
-      // If fewer than 2 pass HEAD, try a Wikimedia-only follow-up to ensure embeddable results
-      if (accessible.length < 2 && urls.length > 0) {
-        const wikimediaPrompt = `Using Google Search, find 6 to 10 direct image URLs of the actual plant for: "${galleryQuery}". Prioritize upload.wikimedia.org, commons.wikimedia.org, pixabay.com, unsplash.com, pexels.com, and university extension sites (.edu). Each URL must be a direct link to an image file (.jpg, .png, .webp). Return only valid JSON with no markdown: { "urls": [ "https://...", ... ] }.`;
-        let wikimediaResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
-        try {
-          wikimediaResponse = await Promise.race([
-            ai.models.generateContent({
-              model: "gemini-2.5-flash",
-              contents: wikimediaPrompt,
-              config: { tools: [{ googleSearch: {} }] },
-            }),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 10_000)),
-          ]).catch(() => null);
-        } catch {
-          wikimediaResponse = null;
-        }
-        const wText = wikimediaResponse?.text?.trim() ?? "";
-        const wMatch = wText.match(/\{[\s\S]*\}/);
-        const wikimediaUrls: string[] = [];
-        if (wMatch) {
-          try {
-            const parsed = JSON.parse(wMatch[0]) as { urls?: unknown };
-            const raw = Array.isArray(parsed?.urls) ? parsed.urls : [];
-            for (const u of raw) {
-              if (typeof u === "string" && u.trim().startsWith("http") && /wikimedia\.org/i.test(u.trim())) wikimediaUrls.push(u.trim());
-            }
-          } catch { /* leave empty */ }
-        }
-        if (wikimediaUrls.length > 0) {
-          accessible = await filterAccessibleUrls(wikimediaUrls);
-          console.log(`[hero] Gallery Wikimedia fallback: ${logLabel} → ${wikimediaUrls.length} wikimedia, ${accessible.length} accessible`);
+      // Merge: Wikimedia first (always embeddable), then Gemini (HEAD-filtered)
+      const combined = [...wikimediaUrls];
+      if (geminiUrls.length > 0) {
+        const accessible = await filterAccessibleUrls(geminiUrls);
+        const supplement = accessible.length > 0 ? accessible : geminiUrls;
+        for (const u of supplement) {
+          if (!combined.includes(u)) combined.push(u);
         }
       }
 
-      const finalUrls = accessible.length > 0 ? accessible : urls;
-      console.log(`[hero] Gallery: ${logLabel} → ${urls.length} urls, ${accessible.length} accessible`);
-      return NextResponse.json({ urls: finalUrls });
+      console.log(`[hero] Gallery combined: ${logLabel} → ${wikimediaUrls.length} wikimedia + ${geminiUrls.length} gemini = ${combined.length} total`);
+
+      if (combined.length === 0) {
+        return NextResponse.json({ urls: [], error: "No images found. Try again." });
+      }
+      return NextResponse.json({ urls: combined });
     }
 
     // -----------------------------------------------------------------------
