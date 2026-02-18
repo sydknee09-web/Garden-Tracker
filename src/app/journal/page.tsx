@@ -260,7 +260,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
 export default function JournalPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode } = useHousehold();
+  const { viewMode: householdViewMode } = useHousehold();
   const { setSyncing } = useSync();
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -369,7 +369,7 @@ export default function JournalPage() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
-      if (viewMode !== "family") journalQuery = journalQuery.eq("user_id", user.id);
+      if (householdViewMode !== "family") journalQuery = journalQuery.eq("user_id", user.id);
       const { data: rows, error: e } = await journalQuery;
 
       if (cancelled) return;
@@ -421,7 +421,7 @@ export default function JournalPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, viewMode]);
+  }, [user?.id, householdViewMode]);
 
   useEffect(() => {
     if (!user) return;
