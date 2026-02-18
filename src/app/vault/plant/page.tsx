@@ -6,27 +6,19 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
-import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 
-type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null; sowing_method?: string | null };
+type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
 type ProfileWithPackets = { profile: Profile; packets: Packet[] };
 type NewVarietyRow = { isNew: true; customName: string; rowId: string };
 type PlantRow = ProfileWithPackets | NewVarietyRow;
-type SowingMethod = "direct_sow" | "greenhouse";
 
 function parseNameVariety(text: string): { name: string; variety_name: string | null } {
   const trimmed = text.trim();
   const match = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(trimmed);
   if (match) return { name: match[1].trim(), variety_name: match[2].trim() || null };
   return { name: trimmed || "", variety_name: null };
-}
-
-function suggestsGreenhouse(plantName: string): boolean {
-  const schedule = getZone10bScheduleForPlant(plantName);
-  const sowingMethod = (schedule?.sowing_method ?? "").toLowerCase();
-  return /indoors|greenhouse|transplant/.test(sowingMethod) && !/direct sow|direct_sow/.test(sowingMethod);
 }
 
 function VaultPlantPageInner() {
@@ -43,8 +35,6 @@ function VaultPlantPageInner() {
   const [usePercentByPacketId, setUsePercentByPacketId] = useState<Record<string, number>>({});
   /** For varieties with multiple packets: which packet IDs are included. Default oldest (FIFO). */
   const [selectedPacketIdsByProfileId, setSelectedPacketIdsByProfileId] = useState<Record<string, string[]>>({});
-  const [sowingMethodByProfileId, setSowingMethodByProfileId] = useState<Record<string, SowingMethod>>({});
-  const [masterSowingMethod, setMasterSowingMethod] = useState<SowingMethod>("direct_sow");
   const [showSeedlingCelebration, setShowSeedlingCelebration] = useState(false);
   const [addSeedOpen, setAddSeedOpen] = useState(false);
   const [addSeedSearch, setAddSeedSearch] = useState("");
@@ -73,26 +63,9 @@ function VaultPlantPageInner() {
 
   const removeRowFromBatch = useCallback((id: string) => {
     setRows((prev) => prev.filter((r) => ("profile" in r ? r.profile.id : r.rowId) !== id));
-    setSowingMethodByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setNewPacketVendorByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setNewPacketUsePctByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }, []);
-
-  const setSowingMethodForProfile = useCallback((profileId: string, method: SowingMethod) => {
-    setSowingMethodByProfileId((prev) => ({ ...prev, [profileId]: method }));
-  }, []);
-
-  const applyMasterSowing = useCallback((method: SowingMethod) => {
-    setMasterSowingMethod(method);
-    setSowingMethodByProfileId((prev) => {
-      const next = { ...prev };
-      rows.forEach((r) => {
-        const id = "profile" in r ? r.profile.id : r.rowId;
-        next[id] = method;
-      });
-      return next;
-    });
-  }, [rows]);
 
   const addSeedToBatch = useCallback((row: PlantRow) => {
     setRows((prev) => [...prev, row]);
@@ -114,9 +87,7 @@ function VaultPlantPageInner() {
     const trimmed = customName.trim();
     if (!trimmed) return;
     const rowId = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const useGreenhouse = suggestsGreenhouse(parseNameVariety(trimmed).name);
     setRows((prev) => [...prev, { isNew: true, customName: trimmed, rowId }]);
-    setSowingMethodByProfileId((prev) => ({ ...prev, [rowId]: useGreenhouse ? "greenhouse" : "direct_sow" }));
     setAddSeedOpen(false);
     setAddSeedSearch("");
   }, []);
@@ -136,7 +107,7 @@ function VaultPlantPageInner() {
       const [profilesRes, packetsRes] = await Promise.all([
         supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, harvest_days, sowing_method")
+          .select("id, name, variety_name, harvest_days")
           .in("id", profileIds)
           .eq("user_id", user.id),
         supabase
@@ -179,12 +150,6 @@ function VaultPlantPageInner() {
       setSelectedPacketIdsByProfileId(initialSelected);
       setUsePercentByPacketId(initialUsePercent);
       setNewPacketUsePctByProfileId(initialNewPktUsePct);
-      const methodByProfile: Record<string, SowingMethod> = {};
-      ordered.forEach(({ profile }) => {
-        const useGreenhouse = suggestsGreenhouse(profile.name);
-        methodByProfile[profile.id] = useGreenhouse ? "greenhouse" : "direct_sow";
-      });
-      setSowingMethodByProfileId(methodByProfile);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -281,7 +246,6 @@ function VaultPlantPageInner() {
         }
       }
 
-      const method = sowingMethodByProfileId["profile" in row ? row.profile.id : row.rowId] ?? "direct_sow";
       if (totalUsed <= 0 && !("isNew" in row)) continue;
 
       const harvestDays = profile.harvest_days != null && profile.harvest_days > 0 ? profile.harvest_days : null;
@@ -350,12 +314,7 @@ function VaultPlantPageInner() {
         }
       }
 
-      const methodLabel = method === "greenhouse" ? "Greenhouse" : "Direct Sow";
-      const noteParts = [
-        `Planted via ${methodLabel}.`,
-        plantNotes.trim() ? plantNotes.trim() : "",
-      ].filter(Boolean);
-      const note = noteParts.join(" ");
+      const note = plantNotes.trim();
       await supabase.from("journal_entries").insert({
         user_id: user.id,
         plant_profile_id: profile.id,
@@ -419,7 +378,7 @@ function VaultPlantPageInner() {
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowingMethodByProfileId]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId]);
 
   if (!user) return null;
 
@@ -484,47 +443,12 @@ function VaultPlantPageInner() {
         </div>
       </div>
 
-      <section className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-2.5" aria-label="Apply to All Packets">
-        <div className="flex items-baseline gap-2 mb-1.5">
-          <h2 className="text-xs font-semibold text-emerald-900">Set All Rows</h2>
-          <span className="text-[10px] text-emerald-700/70">override per row below</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2" role="group" aria-label="Sowing method for all">
-            <span className="text-xs font-medium text-black/70">Sowing</span>
-            <button
-              type="button"
-              onClick={() => applyMasterSowing("direct_sow")}
-              className={`min-w-[44px] min-h-[44px] px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-colors ${
-                masterSowingMethod === "direct_sow"
-                  ? "bg-green-700 text-white border-green-700"
-                  : "bg-white text-black/70 border-gray-300 hover:border-gray-400"
-              }`}
-            >
-              Direct
-            </button>
-            <button
-              type="button"
-              onClick={() => applyMasterSowing("greenhouse")}
-              className={`min-w-[44px] min-h-[44px] px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-colors ${
-                masterSowingMethod === "greenhouse"
-                  ? "bg-green-700 text-white border-green-700"
-                  : "bg-white text-black/70 border-gray-300 hover:border-gray-400"
-              }`}
-            >
-              Greenhouse
-            </button>
-          </div>
-        </div>
-      </section>
-
       <div className="flex flex-col divide-y divide-black/8" role="list" aria-label="Planting varieties">
         {rows.map((row) => {
           if ("isNew" in row) {
-            const method = sowingMethodByProfileId[row.rowId] ?? "direct_sow";
             return (
               <div key={row.rowId} className="py-3" role="listitem">
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       <span className="text-sm font-semibold text-black">{row.customName}</span>
@@ -541,13 +465,6 @@ function VaultPlantPageInner() {
                   </div>
                   <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1 shrink-0" role="group" aria-label={`${row.customName} sowing method`}>
-                    <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
-                    <button type="button" onClick={() => setSowingMethodForProfile(row.rowId, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
-                  </div>
-                  <span className="ml-auto text-xs text-black/50">Full packet</span>
-                </div>
               </div>
             );
           }
@@ -556,7 +473,6 @@ function VaultPlantPageInner() {
           const hasF1 = packets.some((pk) => Array.isArray(pk.tags) && pk.tags.some((t) => String(t).toLowerCase() === "f1"));
           const selectedIds = selectedPacketIdsByProfileId[profile.id] ?? (packets.length === 1 ? [packets[0].id] : []);
           const selectedPackets = packets.filter((p) => selectedIds.includes(p.id));
-          const method = sowingMethodByProfileId[profile.id] ?? "direct_sow";
           if (packets.length === 0) {
             const newUsePct = newPacketUsePctByProfileId[profile.id] ?? 100;
             const remainingPct = 100 - newUsePct;
@@ -580,10 +496,6 @@ function VaultPlantPageInner() {
                   <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex gap-1 shrink-0" role="group" aria-label={`${displayName} sowing method`}>
-                    <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
-                    <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
-                  </div>
                   <input
                     type="range"
                     min={0}
@@ -628,15 +540,9 @@ function VaultPlantPageInner() {
                 </div>
                 <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
               </div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="flex gap-1 shrink-0" role="group" aria-label={`${displayName} sowing method`}>
-                  <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "direct_sow")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "direct_sow" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>Direct</button>
-                  <button type="button" onClick={() => setSowingMethodForProfile(profile.id, "greenhouse")} className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${method === "greenhouse" ? "bg-green-700 text-white border-green-700" : "bg-white text-black/70 border-gray-300 hover:border-gray-400"}`}>GH</button>
-                </div>
-                {selectedPackets.length === 0 && (
-                  <span className="text-xs text-black/50 ml-2">Select a packet above</span>
-                )}
-              </div>
+              {selectedPackets.length === 0 && (
+                <p className="text-xs text-black/50 mt-1">Select a packet above</p>
+              )}
               {selectedPackets.length > 0 && (
                 <div className="flex flex-col gap-1.5 pl-1">
                   {selectedPackets.map((pk, idx) => {
