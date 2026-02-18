@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { completeTask } from "@/lib/completeSowTask";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
@@ -57,6 +58,7 @@ function getCategoryDotColor(category: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const { viewMode } = useHousehold();
   const router = useRouter();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,14 +163,15 @@ export default function CalendarPage() {
       const start = new Date(month.year, month.month, 1).toISOString().slice(0, 10);
       const end = new Date(month.year, month.month + 1, 0).toISOString().slice(0, 10);
 
-      const { data: taskRows, error: e } = await supabase
+      let tasksQuery = supabase
         .from("tasks")
         .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id")
-        .eq("user_id", userId)
         .is("deleted_at", null)
         .gte("due_date", start)
         .lte("due_date", end)
         .order("due_date");
+      if (viewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
+      const { data: taskRows, error: e } = await tasksQuery;
 
       if (cancelled) return;
       if (e) {
@@ -204,7 +207,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, month.year, month.month, refetch]);
+  }, [user?.id, month.year, month.month, refetch, viewMode]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;

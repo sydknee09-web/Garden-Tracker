@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
-import type { UserSettings, Household, HouseholdMember } from "@/types/garden";
+import { useHousehold } from "@/contexts/HouseholdContext";
+import type { UserSettings } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 
 const APP_VERSION = "0.1.0";
@@ -23,23 +24,16 @@ function MapPinIcon({ className }: { className?: string }) {
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
   const { tapVersion } = useDeveloperUnlock();
+  const { household, householdMembers, householdLoading, isInHousehold, reloadHousehold } = useHousehold();
   const router = useRouter();
+
+  // Garden settings
   const [gardenSettings, setGardenSettings] = useState<Partial<UserSettings>>({});
   const [lastSavedSettings, setLastSavedSettings] = useState<Partial<UserSettings> | null>(null);
   const [gardenSaving, setGardenSaving] = useState(false);
   const [gardenSaved, setGardenSaved] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [householdMembers, setHouseholdMembers] = useState<(HouseholdMember & { email?: string })[]>([]);
-  const [householdLoading, setHouseholdLoading] = useState(true);
-  const [householdExpanded, setHouseholdExpanded] = useState(false);
-  const [accountExpanded, setAccountExpanded] = useState(false);
-  const [joinCode, setJoinCode] = useState("");
-  const [joiningHousehold, setJoiningHousehold] = useState(false);
-  const [creatingHousehold, setCreatingHousehold] = useState(false);
-  const [householdName, setHouseholdName] = useState("");
-  const [householdError, setHouseholdError] = useState<string | null>(null);
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [backfillingPlantingWindows, setBackfillingPlantingWindows] = useState(false);
   const [backfillToast, setBackfillToast] = useState<string | null>(null);
@@ -47,6 +41,53 @@ export default function SettingsProfilePage() {
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
   const pendingNavigateRef = useRef<string | null>(null);
 
+  // Household UI state (data comes from HouseholdContext)
+  const [householdExpanded, setHouseholdExpanded] = useState(false);
+  const [accountExpanded, setAccountExpanded] = useState(false);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
+  const [householdSuccess, setHouseholdSuccess] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joiningHousehold, setJoiningHousehold] = useState(false);
+  const [creatingHousehold, setCreatingHousehold] = useState(false);
+  const [householdName, setHouseholdName] = useState("");
+  const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
+  const [showRenameInput, setShowRenameInput] = useState(false);
+  const [householdRenameVal, setHouseholdRenameVal] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [disbandConfirm, setDisbandConfirm] = useState(false);
+  const [disbanding, setDisbanding] = useState(false);
+  const [kickingMemberId, setKickingMemberId] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const hasAutoExpanded = useRef(false);
+
+  // Auto-expand household section once the context finishes loading and the user is in a household
+  useEffect(() => {
+    if (!householdLoading && isInHousehold && !hasAutoExpanded.current) {
+      setHouseholdExpanded(true);
+      hasAutoExpanded.current = true;
+    }
+  }, [householdLoading, isInHousehold]);
+
+  // Fetch member emails via secure RPC whenever household membership changes
+  useEffect(() => {
+    if (!household || householdLoading) {
+      setMemberEmails({});
+      return;
+    }
+    supabase
+      .rpc("get_household_member_emails", { p_household_id: household.id })
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          for (const row of data as { user_id: string; email: string }[]) {
+            map[row.user_id] = row.email;
+          }
+          setMemberEmails(map);
+        }
+      });
+  }, [household?.id, householdLoading]);
+
+  // Garden settings load
   useEffect(() => {
     if (!user?.id) return;
     supabase
@@ -80,59 +121,102 @@ export default function SettingsProfilePage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  const loadHousehold = useCallback(async () => {
-    if (!user?.id) return;
-    setHouseholdLoading(true);
-    setHouseholdError(null);
-    const { data: memberRow } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (memberRow?.household_id) {
-      const { data: hh } = await supabase.from("households").select("*").eq("id", memberRow.household_id).maybeSingle();
-      if (hh) setHousehold(hh as Household);
-      const { data: members } = await supabase.from("household_members").select("*").eq("household_id", memberRow.household_id);
-      setHouseholdMembers((members ?? []) as (HouseholdMember & { email?: string })[]);
-    } else {
-      setHousehold(null);
-      setHouseholdMembers([]);
-    }
-    setHouseholdLoading(false);
-  }, [user?.id]);
-
-  useEffect(() => { loadHousehold(); }, [loadHousehold]);
+  // ── Household handlers ────────────────────────────────────────────────────
 
   const handleCreateHousehold = useCallback(async () => {
     if (!user?.id || !householdName.trim()) return;
+    if (isInHousehold) {
+      setHouseholdError("Family Already Exists — you're already in a family. Leave it first to create a new one.");
+      return;
+    }
     setCreatingHousehold(true);
     setHouseholdError(null);
-    const { data: hh, error: e1 } = await supabase.from("households").insert({ name: householdName.trim(), owner_id: user.id }).select().single();
-    if (e1 || !hh) { setHouseholdError(e1?.message ?? "Failed to create household"); setCreatingHousehold(false); return; }
-    await supabase.from("household_members").insert({ household_id: hh.id, user_id: user.id, role: "owner" });
+    setHouseholdSuccess(null);
+    const { error } = await supabase.rpc("create_household_with_owner", { p_name: householdName.trim() });
     setCreatingHousehold(false);
+    if (error) {
+      setHouseholdError(error.message ?? "Failed to create family.");
+      return;
+    }
     setHouseholdName("");
-    loadHousehold();
-  }, [user?.id, householdName, loadHousehold]);
+    setHouseholdSuccess("Family created! Share the invite code below with family members.");
+    setHouseholdExpanded(true);
+    await reloadHousehold();
+  }, [user?.id, householdName, isInHousehold, reloadHousehold]);
 
   const handleJoinHousehold = useCallback(async () => {
     if (!user?.id || !joinCode.trim()) return;
+    if (isInHousehold) {
+      setHouseholdError("You're already in a family. Leave it first before joining another.");
+      return;
+    }
     setJoiningHousehold(true);
     setHouseholdError(null);
-    const { data: hh } = await supabase.from("households").select("id").eq("invite_code", joinCode.trim()).maybeSingle();
-    if (!hh) { setHouseholdError("Invalid invite code"); setJoiningHousehold(false); return; }
-    const { error: e2 } = await supabase.from("household_members").insert({ household_id: hh.id, user_id: user.id, role: "member" });
-    if (e2) { setHouseholdError(e2.message); setJoiningHousehold(false); return; }
+    setHouseholdSuccess(null);
+    const { data: hh } = await supabase
+      .from("households")
+      .select("id")
+      .eq("invite_code", joinCode.trim())
+      .maybeSingle();
+    if (!hh) {
+      setHouseholdError("Invalid invite code — double-check and try again.");
+      setJoiningHousehold(false);
+      return;
+    }
+    const { error } = await supabase.from("household_members").insert({ household_id: hh.id, user_id: user.id, role: "member" });
+    if (error) {
+      setHouseholdError(error.message ?? "Failed to join family.");
+      setJoiningHousehold(false);
+      return;
+    }
     setJoiningHousehold(false);
     setJoinCode("");
-    loadHousehold();
-  }, [user?.id, joinCode, loadHousehold]);
+    setHouseholdSuccess("You joined the family! You can now switch to Family view in the header.");
+    setHouseholdExpanded(true);
+    await reloadHousehold();
+  }, [user?.id, joinCode, isInHousehold, reloadHousehold]);
 
   const handleLeaveHousehold = useCallback(async () => {
     if (!user?.id || !household) return;
     await supabase.from("household_members").delete().eq("household_id", household.id).eq("user_id", user.id);
-    loadHousehold();
-  }, [user?.id, household, loadHousehold]);
+    await reloadHousehold();
+  }, [user?.id, household, reloadHousehold]);
+
+  const handleKickMember = useCallback(async (memberId: string) => {
+    if (!household) return;
+    setKickingMemberId(memberId);
+    await supabase.from("household_members").delete().eq("household_id", household.id).eq("user_id", memberId);
+    setKickingMemberId(null);
+    await reloadHousehold();
+  }, [household, reloadHousehold]);
+
+  const handleRenameHousehold = useCallback(async () => {
+    if (!household || !householdRenameVal.trim()) return;
+    setRenaming(true);
+    const { error } = await supabase
+      .from("households")
+      .update({ name: householdRenameVal.trim(), updated_at: new Date().toISOString() })
+      .eq("id", household.id);
+    setRenaming(false);
+    if (error) {
+      setHouseholdError(error.message);
+      return;
+    }
+    setShowRenameInput(false);
+    setHouseholdRenameVal("");
+    await reloadHousehold();
+  }, [household, householdRenameVal, reloadHousehold]);
+
+  const handleDisbandHousehold = useCallback(async () => {
+    if (!household) return;
+    setDisbanding(true);
+    await supabase.from("households").delete().eq("id", household.id);
+    setDisbanding(false);
+    setDisbandConfirm(false);
+    await reloadHousehold();
+  }, [household, reloadHousehold]);
+
+  // ── Garden settings handlers ──────────────────────────────────────────────
 
   const saveGardenSettings = useCallback(async () => {
     if (!user?.id) return;
@@ -278,6 +362,8 @@ export default function SettingsProfilePage() {
 
   if (!user) return null;
 
+  const isOwner = household?.owner_id === user.id;
+
   return (
     <div className="px-6 py-8 max-w-2xl mx-auto pb-24">
       <Link href="/settings" onClick={(e) => handleNavClick(e, "/settings")} className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-emerald-600 font-medium hover:underline mb-6" aria-label="Back to Settings">
@@ -339,7 +425,7 @@ export default function SettingsProfilePage() {
         </div>
       </section>
 
-      {/* Export, Tag Manager, Schedule Defaults */}
+      {/* Data & Preferences */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Data & preferences</h2>
         <div className="space-y-3">
@@ -374,73 +460,194 @@ export default function SettingsProfilePage() {
       {/* Manage household */}
       <section className="mb-8">
         <button type="button" onClick={() => setHouseholdExpanded((e) => !e)} className="w-full flex items-center justify-between min-h-[44px] py-2 text-left" aria-expanded={householdExpanded}>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Manage household</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Manage family</h2>
           <span className="text-neutral-400 text-lg leading-none" aria-hidden>{householdExpanded ? "−" : "+"}</span>
         </button>
         {householdExpanded && (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm mt-2">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">My Household</h3>
-          <p className="text-sm text-neutral-500 mb-3">Share your garden with family members.</p>
-          {householdLoading ? (
-            <p className="text-sm text-neutral-400">Loading...</p>
-          ) : household ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-neutral-800">{household.name}</p>
-                  <p className="text-xs text-neutral-500">{householdMembers.length} member{householdMembers.length !== 1 ? "s" : ""}</p>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm mt-2">
+            <h3 className="text-base font-semibold text-neutral-800 mb-1">My Family</h3>
+            <p className="text-sm text-neutral-500 mb-3">Share your garden with family members. Use the Me / Family toggle in the header to switch views.</p>
+
+            {householdSuccess && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 mb-3">
+                <p className="text-sm text-emerald-700">{householdSuccess}</p>
+              </div>
+            )}
+
+            {householdLoading ? (
+              <p className="text-sm text-neutral-400">Loading...</p>
+            ) : household ? (
+              <div className="space-y-4">
+
+                {/* Name + rename (owner only) */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    {showRenameInput && isOwner ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={householdRenameVal}
+                          onChange={(e) => setHouseholdRenameVal(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRenameHousehold(); if (e.key === "Escape") { setShowRenameInput(false); setHouseholdRenameVal(""); } }}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-neutral-300 text-sm"
+                          autoFocus
+                        />
+                        <button type="button" onClick={handleRenameHousehold} disabled={renaming || !householdRenameVal.trim()} className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                          {renaming ? "..." : "Save"}
+                        </button>
+                        <button type="button" onClick={() => { setShowRenameInput(false); setHouseholdRenameVal(""); }} className="px-3 py-1.5 rounded-lg text-sm border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-neutral-800">{household.name}</p>
+                        {isOwner && (
+                          <button type="button" onClick={() => { setShowRenameInput(true); setHouseholdRenameVal(household.name); }} className="text-neutral-400 hover:text-emerald-600 text-xs min-h-[32px] px-1" aria-label="Rename family">
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs text-neutral-500 mt-0.5">{householdMembers.length} member{householdMembers.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  {!isOwner && (
+                    <button type="button" onClick={handleLeaveHousehold} className="shrink-0 text-xs text-red-600 font-medium hover:underline min-h-[44px] flex items-center">
+                      Leave
+                    </button>
+                  )}
                 </div>
-                {household.owner_id !== user?.id && (
-                  <button type="button" onClick={handleLeaveHousehold} className="text-xs text-red-600 font-medium hover:underline">Leave</button>
+
+                {/* Invite code */}
+                {household.invite_code && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                    <p className="text-xs font-semibold text-emerald-800 mb-1.5">Invite Code</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-mono text-emerald-700 bg-white px-2 py-1.5 rounded border border-emerald-200 flex-1 text-center tracking-widest select-all">
+                        {household.invite_code}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(household.invite_code ?? "");
+                          setInviteCopied(true);
+                          setTimeout(() => setInviteCopied(false), 2000);
+                        }}
+                        className="shrink-0 min-h-[44px] px-3 rounded-lg text-xs font-medium border border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                      >
+                        {inviteCopied ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                    <p className="text-xs text-emerald-600 mt-1.5">Share this code with family so they can join from their Profile settings.</p>
+                  </div>
+                )}
+
+                {/* Members list */}
+                <div>
+                  <p className="text-xs font-semibold text-neutral-500 mb-2">Members</p>
+                  <ul className="space-y-2">
+                    {householdMembers.map((m) => {
+                      const email = memberEmails[m.user_id] ?? null;
+                      const isYou = m.user_id === user.id;
+                      const displayName = isYou
+                        ? `You${email ? ` (${email})` : ""}`
+                        : (email ?? m.user_id.slice(0, 8) + "…");
+                      return (
+                        <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-neutral-700 truncate min-w-0 text-xs">{displayName}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${m.role === "owner" ? "bg-amber-50 text-amber-700" : m.role === "admin" ? "bg-blue-50 text-blue-700" : "bg-neutral-100 text-neutral-600"}`}>
+                              {m.role}
+                            </span>
+                            {isOwner && !isYou && (
+                              <button
+                                type="button"
+                                onClick={() => handleKickMember(m.user_id)}
+                                disabled={kickingMemberId === m.user_id}
+                                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 min-h-[32px] px-1"
+                                aria-label={`Remove ${displayName}`}
+                              >
+                                {kickingMemberId === m.user_id ? "..." : "Remove"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                {/* Disband (owner only) */}
+                {isOwner && (
+                  <div className="pt-3 border-t border-neutral-100">
+                    {!disbandConfirm ? (
+                      <button type="button" onClick={() => setDisbandConfirm(true)} className="text-xs text-red-500 hover:text-red-700 font-medium min-h-[44px] flex items-center">
+                        Disband family
+                      </button>
+                    ) : (
+                      <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-2">
+                        <p className="text-xs text-red-700 font-medium">This removes all members. Your individual garden data is kept. Sure?</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={handleDisbandHousehold} disabled={disbanding} className="min-h-[36px] px-3 rounded-lg text-xs font-medium bg-red-600 text-white disabled:opacity-50 hover:bg-red-700">
+                            {disbanding ? "Disbanding..." : "Yes, disband"}
+                          </button>
+                          <button type="button" onClick={() => setDisbandConfirm(false)} className="min-h-[36px] px-3 rounded-lg text-xs font-medium border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-              {household.invite_code && (
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-                  <p className="text-xs font-medium text-emerald-800 mb-1">Invite Code</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono text-emerald-700 bg-white px-2 py-1 rounded border border-emerald-200 flex-1 text-center">{household.invite_code}</code>
-                    <button type="button" onClick={() => navigator.clipboard.writeText(household.invite_code ?? "")} className="text-xs text-emerald-700 font-medium hover:underline shrink-0">Copy</button>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-neutral-600 mb-1">Create a family</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={householdName}
+                      onChange={(e) => setHouseholdName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateHousehold(); }}
+                      placeholder="e.g. The Smith Garden"
+                      className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm"
+                    />
+                    <button type="button" onClick={handleCreateHousehold} disabled={creatingHousehold || !householdName.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                      {creatingHousehold ? "..." : "Create"}
+                    </button>
                   </div>
-                  <p className="text-xs text-emerald-600 mt-1">Share this code with family members so they can join.</p>
                 </div>
-              )}
-              <div>
-                <p className="text-xs font-medium text-neutral-500 mb-1.5">Members</p>
-                <ul className="space-y-1">
-                  {householdMembers.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between text-sm">
-                      <span className="text-neutral-700">{m.user_id === user?.id ? "You" : m.user_id.slice(0, 8) + "..."}</span>
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${m.role === "owner" ? "bg-amber-50 text-amber-700" : m.role === "admin" ? "bg-blue-50 text-blue-700" : "bg-neutral-100 text-neutral-600"}`}>{m.role}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-medium text-neutral-600 mb-1">Create a household</p>
-                <div className="flex gap-2">
-                  <input type="text" value={householdName} onChange={(e) => setHouseholdName(e.target.value)} placeholder="e.g. The Smith Garden" className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
-                  <button type="button" onClick={handleCreateHousehold} disabled={creatingHousehold || !householdName.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>{creatingHousehold ? "..." : "Create"}</button>
+                <div className="flex items-center gap-2">
+                  <hr className="flex-1 border-neutral-200" />
+                  <span className="text-xs text-neutral-400">or</span>
+                  <hr className="flex-1 border-neutral-200" />
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <hr className="flex-1 border-neutral-200" />
-                <span className="text-xs text-neutral-400">or</span>
-                <hr className="flex-1 border-neutral-200" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-neutral-600 mb-1">Join with invite code</p>
-                <div className="flex gap-2">
-                  <input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="Enter invite code" className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm font-mono" />
-                  <button type="button" onClick={handleJoinHousehold} disabled={joiningHousehold || !joinCode.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>{joiningHousehold ? "..." : "Join"}</button>
+                <div>
+                  <p className="text-xs font-medium text-neutral-600 mb-1">Join with invite code</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleJoinHousehold(); }}
+                      placeholder="Enter invite code"
+                      className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm font-mono"
+                    />
+                    <button type="button" onClick={handleJoinHousehold} disabled={joiningHousehold || !joinCode.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                      {joiningHousehold ? "..." : "Join"}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          {householdError && <p className="text-sm text-red-600 mt-2">{householdError}</p>}
-        </div>
+            )}
+
+            {householdError && (
+              <p className="text-sm text-red-600 mt-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {householdError}
+              </p>
+            )}
+          </div>
         )}
       </section>
 
@@ -451,30 +658,30 @@ export default function SettingsProfilePage() {
           <span className="text-neutral-400 text-lg leading-none" aria-hidden>{accountExpanded ? "−" : "+"}</span>
         </button>
         {accountExpanded && (
-        <div className="space-y-3 mt-2">
-          <Link href="/reset-password" onClick={(e) => handleNavClick(e, "/reset-password")} className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
-            <h3 className="text-base font-semibold text-neutral-800 mb-1">Reset Password</h3>
-            <p className="text-sm text-neutral-500">Receive an email link to set a new password.</p>
-          </Link>
-          <div className="rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-red-700 mb-1">Delete Account</h3>
-            <p className="text-sm text-neutral-600 mb-3">Permanently delete your account and all garden data. This cannot be undone.</p>
-            {!deleteAccountConfirm ? (
-              <button type="button" onClick={() => setDeleteAccountConfirm(true)} className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 border border-red-200 hover:bg-red-200/80">
-                Delete my account
-              </button>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-neutral-600">Contact support to complete account deletion.</span>
-                <button type="button" onClick={() => setDeleteAccountConfirm(false)} className="text-sm text-neutral-500 hover:underline">Cancel</button>
-              </div>
-            )}
+          <div className="space-y-3 mt-2">
+            <Link href="/reset-password" onClick={(e) => handleNavClick(e, "/reset-password")} className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+              <h3 className="text-base font-semibold text-neutral-800 mb-1">Reset Password</h3>
+              <p className="text-sm text-neutral-500">Receive an email link to set a new password.</p>
+            </Link>
+            <div className="rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm">
+              <h3 className="text-base font-semibold text-red-700 mb-1">Delete Account</h3>
+              <p className="text-sm text-neutral-600 mb-3">Permanently delete your account and all garden data. This cannot be undone.</p>
+              {!deleteAccountConfirm ? (
+                <button type="button" onClick={() => setDeleteAccountConfirm(true)} className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 border border-red-200 hover:bg-red-200/80">
+                  Delete my account
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-neutral-600">Contact support to complete account deletion.</span>
+                  <button type="button" onClick={() => setDeleteAccountConfirm(false)} className="text-sm text-neutral-500 hover:underline">Cancel</button>
+                </div>
+              )}
+            </div>
+            <button type="button" onClick={signOut} className="w-full min-h-[44px] rounded-2xl border border-red-200 bg-white p-5 shadow-sm text-left hover:border-red-300 hover:bg-red-50/30 transition-colors">
+              <h3 className="text-base font-semibold text-red-600">Sign Out</h3>
+              <p className="text-sm text-neutral-500">Sign out of your account on this device.</p>
+            </button>
           </div>
-          <button type="button" onClick={signOut} className="w-full min-h-[44px] rounded-2xl border border-red-200 bg-white p-5 shadow-sm text-left hover:border-red-300 hover:bg-red-50/30 transition-colors">
-            <h3 className="text-base font-semibold text-red-600">Sign Out</h3>
-            <p className="text-sm text-neutral-500">Sign out of your account on this device.</p>
-          </button>
-        </div>
         )}
       </section>
 

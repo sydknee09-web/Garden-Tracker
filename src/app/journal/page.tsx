@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot, formatWeatherBadge } from "@/lib/weatherSnapshot";
 import type { JournalEntry } from "@/types/garden";
@@ -259,6 +260,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
 export default function JournalPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { viewMode } = useHousehold();
   const { setSyncing } = useSync();
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -361,13 +363,14 @@ export default function JournalPage() {
 
     async function fetchJournal() {
       if (!user) return;
-      const { data: rows, error: e } = await supabase
+      let journalQuery = supabase
         .from("journal_entries")
         .select("id, plant_profile_id, plant_variety_id, grow_instance_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-        .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
+      if (viewMode !== "family") journalQuery = journalQuery.eq("user_id", user.id);
+      const { data: rows, error: e } = await journalQuery;
 
       if (cancelled) return;
       if (e) {
@@ -418,7 +421,7 @@ export default function JournalPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, viewMode]);
 
   useEffect(() => {
     if (!user) return;

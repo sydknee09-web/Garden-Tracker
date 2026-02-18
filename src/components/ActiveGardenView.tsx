@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import type { WeatherSnapshotData } from "@/types/garden";
@@ -83,6 +84,7 @@ export function ActiveGardenView({
   onBulkJournalRequestHandled?: () => void;
 }) {
   const { user } = useAuth();
+  const { viewMode } = useHousehold();
   const router = useRouter();
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
@@ -116,26 +118,30 @@ export function ActiveGardenView({
     if (!user?.id) return;
     const today = new Date().toISOString().slice(0, 10);
 
-    const { data: taskRows } = await supabase
+    const isFamilyView = viewMode === "family";
+
+    let pendingQuery = supabase
       .from("tasks")
       .select("id, plant_profile_id, due_date, title")
-      .eq("user_id", user.id)
       .is("deleted_at", null)
       .eq("category", "sow")
       .is("completed_at", null)
       .gte("due_date", today)
       .order("due_date", { ascending: true })
       .limit(50);
+    if (!isFamilyView) pendingQuery = pendingQuery.eq("user_id", user.id);
+    const { data: taskRows } = await pendingQuery;
     setPending((taskRows ?? []) as PendingItem[]);
 
-    const { data: growRows } = await supabase
+    let growQuery = supabase
       .from("grow_instances")
       .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location")
-      .eq("user_id", user.id)
       .is("deleted_at", null)
       .in("status", ["growing", "pending"])
       .order("sown_date", { ascending: false })
       .limit(100);
+    if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
+    const { data: growRows } = await growQuery;
 
     if (!growRows?.length) { setGrowing([]); setLoading(false); return; }
 
@@ -188,7 +194,7 @@ export function ActiveGardenView({
       });
     setGrowing(batches);
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, viewMode]);
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
 
