@@ -19,6 +19,7 @@ import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoRespo
 import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -125,14 +126,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /** Allowed profile status values for Edit modal; users must pick one, not free-text. */
-const PROFILE_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "in_stock", label: "In stock" },
-  { value: "out_of_stock", label: "Out of stock" },
-  { value: "vault", label: "In storage" },
-  { value: "active", label: "Active (in garden)" },
-  { value: "low_inventory", label: "Low inventory" },
-  { value: "archived", label: "Archived" },
-];
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -365,7 +358,7 @@ export default function VaultSeedPage() {
   const isLegacy = profile ? "vendor" in profile && (profile as PlantVarietyProfile).vendor != null : false;
   const isPermanent = (profile as PlantProfile | null)?.profile_type === "permanent";
   const profileStatus = (profile?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  const profileStatusLabel = PROFILE_STATUS_OPTIONS.find((o) => o.value === profileStatus)?.label ?? profileStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const profileStatusLabel = getProfileStatusLabel(profileStatus);
 
   const profileWithHero = profile as (typeof profile) & { hero_image_path?: string | null; hero_image_url?: string | null; hero_image_pending?: boolean | null };
   const heroPath = profileWithHero?.hero_image_path?.trim();
@@ -998,6 +991,7 @@ export default function VaultSeedPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
               {[
+                { id: "edit-status", label: "Status", key: "status" as const },
                 { id: "edit-plant-type", label: "Plant Type", key: "plantType" as const },
                 { id: "edit-variety-name", label: "Variety Name", key: "varietyName" as const },
                 { id: "edit-sun", label: "Sun", key: "sun" as const },
@@ -1007,7 +1001,6 @@ export default function VaultSeedPage() {
                 { id: "edit-maturity", label: "Days to Maturity", key: "maturity" as const, placeholder: "e.g. 75" },
                 { id: "edit-sowing-method", label: "Sowing Method", key: "sowingMethod" as const, placeholder: "e.g. Direct Sow or Start Indoors" },
                 { id: "edit-planting-window", label: "Planting Window", key: "plantingWindow" as const, placeholder: "e.g. Spring: Feb-May" },
-                { id: "edit-status", label: "Status", key: "status" as const },
               ].map((f) => (
                 <div key={f.id}>
                   <label htmlFor={f.id} className="block text-sm font-medium text-neutral-700 mb-1">{f.label}</label>
