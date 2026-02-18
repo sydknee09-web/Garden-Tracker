@@ -373,7 +373,7 @@ function VaultPlantPageInner() {
     setTimeout(() => {
       setShowSeedlingCelebration(false);
       // Use hard navigation for reliable post-submit redirect (avoids PWA/client-router quirks)
-      window.location.href = "/vault?tab=active";
+      window.location.href = "/vault";
     }, 800);
     } finally {
       setConfirming(false);
