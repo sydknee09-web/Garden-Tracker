@@ -269,9 +269,16 @@ export async function POST(req: Request) {
       const scientificHint = scientific_name
         ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
         : "";
-      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower. Use only the plant and variety name in your search—do not add phrases like "on the vine", "in the garden", or other decorative text. Search for: "${galleryQuery}".${scientificHint}
-Critical for embedding: Prefer and prioritize images from Wikimedia Commons (upload.wikimedia.org, commons.wikimedia.org) and other sites that allow direct hotlinking—these must be direct URLs to image files (.jpg, .png), not web pages. Include as many Wikimedia/Commons URLs as possible so they load in an app. Avoid seed packet images and sites that block embedding (e.g. many stock photo sites).
-Return only valid JSON with no markdown: { "urls": [ "https://...", "https://..." ] }. Each element must be a direct image URL (e.g. https://upload.wikimedia.org/...).`;
+      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower. Search for: "${galleryQuery}".${scientificHint}
+
+STRICT SOURCE RULES — images must be fetchable by a server, not just a browser:
+- REQUIRED: At least 4 URLs must be from upload.wikimedia.org or commons.wikimedia.org — these are the most reliable for embedding.
+- ALSO GOOD: pixabay.com, unsplash.com, pexels.com, flickr.com (staticflickr.com), university extension sites (.edu), botanical gardens.
+- STRICTLY FORBIDDEN (do not include any URL from these domains): shutterstock.com, alamy.com, dreamstime.com, istockphoto.com, gettyimages.com, 123rf.com, depositphotos.com, stock.adobe.com, burpee.com, rareseeds.com, johnnyseeds.com, botanicalinterests.com, edenbrothers.com, or any seed vendor / garden shop site.
+- Each URL must be a direct link to an image file (.jpg, .jpeg, .png, .webp) — NOT a web page.
+- Do NOT include seed packet images, logos, or product shots.
+
+Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.org/...", ... ] }.`;
 
       let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
@@ -305,8 +312,8 @@ Return only valid JSON with no markdown: { "urls": [ "https://...", "https://...
       // Filter accessible so broken tiles don't show; fall back to unfiltered if all fail
       let accessible = await filterAccessibleUrls(urls);
 
-      // If none pass HEAD (all hosts may block server HEAD), try a Wikimedia-only follow-up
-      if (accessible.length === 0 && urls.length > 0) {
+      // If fewer than 2 pass HEAD, try a Wikimedia-only follow-up to ensure embeddable results
+      if (accessible.length < 2 && urls.length > 0) {
         const wikimediaPrompt = `Using Google Search, find 6 to 10 direct image URLs only from upload.wikimedia.org or commons.wikimedia.org for this plant: "${galleryQuery}". Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.org/...", ... ] }. Each URL must be from wikimedia.org.`;
         let wikimediaResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
         try {
@@ -393,6 +400,42 @@ Return only valid JSON with no markdown: { "urls": [ "https://...", "https://...
           "";
         if (raw.startsWith("http")) url = raw;
       } catch { /* leave url empty */ }
+    }
+
+    // If first pass failed, retry with a simpler query (just plant name, no variety)
+    if (!url && name) {
+      const fallbackQuery = `${name} plant botanical -packet -seeds`.replace(/\s+/g, " ").trim();
+      console.log(`[hero] Retry with simpler query: ${fallbackQuery}`);
+      let retryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+      try {
+        retryResponse = await Promise.race([
+          ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `${HERO_SEARCH_PROMPT}\n\nSearch for: ${fallbackQuery}`,
+            config: { tools: [{ googleSearch: {} }] },
+          }),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 15_000)),
+        ]).catch(() => null);
+      } catch {
+        retryResponse = null;
+      }
+      const retryText = retryResponse?.text?.trim() ?? "";
+      const retryMatch = retryText.match(/\{[\s\S]*\}/);
+      if (retryMatch) {
+        try {
+          const parsed = JSON.parse(retryMatch[0]) as Record<string, unknown>;
+          const raw =
+            (typeof parsed.hero_image_url === "string" && parsed.hero_image_url.trim()) ||
+            (typeof parsed.image_url === "string" && parsed.image_url.trim()) ||
+            (typeof parsed.url === "string" && parsed.url.trim()) ||
+            (typeof parsed.stock_photo_url === "string" && parsed.stock_photo_url.trim()) ||
+            "";
+          if (raw.startsWith("http")) url = raw;
+        } catch { /* leave url empty */ }
+      }
+      if (url) {
+        console.log(`[hero] Retry success: ${logLabel}`);
+      }
     }
 
     if (!url) {
