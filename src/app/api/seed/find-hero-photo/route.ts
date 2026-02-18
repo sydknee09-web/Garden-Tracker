@@ -265,7 +265,10 @@ export async function POST(req: Request) {
     // HEAD-filter in gallery so broken tiles don't clutter the grid.
     // -----------------------------------------------------------------------
     if (gallery) {
-      const galleryQuery = [variety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
+      // Strip catalog-only suffixes that confuse botanical image searches
+      const CATALOG_SUFFIXES = /\b(Series|Mix|Blend|Formula|Collection|Mixture|Hybrid|F1)\b/gi;
+      const cleanedVariety = variety.replace(CATALOG_SUFFIXES, "").replace(/\s+/g, " ").trim();
+      const galleryQuery = [cleanedVariety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || name || "plant";
       const scientificHint = scientific_name
         ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
         : "";
@@ -360,7 +363,13 @@ Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.o
     const isRareSeedsVendor = /rareseeds?/i.test(vendor);
     const restoreOrphanPunctuation = (s: string) =>
       (s || "").replace(/\bS\b/g, "'s").replace(/\bT\b/g, "'t");
-    const cleanVarietyPart = restoreOrphanPunctuation(variety.replace(/\bSeeds?\b/gi, "").replace(/\s+/g, " ").trim());
+    const cleanVarietyPart = restoreOrphanPunctuation(
+      variety
+        .replace(/\bSeeds?\b/gi, "")
+        .replace(/\b(Series|Mix|Blend|Formula|Collection|Mixture)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim()
+    );
     const isVarietyIncludesType = cleanVarietyPart.toLowerCase().includes(name.toLowerCase());
     let finalQuery = cleanVarietyPart;
     if (!isGenericPlantType(name) && !isVarietyIncludesType && cleanVarietyPart) {
