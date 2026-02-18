@@ -884,11 +884,26 @@ export default function CalendarPage() {
           setNewTaskPlantId("");
           setNewTaskError(null);
         }}
-        className="fixed right-6 z-30 w-14 h-14 rounded-full bg-emerald text-white shadow-card flex items-center justify-center text-2xl font-light hover:opacity-90 transition-opacity"
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label="New task"
+        aria-label={newTaskOpen ? "Close" : "New task"}
+        aria-expanded={newTaskOpen}
       >
-        +
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform duration-200 ${newTaskOpen ? "rotate-45" : "rotate-0"}`}
+          aria-hidden
+        >
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
       </button>
 
       {deleteConfirmTask && (
@@ -922,7 +937,7 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setNewTaskOpen(false)} />
           <div
-            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto"
+            className="fixed left-4 right-4 bottom-20 z-50 max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto"
             style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
             role="dialog"
             aria-modal="true"
@@ -997,20 +1012,20 @@ export default function CalendarPage() {
                 </select>
               </div>
               {newTaskError && <p className="text-sm text-citrus font-medium">{newTaskError}</p>}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setNewTaskOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
-                >
-                  Cancel
-                </button>
+              <div className="space-y-2 pt-2">
                 <button
                   type="submit"
                   disabled={savingTask}
-                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
                   {savingTask ? "Saving…" : "Save task"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTaskOpen(false)}
+                  className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
+                >
+                  Cancel
                 </button>
               </div>
             </form>

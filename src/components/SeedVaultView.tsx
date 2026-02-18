@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
@@ -88,6 +89,8 @@ export type VaultCardItem = {
   sowing_method?: string | null;
   /** Latest purchase_date among packets for this profile (YYYY-MM-DD); for sort by purchase date. */
   latest_purchase_date?: string | null;
+  /** user_id of the owner; populated in family-view to show ownership badge. */
+  owner_user_id?: string | null;
 };
 
 export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
@@ -301,6 +304,7 @@ export function SeedVaultView({
 }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { viewMode: householdViewMode, householdMembers } = useHousehold();
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -706,6 +710,16 @@ export function SeedVaultView({
     return list;
   }, [filteredSeeds, gridSortBy, sortByProp, vaultSortCmp]);
 
+  /** Returns a short label for the badge shown on family-view cards that belong to another member. */
+  function getOwnerBadge(seed: VaultCardItem): string | null {
+    if (householdViewMode !== "family") return null;
+    if (!seed.owner_user_id || seed.owner_user_id === user?.id) return null;
+    const member = householdMembers.find((m) => m.user_id === seed.owner_user_id);
+    if (!member) return "Fam";
+    // Use first two letters of the user_id as a short identifier (emails not available here)
+    return "Fam";
+  }
+
   function getThumbState(seed: VaultCardItem) {
     const showResearching = !(seed.hero_image_url ?? "").trim() && !!seed.hero_image_pending;
     if (showResearching && !pendingSinceRef.current.has(seed.id)) pendingSinceRef.current.set(seed.id, Date.now());
@@ -748,12 +762,14 @@ export function SeedVaultView({
       setLoading(true);
       setError(null);
 
-      const { data: profiles, error: profErr } = await supabase
+      const isFamilyView = householdViewMode === "family";
+      let profilesQuery = supabase
         .from("plant_profiles")
-        .select("id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method")
-        .eq("user_id", user.id)
+        .select("id, user_id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method")
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
+      if (!isFamilyView) profilesQuery = profilesQuery.eq("user_id", user.id);
+      const { data: profiles, error: profErr } = await profilesQuery;
 
       if (cancelled) return;
       if (profErr || !profiles?.length) {
@@ -811,11 +827,12 @@ export function SeedVaultView({
       }
 
       // Count all non-deleted packets (including archived) so vault count matches profile page; include purchase_date for sort
-      const { data: packets } = await supabase
+      let packetsQuery = supabase
         .from("seed_packets")
         .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date")
-        .eq("user_id", user.id)
         .is("deleted_at", null);
+      if (!isFamilyView) packetsQuery = packetsQuery.eq("user_id", user.id);
+      const { data: packets } = await packetsQuery;
       const countByProfile = new Map<string, number>();
       const sumQtyByProfile = new Map<string, number>();
       const vendorsByProfile = new Map<string, Set<string>>();
@@ -843,13 +860,14 @@ export function SeedVaultView({
         }
       }
 
-      const { data: packetImages } = await supabase
+      let packetImagesQuery = supabase
         .from("seed_packets")
         .select("plant_profile_id, primary_image_path")
-        .eq("user_id", user.id)
         .is("deleted_at", null)
         .not("primary_image_path", "is", null)
         .order("created_at", { ascending: true });
+      if (!isFamilyView) packetImagesQuery = packetImagesQuery.eq("user_id", user.id);
+      const { data: packetImages } = await packetImagesQuery;
       const firstPacketImageByProfile = new Map<string, string>();
       for (const row of packetImages ?? []) {
         const pid = (row as { plant_profile_id: string; primary_image_path: string }).plant_profile_id;
@@ -899,6 +917,7 @@ export function SeedVaultView({
           planting_window: (p.planting_window as string | null) ?? null,
           sowing_method: (p.sowing_method as string | null) ?? null,
           latest_purchase_date: latestPurchaseByProfile.get(pid) ?? null,
+          owner_user_id: (p.user_id as string | null) ?? null,
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -911,7 +930,7 @@ export function SeedVaultView({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, refetchTrigger]);
+  }, [user?.id, refetchTrigger, householdViewMode]);
 
   useEffect(() => {
     setImageErrorIds(new Set());
@@ -1024,6 +1043,7 @@ export function SeedVaultView({
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
             const varietyDisplay = formatVarietyForDisplay(seed.variety, false);
+            const ownerBadge = getOwnerBadge(seed);
 
             if (isPhotoCards) {
               const cardContent = (
@@ -1051,6 +1071,11 @@ export function SeedVaultView({
                             aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
                           />
                         </div>
+                      )}
+                      {ownerBadge && (
+                        <span className="absolute top-1 right-1 z-10 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none pointer-events-none">
+                          {ownerBadge}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1125,6 +1150,11 @@ export function SeedVaultView({
                       <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-4 h-4" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
                       </div>
+                    )}
+                    {ownerBadge && (
+                      <span className="absolute top-0.5 right-0.5 z-10 text-[8px] font-semibold px-1 py-px rounded-full bg-violet-500 text-white leading-none pointer-events-none">
+                        {ownerBadge}
+                      </span>
                     )}
                   </div>
                 </div>

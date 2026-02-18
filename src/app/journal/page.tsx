@@ -85,7 +85,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
 }
 
 /** Group entries by same plant + same day so one row per (date, plant). */
-function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[] }[] {
+function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null }[] {
   const dateStr = (e: JournalEntryWithPlant) => e.created_at.slice(0, 10);
   const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? e.plant_variety_id ?? "__general__";
   const key = (e: JournalEntryWithPlant) => `${dateStr(e)}|${plantKey(e)}`;
@@ -103,7 +103,8 @@ function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string;
     const note = combineNotes(notes);
     const action = getActionForGroup(group);
     const entryIds = group.map((e) => e.id);
-    return { date: first.created_at, note: note || null, action, plantNames, entryIds };
+    const plant_profile_id = first.plant_profile_id ?? null;
+    return { date: first.created_at, note: note || null, action, plantNames, entryIds, plant_profile_id };
   });
   rows.sort((a, b) => b.date.localeCompare(a.date));
   return rows;
@@ -605,7 +606,7 @@ export default function JournalPage() {
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (entryIds: string[]) => {
+    (entryIds: string[], plantProfileId?: string | null) => {
       const startLongPress = () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
@@ -632,11 +633,15 @@ export default function JournalPage() {
           if (selectedEntryIds.length > 0) {
             e?.preventDefault?.();
             toggleRowSelection(entryIds);
+            return;
+          }
+          if (plantProfileId) {
+            router.push(`/vault/${plantProfileId}?tab=journal`);
           }
         },
       };
     },
-    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length]
+    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length, router]
   );
 
   function requestBulkDelete(ids: string[]) {
@@ -850,7 +855,7 @@ export default function JournalPage() {
               const row = item.row;
               const rowId = row.entryIds[0];
               const isExpanded = expandedNoteId === rowId;
-              const lp = getLongPressHandlers(row.entryIds);
+              const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
               const selected = isRowSelected(row.entryIds);
               return (
                 <article
@@ -926,7 +931,7 @@ export default function JournalPage() {
                   const row = item.row;
                   const rowId = row.entryIds[0];
                   const isExpanded = expandedNoteId === rowId;
-                  const lp = getLongPressHandlers(row.entryIds);
+                  const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
                   const selected = isRowSelected(row.entryIds);
                   return (
                     <tr
@@ -1036,7 +1041,7 @@ export default function JournalPage() {
               .filter((url): url is string => !!url);
             const hasImages = imageUrls.length > 0;
             const rowId = row.entryIds[0];
-            const lp = getLongPressHandlers(row.entryIds);
+            const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
             const selected = isRowSelected(row.entryIds);
             return (
               <article

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { HouseholdProvider } from "@/contexts/HouseholdContext";
 import { SyncProvider } from "@/contexts/SyncContext";
 import { DeveloperUnlockProvider } from "@/contexts/DeveloperUnlockContext";
 import { AuthGuard } from "@/components/AuthGuard";
@@ -45,11 +46,13 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <OfflineIndicator />
         <AuthProvider>
-          <SyncProvider>
-            <DeveloperUnlockProvider>
-              <AuthGuard>{children}</AuthGuard>
-            </DeveloperUnlockProvider>
-          </SyncProvider>
+          <HouseholdProvider>
+            <SyncProvider>
+              <DeveloperUnlockProvider>
+                <AuthGuard>{children}</AuthGuard>
+              </DeveloperUnlockProvider>
+            </SyncProvider>
+          </HouseholdProvider>
         </AuthProvider>
       </body>
     </html>

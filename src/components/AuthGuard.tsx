@@ -7,6 +7,7 @@ import { BottomNav } from "./BottomNav";
 import { FeedbackModal } from "./FeedbackModal";
 import { useSync } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
@@ -70,16 +71,6 @@ function FeedbackIcon() {
   );
 }
 
-function ShoppingBagIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
-  );
-}
-
 function ChevronLeftIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -96,6 +87,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isVault = pathname === "/vault" || pathname?.startsWith("/vault/");
   const { syncing } = useSync();
   const isOnline = useOnlineStatus();
+  const { isInHousehold, viewMode, setViewMode } = useHousehold();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -161,15 +153,39 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
               {getPageTitle(pathname) || "\u00A0"}
             </h1>
-            <div className="flex items-center shrink-0 gap-0">
-              <Link
-                href="/shopping-list"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
-                aria-label="Shopping List"
-                title="Shopping List"
-              >
-                <ShoppingBagIcon />
-              </Link>
+            <div className="flex items-center shrink-0 gap-1">
+              {isInHousehold && (
+                <div
+                  className="flex items-center rounded-full border border-black/15 bg-white/70 overflow-hidden h-7 text-xs font-medium"
+                  role="group"
+                  aria-label="View mode"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("personal")}
+                    className={`px-3 h-full transition-colors ${
+                      viewMode === "personal"
+                        ? "bg-emerald-600 text-white"
+                        : "text-black/50 hover:text-black"
+                    }`}
+                    aria-pressed={viewMode === "personal"}
+                  >
+                    Me
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("family")}
+                    className={`px-3 h-full transition-colors ${
+                      viewMode === "family"
+                        ? "bg-emerald-600 text-white"
+                        : "text-black/50 hover:text-black"
+                    }`}
+                    aria-pressed={viewMode === "family"}
+                  >
+                    Family
+                  </button>
+                </div>
+              )}
               <Link
                 href="/settings"
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"

@@ -597,12 +597,20 @@ export function ActiveGardenView({
           <ul className="space-y-4">
             {filteredBySearch.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();
-              const expected = batch.expected_harvest_date ? new Date(batch.expected_harvest_date).getTime() : null;
+              const rawExpected = batch.expected_harvest_date
+                ? new Date(batch.expected_harvest_date).getTime()
+                : batch.harvest_days
+                ? sown + batch.harvest_days * 86400000
+                : null;
               const now = Date.now();
-              const daysTotal = expected ? Math.max(1, (expected - sown) / 86400000) : null;
+              const daysTotal = rawExpected ? Math.max(1, (rawExpected - sown) / 86400000) : null;
               const daysElapsed = (now - sown) / 86400000;
               const progress = daysTotal ? Math.min(1, Math.max(0, daysElapsed / daysTotal)) : null;
-              const label = batch.expected_harvest_date ? `Harvest ~${new Date(batch.expected_harvest_date).toLocaleDateString()}` : "No maturity set";
+              const label = batch.expected_harvest_date
+                ? `Harvest ~${new Date(batch.expected_harvest_date).toLocaleDateString()}`
+                : rawExpected
+                ? `Est. harvest ~${new Date(rawExpected).toLocaleDateString()}`
+                : "No maturity set";
 
               return (
                 <li key={batch.id} className="rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm">

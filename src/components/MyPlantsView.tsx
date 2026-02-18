@@ -47,6 +47,7 @@ export function MyPlantsView({
   searchQuery = "",
   openAddModal: openAddModalProp,
   onCloseAddModal,
+  onAddModalOpenChange,
   categoryFilter = null,
   onCategoryChipsLoaded,
   varietyFilter = null,
@@ -65,6 +66,8 @@ export function MyPlantsView({
   searchQuery?: string;
   openAddModal?: boolean;
   onCloseAddModal?: () => void;
+  /** Fires whenever the internal Add Plant modal opens or closes; used by parent to keep component mounted while modal is open. */
+  onAddModalOpenChange?: (open: boolean) => void;
   onPermanentPlantAdded?: () => void;
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
@@ -258,9 +261,10 @@ export function MyPlantsView({
   useEffect(() => {
     if (openAddModalProp) {
       setShowAddModal(true);
+      onAddModalOpenChange?.(true);
       onCloseAddModal?.();
     }
-  }, [openAddModalProp, onCloseAddModal]);
+  }, [openAddModalProp, onCloseAddModal, onAddModalOpenChange]);
 
   const handleAddPlant = useCallback(async () => {
     if (!user?.id || !addName.trim()) return;
@@ -288,12 +292,13 @@ export function MyPlantsView({
     setAddSaving(false);
     setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null); setAddDatePlanted(new Date().toISOString().slice(0, 10));
     setShowAddModal(false);
+    onAddModalOpenChange?.(false);
     onCloseAddModal?.();
     if (error) return;
     await fetchPlants();
     hapticSuccess();
     onPermanentPlantAdded?.();
-  }, [user?.id, addName, addVariety, addNotes, addPhoto, addDatePlanted, fetchPlants, onCloseAddModal, onPermanentPlantAdded]);
+  }, [user?.id, addName, addVariety, addNotes, addPhoto, addDatePlanted, fetchPlants, onCloseAddModal, onAddModalOpenChange, onPermanentPlantAdded]);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -432,7 +437,7 @@ export function MyPlantsView({
               </div>
             </div>
             <div className="flex-shrink-0 flex gap-3 justify-end p-4 border-t border-neutral-200">
-              <button type="button" onClick={() => { setShowAddModal(false); setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null); setAddDatePlanted(new Date().toISOString().slice(0, 10)); onCloseAddModal?.(); }} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+              <button type="button" onClick={() => { setShowAddModal(false); onAddModalOpenChange?.(false); setAddName(""); setAddVariety(""); setAddNotes(""); setAddPhoto(null); setAddPhotoPreview(null); setAddDatePlanted(new Date().toISOString().slice(0, 10)); onCloseAddModal?.(); }} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
               <button type="button" onClick={handleAddPlant} disabled={addSaving || !addName.trim()} className="min-h-[44px] px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium shadow-sm hover:bg-emerald-700 disabled:opacity-50">{addSaving ? "Saving..." : "Add Plant"}</button>
             </div>
           </div>

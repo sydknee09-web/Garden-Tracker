@@ -62,6 +62,7 @@ function GardenPageInner() {
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
+  const [permanentPlantModalInternalOpen, setPermanentPlantModalInternalOpen] = useState(false);
 
   const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
   const [logGrowthNote, setLogGrowthNote] = useState("");
@@ -452,13 +453,14 @@ function GardenPageInner() {
           </div>
         )}
 
-        {(viewMode === "plants" || showAddPermanentPlantModal) && (
+        {(viewMode === "plants" || showAddPermanentPlantModal || permanentPlantModalInternalOpen) && (
           <div className={`pt-2 ${viewMode !== "plants" ? "sr-only" : ""}`}>
             <MyPlantsView
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchQuery}
               openAddModal={showAddPermanentPlantModal}
               onCloseAddModal={() => setShowAddPermanentPlantModal(false)}
+              onAddModalOpenChange={setPermanentPlantModalInternalOpen}
               onPermanentPlantAdded={() => {
                 if (viewMode === "active") {
                   setViewMode("plants");
@@ -555,24 +557,39 @@ function GardenPageInner() {
 
       {fabMenuOpen && (
         <>
-          <button type="button" className="fixed inset-0 z-20" aria-label="Close menu" onClick={() => setFabMenuOpen(false)} />
-          <div className="fixed right-6 z-30 flex flex-col gap-0.5 rounded-3xl border border-neutral-200 bg-white p-1.5 shadow-lg" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
-            <button type="button" onClick={() => { router.push("/vault/plant"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌿</span>
-              <span>Plant from Seed Vault</span>
-            </button>
-            <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🏷️</span>
-              <span>Add store-bought plant</span>
-            </button>
-            <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌳</span>
-              <span>Add permanent plant</span>
-            </button>
-            <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-base font-semibold text-neutral-900 hover:bg-neutral-50 border border-transparent hover:border-emerald/40 min-h-[44px] w-full transition-colors">
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📖</span>
-              <span>Add journal entry</span>
-            </button>
+          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setFabMenuOpen(false)} />
+          <div
+            className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="garden-fab-title"
+          >
+            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add to garden</h2>
+            <p className="text-sm text-neutral-500 text-center mb-4">What would you like to add?</p>
+            <div className="space-y-3">
+              <button type="button" onClick={() => { router.push("/vault/plant"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌿</span>
+                Plant from Seed Vault
+              </button>
+              <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🏷️</span>
+                Add store-bought plant
+              </button>
+              <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🌳</span>
+                Add permanent plant
+              </button>
+              <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📖</span>
+                Add journal entry
+              </button>
+              <div className="pt-4">
+                <button type="button" onClick={() => setFabMenuOpen(false)} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}

@@ -860,9 +860,9 @@ function VaultPageInner() {
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search seeds…"
+                  placeholder={viewMode === "list" ? "Search seeds…" : "Search plants…"}
                   className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
-                  aria-label="Search seeds"
+                  aria-label={viewMode === "list" ? "Search seeds" : "Search plants"}
                 />
               </div>
             </div>

@@ -362,9 +362,9 @@ export default function SettingsProfilePage() {
           </Link>
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">Fill planting windows</h3>
-            <p className="text-sm text-neutral-500 mb-3">For profiles with no planting window, set from Zone 10b defaults by plant name.</p>
+            <p className="text-sm text-neutral-500 mb-3">For profiles with no planting window, set from {gardenSettings.planting_zone ? `Zone ${gardenSettings.planting_zone}` : "your zone"} defaults by plant name.</p>
             <button type="button" onClick={handleFillPlantingWindows} disabled={backfillingPlantingWindows} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
-              {backfillingPlantingWindows ? "..." : "Fill from Zone 10b"}
+              {backfillingPlantingWindows ? "..." : `Fill from Zone ${gardenSettings.planting_zone ?? "10b"}`}
             </button>
             {backfillToast && <p className="text-sm text-emerald-600 mt-2">{backfillToast}</p>}
           </div>
