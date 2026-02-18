@@ -41,18 +41,31 @@ export function stripHtmlForDisplay(s: string | null | undefined): string {
 }
 
 /**
- * True only when the string looks like a plausible scientific name (e.g. Latin binomial),
- * not scraped HTML/code. Use to avoid showing junk like `"-tulips" class="header__..."`.
+ * True only when the string looks like a plausible scientific name (Latin binomial/trinomial).
+ * Requirements:
+ *  - 2–80 chars after stripping HTML
+ *  - No HTML attribute fragments (class=, id=, __, <tag>)
+ *  - Not a quoted string
+ *  - Starts with an uppercase letter (genus) followed by a lowercase species epithet
+ *  - Contains only letters, spaces, hyphens, and periods (no commas, digits, punctuation like ", and…")
  */
 export function looksLikeScientificName(s: string | null | undefined): boolean {
   const raw = s?.trim() ?? "";
-  if (raw.length < 2 || raw.length > 120) return false;
+  if (raw.length < 4 || raw.length > 80) return false;
+  // Reject HTML/code fragments
   if (/class\s*=\s*["']|id\s*=\s*["']|__|<\s*\w|>\s*\w/i.test(raw)) return false;
   const stripped = stripHtmlForDisplay(raw);
-  if (stripped.length < 2) return false;
+  if (stripped.length < 4) return false;
   if (/class\s*=|__|<\w|>\w/i.test(stripped)) return false;
   if (/^"[^"]*"$/.test(stripped)) return false;
-  if (!stripped.includes(" ") && (stripped.startsWith('"') || stripped.startsWith("-"))) return false;
+  // Must start with an uppercase letter (genus)
+  if (!/^[A-Z]/.test(stripped)) return false;
+  // Must contain only word-characters, spaces, hyphens, periods — no commas, digits, apostrophes, punctuation
+  if (/[^A-Za-z\s\-.]/.test(stripped)) return false;
+  // Must have at least two words (genus + epithet), second word must be all-lowercase
+  const words = stripped.split(/\s+/);
+  if (words.length < 2) return false;
+  if (!/^[a-z\-]+$/.test(words[1])) return false;
   return true;
 }
 

@@ -64,6 +64,16 @@ describe("looksLikeScientificName", () => {
   it("returns true for plausible scientific names", () => {
     expect(looksLikeScientificName("Lobularia maritima")).toBe(true);
     expect(looksLikeScientificName("Solanum lycopersicum")).toBe(true);
+    expect(looksLikeScientificName("Eschscholzia californica")).toBe(true);
+    expect(looksLikeScientificName("Ocimum basilicum")).toBe(true);
+  });
+
+  it("returns false for sentence fragments and cultivar names", () => {
+    expect(looksLikeScientificName(", and selected for improved traits.")).toBe(false);
+    expect(looksLikeScientificName("Rutgers Passion DMR")).toBe(false);
+    expect(looksLikeScientificName("King Size Series")).toBe(false);
+    expect(looksLikeScientificName("Bee's Choice")).toBe(false);
+    expect(looksLikeScientificName("selected for improved traits")).toBe(false);
   });
 
   it("returns false for too short or empty", () => {

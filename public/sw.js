@@ -1,10 +1,13 @@
-const CACHE_NAME = 'seed-vault-v1';
+const CACHE_NAME = 'seed-vault-v2';
 const PRECACHE_URLS = [
   '/',
   '/vault',
   '/journal',
   '/calendar',
   '/settings',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 // Install: cache shell resources
