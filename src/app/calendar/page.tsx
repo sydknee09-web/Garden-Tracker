@@ -89,11 +89,17 @@ export default function CalendarPage() {
   const swipeStartX = useRef<number | null>(null);
   /** Collapsible date groups: which dates are expanded. Start with today expanded if it has tasks. */
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchActionOpen, setBatchActionOpen] = useState<"reschedule" | "delete" | null>(null);
+  const [batchDate, setBatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [batchSaving, setBatchSaving] = useState(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!deleteConfirmTask, () => setDeleteConfirmTask(null));
+  useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
 
   const plantTypesGrouped = useMemo(() => {
     const byType = new Map<string, { id: string; name: string; variety_name: string | null }[]>();
@@ -319,6 +325,56 @@ export default function CalendarPage() {
       return next;
     });
   }, []);
+
+  const handleLongPressTask = useCallback((taskId: string) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([taskId]));
+  }, []);
+
+  const toggleTaskSelect = useCallback((taskId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchActionOpen(null);
+  }, []);
+
+  const handleBatchReschedule = useCallback(async (newDate: string) => {
+    if (!user) return;
+    setBatchSaving(true);
+    const ids = Array.from(selectedIds);
+    await Promise.all(ids.map((id) =>
+      supabase.from("tasks").update({ due_date: newDate }).eq("id", id).eq("user_id", user.id)
+    ));
+    setBatchSaving(false);
+    hapticSuccess();
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchActionOpen(null);
+    setRefetch((r) => r + 1);
+  }, [user, selectedIds]);
+
+  const handleBatchDelete = useCallback(async () => {
+    if (!user) return;
+    setBatchSaving(true);
+    const ids = Array.from(selectedIds);
+    await Promise.all(ids.map((id) =>
+      supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id)
+    ));
+    setBatchSaving(false);
+    hapticSuccess();
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchActionOpen(null);
+    setRefetch((r) => r + 1);
+  }, [user, selectedIds]);
 
   // Reminders view: only recurring (from care schedules) and not completed
   const remindersTasks = useMemo(
@@ -744,6 +800,10 @@ export default function CalendarPage() {
                       onComplete={() => handleComplete(t)}
                       onSnooze={(newDue) => handleSnooze(t, newDue)}
                       onDeleteRequest={() => requestDeleteTask(t)}
+                      selectMode={selectMode}
+                      isSelected={selectedIds.has(t.id)}
+                      onLongPress={() => handleLongPressTask(t.id)}
+                      onToggleSelect={() => toggleTaskSelect(t.id)}
                     />
                   </li>
                 ))}
@@ -789,6 +849,10 @@ export default function CalendarPage() {
                               onComplete={() => handleComplete(t)}
                               onSnooze={(newDue) => handleSnooze(t, newDue)}
                               onDeleteRequest={() => requestDeleteTask(t)}
+                              selectMode={selectMode}
+                              isSelected={selectedIds.has(t.id)}
+                              onLongPress={() => handleLongPressTask(t.id)}
+                              onToggleSelect={() => toggleTaskSelect(t.id)}
                             />
                           ))}
                         </div>
@@ -840,6 +904,10 @@ export default function CalendarPage() {
                               onComplete={() => handleComplete(t)}
                               onSnooze={(newDue) => handleSnooze(t, newDue)}
                               onDeleteRequest={() => requestDeleteTask(t)}
+                              selectMode={selectMode}
+                              isSelected={selectedIds.has(t.id)}
+                              onLongPress={() => handleLongPressTask(t.id)}
+                              onToggleSelect={() => toggleTaskSelect(t.id)}
                             />
                           ))}
                         </div>
@@ -851,6 +919,92 @@ export default function CalendarPage() {
           )}
         </div>
       ) : null}
+
+      {/* Batch select action bar */}
+      {selectMode && (
+        <div className="fixed bottom-[88px] left-0 right-0 z-40 px-4 pointer-events-none">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 px-4 py-3 flex items-center gap-3 pointer-events-auto">
+            <span className="flex-1 text-sm font-semibold text-black">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              disabled={selectedIds.size === 0 || batchSaving}
+              onClick={() => { setBatchDate(new Date().toISOString().slice(0, 10)); setBatchActionOpen("reschedule"); }}
+              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 min-h-[44px]"
+            >
+              Reschedule
+            </button>
+            <button
+              type="button"
+              disabled={selectedIds.size === 0 || batchSaving}
+              onClick={() => setBatchActionOpen("delete")}
+              className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-200 hover:bg-red-100 disabled:opacity-40 min-h-[44px]"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={exitSelectMode}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/50 hover:text-black hover:bg-black/5"
+              aria-label="Exit select mode"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch reschedule sheet */}
+      {batchActionOpen === "reschedule" && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setBatchActionOpen(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
+            <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
+                const d = new Date(); d.setDate(d.getDate() + days);
+                const dateStr = d.toISOString().slice(0, 10);
+                return (
+                  <button key={label} type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(dateStr)}
+                    className="py-3 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-emerald-50 hover:border-emerald-200 disabled:opacity-40 min-h-[44px]">
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 items-center pt-1">
+              <input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)}
+                className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm" />
+              <button type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(batchDate)}
+                className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40">
+                {batchSaving ? "Saving…" : "Apply"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Batch delete confirm sheet */}
+      {batchActionOpen === "delete" && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setBatchActionOpen(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4">
+            <h3 className="text-base font-bold text-black">Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?</h3>
+            <p className="text-sm text-black/60">This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setBatchActionOpen(null)}
+                className="flex-1 py-3 rounded-xl border border-black/10 text-sm font-medium min-h-[44px]">
+                Cancel
+              </button>
+              <button type="button" disabled={batchSaving} onClick={handleBatchDelete}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
+                {batchSaving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {harvestCelebration && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
@@ -1065,11 +1219,19 @@ function CalendarTaskRow({
   onComplete,
   onSnooze,
   onDeleteRequest,
+  selectMode = false,
+  isSelected = false,
+  onLongPress,
+  onToggleSelect,
 }: {
   task: Task & { plant_name?: string };
   onComplete: () => void;
   onSnooze: (newDueDate: string) => void;
   onDeleteRequest: () => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
+  onToggleSelect?: () => void;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
@@ -1079,15 +1241,10 @@ function CalendarTaskRow({
   const plantLabel = (task.plant_name ?? (task.title ?? "").replace(new RegExp(`^${categoryLabel}\\s*`, "i"), "").trim()) || null;
   const displayLine = plantLabel ? `${categoryLabel} – ${plantLabel}` : (task.title ?? categoryLabel);
 
-  const handleDoubleClick = () => {
-    setShowDelete(true);
-    setTimeout(() => setShowDelete(false), 3000);
-  };
-
   const handlePointerDown = () => {
+    if (selectMode) return;
     longPressTimerRef.current = setTimeout(() => {
-      setShowDelete(true);
-      setTimeout(() => setShowDelete(false), 3000);
+      onLongPress?.();
       longPressTimerRef.current = null;
     }, 500);
   };
@@ -1098,26 +1255,49 @@ function CalendarTaskRow({
     }
   };
 
+  const handleDoubleClick = () => {
+    if (selectMode) return;
+    setShowDelete(true);
+    setTimeout(() => setShowDelete(false), 3000);
+  };
+
   return (
     <div
       role="button"
       tabIndex={0}
+      onClick={selectMode ? () => onToggleSelect?.() : undefined}
       onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       className={`flex flex-wrap items-center gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
-        task.completed_at
-          ? "bg-slate-50 border-slate-200/80 text-slate-500"
-          : "bg-white border-emerald-200/60 text-black shadow-sm hover:border-emerald-300/70"
-      } ${task.id.startsWith("opt-") ? "opacity-60 animate-pulse" : ""}`}
+        selectMode && isSelected
+          ? "bg-emerald-50 border-emerald-400"
+          : task.completed_at
+            ? "bg-slate-50 border-slate-200/80 text-slate-500"
+            : "bg-white border-emerald-200/60 text-black shadow-sm hover:border-emerald-300/70"
+      } ${task.id.startsWith("opt-") ? "opacity-60 animate-pulse" : ""} ${selectMode ? "cursor-pointer select-none" : ""}`}
     >
+      {selectMode && (
+        <span
+          className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+            isSelected ? "bg-emerald-500 border-emerald-500" : "border-black/30 bg-white"
+          }`}
+          aria-hidden
+        >
+          {isSelected && (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </span>
+      )}
       <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
-      {!task.completed_at && (
+      {!task.completed_at && !selectMode && (
         <span className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={() => setSnoozeOpen(true)}
+            onClick={(e) => { e.stopPropagation(); setSnoozeOpen(true); }}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
             aria-label="Snooze"
             title="Snooze"
@@ -1126,7 +1306,7 @@ function CalendarTaskRow({
           </button>
           <button
             type="button"
-            onClick={onComplete}
+            onClick={(e) => { e.stopPropagation(); onComplete(); }}
             className={
               isSowTask(task.category)
                 ? "min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center"
@@ -1137,7 +1317,7 @@ function CalendarTaskRow({
           </button>
         </span>
       )}
-      {showDelete && (
+      {showDelete && !selectMode && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDeleteRequest(); setShowDelete(false); }}
@@ -1147,7 +1327,7 @@ function CalendarTaskRow({
           <TrashIcon />
         </button>
       )}
-      {snoozeOpen && (
+      {snoozeOpen && !selectMode && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setSnoozeOpen(false)} />
           <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-card border border-black/5 max-w-xs mx-auto">
@@ -1159,21 +1339,12 @@ function CalendarTaskRow({
               className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm mb-3"
             />
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSnoozeOpen(false)}
-                className="flex-1 py-2 rounded-xl border border-black/10 text-sm font-medium"
-              >
+              <button type="button" onClick={() => setSnoozeOpen(false)}
+                className="flex-1 py-2 rounded-xl border border-black/10 text-sm font-medium">
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onSnooze(snoozeDate);
-                  setSnoozeOpen(false);
-                }}
-                className="flex-1 py-2 rounded-xl bg-emerald text-white text-sm font-medium"
-              >
+              <button type="button" onClick={() => { onSnooze(snoozeDate); setSnoozeOpen(false); }}
+                className="flex-1 py-2 rounded-xl bg-emerald text-white text-sm font-medium">
                 Save
               </button>
             </div>
