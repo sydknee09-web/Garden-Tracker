@@ -394,9 +394,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               onClick={() => setScreen("manual")}
               className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                <PencilIcon />
-              </span>
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>✏️</span>
               Manual Entry
             </button>
             {onOpenBatch && (
@@ -408,9 +406,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <CameraIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📸</span>
                 Photo Import
               </button>
             )}
@@ -423,9 +419,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <LinkIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🔗</span>
                 Link Import
               </button>
             )}
@@ -438,9 +432,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <OrderIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>🛒</span>
                 Purchase Order
               </button>
             )}

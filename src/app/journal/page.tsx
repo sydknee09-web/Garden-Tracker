@@ -1230,9 +1230,7 @@ export default function JournalPage() {
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <CameraIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📸</span>
                 Snapshot — take a photo
               </button>
               <button
@@ -1243,9 +1241,7 @@ export default function JournalPage() {
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <NoteIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📝</span>
                 Quick Note — text only
               </button>
               <button
@@ -1256,9 +1252,7 @@ export default function JournalPage() {
                 }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <DocumentIcon />
-                </span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-lg" aria-hidden>📋</span>
                 Full entry (link plant, packet, sowing)
               </button>
               <div className="pt-4">
