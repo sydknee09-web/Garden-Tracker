@@ -158,7 +158,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setViewMode(viewMode === "personal" ? "family" : "personal")}
-                  className="flex items-center gap-1 rounded-full border border-black/15 bg-white/70 px-3 h-7 text-xs font-medium text-black/70 hover:text-black hover:border-black/30 transition-colors"
+                  className="flex items-center justify-center gap-1 w-[76px] rounded-full border border-black/15 bg-white/70 px-3 h-7 text-xs font-medium text-black/70 hover:text-black hover:border-black/30 transition-colors"
                   aria-label={`Switch to ${viewMode === "personal" ? "family" : "personal"} view`}
                 >
                   {viewMode === "family" ? "Family" : "Personal"}
