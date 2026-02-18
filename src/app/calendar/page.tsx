@@ -58,7 +58,7 @@ function getCategoryDotColor(category: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { viewMode } = useHousehold();
+  const { viewMode: householdViewMode } = useHousehold();
   const router = useRouter();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,7 +170,7 @@ export default function CalendarPage() {
         .gte("due_date", start)
         .lte("due_date", end)
         .order("due_date");
-      if (viewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
+      if (householdViewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
       const { data: taskRows, error: e } = await tasksQuery;
 
       if (cancelled) return;
@@ -207,7 +207,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, month.year, month.month, refetch, viewMode]);
+  }, [user?.id, month.year, month.month, refetch, householdViewMode]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
