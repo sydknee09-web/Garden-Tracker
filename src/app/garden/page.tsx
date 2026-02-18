@@ -180,14 +180,14 @@ function GardenPageInner() {
   return (
     <div className="min-h-screen pb-24">
       <div className="px-4 pt-2 pb-4">
-        <div className="flex justify-center mb-3">
-          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="View">
+        <div className="flex mb-3 -mx-4 px-4" role="tablist" aria-label="View">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
             <button
               type="button"
               role="tab"
               aria-selected={viewMode === "active"}
               onClick={() => setViewMode("active")}
-              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
@@ -198,7 +198,7 @@ function GardenPageInner() {
               role="tab"
               aria-selected={viewMode === "plants"}
               onClick={() => setViewMode("plants")}
-              className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
