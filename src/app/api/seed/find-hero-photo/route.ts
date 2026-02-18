@@ -231,16 +231,20 @@ export async function POST(req: Request) {
       const scientificHint = scientific_name
         ? ` If the variety or name is a scientific/Latin name, you may also use it in the search to find plant images.`
         : "";
-      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show this plant or flower. Search for: "${galleryQuery}".${scientificHint}
+      const galleryPrompt = `Using Google Search, find 8 to 12 direct image URLs (https) that show the actual plant, flower, or fruit for: "${galleryQuery}".${scientificHint}
 
-STRICT SOURCE RULES — images must be fetchable by a server, not just a browser:
-- REQUIRED: At least 4 URLs must be from upload.wikimedia.org or commons.wikimedia.org — these are the most reliable for embedding.
-- ALSO GOOD: pixabay.com, unsplash.com, pexels.com, flickr.com (staticflickr.com), university extension sites (.edu), botanical gardens.
-- STRICTLY FORBIDDEN (do not include any URL from these domains): shutterstock.com, alamy.com, dreamstime.com, istockphoto.com, gettyimages.com, 123rf.com, depositphotos.com, stock.adobe.com, burpee.com, rareseeds.com, johnnyseeds.com, botanicalinterests.com, edenbrothers.com, or any seed vendor / garden shop site.
-- Each URL must be a direct link to an image file (.jpg, .jpeg, .png, .webp) — NOT a web page.
-- Do NOT include seed packet images, logos, or product shots.
+SOURCE PRIORITY — return as many from these embeddable sources as you can find:
+1. upload.wikimedia.org or commons.wikimedia.org (best — always embeddable)
+2. pixabay.com, unsplash.com, pexels.com
+3. staticflickr.com or live.staticflickr.com
+4. University extension sites (.edu), botanical gardens, or reputable nurseries
 
-Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.org/...", ... ] }.`;
+NEVER include URLs from: shutterstock.com, alamy.com, dreamstime.com, istockphoto.com, gettyimages.com, 123rf.com, depositphotos.com, stock.adobe.com, or any seed vendor shop (burpee.com, rareseeds.com, johnnyseeds.com, botanicalinterests.com, edenbrothers.com).
+Do NOT include seed packet images, logos, or product shots — only photos of the actual plant.
+Each URL must be a direct link to an image file (.jpg, .jpeg, .png, .webp), NOT a web page.
+Return as many qualifying URLs as you can find, even if they are not all from Wikimedia.
+
+Return only valid JSON with no markdown: { "urls": [ "https://...", ... ] }.`;
 
       let galleryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
@@ -276,7 +280,7 @@ Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.o
 
       // If fewer than 2 pass HEAD, try a Wikimedia-only follow-up to ensure embeddable results
       if (accessible.length < 2 && urls.length > 0) {
-        const wikimediaPrompt = `Using Google Search, find 6 to 10 direct image URLs only from upload.wikimedia.org or commons.wikimedia.org for this plant: "${galleryQuery}". Return only valid JSON with no markdown: { "urls": [ "https://upload.wikimedia.org/...", ... ] }. Each URL must be from wikimedia.org.`;
+        const wikimediaPrompt = `Using Google Search, find 6 to 10 direct image URLs of the actual plant for: "${galleryQuery}". Prioritize upload.wikimedia.org, commons.wikimedia.org, pixabay.com, unsplash.com, pexels.com, and university extension sites (.edu). Each URL must be a direct link to an image file (.jpg, .png, .webp). Return only valid JSON with no markdown: { "urls": [ "https://...", ... ] }.`;
         let wikimediaResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
         try {
           wikimediaResponse = await Promise.race([
