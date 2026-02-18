@@ -155,36 +155,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             </h1>
             <div className="flex items-center shrink-0 gap-1">
               {isInHousehold && (
-                <div
-                  className="flex items-center rounded-full border border-black/15 bg-white/70 overflow-hidden h-7 text-xs font-medium"
-                  role="group"
-                  aria-label="View mode"
+                <button
+                  type="button"
+                  onClick={() => setViewMode(viewMode === "personal" ? "family" : "personal")}
+                  className="flex items-center gap-1 rounded-full border border-black/15 bg-white/70 px-3 h-7 text-xs font-medium text-black/70 hover:text-black hover:border-black/30 transition-colors"
+                  aria-label={`Switch to ${viewMode === "personal" ? "family" : "personal"} view`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("personal")}
-                    className={`px-3 h-full transition-colors ${
-                      viewMode === "personal"
-                        ? "bg-emerald-600 text-white"
-                        : "text-black/50 hover:text-black"
-                    }`}
-                    aria-pressed={viewMode === "personal"}
-                  >
-                    Me
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("family")}
-                    className={`px-3 h-full transition-colors ${
-                      viewMode === "family"
-                        ? "bg-emerald-600 text-white"
-                        : "text-black/50 hover:text-black"
-                    }`}
-                    aria-pressed={viewMode === "family"}
-                  >
-                    Family
-                  </button>
-                </div>
+                  {viewMode === "family" ? "Family" : "Personal"}
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden className="opacity-50">
+                    <path d="M2 3.5L5 1L8 3.5M8 6.5L5 9L2 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
               )}
               <Link
                 href="/settings"
