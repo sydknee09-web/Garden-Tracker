@@ -880,7 +880,7 @@ export default function CalendarPage() {
           setNewTaskOpen(true);
           setNewTaskTitle("");
           setNewTaskDue(new Date().toISOString().slice(0, 10));
-          setNewTaskCategory("maintenance");
+          setNewTaskCategory(viewMode === "list" ? "general" : "maintenance");
           setNewTaskPlantId("");
           setNewTaskError(null);
         }}
@@ -944,7 +944,7 @@ export default function CalendarPage() {
             aria-labelledby="new-task-title"
           >
             <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-              New Task
+              {viewMode === "list" ? "New Reminder" : "New Task"}
             </h2>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>

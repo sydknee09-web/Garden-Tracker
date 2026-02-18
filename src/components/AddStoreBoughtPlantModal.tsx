@@ -431,7 +431,7 @@ export function AddStoreBoughtPlantModal({
               Cancel
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 min-h-[44px]">
-              {submitting ? "Adding…" : "Add to garden"}
+              {submitting ? "Adding…" : "Add to Garden"}
             </button>
           </div>
         </div>

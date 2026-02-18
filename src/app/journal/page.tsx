@@ -1253,7 +1253,7 @@ export default function JournalPage() {
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📋</span>
-                Full entry (link plant, packet, sowing)
+                Detailed Log — link plant, packet, sowing
               </button>
               <div className="pt-4">
                 <button
@@ -1450,7 +1450,7 @@ export default function JournalPage() {
                     </div>
                   </div>
                 ) : imageFile && imagePreviewUrl ? (
-                  <div className="space-y-2">
+                  <div className="relative">
                     <img
                       src={imagePreviewUrl}
                       alt="Preview"
@@ -1459,9 +1459,10 @@ export default function JournalPage() {
                     <button
                       type="button"
                       onClick={() => handleImageSelected(null)}
-                      className="text-sm font-medium text-citrus hover:text-black/80"
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center text-sm leading-none hover:bg-black/70"
+                      aria-label="Remove photo"
                     >
-                      Remove
+                      ×
                     </button>
                   </div>
                 ) : (
