@@ -276,11 +276,30 @@ export default function VaultSeedPage() {
         setPacketImagesByPacketId(new Map());
       }
 
-      // Grow instances
+      // Grow instances — primary query by plant_profile_id
       const { data: grows } = await supabase.from("grow_instances")
         .select("id, plant_profile_id, plant_variety_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
         .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
-      setGrowInstances((grows ?? []) as GrowInstance[]);
+      let allGrows = (grows ?? []) as GrowInstance[];
+      // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
+      if (allGrows.length === 0 && packetRows.length > 0) {
+        const pktIds = packetRows.map((p) => p.id);
+        const { data: growsByPacket } = await supabase.from("grow_instances")
+          .select("id, plant_profile_id, plant_variety_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
+          .in("seed_packet_id", pktIds).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
+        if (growsByPacket?.length) {
+          allGrows = growsByPacket as GrowInstance[];
+          // Silently repair: update plant_profile_id on orphaned rows
+          const orphans = (growsByPacket as GrowInstance[]).filter((g) => !g.plant_profile_id);
+          if (orphans.length > 0) {
+            await supabase.from("grow_instances")
+              .update({ plant_profile_id: id })
+              .in("id", orphans.map((g) => g.id))
+              .eq("user_id", user.id);
+          }
+        }
+      }
+      setGrowInstances(allGrows);
 
       // All journal entries for this profile
       const { data: journals } = await supabase.from("journal_entries")
@@ -1687,7 +1706,7 @@ export default function VaultSeedPage() {
         {/* CARE TAB (permanent plants)                                   */}
         {/* ============================================================ */}
         {activeTab === "care" && (
-          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
+          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} />
         )}
       </div>
 

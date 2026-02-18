@@ -91,7 +91,6 @@ export async function completeTask(
             .insert({
               user_id: userId,
               plant_profile_id: task.plant_profile_id,
-              plant_variety_id: task.plant_profile_id,
               sown_date: today,
               expected_harvest_date: expectedHarvestDate ?? null,
               status: "growing",
