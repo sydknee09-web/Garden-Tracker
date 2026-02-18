@@ -683,12 +683,8 @@ function VaultPlantPageInner() {
                           const usePct = usePercentByPacketId[pk.id] ?? 0;
                           const remainingPct = 100 - usePct;
                           const pktQty = pk.qty_status / 100;
-                          const vendor = (pk.vendor_name ?? "").trim() || "—";
-                          const sameVendor = selectedPackets.filter((p) => ((p.vendor_name ?? "").trim() || "") === (vendor === "—" ? "" : vendor));
-                          const label = selectedPackets.length > 1 ? (sameVendor.length > 1 ? `${vendor} (${sameVendor.findIndex((p) => p.id === pk.id) + 1})` : vendor) : null;
                           return (
                             <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
-                              {label && <span className="text-[10px] font-medium text-black/50 w-8 shrink-0">{label}</span>}
                               <input
                                 type="range"
                                 min={0}
