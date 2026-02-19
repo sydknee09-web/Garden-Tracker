@@ -12,6 +12,7 @@ import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
+import { StarRating } from "@/components/StarRating";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
@@ -512,6 +513,15 @@ export default function VaultSeedPage() {
       if (options?.persist !== false && user?.id) {
         await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", user.id);
       }
+    },
+    [user?.id]
+  );
+
+  const updatePacketRating = useCallback(
+    async (packetId: string, rating: number | null) => {
+      if (!user?.id) return;
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, packet_rating: rating } : p)));
+      await supabase.from("seed_packets").update({ packet_rating: rating }).eq("id", packetId).eq("user_id", user.id);
     },
     [user?.id]
   );
@@ -1546,6 +1556,15 @@ export default function VaultSeedPage() {
                             )}
                             {pkt.scraped_details?.trim() && (<><p className="text-xs font-medium uppercase text-neutral-500 mb-1">Original Details</p><p className="text-neutral-800 whitespace-pre-wrap text-sm">{pkt.scraped_details}</p></>)}
                             {pkt.purchase_url?.trim() && <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-neutral-500 underline hover:text-neutral-700 inline-block">View purchase link</a>}
+                            <div>
+                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">My rating</p>
+                              <StarRating
+                                value={pkt.packet_rating ?? null}
+                                interactive
+                                onChange={(rating) => updatePacketRating(pkt.id, rating)}
+                                label="Packet rating"
+                              />
+                            </div>
                             <div>
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Your notes</p>
                               <textarea

@@ -227,6 +227,8 @@ export interface SeedPacket {
   deleted_at?: string | null;
   /** That vendor's growing recommendations (from import); shown on profile "By packet". */
   vendor_specs?: VendorSpecs | null;
+  /** User's personal 1–5 rating for this packet. Null = not yet rated. */
+  packet_rating?: number | null;
 }
 
 // ---------------------------------------------------------------------------

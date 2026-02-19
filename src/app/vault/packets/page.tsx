@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { StarRating } from "@/components/StarRating";
 
 type PacketRow = {
   id: string;
@@ -15,6 +16,7 @@ type PacketRow = {
   created_at: string;
   profile_name: string;
   variety_name: string | null;
+  packet_rating: number | null;
 };
 
 export default function AllPacketsPage() {
@@ -22,14 +24,14 @@ export default function AllPacketsPage() {
   const [packets, setPackets] = useState<PacketRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
-  const [sortField, setSortField] = useState<"variety" | "vendor" | "date" | "qty">("date");
+  const [sortField, setSortField] = useState<"variety" | "vendor" | "date" | "qty" | "rating">("date");
 
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
       const { data: packetData } = await supabase
         .from("seed_packets")
-        .select("id, plant_profile_id, vendor_name, purchase_date, qty_status, is_archived, created_at")
+        .select("id, plant_profile_id, vendor_name, purchase_date, qty_status, is_archived, created_at, packet_rating")
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -45,7 +47,7 @@ export default function AllPacketsPage() {
       });
 
       setPackets(
-        (packetData ?? []).map((p: { id: string; plant_profile_id: string; vendor_name: string | null; purchase_date: string | null; qty_status: number; is_archived: boolean | null; created_at: string }) => ({
+        (packetData ?? []).map((p: { id: string; plant_profile_id: string; vendor_name: string | null; purchase_date: string | null; qty_status: number; is_archived: boolean | null; created_at: string; packet_rating: number | null }) => ({
           ...p,
           profile_name: nameMap[p.plant_profile_id]?.name ?? "Unknown",
           variety_name: nameMap[p.plant_profile_id]?.variety_name ?? null,
@@ -60,6 +62,12 @@ export default function AllPacketsPage() {
     if (sortField === "variety") return (a.profile_name + (a.variety_name ?? "")).localeCompare(b.profile_name + (b.variety_name ?? ""));
     if (sortField === "vendor") return (a.vendor_name ?? "").localeCompare(b.vendor_name ?? "");
     if (sortField === "qty") return (b.qty_status ?? 0) - (a.qty_status ?? 0);
+    if (sortField === "rating") {
+      // Rated packets first (highest to lowest), unrated at bottom
+      const ra = a.packet_rating ?? -1;
+      const rb = b.packet_rating ?? -1;
+      return rb - ra;
+    }
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
@@ -99,6 +107,7 @@ export default function AllPacketsPage() {
           <option value="variety">By variety</option>
           <option value="vendor">By vendor</option>
           <option value="qty">By quantity</option>
+          <option value="rating">By rating</option>
         </select>
       </div>
 
@@ -118,6 +127,7 @@ export default function AllPacketsPage() {
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Rating</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -139,6 +149,9 @@ export default function AllPacketsPage() {
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StarRating value={pkt.packet_rating} size="sm" />
                       </td>
                     </tr>
                   );
