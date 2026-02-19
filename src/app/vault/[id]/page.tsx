@@ -278,14 +278,14 @@ export default function VaultSeedPage() {
 
       // Grow instances — primary query by plant_profile_id
       const { data: grows } = await supabase.from("grow_instances")
-        .select("id, plant_profile_id, plant_variety_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
+        .select("id, plant_profile_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
         .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
       let allGrows = (grows ?? []) as GrowInstance[];
       // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
       if (allGrows.length === 0 && packetRows.length > 0) {
         const pktIds = packetRows.map((p) => p.id);
         const { data: growsByPacket } = await supabase.from("grow_instances")
-          .select("id, plant_profile_id, plant_variety_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
+          .select("id, plant_profile_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id")
           .in("seed_packet_id", pktIds).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
         if (growsByPacket?.length) {
           allGrows = growsByPacket as GrowInstance[];

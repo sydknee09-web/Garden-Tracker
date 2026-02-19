@@ -43,7 +43,7 @@ export type GrowInstanceStatus =
 export interface GrowInstance {
   id: string;
   plant_profile_id?: string | null;
-  plant_variety_id: string;
+  plant_variety_id?: string | null; // legacy — column dropped from DB
   sown_date: string;
   expected_harvest_date: string | null;
   status?: GrowInstanceStatus | null;
@@ -281,10 +281,12 @@ export interface CareSchedule {
   day_of_month?: number | null;
   custom_dates?: string[] | null;
   next_due_date?: string | null;
+  end_date?: string | null;
   last_completed_at?: string | null;
   is_active: boolean;
   is_template: boolean;
   notes?: string | null;
+  deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
