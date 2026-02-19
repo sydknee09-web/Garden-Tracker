@@ -11,7 +11,6 @@ import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { TagBadges } from "@/components/TagBadges";
-import { HarvestModal } from "@/components/HarvestModal";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
@@ -202,7 +201,6 @@ export default function VaultSeedPage() {
   const toggleAboutSection = (key: string) => setAboutCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Harvest modal
-  const [harvestGrowId, setHarvestGrowId] = useState<string | null>(null);
 
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
@@ -436,7 +434,7 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || harvestGrowId != null;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal;
   const handleSwipeStart = useCallback((e: React.TouchEvent) => {
     swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
   }, []);
@@ -1140,9 +1138,6 @@ export default function VaultSeedPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {growInstances.some((gi) => gi.status === "growing") && (
-              <button type="button" onClick={() => { const active = growInstances.find((gi) => gi.status === "growing"); if (active) setHarvestGrowId(active.id); }} className="min-h-[44px] px-3 py-2 rounded-lg border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-50">Harvest</button>
-            )}
             <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit"><PencilIcon /></button>
           </div>
         </div>
@@ -1624,12 +1619,7 @@ export default function VaultSeedPage() {
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>{gi.status ?? "unknown"}</span>
                           {gi.location && <span className="text-xs text-neutral-500">{gi.location}</span>}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {gi.status === "growing" && (
-                            <button type="button" onClick={() => setHarvestGrowId(gi.id)} className="text-xs px-2 py-1 rounded-lg border border-amber-200 text-amber-700 font-medium hover:bg-amber-50">Harvest</button>
-                          )}
-                          <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
-                        </div>
+                        <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
                       </div>
                       <div className="text-sm text-neutral-700 space-y-1">
                         {gi.end_reason && <p className="text-xs text-neutral-500">Ended: {gi.end_reason}</p>}
@@ -1709,16 +1699,6 @@ export default function VaultSeedPage() {
           <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} />
         )}
       </div>
-
-      {/* Harvest Modal */}
-      <HarvestModal
-        open={!!harvestGrowId}
-        onClose={() => setHarvestGrowId(null)}
-        onSaved={() => { setHarvestGrowId(null); loadProfile(); }}
-        profileId={id as string}
-        growInstanceId={harvestGrowId ?? ""}
-        displayName={displayName}
-      />
 
       {/* Add seed packet modal (when profile has 0 packets or adding another) */}
       {showAddPacketModal && (
