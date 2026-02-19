@@ -30,7 +30,7 @@ export default function PlantingHistoryPage() {
     (async () => {
       const { data: growData } = await supabase
         .from("grow_instances")
-        .select("id, plant_profile_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id")
+        .select("*")
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("sown_date", { ascending: false });
