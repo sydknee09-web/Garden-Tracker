@@ -1572,6 +1572,15 @@ export default function VaultSeedPage() {
                             </div>
                           </div>
                         </div>
+                        <div className="mt-2 ml-0 flex items-center gap-1">
+                          <StarRating
+                            value={pkt.packet_rating ?? null}
+                            interactive={isOwnProfile}
+                            onChange={isOwnProfile ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
+                            size="sm"
+                            label="Packet rating"
+                          />
+                        </div>
                         {open && (
                           <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
                             {pktImageUrls.length > 0 && (
@@ -1594,15 +1603,6 @@ export default function VaultSeedPage() {
                             )}
                             {pkt.scraped_details?.trim() && (<><p className="text-xs font-medium uppercase text-neutral-500 mb-1">Original Details</p><p className="text-neutral-800 whitespace-pre-wrap text-sm">{pkt.scraped_details}</p></>)}
                             {pkt.purchase_url?.trim() && <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-neutral-500 underline hover:text-neutral-700 inline-block">View purchase link</a>}
-                            <div>
-                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">My rating</p>
-                              <StarRating
-                                value={pkt.packet_rating ?? null}
-                                interactive={isOwnProfile}
-                                onChange={isOwnProfile ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
-                                label="Packet rating"
-                              />
-                            </div>
                             {isOwnProfile && (
                               <>
                                 <div>
