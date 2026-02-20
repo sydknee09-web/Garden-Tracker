@@ -162,9 +162,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   aria-label={`Switch to ${viewMode === "personal" ? "family" : "personal"} view`}
                 >
                   {viewMode === "family" ? "Family" : "Personal"}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden className="opacity-50">
-                    <path d="M2 3.5L5 1L8 3.5M8 6.5L5 9L2 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
                 </button>
               )}
               <Link
