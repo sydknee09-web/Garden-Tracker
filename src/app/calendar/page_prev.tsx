@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { completeTask } from "@/lib/completeSowTask";
-import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import type { Task, TaskType } from "@/types/garden";
@@ -61,7 +60,7 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const { viewMode: householdViewMode } = useHousehold();
   const router = useRouter();
-  const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
+  const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetch, setRefetch] = useState(0);
@@ -75,14 +74,11 @@ export default function CalendarPage() {
   const [newTaskCategory, setNewTaskCategory] = useState<TaskType>("maintenance");
   const [newTaskPlantId, setNewTaskPlantId] = useState<string>("");
   const [varieties, setVarieties] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
-  const [newTaskProfileId, setNewTaskProfileId] = useState<string>("");
-  const [newTaskGrowId, setNewTaskGrowId] = useState<string>("");
-  const [taskProfiles, setTaskProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
-  const [taskGrowInstances, setTaskGrowInstances] = useState<{ id: string; sown_date: string; location: string | null; status: string }[]>([]);
   const [savingTask, setSavingTask] = useState(false);
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "overview">("overview");
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
@@ -99,19 +95,10 @@ export default function CalendarPage() {
   const [batchDate, setBatchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [batchSaving, setBatchSaving] = useState(false);
 
-  // Recurring task form state
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringIntervalDays, setRecurringIntervalDays] = useState(30);
-  const [recurringEndDate, setRecurringEndDate] = useState("");
-
-  // Delete-recurring action sheet: null=hidden, "prompt"=showing options
-  const [deleteRecurringPrompt, setDeleteRecurringPrompt] = useState<(Task & { plant_name?: string }) | null>(null);
-
   const todayStr = new Date().toISOString().slice(0, 10);
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!deleteConfirmTask, () => setDeleteConfirmTask(null));
-  useModalBackClose(!!deleteRecurringPrompt, () => setDeleteRecurringPrompt(null));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
 
   const plantTypesGrouped = useMemo(() => {
@@ -179,20 +166,15 @@ export default function CalendarPage() {
     let cancelled = false;
 
     async function fetchTasks() {
-      // Generate any newly-due care tasks before fetching
-      await generateCareTasks(userId);
-
-      // Fetch all upcoming tasks (from today, up to 1 year out)
-      const oneYearOut = new Date();
-      oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
-      const futureLimit = oneYearOut.toISOString().slice(0, 10);
+      const start = new Date(month.year, month.month, 1).toISOString().slice(0, 10);
+      const end = new Date(month.year, month.month + 1, 0).toISOString().slice(0, 10);
 
       let tasksQuery = supabase
         .from("tasks")
-        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id")
         .is("deleted_at", null)
-        .gte("due_date", todayStr)
-        .lte("due_date", futureLimit)
+        .gte("due_date", start)
+        .lte("due_date", end)
         .order("due_date");
       if (householdViewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
       const { data: taskRows, error: e } = await tasksQuery;
@@ -219,7 +201,7 @@ export default function CalendarPage() {
         });
       }
 
-      const withNames = (taskRows ?? []).map((t: Task & { user_id?: string | null }) => ({
+      const withNames = (taskRows ?? []).map((t: Task) => ({
         ...t,
         plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : t.plant_variety_id ? names[t.plant_variety_id] : null) ?? "Unknown",
       }));
@@ -231,7 +213,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, refetch, householdViewMode]);
+  }, [user?.id, month.year, month.month, refetch, householdViewMode]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -257,11 +239,7 @@ export default function CalendarPage() {
   }
 
   function requestDeleteTask(t: Task & { plant_name?: string }) {
-    if ((t as Task & { care_schedule_id?: string | null }).care_schedule_id) {
-      setDeleteRecurringPrompt(t);
-    } else {
-      setDeleteConfirmTask(t);
-    }
+    setDeleteConfirmTask(t);
   }
 
   async function confirmDeleteTask() {
@@ -274,33 +252,6 @@ export default function CalendarPage() {
       hapticError();
       return;
     }
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
-
-  /** Delete just this one occurrence of a recurring task. */
-  async function confirmDeleteRecurringOne() {
-    if (!user || !deleteRecurringPrompt) return;
-    const t = deleteRecurringPrompt;
-    setDeleteRecurringPrompt(null);
-    await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", user.id);
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
-
-  /** Delete this task AND stop all future recurrences (soft-delete the schedule). */
-  async function confirmDeleteRecurringFuture() {
-    if (!user || !deleteRecurringPrompt) return;
-    const t = deleteRecurringPrompt;
-    const scheduleId = (t as Task & { care_schedule_id?: string | null }).care_schedule_id;
-    setDeleteRecurringPrompt(null);
-    const now = new Date().toISOString();
-    await Promise.all([
-      supabase.from("tasks").update({ deleted_at: now }).eq("id", t.id).eq("user_id", user.id),
-      scheduleId
-        ? supabase.from("care_schedules").update({ is_active: false, deleted_at: now }).eq("id", scheduleId).eq("user_id", user.id)
-        : Promise.resolve(),
-    ]);
     hapticSuccess();
     setRefetch((r) => r + 1);
   }
@@ -425,6 +376,20 @@ export default function CalendarPage() {
     setRefetch((r) => r + 1);
   }, [user, selectedIds]);
 
+  // Reminders view: only recurring (from care schedules) and not completed
+  const remindersTasks = useMemo(
+    () =>
+      tasks.filter(
+        (t) => (t as Task & { care_schedule_id?: string | null }).care_schedule_id != null && !t.completed_at
+      ) as (Task & { plant_name?: string })[],
+    [tasks]
+  );
+  const byDateReminders: Record<string, (Task & { plant_name?: string })[]> = {};
+  remindersTasks.forEach((t) => {
+    const d = t.due_date;
+    if (!byDateReminders[d]) byDateReminders[d] = [];
+    byDateReminders[d].push(t);
+  });
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();
   const totalCells = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
@@ -455,57 +420,9 @@ export default function CalendarPage() {
         .eq("status", "Active on Hillside")
         .order("name");
       if (!cancelled && data) setVarieties(data);
-
-      const { data: profiles } = await supabase
-        .from("plant_profiles")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .order("name");
-      if (!cancelled && profiles) setTaskProfiles(profiles as { id: string; name: string; variety_name: string | null }[]);
     })();
     return () => { cancelled = true; };
   }, [user?.id, newTaskOpen]);
-
-  // Load active grow instances whenever a profile is selected in the new task form
-  useEffect(() => {
-    if (!user || !newTaskProfileId) {
-      setTaskGrowInstances([]);
-      setNewTaskGrowId("");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("grow_instances")
-        .select("id, sown_date, location, status")
-        .eq("plant_profile_id", newTaskProfileId)
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .in("status", ["growing", "pending"])
-        .order("sown_date", { ascending: false });
-      if (!cancelled) {
-        setTaskGrowInstances((data ?? []) as { id: string; sown_date: string; location: string | null; status: string }[]);
-        // Auto-select the most recent active grow instance
-        if (data && data.length === 1) setNewTaskGrowId(data[0].id);
-        else setNewTaskGrowId("");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id, newTaskProfileId]);
-
-  function resetNewTaskForm() {
-    setNewTaskTitle("");
-    setNewTaskDue(new Date().toISOString().slice(0, 10));
-    setNewTaskCategory("maintenance");
-    setNewTaskPlantId("");
-    setNewTaskProfileId("");
-    setNewTaskGrowId("");
-    setIsRecurring(false);
-    setRecurringIntervalDays(30);
-    setRecurringEndDate("");
-    setNewTaskError(null);
-  }
 
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
@@ -520,75 +437,14 @@ export default function CalendarPage() {
     const savedDue = newTaskDue;
     const savedCategory = newTaskCategory;
     const savedPlantId = newTaskPlantId;
-    const savedProfileId = newTaskProfileId;
-    const savedGrowId = newTaskGrowId;
-    const savedRecurring = isRecurring;
-    const savedIntervalDays = recurringIntervalDays;
-    const savedEndDate = recurringEndDate.trim() || null;
-
-    setNewTaskOpen(false);
-    resetNewTaskForm();
-
-    if (savedRecurring) {
-      // --- Recurring path: create a care_schedule, then the first task ---
-      const { data: scheduleRow, error: schedErr } = await supabase
-        .from("care_schedules")
-        .insert({
-          user_id: user.id,
-          plant_profile_id: savedProfileId || null,
-          grow_instance_id: savedGrowId || null,
-          title: titleTrim,
-          category: savedCategory,
-          recurrence_type: "interval",
-          interval_days: savedIntervalDays,
-          next_due_date: savedDue,
-          end_date: savedEndDate,
-          is_active: true,
-          is_template: false,
-        })
-        .select("id")
-        .single();
-
-      if (schedErr || !scheduleRow) {
-        setNewTaskError(schedErr?.message ?? "Failed to create recurring schedule.");
-        setNewTaskOpen(true);
-        hapticError();
-        return;
-      }
-
-      // Create the first task occurrence immediately so it shows on the calendar
-      await supabase.from("tasks").insert({
-        user_id: user.id,
-        plant_profile_id: savedProfileId || null,
-        plant_variety_id: savedPlantId || null,
-        grow_instance_id: savedGrowId || null,
-        category: savedCategory,
-        due_date: savedDue,
-        title: titleTrim,
-        care_schedule_id: scheduleRow.id,
-      });
-
-      hapticSuccess();
-      setRefetch((r) => r + 1);
-      return;
-    }
-
-    // --- One-off path (existing behaviour with optimistic update) ---
-    let displayName: string | null = null;
-    if (savedProfileId) {
-      const p = taskProfiles.find((v) => v.id === savedProfileId);
-      displayName = p ? (p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name) : null;
-    } else if (savedPlantId) {
-      const v = varieties.find((v) => v.id === savedPlantId);
-      displayName = v ? (v.variety_name?.trim() ? `${v.name} (${v.variety_name})` : v.name) : null;
-    }
-
+    const plantName = savedPlantId ? varieties.find((v) => v.id === savedPlantId) : null;
+    const displayName = plantName ? (plantName.variety_name?.trim() ? `${plantName.name} (${plantName.variety_name})` : plantName.name) : null;
     const optimisticId = `opt-${Date.now()}`;
     const optimisticTask: Task & { plant_name?: string } = {
       id: optimisticId,
       plant_variety_id: savedPlantId || null,
-      plant_profile_id: savedProfileId || null,
-      grow_instance_id: savedGrowId || null,
+      plant_profile_id: null,
+      grow_instance_id: null,
       category: savedCategory,
       due_date: savedDue,
       completed_at: null,
@@ -596,12 +452,16 @@ export default function CalendarPage() {
       title: titleTrim,
       plant_name: displayName ?? "Unknown",
     };
+    setNewTaskOpen(false);
+    setNewTaskTitle("");
+    setNewTaskDue(new Date().toISOString().slice(0, 10));
+    setNewTaskCategory("maintenance");
+    setNewTaskPlantId("");
     setTasks((prev) => [...prev, optimisticTask]);
     const { error: err } = await supabase.from("tasks").insert({
       user_id: user.id,
       plant_variety_id: savedPlantId || null,
-      plant_profile_id: savedProfileId || null,
-      grow_instance_id: savedGrowId || null,
+      grow_instance_id: null,
       category: savedCategory,
       due_date: savedDue,
       title: titleTrim,
@@ -611,8 +471,6 @@ export default function CalendarPage() {
       setNewTaskOpen(true);
       setNewTaskTitle(titleTrim);
       setNewTaskPlantId(savedPlantId);
-      setNewTaskProfileId(savedProfileId);
-      setNewTaskGrowId(savedGrowId);
       setNewTaskDue(savedDue);
       setNewTaskCategory(savedCategory);
       setNewTaskError(err.message);
@@ -625,6 +483,30 @@ export default function CalendarPage() {
 
   return (
     <div className="px-6 pt-2 pb-6">
+      <div className="flex mb-3">
+        <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Calendar view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "overview"}
+            onClick={() => setViewMode("overview")}
+            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "overview" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "list"}
+            aria-label="Reminders view: recurring care tasks, excluding completed"
+            onClick={() => setViewMode("list")}
+            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === "list" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
+          >
+            Reminders
+          </button>
+        </div>
+      </div>
+
       <div
         className="flex items-center justify-center gap-2 mb-2 touch-pan-y"
         onTouchStart={(e) => {
@@ -647,7 +529,7 @@ export default function CalendarPage() {
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Previous month"
         >
-          ←
+          ΓåÉ
         </button>
         <span className="font-semibold text-black text-base min-w-[140px] text-center">{monthLabel}</span>
         <button
@@ -656,7 +538,7 @@ export default function CalendarPage() {
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Next month"
         >
-          →
+          ΓåÆ
         </button>
       </div>
 
@@ -682,7 +564,7 @@ export default function CalendarPage() {
                     type="button"
                     onClick={() => setPlantableInventoryPlantType({ plantType, profiles })}
                     className="min-h-[44px] px-3 py-2 flex items-center gap-1.5 rounded-xl bg-white border border-emerald-200 text-sm font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
-                    title={`${plantType} – view seed inventory`}
+                    title={`${plantType} ΓÇô view seed inventory`}
                     aria-label={`View seed inventory for ${plantType}`}
                   >
                     <span>{plantType}</span>
@@ -701,7 +583,7 @@ export default function CalendarPage() {
                   title="View plantable in Vault"
                   aria-label="View plantable for this month in Vault"
                 >
-                  ∞
+                  Γê₧
                 </button>
               </div>
             </div>
@@ -721,7 +603,7 @@ export default function CalendarPage() {
           >
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
               <h2 id="plantable-inventory-title" className="text-lg font-semibold text-black">
-                {plantableInventoryPlantType.plantType} – Seed inventory
+                {plantableInventoryPlantType.plantType} ΓÇô Seed inventory
               </h2>
               <button
                 type="button"
@@ -729,12 +611,12 @@ export default function CalendarPage() {
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
                 aria-label="Close"
               >
-                ×
+                ├ù
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {inventoryPacketsLoading ? (
-                <p className="text-sm text-black/50">Loading packets…</p>
+                <p className="text-sm text-black/50">Loading packetsΓÇª</p>
               ) : (
                 plantableInventoryPlantType.profiles.map((profile) => {
                   const packets = inventoryPackets.filter((p) => p.plant_profile_id === profile.id);
@@ -757,14 +639,14 @@ export default function CalendarPage() {
                         <ul className="space-y-1">
                           {packets.map((pkt, i) => (
                             <li key={i} className="text-sm text-black/70 flex justify-between">
-                              <span>{pkt.vendor_name?.trim() || "—"}</span>
+                              <span>{pkt.vendor_name?.trim() || "ΓÇö"}</span>
                               <span>{pkt.qty_status}%</span>
                             </li>
                           ))}
                         </ul>
                       )}
                       <Link href={`/vault/${profile.id}`} className="text-xs text-emerald-600 hover:underline">
-                        View profile →
+                        View profile ΓåÆ
                       </Link>
                     </div>
                   );
@@ -784,7 +666,7 @@ export default function CalendarPage() {
           <p className="text-citrus font-medium">Could not load tasks</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
         </div>
-      ) : (
+      ) : viewMode === "overview" ? (
         <div
           className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden"
           onTouchStart={(e) => {
@@ -868,9 +750,9 @@ export default function CalendarPage() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {!loading && !error && (
+      {!loading && !error && viewMode === "overview" && (
         <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
           <div className="relative px-4 py-4 flex items-center justify-center border-b border-black/10">
             <h2 className="text-base font-bold text-black text-center">
@@ -880,7 +762,7 @@ export default function CalendarPage() {
                     month: "short",
                     day: "numeric",
                   })}`
-                : "Upcoming Tasks"}
+                : "Tasks this month"}
             </h2>
             {selectedDate && (
               <button
@@ -895,10 +777,10 @@ export default function CalendarPage() {
           {tasks.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-black/60 text-sm font-medium">
-                No upcoming tasks scheduled.
+                No tasks scheduled for {new Date(month.year, month.month).toLocaleString("default", { month: "long" })}.
               </p>
               <p className="text-sm text-black/50 mt-2">
-                Tap + to add a task, or plant from a profile to generate tasks automatically.
+                Add a reminder to start your spring seedlings, or plant from a profile to generate tasks.
               </p>
             </div>
           ) : selectedDate ? (
@@ -922,7 +804,6 @@ export default function CalendarPage() {
                       isSelected={selectedIds.has(t.id)}
                       onLongPress={() => handleLongPressTask(t.id)}
                       onToggleSelect={() => toggleTaskSelect(t.id)}
-                      ownerBadge={householdViewMode === "family" && t.user_id && t.user_id !== user?.id ? "FAM" : null}
                     />
                   </li>
                 ))}
@@ -972,7 +853,6 @@ export default function CalendarPage() {
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
-                              ownerBadge={householdViewMode === "family" && t.user_id && t.user_id !== user?.id ? "FAM" : null}
                             />
                           ))}
                         </div>
@@ -984,6 +864,61 @@ export default function CalendarPage() {
           )}
         </div>
       )}
+
+      {!loading && !error && viewMode === "list" ? (
+        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+          {remindersTasks.length === 0 ? (
+            <div className="p-8 text-center text-black/50 text-sm">
+              No recurring reminders this month. Care schedules generate reminder tasks when you plant.
+            </div>
+          ) : (
+            <ul className="divide-y divide-black/5">
+              {Object.entries(byDateReminders)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, dayTasks]) => {
+                  const isExpanded = expandedDateGroups.has(date);
+                  const dateLabel = new Date(date + "T12:00:00").toLocaleDateString("default", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  });
+                  return (
+                    <li key={date} className="border-b border-black/5 last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleDateGroup(date)}
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors"
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="text-sm font-medium text-black/80">
+                          {dateLabel} ({dayTasks.length} reminder{dayTasks.length !== 1 ? "s" : ""})
+                        </span>
+                        <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-2">
+                          {dayTasks.map((t) => (
+                            <CalendarTaskRow
+                              key={t.id}
+                              task={t}
+                              onComplete={() => handleComplete(t)}
+                              onSnooze={(newDue) => handleSnooze(t, newDue)}
+                              onDeleteRequest={() => requestDeleteTask(t)}
+                              selectMode={selectMode}
+                              isSelected={selectedIds.has(t.id)}
+                              onLongPress={() => handleLongPressTask(t.id)}
+                              onToggleSelect={() => toggleTaskSelect(t.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       {/* Batch select action bar */}
       {selectMode && (
@@ -1043,7 +978,7 @@ export default function CalendarPage() {
                 className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm" />
               <button type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(batchDate)}
                 className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40">
-                {batchSaving ? "Saving…" : "Apply"}
+                {batchSaving ? "SavingΓÇª" : "Apply"}
               </button>
             </div>
           </div>
@@ -1064,7 +999,7 @@ export default function CalendarPage() {
               </button>
               <button type="button" disabled={batchSaving} onClick={handleBatchDelete}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
-                {batchSaving ? "Deleting…" : "Delete"}
+                {batchSaving ? "DeletingΓÇª" : "Delete"}
               </button>
             </div>
           </div>
@@ -1073,7 +1008,7 @@ export default function CalendarPage() {
 
       {harvestCelebration && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
-          <span aria-hidden>🌿</span>
+          <span aria-hidden>≡ƒî┐</span>
           <span>Harvest logged! {harvestCelebration}</span>
         </div>
       )}
@@ -1087,8 +1022,8 @@ export default function CalendarPage() {
         >
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="relative w-16 h-16 flex items-center justify-center">
-              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
-              <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
+              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>≡ƒî░</span>
+              <span className="text-5xl seedling-celebration-sprout" aria-hidden>≡ƒî▒</span>
             </div>
             <p className="text-white font-semibold text-lg">Planted!</p>
             <p className="text-white/90 text-sm">{plantingCelebration}</p>
@@ -1099,8 +1034,12 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => {
-          resetNewTaskForm();
           setNewTaskOpen(true);
+          setNewTaskTitle("");
+          setNewTaskDue(new Date().toISOString().slice(0, 10));
+          setNewTaskCategory(viewMode === "list" ? "general" : "maintenance");
+          setNewTaskPlantId("");
+          setNewTaskError(null);
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
@@ -1124,7 +1063,6 @@ export default function CalendarPage() {
         </svg>
       </button>
 
-      {/* Non-recurring delete confirm (inline pill) */}
       {deleteConfirmTask && (
         <div
           className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto rounded-xl bg-white border border-black/10 shadow-lg p-4 flex items-center justify-between gap-3"
@@ -1152,48 +1090,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Recurring delete action sheet */}
-      {deleteRecurringPrompt && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setDeleteRecurringPrompt(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
-            <h3 className="text-base font-bold text-black">Delete recurring task</h3>
-            <p className="text-sm text-black/60 pb-1">
-              &ldquo;{deleteRecurringPrompt.title ?? deleteRecurringPrompt.category}&rdquo; repeats on a schedule. What would you like to delete?
-            </p>
-            <button
-              type="button"
-              onClick={confirmDeleteRecurringOne}
-              className="w-full min-h-[44px] flex items-center gap-3 px-4 py-3 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/[0.02] text-left"
-            >
-              <span className="text-base" aria-hidden>✕</span>
-              <div>
-                <p className="font-semibold text-black">Just this task</p>
-                <p className="text-xs text-black/50">Skips this occurrence. Future tasks still generate.</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={confirmDeleteRecurringFuture}
-              className="w-full min-h-[44px] flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm font-medium text-red-700 hover:bg-red-100 text-left"
-            >
-              <span className="text-base" aria-hidden>🗑</span>
-              <div>
-                <p className="font-semibold">This and all future tasks</p>
-                <p className="text-xs text-red-500/80">Stops the recurring schedule. Past completed tasks are kept.</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleteRecurringPrompt(null)}
-              className="w-full min-h-[44px] py-3 rounded-xl border border-black/10 text-sm font-medium text-black/60"
-            >
-              Cancel
-            </button>
-          </div>
-        </>
-      )}
-
       {newTaskOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setNewTaskOpen(false)} />
@@ -1205,7 +1101,7 @@ export default function CalendarPage() {
             aria-labelledby="new-task-title"
           >
             <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-              New Task
+              {viewMode === "list" ? "New Reminder" : "New Task"}
             </h2>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
@@ -1250,113 +1146,28 @@ export default function CalendarPage() {
                   ))}
                 </select>
               </div>
-
-              {/* Recurring toggle */}
-              <button
-                type="button"
-                onClick={() => setIsRecurring((r) => !r)}
-                className={`w-full min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                  isRecurring
-                    ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-                    : "bg-white border-black/10 text-black/70 hover:bg-black/[0.02]"
-                }`}
-              >
-                <span className="text-sm font-medium">Recurring</span>
-                <span
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isRecurring ? "bg-emerald-500" : "bg-black/20"
-                  }`}
-                  aria-hidden
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                      isRecurring ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </span>
-              </button>
-
-              {isRecurring && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="recurring-interval" className="text-sm font-medium text-black/80 shrink-0">
-                      Repeat every
-                    </label>
-                    <input
-                      id="recurring-interval"
-                      type="number"
-                      min={1}
-                      max={365}
-                      value={recurringIntervalDays}
-                      onChange={(e) => setRecurringIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                    />
-                    <span className="text-sm text-black/60">days</span>
-                  </div>
-                  <div>
-                    <label htmlFor="recurring-end" className="block text-sm font-medium text-black/80 mb-1">
-                      End date <span className="text-black/40 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="recurring-end"
-                      type="date"
-                      value={recurringEndDate}
-                      onChange={(e) => setRecurringEndDate(e.target.value)}
-                      className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                    />
-                  </div>
-                  {newTaskProfileId && (
-                    <p className="text-xs text-emerald-700 flex items-start gap-1.5">
-                      <span aria-hidden>🔗</span>
-                      <span>This will also appear in the linked plant&apos;s Care schedule.</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
               <div>
-                <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
+                <label htmlFor="task-plant" className="block text-sm font-medium text-black/80 mb-1">
                   Link to plant (optional)
                 </label>
                 <select
-                  id="task-profile"
-                  value={newTaskProfileId}
-                  onChange={(e) => { setNewTaskProfileId(e.target.value); setNewTaskGrowId(""); }}
+                  id="task-plant"
+                  value={newTaskPlantId}
+                  onChange={(e) => setNewTaskPlantId(e.target.value)}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
                 >
                   <option value="">None</option>
-                  {taskProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
-                    </option>
-                  ))}
-                  {taskProfiles.length === 0 && varieties.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
-                    </option>
-                  ))}
+                  {varieties.length === 0 ? (
+                    <option value="" disabled>No active plants found. Start a Sowing first.</option>
+                  ) : (
+                    varieties.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}{v.variety_name ? ` ΓÇö ${v.variety_name}` : ""}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
-              {taskGrowInstances.length > 0 && (
-                <div>
-                  <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
-                    Active planting (optional)
-                  </label>
-                  <select
-                    id="task-grow"
-                    value={newTaskGrowId}
-                    onChange={(e) => setNewTaskGrowId(e.target.value)}
-                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                  >
-                    <option value="">Any / not specific</option>
-                    {taskGrowInstances.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        Sown {g.sown_date}{g.location ? ` · ${g.location}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
               {newTaskError && <p className="text-sm text-citrus font-medium">{newTaskError}</p>}
               <div className="space-y-2 pt-2">
                 <button
@@ -1364,7 +1175,7 @@ export default function CalendarPage() {
                   disabled={savingTask}
                   className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  {savingTask ? "Saving…" : isRecurring ? "Save Recurring Task" : "Save Task"}
+                  {savingTask ? "SavingΓÇª" : viewMode === "list" ? "Add Reminder" : "Save Task"}
                 </button>
                 <button
                   type="button"
@@ -1412,7 +1223,6 @@ function CalendarTaskRow({
   isSelected = false,
   onLongPress,
   onToggleSelect,
-  ownerBadge,
 }: {
   task: Task & { plant_name?: string };
   onComplete: () => void;
@@ -1422,7 +1232,6 @@ function CalendarTaskRow({
   isSelected?: boolean;
   onLongPress?: () => void;
   onToggleSelect?: () => void;
-  ownerBadge?: string | null;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
@@ -1430,7 +1239,7 @@ function CalendarTaskRow({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoryLabel = TASK_LABELS[task.category] ?? task.category;
   const plantLabel = (task.plant_name ?? (task.title ?? "").replace(new RegExp(`^${categoryLabel}\\s*`, "i"), "").trim()) || null;
-  const displayLine = plantLabel ? `${categoryLabel} – ${plantLabel}` : (task.title ?? categoryLabel);
+  const displayLine = plantLabel ? `${categoryLabel} ΓÇô ${plantLabel}` : (task.title ?? categoryLabel);
 
   const handlePointerDown = () => {
     if (selectMode) return;
@@ -1484,11 +1293,6 @@ function CalendarTaskRow({
         </span>
       )}
       <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
-      {ownerBadge && (
-        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none shrink-0">
-          {ownerBadge}
-        </span>
-      )}
       {!task.completed_at && !selectMode && (
         <span className="flex items-center gap-1 shrink-0">
           <button

@@ -88,7 +88,7 @@ function CondensedGridIcon() {
 }
 function VaultPageInner() {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "active" | "plants">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -255,11 +255,14 @@ function VaultPageInner() {
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "active" || tab === "grid" || tab === "list" || tab === "plants") {
+    if (tab === "grid" || tab === "list") {
       setViewMode(tab);
-      if (tab === "active") setRefetchTrigger((t) => t + 1);
     } else if (tab === "table") {
       setViewMode("list");
+    } else if (tab === "active" || tab === "plants") {
+      // Legacy tab values — fall back to Plant Profiles (grid) and refresh
+      setViewMode("grid");
+      if (tab === "active") setRefetchTrigger((t) => t + 1);
     }
     const status = searchParams.get("status");
     if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
@@ -281,8 +284,9 @@ function VaultPageInner() {
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
-      if (savedView === "grid" || savedView === "list" || savedView === "active" || savedView === "plants") setViewMode(savedView);
+      if (savedView === "grid" || savedView === "list") setViewMode(savedView);
       else if (savedView === "table") setViewMode("list");
+      // Legacy values ("active", "plants") fall back to the default "grid" (Plant Profiles)
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view

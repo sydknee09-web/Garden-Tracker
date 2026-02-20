@@ -83,6 +83,8 @@ export type VaultCardItem = {
   vendor_display?: string | null;
   /** Average seed quantity % across packets (0–100), for inventory dot; null when no packets. */
   avg_qty_pct?: number | null;
+  /** Max seed quantity % across all packets (0–100); used for inventory dot so one full packet = green. */
+  max_qty_pct?: number | null;
   /** Planting window (e.g. "Spring: Feb-May"); used for Plant Now / Sowing Month filters. */
   planting_window?: string | null;
   /** Sowing method (e.g. "Direct Sow", "Start Indoors / Transplant"); for display badge. */
@@ -136,12 +138,12 @@ const VOLUME_COLORS: Record<string, string> = {
   empty: "bg-black/5 text-black/50",
 };
 
-/** Returns a color class for the health indicator dot based on inventory % (avg qty). Grey = no packets, yellow ≤25%, orange ≤50%, green >50%. */
+/** Returns a color class for the health indicator dot based on best single packet qty. Grey = no packets, yellow ≤25%, orange ≤50%, green >50%. */
 function getHealthColor(seed: VaultCardItem): string {
   if (seed.packet_count === 0 || seed.status === "out_of_stock") return "bg-neutral-400";
-  const avg = seed.avg_qty_pct ?? 0;
-  if (avg <= 25) return "bg-amber-400";
-  if (avg <= 50) return "bg-orange-500";
+  const best = seed.max_qty_pct ?? seed.avg_qty_pct ?? 0;
+  if (best <= 25) return "bg-amber-400";
+  if (best <= 50) return "bg-orange-500";
   return "bg-emerald-500";
 }
 
@@ -155,12 +157,13 @@ function getCardBorderClass(seed: VaultCardItem): string {
 
 function HealthDot({ seed, size = "default" }: { seed: VaultCardItem; size?: "default" | "sm" }) {
   const color = getHealthColor(seed);
+  const best = seed.max_qty_pct ?? seed.avg_qty_pct ?? 0;
   const label =
     seed.packet_count === 0 || seed.status === "out_of_stock"
       ? "Out of stock"
-      : (seed.avg_qty_pct ?? 0) <= 25
+      : best <= 25
         ? "Low inventory (≤25%)"
-        : (seed.avg_qty_pct ?? 0) <= 50
+        : best <= 50
           ? "Medium (≤50%)"
           : "In stock (>50%)";
   const sizeClass = size === "sm" ? "w-2 h-2" : "w-2.5 h-2.5";
@@ -839,12 +842,14 @@ export function SeedVaultView({
       const f1ProfileIds = new Set<string>();
       /** Latest (max) purchase_date per profile for sort by purchase date. */
       const latestPurchaseByProfile = new Map<string, string>();
+      const maxQtyByProfile = new Map<string, number>();
       for (const p of packets ?? []) {
         const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number; purchase_date?: string | null };
         const pid = row.plant_profile_id;
         countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
         const qty = typeof row.qty_status === "number" ? row.qty_status : 100;
         sumQtyByProfile.set(pid, (sumQtyByProfile.get(pid) ?? 0) + qty);
+        if (qty > (maxQtyByProfile.get(pid) ?? 0)) maxQtyByProfile.set(pid, qty);
         const v = (row.vendor_name ?? "").trim();
         if (v) {
           const set = vendorsByProfile.get(pid) ?? new Set<string>();
@@ -892,12 +897,14 @@ export function SeedVaultView({
         const count = countByProfile.get(pid) ?? 0;
         const sumQty = sumQtyByProfile.get(pid) ?? 0;
         const avg_qty_pct = count > 0 ? Math.round(sumQty / count) : null;
+        const max_qty_pct = count > 0 ? (maxQtyByProfile.get(pid) ?? null) : null;
         return {
           id: pid,
           name: (p.name as string) ?? "Unknown",
           variety: (p.variety_name as string) ?? "—",
           packet_count: count,
           avg_qty_pct,
+          max_qty_pct,
           status: p.status as string | null,
           harvest_days: effective.harvest_days ?? (p.harvest_days as number | null) ?? null,
           sun: effective.sun ?? undefined,

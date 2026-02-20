@@ -10,17 +10,55 @@ export async function generateCareTasks(userId: string): Promise<number> {
     const today = new Date().toISOString().slice(0, 10);
     let created = 0;
 
-    const { data: dueSchedules, error: fetchErr } = await supabase
+    // Fetch all active due schedules (both template and non-template)
+    const { data: allSchedules, error: fetchErr } = await supabase
       .from("care_schedules")
-      .select("id, plant_profile_id, grow_instance_id, title, category, next_due_date, recurrence_type, interval_days")
+      .select("id, plant_profile_id, grow_instance_id, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template")
       .eq("user_id", userId)
       .eq("is_active", true)
-      .eq("is_template", false)
       .is("deleted_at", null)
       .lte("next_due_date", today);
 
     if (fetchErr) { console.error("generateCareTasks: fetch schedules failed", fetchErr.message); return 0; }
-    if (!dueSchedules?.length) return 0;
+    if (!allSchedules?.length) return 0;
+
+    // Determine which plant profiles are "permanent" so their template schedules
+    // (which never get copied to a grow instance) can still generate tasks.
+    const templateProfileIds = [
+      ...new Set(
+        allSchedules
+          .filter((s) => (s as { is_template: boolean }).is_template && !(s as { grow_instance_id: string | null }).grow_instance_id)
+          .map((s) => (s as { plant_profile_id: string | null }).plant_profile_id)
+          .filter(Boolean) as string[]
+      ),
+    ];
+
+    const permanentProfileIds = new Set<string>();
+    if (templateProfileIds.length > 0) {
+      const { data: permanentProfiles } = await supabase
+        .from("plant_profiles")
+        .select("id")
+        .in("id", templateProfileIds)
+        .eq("profile_type", "permanent");
+      (permanentProfiles ?? []).forEach((p: { id: string }) => permanentProfileIds.add(p.id));
+    }
+
+    // Include non-template schedules + template schedules on permanent plants with no grow instance
+    // Also skip any schedules that have passed their end_date
+    const dueSchedules = allSchedules.filter((s) => {
+      const sc = s as {
+        is_template: boolean;
+        grow_instance_id: string | null;
+        plant_profile_id: string | null;
+        end_date: string | null;
+      };
+      // Skip schedules that have expired
+      if (sc.end_date && sc.end_date < today) return false;
+      if (!sc.is_template) return true;
+      return !sc.grow_instance_id && sc.plant_profile_id != null && permanentProfileIds.has(sc.plant_profile_id);
+    });
+
+    if (!dueSchedules.length) return 0;
 
     for (const schedule of dueSchedules) {
       const s = schedule as {
@@ -77,7 +115,7 @@ export async function advanceCareSchedule(
   try {
     const { data: schedule } = await supabase
       .from("care_schedules")
-      .select("id, recurrence_type, interval_days, next_due_date, months, day_of_month")
+      .select("id, recurrence_type, interval_days, next_due_date, months, day_of_month, end_date")
       .eq("id", scheduleId)
       .eq("user_id", userId)
       .single();
@@ -90,6 +128,7 @@ export async function advanceCareSchedule(
       next_due_date: string | null;
       months: number[] | null;
       day_of_month: number | null;
+      end_date: string | null;
     };
 
     const now = new Date();
@@ -118,12 +157,16 @@ export async function advanceCareSchedule(
       return;
     }
 
+    // If the next due date would exceed the end_date, deactivate the schedule instead
+    const isExpired = nextDue != null && s.end_date != null && nextDue > s.end_date;
+
     await supabase
       .from("care_schedules")
       .update({
-        next_due_date: nextDue,
+        next_due_date: isExpired ? s.end_date : nextDue,
         last_completed_at: now.toISOString(),
         updated_at: now.toISOString(),
+        ...(isExpired ? { is_active: false } : {}),
       })
       .eq("id", scheduleId)
       .eq("user_id", userId);

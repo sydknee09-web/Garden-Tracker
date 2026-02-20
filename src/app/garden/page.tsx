@@ -29,7 +29,13 @@ function GardenPageInner() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<"active" | "plants">("active");
+  const [viewMode, setViewMode] = useState<"active" | "plants">(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("garden-view-mode");
+      if (saved === "active" || saved === "plants") return saved;
+    }
+    return "active";
+  });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
@@ -78,6 +84,12 @@ function GardenPageInner() {
     if (tab === "active" || tab === "plants") setViewMode(tab);
     if (tab === "active") setRefetchTrigger((t) => t + 1);
   }, [searchParams]);
+
+  // Persist garden tab so it survives navigation within the app
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem("garden-view-mode", viewMode); } catch { /* ignore */ }
+  }, [viewMode]);
 
   const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setActiveCategoryChips(chips);

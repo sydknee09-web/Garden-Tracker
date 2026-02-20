@@ -86,7 +86,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
 }
 
 /** Group entries by same plant + same day so one row per (date, plant). */
-function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null }[] {
+function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
   const dateStr = (e: JournalEntryWithPlant) => e.created_at.slice(0, 10);
   const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? e.plant_variety_id ?? "__general__";
   const key = (e: JournalEntryWithPlant) => `${dateStr(e)}|${plantKey(e)}`;
@@ -105,7 +105,8 @@ function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string;
     const action = getActionForGroup(group);
     const entryIds = group.map((e) => e.id);
     const plant_profile_id = first.plant_profile_id ?? null;
-    return { date: first.created_at, note: note || null, action, plantNames, entryIds, plant_profile_id };
+    const owner_user_id = first.user_id ?? null;
+    return { date: first.created_at, note: note || null, action, plantNames, entryIds, plant_profile_id, owner_user_id };
   });
   rows.sort((a, b) => b.date.localeCompare(a.date));
   return rows;
@@ -285,9 +286,15 @@ export default function JournalPage() {
   const [webcamError, setWebcamError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const viewFromUrl = searchParams.get("view");
-  const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">(
-    viewFromUrl === "timeline" ? "timeline" : viewFromUrl === "grid" ? "grid" : "timeline"
-  );
+  const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">(() => {
+    // URL param takes priority; otherwise restore from sessionStorage; fallback to gallery
+    if (viewFromUrl === "timeline" || viewFromUrl === "table" || viewFromUrl === "grid") return viewFromUrl;
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("journal-view-mode");
+      if (saved === "grid" || saved === "table" || saved === "timeline") return saved;
+    }
+    return "grid";
+  });
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [deleteConfirmEntryIds, setDeleteConfirmEntryIds] = useState<string[] | null>(null);
@@ -304,6 +311,12 @@ export default function JournalPage() {
     else if (viewFromUrl === "grid") setViewMode("grid");
     else if (viewFromUrl === "table") setViewMode("table");
   }, [viewFromUrl]);
+
+  // Persist journal view so it survives navigation within the app
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem("journal-view-mode", viewMode); } catch { /* ignore */ }
+  }, [viewMode]);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -884,6 +897,11 @@ export default function JournalPage() {
                         {name}
                       </span>
                     ))}
+                    {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
+                      <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none self-center">
+                        FAM
+                      </span>
+                    )}
                   </div>
                   {row.note ? (
                     <button
@@ -961,6 +979,11 @@ export default function JournalPage() {
                               {name}
                             </span>
                           ))}
+                          {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
+                            <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none self-center">
+                              FAM
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-2.5 pr-3 min-w-0">
@@ -1096,12 +1119,17 @@ export default function JournalPage() {
                 <div className="p-4">
                   {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 items-center">
                       {row.plantNames.map((name) => (
                         <span key={name} className="text-xs font-medium text-emerald-700 bg-emerald/10 px-2 py-0.5 rounded-full">
                           {name}
                         </span>
                       ))}
+                      {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none">
+                          FAM
+                        </span>
+                      )}
                     </div>
                     <time dateTime={row.date} className="text-xs text-black/50 shrink-0">
                       {new Date(row.date).toLocaleDateString()}

@@ -34,6 +34,7 @@ type GrowingBatch = {
   days_to_germination?: string | null;
   harvest_days?: number | null;
   tags?: string[] | null;
+  user_id?: string | null;
 };
 
 export function ActiveGardenView({
@@ -135,7 +136,7 @@ export function ActiveGardenView({
 
     let growQuery = supabase
       .from("grow_instances")
-      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location")
+      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id")
       .is("deleted_at", null)
       .in("status", ["growing", "pending"])
       .order("sown_date", { ascending: false })
@@ -177,7 +178,7 @@ export function ActiveGardenView({
       if (h.grow_instance_id) harvestCountByGrow.set(h.grow_instance_id, (harvestCountByGrow.get(h.grow_instance_id) ?? 0) + 1);
     });
 
-    const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null }[])
+    const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null }[])
       .map((r) => {
         const p = profileMap.get(r.plant_profile_id);
         const note = plantingNoteByGrow.get(r.id);
@@ -189,7 +190,7 @@ export function ActiveGardenView({
           planting_method_badge: badgeFromNote(note), location: r.location,
           sun: p?.sun ?? null, plant_spacing: p?.plant_spacing ?? null,
           days_to_germination: p?.days_to_germination ?? null, harvest_days: p?.harvest_days ?? null,
-          tags: p?.tags ?? null,
+          tags: p?.tags ?? null, user_id: r.user_id ?? null,
         };
       });
     setGrowing(batches);
@@ -640,6 +641,9 @@ export function ActiveGardenView({
                           {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
                         </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
+                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none">FAM</span>
+                        )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
                       <p className="text-xs text-black/50 mt-0.5">
