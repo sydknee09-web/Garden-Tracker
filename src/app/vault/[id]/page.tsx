@@ -206,6 +206,9 @@ export default function VaultSeedPage() {
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
 
+  // True when the profile belongs to the current user; false when viewing a household member's profile
+  const [isOwnProfile, setIsOwnProfile] = useState(true);
+
   // Add packet modal (when profile has 0 packets or user wants to add another)
   const [showAddPacketModal, setShowAddPacketModal] = useState(false);
   const [addPacketVendor, setAddPacketVendor] = useState("");
@@ -235,10 +238,12 @@ export default function VaultSeedPage() {
   const loadProfile = useCallback(async () => {
     if (!id || !user?.id) return;
     setError(null);
+    // No user_id filter on the profile query — RLS handles authorization.
+    // Household peers can read each other's profiles via household_profiles_select policy.
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
       .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth")
-      .eq("id", id).eq("user_id", user.id).is("deleted_at", null).maybeSingle();
+      .eq("id", id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
       setError(e1.message);
@@ -248,10 +253,15 @@ export default function VaultSeedPage() {
     }
     if (profileData) {
       setProfile(profileData as ProfileData);
+      // Use the profile's actual owner for all child read queries so household
+      // members viewing someone else's profile get the right data.
+      const profileOwnerId = profileData.user_id as string;
+      setIsOwnProfile(profileOwnerId === user.id);
+
       // Packets (same scope as vault: all non-deleted; profile page shows archived too)
       const { data: packetData, error: packetErr } = await supabase.from("seed_packets")
         .select(SEED_PACKET_PROFILE_SELECT)
-        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("created_at", { ascending: false });
       const packetRows = packetErr ? [] : ((packetData ?? []) as SeedPacket[]);
       if (packetErr) setError(packetErr.message);
       setPackets(packetRows);
@@ -278,23 +288,25 @@ export default function VaultSeedPage() {
       // Grow instances — primary query by plant_profile_id
       const { data: grows } = await supabase.from("grow_instances")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("sown_date", { ascending: false });
       let allGrows = (grows ?? []) as GrowInstance[];
       // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
       if (allGrows.length === 0 && packetRows.length > 0) {
         const pktIds = packetRows.map((p) => p.id);
         const { data: growsByPacket } = await supabase.from("grow_instances")
           .select("*")
-          .in("seed_packet_id", pktIds).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false });
+          .in("seed_packet_id", pktIds).eq("user_id", profileOwnerId).is("deleted_at", null).order("sown_date", { ascending: false });
         if (growsByPacket?.length) {
           allGrows = growsByPacket as GrowInstance[];
-          // Silently repair: update plant_profile_id on orphaned rows
-          const orphans = (growsByPacket as GrowInstance[]).filter((g) => !g.plant_profile_id);
-          if (orphans.length > 0) {
-            await supabase.from("grow_instances")
-              .update({ plant_profile_id: id })
-              .in("id", orphans.map((g) => g.id))
-              .eq("user_id", user.id);
+          // Silently repair orphaned rows — only safe to write when viewing own profile
+          if (profileOwnerId === user.id) {
+            const orphans = (growsByPacket as GrowInstance[]).filter((g) => !g.plant_profile_id);
+            if (orphans.length > 0) {
+              await supabase.from("grow_instances")
+                .update({ plant_profile_id: id })
+                .in("id", orphans.map((g) => g.id))
+                .eq("user_id", user.id);
+            }
           }
         }
       }
@@ -303,19 +315,19 @@ export default function VaultSeedPage() {
       // All journal entries for this profile
       const { data: journals } = await supabase.from("journal_entries")
         .select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-        .eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("created_at", { ascending: false });
       setJournalEntries((journals ?? []) as JournalEntry[]);
 
       // Care schedules for this profile
       const { data: careData } = await supabase.from("care_schedules")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", user.id).eq("is_template", true)
+        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).eq("is_template", true)
         .order("title", { ascending: true });
       setCareSchedules((careData ?? []) as CareSchedule[]);
 
       // Journal photos for hero picker
       const { data: journalRows } = await supabase.from("journal_entries")
-        .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", user.id)
+        .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", profileOwnerId)
         .is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false });
       setJournalPhotos((journalRows ?? []) as JournalPhoto[]);
 
@@ -325,13 +337,16 @@ export default function VaultSeedPage() {
       setLoading(false);
       return;
     }
-    // Legacy fallback
+    // Legacy fallback — no user_id filter, RLS handles authorization
     const { data: legacy, error: e2 } = await supabase.from("plant_varieties")
       .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, source_url, vendor, growing_notes, growing_info_from_source, plant_description")
-      .eq("id", id).eq("user_id", user.id).maybeSingle();
+      .eq("id", id).maybeSingle();
     if (e2) { setError(e2.message); setProfile(null); }
     else if (!legacy) { setError("Plant not found."); setProfile(null); }
-    else { setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map()); }
+    else {
+      setIsOwnProfile((legacy as { user_id?: string }).user_id === user.id);
+      setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map());
+    }
     setLoading(false);
   }, [id, user?.id]);
 
@@ -1127,6 +1142,13 @@ export default function VaultSeedPage() {
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}
 
+        {/* Read-only banner for household members viewing someone else's profile */}
+        {!isOwnProfile && (
+          <div className="mb-4 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
+            Viewing {profile?.name ?? "this"}&apos;s garden — read only
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -1147,9 +1169,11 @@ export default function VaultSeedPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit"><PencilIcon /></button>
-          </div>
+          {isOwnProfile && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit"><PencilIcon /></button>
+            </div>
+          )}
         </div>
 
         {/* Hero */}
@@ -1157,9 +1181,11 @@ export default function VaultSeedPage() {
           {heroImageUrl ? (
             <>
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
-              <div className="absolute bottom-3 right-3">
-                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
-              </div>
+              {isOwnProfile && (
+                <div className="absolute bottom-3 right-3">
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
+                </div>
+              )}
             </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative">
@@ -1170,7 +1196,9 @@ export default function VaultSeedPage() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
               <span className="text-5xl text-neutral-300" aria-hidden>🌱</span>
-              <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
+              {isOwnProfile && (
+                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
+              )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
           )}
@@ -1395,7 +1423,7 @@ export default function VaultSeedPage() {
                 {isAboutOpen("careTemplates") && (
                 <div className="px-4 pb-4 pt-0">
                   <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} />
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} readOnly={!isOwnProfile} />
                 </div>
                 )}
               </div>
@@ -1488,14 +1516,18 @@ export default function VaultSeedPage() {
             {packets.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">No seed packets yet.</p>
-                <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowAddPacketModal(true)}
-                  className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                >
-                  Add seed packet
-                </button>
+                {isOwnProfile && (
+                  <>
+                    <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPacketModal(true)}
+                      className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                    >
+                      Add seed packet
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
@@ -1527,10 +1559,16 @@ export default function VaultSeedPage() {
                               <span className={`shrink-0 inline-flex text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden><ChevronDownIcon /></span>
                             </button>
                             <div className="flex items-center gap-2 flex-wrap shrink-0">
-                              <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
-                              <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="w-24 h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
-                              <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
-                              <button type="button" onClick={() => deletePacket(pkt.id)} className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Remove packet"><TrashIcon /></button>
+                              {isOwnProfile ? (
+                                <>
+                                  <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
+                                  <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="w-24 h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
+                                  <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
+                                  <button type="button" onClick={() => deletePacket(pkt.id)} className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Remove packet"><TrashIcon /></button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-neutral-500 tabular-nums">{pkt.qty_status}%</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1560,35 +1598,51 @@ export default function VaultSeedPage() {
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">My rating</p>
                               <StarRating
                                 value={pkt.packet_rating ?? null}
-                                interactive
-                                onChange={(rating) => updatePacketRating(pkt.id, rating)}
+                                interactive={isOwnProfile}
+                                onChange={isOwnProfile ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
                                 label="Packet rating"
                               />
                             </div>
-                            <div>
-                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Your notes</p>
-                              <textarea
-                                value={pkt.user_notes ?? ""}
-                                onChange={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: false })}
-                                onBlur={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: true })}
-                                placeholder="Optional notes for this packet"
-                                rows={2}
-                                className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                                aria-label="Packet notes"
-                              />
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Storage location</p>
-                              <input
-                                type="text"
-                                value={pkt.storage_location ?? ""}
-                                onChange={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: false })}
-                                onBlur={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: true })}
-                                placeholder="e.g. Green box, drawer"
-                                className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                                aria-label="Storage location"
-                              />
-                            </div>
+                            {isOwnProfile && (
+                              <>
+                                <div>
+                                  <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Your notes</p>
+                                  <textarea
+                                    value={pkt.user_notes ?? ""}
+                                    onChange={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: false })}
+                                    onBlur={(e) => updatePacketNotes(pkt.id, e.target.value, { persist: true })}
+                                    placeholder="Optional notes for this packet"
+                                    rows={2}
+                                    className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                                    aria-label="Packet notes"
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Storage location</p>
+                                  <input
+                                    type="text"
+                                    value={pkt.storage_location ?? ""}
+                                    onChange={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: false })}
+                                    onBlur={(e) => updatePacketStorageLocation(pkt.id, e.target.value, { persist: true })}
+                                    placeholder="e.g. Green box, drawer"
+                                    className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                                    aria-label="Storage location"
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {!isOwnProfile && pkt.user_notes?.trim() && (
+                              <div>
+                                <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Notes</p>
+                                <p className="text-sm text-neutral-700">{pkt.user_notes}</p>
+                              </div>
+                            )}
+                            {!isOwnProfile && pkt.storage_location?.trim() && (
+                              <div>
+                                <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Storage location</p>
+                                <p className="text-sm text-neutral-700">{pkt.storage_location}</p>
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Used in journal</p>
                               {loadingJournalForPacket.has(pkt.id) ? <p className="text-sm text-neutral-400">Loading...</p> : (journalByPacketId[pkt.id]?.length ?? 0) > 0 ? (
@@ -1601,15 +1655,17 @@ export default function VaultSeedPage() {
                     );
                   })}
                 </ul>
-                <div className="p-4 border-t border-neutral-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddPacketModal(true)}
-                    className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    + Add another packet
-                  </button>
-                </div>
+                {isOwnProfile && (
+                  <div className="p-4 border-t border-neutral-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPacketModal(true)}
+                      className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      + Add another packet
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -1715,7 +1771,7 @@ export default function VaultSeedPage() {
         {/* CARE TAB (permanent plants)                                   */}
         {/* ============================================================ */}
         {activeTab === "care" && (
-          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} />
+          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!isOwnProfile} />
         )}
       </div>
 

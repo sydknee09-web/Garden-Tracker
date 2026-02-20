@@ -20,9 +20,11 @@ interface Props {
   onChanged: () => void;
   /** False for permanent plants — schedules are active immediately, not copy-on-plant templates. */
   isTemplate?: boolean;
+  /** When true, hides all add/edit/delete controls (e.g. for household members viewing someone else's profile). */
+  readOnly?: boolean;
 }
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -138,14 +140,18 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
           <span className="text-3xl mb-2 block" aria-hidden>📋</span>
           <p className="text-neutral-500 text-sm">No care schedules yet.</p>
-          <p className="text-neutral-400 text-xs mt-1 mb-4">Add recurring reminders like fertilize, prune, or water.</p>
-          <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Add Care Schedule</button>
+          {readOnly ? null : (
+            <>
+              <p className="text-neutral-400 text-xs mt-1 mb-4">Add recurring reminders like fertilize, prune, or water.</p>
+              <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Add Care Schedule</button>
+            </>
+          )}
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-neutral-500">{schedules.length} schedule{schedules.length !== 1 ? "s" : ""}</p>
-            {!showAdd && <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add</button>}
+            {!readOnly && !showAdd && <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add</button>}
           </div>
           <div className="space-y-2">
             {schedules.map((s) => (
@@ -161,14 +167,16 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                   )}
                   {s.notes && <p className="text-xs text-neutral-400 mt-1 italic">{s.notes}</p>}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50" aria-label="Edit">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                  </button>
-                  <button type="button" onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Delete">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex gap-1 shrink-0">
+                    <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50" aria-label="Edit">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    </button>
+                    <button type="button" onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Delete">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -176,7 +184,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
       )}
 
       {/* Add/Edit Form */}
-      {showAdd && (
+      {showAdd && !readOnly && (
         <div className="mt-4 bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-neutral-900">{editingId ? "Edit Care Schedule" : "New Care Schedule"}</h3>
 
