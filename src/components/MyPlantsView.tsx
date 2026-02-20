@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { compressImage } from "@/lib/compressImage";
 import { hapticSuccess } from "@/lib/haptics";
 
@@ -26,6 +27,7 @@ type PermanentPlant = {
   days_to_germination?: string | null;
   harvest_days?: number | null;
   tags?: string[] | null;
+  user_id?: string | null;
 };
 
 function formatPlantedAgo(dateStr: string | null | undefined): string | null {
@@ -90,6 +92,7 @@ export function MyPlantsView({
   onAddClick?: () => void;
 }) {
   const { user } = useAuth();
+  const { viewMode: householdViewMode } = useHousehold();
   const [plants, setPlants] = useState<PermanentPlant[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -108,13 +111,16 @@ export function MyPlantsView({
     if (!user?.id) return;
     setLoading(true);
 
-    const { data: profiles } = await supabase
+    const isFamilyView = householdViewMode === "family";
+
+    let profileQuery = supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, primary_image_path, hero_image_url, hero_image_path, status, profile_type, created_at, purchase_date, sun, plant_spacing, days_to_germination, harvest_days, tags")
-      .eq("user_id", user.id)
+      .select("id, name, variety_name, primary_image_path, hero_image_url, hero_image_path, status, profile_type, created_at, purchase_date, sun, plant_spacing, days_to_germination, harvest_days, tags, user_id")
       .eq("profile_type", "permanent")
       .is("deleted_at", null)
       .order("name", { ascending: true });
+    if (!isFamilyView) profileQuery = profileQuery.eq("user_id", user.id);
+    const { data: profiles } = await profileQuery;
 
     if (!profiles || profiles.length === 0) {
       setPlants([]);
@@ -124,11 +130,14 @@ export function MyPlantsView({
 
     const profileIds = profiles.map((p) => p.id);
 
-    // Count care schedules and journal entries
-    const [careRes, journalRes] = await Promise.all([
-      supabase.from("care_schedules").select("plant_profile_id").in("plant_profile_id", profileIds).eq("is_active", true).eq("user_id", user.id),
-      supabase.from("journal_entries").select("plant_profile_id").in("plant_profile_id", profileIds).eq("user_id", user.id).is("deleted_at", null),
-    ]);
+    // Count care schedules and journal entries (scoped to owner when not family view)
+    let careQuery = supabase.from("care_schedules").select("plant_profile_id").in("plant_profile_id", profileIds).eq("is_active", true);
+    let journalQuery = supabase.from("journal_entries").select("plant_profile_id").in("plant_profile_id", profileIds).is("deleted_at", null);
+    if (!isFamilyView) {
+      careQuery = careQuery.eq("user_id", user.id);
+      journalQuery = journalQuery.eq("user_id", user.id);
+    }
+    const [careRes, journalRes] = await Promise.all([careQuery, journalQuery]);
 
     const careCounts = new Map<string, number>();
     (careRes.data ?? []).forEach((c: { plant_profile_id: string | null }) => {
@@ -146,7 +155,7 @@ export function MyPlantsView({
       journal_count: journalCounts.get(p.id) ?? 0,
     })));
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, householdViewMode]);
 
   useEffect(() => { fetchPlants(); }, [fetchPlants, refetchTrigger]);
 
@@ -374,6 +383,11 @@ export function MyPlantsView({
                     <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium" aria-hidden>
                       Perennial
                     </span>
+                    {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
+                      <span className="absolute top-2 left-2 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none">
+                        FAM
+                      </span>
+                    )}
                   </div>
                   <div className="p-3">
                     <h3 className="font-semibold text-neutral-900 text-sm truncate">{plant.name}</h3>
