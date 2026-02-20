@@ -343,7 +343,7 @@ export default function CalendarPage() {
     year: "numeric",
   });
 
-  const byDate: Record<string, (Task & { plant_name?: string })[]> = {};
+  const byDate: Record<string, (Task & { plant_name?: string; user_id?: string | null })[]> = {};
   tasks
     .filter((t) => !t.completed_at)
     .forEach((t) => {
