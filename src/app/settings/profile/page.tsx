@@ -169,17 +169,13 @@ export default function SettingsProfilePage() {
     setJoiningHousehold(true);
     setHouseholdError(null);
     setHouseholdSuccess(null);
-    const { data: hh } = await supabase
-      .from("households")
-      .select("id")
-      .eq("invite_code", joinCode.trim())
-      .maybeSingle();
-    if (!hh) {
+    const { data: householdId } = await supabase.rpc("get_household_id_by_invite_code", { code: joinCode.trim() });
+    if (!householdId) {
       setHouseholdError("Invalid invite code — double-check and try again.");
       setJoiningHousehold(false);
       return;
     }
-    const { error } = await supabase.from("household_members").insert({ household_id: hh.id, user_id: user.id, role: "member" });
+    const { error } = await supabase.from("household_members").insert({ household_id: householdId, user_id: user.id, role: "member" });
     if (error) {
       setHouseholdError(error.message ?? "Failed to join family.");
       setJoiningHousehold(false);
