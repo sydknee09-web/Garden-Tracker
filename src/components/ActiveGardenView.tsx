@@ -136,7 +136,6 @@ export function ActiveGardenView({
   // BatchLogSheet (single or bulk)
   const [batchLogOpen, setBatchLogOpen] = useState(false);
   const [batchLogBatches, setBatchLogBatches] = useState<BatchLogBatch[]>([]);
-  const [openBulkLogRequest, setOpenBulkLogRequest] = useState(false);
   const longPressFiredRef = useRef(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
