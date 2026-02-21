@@ -906,7 +906,7 @@ function VaultPageInner() {
                     className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
                     aria-label="Clear all filters"
                   >
-                    Clear filters
+                    Clear Filters
                   </button>
                 )}
                 {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
@@ -979,7 +979,7 @@ function VaultPageInner() {
                     className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
                     aria-label="Clear all filters"
                   >
-                    Clear all
+                    Clear All
                   </button>
                 )}
                 <button
@@ -1017,8 +1017,8 @@ function VaultPageInner() {
                           { sortBy: "date_added" as const, sortDirection: "asc" as const, label: "Date added (oldest first)" },
                           { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (A–Z)" },
                           { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (Z–A)" },
-                          { sortBy: "packet_count" as const, sortDirection: "desc" as const, label: "Packet count (most first)" },
-                          { sortBy: "packet_count" as const, sortDirection: "asc" as const, label: "Packet count (fewest first)" },
+                          { sortBy: "packet_count" as const, sortDirection: "desc" as const, label: "Packet Count (most first)" },
+                          { sortBy: "packet_count" as const, sortDirection: "asc" as const, label: "Packet Count (fewest first)" },
                         ].map(({ sortBy: sb, sortDirection: sd, label }) => {
                           const selected = sortBy === sb && sortDirection === sd;
                           return (
@@ -1042,16 +1042,16 @@ function VaultPageInner() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
                       aria-expanded={refineBySection === "vault"}
                     >
-                      <span>Vault status</span>
+                      <span>Vault Status</span>
                       <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▴" : "▾"}</span>
                     </button>
                     {refineBySection === "vault" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
                         {(vaultStatusChips.length > 0 ? vaultStatusChips : [
                           { value: "" as StatusFilter, label: "All", count: 0 },
-                          { value: "vault" as StatusFilter, label: "In storage", count: 0 },
+                          { value: "vault" as StatusFilter, label: "In Storage", count: 0 },
                           { value: "active" as StatusFilter, label: "Active", count: 0 },
-                          { value: "low_inventory" as StatusFilter, label: "Low inventory", count: 0 },
+                          { value: "low_inventory" as StatusFilter, label: "Low Inventory", count: 0 },
                           { value: "archived" as StatusFilter, label: "Archived", count: 0 },
                         ]).map(({ value, label, count }) => {
                           const selected = statusFilter === value;
@@ -1114,7 +1114,7 @@ function VaultPageInner() {
                         className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
                         aria-expanded={refineBySection === "plantType"}
                       >
-                        <span>Plant type</span>
+                        <span>Plant Type</span>
                         <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▴" : "▾"}</span>
                       </button>
                       {refineBySection === "plantType" && (
@@ -1150,7 +1150,7 @@ function VaultPageInner() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
                       aria-expanded={refineBySection === "sowingMonth"}
                     >
-                      <span>Sowing month</span>
+                      <span>Sowing Month</span>
                       <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sowingMonth" ? "▴" : "▾"}</span>
                     </button>
                     {refineBySection === "sowingMonth" && (
@@ -1299,7 +1299,7 @@ function VaultPageInner() {
                       {refineChips.packetCount.length > 0 && (
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "packetCount" ? null : "packetCount"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetCount"}>
-                            <span>Packet count</span>
+                            <span>Packet Count</span>
                             <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetCount" ? "▴" : "▾"}</span>
                           </button>
                           {refineBySection === "packetCount" && (
@@ -1323,7 +1323,7 @@ function VaultPageInner() {
                 onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
                 className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
               >
-                Show results ({filteredVarietyIds.length})
+                Show Results ({filteredVarietyIds.length})
               </button>
             </footer>
           </div>
