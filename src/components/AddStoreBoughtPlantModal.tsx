@@ -156,6 +156,7 @@ export function AddStoreBoughtPlantModal({
           return;
         }
         const growInstanceIdNew = (growRow as { id: string }).id;
+        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profileId).eq("user_id", user.id);
 
         if (photoFiles.length > 0) {
           for (let i = 0; i < photoFiles.length; i++) {
@@ -250,6 +251,7 @@ export function AddStoreBoughtPlantModal({
           setSubmitting(false);
           return;
         }
+        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profileId).eq("user_id", user.id);
       }
 
       hapticSuccess();

@@ -114,6 +114,7 @@ export async function completeTask(
             });
 
             await checkProfileStockStatus(task.plant_profile_id, userId);
+            await supabase.from("plant_profiles").update({ status: "active" }).eq("id", task.plant_profile_id).eq("user_id", userId);
 
             if (expectedHarvestDate) {
               await supabase.from("tasks").insert({

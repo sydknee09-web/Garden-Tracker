@@ -665,12 +665,12 @@ function VaultPageInner() {
 
       const remainingAfter = effectiveTotal - used;
       if (remainingAfter <= 0) {
-        await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", p.id).eq("user_id", user.id);
         await supabase.from("shopping_list").upsert(
           { user_id: user.id, plant_profile_id: p.id, is_purchased: false },
           { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
         );
       }
+      await supabase.from("plant_profiles").update({ status: "active" }).eq("id", p.id).eq("user_id", user.id);
     }
     setPlantConfirming(false);
     if (errMsg) {

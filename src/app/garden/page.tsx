@@ -154,6 +154,29 @@ function GardenPageInner() {
       .eq("user_id", user.id);
     if (error) return;
     await softDeleteTasksForGrowInstance(endCropConfirmBatch.id, user.id);
+
+    // Revert profile status when no active grows remain
+    const profileId = endCropConfirmBatch.plant_profile_id;
+    const { data: activeGrows } = await supabase
+      .from("grow_instances")
+      .select("id")
+      .eq("plant_profile_id", profileId)
+      .eq("user_id", user.id)
+      .in("status", ["growing", "pending"])
+      .is("deleted_at", null);
+    if (!activeGrows?.length) {
+      const { data: stockedPackets } = await supabase
+        .from("seed_packets")
+        .select("id")
+        .eq("plant_profile_id", profileId)
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .or("is_archived.is.null,is_archived.eq.false")
+        .gt("qty_status", 0);
+      const revertStatus = stockedPackets?.length ? "in_stock" : "out_of_stock";
+      await supabase.from("plant_profiles").update({ status: revertStatus }).eq("id", profileId).eq("user_id", user.id);
+    }
+
     setEndCropConfirmBatch(null);
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, endCropConfirmBatch]);

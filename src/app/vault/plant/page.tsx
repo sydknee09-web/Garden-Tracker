@@ -359,12 +359,12 @@ function VaultPlantPageInner() {
         .eq("user_id", user.id)
         .or("is_archived.eq.false,is_archived.is.null");
       if (!remaining?.length) {
-        await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", profile.id).eq("user_id", user.id);
         await supabase.from("shopping_list").upsert(
           { user_id: user.id, plant_profile_id: profile.id, is_purchased: false },
           { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
         );
       }
+      await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profile.id).eq("user_id", user.id);
     }
 
     if (errMsg) {
