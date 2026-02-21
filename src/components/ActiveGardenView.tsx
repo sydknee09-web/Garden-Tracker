@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -40,6 +40,7 @@ type GrowingBatch = {
 
 export function ActiveGardenView({
   refetchTrigger,
+  highlightGrowId = null,
   searchQuery = "",
   onLogGrowth,
   onLogHarvest,
@@ -59,6 +60,8 @@ export function ActiveGardenView({
   onBulkJournalRequestHandled,
 }: {
   refetchTrigger: number;
+  /** When set, scroll to this grow instance and clear the URL param. Used when navigating from plant profile. */
+  highlightGrowId?: string | null;
   searchQuery?: string;
   onLogGrowth: (batch: GrowingBatch) => void;
   onLogHarvest: (batch: GrowingBatch) => void;
@@ -88,6 +91,8 @@ export function ActiveGardenView({
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightBatchRef = useRef<HTMLLIElement | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +120,18 @@ export function ActiveGardenView({
   const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
+
+  // Scroll to highlighted batch when navigating from plant profile (e.g. /garden?tab=active&grow=xxx)
+  useEffect(() => {
+    if (!highlightGrowId || !highlightBatchRef.current) return;
+    const el = highlightBatchRef.current;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Clear the grow param so URL stays clean
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("grow");
+    const qs = params.toString();
+    router.replace(qs ? `/garden?${qs}` : "/garden");
+  }, [highlightGrowId, router, searchParams, loading]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -621,7 +638,11 @@ export function ActiveGardenView({
                 : "No maturity set";
 
               return (
-                <li key={batch.id} className="rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm">
+                <li
+                  key={batch.id}
+                  ref={highlightGrowId === batch.id ? highlightBatchRef : undefined}
+                  className={`rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     {/* Bulk checkbox */}
                     {bulkMode && (

@@ -1710,7 +1710,7 @@ export default function VaultSeedPage() {
                             <div>
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Used in journal</p>
                               {loadingJournalForPacket.has(pkt.id) ? <p className="text-sm text-neutral-400">Loading...</p> : (journalByPacketId[pkt.id]?.length ?? 0) > 0 ? (
-                                <ul className="space-y-1.5">{journalByPacketId[pkt.id].map((entry) => (<li key={entry.id} className="text-sm"><span className="text-neutral-500">{formatDisplayDate(entry.created_at)}</span>{entry.note?.trim() && <span className="text-neutral-800"> -- {entry.note.trim()}</span>}</li>))}</ul>
+                                <ul className="space-y-1.5">{journalByPacketId[pkt.id].map((entry) => (<li key={entry.id} className="text-sm"><span className="text-neutral-500">{formatDisplayDate(entry.created_at)}</span>{entry.note?.trim() && <span className="text-neutral-800"> - {entry.note.trim()}</span>}</li>))}</ul>
                               ) : <p className="text-sm text-neutral-400">No journal entries linked to this packet yet.</p>}
                             </div>
                             {canEdit && (
@@ -1764,8 +1764,9 @@ export default function VaultSeedPage() {
                   const giJournals = journalEntries.filter((j) => j.grow_instance_id === gi.id);
                   const harvests = giJournals.filter((j) => j.entry_type === "harvest");
                   const statusColor = gi.status === "growing" ? "bg-green-100 text-green-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
-                  return (
-                    <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
+                  const isActive = gi.status === "growing" || gi.status === "pending";
+                  const cardContent = (
+                    <>
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>{gi.status ?? "unknown"}</span>
@@ -1785,12 +1786,23 @@ export default function VaultSeedPage() {
                               <li key={j.id} className="text-sm">
                                 <span className="text-neutral-400">{formatDisplayDate(j.created_at)}</span>
                                 {j.entry_type && <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : "bg-neutral-50 text-neutral-600"}`}>{j.entry_type}</span>}
-                                {j.note?.trim() && <span className="text-neutral-700 ml-1">-- {j.note.trim().slice(0, 120)}</span>}
+                                {j.note?.trim() && <span className="text-neutral-700 ml-1">- {j.note.trim().slice(0, 120)}</span>}
                               </li>
                             ))}
                             {giJournals.length > 5 && <li className="text-xs text-neutral-400">+{giJournals.length - 5} more entries</li>}
                           </ul>
                         </div>
+                      )}
+                    </>
+                  );
+                  return (
+                    <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
+                      {isActive ? (
+                        <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-4 p-4 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
+                          {cardContent}
+                        </Link>
+                      ) : (
+                        cardContent
                       )}
                     </div>
                   );

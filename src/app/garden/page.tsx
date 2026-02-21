@@ -467,6 +467,7 @@ function GardenPageInner() {
           <div className="pt-2">
             <ActiveGardenView
               refetchTrigger={refetchTrigger}
+              highlightGrowId={searchParams.get("grow")}
               searchQuery={activeSearchQuery}
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
