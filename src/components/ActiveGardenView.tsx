@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import type { WeatherSnapshotData } from "@/types/garden";
@@ -85,7 +86,7 @@ export function ActiveGardenView({
   onBulkJournalRequestHandled?: () => void;
 }) {
   const { user } = useAuth();
-  const { viewMode } = useHousehold();
+  const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
@@ -641,8 +642,8 @@ export function ActiveGardenView({
                           {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
                         </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
-                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none">FAM</span>
+                        {viewMode === "family" && batch.user_id && (
+                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
                         )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>

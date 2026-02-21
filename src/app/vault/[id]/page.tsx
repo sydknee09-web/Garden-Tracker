@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
@@ -146,6 +147,7 @@ export default function VaultSeedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
+  const { canEditUser } = useHousehold();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -208,6 +210,8 @@ export default function VaultSeedPage() {
 
   // True when the profile belongs to the current user; false when viewing a household member's profile
   const [isOwnProfile, setIsOwnProfile] = useState(true);
+  // The user_id of the profile owner (may differ from user.id when viewing family profiles)
+  const [profileOwnerId, setProfileOwnerId] = useState<string>("");
 
   // Add packet modal (when profile has 0 packets or user wants to add another)
   const [showAddPacketModal, setShowAddPacketModal] = useState(false);
@@ -255,13 +259,14 @@ export default function VaultSeedPage() {
       setProfile(profileData as ProfileData);
       // Use the profile's actual owner for all child read queries so household
       // members viewing someone else's profile get the right data.
-      const profileOwnerId = profileData.user_id as string;
-      setIsOwnProfile(profileOwnerId === user.id);
+      const ownerIdFromData = profileData.user_id as string;
+      setProfileOwnerId(ownerIdFromData);
+      setIsOwnProfile(ownerIdFromData === user.id);
 
       // Packets (same scope as vault: all non-deleted; profile page shows archived too)
       const { data: packetData, error: packetErr } = await supabase.from("seed_packets")
         .select(SEED_PACKET_PROFILE_SELECT)
-        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("created_at", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
       const packetRows = packetErr ? [] : ((packetData ?? []) as SeedPacket[]);
       if (packetErr) setError(packetErr.message);
       setPackets(packetRows);
@@ -288,18 +293,18 @@ export default function VaultSeedPage() {
       // Grow instances — primary query by plant_profile_id
       const { data: grows } = await supabase.from("grow_instances")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("sown_date", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("sown_date", { ascending: false });
       let allGrows = (grows ?? []) as GrowInstance[];
       // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
       if (allGrows.length === 0 && packetRows.length > 0) {
         const pktIds = packetRows.map((p) => p.id);
         const { data: growsByPacket } = await supabase.from("grow_instances")
           .select("*")
-          .in("seed_packet_id", pktIds).eq("user_id", profileOwnerId).is("deleted_at", null).order("sown_date", { ascending: false });
+          .in("seed_packet_id", pktIds).eq("user_id", ownerIdFromData).is("deleted_at", null).order("sown_date", { ascending: false });
         if (growsByPacket?.length) {
           allGrows = growsByPacket as GrowInstance[];
           // Silently repair orphaned rows — only safe to write when viewing own profile
-          if (profileOwnerId === user.id) {
+          if (ownerIdFromData === user.id) {
             const orphans = (growsByPacket as GrowInstance[]).filter((g) => !g.plant_profile_id);
             if (orphans.length > 0) {
               await supabase.from("grow_instances")
@@ -315,19 +320,19 @@ export default function VaultSeedPage() {
       // All journal entries for this profile
       const { data: journals } = await supabase.from("journal_entries")
         .select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).is("deleted_at", null).order("created_at", { ascending: false });
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
       setJournalEntries((journals ?? []) as JournalEntry[]);
 
       // Care schedules for this profile
       const { data: careData } = await supabase.from("care_schedules")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", profileOwnerId).eq("is_template", true)
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).eq("is_template", true)
         .order("title", { ascending: true });
       setCareSchedules((careData ?? []) as CareSchedule[]);
 
       // Journal photos for hero picker
       const { data: journalRows } = await supabase.from("journal_entries")
-        .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", profileOwnerId)
+        .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
         .is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false });
       setJournalPhotos((journalRows ?? []) as JournalPhoto[]);
 
@@ -344,7 +349,9 @@ export default function VaultSeedPage() {
     if (e2) { setError(e2.message); setProfile(null); }
     else if (!legacy) { setError("Plant not found."); setProfile(null); }
     else {
-      setIsOwnProfile((legacy as { user_id?: string }).user_id === user.id);
+      const legacyOwner = ((legacy as { user_id?: string }).user_id) ?? user.id;
+      setIsOwnProfile(legacyOwner === user.id);
+      setProfileOwnerId(legacyOwner);
       setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map());
     }
     setLoading(false);
@@ -473,52 +480,55 @@ export default function VaultSeedPage() {
   // =========================================================================
   const updatePacketQty = useCallback(async (packetId: string, qty: number) => {
     if (!user?.id) return;
+    const owner = profileOwnerId || user.id;
     const clamped = Math.max(0, Math.min(100, qty));
     const updates: Record<string, unknown> = { qty_status: clamped };
     // Auto-archive when qty reaches 0, un-archive when raised above 0
     if (clamped <= 0) updates.is_archived = true;
     else updates.is_archived = false;
-    await supabase.from("seed_packets").update(updates).eq("id", packetId).eq("user_id", user.id);
+    await supabase.from("seed_packets").update(updates).eq("id", packetId).eq("user_id", owner);
     setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, qty_status: clamped, is_archived: clamped <= 0 } : p)));
     // Profile: archive when all packets 0%; unarchive when any packet has inventory
     if (id) {
       if (clamped > 0) {
-        await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", user.id);
+        await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", owner);
       } else {
         const { data: remaining } = await supabase
           .from("seed_packets")
           .select("id")
           .eq("plant_profile_id", id)
-          .eq("user_id", user.id)
+          .eq("user_id", owner)
           .or("is_archived.is.null,is_archived.eq.false")
           .gt("qty_status", 0);
         if (!remaining?.length) {
-          await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", id).eq("user_id", user.id);
+          await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", id).eq("user_id", owner);
           await supabase.from("shopping_list").upsert(
-            { user_id: user.id, plant_profile_id: id, is_purchased: false },
+            { user_id: owner, plant_profile_id: id, is_purchased: false },
             { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
           );
         }
       }
     }
-  }, [user?.id, id]);
+  }, [user?.id, id, profileOwnerId]);
 
   const updatePacketPurchaseDate = useCallback(async (packetId: string, date: string) => {
     if (!user?.id) return;
+    const owner = profileOwnerId || user.id;
     const value = date.trim() || null;
-    await supabase.from("seed_packets").update({ purchase_date: value }).eq("id", packetId).eq("user_id", user.id);
+    await supabase.from("seed_packets").update({ purchase_date: value }).eq("id", packetId).eq("user_id", owner);
     setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, purchase_date: value ?? undefined } : p)));
-  }, [user?.id]);
+  }, [user?.id, profileOwnerId]);
 
   const updatePacketNotes = useCallback(
     async (packetId: string, notes: string, options?: { persist?: boolean }) => {
       const value = notes.trim() || null;
       setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: value ?? undefined } : p)));
       if (options?.persist !== false && user?.id) {
-        await supabase.from("seed_packets").update({ user_notes: value }).eq("id", packetId).eq("user_id", user.id);
+        const owner = profileOwnerId || user.id;
+        await supabase.from("seed_packets").update({ user_notes: value }).eq("id", packetId).eq("user_id", owner);
       }
     },
-    [user?.id]
+    [user?.id, profileOwnerId]
   );
 
   const updatePacketStorageLocation = useCallback(
@@ -526,26 +536,29 @@ export default function VaultSeedPage() {
       const value = location.trim() || null;
       setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: value ?? undefined } : p)));
       if (options?.persist !== false && user?.id) {
-        await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", user.id);
+        const owner = profileOwnerId || user.id;
+        await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", owner);
       }
     },
-    [user?.id]
+    [user?.id, profileOwnerId]
   );
 
   const updatePacketRating = useCallback(
     async (packetId: string, rating: number | null) => {
       if (!user?.id) return;
+      const owner = profileOwnerId || user.id;
       setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, packet_rating: rating } : p)));
-      await supabase.from("seed_packets").update({ packet_rating: rating }).eq("id", packetId).eq("user_id", user.id);
+      await supabase.from("seed_packets").update({ packet_rating: rating }).eq("id", packetId).eq("user_id", owner);
     },
-    [user?.id]
+    [user?.id, profileOwnerId]
   );
 
   const deletePacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
-    const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", user.id);
+    const owner = profileOwnerId || user.id;
+    const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", owner);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
-  }, [user?.id]);
+  }, [user?.id, profileOwnerId]);
 
   const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -729,7 +742,7 @@ export default function VaultSeedPage() {
         setError(downloadErr?.message ?? "Could not load packet photo");
         return;
       }
-      const destPath = `${user.id}/hero-${id}-from-packet-${crypto.randomUUID().slice(0, 8)}.jpg`;
+      const destPath = `${profileOwnerId || user.id}/hero-${id}-from-packet-${crypto.randomUUID().slice(0, 8)}.jpg`;
       const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(destPath, blob, { contentType: blob.type || "image/jpeg", upsert: false });
       if (uploadErr) {
         setError(uploadErr.message);
@@ -748,7 +761,7 @@ export default function VaultSeedPage() {
     setHeroUploading(true);
     const { blob } = await compressImage(file);
     // Unique path per upload so we always INSERT (RLS allows INSERT). Avoids UPDATE which can fail depending on policy.
-    const path = `${user.id}/hero-${id}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+    const path = `${profileOwnerId || user.id}/hero-${id}-${crypto.randomUUID().slice(0, 8)}.jpg`;
     const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
     setHeroUploading(false);
     if (uploadErr) { setError(uploadErr.message); return; }
@@ -857,6 +870,8 @@ export default function VaultSeedPage() {
   ];
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
+  // canEdit = true when it's the user's own profile OR they have an edit grant from the owner
+  const canEdit = isOwnProfile || canEditUser(profileOwnerId);
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
@@ -1143,7 +1158,7 @@ export default function VaultSeedPage() {
         )}
 
         {/* Read-only banner for household members viewing someone else's profile */}
-        {!isOwnProfile && (
+        {!isOwnProfile && !canEditUser(profileOwnerId) && (
           <div className="mb-4 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
             Viewing {profile?.name ?? "this"}&apos;s garden — read only
           </div>
@@ -1171,7 +1186,7 @@ export default function VaultSeedPage() {
           </div>
           {isOwnProfile && (
             <div className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit"><PencilIcon /></button>
+              <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
             </div>
           )}
         </div>
@@ -1181,7 +1196,7 @@ export default function VaultSeedPage() {
           {heroImageUrl ? (
             <>
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
-              {isOwnProfile && (
+              {canEdit && (
                 <div className="absolute bottom-3 right-3">
                   <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
                 </div>
@@ -1196,7 +1211,7 @@ export default function VaultSeedPage() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
               <span className="text-5xl text-neutral-300" aria-hidden>🌱</span>
-              {isOwnProfile && (
+              {canEdit && (
                 <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
@@ -1423,7 +1438,7 @@ export default function VaultSeedPage() {
                 {isAboutOpen("careTemplates") && (
                 <div className="px-4 pb-4 pt-0">
                   <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} readOnly={!isOwnProfile} />
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} readOnly={!canEdit} />
                 </div>
                 )}
               </div>
@@ -1516,7 +1531,7 @@ export default function VaultSeedPage() {
             {packets.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">No seed packets yet.</p>
-                {isOwnProfile && (
+                {canEdit && (
                   <>
                     <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
                     <button
@@ -1559,7 +1574,7 @@ export default function VaultSeedPage() {
                               <span className={`shrink-0 inline-flex text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden><ChevronDownIcon /></span>
                             </button>
                             <div className="flex items-center gap-2 flex-wrap shrink-0">
-                              {isOwnProfile ? (
+                              {canEdit ? (
                                 <>
                                   <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
                                   <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="w-24 h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
@@ -1575,8 +1590,8 @@ export default function VaultSeedPage() {
                         <div className="mt-2 ml-0 flex items-center gap-1">
                           <StarRating
                             value={pkt.packet_rating ?? null}
-                            interactive={isOwnProfile}
-                            onChange={isOwnProfile ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
+                            interactive={canEdit}
+                            onChange={canEdit ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
                             size="sm"
                             label="Packet rating"
                           />
@@ -1603,7 +1618,7 @@ export default function VaultSeedPage() {
                             )}
                             {pkt.scraped_details?.trim() && (<><p className="text-xs font-medium uppercase text-neutral-500 mb-1">Original Details</p><p className="text-neutral-800 whitespace-pre-wrap text-sm">{pkt.scraped_details}</p></>)}
                             {pkt.purchase_url?.trim() && <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-neutral-500 underline hover:text-neutral-700 inline-block">View purchase link</a>}
-                            {isOwnProfile && (
+                            {canEdit && (
                               <>
                                 <div>
                                   <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Your notes</p>
@@ -1631,13 +1646,13 @@ export default function VaultSeedPage() {
                                 </div>
                               </>
                             )}
-                            {!isOwnProfile && pkt.user_notes?.trim() && (
+                            {!canEdit && pkt.user_notes?.trim() && (
                               <div>
                                 <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Notes</p>
                                 <p className="text-sm text-neutral-700">{pkt.user_notes}</p>
                               </div>
                             )}
-                            {!isOwnProfile && pkt.storage_location?.trim() && (
+                            {!canEdit && pkt.storage_location?.trim() && (
                               <div>
                                 <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Storage location</p>
                                 <p className="text-sm text-neutral-700">{pkt.storage_location}</p>
@@ -1655,7 +1670,7 @@ export default function VaultSeedPage() {
                     );
                   })}
                 </ul>
-                {isOwnProfile && (
+                {canEdit && (
                   <div className="p-4 border-t border-neutral-100">
                     <button
                       type="button"
@@ -1771,7 +1786,7 @@ export default function VaultSeedPage() {
         {/* CARE TAB (permanent plants)                                   */}
         {/* ============================================================ */}
         {activeTab === "care" && (
-          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!isOwnProfile} />
+          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!canEdit} />
         )}
       </div>
 

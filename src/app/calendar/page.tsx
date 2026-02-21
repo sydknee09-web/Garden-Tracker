@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
@@ -59,7 +60,7 @@ function getCategoryDotColor(category: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { viewMode: householdViewMode } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,7 +245,7 @@ export default function CalendarPage() {
       if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    await completeTask(t, user.id);
+    await completeTask(t, (t as Task & { user_id?: string | null }).user_id ?? user.id);
     setRefetch((r) => r + 1);
     hapticSuccess();
 
@@ -268,7 +269,8 @@ export default function CalendarPage() {
     if (!user || !deleteConfirmTask) return;
     const t = deleteConfirmTask;
     setDeleteConfirmTask(null);
-    const { error: e } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", user.id);
+    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
+    const { error: e } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", taskOwner);
     if (e) {
       setError(e.message);
       hapticError();
@@ -282,8 +284,9 @@ export default function CalendarPage() {
   async function confirmDeleteRecurringOne() {
     if (!user || !deleteRecurringPrompt) return;
     const t = deleteRecurringPrompt;
+    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
     setDeleteRecurringPrompt(null);
-    await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", user.id);
+    await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", taskOwner);
     hapticSuccess();
     setRefetch((r) => r + 1);
   }
@@ -293,23 +296,25 @@ export default function CalendarPage() {
     if (!user || !deleteRecurringPrompt) return;
     const t = deleteRecurringPrompt;
     const scheduleId = (t as Task & { care_schedule_id?: string | null }).care_schedule_id;
+    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
     setDeleteRecurringPrompt(null);
     const now = new Date().toISOString();
     await Promise.all([
-      supabase.from("tasks").update({ deleted_at: now }).eq("id", t.id).eq("user_id", user.id),
+      supabase.from("tasks").update({ deleted_at: now }).eq("id", t.id).eq("user_id", taskOwner),
       scheduleId
-        ? supabase.from("care_schedules").update({ is_active: false, deleted_at: now }).eq("id", scheduleId).eq("user_id", user.id)
+        ? supabase.from("care_schedules").update({ is_active: false, deleted_at: now }).eq("id", scheduleId).eq("user_id", taskOwner)
         : Promise.resolve(),
     ]);
     hapticSuccess();
     setRefetch((r) => r + 1);
   }
 
-  async function handleSnooze(t: Task & { plant_name?: string }, newDueDate: string) {
+  async function handleSnooze(t: Task & { plant_name?: string; user_id?: string | null }, newDueDate: string) {
     if (!user || t.completed_at) return;
+    const taskOwner = t.user_id ?? user.id;
     const oldDate = t.due_date;
     const deltaDays = Math.round((new Date(newDueDate).getTime() - new Date(oldDate).getTime()) / (24 * 60 * 60 * 1000));
-    await supabase.from("tasks").update({ due_date: newDueDate }).eq("id", t.id).eq("user_id", user.id);
+    await supabase.from("tasks").update({ due_date: newDueDate }).eq("id", t.id).eq("user_id", taskOwner);
     if (t.category === "transplant" && t.grow_instance_id && deltaDays !== 0) {
       const { data: harvestTask } = await supabase
         .from("tasks")
@@ -321,8 +326,8 @@ export default function CalendarPage() {
         const d = new Date((harvestTask as { due_date: string }).due_date + "T12:00:00");
         d.setDate(d.getDate() + deltaDays);
         const newHarvestDate = d.toISOString().slice(0, 10);
-        await supabase.from("tasks").update({ due_date: newHarvestDate }).eq("id", (harvestTask as { id: string }).id).eq("user_id", user.id);
-        await supabase.from("grow_instances").update({ expected_harvest_date: newHarvestDate }).eq("id", t.grow_instance_id).eq("user_id", user.id);
+        await supabase.from("tasks").update({ due_date: newHarvestDate }).eq("id", (harvestTask as { id: string }).id).eq("user_id", taskOwner);
+        await supabase.from("grow_instances").update({ expected_harvest_date: newHarvestDate }).eq("id", t.grow_instance_id).eq("user_id", taskOwner);
       }
     }
     setRefetch((r) => r + 1);
@@ -922,7 +927,8 @@ export default function CalendarPage() {
                       isSelected={selectedIds.has(t.id)}
                       onLongPress={() => handleLongPressTask(t.id)}
                       onToggleSelect={() => toggleTaskSelect(t.id)}
-                      ownerBadge={householdViewMode === "family" && t.user_id && t.user_id !== user?.id ? "FAM" : null}
+                      ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                      canEdit={!t.user_id || canEditUser(t.user_id)}
                     />
                   </li>
                 ))}
@@ -972,7 +978,8 @@ export default function CalendarPage() {
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
-                              ownerBadge={householdViewMode === "family" && t.user_id && t.user_id !== user?.id ? "FAM" : null}
+                              ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                              canEdit={!t.user_id || canEditUser(t.user_id)}
                             />
                           ))}
                         </div>
@@ -1413,6 +1420,7 @@ function CalendarTaskRow({
   onLongPress,
   onToggleSelect,
   ownerBadge,
+  canEdit = true,
 }: {
   task: Task & { plant_name?: string };
   onComplete: () => void;
@@ -1423,6 +1431,8 @@ function CalendarTaskRow({
   onLongPress?: () => void;
   onToggleSelect?: () => void;
   ownerBadge?: string | null;
+  /** When false, complete/snooze/delete buttons are hidden */
+  canEdit?: boolean;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
@@ -1485,11 +1495,11 @@ function CalendarTaskRow({
       )}
       <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
       {ownerBadge && (
-        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none shrink-0">
-          {ownerBadge}
+        <span className="shrink-0">
+          <OwnerBadge shorthand={ownerBadge} canEdit={canEdit} size="xs" />
         </span>
       )}
-      {!task.completed_at && !selectMode && (
+      {!task.completed_at && !selectMode && canEdit && (
         <span className="flex items-center gap-1 shrink-0">
           <button
             type="button"
@@ -1513,7 +1523,7 @@ function CalendarTaskRow({
           </button>
         </span>
       )}
-      {showDelete && !selectMode && (
+      {showDelete && !selectMode && canEdit && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDeleteRequest(); setShowDelete(false); }}

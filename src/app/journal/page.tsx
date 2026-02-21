@@ -7,6 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot, formatWeatherBadge } from "@/lib/weatherSnapshot";
 import type { JournalEntry } from "@/types/garden";
@@ -261,7 +262,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
 export default function JournalPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode: householdViewMode } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
   const { setSyncing } = useSync();
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -897,10 +898,8 @@ export default function JournalPage() {
                         {name}
                       </span>
                     ))}
-                    {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
-                      <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none self-center">
-                        FAM
-                      </span>
+                    {householdViewMode === "family" && row.owner_user_id && (
+                      <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
                     )}
                   </div>
                   {row.note ? (
@@ -979,10 +978,8 @@ export default function JournalPage() {
                               {name}
                             </span>
                           ))}
-                          {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
-                            <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none self-center">
-                              FAM
-                            </span>
+                          {householdViewMode === "family" && row.owner_user_id && (
+                            <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
                           )}
                         </div>
                       </td>
@@ -1125,10 +1122,8 @@ export default function JournalPage() {
                           {name}
                         </span>
                       ))}
-                      {householdViewMode === "family" && row.owner_user_id && row.owner_user_id !== user?.id && (
-                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none">
-                          FAM
-                        </span>
+                      {householdViewMode === "family" && row.owner_user_id && (
+                        <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
                       )}
                     </div>
                     <time dateTime={row.date} className="text-xs text-black/50 shrink-0">

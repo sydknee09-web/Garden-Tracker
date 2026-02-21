@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
@@ -307,7 +308,7 @@ export function SeedVaultView({
 }) {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode: householdViewMode, householdMembers } = useHousehold();
+  const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditUser } = useHousehold();
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -316,6 +317,7 @@ export function SeedVaultView({
   const [listSortColumn, setListSortColumn] = useState<ListSortColumn | null>("name");
   const [listSortDir, setListSortDir] = useState<"asc" | "desc">("asc");
   const [plantTypeFilter, setPlantTypeFilter] = useState<string | null>(null);
+  const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
   const [plantFilterOpen, setPlantFilterOpen] = useState(false);
   const [plantFilterSearch, setPlantFilterSearch] = useState("");
   const plantFilterRef = useRef<HTMLDivElement>(null);
@@ -486,6 +488,7 @@ export function SeedVaultView({
       }
       if (plantNowFilter && !isPlantableInMonth(s, sowMonthIndex)) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
+      if (selectedOwnerFilter && s.owner_user_id !== selectedOwnerFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
         return false;
       if (statusFilter === "vault") {
@@ -507,7 +510,7 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -713,14 +716,11 @@ export function SeedVaultView({
     return list;
   }, [filteredSeeds, gridSortBy, sortByProp, vaultSortCmp]);
 
-  /** Returns a short label for the badge shown on family-view cards that belong to another member. */
+  /** Returns the shorthand badge label for a card in family view (null = don't show badge). */
   function getOwnerBadge(seed: VaultCardItem): string | null {
     if (householdViewMode !== "family") return null;
-    if (!seed.owner_user_id || seed.owner_user_id === user?.id) return null;
-    const member = householdMembers.find((m) => m.user_id === seed.owner_user_id);
-    if (!member) return "Fam";
-    // Use first two letters of the user_id as a short identifier (emails not available here)
-    return "Fam";
+    if (!seed.owner_user_id) return null;
+    return getShorthandForUser(seed.owner_user_id);
   }
 
   function getThumbState(seed: VaultCardItem) {
@@ -1037,6 +1037,34 @@ export function SeedVaultView({
     );
   }
 
+  // Member filter pills (family view, >1 member)
+  const showMemberPills = householdViewMode === "family" && householdMembers.length > 1;
+  const memberPills = showMemberPills ? (
+    <div className="flex items-center gap-1.5 flex-wrap pb-1">
+      <button
+        type="button"
+        onClick={() => setSelectedOwnerFilter(null)}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${selectedOwnerFilter === null ? "bg-emerald-600 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+      >
+        All
+      </button>
+      {householdMembers.map((m) => {
+        const shorthand = getShorthandForUser(m.user_id);
+        const isSelected = selectedOwnerFilter === m.user_id;
+        return (
+          <button
+            key={m.user_id}
+            type="button"
+            onClick={() => setSelectedOwnerFilter(isSelected ? null : m.user_id)}
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${isSelected ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"}`}
+          >
+            {shorthand}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   if (mode === "grid") {
     const isPhotoCards = gridDisplayStyle === "photo";
     /* Tight gap (8px) for both views so cards sit closer like My Garden. */
@@ -1044,6 +1072,7 @@ export function SeedVaultView({
 
     return (
       <div className="relative z-10 space-y-2">
+        {memberPills}
         <ul className={`grid ${gridClass}`} role="list">
           {sortedGridSeeds.map((seed, idx) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
@@ -1080,8 +1109,8 @@ export function SeedVaultView({
                         </div>
                       )}
                       {ownerBadge && (
-                        <span className="absolute top-1 right-1 z-10 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white leading-none pointer-events-none">
-                          {ownerBadge}
+                        <span className="absolute top-1 right-1 z-10 pointer-events-none">
+                          <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditUser(seed.owner_user_id) : true} size="xs" />
                         </span>
                       )}
                     </div>
@@ -1159,8 +1188,8 @@ export function SeedVaultView({
                       </div>
                     )}
                     {ownerBadge && (
-                      <span className="absolute top-0.5 right-0.5 z-10 text-[8px] font-semibold px-1 py-px rounded-full bg-violet-500 text-white leading-none pointer-events-none">
-                        {ownerBadge}
+                      <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
+                        <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditUser(seed.owner_user_id) : true} size="xs" />
                       </span>
                     )}
                   </div>
@@ -1334,6 +1363,7 @@ export function SeedVaultView({
 
   return (
     <div className="relative z-10 space-y-2">
+      {memberPills}
       {/* Compact list for small screens (no horizontal scroll) */}
       <div className="sm:hidden rounded-xl border border-black/10 bg-white overflow-hidden">
         <ul className="divide-y divide-black/5" role="list">

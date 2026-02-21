@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import type { UserSettings } from "@/types/garden";
+import type { HouseholdEditGrant, UserSettings } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 
 const APP_VERSION = "0.1.0";
@@ -39,7 +39,7 @@ function formatFrostDate(d: string | null | undefined): string {
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
   const { tapVersion } = useDeveloperUnlock();
-  const { household, householdMembers, householdLoading, isInHousehold, reloadHousehold } = useHousehold();
+  const { household, householdMembers, householdLoading, isInHousehold, reloadHousehold, editGrants, memberShorthands } = useHousehold();
   const router = useRouter();
 
   // Garden settings
@@ -75,6 +75,8 @@ export default function SettingsProfilePage() {
   const [kickingMemberId, setKickingMemberId] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const hasAutoExpanded = useRef(false);
+  const [shorthandError, setShorthandError] = useState<string | null>(null);
+  const [togglingGrantForUser, setTogglingGrantForUser] = useState<string | null>(null);
 
   // Auto-expand household section once loaded if in a household
   useEffect(() => {
@@ -125,8 +127,8 @@ export default function SettingsProfilePage() {
     if (!lastSavedSettings) return false;
     const a = { ...gardenSettings };
     const b = { ...lastSavedSettings };
-    return JSON.stringify({ planting_zone: a.planting_zone, last_frost_date: a.last_frost_date, latitude: a.latitude, longitude: a.longitude, location_name: a.location_name }) !==
-      JSON.stringify({ planting_zone: b.planting_zone, last_frost_date: b.last_frost_date, latitude: b.latitude, longitude: b.longitude, location_name: b.location_name });
+    return JSON.stringify({ planting_zone: a.planting_zone, last_frost_date: a.last_frost_date, latitude: a.latitude, longitude: a.longitude, location_name: a.location_name, display_shorthand: a.display_shorthand }) !==
+      JSON.stringify({ planting_zone: b.planting_zone, last_frost_date: b.last_frost_date, latitude: b.latitude, longitude: b.longitude, location_name: b.location_name, display_shorthand: b.display_shorthand });
   }, [gardenSettings, lastSavedSettings]);
 
   useEffect(() => {
@@ -242,9 +244,30 @@ export default function SettingsProfilePage() {
 
   const saveGardenSettings = useCallback(async () => {
     if (!user?.id) return;
+    setShorthandError(null);
+
+    // Validate shorthand uniqueness within household
+    const newShorthand = gardenSettings.display_shorthand?.trim().toUpperCase() || null;
+    if (newShorthand) {
+      for (const [uid, sh] of memberShorthands.entries()) {
+        if (uid !== user.id && sh.toUpperCase() === newShorthand) {
+          setShorthandError(`"${newShorthand}" is already used by another family member. Choose a different shorthand.`);
+          return;
+        }
+      }
+    }
+
     setGardenSaving(true);
     setGardenSaved(false);
-    const toSave = { planting_zone: gardenSettings.planting_zone || null, last_frost_date: gardenSettings.last_frost_date || null, latitude: gardenSettings.latitude ?? null, longitude: gardenSettings.longitude ?? null, timezone: gardenSettings.timezone || "America/Los_Angeles", location_name: gardenSettings.location_name || null };
+    const toSave = {
+      planting_zone: gardenSettings.planting_zone || null,
+      last_frost_date: gardenSettings.last_frost_date || null,
+      latitude: gardenSettings.latitude ?? null,
+      longitude: gardenSettings.longitude ?? null,
+      timezone: gardenSettings.timezone || "America/Los_Angeles",
+      location_name: gardenSettings.location_name || null,
+      display_shorthand: newShorthand,
+    };
     const { error } = await supabase.from("user_settings").upsert({
       user_id: user.id,
       ...toSave,
@@ -257,7 +280,7 @@ export default function SettingsProfilePage() {
       setGardenEditing(false);
       setTimeout(() => setGardenSaved(false), 2500);
     }
-  }, [user?.id, gardenSettings]);
+  }, [user?.id, gardenSettings, memberShorthands]);
 
   const handleUseMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -366,6 +389,26 @@ export default function SettingsProfilePage() {
     }
   }, [user?.id, fetchExportData]);
 
+  const handleToggleGrant = useCallback(async (granteeUserId: string, currentlyGranted: boolean) => {
+    if (!user?.id || !household) return;
+    setTogglingGrantForUser(granteeUserId);
+    if (currentlyGranted) {
+      await supabase
+        .from("household_edit_grants")
+        .delete()
+        .eq("grantor_user_id", user.id)
+        .eq("grantee_user_id", granteeUserId);
+    } else {
+      await supabase.from("household_edit_grants").insert({
+        household_id: household.id,
+        grantor_user_id: user.id,
+        grantee_user_id: granteeUserId,
+      });
+    }
+    setTogglingGrantForUser(null);
+    await reloadHousehold();
+  }, [user?.id, household, reloadHousehold]);
+
   const ZONES = ["1a","1b","2a","2b","3a","3b","4a","4b","5a","5b","6a","6b","7a","7b","8a","8b","9a","9b","10a","10b","11a","11b","12a","12b","13a","13b"];
 
   const handleNavClick = useCallback((e: React.MouseEvent, href: string) => {
@@ -469,6 +512,18 @@ export default function SettingsProfilePage() {
                       : <span className="text-neutral-400 font-normal">Not set</span>}
                   </dd>
                 </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-xs text-neutral-500 shrink-0">Family Badge</dt>
+                  <dd className="text-sm font-medium text-neutral-800 text-right">
+                    {gardenSettings.display_shorthand
+                      ? (
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-emerald-100 text-emerald-800">
+                          {gardenSettings.display_shorthand.toUpperCase()}
+                        </span>
+                      )
+                      : <span className="text-neutral-400 font-normal">Not set</span>}
+                  </dd>
+                </div>
                 {(gardenSettings.latitude != null || gardenSettings.longitude != null) && (
                   <div className="flex items-center justify-between gap-4">
                     <dt className="text-xs text-neutral-500 shrink-0">Coordinates</dt>
@@ -528,6 +583,32 @@ export default function SettingsProfilePage() {
               <button type="button" onClick={() => setShowAdvancedCoords((v) => !v)} className="text-xs text-neutral-500 hover:text-neutral-700">
                 {showAdvancedCoords ? "Hide coordinates" : "Show latitude & longitude"}
               </button>
+              <div>
+                <label htmlFor="display-shorthand" className="block text-sm font-medium text-neutral-700 mb-1">
+                  Family Badge <span className="text-neutral-400 font-normal">(1–4 letters, shown to family)</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="display-shorthand"
+                    type="text"
+                    maxLength={4}
+                    placeholder="e.g. MAR"
+                    value={gardenSettings.display_shorthand ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                      setGardenSettings((p) => ({ ...p, display_shorthand: val || null }));
+                      setShorthandError(null);
+                    }}
+                    className="w-28 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono uppercase focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  />
+                  {gardenSettings.display_shorthand && (
+                    <span className="inline-flex items-center rounded px-2 py-1 text-xs font-semibold leading-none bg-emerald-100 text-emerald-800">
+                      {gardenSettings.display_shorthand.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                {shorthandError && <p className="text-xs text-red-600 mt-1">{shorthandError}</p>}
+              </div>
               <div className="flex gap-3">
                 <button type="button" onClick={handleUseMyLocation} className="min-h-[44px] flex-1 px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
                   Use My Location
@@ -665,32 +746,64 @@ export default function SettingsProfilePage() {
                 {/* Members list */}
                 <div>
                   <p className="text-xs font-semibold text-neutral-500 mb-2">Members</p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {householdMembers.map((m) => {
                       const email = memberEmails[m.user_id] ?? null;
                       const isYou = m.user_id === user.id;
                       const displayName = isYou
                         ? `You${email ? ` (${email})` : ""}`
                         : (email ?? m.user_id.slice(0, 8) + "…");
+                      const memberShorthand = memberShorthands.get(m.user_id);
+                      // Grant this member can edit MY data (I am the grantor)
+                      const grantedToThisMember = editGrants.some(
+                        (g: HouseholdEditGrant) => g.grantor_user_id === user.id && g.grantee_user_id === m.user_id,
+                      );
                       return (
-                        <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-neutral-700 truncate min-w-0 text-xs">{displayName}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${m.role === "owner" ? "bg-amber-50 text-amber-700" : m.role === "admin" ? "bg-blue-50 text-blue-700" : "bg-neutral-100 text-neutral-600"}`}>
-                              {m.role}
-                            </span>
-                            {isOwner && !isYou && (
+                        <li key={m.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2 text-sm">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {memberShorthand && (
+                                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-emerald-100 text-emerald-800 shrink-0">
+                                  {memberShorthand.toUpperCase()}
+                                </span>
+                              )}
+                              <span className="text-neutral-700 truncate text-xs">{displayName}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${m.role === "owner" ? "bg-amber-50 text-amber-700" : m.role === "admin" ? "bg-blue-50 text-blue-700" : "bg-neutral-100 text-neutral-600"}`}>
+                                {m.role}
+                              </span>
+                              {isOwner && !isYou && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleKickMember(m.user_id)}
+                                  disabled={kickingMemberId === m.user_id}
+                                  className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 min-h-[32px] px-1"
+                                  aria-label={`Remove ${displayName}`}
+                                >
+                                  {kickingMemberId === m.user_id ? "..." : "Remove"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {/* Edit grant toggle — only shown for other members; I control who can edit MY stuff */}
+                          {!isYou && (
+                            <div className="flex items-center justify-between gap-2 pl-1 py-1 rounded-lg bg-neutral-50 px-2">
+                              <span className="text-xs text-neutral-500">Can edit my plants &amp; tasks</span>
                               <button
                                 type="button"
-                                onClick={() => handleKickMember(m.user_id)}
-                                disabled={kickingMemberId === m.user_id}
-                                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50 min-h-[32px] px-1"
-                                aria-label={`Remove ${displayName}`}
+                                role="switch"
+                                aria-checked={grantedToThisMember}
+                                disabled={togglingGrantForUser === m.user_id}
+                                onClick={() => handleToggleGrant(m.user_id, grantedToThisMember)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:opacity-50 ${grantedToThisMember ? "bg-emerald-500" : "bg-neutral-300"}`}
                               >
-                                {kickingMemberId === m.user_id ? "..." : "Remove"}
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${grantedToThisMember ? "translate-x-4" : "translate-x-0"}`}
+                                />
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </li>
                       );
                     })}

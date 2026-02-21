@@ -256,6 +256,7 @@ export interface UserSettings {
   longitude?: number | null;
   timezone?: string | null;
   location_name?: string | null;
+  display_shorthand?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -313,4 +314,12 @@ export interface HouseholdMember {
   user_id: string;
   role: HouseholdMemberRole;
   joined_at: string;
+}
+
+export interface HouseholdEditGrant {
+  id: string;
+  household_id: string;
+  grantor_user_id: string;
+  grantee_user_id: string;
+  created_at: string;
 }
