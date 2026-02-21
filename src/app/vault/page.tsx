@@ -859,6 +859,12 @@ function VaultPageInner() {
             >
               Seed Vault
             </button>
+            <Link
+              href="/shed"
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium text-black/60 hover:text-black flex items-center"
+            >
+              Shed
+            </Link>
           </div>
         </div>
 

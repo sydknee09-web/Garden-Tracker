@@ -27,6 +27,7 @@ export interface Task {
   grow_instance_id: string | null;
   title?: string | null;
   care_schedule_id?: string | null;
+  supply_profile_id?: string | null;
   deleted_at?: string | null;
 }
 
@@ -97,6 +98,7 @@ export interface JournalEntry {
   harvest_quantity?: number | null;
   created_at: string;
   user_id: string;
+  supply_profile_id?: string | null;
   deleted_at?: string | null;
 }
 
@@ -109,6 +111,8 @@ export interface ShoppingListItem {
   /** Set when item is from vault (out of stock); null for wishlist placeholders. */
   plant_profile_id: string | null;
   plant_variety_id?: string; // legacy
+  /** Set when item is a supply (running low). */
+  supply_profile_id?: string | null;
   /** Wishlist: display name when plant_profile_id is null. */
   placeholder_name?: string | null;
   placeholder_variety?: string | null;
@@ -295,9 +299,33 @@ export interface CareSchedule {
   is_active: boolean;
   is_template: boolean;
   notes?: string | null;
+  supply_profile_id?: string | null;
   deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Supply Profiles (Shed)
+// ---------------------------------------------------------------------------
+export type SupplyCategory = "fertilizer" | "pesticide" | "soil_amendment" | "other";
+
+export interface SupplyProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  brand?: string | null;
+  category: SupplyCategory;
+  usage_instructions?: string | null;
+  application_rate?: string | null;
+  primary_image_path?: string | null;
+  source_url?: string | null;
+  npk?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+  replaced_by_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------

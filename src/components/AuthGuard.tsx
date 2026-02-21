@@ -24,6 +24,7 @@ function getPageTitle(pathname: string | null): string {
   if (pathname.startsWith("/vault/packets")) return "Packets";
   if (pathname.startsWith("/vault/tags")) return "Tags";
   if (pathname.startsWith("/vault")) return "Vault";
+  if (pathname.startsWith("/shed")) return "Shed";
   if (pathname.startsWith("/journal")) return "Journal";
   if (pathname.startsWith("/calendar")) return "Calendar";
   if (pathname.startsWith("/schedule")) return "Planting Schedule";
@@ -92,7 +93,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
-  const topLevelPaths = ["/", "/vault", "/garden", "/calendar", "/journal", "/settings", "/shopping-list"];
+  const topLevelPaths = ["/", "/vault", "/garden", "/shed", "/calendar", "/journal", "/settings", "/shopping-list"];
   const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
 
   useEffect(() => {
