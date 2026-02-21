@@ -25,16 +25,16 @@ const src = readFileSync(join(ROOT, "src/app/calendar/page.tsx"), "utf-8");
 // Fix A — Submit button label
 // ---------------------------------------------------------------------------
 describe("Calendar submit button label consistency", () => {
-  it("Submit button shows 'Add Reminder' when in Reminders (list) view", () => {
-    expect(src).toContain('"Add Reminder"');
-  });
-
-  it("Submit button shows 'Save Task' when in Overview view", () => {
+  it("Submit button shows 'Save Task' for standard tasks", () => {
     expect(src).toContain('"Save Task"');
   });
 
-  it("Label is driven by a viewMode conditional, not hardcoded", () => {
-    expect(src).toContain('viewMode === "list" ? "Add Reminder" : "Save Task"');
+  it("Submit button shows 'Save Recurring Task' for recurring tasks", () => {
+    expect(src).toContain('"Save Recurring Task"');
+  });
+
+  it("Label is driven by an isRecurring conditional, not hardcoded", () => {
+    expect(src).toContain('isRecurring ? "Save Recurring Task" : "Save Task"');
   });
 });
 
@@ -132,24 +132,24 @@ describe("Batch select — CalendarTaskRow component interface", () => {
     expect(src).toContain('isSelected ? "bg-emerald-500 border-emerald-500"');
   });
 
-  it("All 3 CalendarTaskRow call sites pass selectMode", () => {
+  it("All CalendarTaskRow call sites pass selectMode", () => {
     const count = (src.match(/selectMode=\{selectMode\}/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(2);
   });
 
-  it("All 3 CalendarTaskRow call sites pass isSelected", () => {
+  it("All CalendarTaskRow call sites pass isSelected", () => {
     const count = (src.match(/isSelected=\{selectedIds\.has/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(2);
   });
 
-  it("All 3 CalendarTaskRow call sites wire onLongPress to handleLongPressTask", () => {
+  it("All CalendarTaskRow call sites wire onLongPress to handleLongPressTask", () => {
     const count = (src.match(/onLongPress=\{/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(2);
   });
 
-  it("All 3 CalendarTaskRow call sites wire onToggleSelect to toggleTaskSelect", () => {
+  it("All CalendarTaskRow call sites wire onToggleSelect to toggleTaskSelect", () => {
     const count = (src.match(/onToggleSelect=\{/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(2);
   });
 });
 

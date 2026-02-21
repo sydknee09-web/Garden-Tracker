@@ -42,12 +42,10 @@ describe("Tab wrapper consistency — no justify-center floating island", () => 
     expect(gardenPage).toContain("flex mb-3");
   });
 
-  it("Calendar tab wrapper does not use justify-center", () => {
+  it("Calendar page does not use justify-center on a tab wrapper", () => {
+    // The Reminders/Overview tab switcher was removed; guard against re-adding
+    // it with a centred layout that breaks visual consistency.
     expect(calendarPage).not.toContain("flex justify-center mb-3");
-  });
-
-  it("Calendar tab wrapper uses left-aligned flex mb-3 to match Vault", () => {
-    expect(calendarPage).toContain("flex mb-3");
   });
 });
 
