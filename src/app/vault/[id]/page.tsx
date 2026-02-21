@@ -192,6 +192,7 @@ export default function VaultSeedPage() {
   });
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
+  const fromParam = searchParams.get("from");
   const validTab = ["about", "packets", "plantings", "journal", "care"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" | "care" : "about";
   const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal" | "care">(validTab);
 
@@ -587,9 +588,10 @@ export default function VaultSeedPage() {
     const deltaY = end.clientY - start.y;
     if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) return;
     const tab = validTab !== "about" ? `?tab=${validTab}` : "";
-    if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}`);
-    else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}`);
-  }, [modalOpen, nextId, prevId, router, validTab]);
+    const from = fromParam === "garden" ? (tab ? `&from=garden` : `?from=garden`) : "";
+    if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}${from}`);
+    else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}${from}`);
+  }, [modalOpen, nextId, prevId, router, validTab, fromParam]);
 
   // =========================================================================
   // Handlers
@@ -1024,7 +1026,7 @@ export default function VaultSeedPage() {
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
-  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6"><Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link><p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
+  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden?tab=plants" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to My Plants</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   const careList = [
     { label: "Sowing Method", value: displaySowing || "--" },
@@ -1324,7 +1326,7 @@ export default function VaultSeedPage() {
           <>
             {prevId ? (
               <Link
-                href={validTab !== "about" ? `/vault/${prevId}?tab=${validTab}` : `/vault/${prevId}`}
+                href={validTab !== "about" ? `/vault/${prevId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : ""}` : `/vault/${prevId}${fromParam === "garden" ? "?from=garden" : ""}`}
                 className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous plant profile"
               >
@@ -1333,7 +1335,7 @@ export default function VaultSeedPage() {
             ) : null}
             {nextId ? (
               <Link
-                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}` : `/vault/${nextId}`}
+                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : ""}` : `/vault/${nextId}${fromParam === "garden" ? "?from=garden" : ""}`}
                 className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next plant profile"
               >
@@ -1344,6 +1346,8 @@ export default function VaultSeedPage() {
         )}
         {validTab === "journal" ? (
           <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
+        ) : fromParam === "garden" ? (
+          <Link href="/garden?tab=plants" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to My Plants</Link>
         ) : (
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}

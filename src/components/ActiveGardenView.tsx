@@ -14,6 +14,18 @@ import type { WeatherSnapshotData } from "@/types/garden";
 
 const LONG_PRESS_MS = 500;
 
+/** Law 7: hero_image_url → hero_image_path → primary_image_path → sprout fallback */
+function getBatchImageUrl(batch: { hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }): string | null {
+  const url = (batch.hero_image_url ?? "").trim();
+  if (url && url.startsWith("http")) {
+    if (url.includes("supabase.co")) return url;
+    return `/api/seed/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  if ((batch.hero_image_path ?? "").trim()) return supabase.storage.from("journal-photos").getPublicUrl(batch.hero_image_path!.trim()).data.publicUrl;
+  if ((batch.primary_image_path ?? "").trim()) return supabase.storage.from("seed-packets").getPublicUrl(batch.primary_image_path!.trim()).data.publicUrl;
+  return null;
+}
+
 type PendingItem = {
   id: string;
   plant_profile_id: string | null;
@@ -43,6 +55,9 @@ type GrowingBatch = {
   seeds_sown?: number | null;
   seeds_sprouted?: number | null;
   plant_count?: number | null;
+  hero_image_url?: string | null;
+  hero_image_path?: string | null;
+  primary_image_path?: string | null;
 };
 
 export function ActiveGardenView({
@@ -197,8 +212,8 @@ export function ActiveGardenView({
     if (!growRows?.length) { setGrowing([]); setLoading(false); return; }
 
     const profileIds = Array.from(new Set((growRows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id).filter(Boolean)));
-    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags").in("id", profileIds);
-    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null }) => [p.id, p]));
+    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path").in("id", profileIds);
+    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }) => [p.id, p]));
 
     const growIds = (growRows as { id: string }[]).map((r) => r.id);
     const [weatherRes, harvestRes] = await Promise.all([
@@ -243,6 +258,7 @@ export function ActiveGardenView({
           days_to_germination: p?.days_to_germination ?? null, harvest_days: p?.harvest_days ?? null,
           tags: p?.tags ?? null, user_id: r.user_id ?? null,
           sow_method: r.sow_method ?? null, seeds_sown: r.seeds_sown ?? null, seeds_sprouted: r.seeds_sprouted ?? null, plant_count: r.plant_count ?? null,
+          hero_image_url: p?.hero_image_url ?? null, hero_image_path: p?.hero_image_path ?? null, primary_image_path: p?.primary_image_path ?? null,
         };
       });
     setGrowing(batches);
@@ -692,6 +708,7 @@ export function ActiveGardenView({
                 : rawExpected
                 ? `Est. harvest ~${new Date(rawExpected).toLocaleDateString()}`
                 : "No maturity set";
+              const thumbUrl = getBatchImageUrl(batch);
 
               return (
                 <li
@@ -709,6 +726,14 @@ export function ActiveGardenView({
                         className="mt-1 w-5 h-5 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
                       />
                     )}
+                    {/* Plant profile thumbnail (Law 7 hierarchy) */}
+                    <div className="shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl" aria-hidden>🌱</span>
+                      )}
+                    </div>
                     <Link
                       href={`/vault/${batch.plant_profile_id}?tab=plantings`}
                       className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"

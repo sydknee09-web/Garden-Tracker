@@ -158,6 +158,14 @@ function GardenPageInner() {
     setEndCropConfirmBatch(batch);
   }, []);
 
+  const handlePermanentPlantAdded = useCallback(() => {
+    if (viewMode === "active") {
+      setViewMode("plants");
+      setAddedToMyPlantsToast(true);
+      setTimeout(() => setAddedToMyPlantsToast(false), 2500);
+    }
+  }, [viewMode]);
+
   const confirmEndCrop = useCallback(async () => {
     if (!user?.id || !endCropConfirmBatch) return;
     const { error } = await supabase
@@ -530,13 +538,7 @@ function GardenPageInner() {
             <MyPlantsView
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchQuery}
-              onPermanentPlantAdded={() => {
-                if (viewMode === "active") {
-                  setViewMode("plants");
-                  setAddedToMyPlantsToast(true);
-                  setTimeout(() => setAddedToMyPlantsToast(false), 2500);
-                }
-              }}
+              onPermanentPlantAdded={handlePermanentPlantAdded}
               categoryFilter={plantsCategoryFilter}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               varietyFilter={plantsVarietyFilter}
