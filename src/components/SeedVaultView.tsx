@@ -492,8 +492,9 @@ export function SeedVaultView({
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
         return false;
       if (statusFilter === "vault") {
+        const st = (s.status ?? "").toLowerCase();
         if ((s.packet_count ?? 0) <= 0) return false;
-        if ((s.status ?? "").toLowerCase() === "out_of_stock") return false;
+        if (st === "out_of_stock" || st === "archived") return false;
       }
       if (statusFilter === "active") {
         if ((s.status ?? "").toLowerCase() !== "active on hillside") return false;
@@ -502,7 +503,8 @@ export function SeedVaultView({
         if ((s.packet_count ?? 0) > 1) return false;
       }
       if (statusFilter === "archived") {
-        if ((s.status ?? "").toLowerCase() !== "out_of_stock") return false;
+        const st = (s.status ?? "").toLowerCase();
+        if (st !== "out_of_stock" && st !== "archived") return false;
       }
       if (tagFilters.length > 0) {
         const seedTags = s.tags ?? [];
@@ -562,6 +564,14 @@ export function SeedVaultView({
 
   /** Vault status counts for Refine By panel: same buckets as status filter (All, In storage, Active, Low inventory, Archived). */
   const vaultStatusChips = useMemo(() => {
+    // Apply search query to counts so the chip numbers match what "Show results" would return.
+    const searchFiltered = q
+      ? seeds.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            (s.variety && s.variety.toLowerCase().includes(q))
+        )
+      : seeds;
     const statuses: { value: StatusFilter; label: string }[] = [
       { value: "", label: "All" },
       { value: "vault", label: "In storage" },
@@ -572,19 +582,26 @@ export function SeedVaultView({
     return statuses.map(({ value, label }) => {
       let count: number;
       if (value === "") {
-        count = seeds.length;
+        count = searchFiltered.length;
       } else if (value === "vault") {
-        count = seeds.filter((s) => (s.packet_count ?? 0) > 0 && (s.status ?? "").toLowerCase() !== "out_of_stock").length;
+        count = searchFiltered.filter((s) => {
+          const st = (s.status ?? "").toLowerCase();
+          return (s.packet_count ?? 0) > 0 && st !== "out_of_stock" && st !== "archived";
+        }).length;
       } else if (value === "active") {
-        count = seeds.filter((s) => (s.status ?? "").toLowerCase() === "active on hillside").length;
+        count = searchFiltered.filter((s) => (s.status ?? "").toLowerCase() === "active on hillside").length;
       } else if (value === "low_inventory") {
-        count = seeds.filter((s) => (s.packet_count ?? 0) <= 1).length;
+        count = searchFiltered.filter((s) => (s.packet_count ?? 0) <= 1).length;
       } else {
-        count = seeds.filter((s) => (s.status ?? "").toLowerCase() === "out_of_stock").length;
+        // "archived" bucket: profiles explicitly archived OR marked out_of_stock
+        count = searchFiltered.filter((s) => {
+          const st = (s.status ?? "").toLowerCase();
+          return st === "out_of_stock" || st === "archived";
+        }).length;
       }
       return { value, label, count };
     });
-  }, [seeds]);
+  }, [seeds, q]);
 
   const sowingMonthChips = useMemo(() => {
     const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
