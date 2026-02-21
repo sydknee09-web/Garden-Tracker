@@ -13,6 +13,7 @@ import { fetchWeatherSnapshot, formatWeatherBadge } from "@/lib/weatherSnapshot"
 import type { JournalEntry } from "@/types/garden";
 import type { GrowInstance } from "@/types/garden";
 import { compressImage } from "@/lib/compressImage";
+import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 
 type JournalEntryWithPlant = JournalEntry & {
   plant_name?: string;
@@ -535,13 +536,6 @@ export default function JournalPage() {
         weather_snapshot: weatherSnapshot ?? undefined,
       });
       insertErr = result.error;
-      if (!insertErr && selectedPacketId && (noteTrim?.toLowerCase().includes("plant") || noteTrim?.toLowerCase().includes("sown") || noteTrim?.toLowerCase().includes("sow"))) {
-        const pkt = packets.find((p) => p.id === selectedPacketId);
-        if (pkt && pkt.qty_status > 0) {
-          const newQty = Math.max(0, pkt.qty_status - 10);
-          await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", selectedPacketId).eq("user_id", sessionUserId);
-        }
-      }
     } finally {
       setSyncing(false);
       setSaving(false);
@@ -1573,7 +1567,7 @@ export default function JournalPage() {
                     <option value="">None</option>
                     {packets.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.vendor_name?.trim() || "Packet"} — {p.qty_status}% left
+                        {p.vendor_name?.trim() || "Packet"} — {qtyStatusToLabel(p.qty_status)} left
                         {p.purchase_date ? ` (${new Date(p.purchase_date).getFullYear()})` : ""}
                       </option>
                     ))}

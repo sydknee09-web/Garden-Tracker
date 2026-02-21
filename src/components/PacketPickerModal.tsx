@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { PacketQtyOptions } from "@/components/PacketQtyOptions";
+import { qtyStatusToLabel, usedPercentToLabel } from "@/lib/packetQtyLabels";
 
 export type PacketSelection = { packetId: string; percentUsed: number };
 
@@ -81,7 +83,7 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
     .filter(([, pct]) => pct > 0)
     .map(([pid, pct]) => {
       const p = packets.find((pk) => pk.id === pid);
-      return `${pct}% of ${p?.vendor_name?.trim() || "Packet"}`;
+      return `${usedPercentToLabel(pct)} of ${p?.vendor_name?.trim() || "Packet"}`;
     })
     .join(" + ");
 
@@ -116,22 +118,18 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
                     {imgUrl && <div className="w-10 h-10 rounded overflow-hidden bg-neutral-100 shrink-0"><img src={imgUrl} alt="" className="w-full h-full object-cover" /></div>}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-neutral-800 truncate">{pkt.vendor_name?.trim() || "Unknown Vendor"} {year ? `(${year})` : ""}</p>
-                      <p className="text-xs text-neutral-500">{pkt.qty_status}% remaining</p>
+                      <p className="text-xs text-neutral-500">{qtyStatusToLabel(pkt.qty_status)} remaining</p>
                     </div>
                   </div>
                   {checked && (
-                    <div className="mt-3 flex items-center gap-3">
-                      <label className="text-xs text-neutral-500 shrink-0">Use:</label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={pkt.qty_status}
+                    <div className="mt-3">
+                      <p className="text-xs text-neutral-500 mb-1.5">How much did you use?</p>
+                      <PacketQtyOptions
                         value={pctValue}
-                        onChange={(e) => updatePercent(pkt.id, Number(e.target.value))}
-                        className="flex-1 h-2 rounded-full appearance-none"
-                        style={{ background: "linear-gradient(to right, #10b981, #eab308, #ef4444)" }}
+                        onChange={(v) => updatePercent(pkt.id, v)}
+                        variant="used"
+                        maxValue={pkt.qty_status}
                       />
-                      <span className="text-xs text-neutral-700 font-medium w-10 text-right">{pctValue}%</span>
                     </div>
                   )}
                 </div>

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
+import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
@@ -43,6 +44,11 @@ function VaultPlantPageInner() {
   const [newPacketVendorByProfileId, setNewPacketVendorByProfileId] = useState<Record<string, string>>({});
   /** For profiles with no existing packets: % of the new packet to use (0–100, default 100) */
   const [newPacketUsePctByProfileId, setNewPacketUsePctByProfileId] = useState<Record<string, number>>({});
+  /** Sow method: direct_sow or seed_start. No default. */
+  const [sowMethod, setSowMethod] = useState<"direct_sow" | "seed_start" | null>(null);
+  /** Per-row optional seeds sown. Key: profile.id for existing, rowId for new variety. */
+  const [seedsSownByProfileId, setSeedsSownByProfileId] = useState<Record<string, number | "">>({});
+  const [seedsSownByRowId, setSeedsSownByRowId] = useState<Record<string, number | "">>({});
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
@@ -65,6 +71,8 @@ function VaultPlantPageInner() {
     setRows((prev) => prev.filter((r) => ("profile" in r ? r.profile.id : r.rowId) !== id));
     setNewPacketVendorByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setNewPacketUsePctByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setSeedsSownByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setSeedsSownByRowId((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }, []);
 
   const addSeedToBatch = useCallback((row: PlantRow) => {
@@ -239,7 +247,7 @@ function VaultPlantPageInner() {
           // Pre-calculate totalUsed — don't write packets yet (write after grow_instance succeeds)
           for (const pk of packets) {
             if (!selectedIds.includes(pk.id)) continue;
-            const usePct = usePercentByPacketId[pk.id] ?? 0;
+            const usePct = usePercentByPacketId[pk.id] ?? 50;
             if (usePct <= 0) continue;
             const packetValue = pk.qty_status / 100;
             const take = packetValue * (usePct / 100);
@@ -256,6 +264,11 @@ function VaultPlantPageInner() {
           ? new Date(new Date(today).getTime() + harvestDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
           : null;
 
+      const seedsSownVal = "isNew" in row
+        ? (seedsSownByRowId[row.rowId] === "" || seedsSownByRowId[row.rowId] == null ? null : Number(seedsSownByRowId[row.rowId]))
+        : (seedsSownByProfileId[profile.id] === "" || seedsSownByProfileId[profile.id] == null ? null : Number(seedsSownByProfileId[profile.id]));
+      const seedsSownNum = typeof seedsSownVal === "number" && !Number.isNaN(seedsSownVal) && seedsSownVal >= 0 ? seedsSownVal : null;
+
       // Create grow_instance FIRST — if this fails we don't want to have already archived the packet
       const { data: growRow, error: growErr } = await supabase
         .from("grow_instances")
@@ -267,6 +280,8 @@ function VaultPlantPageInner() {
           expected_harvest_date: expectedHarvestDate ?? null,
           status: "growing",
           location: plantLocation.trim() || null,
+          sow_method: sowMethod,
+          seeds_sown: seedsSownNum,
         })
         .select("id")
         .single();
@@ -302,7 +317,7 @@ function VaultPlantPageInner() {
           const selectedIds = selectedPacketIdsByProfileId[p2.id] ?? (packets.length === 1 ? [packets[0].id] : []);
           for (const pk of packets) {
             if (!selectedIds.includes(pk.id)) continue;
-            const usePct = usePercentByPacketId[pk.id] ?? 0;
+            const usePct = usePercentByPacketId[pk.id] ?? 50;
             if (usePct <= 0) continue;
             const packetValue = pk.qty_status / 100;
             const take = packetValue * (usePct / 100);
@@ -381,7 +396,7 @@ function VaultPlantPageInner() {
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId]);
 
   if (!user) return null;
 
@@ -431,6 +446,29 @@ function VaultPlantPageInner() {
             className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm text-black"
           />
         </div>
+        <div className="w-full">
+          <span className="block text-xs font-medium text-black/60 mb-1.5">Sow method</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSowMethod("direct_sow")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border text-sm font-medium ${
+                sowMethod === "direct_sow" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+              }`}
+            >
+              Direct sow
+            </button>
+            <button
+              type="button"
+              onClick={() => setSowMethod("seed_start")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border text-sm font-medium ${
+                sowMethod === "seed_start" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+              }`}
+            >
+              Seed start (transplant later)
+            </button>
+          </div>
+        </div>
         <div className="flex-1 min-w-[160px]">
           <label htmlFor="plant-notes" className="block text-xs font-medium text-black/60 mb-1">
             Notes (optional)
@@ -465,6 +503,18 @@ function VaultPlantPageInner() {
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${row.customName} packet`}
                     />
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={seedsSownByRowId[row.rowId] ?? ""}
+                        onChange={(e) => setSeedsSownByRowId((prev) => ({ ...prev, [row.rowId]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                        placeholder="e.g. 12"
+                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                        aria-label={`Seeds sown for ${row.customName}`}
+                      />
+                    </div>
                   </div>
                   <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
                 </div>
@@ -478,7 +528,6 @@ function VaultPlantPageInner() {
           const selectedPackets = packets.filter((p) => selectedIds.includes(p.id));
           if (packets.length === 0) {
             const newUsePct = newPacketUsePctByProfileId[profile.id] ?? 100;
-            const remainingPct = 100 - newUsePct;
             return (
               <div key={profile.id} className="py-3" role="listitem">
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -495,21 +544,29 @@ function VaultPlantPageInner() {
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${displayName} packet`}
                     />
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={seedsSownByProfileId[profile.id] ?? ""}
+                        onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                        placeholder="e.g. 12"
+                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                        aria-label={`Seeds sown for ${displayName}`}
+                      />
+                    </div>
                   </div>
                   <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={remainingPct}
-                    onChange={(e) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: 100 - Number(e.target.value) }))}
-                    className="range-thumb-lg flex-1 min-w-0"
-                    style={{ touchAction: "none" }}
-                    aria-label={`${displayName} new packet remaining`}
+                <div className="mt-2">
+                  <p className="text-xs text-black/60 mb-1.5">How much will you use?</p>
+                  <PacketQtyOptions
+                    value={newUsePct}
+                    onChange={(v) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: v }))}
+                    variant="used"
+                    maxValue={100}
                   />
-                  <span className="text-xs text-black/70 tabular-nums shrink-0">{remainingPct}%</span>
                 </div>
               </div>
             );
@@ -540,6 +597,18 @@ function VaultPlantPageInner() {
                       })}
                     </div>
                   )}
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={seedsSownByProfileId[profile.id] ?? ""}
+                      onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                      placeholder="e.g. 12"
+                      className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                      aria-label={`Seeds sown for ${displayName}`}
+                    />
+                  </div>
                 </div>
                 <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
               </div>
@@ -547,28 +616,19 @@ function VaultPlantPageInner() {
                 <p className="text-xs text-black/50 mt-1">Select a packet above</p>
               )}
               {selectedPackets.length > 0 && (
-                <div className="flex flex-col gap-1.5 pl-1">
+                <div className="flex flex-col gap-2 pl-1 mt-2">
                   {selectedPackets.map((pk, idx) => {
-                    const usePct = usePercentByPacketId[pk.id] ?? 0;
-                    const remainingPct = 100 - usePct;
-                    const pktQty = pk.qty_status / 100;
+                    const usePct = usePercentByPacketId[pk.id] ?? 50;
                     const vendor = (pk.vendor_name ?? "").trim();
                     return (
-                      <div key={pk.id} className="flex items-center gap-2 min-h-[44px]">
-                        <span className="text-[10px] text-black/45 w-20 truncate shrink-0">{vendor || "—"}</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          value={remainingPct}
-                          onChange={(e) => setUsePercentForPacket(pk.id, 100 - Number(e.target.value))}
-                          className="range-thumb-lg flex-1 min-w-0"
-                          style={{ touchAction: "none" }}
-                          aria-label={`${displayName} packet ${idx + 1} remaining (${pktQty.toFixed(1)} pkts)`}
+                      <div key={pk.id} className="flex flex-col gap-1">
+                        <span className="text-[10px] text-black/45 truncate">{vendor || "—"}</span>
+                        <PacketQtyOptions
+                          value={usePct}
+                          onChange={(v) => setUsePercentForPacket(pk.id, v)}
+                          variant="used"
+                          maxValue={pk.qty_status}
                         />
-                        <span className="text-xs text-black/70 tabular-nums shrink-0">
-                          {remainingPct}% <span className="text-black/50">({pktQty.toFixed(1)})</span>
-                        </span>
                       </div>
                     );
                   })}
@@ -685,7 +745,7 @@ function VaultPlantPageInner() {
               // No existing packets: allow if the new-packet use% > 0
               if (r.packets.length === 0) return (newPacketUsePctByProfileId[r.profile.id] ?? 100) > 0;
               const ids = selectedPacketIdsByProfileId[r.profile.id] ?? (r.packets.length === 1 ? [r.packets[0].id] : []);
-              return ids.some((pid) => (usePercentByPacketId[pid] ?? 0) > 0);
+              return ids.some((pid) => (usePercentByPacketId[pid] ?? 50) > 0);
             })
           }
           onClick={handleConfirm}

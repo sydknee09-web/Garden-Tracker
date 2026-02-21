@@ -14,6 +14,11 @@ import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { StarRating } from "@/components/StarRating";
+import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
+import { PacketQtyOptions } from "@/components/PacketQtyOptions";
+import { HarvestModal } from "@/components/HarvestModal";
+import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
@@ -160,6 +165,15 @@ export default function VaultSeedPage() {
 
   const [vendorDetailsOpen, setVendorDetailsOpen] = useState(false);
   const [openPacketDetails, setOpenPacketDetails] = useState<Set<string>>(new Set());
+  const [batchLogOpen, setBatchLogOpen] = useState(false);
+  const [batchLogTarget, setBatchLogTarget] = useState<BatchLogBatch | null>(null);
+  const [harvestTarget, setHarvestTarget] = useState<{ profileId: string; growId: string; displayName: string } | null>(null);
+  const [endBatchTarget, setEndBatchTarget] = useState<BatchLogBatch | null>(null);
+  const [endReason, setEndReason] = useState("season_ended");
+  const [endNote, setEndNote] = useState("");
+  const [endSaving, setEndSaving] = useState(false);
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<BatchLogBatch | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -331,11 +345,14 @@ export default function VaultSeedPage() {
         .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
       setJournalEntries((journals ?? []) as JournalEntry[]);
 
-      // Care schedules for this profile
-      const { data: careData } = await supabase.from("care_schedules")
+      // Care schedules: seed = templates only; permanent = all (they use is_template=false)
+      const isPermanentProfile = (profileData as { profile_type?: string })?.profile_type === "permanent";
+      let careQuery = supabase.from("care_schedules")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).eq("is_template", true)
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
         .order("title", { ascending: true });
+      if (!isPermanentProfile) careQuery = careQuery.eq("is_template", true);
+      const { data: careData } = await careQuery;
       setCareSchedules((careData ?? []) as CareSchedule[]);
 
       // Journal photos for hero picker
@@ -366,6 +383,62 @@ export default function VaultSeedPage() {
   }, [id, user?.id]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Plantings tab: quick care, end batch, delete batch
+  const handlePlantingsQuickCare = useCallback(async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
+    if (!user?.id) return;
+    const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+    const weather = await fetchWeatherSnapshot();
+    await supabase.from("journal_entries").insert({
+      user_id: user.id,
+      plant_profile_id: batch.plant_profile_id,
+      grow_instance_id: batch.id,
+      note: notes[action],
+      entry_type: "quick",
+      weather_snapshot: weather ?? undefined,
+    });
+    loadProfile();
+  }, [user?.id, loadProfile]);
+
+  const handlePlantingsEndBatch = useCallback(async () => {
+    if (!user?.id || !endBatchTarget) return;
+    setEndSaving(true);
+    const batchId = endBatchTarget.id;
+    const now = new Date().toISOString();
+    const isDead = endReason === "plant_died";
+    const status = isDead ? "dead" : "archived";
+    await supabase.from("grow_instances").update({ status, ended_at: now, end_reason: endReason }).eq("id", batchId);
+    await softDeleteTasksForGrowInstance(batchId, endBatchTarget.user_id ?? user.id);
+    if (endNote.trim() || isDead) {
+      const weather = await fetchWeatherSnapshot();
+      await supabase.from("journal_entries").insert({
+        user_id: user.id,
+        plant_profile_id: endBatchTarget.plant_profile_id,
+        grow_instance_id: batchId,
+        note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
+        entry_type: isDead ? "death" : "note",
+        weather_snapshot: weather ?? undefined,
+      });
+    }
+    setEndSaving(false);
+    setEndBatchTarget(null);
+    setEndReason("season_ended");
+    setEndNote("");
+    loadProfile();
+  }, [user?.id, endBatchTarget, endReason, endNote, loadProfile]);
+
+  const handlePlantingsDeleteBatch = useCallback(async () => {
+    if (!user?.id || !deleteBatchTarget) return;
+    setDeleteSaving(true);
+    const batchId = deleteBatchTarget.id;
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batchId);
+    if (!error) await softDeleteTasksForGrowInstance(batchId, deleteBatchTarget.user_id ?? user.id);
+    setDeleteSaving(false);
+    setDeleteBatchTarget(null);
+    if (error) return;
+    loadProfile();
+  }, [user?.id, deleteBatchTarget, loadProfile]);
 
   // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
   useEffect(() => {
@@ -1248,20 +1321,34 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats — tap cards to open their tabs */}
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
-            <p className="text-xs text-neutral-500 font-medium">Packets</p>
-            <p className="text-lg font-bold text-neutral-900">{packetCount}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
-            <p className="text-xs text-neutral-500 font-medium">Plantings</p>
-            <p className="text-lg font-bold text-neutral-900">{plantingsCount}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
+          {!isPermanent ? (
+            <button type="button" onClick={() => setActiveTab("packets")} aria-label="Open Packets tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
+              <p className="text-xs text-neutral-500 font-medium">Packets</p>
+              <p className="text-lg font-bold text-neutral-900">{packetCount}</p>
+            </button>
+          ) : (
+            <div className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
+              <p className="text-xs text-neutral-500 font-medium">Packets</p>
+              <p className="text-lg font-bold text-neutral-900">{packetCount}</p>
+            </div>
+          )}
+          {!isPermanent ? (
+            <button type="button" onClick={() => setActiveTab("plantings")} aria-label="Open Plantings tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
+              <p className="text-xs text-neutral-500 font-medium">Plantings</p>
+              <p className="text-lg font-bold text-neutral-900">{plantingsCount}</p>
+            </button>
+          ) : (
+            <div className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
+              <p className="text-xs text-neutral-500 font-medium">Plantings</p>
+              <p className="text-lg font-bold text-neutral-900">{plantingsCount}</p>
+            </div>
+          )}
+          <button type="button" onClick={() => setActiveTab("journal")} aria-label="Open Journal tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
             <p className="text-xs text-neutral-500 font-medium">Yield</p>
             <p className="text-lg font-bold text-neutral-900 truncate">{yieldLabel}</p>
-          </div>
+          </button>
         </div>
 
         {/* Tabs */}
@@ -1635,15 +1722,13 @@ export default function VaultSeedPage() {
                         </div>
                         {/* Row 2: date + qty controls */}
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          {canEdit ? (
-                            <>
-                              <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
-                              <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="flex-1 min-w-[6rem] h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
-                              <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-neutral-500 tabular-nums">{pkt.qty_status}%</span>
-                          )}
+                          <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" disabled={!canEdit} />
+                          <PacketQtyOptions
+                            value={pkt.qty_status}
+                            onChange={(v) => updatePacketQty(pkt.id, v)}
+                            variant="remaining"
+                            disabled={!canEdit}
+                          />
                         </div>
                         {open && (
                           <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
@@ -1707,6 +1792,40 @@ export default function VaultSeedPage() {
                                 <p className="text-sm text-neutral-700">{pkt.storage_location}</p>
                               </div>
                             )}
+                            {(() => {
+                              const plantingsForPacket = growInstances.filter((gi) => (gi as { seed_packet_id?: string }).seed_packet_id === pkt.id);
+                              const withGermination = plantingsForPacket.filter((gi) => (gi as GrowInstance).seeds_sown != null && (gi as GrowInstance).seeds_sprouted != null && (gi as GrowInstance).seeds_sown! > 0);
+                              const avgGerm = withGermination.length >= 2
+                                ? Math.round(withGermination.reduce((sum, gi) => sum + (100 * (gi as GrowInstance).seeds_sprouted! / (gi as GrowInstance).seeds_sown!), 0) / withGermination.length)
+                                : null;
+                              return (
+                                <div>
+                                  <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Germination</p>
+                                  {plantingsForPacket.length === 0 ? (
+                                    <p className="text-sm text-neutral-400">No plantings used this packet yet.</p>
+                                  ) : (
+                                    <ul className="space-y-1">
+                                      {plantingsForPacket.map((gi) => {
+                                        const g = gi as GrowInstance;
+                                        const germ = g.seeds_sown != null && g.seeds_sprouted != null && g.seeds_sown > 0
+                                          ? `${g.seeds_sprouted} of ${g.seeds_sown} sprouted`
+                                          : null;
+                                        return (
+                                          <li key={gi.id} className="text-sm">
+                                            <span className="text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
+                                            {gi.location && <span className="text-neutral-500"> · {gi.location}</span>}
+                                            {germ && <span className="text-emerald-600 font-medium ml-1"> · {germ}</span>}
+                                          </li>
+                                        );
+                                      })}
+                                      {avgGerm != null && (
+                                        <li className="text-sm font-medium text-emerald-700 pt-1">Avg germination: {avgGerm}%</li>
+                                      )}
+                                    </ul>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <div>
                               <p className="text-xs font-medium uppercase text-neutral-500 mb-1">Used in journal</p>
                               {loadingJournalForPacket.has(pkt.id) ? <p className="text-sm text-neutral-400">Loading...</p> : (journalByPacketId[pkt.id]?.length ?? 0) > 0 ? (
@@ -1765,16 +1884,26 @@ export default function VaultSeedPage() {
                   const harvests = giJournals.filter((j) => j.entry_type === "harvest");
                   const statusColor = gi.status === "growing" ? "bg-green-100 text-green-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
                   const isActive = gi.status === "growing" || gi.status === "pending";
+                  const giCanEdit = canEditUser((gi as { user_id?: string }).user_id ?? profileOwnerId);
+                  const sowBadge = (gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null;
                   const cardContent = (
                     <>
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>{gi.status ?? "unknown"}</span>
+                          {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
                           {gi.location && <span className="text-xs text-neutral-500">{gi.location}</span>}
                         </div>
                         <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
                       </div>
                       <div className="text-sm text-neutral-700 space-y-1">
+                        {(gi as GrowInstance).seeds_sown != null && <span className="text-xs text-neutral-600">{(gi as GrowInstance).seeds_sown} sown</span>}
+                        {(gi as GrowInstance).seeds_sprouted != null && (gi as GrowInstance).seeds_sown != null && (
+                          <span className="text-xs text-neutral-600"> · {(gi as GrowInstance).seeds_sprouted} of {(gi as GrowInstance).seeds_sown} sprouted</span>
+                        )}
+                        {(gi as GrowInstance).plant_count != null && (
+                          <span className="text-xs font-medium text-emerald-600 ml-1"> · {(gi as GrowInstance).plant_count} plants</span>
+                        )}
                         {gi.end_reason && <p className="text-xs text-neutral-500">Ended: {gi.end_reason}</p>}
                         {harvests.length > 0 && <p className="text-xs text-emerald-600 font-medium">Harvested {harvests.length} time{harvests.length !== 1 ? "s" : ""}</p>}
                       </div>
@@ -1795,15 +1924,43 @@ export default function VaultSeedPage() {
                       )}
                     </>
                   );
+                  const batchForLog: BatchLogBatch = {
+                    id: gi.id,
+                    plant_profile_id: gi.plant_profile_id ?? id,
+                    profile_name: profile?.name ?? "",
+                    profile_variety_name: profile?.variety_name ?? null,
+                    seeds_sown: (gi as GrowInstance).seeds_sown ?? null,
+                    seeds_sprouted: (gi as GrowInstance).seeds_sprouted ?? null,
+                    plant_count: (gi as GrowInstance).plant_count ?? null,
+                    location: gi.location ?? null,
+                    user_id: (gi as { user_id?: string }).user_id ?? null,
+                  };
                   return (
                     <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
-                      {isActive ? (
-                        <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-4 p-4 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
-                          {cardContent}
-                        </Link>
-                      ) : (
-                        cardContent
-                      )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          {isActive ? (
+                            <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
+                              {cardContent}
+                            </Link>
+                          ) : (
+                            cardContent
+                          )}
+                        </div>
+                        {giCanEdit && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 shrink-0"
+                            aria-label="Log care or journal entry"
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" /><path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
+                              <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1911,6 +2068,76 @@ export default function VaultSeedPage() {
                 <button type="submit" disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPacketSaving ? "Adding…" : "Add packet"}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* BatchLogSheet for Plantings tab */}
+      <BatchLogSheet
+        open={batchLogOpen}
+        batches={batchLogTarget ? [batchLogTarget] : []}
+        onClose={() => { setBatchLogOpen(false); setBatchLogTarget(null); }}
+        onSaved={loadProfile}
+        onLogHarvest={(b) => {
+          setHarvestTarget({ profileId: b.plant_profile_id, growId: b.id, displayName: b.profile_variety_name?.trim() ? `${b.profile_name} (${b.profile_variety_name})` : b.profile_name });
+          setBatchLogOpen(false);
+          setBatchLogTarget(null);
+        }}
+        onEndBatch={(b) => { setEndBatchTarget(b); setBatchLogOpen(false); setBatchLogTarget(null); }}
+        onDeleteBatch={(b) => { setDeleteBatchTarget(b); setBatchLogOpen(false); setBatchLogTarget(null); }}
+        onQuickCare={handlePlantingsQuickCare}
+      />
+
+      <HarvestModal
+        open={!!harvestTarget}
+        onClose={() => setHarvestTarget(null)}
+        onSaved={() => { loadProfile(); setHarvestTarget(null); }}
+        profileId={harvestTarget?.profileId ?? ""}
+        growInstanceId={harvestTarget?.growId ?? ""}
+        displayName={harvestTarget?.displayName ?? ""}
+      />
+
+      {endBatchTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">End Batch</h2>
+            <p className="text-sm text-neutral-600 mb-4">{endBatchTarget.profile_variety_name?.trim() ? `${endBatchTarget.profile_name} (${endBatchTarget.profile_variety_name})` : endBatchTarget.profile_name}</p>
+            <div className="space-y-3 mb-4">
+              {[
+                { value: "season_ended", label: "Season Ended" },
+                { value: "harvested_all", label: "Harvested All" },
+                { value: "plant_died", label: "Plant Died" },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="end-reason" value={opt.value} checked={endReason === opt.value} onChange={() => setEndReason(opt.value)} className="text-emerald-600 focus:ring-emerald-500" />
+                  <span className={`text-sm font-medium ${opt.value === "plant_died" ? "text-red-600" : "text-neutral-700"}`}>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            <textarea placeholder="Optional note..." value={endNote} onChange={(e) => setEndNote(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm mb-4 focus:ring-emerald-500" />
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setEndBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+              <button type="button" onClick={handlePlantingsEndBatch} disabled={endSaving} className={`px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50 ${endReason === "plant_died" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}>
+                {endSaving ? "Saving..." : endReason === "plant_died" ? "Mark as Dead" : "End Batch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteBatchTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Delete Batch</h2>
+            <p className="text-sm text-neutral-600 mb-4">
+              Permanently remove {deleteBatchTarget.profile_variety_name?.trim() ? `${deleteBatchTarget.profile_name} (${deleteBatchTarget.profile_variety_name})` : deleteBatchTarget.profile_name}? This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setDeleteBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+              <button type="button" onClick={handlePlantingsDeleteBatch} disabled={deleteSaving} className="px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
+                {deleteSaving ? "Deleting..." : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}

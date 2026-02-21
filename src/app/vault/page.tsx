@@ -528,13 +528,17 @@ function VaultPageInner() {
   const [plantNotes, setPlantNotes] = useState("");
   type PlantProfileForModal = { id: string; name: string; variety_name: string | null; harvest_days: number | null; planting_window?: string | null };
   type SeedPacketRow = { id: string; qty_status: number; created_at?: string };
-  type PlantQuantityChoice = "50%" | "1 Pkt" | "All";
+  type PlantQuantityChoice = "Half" | "One packet" | "All";
   type PlantModalRow = { profile: PlantProfileForModal; packets: SeedPacketRow[]; quantityChoice: PlantQuantityChoice };
   const [plantModalRows, setPlantModalRows] = useState<PlantModalRow[]>([]);
+  const [plantSowMethod, setPlantSowMethod] = useState<"direct_sow" | "seed_start" | null>(null);
+  const [plantSeedsSownByProfileId, setPlantSeedsSownByProfileId] = useState<Record<string, number | "">>({});
   useEffect(() => {
     if (!plantModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
     setPlantDate(new Date().toISOString().slice(0, 10));
     setPlantNotes("");
+    setPlantSowMethod(null);
+    setPlantSeedsSownByProfileId({});
     let cancelled = false;
     (async () => {
       const ids = Array.from(selectedVarietyIds);
@@ -600,12 +604,16 @@ function VaultPageInner() {
       const p = row.profile;
       const effectiveTotal = row.packets.reduce((s, pk) => s + pk.qty_status / 100, 0);
       const choice = plantAllSeeds ? "All" : row.quantityChoice;
-      const toUse = choice === "All" ? effectiveTotal : choice === "1 Pkt" ? 1 : effectiveTotal * 0.5;
+      const toUse = choice === "All" ? effectiveTotal : choice === "One packet" ? 1 : effectiveTotal * 0.5;
 
       const harvestDays = p.harvest_days != null && p.harvest_days > 0 ? p.harvest_days : null;
       const expectedHarvestDate = harvestDays != null
         ? new Date(new Date(sownDate).getTime() + harvestDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
         : null;
+
+      const seedsSownVal = plantSeedsSownByProfileId[p.id];
+      const seedsSownNum = seedsSownVal === "" || seedsSownVal == null ? null : Number(seedsSownVal);
+      const seedsSownFinal = typeof seedsSownNum === "number" && !Number.isNaN(seedsSownNum) && seedsSownNum >= 0 ? seedsSownNum : null;
 
       const { data: growRow, error: growErr } = await supabase
         .from("grow_instances")
@@ -615,6 +623,8 @@ function VaultPageInner() {
           sown_date: sownDate,
           expected_harvest_date: expectedHarvestDate ?? null,
           status: "growing",
+          sow_method: plantSowMethod,
+          seeds_sown: seedsSownFinal,
         })
         .select("id")
         .single();
@@ -683,7 +693,7 @@ function VaultPageInner() {
     setRefetchTrigger((t) => t + 1);
     setSaveToastMessage("Planted!");
     setTimeout(() => router.push("/garden?tab=active"), 600);
-  }, [user?.id, plantModalRows, plantDate, plantNotes, router, consumePackets]);
+  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {
     setPlantModalRows((prev) => prev.map((r) => (r.profile.id === profileId ? { ...r, quantityChoice: choice } : r)));
@@ -1559,6 +1569,29 @@ function VaultPageInner() {
                   className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
                 />
               </div>
+              <div className="mt-3">
+                <span className="block text-xs font-medium text-black/60 mb-1.5">Sow method</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPlantSowMethod("direct_sow")}
+                    className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${
+                      plantSowMethod === "direct_sow" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+                    }`}
+                  >
+                    Direct sow
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlantSowMethod("seed_start")}
+                    className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${
+                      plantSowMethod === "seed_start" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+                    }`}
+                  >
+                    Seed start (transplant later)
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {plantModalRows.length === 0 ? (
@@ -1595,9 +1628,21 @@ function VaultPageInner() {
                             </span>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={plantSeedsSownByProfileId[p.id] ?? ""}
+                            onChange={(e) => setPlantSeedsSownByProfileId((prev) => ({ ...prev, [p.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                            placeholder="e.g. 12"
+                            className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                            aria-label={`Seeds sown for ${displayName}`}
+                          />
+                        </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-medium text-black/60">Use:</span>
-                          {(["50%", "1 Pkt", "All"] as const).map((opt) => (
+                          {(["Half", "One packet", "All"] as const).map((opt) => (
                             <button
                               key={opt}
                               type="button"

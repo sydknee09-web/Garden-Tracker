@@ -287,7 +287,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
 
     const nameNorm = normalizeForMatch(name);
     const varietyNorm = normalizeForMatch(varietyName);
-    const volToQty: Record<string, number> = { full: 100, partial: 50, low: 20, empty: 0 };
+    const volToQty: Record<string, number> = { full: 100, partial: 50, low: 25, empty: 0 };
     const qtyStatus = volToQty[volumeForDb] ?? 100;
 
     const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null);

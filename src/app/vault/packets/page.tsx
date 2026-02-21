@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { StarRating } from "@/components/StarRating";
+import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 
 type PacketRow = {
   id: string;
@@ -142,7 +143,7 @@ export default function AllPacketsPage() {
                       </td>
                       <td className="px-4 py-3 text-neutral-600">{pkt.vendor_name?.trim() || "--"}</td>
                       <td className="px-4 py-3 text-neutral-500">{pkt.purchase_date ? new Date(pkt.purchase_date).toLocaleDateString() : "--"}</td>
-                      <td className={`px-4 py-3 font-medium ${qtyColor}`}>{pkt.qty_status}%</td>
+                      <td className={`px-4 py-3 font-medium ${qtyColor}`}>{qtyStatusToLabel(pkt.qty_status)}</td>
                       <td className="px-4 py-3">
                         {pkt.is_archived ? (
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-500">Archived</span>

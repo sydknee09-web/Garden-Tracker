@@ -13,6 +13,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -763,7 +764,7 @@ export default function CalendarPage() {
                           {packets.map((pkt, i) => (
                             <li key={i} className="text-sm text-black/70 flex justify-between">
                               <span>{pkt.vendor_name?.trim() || "—"}</span>
-                              <span>{pkt.qty_status}%</span>
+                              <span>{qtyStatusToLabel(pkt.qty_status)}</span>
                             </li>
                           ))}
                         </ul>
