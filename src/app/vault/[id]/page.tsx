@@ -19,6 +19,7 @@ import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
@@ -181,6 +182,8 @@ export default function VaultSeedPage() {
   const [addPlantError, setAddPlantError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState(false);
   const [editForm, setEditForm] = useState({
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
@@ -243,6 +246,7 @@ export default function VaultSeedPage() {
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
   useModalBackClose(showAddPlantModal, () => { setShowAddPlantModal(false); setAddPlantError(null); });
+  useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
   useEffect(() => {
     if (!showSetPhotoModal) {
@@ -969,6 +973,41 @@ export default function VaultSeedPage() {
     await loadProfile();
   }, [user?.id, profile, id, editForm, loadProfile]);
 
+  const handleDeleteProfile = useCallback(async () => {
+    if (!user?.id || !id || !profile) return;
+    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
+    if (isLeg) return; // Legacy plant_varieties not supported
+    setDeletingProfile(true);
+    setError(null);
+    const now = new Date().toISOString();
+    const ownerId = profileOwnerId || user.id;
+    try {
+      // 1. Soft-delete tasks (by plant_profile_id and by grow_instance_id)
+      await cascadeTasksAndShoppingForDeletedProfiles(supabase, [id], ownerId);
+      for (const g of growInstances) {
+        await softDeleteTasksForGrowInstance(g.id, g.user_id ?? ownerId);
+      }
+      // 2. Soft-delete journal entries
+      await supabase.from("journal_entries").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
+      // 3. Soft-delete grow instances
+      await supabase.from("grow_instances").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
+      // 4. Soft-delete seed packets
+      await supabase.from("seed_packets").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
+      // 5. Soft-delete care schedules
+      await supabase.from("care_schedules").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
+      // 6. Soft-delete plant profile
+      const { error: profileErr } = await supabase.from("plant_profiles").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
+      if (profileErr) throw profileErr;
+      setShowDeleteConfirm(false);
+      setShowEditModal(false);
+      router.push("/vault");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete profile");
+    } finally {
+      setDeletingProfile(false);
+    }
+  }, [user?.id, id, profile, profileOwnerId, growInstances, router]);
+
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
   const sortedPackets = useMemo(() => {
     return [...packets].sort((a, b) => {
@@ -1246,8 +1285,27 @@ export default function VaultSeedPage() {
                 <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
               </div>
             </div>
-            <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+            <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
+              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 disabled:opacity-50">Delete Plant Profile</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" role="alertdialog" aria-modal="true" aria-labelledby="delete-profile-title">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+            <h2 id="delete-profile-title" className="text-lg font-semibold text-neutral-900 mb-2">Delete Plant Profile?</h2>
+            <p className="text-sm text-neutral-600 mb-4">
+              This will remove this plant profile and all associated data: seed packets, growing instances, journal entries, and care schedules. This cannot be undone.
+            </p>
+            {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
+            <div className="flex gap-3">
+              <button type="button" onClick={() => { setShowDeleteConfirm(false); setError(null); }} disabled={deletingProfile} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={handleDeleteProfile} disabled={deletingProfile} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50">{deletingProfile ? "Deleting…" : "Delete"}</button>
             </div>
           </div>
         </div>

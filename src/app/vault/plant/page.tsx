@@ -560,7 +560,6 @@ function VaultPlantPageInner() {
                   <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
                 </div>
                 <div className="mt-2">
-                  <p className="text-xs text-black/60 mb-1.5">How much will you use?</p>
                   <PacketQtyOptions
                     value={newUsePct}
                     onChange={(v) => setNewPacketUsePctByProfileId((prev) => ({ ...prev, [profile.id]: v }))}

@@ -123,7 +123,6 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
                   </div>
                   {checked && (
                     <div className="mt-3">
-                      <p className="text-xs text-neutral-500 mb-1.5">How much did you use?</p>
                       <PacketQtyOptions
                         value={pctValue}
                         onChange={(v) => updatePercent(pkt.id, v)}

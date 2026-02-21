@@ -73,11 +73,17 @@ export function PacketQtyOptions({
   };
 
   return (
-    <div
-      className={`flex flex-wrap gap-1.5 ${className}`}
-      role="group"
-      aria-label={variant === "remaining" ? "Packet fullness" : "How much to use"}
-    >
+    <div className={className}>
+      {variant === "used" && (
+        <p className="text-xs text-black/60 mb-1.5">
+          Amount of packet to use for this planting (not how much is left)
+        </p>
+      )}
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label={variant === "remaining" ? "Packet fullness" : "How much to use"}
+      >
       {options.map((opt) => {
         const exactMatch = value === opt.value;
         const displaySelected = exactMatch || (options.length > 0 && closestOption(value, options) === opt.value);
@@ -100,6 +106,7 @@ export function PacketQtyOptions({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }
