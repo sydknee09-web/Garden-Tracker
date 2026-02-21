@@ -69,6 +69,7 @@ export function BatchLogSheet({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [careNote, setCareNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [growthMilestonesOpen, setGrowthMilestonesOpen] = useState(false);
 
   const isBulk = batches.length > 1;
   const firstBatch = batches[0];
@@ -263,8 +264,8 @@ export function BatchLogSheet({
           <p className="px-4 pb-2 text-sm text-black/60">{displayName}</p>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Quick care row — always visible for bulk; for single, show as selectable */}
+        <div className="flex-1 overflow-y-auto p-4 pt-6 space-y-6">
+          {/* Primary actions — Water, Fertilize, Spray */}
           <div className="flex gap-2">
             <button
               type="button"
@@ -291,94 +292,116 @@ export function BatchLogSheet({
 
           {!isBulk && (
             <>
-              {/* Log germination — hidden for permanent plants */}
+              {/* Growth milestones — collapsible */}
               {!isPermanent && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => toggleAction("germination")}
-                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${
-                    selectedActions.has("germination") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"
-                  }`}
-                >
-                  Log germination
-                  <span aria-hidden>{selectedActions.has("germination") ? "▴" : "▾"}</span>
-                </button>
-                {selectedActions.has("germination") && (
-                  <div className="mt-2 pl-2">
-                    <label className="block text-xs font-medium text-black/60 mb-1">How many sprouted?</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={seedsSprouted}
-                      onChange={(e) => setSeedsSprouted(e.target.value)}
-                      placeholder={firstBatch?.seeds_sown != null ? `of ${firstBatch.seeds_sown}` : "e.g. 10"}
-                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setGrowthMilestonesOpen((o) => !o)}
+                    className="w-full min-h-[44px] flex items-center justify-between px-0 py-3 text-sm font-medium text-black/80 hover:text-black border-b border-black/5"
+                  >
+                    <span>Growth milestones</span>
+                    <span aria-hidden>{growthMilestonesOpen ? "▴" : "▾"}</span>
+                  </button>
+                  {growthMilestonesOpen && (
+                    <div className="pt-2 space-y-1 divide-y divide-black/5">
+                      {/* Log germination */}
+                      <div className="pt-3 first:pt-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleAction("germination")}
+                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                            selectedActions.has("germination") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            Log germination
+                            {firstBatch?.seeds_sprouted != null ? (
+                              <span className="text-xs font-normal text-emerald-600">✓ Logged</span>
+                            ) : (
+                              <span className="text-xs font-normal text-black/50">Not yet logged</span>
+                            )}
+                          </span>
+                          <span aria-hidden>{selectedActions.has("germination") ? "▴" : "▾"}</span>
+                        </button>
+                        {selectedActions.has("germination") && (
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium text-black/60 mb-1">How many sprouted?</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={seedsSprouted}
+                              onChange={(e) => setSeedsSprouted(e.target.value)}
+                              placeholder={firstBatch?.seeds_sown != null ? `of ${firstBatch.seeds_sown}` : "e.g. 10"}
+                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Update plant count */}
+                      <div className="pt-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleAction("plant_count")}
+                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                            selectedActions.has("plant_count") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                          }`}
+                        >
+                          Update plant count
+                          <span aria-hidden>{selectedActions.has("plant_count") ? "▴" : "▾"}</span>
+                        </button>
+                        {selectedActions.has("plant_count") && (
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium text-black/60">How many plants now?</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={plantCount}
+                              onChange={(e) => setPlantCount(e.target.value)}
+                              placeholder="e.g. Thinned to 5, gave 2 away"
+                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Transplant */}
+                      <div className="pt-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleAction("transplant")}
+                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                            selectedActions.has("transplant") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                          }`}
+                        >
+                          Transplant
+                          <span aria-hidden>{selectedActions.has("transplant") ? "▴" : "▾"}</span>
+                        </button>
+                        {selectedActions.has("transplant") && (
+                          <div className="mt-2 space-y-2">
+                            <input
+                              type="number"
+                              min={0}
+                              value={plantCount}
+                              onChange={(e) => setPlantCount(e.target.value)}
+                              placeholder="Plant count"
+                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                            />
+                            <input
+                              type="text"
+                              value={transplantLocation}
+                              onChange={(e) => setTransplantLocation(e.target.value)}
+                              placeholder="New location"
+                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
-
-              {/* Update plant count */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => toggleAction("plant_count")}
-                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${
-                    selectedActions.has("plant_count") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"
-                  }`}
-                >
-                  Update plant count
-                  <span aria-hidden>{selectedActions.has("plant_count") ? "▴" : "▾"}</span>
-                </button>
-                {selectedActions.has("plant_count") && (
-                  <div className="mt-2 pl-2 space-y-2">
-                    <label className="block text-xs font-medium text-black/60">How many plants now?</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={plantCount}
-                      onChange={(e) => setPlantCount(e.target.value)}
-                      placeholder="e.g. Thinned to 5, gave 2 away"
-                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Transplant */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => toggleAction("transplant")}
-                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${
-                    selectedActions.has("transplant") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"
-                  }`}
-                >
-                  Transplant
-                  <span aria-hidden>{selectedActions.has("transplant") ? "▴" : "▾"}</span>
-                </button>
-                {selectedActions.has("transplant") && (
-                  <div className="mt-2 pl-2 space-y-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={plantCount}
-                      onChange={(e) => setPlantCount(e.target.value)}
-                      placeholder="Plant count"
-                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={transplantLocation}
-                      onChange={(e) => setTransplantLocation(e.target.value)}
-                      placeholder="New location"
-                      className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                    />
-                  </div>
-                )}
-              </div>
 
               {/* Care note (when water/fertilize/spray selected) */}
               {(selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) && (
@@ -394,54 +417,124 @@ export function BatchLogSheet({
                 </div>
               )}
 
-              {/* Harvest */}
+              {/* Harvest — secondary milestone, always visible */}
               <button
                 type="button"
                 onClick={handleHarvest}
-                className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium"
+                className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border-b border-black/5 text-emerald-700 hover:bg-emerald-50/50 text-sm font-medium"
               >
                 <span>🧺</span> Harvest
               </button>
 
-              {/* Add note */}
-              <div>
+              {/* Media — Add note, Add photo */}
+              <div className="space-y-1 divide-y divide-black/5">
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleAction("note")}
+                    className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                      selectedActions.has("note") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                    }`}
+                  >
+                    Add note
+                    <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
+                  </button>
+                  {selectedActions.has("note") && (
+                    <div className="mt-2">
+                      <textarea
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Growth update, note…"
+                        rows={3}
+                        className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleAction("photo")}
+                    className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                      selectedActions.has("photo") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                    }`}
+                  >
+                    Add photo
+                    <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
+                  </button>
+                  {selectedActions.has("photo") && (
+                    <div className="mt-2">
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                      {photoPreview ? (
+                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
+                          <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhoto(null);
+                              setPhotoPreview(null);
+                            }}
+                            className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border border-black/10 text-black/60 hover:bg-black/5 text-sm"
+                        >
+                          Choose photo or take one
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </>
+          )}
+
+          {isBulk && (
+            <div className="space-y-1 divide-y divide-black/5">
+              <div className="pt-3">
                 <button
                   type="button"
                   onClick={() => toggleAction("note")}
-                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${
-                    selectedActions.has("note") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"
+                  className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                    selectedActions.has("note") ? "text-emerald-700" : "text-black/80 hover:text-black"
                   }`}
                 >
                   Add note
                   <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
                 </button>
                 {selectedActions.has("note") && (
-                  <div className="mt-2 pl-2">
+                  <div className="mt-2">
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Growth update, note…"
+                      placeholder="Note for all selected…"
                       rows={3}
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
                     />
                   </div>
                 )}
               </div>
-
-              {/* Add photo */}
-              <div>
+              <div className="pt-3">
                 <button
                   type="button"
                   onClick={() => toggleAction("photo")}
-                  className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${
-                    selectedActions.has("photo") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"
+                  className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
+                    selectedActions.has("photo") ? "text-emerald-700" : "text-black/80 hover:text-black"
                   }`}
                 >
                   Add photo
                   <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
                 </button>
                 {selectedActions.has("photo") && (
-                  <div className="mt-2 pl-2">
+                  <div className="mt-2">
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                     {photoPreview ? (
                       <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
@@ -461,95 +554,32 @@ export function BatchLogSheet({
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm"
+                        className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border border-black/10 text-black/60 hover:bg-black/5 text-sm"
                       >
-                        Choose photo or take one
+                        Choose photo
                       </button>
                     )}
                   </div>
                 )}
               </div>
-
-              {/* Bulk mode: Add note and Add photo */}
-              {isBulk && (
-                <>
-                  <div>
-                    <button type="button" onClick={() => toggleAction("note")} className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${selectedActions.has("note") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"}`}>
-                      Add note
-                      <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
-                    </button>
-                    {selectedActions.has("note") && (
-                      <div className="mt-2 pl-2">
-                        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note for all selected…" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <button type="button" onClick={() => toggleAction("photo")} className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${selectedActions.has("photo") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"}`}>
-                      Add photo
-                      <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
-                    </button>
-                    {selectedActions.has("photo") && (
-                      <div className="mt-2 pl-2">
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                        {photoPreview ? (
-                          <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                            <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                            <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => fileInputRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Choose photo</button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
+            </div>
           )}
 
-          {isBulk && (
-            <>
-              <div>
-                <button type="button" onClick={() => toggleAction("note")} className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${selectedActions.has("note") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"}`}>
-                  Add note
-                  <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
-                </button>
-                {selectedActions.has("note") && (
-                  <div className="mt-2 pl-2">
-                    <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note for all selected…" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <button type="button" onClick={() => toggleAction("photo")} className={`w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-medium ${selectedActions.has("photo") ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/80 hover:bg-black/5"}`}>
-                  Add photo
-                  <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
-                </button>
-                {selectedActions.has("photo") && (
-                  <div className="mt-2 pl-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                    {photoPreview ? (
-                      <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                        <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Choose photo</button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* End batch, Delete — single only */}
+          {/* Administrative — End batch, Delete — single only */}
           {!isBulk && firstBatch && (
-            <div className="pt-4 mt-4 border-t border-black/10 space-y-2">
-              <button type="button" onClick={handleEndBatch} className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-200 text-amber-700 hover:bg-amber-50 text-sm font-medium">
+            <div className="pt-6 mt-6 border-t border-black/10 space-y-2">
+              <button
+                type="button"
+                onClick={handleEndBatch}
+                className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border border-red-200/60 text-red-600 hover:bg-red-50 text-sm font-medium"
+              >
                 <span>📦</span> End batch
               </button>
-              <button type="button" onClick={handleDeleteBatch} className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-sm font-medium">
+              <button
+                type="button"
+                onClick={handleDeleteBatch}
+                className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-sm font-medium"
+              >
                 <span>🗑</span> Delete
               </button>
             </div>

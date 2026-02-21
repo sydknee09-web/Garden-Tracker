@@ -614,7 +614,7 @@ export function ActiveGardenView({
         </div>
       )}
 
-      {/* Bulk mode: Cancel exits; when batches selected, FAB becomes journal icon (garden page). Tap cards to select. */}
+      {/* Bulk mode: Cancel exits; Log opens BatchLogSheet; FAB also becomes journal icon (garden page). Tap cards to select. */}
       {bulkMode && (
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <button
@@ -625,7 +625,26 @@ export function ActiveGardenView({
             Cancel
           </button>
           {bulkSelected.size > 0 && (
-            <span className="text-sm text-black/60 shrink-0">Selecting ({bulkSelected.size}) — tap journal icon to log</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const selected = growing.filter((b) => bulkSelected.has(b.id));
+                  setBatchLogBatches(selected.map(toBatchLogBatch));
+                  setBatchLogOpen(true);
+                  onBulkLogRequestHandled?.();
+                }}
+                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                aria-label="Log for selected plants"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Log
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -712,6 +731,7 @@ export function ActiveGardenView({
                           longPressFiredRef.current = true;
                           setBulkMode(true);
                           setBulkSelected((prev) => new Set(prev).add(batch.id));
+                          onBulkModeChange?.(true);
                         }, LONG_PRESS_MS);
                       } : undefined}
                       onTouchMove={canEditUser(batch.user_id ?? "") ? () => {
