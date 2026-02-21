@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ActiveGardenView } from "@/components/ActiveGardenView";
 import { MyPlantsView } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
-import { AddStoreBoughtPlantModal } from "@/components/AddStoreBoughtPlantModal";
+import { AddPlantModal } from "@/components/AddPlantModal";
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,9 +69,15 @@ function GardenPageInner() {
   const [bulkModeActive, setBulkModeActive] = useState(false);
   const [openBulkLogForActive, setOpenBulkLogForActive] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
-  const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
-  const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
-  const [permanentPlantModalInternalOpen, setPermanentPlantModalInternalOpen] = useState(false);
+  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
+  const [plantsGridDisplayStyle, setPlantsGridDisplayStyle] = useState<"photo" | "condensed">(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("garden-plants-grid-style");
+      if (saved === "photo" || saved === "condensed") return saved;
+    }
+    return "condensed";
+  });
 
   const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
   const [logGrowthNote, setLogGrowthNote] = useState("");
@@ -93,6 +99,10 @@ function GardenPageInner() {
     if (typeof window === "undefined") return;
     try { sessionStorage.setItem("garden-view-mode", viewMode); } catch { /* ignore */ }
   }, [viewMode]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem("garden-plants-grid-style", plantsGridDisplayStyle); } catch { /* ignore */ }
+  }, [plantsGridDisplayStyle]);
 
   const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setActiveCategoryChips(chips);
@@ -281,6 +291,25 @@ function GardenPageInner() {
               <span className="text-sm text-black/50">
                 {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
               </span>
+              {viewMode === "plants" && plantsHasItems && (
+                <button
+                  type="button"
+                  onClick={() => setPlantsGridDisplayStyle((s) => (s === "condensed" ? "photo" : "condensed"))}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
+                  title={plantsGridDisplayStyle === "condensed" ? "Photo cards" : "Condensed grid"}
+                  aria-label={plantsGridDisplayStyle === "condensed" ? "Switch to photo cards" : "Switch to condensed grid"}
+                >
+                  {plantsGridDisplayStyle === "condensed" ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="2" y="2" width="5" height="5" /><rect x="9.5" y="2" width="5" height="5" /><rect x="17" y="2" width="5" height="5" /><rect x="2" y="9.5" width="5" height="5" /><rect x="9.5" y="9.5" width="5" height="5" /><rect x="17" y="9.5" width="5" height="5" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -496,14 +525,11 @@ function GardenPageInner() {
           </div>
         )}
 
-        {(viewMode === "plants" || showAddPermanentPlantModal || permanentPlantModalInternalOpen) && (
-          <div className={`pt-2 ${viewMode !== "plants" ? "sr-only" : ""}`}>
+        {viewMode === "plants" && (
+          <div className="pt-2">
             <MyPlantsView
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchQuery}
-              openAddModal={showAddPermanentPlantModal}
-              onCloseAddModal={() => setShowAddPermanentPlantModal(false)}
-              onAddModalOpenChange={setPermanentPlantModalInternalOpen}
               onPermanentPlantAdded={() => {
                 if (viewMode === "active") {
                   setViewMode("plants");
@@ -522,7 +548,8 @@ function GardenPageInner() {
               onRefineChipsLoaded={handlePlantsRefineChipsLoaded}
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
-              onAddClick={() => setShowAddPermanentPlantModal(true)}
+              onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
+              gridDisplayStyle={plantsGridDisplayStyle}
             />
           </div>
         )}
@@ -615,13 +642,9 @@ function GardenPageInner() {
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
                 Plant from Seed Vault
               </button>
-              <button type="button" onClick={() => { setShowStoreBoughtModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🏷️</span>
-                Add store-bought plant
-              </button>
-              <button type="button" onClick={() => { setShowAddPermanentPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌳</span>
-                Add permanent plant
+              <button type="button" onClick={() => { setAddPlantDefaultType(viewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌱</span>
+                Add plant
               </button>
               <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
@@ -690,7 +713,7 @@ function GardenPageInner() {
         </div>
       )}
 
-      <AddStoreBoughtPlantModal open={showStoreBoughtModal} onClose={() => setShowStoreBoughtModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} />
+      <AddPlantModal open={showAddPlantModal} onClose={() => setShowAddPlantModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} defaultPlantType={addPlantDefaultType} />
     </div>
   );
 }
