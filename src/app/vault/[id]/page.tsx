@@ -1556,7 +1556,8 @@ export default function VaultSeedPage() {
                     const isArchived = (pkt.qty_status ?? 0) <= 0;
                     return (
                       <li key={pkt.id} className={`p-4 ${isArchived ? "bg-neutral-50 text-neutral-500" : ""}`}>
-                        <div className="flex items-center gap-3 flex-wrap">
+                        {/* Row 1: image | vendor+stars+chevron */}
+                        <div className="flex items-center gap-3">
                           {pktImageUrl && (
                             <button
                               type="button"
@@ -1567,34 +1568,54 @@ export default function VaultSeedPage() {
                               <img src={pktImageUrl} alt="" className="w-full h-full object-cover" />
                             </button>
                           )}
-                          <div className="flex-1 min-w-0 flex items-center justify-between gap-2 flex-wrap">
-                            <button type="button" onClick={() => togglePacketDetails(pkt.id)} className={`flex items-center gap-1 font-medium text-left min-h-[44px] -m-2 p-2 ${isArchived ? "text-neutral-500 hover:text-neutral-700" : "text-neutral-900 hover:text-emerald-600"}`} aria-expanded={open}>
+                          {/* Header: [vendor name] [stars] [chevron] */}
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            {/* Vendor name — tapping this expands */}
+                            <button
+                              type="button"
+                              onClick={() => togglePacketDetails(pkt.id)}
+                              className={`flex items-center gap-1 font-medium text-left min-h-[44px] -m-2 p-2 flex-1 min-w-0 ${isArchived ? "text-neutral-500 hover:text-neutral-700" : "text-neutral-900 hover:text-emerald-600"}`}
+                              aria-expanded={open}
+                              aria-label={`${pkt.vendor_name?.trim() || "Packet"} — tap to ${open ? "collapse" : "expand"}`}
+                            >
                               <span className="truncate">{pkt.vendor_name?.trim() || "--"}</span>
                               {year != null && <span className="text-neutral-500 text-sm shrink-0">{year}</span>}
-                              <span className={`shrink-0 inline-flex text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden><ChevronDownIcon /></span>
                             </button>
-                            <div className="flex items-center gap-2 flex-wrap shrink-0">
-                              {canEdit ? (
-                                <>
-                                  <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
-                                  <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="w-24 h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
-                                  <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
-                                  <button type="button" onClick={() => deletePacket(pkt.id)} className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Remove packet"><TrashIcon /></button>
-                                </>
-                              ) : (
-                                <span className="text-xs text-neutral-500 tabular-nums">{pkt.qty_status}%</span>
-                              )}
+                            {/* Stars — separate interactive element, only active when expanded */}
+                            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <StarRating
+                                value={pkt.packet_rating ?? null}
+                                interactive={canEdit && open}
+                                onChange={canEdit && open ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
+                                size="sm"
+                                label="Packet rating"
+                              />
                             </div>
+                            {/* Chevron — dedicated expand toggle, far right */}
+                            <button
+                              type="button"
+                              onClick={() => togglePacketDetails(pkt.id)}
+                              className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-400 hover:text-emerald-600"
+                              aria-label={open ? "Collapse packet details" : "Expand packet details"}
+                            >
+                              <span className={`inline-flex transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
+                                <ChevronDownIcon />
+                              </span>
+                            </button>
                           </div>
                         </div>
-                        <div className="mt-2 ml-0 flex items-center gap-1">
-                          <StarRating
-                            value={pkt.packet_rating ?? null}
-                            interactive={canEdit}
-                            onChange={canEdit ? (rating) => updatePacketRating(pkt.id, rating) : undefined}
-                            size="sm"
-                            label="Packet rating"
-                          />
+                        {/* Row 2: date + qty controls */}
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          {canEdit ? (
+                            <>
+                              <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
+                              <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="flex-1 min-w-[6rem] h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
+                              <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
+                              <button type="button" onClick={() => deletePacket(pkt.id)} className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Remove packet"><TrashIcon /></button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-neutral-500 tabular-nums">{pkt.qty_status}%</span>
+                          )}
                         </div>
                         {open && (
                           <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
