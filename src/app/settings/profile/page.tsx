@@ -36,6 +36,30 @@ function formatFrostDate(d: string | null | undefined): string {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** Derive a 3-char shorthand from email (local part, alphanumeric only, uppercase). */
+function shorthandFromEmail(email: string | null | undefined): string {
+  if (!email?.trim()) return "???";
+  const local = email.split("@")[0] ?? "";
+  const cleaned = local.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return cleaned.slice(0, 3) || "???";
+}
+
+/** Pick a unique shorthand: start from email-derived, add suffix if taken. */
+function pickUniqueShorthand(
+  email: string | null | undefined,
+  taken: Set<string>
+): string {
+  let base = shorthandFromEmail(email);
+  if (base === "???") base = "USR";
+  let candidate = base;
+  let n = 1;
+  while (taken.has(candidate) && n < 100) {
+    candidate = base.slice(0, 2) + String(n);
+    n++;
+  }
+  return candidate.slice(0, 4);
+}
+
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
   const { tapVersion } = useDeveloperUnlock();
@@ -127,8 +151,8 @@ export default function SettingsProfilePage() {
     if (!lastSavedSettings) return false;
     const a = { ...gardenSettings };
     const b = { ...lastSavedSettings };
-    return JSON.stringify({ planting_zone: a.planting_zone, last_frost_date: a.last_frost_date, latitude: a.latitude, longitude: a.longitude, location_name: a.location_name, display_shorthand: a.display_shorthand }) !==
-      JSON.stringify({ planting_zone: b.planting_zone, last_frost_date: b.last_frost_date, latitude: b.latitude, longitude: b.longitude, location_name: b.location_name, display_shorthand: b.display_shorthand });
+    return JSON.stringify({ planting_zone: a.planting_zone, last_frost_date: a.last_frost_date, latitude: a.latitude, longitude: a.longitude, location_name: a.location_name }) !==
+      JSON.stringify({ planting_zone: b.planting_zone, last_frost_date: b.last_frost_date, latitude: b.latitude, longitude: b.longitude, location_name: b.location_name });
   }, [gardenSettings, lastSavedSettings]);
 
   useEffect(() => {
@@ -156,11 +180,23 @@ export default function SettingsProfilePage() {
       setHouseholdError(error.message ?? "Failed to create family.");
       return;
     }
+    // Auto-assign shorthand from email if user doesn't have one
+    const { data: existing } = await supabase.from("user_settings").select("display_shorthand").eq("user_id", user.id).maybeSingle();
+    if (!existing?.display_shorthand?.trim()) {
+      const shorthand = pickUniqueShorthand(user.email, new Set());
+      await supabase.from("user_settings").upsert({
+        user_id: user.id,
+        display_shorthand: shorthand,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      setGardenSettings((prev) => ({ ...prev, display_shorthand: shorthand }));
+      setLastSavedSettings((prev) => (prev ? { ...prev, display_shorthand: shorthand } : null));
+    }
     setHouseholdName("");
     setHouseholdSuccess("Family created! Share the invite code below with family members.");
     setHouseholdExpanded(true);
     await reloadHousehold();
-  }, [user?.id, householdName, isInHousehold, reloadHousehold]);
+  }, [user?.id, user?.email, householdName, isInHousehold, reloadHousehold]);
 
   const handleJoinHousehold = useCallback(async () => {
     if (!user?.id || !joinCode.trim()) return;
@@ -183,12 +219,34 @@ export default function SettingsProfilePage() {
       setJoiningHousehold(false);
       return;
     }
+    // Auto-assign shorthand from email if user doesn't have one
+    const { data: existing } = await supabase.from("user_settings").select("display_shorthand").eq("user_id", user.id).maybeSingle();
+    if (!existing?.display_shorthand?.trim()) {
+      const { data: members } = await supabase.from("household_members").select("user_id").eq("household_id", householdId);
+      const memberIds = (members ?? []).map((r: { user_id: string }) => r.user_id);
+      const { data: settings } = memberIds.length > 0
+        ? await supabase.from("user_settings").select("user_id, display_shorthand").in("user_id", memberIds)
+        : { data: [] };
+      const taken = new Set<string>();
+      for (const row of settings ?? []) {
+        const sh = (row as { display_shorthand?: string }).display_shorthand?.trim().toUpperCase();
+        if (sh) taken.add(sh);
+      }
+      const shorthand = pickUniqueShorthand(user.email, taken);
+      await supabase.from("user_settings").upsert({
+        user_id: user.id,
+        display_shorthand: shorthand,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      setGardenSettings((prev) => ({ ...prev, display_shorthand: shorthand }));
+      setLastSavedSettings((prev) => (prev ? { ...prev, display_shorthand: shorthand } : null));
+    }
     setJoiningHousehold(false);
     setJoinCode("");
     setHouseholdSuccess("You joined the family! You can now switch to Family view in the header.");
     setHouseholdExpanded(true);
     await reloadHousehold();
-  }, [user?.id, joinCode, isInHousehold, reloadHousehold]);
+  }, [user?.id, user?.email, joinCode, isInHousehold, reloadHousehold]);
 
   const handleLeaveHousehold = useCallback(async () => {
     if (!user?.id || !household) return;
@@ -242,11 +300,9 @@ export default function SettingsProfilePage() {
     setGardenEditing(false);
   }, []);
 
-  const saveGardenSettings = useCallback(async () => {
+  const saveShorthand = useCallback(async () => {
     if (!user?.id) return;
     setShorthandError(null);
-
-    // Validate shorthand uniqueness within household
     const newShorthand = gardenSettings.display_shorthand?.trim().toUpperCase() || null;
     if (newShorthand) {
       for (const [uid, sh] of memberShorthands.entries()) {
@@ -256,7 +312,19 @@ export default function SettingsProfilePage() {
         }
       }
     }
+    const { error } = await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      display_shorthand: newShorthand,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    if (!error) {
+      setLastSavedSettings((prev) => prev ? { ...prev, display_shorthand: newShorthand } : null);
+      await reloadHousehold();
+    }
+  }, [user?.id, gardenSettings.display_shorthand, memberShorthands, reloadHousehold]);
 
+  const saveGardenSettings = useCallback(async () => {
+    if (!user?.id) return;
     setGardenSaving(true);
     setGardenSaved(false);
     const toSave = {
@@ -266,7 +334,6 @@ export default function SettingsProfilePage() {
       longitude: gardenSettings.longitude ?? null,
       timezone: gardenSettings.timezone || "America/Los_Angeles",
       location_name: gardenSettings.location_name || null,
-      display_shorthand: newShorthand,
     };
     const { error } = await supabase.from("user_settings").upsert({
       user_id: user.id,
@@ -512,18 +579,6 @@ export default function SettingsProfilePage() {
                       : <span className="text-neutral-400 font-normal">Not set</span>}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-xs text-neutral-500 shrink-0">Family Badge</dt>
-                  <dd className="text-sm font-medium text-neutral-800 text-right">
-                    {gardenSettings.display_shorthand
-                      ? (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-emerald-100 text-emerald-800">
-                          {gardenSettings.display_shorthand.toUpperCase()}
-                        </span>
-                      )
-                      : <span className="text-neutral-400 font-normal">Not set</span>}
-                  </dd>
-                </div>
                 {(gardenSettings.latitude != null || gardenSettings.longitude != null) && (
                   <div className="flex items-center justify-between gap-4">
                     <dt className="text-xs text-neutral-500 shrink-0">Coordinates</dt>
@@ -583,32 +638,6 @@ export default function SettingsProfilePage() {
               <button type="button" onClick={() => setShowAdvancedCoords((v) => !v)} className="text-xs text-neutral-500 hover:text-neutral-700">
                 {showAdvancedCoords ? "Hide coordinates" : "Show latitude & longitude"}
               </button>
-              <div>
-                <label htmlFor="display-shorthand" className="block text-sm font-medium text-neutral-700 mb-1">
-                  Family Badge <span className="text-neutral-400 font-normal">(1–4 letters, shown to family)</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="display-shorthand"
-                    type="text"
-                    maxLength={4}
-                    placeholder="e.g. MAR"
-                    value={gardenSettings.display_shorthand ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                      setGardenSettings((p) => ({ ...p, display_shorthand: val || null }));
-                      setShorthandError(null);
-                    }}
-                    className="w-28 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono uppercase focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                  />
-                  {gardenSettings.display_shorthand && (
-                    <span className="inline-flex items-center rounded px-2 py-1 text-xs font-semibold leading-none bg-emerald-100 text-emerald-800">
-                      {gardenSettings.display_shorthand.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                {shorthandError && <p className="text-xs text-red-600 mt-1">{shorthandError}</p>}
-              </div>
               <div className="flex gap-3">
                 <button type="button" onClick={handleUseMyLocation} className="min-h-[44px] flex-1 px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
                   Use My Location
@@ -669,6 +698,41 @@ export default function SettingsProfilePage() {
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm mt-2">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">My Family</h3>
             <p className="text-sm text-neutral-500 mb-3">Share your garden with family members. Use the Personal / Family toggle in the header to switch views.</p>
+
+            {/* Your badge — edit your own shorthand (1–4 letters shown to family) */}
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3 mb-4">
+              <label htmlFor="family-badge" className="block text-xs font-medium text-neutral-600 mb-1.5">
+                Your badge <span className="font-normal text-neutral-400">(1–4 letters, shown next to your plants in Family view)</span>
+              </label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  id="family-badge"
+                  type="text"
+                  maxLength={4}
+                  placeholder="e.g. MAR"
+                  value={gardenSettings.display_shorthand ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                    setGardenSettings((p) => ({ ...p, display_shorthand: val || null }));
+                    setShorthandError(null);
+                  }}
+                  className="w-20 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm font-mono uppercase focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={saveShorthand}
+                  className="min-h-[36px] px-3 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  Save
+                </button>
+                {gardenSettings.display_shorthand && (
+                  <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-emerald-100 text-emerald-800">
+                    {gardenSettings.display_shorthand.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              {shorthandError && <p className="text-xs text-red-600 mt-1.5">{shorthandError}</p>}
+            </div>
 
             {householdSuccess && (
               <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 mb-3">

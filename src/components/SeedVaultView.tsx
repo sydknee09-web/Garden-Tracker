@@ -497,7 +497,8 @@ export function SeedVaultView({
         if (st === "out_of_stock" || st === "archived") return false;
       }
       if (statusFilter === "active") {
-        if ((s.status ?? "").toLowerCase() !== "active on hillside") return false;
+        const st = (s.status ?? "").toLowerCase();
+        if (st !== "active" && st !== "active on hillside") return false;
       }
       if (statusFilter === "low_inventory") {
         if ((s.packet_count ?? 0) > 1) return false;
@@ -589,7 +590,10 @@ export function SeedVaultView({
           return (s.packet_count ?? 0) > 0 && st !== "out_of_stock" && st !== "archived";
         }).length;
       } else if (value === "active") {
-        count = searchFiltered.filter((s) => (s.status ?? "").toLowerCase() === "active on hillside").length;
+        count = searchFiltered.filter((s) => {
+          const st = (s.status ?? "").toLowerCase();
+          return st === "active" || st === "active on hillside";
+        }).length;
       } else if (value === "low_inventory") {
         count = searchFiltered.filter((s) => (s.packet_count ?? 0) <= 1).length;
       } else {
@@ -897,6 +901,22 @@ export function SeedVaultView({
         if (pid && path?.trim() && !firstPacketImageByProfile.has(pid)) firstPacketImageByProfile.set(pid, path.trim());
       }
 
+      // Profiles with active grow_instances should display as "active" even if DB status is stale
+      let activeProfileIds = new Set<string>();
+      if (profiles?.length) {
+        const profileIds = (profiles as { id: string }[]).map((pr) => pr.id);
+        let growsQuery = supabase
+          .from("grow_instances")
+          .select("plant_profile_id")
+          .in("plant_profile_id", profileIds)
+          .in("status", ["pending", "growing"])
+          .is("deleted_at", null);
+        if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
+        const { data: activeGrows } = await growsQuery;
+        activeProfileIds = new Set((activeGrows ?? []).map((g: { plant_profile_id: string }) => g.plant_profile_id));
+      }
+      if (cancelled) return;
+
       const items: VaultCardItem[] = (profiles ?? []).map((p: Record<string, unknown>) => {
         const effective = getEffectiveCare(
           {
@@ -915,6 +935,7 @@ export function SeedVaultView({
         const sumQty = sumQtyByProfile.get(pid) ?? 0;
         const avg_qty_pct = count > 0 ? Math.round(sumQty / count) : null;
         const max_qty_pct = count > 0 ? (maxQtyByProfile.get(pid) ?? null) : null;
+        const effectiveStatus = activeProfileIds.has(pid) ? "active" : (p.status as string | null);
         return {
           id: pid,
           name: (p.name as string) ?? "Unknown",
@@ -922,7 +943,7 @@ export function SeedVaultView({
           packet_count: count,
           avg_qty_pct,
           max_qty_pct,
-          status: p.status as string | null,
+          status: effectiveStatus,
           harvest_days: effective.harvest_days ?? (p.harvest_days as number | null) ?? null,
           sun: effective.sun ?? undefined,
           plant_spacing: effective.plant_spacing ?? undefined,
