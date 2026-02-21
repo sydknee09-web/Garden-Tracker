@@ -1611,7 +1611,6 @@ export default function VaultSeedPage() {
                               <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" />
                               <input type="range" min={0} max={100} value={pkt.qty_status} onChange={(e) => updatePacketQty(pkt.id, Number(e.target.value))} className="flex-1 min-w-[6rem] h-2 rounded-full appearance-none" style={{ background: "linear-gradient(to right, #ef4444 0%, #eab308 50%, #10b981 100%)" }} aria-label="Packet fullness" />
                               <span className="text-xs text-neutral-500 w-9 tabular-nums">{pkt.qty_status}%</span>
-                              <button type="button" onClick={() => deletePacket(pkt.id)} className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Remove packet"><TrashIcon /></button>
                             </>
                           ) : (
                             <span className="text-xs text-neutral-500 tabular-nums">{pkt.qty_status}%</span>
@@ -1685,6 +1684,19 @@ export default function VaultSeedPage() {
                                 <ul className="space-y-1.5">{journalByPacketId[pkt.id].map((entry) => (<li key={entry.id} className="text-sm"><span className="text-neutral-500">{formatDisplayDate(entry.created_at)}</span>{entry.note?.trim() && <span className="text-neutral-800"> -- {entry.note.trim()}</span>}</li>))}</ul>
                               ) : <p className="text-sm text-neutral-400">No journal entries linked to this packet yet.</p>}
                             </div>
+                            {canEdit && (
+                              <div className="pt-2 border-t border-neutral-100 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => deletePacket(pkt.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 min-h-[36px]"
+                                  aria-label="Remove packet"
+                                >
+                                  <TrashIcon />
+                                  Remove packet
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </li>
