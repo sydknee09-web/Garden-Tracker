@@ -852,7 +852,7 @@ function VaultPageInner() {
           </div>
         </div>
 
-        {/* Unified toolbar: search + (Refine by | view toggle | Select | batch actions) — hidden when vault is empty */}
+        {/* Unified toolbar: search + (Filter | view toggle | Select | batch actions) — hidden when vault is empty */}
         {(viewMode === "grid" || viewMode === "list") && vaultHasSeeds && (
           <>
             <div className="flex gap-2 mb-2">
@@ -878,9 +878,9 @@ function VaultPageInner() {
                   type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
                   className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2 shrink-0"
-                  aria-label="Refine by status, tags, plant type"
+                  aria-label="Filter by status, tags, plant type"
                 >
-                  Refine by
+                  Filter
                   {hasActiveFilters ? (
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                       {[
@@ -970,7 +970,7 @@ function VaultPageInner() {
             onClick={(e) => e.stopPropagation()}
           >
             <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
-              <h2 id="refine-by-title" className="text-lg font-semibold text-black">Refine by</h2>
+              <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
               <div className="flex items-center gap-1">
                 {hasActiveFilters && (
                   <button

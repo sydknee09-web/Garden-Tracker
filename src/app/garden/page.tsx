@@ -266,9 +266,9 @@ function GardenPageInner() {
                 type="button"
                 onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
                 className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
-                aria-label="Refine by plant type"
+                aria-label="Filter by plant type"
               >
-                Refine by
+                Filter
                 {(viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0) ? (
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                     {viewMode === "active" ? activeFilterCount : plantsFilterCount}
@@ -287,7 +287,7 @@ function GardenPageInner() {
             <button type="button" className="fixed inset-0 z-20 bg-black/20" aria-label="Close" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
             <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-30 bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[70vh]">
               <header className="flex items-center justify-between p-4 border-b border-black/10">
-                <h2 id="refine-by-title" className="text-lg font-semibold text-black">Refine by</h2>
+                <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
                 <button type="button" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5" aria-label="Close">
                   <span className="text-xl leading-none" aria-hidden>×</span>
                 </button>

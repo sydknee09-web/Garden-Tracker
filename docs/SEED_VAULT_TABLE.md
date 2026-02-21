@@ -7,8 +7,8 @@ Short reference for the next AI assistant or developer.
 - **Component:** `src/components/SeedVaultView.tsx`
 - **Persistence:** `localStorage` key `"seed-vault-table-state"`.
 - **Stored shape:** `{ columnOrder: string[], columnWidths: Record<string, number> }`.
-- **Column IDs:** `name` | `variety` | `sun` | `spacing` | `germination` | `maturity` | `pkts`.
-- **Defaults:** Order `["name","variety","sun","spacing","germination","maturity","pkts"]`; widths (px): name 140, variety 160, sun 88, spacing 100, germination 100, maturity 88, pkts 64.
+- **Column IDs:** `name` | `variety` | `vendor` | `sun` | `spacing` | `germination` | `maturity` | `pkts` | `rating`.
+- **Defaults:** Order `["name","variety","vendor","sun","spacing","germination","maturity","pkts","rating"]`; widths (px): name 140, variety 160, vendor 100, sun 88, spacing 100, germination 100, maturity 88, pkts 64, rating 88.
 - **Load:** `loadListTableState()` — merges saved order with default so all 7 columns appear; missing columns are appended. Widths default then override from storage.
 - **Save:** `saveListTableState(columnOrder, columnWidths)` — called when order or widths change.
 - **Interactions:** Column **resize** = drag the right edge of a data column header; **reorder** = drag a data column header to a new position. Fixed columns: optional batch checkbox, then icon; then the seven data columns in `listColumnOrder`.

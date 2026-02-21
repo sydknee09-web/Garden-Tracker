@@ -10,12 +10,13 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
+import { StarRating } from "@/components/StarRating";
 import { normalizeSeedStockRows } from "@/lib/vault";
 import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
 const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
-const DEFAULT_LIST_COLUMN_ORDER: ListDataColumnId[] = ["name", "variety", "vendor", "sun", "spacing", "germination", "maturity", "pkts"];
+const DEFAULT_LIST_COLUMN_ORDER: ListDataColumnId[] = ["name", "variety", "vendor", "sun", "spacing", "germination", "maturity", "pkts", "rating"];
 const DEFAULT_LIST_COLUMN_WIDTHS: Record<ListDataColumnId, number> = {
   name: 140,
   variety: 160,
@@ -25,8 +26,9 @@ const DEFAULT_LIST_COLUMN_WIDTHS: Record<ListDataColumnId, number> = {
   germination: 100,
   maturity: 88,
   pkts: 64,
+  rating: 88,
 };
-type ListDataColumnId = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
+type ListDataColumnId = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts" | "rating";
 
 function loadListTableState(): { columnOrder: ListDataColumnId[]; columnWidths: Record<string, number> } {
   if (typeof window === "undefined") return { columnOrder: [...DEFAULT_LIST_COLUMN_ORDER], columnWidths: { ...DEFAULT_LIST_COLUMN_WIDTHS } };
@@ -94,9 +96,11 @@ export type VaultCardItem = {
   latest_purchase_date?: string | null;
   /** user_id of the owner; populated in family-view to show ownership badge. */
   owner_user_id?: string | null;
+  /** Best (max) packet_rating 1–5 across packets for this profile; null if none rated. */
+  best_rating?: number | null;
 };
 
-export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts";
+export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts" | "rating";
 
 /** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
 function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
@@ -708,6 +712,11 @@ export function SeedVaultView({
           va = a.packet_count ?? 0;
           vb = b.packet_count ?? 0;
           return Number(va) - Number(vb);
+        case "rating": {
+          const ra = a.best_rating ?? -1;
+          const rb = b.best_rating ?? -1;
+          return ra - rb;
+        }
         default:
           return 0;
       }
@@ -850,10 +859,10 @@ export function SeedVaultView({
         return;
       }
 
-      // Count all non-deleted packets (including archived) so vault count matches profile page; include purchase_date for sort
+      // Count all non-deleted packets (including archived) so vault count matches profile page; include purchase_date, packet_rating for sort/display
       let packetsQuery = supabase
         .from("seed_packets")
-        .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date")
+        .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date, packet_rating")
         .is("deleted_at", null);
       if (!isFamilyView) packetsQuery = packetsQuery.eq("user_id", user.id);
       const { data: packets } = await packetsQuery;
@@ -864,8 +873,9 @@ export function SeedVaultView({
       /** Latest (max) purchase_date per profile for sort by purchase date. */
       const latestPurchaseByProfile = new Map<string, string>();
       const maxQtyByProfile = new Map<string, number>();
+      const bestRatingByProfile = new Map<string, number>();
       for (const p of packets ?? []) {
-        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number; purchase_date?: string | null };
+        const row = p as { plant_profile_id: string; tags?: string[] | null; vendor_name?: string | null; qty_status?: number; purchase_date?: string | null; packet_rating?: number | null };
         const pid = row.plant_profile_id;
         countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
         const qty = typeof row.qty_status === "number" ? row.qty_status : 100;
@@ -883,6 +893,11 @@ export function SeedVaultView({
         if (pd) {
           const cur = latestPurchaseByProfile.get(pid);
           if (!cur || pd > cur) latestPurchaseByProfile.set(pid, pd);
+        }
+        const r = typeof row.packet_rating === "number" && row.packet_rating >= 1 && row.packet_rating <= 5 ? row.packet_rating : null;
+        if (r != null) {
+          const cur = bestRatingByProfile.get(pid) ?? 0;
+          if (r > cur) bestRatingByProfile.set(pid, r);
         }
       }
 
@@ -963,6 +978,7 @@ export function SeedVaultView({
           sowing_method: (p.sowing_method as string | null) ?? null,
           latest_purchase_date: latestPurchaseByProfile.get(pid) ?? null,
           owner_user_id: (p.user_id as string | null) ?? null,
+          best_rating: bestRatingByProfile.get(pid) ?? null,
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -1298,7 +1314,7 @@ export function SeedVaultView({
     const w = listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId];
     const isDragging = draggedColId === colId;
     const label =
-      colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "vendor" ? "Vendor" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : "Pkts";
+      colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "vendor" ? "Vendor" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : colId === "pkts" ? "Pkts" : "Rating";
     const content =
       colId === "name" ? (
         <div className="relative flex items-center gap-1" ref={plantFilterRef}>
@@ -1392,6 +1408,12 @@ export function SeedVaultView({
           <td key="pkts" className="py-2 px-3 align-middle">
             <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
             {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Out of Stock</span>}
+          </td>
+        );
+      case "rating":
+        return (
+          <td key="rating" className="py-2 px-3 align-middle">
+            <StarRating value={seed.best_rating} size="sm" />
           </td>
         );
       default:
