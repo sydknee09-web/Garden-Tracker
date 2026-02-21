@@ -147,6 +147,7 @@ export function AddStoreBoughtPlantModal({
             status: "growing",
             seed_packet_id: null,
             location: location.trim() || null,
+            plant_count: 1,
           })
           .select("id")
           .single();
@@ -245,6 +246,7 @@ export function AddStoreBoughtPlantModal({
           status: "growing",
           seed_packet_id: null,
           location: location.trim() || null,
+          plant_count: 1,
         });
         if (growErr) {
           setError(growErr.message);

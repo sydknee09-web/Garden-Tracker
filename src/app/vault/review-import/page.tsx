@@ -108,6 +108,17 @@ function CheckmarkIcon({ className }: { className?: string }) {
   );
 }
 
+function CameraPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+      <line x1="12" y1="11" x2="12" y2="15" />
+      <line x1="10" y1="13" x2="14" y2="13" />
+    </svg>
+  );
+}
+
 /** Persist a hero-photo pass to central import logs (Settings). Fire-and-forget so UI is not blocked. error_message is always set (mandatory diagnostic trace). */
 function persistHeroSearchLog(
   item: ReviewImportItem,
@@ -208,6 +219,7 @@ export default function ReviewImportPage() {
   /** Full-screen lightbox for packet/hero image (tap to expand on mobile) */
   const [expandedImageSrc, setExpandedImageSrc] = useState<string | null>(null);
   const addPhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const addHeroInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Plant suggestions from global_plant_cache
   useEffect(() => {
@@ -470,23 +482,65 @@ export default function ReviewImportPage() {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
   }, []);
 
+  const handleAddHeroPhoto = useCallback(
+    async (itemId: string, file: File) => {
+      try {
+        const { blob } = await compressImage(file);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
+            else reject(new Error("Read failed"));
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  imageBase64: base64,
+                  fileName: i.fileName || file.name || "hero.jpg",
+                  hero_image_url: undefined,
+                  stock_photo_url: undefined,
+                  useStockPhotoAsHero: true,
+                }
+              : i
+          )
+        );
+        hapticSuccess();
+      } catch (e) {
+        console.warn("[handleAddHeroPhoto]", e);
+      }
+    },
+    []
+  );
+
   const handleAddPacketPhoto = useCallback(
     async (itemId: string, file: File) => {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
-          else reject(new Error("Read failed"));
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === itemId ? { ...i, extraPacketImages: [...(i.extraPacketImages ?? []), base64] } : i
-        )
-      );
+      try {
+        const { blob } = await compressImage(file);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
+            else reject(new Error("Read failed"));
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === itemId ? { ...i, extraPacketImages: [...(i.extraPacketImages ?? []), base64] } : i
+          )
+        );
+        hapticSuccess();
+      } catch (e) {
+        console.warn("[handleAddPacketPhoto]", e);
+      }
     },
     []
   );
@@ -781,8 +835,8 @@ export default function ReviewImportPage() {
   );
 
   useEffect(() => {
-    if (items.length) setReviewImportData({ items });
-  }, [items]);
+    if (items.length) setReviewImportData({ items, source: importSource });
+  }, [items, importSource]);
 
   useEffect(() => {
     return () => {
@@ -1305,49 +1359,99 @@ export default function ReviewImportPage() {
                   className={`flex flex-col md:flex-row gap-4 p-4 md:py-4 md:px-6 ${isDuplicate ? "border-l-4 border-l-amber-400 bg-amber-50/50 hover:bg-amber-50/70" : "hover:bg-black/[0.02]"}`}
                 >
                   <div className="md:w-52 shrink-0 flex flex-col gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => imgSrc && setExpandedImageSrc(imgSrc)}
-                        disabled={!imgSrc || heroLoading}
-                        className="w-20 h-20 md:w-40 md:h-40 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:cursor-default disabled:opacity-100"
-                        aria-label="Expand image"
-                      >
-                        {heroLoading ? (
-                          <div className="absolute inset-0 bg-neutral-200 animate-pulse rounded-lg" aria-hidden />
-                        ) : null}
-                        {imgSrc ? (
-                          <img
-                            src={imgSrc}
-                            alt=""
-                            className="w-full h-full object-cover object-center relative z-10 pointer-events-none"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              console.error("Image failed to load:", item.hero_image_url);
-                              const t = e.target as HTMLImageElement;
-                              t.style.display = "none";
-                              const fallback = t.parentElement?.querySelector(".review-import-thumb-fallback");
-                              if (fallback) (fallback as HTMLElement).classList.remove("hidden");
-                              // Clear broken URL and uncheck so state matches "No image"
-                              updateItem(item.id, {
-                                stock_photo_url: undefined,
-                                hero_image_url: undefined,
-                                useStockPhotoAsHero: false,
-                              });
-                            }}
-                          />
-                        ) : null}
-                        {heroLoading && (
-                          <span className="absolute inset-0 flex items-center justify-center z-10 text-neutral-500 text-xs font-medium">
-                            Searching AI…
-                          </span>
-                        )}
-                        <span
-                          className={`review-import-thumb-fallback text-neutral-500 text-xs text-center px-1 ${imgSrc || heroLoading ? "hidden" : ""}`}
-                          aria-hidden={!!imgSrc}
+                      <input
+                        ref={(el) => { addHeroInputRefs.current[item.id] = el; }}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        aria-hidden
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) await handleAddHeroPhoto(item.id, file);
+                          e.target.value = "";
+                        }}
+                      />
+                      <div className="w-20 h-20 md:w-40 md:h-40 rounded-lg bg-black/5 overflow-hidden flex items-center justify-center relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => imgSrc && setExpandedImageSrc(imgSrc)}
+                          disabled={!imgSrc || heroLoading}
+                          className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:cursor-default disabled:opacity-100"
+                          aria-label="Expand image"
                         >
-                          No image
-                        </span>
-                      </button>
+                          {heroLoading ? (
+                            <div className="absolute inset-0 bg-neutral-200 animate-pulse rounded-lg" aria-hidden />
+                          ) : null}
+                          {imgSrc ? (
+                            <img
+                              src={imgSrc}
+                              alt=""
+                              className="w-full h-full object-cover object-center relative z-10 pointer-events-none"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                console.error("Image failed to load:", item.hero_image_url);
+                                const t = e.target as HTMLImageElement;
+                                t.style.display = "none";
+                                const fallback = t.parentElement?.querySelector(".review-import-thumb-fallback");
+                                if (fallback) (fallback as HTMLElement).classList.remove("hidden");
+                                updateItem(item.id, {
+                                  imageBase64: "",
+                                  stock_photo_url: undefined,
+                                  hero_image_url: undefined,
+                                  useStockPhotoAsHero: false,
+                                });
+                              }}
+                            />
+                          ) : null}
+                          {heroLoading && (
+                            <span className="absolute inset-0 flex items-center justify-center z-10 text-neutral-500 text-xs font-medium">
+                              Searching AI…
+                            </span>
+                          )}
+                          <span
+                            className={`review-import-thumb-fallback text-neutral-500 text-xs text-center px-1 ${imgSrc || heroLoading ? "hidden" : ""}`}
+                            aria-hidden={!!imgSrc}
+                          >
+                            No image
+                          </span>
+                        </button>
+                        {!heroLoading && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addHeroInputRefs.current[item.id]?.click();
+                              }}
+                              className="absolute bottom-1 right-1 z-20 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 p-2 rounded-lg bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white"
+                              aria-label="Add or change photo"
+                              title="Add photo from camera or files"
+                            >
+                              <CameraPlusIcon className="w-5 h-5" />
+                            </button>
+                            {imgSrc && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateItem(item.id, {
+                                    imageBase64: "",
+                                    hero_image_url: undefined,
+                                    stock_photo_url: undefined,
+                                    useStockPhotoAsHero: false,
+                                  });
+                                }}
+                                className="absolute top-1 right-1 z-20 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 p-2 rounded-lg bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white"
+                                aria-label="Remove photo"
+                                title="Remove photo"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                       {noPhotoFoundIds.has(item.id) && !heroLoading && (
                         <p className="text-amber-700 text-xs mt-0.5" role="status">
                           No photo found
@@ -1381,62 +1485,60 @@ export default function ReviewImportPage() {
                           Please find or upload a photo first
                         </p>
                       )}
-                      {/* Add photo: only for photo-import items (have packet image) */}
-                      {packetDataUrl && (
-                        <div className="mt-2 space-y-1">
-                          <input
-                            ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            aria-hidden
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) await handleAddPacketPhoto(item.id, file);
-                              e.target.value = "";
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => addPhotoInputRefs.current[item.id]?.click()}
-                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
-                          >
-                            + Add packet photo
-                          </button>
-                          {(item.extraPacketImages?.length ?? 0) > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {(item.extraPacketImages ?? []).map((b64, idx) => {
-                                const src = b64.includes("data:") ? b64 : `data:image/jpeg;base64,${b64}`;
-                                return (
-                                  <div key={idx} className="relative w-10 h-10 rounded overflow-hidden bg-black/5 shrink-0 group">
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedImageSrc(src)}
-                                      className="absolute inset-0 w-full h-full block z-[1]"
-                                      aria-label="Expand image"
-                                    />
-                                    <img src={src} alt="" className="w-full h-full object-cover pointer-events-none" />
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateItem(item.id, {
-                                          extraPacketImages: (item.extraPacketImages ?? []).filter((_, i) => i !== idx),
-                                        });
-                                      }}
-                                      className="absolute top-0 right-0 w-4 h-4 rounded-bl bg-black/60 text-white text-[10px] flex items-center justify-center hover:bg-black/80 z-[2] min-w-[16px] min-h-[16px]"
-                                      aria-label="Remove photo"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {/* Add packet photo(s): available for all import types (manual, link, photo) */}
+                      <div className="mt-2 space-y-1">
+                        <input
+                          ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          aria-hidden
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) await handleAddPacketPhoto(item.id, file);
+                            e.target.value = "";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addPhotoInputRefs.current[item.id]?.click()}
+                          className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                        >
+                          + Add packet photo(s)
+                        </button>
+                        {(item.extraPacketImages?.length ?? 0) > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {(item.extraPacketImages ?? []).map((b64, idx) => {
+                              const src = b64.includes("data:") ? b64 : `data:image/jpeg;base64,${b64}`;
+                              return (
+                                <div key={idx} className="relative w-10 h-10 rounded overflow-hidden bg-black/5 shrink-0 group">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedImageSrc(src)}
+                                    className="absolute inset-0 w-full h-full block z-[1]"
+                                    aria-label="Expand image"
+                                  />
+                                  <img src={src} alt="" className="w-full h-full object-cover pointer-events-none" />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateItem(item.id, {
+                                        extraPacketImages: (item.extraPacketImages ?? []).filter((_, i) => i !== idx),
+                                      });
+                                    }}
+                                    className="absolute top-0 right-0 w-4 h-4 rounded-bl bg-black/60 text-white text-[10px] flex items-center justify-center hover:bg-black/80 z-[2] min-w-[16px] min-h-[16px]"
+                                    aria-label="Remove photo"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                     <div className="sm:col-span-2 lg:col-span-1">

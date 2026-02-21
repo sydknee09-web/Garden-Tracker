@@ -27,6 +27,8 @@ export default function ImportManualPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const ranRef = useRef(false);
+  const proceededRef = useRef(false);
+  const skipHeroRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const pending = getPendingManualAdd();
@@ -49,7 +51,6 @@ export default function ImportManualPage() {
       let days_to_germination: string | undefined;
       let harvest_days: number | undefined;
       let sowing_depth: string | undefined;
-      let hero_image_url: string | undefined;
 
       try {
         setPhase("enrich");
@@ -79,51 +80,58 @@ export default function ImportManualPage() {
         return;
       }
 
-      try {
-        setPhase("hero");
-        const heroRes = await fetch("/api/seed/find-hero-photo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: plantName,
-            variety,
-            vendor: (pending.vendor ?? "").trim() || "",
-          }),
-        });
-        const heroData = (await heroRes.json()) as { hero_image_url?: string; error?: string };
-        hero_image_url = heroData.hero_image_url?.trim();
-      } catch {
-        // non-fatal
-      }
-
-      setPhase("done");
-
-      const identityKey = identityKeyFromVariety(plantName, variety);
-      const reviewItem: ReviewImportItem = {
-        id: crypto.randomUUID(),
-        imageBase64: "",
-        fileName: "",
-        vendor: (pending.vendor ?? "").trim(),
-        type: plantName,
-        variety,
-        tags: pending.tagsToSave ?? [],
-        purchaseDate: todayISO(),
-        source_url: pending.sourceUrlToSave?.trim(),
-        hero_image_url: hero_image_url || undefined,
-        stock_photo_url: hero_image_url || undefined,
-        useStockPhotoAsHero: !!hero_image_url,
-        identityKey: identityKey || undefined,
-        sun_requirement: sun,
-        plant_spacing,
-        spacing: plant_spacing,
-        days_to_germination,
-        days_to_maturity: harvest_days != null ? String(harvest_days) : undefined,
-        harvest_days,
-        sowing_depth,
+      const proceedToReview = (hero_image_url: string | undefined) => {
+        if (proceededRef.current) return;
+        proceededRef.current = true;
+        setPhase("done");
+        const identityKey = identityKeyFromVariety(plantName, variety);
+        const reviewItem: ReviewImportItem = {
+          id: crypto.randomUUID(),
+          imageBase64: "",
+          fileName: "",
+          vendor: (pending.vendor ?? "").trim(),
+          type: plantName,
+          variety,
+          tags: pending.tagsToSave ?? [],
+          purchaseDate: todayISO(),
+          source_url: pending.sourceUrlToSave?.trim(),
+          hero_image_url: hero_image_url || undefined,
+          stock_photo_url: hero_image_url || undefined,
+          useStockPhotoAsHero: !!hero_image_url,
+          identityKey: identityKey || undefined,
+          sun_requirement: sun,
+          plant_spacing,
+          spacing: plant_spacing,
+          days_to_germination,
+          days_to_maturity: harvest_days != null ? String(harvest_days) : undefined,
+          harvest_days,
+          sowing_depth,
+        };
+        setReviewImportData({ items: [reviewItem] });
+        router.push("/vault/review-import");
       };
 
-      setReviewImportData({ items: [reviewItem] });
-      router.push("/vault/review-import");
+      setPhase("hero");
+      skipHeroRef.current = () => proceedToReview(undefined);
+
+      fetch("/api/seed/find-hero-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: plantName,
+          variety,
+          vendor: (pending.vendor ?? "").trim() || "",
+        }),
+      })
+        .then((r) => r.json())
+        .then((heroData: { hero_image_url?: string; error?: string }) => {
+          if (proceededRef.current) return;
+          proceedToReview(heroData.hero_image_url?.trim());
+        })
+        .catch(() => {
+          if (proceededRef.current) return;
+          proceedToReview(undefined);
+        });
     };
 
     run();
@@ -162,9 +170,20 @@ export default function ImportManualPage() {
         </div>
         <p className="text-sm font-medium text-black/80">{label}</p>
       </div>
-      <Link href="/vault" className="mt-6 text-sm text-black/50 hover:text-black/70">
-        Cancel
-      </Link>
+      <div className="mt-6 flex flex-col items-center gap-3">
+        {phase === "hero" && (
+          <button
+            type="button"
+            onClick={() => skipHeroRef.current?.()}
+            className="min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-xl border border-emerald/40 text-emerald-700 bg-emerald-50 font-medium hover:bg-emerald-100"
+          >
+            Skip
+          </button>
+        )}
+        <Link href="/vault" className="text-sm text-black/50 hover:text-black/70">
+          Cancel
+        </Link>
+      </div>
     </div>
   );
 }

@@ -65,6 +65,9 @@ function GardenPageInner() {
   const [plantsTagFilters, setPlantsTagFilters] = useState<string[]>([]);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
+  const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
+  const [bulkModeActive, setBulkModeActive] = useState(false);
+  const [openBulkLogForActive, setOpenBulkLogForActive] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showStoreBoughtModal, setShowStoreBoughtModal] = useState(false);
   const [showAddPermanentPlantModal, setShowAddPermanentPlantModal] = useState(false);
@@ -485,6 +488,10 @@ function GardenPageInner() {
               onEmptyStateChange={(empty) => setActiveHasItems(!empty)}
               openBulkJournalRequest={openBulkJournalForActive}
               onBulkJournalRequestHandled={() => setOpenBulkJournalForActive(false)}
+              onBulkSelectionChange={setBulkSelectedCount}
+              openBulkLogRequest={openBulkLogForActive}
+              onBulkLogRequestHandled={() => setOpenBulkLogForActive(false)}
+              onBulkModeChange={setBulkModeActive}
             />
           </div>
         )}
@@ -630,31 +637,52 @@ function GardenPageInner() {
         </>
       )}
 
-      <button
-        type="button"
-        onClick={() => setFabMenuOpen((o) => !o)}
-        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-          fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
-        }`}
-        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={fabMenuOpen ? "Close menu" : "Add to garden"}
-      >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
-          aria-hidden
+      {!(viewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && (
+        <button
+          type="button"
+          onClick={() => {
+            if (viewMode === "active" && bulkModeActive && bulkSelectedCount > 0) {
+              setOpenBulkLogForActive(true);
+            } else {
+              setFabMenuOpen((o) => !o);
+            }
+          }}
+          className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+            fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+          }`}
+          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+          aria-label={
+            viewMode === "active" && bulkModeActive && bulkSelectedCount > 0
+              ? "Log for selected plants"
+              : fabMenuOpen
+                ? "Close menu"
+                : "Add to garden"
+          }
         >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+          {viewMode === "active" && bulkModeActive && bulkSelectedCount > 0 ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+          ) : (
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
+              aria-hidden
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          )}
+        </button>
+      )}
 
       {addedToMyPlantsToast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status">

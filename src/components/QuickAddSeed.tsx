@@ -157,39 +157,6 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     setScreen("choose");
   }
 
-  async function handleAddToShoppingList(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const name = plantName.trim();
-    if (!name) {
-      setError("Plant name is required.");
-      return;
-    }
-    if (!user?.id) {
-      setError("You must be signed in to add to the shopping list.");
-      return;
-    }
-    setSubmitting(true);
-    const varietyVal = varietyCultivar.trim() || null;
-    const { error: insertErr } = await supabase.from("shopping_list").insert({
-      user_id: user.id,
-      plant_profile_id: null,
-      placeholder_name: name,
-      placeholder_variety: varietyVal,
-      is_purchased: false,
-    });
-    setSubmitting(false);
-    if (insertErr) {
-      setError(insertErr.message);
-      return;
-    }
-    setPlantName("");
-    setVarietyCultivar("");
-    setVendor("");
-    onSuccess();
-    onClose();
-  }
-
   /** Save profile to vault without a packet (reference/wishlist). Shows in vault as out of stock. */
   async function handleSaveForLater(e: React.FormEvent) {
     e.preventDefault();
@@ -217,10 +184,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
     );
 
-    let profileId: string;
     if (match) {
-      profileId = match.id;
-      await supabase.from("plant_profiles").update({ status: "out_of_stock", updated_at: new Date().toISOString() }).eq("id", profileId).eq("user_id", userId);
+      await supabase.from("plant_profiles").update({ status: "out_of_stock", updated_at: new Date().toISOString() }).eq("id", match.id).eq("user_id", userId);
     } else {
       const careNotes: Record<string, unknown> = {};
       if (sourceUrlVal) careNotes.source_url = sourceUrlVal;
@@ -241,18 +206,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         setSubmitting(false);
         return;
       }
-      profileId = (newProfile as { id: string }).id;
     }
 
-    const { error: listErr } = await supabase.from("shopping_list").upsert(
-      { user_id: userId, plant_profile_id: profileId, is_purchased: false },
-      { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
-    );
     setSubmitting(false);
-    if (listErr) {
-      setError(listErr.message);
-      return;
-    }
     hapticSuccess();
     setPlantName("");
     setVarietyCultivar("");
@@ -515,29 +471,18 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               <p className="text-sm text-citrus font-medium">{error}</p>
             )}
             <p className="text-xs text-black/60">
-              Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet) and shopping list. Add a packet when you buy.
+              Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet). Add a packet when you buy.
             </p>
             <div className="flex flex-col gap-2 pt-2">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveForLater}
-                  disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Add to vault without a packet — shows as out of stock, on shopping list"
-                >
-                  {submitting ? "Saving…" : "Save for later"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddToShoppingList}
-                  disabled={submitting}
-                  className="flex-1 py-2.5 rounded-xl border border-black/15 text-black/70 bg-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Wishlist placeholder — no vault entry until you add a packet"
-                >
-                  {submitting ? "Adding…" : "Shopping list only"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveForLater}
+                disabled={submitting}
+                className="w-full py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Add to vault without a packet — shows as out of stock"
+              >
+                {submitting ? "Saving…" : "Save for later"}
+              </button>
               <div className="flex gap-2">
                 <button
                   type="button"

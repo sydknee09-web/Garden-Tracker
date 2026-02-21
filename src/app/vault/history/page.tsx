@@ -18,6 +18,10 @@ type GrowRow = {
   profile_name: string;
   variety_name: string | null;
   harvest_count: number;
+  sow_method?: "direct_sow" | "seed_start" | null;
+  seeds_sown?: number | null;
+  seeds_sprouted?: number | null;
+  plant_count?: number | null;
 };
 
 export default function PlantingHistoryPage() {
@@ -93,6 +97,7 @@ export default function PlantingHistoryPage() {
                   <th className="px-4 py-3">Sown</th>
                   <th className="px-4 py-3">Location</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Germ / Count</th>
                   <th className="px-4 py-3">Harvests</th>
                   <th className="px-4 py-3">Duration</th>
                 </tr>
@@ -115,6 +120,13 @@ export default function PlantingHistoryPage() {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
                           {g.status ?? "unknown"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-neutral-600 text-xs">
+                        {[
+                          g.sow_method === "direct_sow" ? "Direct" : g.sow_method === "seed_start" ? "Seed start" : null,
+                          g.seeds_sprouted != null && g.seeds_sown != null && g.seeds_sown > 0 ? `${g.seeds_sprouted}/${g.seeds_sown}` : null,
+                          g.plant_count != null ? `${g.plant_count} plants` : null,
+                        ].filter(Boolean).join(" · ") || "--"}
                       </td>
                       <td className="px-4 py-3 text-neutral-600">{g.harvest_count > 0 ? g.harvest_count : "--"}</td>
                       <td className="px-4 py-3 text-neutral-500">{durationDays != null ? `${durationDays}d` : "ongoing"}</td>

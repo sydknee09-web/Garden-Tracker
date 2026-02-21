@@ -54,6 +54,10 @@ export interface GrowInstance {
   created_at: string;
   user_id: string;
   deleted_at?: string | null;
+  sow_method?: "direct_sow" | "seed_start" | null;
+  seeds_sown?: number | null;
+  seeds_sprouted?: number | null;
+  plant_count?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +279,8 @@ export interface CareSchedule {
   id: string;
   plant_profile_id?: string | null;
   grow_instance_id?: string | null;
+  /** For permanent plants: apply to these instances. Null = all. Overrides grow_instance_id when set. */
+  grow_instance_ids?: string[] | null;
   user_id: string;
   title: string;
   category: string;

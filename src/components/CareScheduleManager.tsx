@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import type { CareSchedule } from "@/types/garden";
+import type { CareSchedule, GrowInstance } from "@/types/garden";
 
 const CARE_CATEGORIES = ["fertilize", "prune", "water", "spray", "repot", "harvest", "mulch", "other"] as const;
 const RECURRENCE_TYPES = [
@@ -22,14 +22,20 @@ interface Props {
   isTemplate?: boolean;
   /** When true, hides all add/edit/delete controls (e.g. for household members viewing someone else's profile). */
   readOnly?: boolean;
+  /** For permanent plants: list of grow_instances (individual plants). When length > 1, show "Apply to" selector. */
+  growInstances?: GrowInstance[];
+  /** When true, this is a permanent plant profile (trees, perennials). */
+  isPermanent?: boolean;
 }
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
+  /** For permanent: null = all plants, [id1, id2] = specific plants. Only shown when growInstances.length > 1. */
+  const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>("fertilize");
   const [recurrenceType, setRecurrenceType] = useState<string>("interval");
   const [intervalDays, setIntervalDays] = useState("30");
@@ -43,6 +49,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setTitle(""); setCategory("fertilize"); setRecurrenceType("interval");
     setIntervalDays("30"); setDayOfMonth("1"); setSelectedMonths([]);
     setNextDueDate(new Date().toISOString().slice(0, 10)); setNotes("");
+    setSelectedPlantIds(new Set());
     setShowAdd(false); setEditingId(null);
   }, []);
 
@@ -56,8 +63,20 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setSelectedMonths(s.months ?? []);
     setNextDueDate(s.next_due_date ? s.next_due_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setNotes(s.notes ?? "");
+    setSelectedPlantIds((s.grow_instance_ids?.length ? new Set(s.grow_instance_ids) : new Set()) as Set<string>);
     setShowAdd(true);
   }, []);
+
+  const togglePlantId = useCallback((plantId: string) => {
+    setSelectedPlantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(plantId)) next.delete(plantId);
+      else next.add(plantId);
+      return next;
+    });
+  }, []);
+
+  const getPlantLabel = useCallback((gi: GrowInstance, idx: number) => gi.location?.trim() || `Plant ${idx + 1}`, []);
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -67,7 +86,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setSaveError(null);
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         plant_profile_id: profileId,
         user_id: userId,
         title: title.trim(),
@@ -81,6 +100,10 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         is_active: true,
         is_template: isTemplate,
       };
+      if (isPermanent && growInstances.length > 1) {
+        payload.grow_instance_ids = selectedPlantIds.size > 0 ? [...selectedPlantIds] : null;
+        payload.grow_instance_id = null;
+      }
 
       const { error } = editingId
         ? await supabase.from("care_schedules").update(payload).eq("id", editingId).eq("user_id", userId)
@@ -95,7 +118,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     } finally {
       setSaving(false);
     }
-  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, editingId, resetForm, onChanged]);
+  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, editingId, isPermanent, growInstances.length, selectedPlantIds, resetForm, onChanged]);
 
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
@@ -133,6 +156,18 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     return "One-time";
   };
 
+  const getApplyToLabel = (s: CareSchedule) => {
+    if (!isPermanent || !growInstances.length) return null;
+    const ids = s.grow_instance_ids;
+    if (!ids?.length) return "All plants";
+    const labels = ids.map((id) => {
+      const gi = growInstances.find((g) => g.id === id);
+      const idx = growInstances.findIndex((g) => g.id === id);
+      return gi ? getPlantLabel(gi, idx >= 0 ? idx : 0) : "?";
+    });
+    return labels.join(", ");
+  };
+
   return (
     <div>
       {saveError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{saveError}</p>}
@@ -160,6 +195,9 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-neutral-900 text-sm">{s.title}</h4>
                   <p className="text-xs text-neutral-500 mt-0.5">{getRecurrenceLabel(s)}</p>
+                  {getApplyToLabel(s) && (
+                    <p className="text-xs text-neutral-600 mt-0.5">Applies to: {getApplyToLabel(s)}</p>
+                  )}
                   {s.next_due_date && (
                     <p className="text-xs text-neutral-400 mt-0.5">
                       Next: {new Date(s.next_due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
@@ -242,6 +280,31 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
             <label htmlFor="care-notes" className="block text-xs font-medium text-neutral-600 mb-1">Notes (optional)</label>
             <textarea id="care-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional details..." className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm resize-none" />
           </div>
+
+          {isPermanent && growInstances.length > 1 && (
+            <div role="group" aria-labelledby="care-apply-to-label">
+              <p id="care-apply-to-label" className="text-xs font-medium text-neutral-600 mb-2">Apply to</p>
+              <div className="flex flex-wrap gap-2">
+                {growInstances.map((gi, idx) => {
+                  const label = getPlantLabel(gi, idx);
+                  const checked = selectedPlantIds.has(gi.id);
+                  return (
+                    <label key={gi.id} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-lg border border-neutral-200 bg-white cursor-pointer hover:bg-neutral-50 has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePlantId(gi.id)}
+                        className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                        aria-label={label}
+                      />
+                      <span className="text-sm font-medium text-neutral-800">{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">Leave all unchecked for all plants.</p>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end pt-1">
             <button type="button" onClick={resetForm} className="px-3 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium hover:bg-neutral-50">Cancel</button>

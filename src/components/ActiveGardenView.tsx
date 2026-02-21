@@ -9,7 +9,10 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import type { WeatherSnapshotData } from "@/types/garden";
+
+const LONG_PRESS_MS = 500;
 
 type PendingItem = {
   id: string;
@@ -36,6 +39,10 @@ type GrowingBatch = {
   harvest_days?: number | null;
   tags?: string[] | null;
   user_id?: string | null;
+  sow_method?: "direct_sow" | "seed_start" | null;
+  seeds_sown?: number | null;
+  seeds_sprouted?: number | null;
+  plant_count?: number | null;
 };
 
 export function ActiveGardenView({
@@ -58,6 +65,10 @@ export function ActiveGardenView({
   onEmptyStateChange,
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
+  onBulkSelectionChange,
+  openBulkLogRequest = false,
+  onBulkLogRequestHandled,
+  onBulkModeChange,
 }: {
   refetchTrigger: number;
   /** When set, scroll to this grow instance and clear the URL param. Used when navigating from plant profile. */
@@ -87,6 +98,12 @@ export function ActiveGardenView({
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
+  onBulkSelectionChange?: (count: number) => void;
+  /** When true, open BatchLogSheet for selected batches (from FAB journal icon). */
+  openBulkLogRequest?: boolean;
+  onBulkLogRequestHandled?: () => void;
+  /** Called when bulk mode changes (true = in bulk mode, false = exited). */
+  onBulkModeChange?: (inBulkMode: boolean) => void;
 }) {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
@@ -116,10 +133,26 @@ export function ActiveGardenView({
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<GrowingBatch | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
 
-  // Actions menu (per-batch dropdown to reduce icon clutter)
-  const [openActionsMenuId, setOpenActionsMenuId] = useState<string | null>(null);
+  // BatchLogSheet (single or bulk)
+  const [batchLogOpen, setBatchLogOpen] = useState(false);
+  const [batchLogBatches, setBatchLogBatches] = useState<BatchLogBatch[]>([]);
+  const [openBulkLogRequest, setOpenBulkLogRequest] = useState(false);
+  const longPressFiredRef = useRef(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
+
+  const toBatchLogBatch = (b: GrowingBatch): BatchLogBatch => ({
+    id: b.id,
+    plant_profile_id: b.plant_profile_id,
+    profile_name: b.profile_name,
+    profile_variety_name: b.profile_variety_name,
+    seeds_sown: b.seeds_sown ?? null,
+    seeds_sprouted: b.seeds_sprouted ?? null,
+    plant_count: b.plant_count ?? null,
+    location: b.location ?? null,
+    user_id: b.user_id ?? null,
+  });
 
   // Scroll to highlighted batch when navigating from plant profile (e.g. /garden?tab=active&grow=xxx)
   useEffect(() => {
@@ -154,7 +187,7 @@ export function ActiveGardenView({
 
     let growQuery = supabase
       .from("grow_instances")
-      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id")
+      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count")
       .is("deleted_at", null)
       .in("status", ["growing", "pending"])
       .order("sown_date", { ascending: false })
@@ -196,19 +229,21 @@ export function ActiveGardenView({
       if (h.grow_instance_id) harvestCountByGrow.set(h.grow_instance_id, (harvestCountByGrow.get(h.grow_instance_id) ?? 0) + 1);
     });
 
-    const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null }[])
+    const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null; sow_method?: "direct_sow" | "seed_start" | null; seeds_sown?: number | null; seeds_sprouted?: number | null; plant_count?: number | null }[])
       .map((r) => {
         const p = profileMap.get(r.plant_profile_id);
         const note = plantingNoteByGrow.get(r.id);
+        const sowBadge = r.sow_method === "direct_sow" ? "Direct sow" : r.sow_method === "seed_start" ? "Seed start" : badgeFromNote(note);
         return {
           id: r.id, plant_profile_id: r.plant_profile_id, sown_date: r.sown_date,
           expected_harvest_date: r.expected_harvest_date, status: r.status,
           profile_name: p?.name ?? "Unknown", profile_variety_name: p?.variety_name ?? null,
           weather_snapshot: weatherByGrow.get(r.id) ?? null, harvest_count: harvestCountByGrow.get(r.id) ?? 0,
-          planting_method_badge: badgeFromNote(note), location: r.location,
+          planting_method_badge: sowBadge, location: r.location,
           sun: p?.sun ?? null, plant_spacing: p?.plant_spacing ?? null,
           days_to_germination: p?.days_to_germination ?? null, harvest_days: p?.harvest_days ?? null,
           tags: p?.tags ?? null, user_id: r.user_id ?? null,
+          sow_method: r.sow_method ?? null, seeds_sown: r.seeds_sown ?? null, seeds_sprouted: r.seeds_sprouted ?? null, plant_count: r.plant_count ?? null,
         };
       });
     setGrowing(batches);
@@ -334,8 +369,22 @@ export function ActiveGardenView({
     if (openBulkJournalRequest) {
       setBulkMode(true);
       onBulkJournalRequestHandled?.();
+      onBulkModeChange?.(true);
     }
-  }, [openBulkJournalRequest, onBulkJournalRequestHandled]);
+  }, [openBulkJournalRequest, onBulkJournalRequestHandled, onBulkModeChange]);
+
+  useEffect(() => {
+    onBulkSelectionChange?.(bulkSelected.size);
+  }, [bulkSelected.size, onBulkSelectionChange]);
+
+  useEffect(() => {
+    if (openBulkLogRequest && bulkSelected.size > 0) {
+      const selected = growing.filter((b) => bulkSelected.has(b.id));
+      setBatchLogBatches(selected.map(toBatchLogBatch));
+      setBatchLogOpen(true);
+      onBulkLogRequestHandled?.();
+    }
+  }, [openBulkLogRequest, bulkSelected, growing, onBulkLogRequestHandled]);
 
   // Quick-tap handler
   const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
@@ -535,6 +584,19 @@ export function ActiveGardenView({
         </div>
       )}
 
+      {/* BatchLogSheet */}
+      <BatchLogSheet
+        open={batchLogOpen}
+        batches={batchLogBatches}
+        onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onSaved={() => { load(); }}
+        onLogHarvest={(b) => { onLogHarvest(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onEndBatch={(b) => { setEndBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onDeleteBatch={(b) => { setDeleteBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onQuickCare={(batch, action) => { handleQuickTap(batch as GrowingBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onBulkQuickCare={(batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+      />
+
       {/* Delete Batch Confirmation */}
       {deleteBatchTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
@@ -553,42 +615,18 @@ export function ActiveGardenView({
         </div>
       )}
 
-      {/* Bulk mode: shown when entered from FAB "Add journal entry". Cancel exits; when batches selected, show quick actions + note. */}
+      {/* Bulk mode: Cancel exits; when batches selected, FAB becomes journal icon (garden page). Tap cards to select. */}
       {bulkMode && (
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <button
             type="button"
-            onClick={() => { setBulkMode(false); setBulkSelected(new Set()); }}
+            onClick={() => { setBulkMode(false); setBulkSelected(new Set()); onBulkSelectionChange?.(0); onBulkModeChange?.(false); }}
             className="text-sm font-medium px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 shrink-0"
           >
             Cancel
           </button>
-          {bulkSelected.size > 0 ? (
-            <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-              <span className="text-sm text-black/60 shrink-0">Selecting ({bulkSelected.size})</span>
-              <div className="flex items-center gap-1 shrink-0">
-                <button type="button" onClick={() => handleBulkQuickTap("water")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-50" title="Water selected" aria-label="Water selected">💧</button>
-                <button type="button" onClick={() => handleBulkQuickTap("fertilize")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Fertilize selected" aria-label="Fertilize selected">🌿</button>
-                <button type="button" onClick={() => handleBulkQuickTap("spray")} disabled={bulkSaving} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-50" title="Spray selected" aria-label="Spray selected">🧴</button>
-              </div>
-              <input
-                type="text"
-                placeholder="Add note to selected..."
-                value={bulkNote}
-                onChange={(e) => setBulkNote(e.target.value)}
-                className="flex-1 min-w-[120px] px-3 py-1.5 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500"
-              />
-              <button
-                type="button"
-                onClick={handleBulkSubmit}
-                disabled={bulkSaving || !bulkNote.trim()}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 shrink-0"
-              >
-                {bulkSaving ? "..." : "Add note"}
-              </button>
-            </div>
-          ) : (
-            <p className="text-sm text-black/50">Select batches below to add a journal entry.</p>
+          {bulkSelected.size > 0 && (
+            <span className="text-sm text-black/60 shrink-0">Selecting ({bulkSelected.size}) — tap journal icon to log</span>
           )}
         </div>
       )}
@@ -644,8 +682,8 @@ export function ActiveGardenView({
                   className={`rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    {/* Bulk checkbox */}
-                    {bulkMode && (
+                    {/* Bulk checkbox — only for editable batches */}
+                    {bulkMode && canEditUser(batch.user_id ?? "") && (
                       <input
                         type="checkbox"
                         checked={bulkSelected.has(batch.id)}
@@ -657,6 +695,44 @@ export function ActiveGardenView({
                       href={`/vault/${batch.plant_profile_id}?tab=plantings`}
                       className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
                       aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
+                      onClick={(e) => {
+                        if (bulkMode && canEditUser(batch.user_id ?? "")) {
+                          e.preventDefault();
+                          toggleBulkSelect(batch.id);
+                        }
+                        if (longPressFiredRef.current) {
+                          e.preventDefault();
+                          longPressFiredRef.current = false;
+                        }
+                      }}
+                      onTouchStart={canEditUser(batch.user_id ?? "") ? () => {
+                        longPressFiredRef.current = false;
+                        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = setTimeout(() => {
+                          longPressTimerRef.current = null;
+                          longPressFiredRef.current = true;
+                          setBulkMode(true);
+                          setBulkSelected((prev) => new Set(prev).add(batch.id));
+                        }, LONG_PRESS_MS);
+                      } : undefined}
+                      onTouchMove={canEditUser(batch.user_id ?? "") ? () => {
+                        if (longPressTimerRef.current) {
+                          clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        }
+                      } : undefined}
+                      onTouchEnd={canEditUser(batch.user_id ?? "") ? () => {
+                        if (longPressTimerRef.current) {
+                          clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        }
+                      } : undefined}
+                      onTouchCancel={canEditUser(batch.user_id ?? "") ? () => {
+                        if (longPressTimerRef.current) {
+                          clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        }
+                      } : undefined}
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-black/90 group-hover:text-emerald-700">
@@ -670,7 +746,11 @@ export function ActiveGardenView({
                       </div>
                       <p className="text-xs text-black/50 mt-0.5">
                         Sown {new Date(batch.sown_date).toLocaleDateString()} – {label}
-                        {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> – Harvested {batch.harvest_count}x</span>}
+                        {batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sown} sown</span>}
+                        {batch.seeds_sprouted != null && batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sprouted} of {batch.seeds_sown} sprouted</span>}
+                        {batch.seeds_sprouted != null && batch.seeds_sown == null && <span className="ml-1"> · {batch.seeds_sprouted} sprouted</span>}
+                        {batch.plant_count != null && <span className="ml-1 font-medium text-emerald-600"> · {batch.plant_count} plants</span>}
+                        {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> · Harvested {batch.harvest_count}x</span>}
                       </p>
                       {progress != null && (
                         <div className="mt-2 h-2 rounded-full bg-black/10 overflow-hidden">
@@ -678,42 +758,23 @@ export function ActiveGardenView({
                         </div>
                       )}
                     </Link>
-                    <div className="relative flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setOpenActionsMenuId((id) => (id === batch.id ? null : batch.id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                        aria-label="Log care or journal entry"
-                        aria-expanded={openActionsMenuId === batch.id}
-                      >
-                        <CareHandsIcon />
-                      </button>
-                      {openActionsMenuId === batch.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" aria-hidden onClick={() => setOpenActionsMenuId(null)} />
-                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] py-1 rounded-xl bg-white shadow-lg border border-black/10">
-                            <button type="button" onClick={() => { handleQuickTap(batch, "water"); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-blue-50 text-blue-700">
-                              <span>💧</span> Water
-                            </button>
-                            <button type="button" onClick={() => { onLogHarvest(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-emerald-50 text-emerald-700">
-                              <span>🧺</span> Harvest
-                            </button>
-                            <button type="button" onClick={() => { handleQuickTap(batch, "spray"); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-purple-50 text-purple-700">
-                              <span>🧴</span> Spray
-                            </button>
-                            <button type="button" onClick={() => { onLogGrowth(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-black/5 text-black/80">
-                              <PencilIcon /> Log growth
-                            </button>
-                            <button type="button" onClick={() => { setEndBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-amber-50 text-amber-700">
-                              <ArchiveIcon /> End batch
-                            </button>
-                            <button type="button" onClick={() => { setDeleteBatchTarget(batch); setOpenActionsMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 text-red-700">
-                              <TrashIcon /> Delete
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    {canEditUser(batch.user_id ?? "") && (
+                      <div className="relative flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setBatchLogBatches([toBatchLogBatch(batch)]);
+                            setBatchLogOpen(true);
+                          }}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                          aria-label="Log care or journal entry"
+                        >
+                          <CareHandsIcon />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </li>
               );

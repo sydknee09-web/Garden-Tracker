@@ -1,5 +1,24 @@
 import { supabase } from "@/lib/supabase";
 
+type ScheduleForEffectiveIds = {
+  grow_instance_ids?: string[] | null;
+  grow_instance_id?: string | null;
+};
+
+/**
+ * Returns effective instance IDs for a schedule.
+ * - grow_instance_ids non-empty -> those IDs (deduped)
+ * - grow_instance_id set -> [id]
+ * - else -> null (all plants)
+ */
+export function getEffectiveInstanceIds(schedule: ScheduleForEffectiveIds): string[] | null {
+  const ids = schedule.grow_instance_ids;
+  if (ids && ids.length > 0) return [...new Set(ids)];
+  const single = schedule.grow_instance_id;
+  if (single) return [single];
+  return null;
+}
+
 /**
  * Generate tasks from due care_schedules.
  * Prevents duplicates via care_schedule_id on the tasks table.
@@ -13,7 +32,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
     // Fetch all active due schedules (both template and non-template)
     const { data: allSchedules, error: fetchErr } = await supabase
       .from("care_schedules")
-      .select("id, plant_profile_id, grow_instance_id, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template")
+      .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template")
       .eq("user_id", userId)
       .eq("is_active", true)
       .is("deleted_at", null)
@@ -60,17 +79,52 @@ export async function generateCareTasks(userId: string): Promise<number> {
 
     if (!dueSchedules.length) return 0;
 
+    // For permanent schedules with grow_instance_ids, fetch valid instance IDs (non-archived, belong to profile)
+    const validInstanceIdsByProfile = new Map<string, Set<string>>();
+    const instanceIdsToValidate = new Set<string>();
+    for (const s of dueSchedules) {
+      const ids = getEffectiveInstanceIds(s as ScheduleForEffectiveIds);
+      if (ids?.length && (s as { plant_profile_id: string | null }).plant_profile_id) {
+        ids.forEach((id) => instanceIdsToValidate.add(id));
+      }
+    }
+    if (instanceIdsToValidate.size > 0) {
+      const { data: instances } = await supabase
+        .from("grow_instances")
+        .select("id, plant_profile_id")
+        .in("id", [...instanceIdsToValidate])
+        .is("deleted_at", null)
+        .or("status.eq.pending,status.eq.growing,status.eq.harvested");
+      for (const inst of instances ?? []) {
+        const i = inst as { id: string; plant_profile_id: string | null };
+        if (i.plant_profile_id) {
+          const set = validInstanceIdsByProfile.get(i.plant_profile_id) ?? new Set();
+          set.add(i.id);
+          validInstanceIdsByProfile.set(i.plant_profile_id, set);
+        }
+      }
+    }
+
     for (const schedule of dueSchedules) {
       const s = schedule as {
         id: string;
         plant_profile_id: string | null;
         grow_instance_id: string | null;
+        grow_instance_ids?: string[] | null;
         title: string;
         category: string;
         next_due_date: string;
         recurrence_type: string;
         interval_days: number | null;
       };
+
+      // For permanent with grow_instance_ids: skip if any instance is stale (archived/deleted)
+      const effectiveIds = getEffectiveInstanceIds(s);
+      if (effectiveIds?.length && s.plant_profile_id) {
+        const valid = validInstanceIdsByProfile.get(s.plant_profile_id);
+        const allValid = effectiveIds.every((id) => valid?.has(id));
+        if (!allValid) continue;
+      }
 
       const { data: existingTasks } = await supabase
         .from("tasks")
@@ -83,14 +137,18 @@ export async function generateCareTasks(userId: string): Promise<number> {
 
       if (existingTasks && existingTasks.length > 0) continue;
 
+      // Task grow_instance_id: single instance or null (all / multi-plant)
+      const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
+      const taskTitle = effectiveIds && effectiveIds.length > 1 ? `${s.title} (${effectiveIds.length} plants)` : s.title;
+
       const { error } = await supabase.from("tasks").insert({
         user_id: userId,
         plant_profile_id: s.plant_profile_id,
         plant_variety_id: s.plant_profile_id,
-        grow_instance_id: s.grow_instance_id,
+        grow_instance_id: taskGrowInstanceId,
         category: s.category as "maintenance" | "fertilize" | "prune" | "general",
         due_date: s.next_due_date,
-        title: s.title,
+        title: taskTitle,
         care_schedule_id: s.id,
       });
 

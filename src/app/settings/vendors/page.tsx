@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { StarRating } from "@/components/StarRating";
+
+const GERMINATION_STORAGE_KEY = "vendor-scorecard-germination-mode";
 
 type PacketWithProfile = {
   id: string;
@@ -21,6 +24,8 @@ type VendorGroup = {
   ratedCount: number;
   totalCount: number;
   packets: PacketWithProfile[];
+  avgGermination: number | null;
+  germinationPlantingCount: number;
 };
 
 function computeAvg(packets: PacketWithProfile[]): number | null {
@@ -36,9 +41,23 @@ function formatAvg(avg: number | null): string {
 
 export default function VendorScorecardPage() {
   const { user } = useAuth();
+  const { viewMode } = useHousehold();
   const [groups, setGroups] = useState<VendorGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [germinationMode, setGerminationMode] = useState<"my" | "household">(() => {
+    if (typeof window === "undefined") return "my";
+    const saved = localStorage.getItem(GERMINATION_STORAGE_KEY);
+    return saved === "household" ? "household" : "my";
+  });
+
+  const isHousehold = viewMode === "family";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(GERMINATION_STORAGE_KEY, germinationMode);
+    }
+  }, [germinationMode]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -78,13 +97,73 @@ export default function VendorScorecardPage() {
         vendorMap.set(key, list);
       }
 
-      const result: VendorGroup[] = Array.from(vendorMap.entries()).map(([vendor, pkts]) => ({
-        vendor,
-        avgRating: computeAvg(pkts),
-        ratedCount: pkts.filter((p) => p.packet_rating != null).length,
-        totalCount: pkts.length,
-        packets: pkts,
-      }));
+      // Germination data: grow_instances joined to seed_packets
+      let germinationByVendor = new Map<string, { sum: number; count: number }>();
+      if (isHousehold && germinationMode === "household") {
+        const { data: memberIds } = await supabase.rpc("my_household_member_user_ids");
+        const userIds = (memberIds ?? []) as string[];
+        if (userIds.length > 0) {
+          const { data: growRows } = await supabase
+            .from("grow_instances")
+            .select("id, seed_packet_id, seeds_sown, seeds_sprouted")
+            .in("user_id", userIds)
+            .not("seeds_sown", "is", null)
+            .not("seeds_sprouted", "is", null)
+            .gt("seeds_sown", 0);
+          const packetIds = [...new Set((growRows ?? []).map((r: { seed_packet_id: string }) => r.seed_packet_id).filter(Boolean))];
+          if (packetIds.length > 0) {
+            const { data: pktRows } = await supabase.from("seed_packets").select("id, vendor_name").in("id", packetIds);
+            const vendorByPacket = new Map<string, string>((pktRows ?? []).map((p: { id: string; vendor_name: string | null }) => [p.id, (p.vendor_name ?? "").trim() || "Unknown Vendor"]));
+            for (const r of growRows ?? []) {
+              const vendor = vendorByPacket.get((r as { seed_packet_id: string }).seed_packet_id) ?? "Unknown Vendor";
+              const sown = (r as { seeds_sown: number }).seeds_sown;
+              const sprouted = (r as { seeds_sprouted: number }).seeds_sprouted;
+              if (sown > 0) {
+                const pct = 100 * sprouted / sown;
+                const cur = germinationByVendor.get(vendor) ?? { sum: 0, count: 0 };
+                germinationByVendor.set(vendor, { sum: cur.sum + pct, count: cur.count + 1 });
+              }
+            }
+          }
+        }
+      } else {
+        const { data: growRows } = await supabase
+          .from("grow_instances")
+          .select("id, seed_packet_id, seeds_sown, seeds_sprouted")
+          .eq("user_id", user.id)
+          .not("seeds_sown", "is", null)
+          .not("seeds_sprouted", "is", null)
+          .gt("seeds_sown", 0);
+        const packetIds = [...new Set((growRows ?? []).map((r: { seed_packet_id: string }) => r.seed_packet_id).filter(Boolean))];
+        if (packetIds.length > 0) {
+          const { data: pktRows } = await supabase.from("seed_packets").select("id, vendor_name").in("id", packetIds);
+          const vendorByPacket = new Map<string, string>((pktRows ?? []).map((p: { id: string; vendor_name: string | null }) => [p.id, (p.vendor_name ?? "").trim() || "Unknown Vendor"]));
+          for (const r of growRows ?? []) {
+            const vendor = vendorByPacket.get((r as { seed_packet_id: string }).seed_packet_id) ?? "Unknown Vendor";
+            const sown = (r as { seeds_sown: number }).seeds_sown;
+            const sprouted = (r as { seeds_sprouted: number }).seeds_sprouted;
+            if (sown > 0) {
+              const pct = 100 * sprouted / sown;
+              const cur = germinationByVendor.get(vendor) ?? { sum: 0, count: 0 };
+              germinationByVendor.set(vendor, { sum: cur.sum + pct, count: cur.count + 1 });
+            }
+          }
+        }
+      }
+
+      const result: VendorGroup[] = Array.from(vendorMap.entries()).map(([vendor, pkts]) => {
+        const germ = germinationByVendor.get(vendor);
+        const avgGerm = germ && germ.count >= 2 ? Math.round(germ.sum / germ.count) : null;
+        return {
+          vendor,
+          avgRating: computeAvg(pkts),
+          ratedCount: pkts.filter((p) => p.packet_rating != null).length,
+          totalCount: pkts.length,
+          packets: pkts,
+          avgGermination: avgGerm,
+          germinationPlantingCount: germ?.count ?? 0,
+        };
+      });
 
       // Sort: rated vendors by avg descending, then unrated alphabetically at bottom
       result.sort((a, b) => {
@@ -97,7 +176,7 @@ export default function VendorScorecardPage() {
       setGroups(result);
       setLoading(false);
     })();
-  }, [user?.id]);
+  }, [user?.id, isHousehold, germinationMode]);
 
   function toggleVendor(vendor: string) {
     setExpanded((prev) => {
@@ -117,7 +196,25 @@ export default function VendorScorecardPage() {
         &larr; Back to Settings
       </Link>
       <h1 className="text-xl font-bold text-neutral-900 mb-1">Vendor Scorecard</h1>
-      <p className="text-sm text-neutral-500 mb-6">Average packet ratings by vendor, based on your personal ratings.</p>
+      <p className="text-sm text-neutral-500 mb-4">Average packet ratings by vendor, based on your personal ratings.</p>
+      {isHousehold && (
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setGerminationMode("my")}
+            className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${germinationMode === "my" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"}`}
+          >
+            My stats
+          </button>
+          <button
+            type="button"
+            onClick={() => setGerminationMode("household")}
+            className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${germinationMode === "household" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"}`}
+          >
+            Household
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400">Loading...</div>
@@ -157,6 +254,11 @@ export default function VendorScorecardPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <StarRating value={Math.round(group.avgRating!)} size="sm" />
                     <span className="text-sm font-medium text-amber-600 w-8 text-right">{formatAvg(group.avgRating)}</span>
+                    {group.avgGermination != null && (
+                      <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded" title={`Avg germination: ${group.avgGermination}% (${group.germinationPlantingCount} plantings)`}>
+                        {group.avgGermination}% germ
+                      </span>
+                    )}
                     <span className="text-neutral-400 text-xs" aria-hidden>{isOpen ? "▴" : "▾"}</span>
                   </div>
                 </button>
@@ -204,6 +306,11 @@ export default function VendorScorecardPage() {
                       <span className="text-xs text-neutral-500">{group.totalCount} packet{group.totalCount !== 1 ? "s" : ""} — not yet rated</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {group.avgGermination != null && (
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded" title={`Avg germination: ${group.avgGermination}% (${group.germinationPlantingCount} plantings)`}>
+                          {group.avgGermination}% germ
+                        </span>
+                      )}
                       <span className="text-sm text-neutral-400">--</span>
                       <span className="text-neutral-400 text-xs" aria-hidden>{isOpen ? "▴" : "▾"}</span>
                     </div>
