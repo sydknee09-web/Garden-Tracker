@@ -317,6 +317,14 @@ export default function VaultSeedPage() {
       }
       setGrowInstances(allGrows);
 
+      // Repair: if plant is in garden but profile status was overwritten (e.g. by packet qty update),
+      // restore status to "active" so the green rim shows in Vault.
+      const hasActiveGrow = allGrows.some((g) => g.status === "pending" || g.status === "growing");
+      const currentStatus = (profileData.status as string) ?? "";
+      if (hasActiveGrow && !currentStatus.toLowerCase().includes("active")) {
+        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", id).eq("user_id", ownerIdFromData);
+      }
+
       // All journal entries for this profile
       const { data: journals } = await supabase.from("journal_entries")
         .select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
@@ -488,9 +496,21 @@ export default function VaultSeedPage() {
     else updates.is_archived = false;
     await supabase.from("seed_packets").update(updates).eq("id", packetId).eq("user_id", owner);
     setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, qty_status: clamped, is_archived: clamped <= 0 } : p)));
-    // Profile: archive when all packets 0%; unarchive when any packet has inventory
+    // Profile: archive when all packets 0%; unarchive when any packet has inventory.
+    // If the plant is in the garden (has active grow_instances), keep status "active" so the green rim shows in Vault.
     if (id) {
-      if (clamped > 0) {
+      const { data: activeGrows } = await supabase
+        .from("grow_instances")
+        .select("id")
+        .eq("plant_profile_id", id)
+        .eq("user_id", owner)
+        .is("deleted_at", null)
+        .in("status", ["pending", "growing"]);
+      const inGarden = (activeGrows?.length ?? 0) > 0;
+
+      if (inGarden) {
+        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", id).eq("user_id", owner);
+      } else if (clamped > 0) {
         await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", owner);
       } else {
         const { data: remaining } = await supabase
@@ -581,13 +601,22 @@ export default function VaultSeedPage() {
       setAddPacketError(packetErr.message);
       return;
     }
-    await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", user.id);
+    const owner = profileOwnerId || user.id;
+    const { data: activeGrows } = await supabase
+      .from("grow_instances")
+      .select("id")
+      .eq("plant_profile_id", id)
+      .eq("user_id", owner)
+      .is("deleted_at", null)
+      .in("status", ["pending", "growing"]);
+    const status = (activeGrows?.length ?? 0) > 0 ? "active" : "in_stock";
+    await supabase.from("plant_profiles").update({ status }).eq("id", id).eq("user_id", owner);
     setShowAddPacketModal(false);
     setAddPacketVendor("");
     setAddPacketPurchaseDate(new Date().toISOString().slice(0, 10));
     setAddPacketUrl("");
     await loadProfile();
-  }, [user?.id, id, addPacketVendor, addPacketPurchaseDate, addPacketUrl, loadProfile]);
+  }, [user?.id, id, profileOwnerId, addPacketVendor, addPacketPurchaseDate, addPacketUrl, loadProfile]);
 
   const fetchJournalForPacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
