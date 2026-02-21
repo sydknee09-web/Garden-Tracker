@@ -1953,7 +1953,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">{isPermanent ? "No plants yet." : "No plantings yet."}</p>
                 <p className="text-neutral-400 text-xs mt-1 mb-4">
-                  {isPermanent ? "Add your trees or perennials here." : "Use the + button from the Vault or Garden to start a new planting."}
+                  {isPermanent ? "Add your trees or perennials here." : "Start a new planting from your seed packets."}
                 </p>
                 {isPermanent && canEdit && (
                   <button
@@ -1965,19 +1965,38 @@ export default function VaultSeedPage() {
                     Add your first plant
                   </button>
                 )}
+                {!isPermanent && canEdit && (
+                  <Link
+                    href={`/vault/plant?ids=${encodeURIComponent(id)}`}
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                    aria-label="Add planting"
+                  >
+                    Add planting
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
-                {isPermanent && canEdit && (
+                {canEdit && (
                   <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
-                      className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      aria-label="Add plant"
-                    >
-                      + Add plant
-                    </button>
+                    {isPermanent ? (
+                      <button
+                        type="button"
+                        onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
+                        className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Add plant"
+                      >
+                        + Add plant
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/vault/plant?ids=${encodeURIComponent(id)}`}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Add planting"
+                      >
+                        + Add plant
+                      </Link>
+                    )}
                   </div>
                 )}
                 {growInstances.map((gi, giIdx) => {
