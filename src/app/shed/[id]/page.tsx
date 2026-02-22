@@ -32,7 +32,7 @@ export default function ShedDetailPage() {
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
 
   const categoryFromUrl = searchParams.get("category");
-  const backHref = categoryFromUrl ? `/shed?category=${categoryFromUrl}` : "/shed";
+  const backHref = categoryFromUrl ? `/vault?tab=shed&category=${categoryFromUrl}` : "/vault?tab=shed";
   const canEdit = supply && (supply.user_id === user?.id ? true : canEditUser(supply.user_id));
 
   const fetchSupply = useCallback(async () => {

@@ -285,7 +285,7 @@ function VaultPageInner() {
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
-      if (savedView === "grid" || savedView === "list") setViewMode(savedView);
+      if (savedView === "grid" || savedView === "list" || savedView === "shed") setViewMode(savedView);
       else if (savedView === "table") setViewMode("list");
       // Legacy values ("active", "plants") fall back to the default "grid" (Plant Profiles)
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
