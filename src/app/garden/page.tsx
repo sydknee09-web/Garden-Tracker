@@ -2,12 +2,13 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ActiveGardenView } from "@/components/ActiveGardenView";
+import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
 import { MyPlantsView } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
 import { AddPlantModal } from "@/components/AddPlantModal";
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
@@ -95,8 +96,17 @@ function GardenPageInner() {
   const [logGrowthSaving, setLogGrowthSaving] = useState(false);
   const [logGrowthError, setLogGrowthError] = useState<string | null>(null);
   const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
+  const quickAddFileRef = useRef<HTMLInputElement>(null);
+  const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
+  const [selectedPlantProfileIds, setSelectedPlantProfileIds] = useState<Set<string>>(new Set());
+  const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
+  const [quickAddNote, setQuickAddNote] = useState("");
+  const [quickAddPhoto, setQuickAddPhoto] = useState<File | null>(null);
+  const [quickAddPhotoPreview, setQuickAddPhotoPreview] = useState<string | null>(null);
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -245,6 +255,66 @@ function GardenPageInner() {
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthFile]);
 
+  const handleQuickAddSubmit = useCallback(async () => {
+    if (!user?.id) return;
+    const noteTrim = quickAddNote.trim() || null;
+    let imagePath: string | null = null;
+    if (quickAddPhoto) {
+      setQuickAddSaving(true);
+      const { blob } = await compressImage(quickAddPhoto);
+      const path = `${user.id}/${crypto.randomUUID()}.jpg`;
+      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) {
+        setQuickAddError(upErr.message || "Failed to upload photo.");
+        setQuickAddSaving(false);
+        return;
+      }
+      imagePath = path;
+    }
+    if (!noteTrim && !imagePath) {
+      setQuickAddError("Add a note or photo.");
+      return;
+    }
+    setQuickAddSaving(true);
+    setQuickAddError(null);
+    const weatherSnapshot = await fetchWeatherSnapshot();
+    const idsToInsert = selectedPlantProfileIds.size > 0 ? Array.from(selectedPlantProfileIds) : [null];
+    let insertErr: { message: string } | null = null;
+    try {
+      for (const profileId of idsToInsert) {
+        const { error } = await insertWithOfflineQueue("journal_entries", {
+          user_id: user.id,
+          plant_profile_id: profileId,
+          grow_instance_id: null,
+          seed_packet_id: null,
+          note: noteTrim,
+          entry_type: "note",
+          image_file_path: imagePath,
+          weather_snapshot: weatherSnapshot ?? undefined,
+        } as Record<string, unknown>);
+        if (error) {
+          insertErr = error;
+          break;
+        }
+      }
+    } finally {
+      setQuickAddSaving(false);
+    }
+    if (insertErr) {
+      setQuickAddError(insertErr.message);
+      return;
+    }
+    setQuickAddJournalOpen(false);
+    setQuickAddNote("");
+    setQuickAddPhoto(null);
+    if (quickAddPhotoPreview) {
+      URL.revokeObjectURL(quickAddPhotoPreview);
+      setQuickAddPhotoPreview(null);
+    }
+    setSelectedPlantProfileIds(new Set());
+    setRefetchTrigger((t) => t + 1);
+  }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantProfileIds]);
+
   return (
     <div className="min-h-screen pb-24">
       <div className="px-6 pt-0 pb-6">
@@ -309,6 +379,24 @@ function GardenPageInner() {
                   </span>
                 ) : null}
               </button>
+              {viewMode === "active" && bulkModeActive && (
+                <button
+                  type="button"
+                  onClick={() => activeGardenRef.current?.exitBulkMode()}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
+                >
+                  Cancel
+                </button>
+              )}
+              {viewMode === "plants" && selectedPlantProfileIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlantProfileIds(new Set())}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
+                >
+                  Cancel
+                </button>
+              )}
               <span className="text-sm text-black/50">
                 {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
               </span>
@@ -580,6 +668,7 @@ function GardenPageInner() {
         {viewMode === "active" && (
           <div className="pt-2">
             <ActiveGardenView
+              ref={activeGardenRef}
               refetchTrigger={refetchTrigger}
               highlightGrowId={searchParams.get("grow")}
               searchQuery={activeSearchDebounced}
@@ -628,6 +717,9 @@ function GardenPageInner() {
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
               onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
+              selectedProfileIds={selectedPlantProfileIds}
+              onToggleProfileSelection={(id) => setSelectedPlantProfileIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
+              onLongPressProfile={(id) => setSelectedPlantProfileIds((prev) => new Set(prev).add(id))}
               displayStyle={plantsDisplayStyle}
               sortBy={plantsSortBy}
               sortDir={plantsSortDir}
@@ -707,6 +799,42 @@ function GardenPageInner() {
         </div>
       )}
 
+      {quickAddJournalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-black/10">
+              <h2 className="text-lg font-semibold text-black">Add Journal Entry</h2>
+              {selectedPlantProfileIds.size > 0 && (
+                <p className="text-sm text-black/60 mt-1">{selectedPlantProfileIds.size} plant{selectedPlantProfileIds.size !== 1 ? "s" : ""} selected</p>
+              )}
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-black/60 mb-1">Note (required)</label>
+                <textarea value={quickAddNote} onChange={(e) => setQuickAddNote(e.target.value)} placeholder="What did you notice?" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional)</label>
+                <input ref={quickAddFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setQuickAddPhoto(f); setQuickAddPhotoPreview(URL.createObjectURL(f)); } e.target.value = ""; }} />
+                {quickAddPhotoPreview ? (
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
+                    <img src={quickAddPhotoPreview} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => { setQuickAddPhoto(null); if (quickAddPhotoPreview) URL.revokeObjectURL(quickAddPhotoPreview); setQuickAddPhotoPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => quickAddFileRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Take photo or choose from files</button>
+                )}
+              </div>
+              {quickAddError && <p className="text-sm text-red-600" role="alert">{quickAddError}</p>}
+            </div>
+            <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
+              <button type="button" onClick={() => { setQuickAddJournalOpen(false); setQuickAddNote(""); setQuickAddPhoto(null); if (quickAddPhotoPreview) { URL.revokeObjectURL(quickAddPhotoPreview); setQuickAddPhotoPreview(null); } setQuickAddError(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+              <button type="button" disabled={quickAddSaving} onClick={handleQuickAddSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{quickAddSaving ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {fabMenuOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setFabMenuOpen(false)} />
@@ -730,7 +858,7 @@ function GardenPageInner() {
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌱</span>
                 {viewMode === "plants" ? "Add permanent plant" : "Add plant"}
               </button>
-              <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+              <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else { setQuickAddJournalOpen(true); } setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
                 Add journal entry
               </button>

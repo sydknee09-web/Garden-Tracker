@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +66,9 @@ export function MyPlantsView({
   onEmptyStateChange,
   onAddClick,
   onPermanentPlantAdded,
+  selectedProfileIds = new Set<string>(),
+  onToggleProfileSelection,
+  onLongPressProfile,
   displayStyle = "grid",
   sortBy = "name",
   sortDir = "asc",
@@ -92,15 +95,66 @@ export function MyPlantsView({
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onAddClick?: () => void;
+  selectedProfileIds?: Set<string>;
+  onToggleProfileSelection?: (profileId: string) => void;
+  onLongPressProfile?: (profileId: string) => void;
   /** "grid" = small badges (2–3 col), "list" = detailed rows. */
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "planted_date" | "care_count";
   sortDir?: "asc" | "desc";
 }) {
+  const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode } = useHousehold();
   const [plants, setPlants] = useState<PermanentPlant[]>([]);
   const [loading, setLoading] = useState(true);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+
+  const LONG_PRESS_MS = 500;
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const getLongPressHandlers = useCallback(
+    (profileId: string) => {
+      const startLongPress = () => {
+        longPressFiredRef.current = false;
+        clearLongPressTimer();
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          longPressFiredRef.current = true;
+          onLongPressProfile?.(profileId);
+        }, LONG_PRESS_MS);
+      };
+      return {
+        onTouchStart: startLongPress,
+        onTouchMove: clearLongPressTimer,
+        onTouchEnd: clearLongPressTimer,
+        onTouchCancel: clearLongPressTimer,
+        onMouseDown: startLongPress,
+        onMouseUp: clearLongPressTimer,
+        onMouseLeave: clearLongPressTimer,
+        handleClick: (e?: React.MouseEvent) => {
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
+            e?.preventDefault?.();
+            return;
+          }
+          const inSelectionMode = selectedProfileIds.size > 0;
+          if (inSelectionMode) {
+            onToggleProfileSelection?.(profileId);
+            return;
+          }
+          router.push(`/vault/${profileId}?from=garden`);
+        },
+      };
+    },
+    [onLongPressProfile, onToggleProfileSelection, selectedProfileIds.size, clearLongPressTimer, router]
+  );
 
   const fetchPlants = useCallback(async () => {
     if (!user?.id) return;
@@ -330,18 +384,31 @@ export function MyPlantsView({
             <ul className="space-y-4" role="list">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
+                const handlers = getLongPressHandlers(plant.id);
+                const selected = selectedProfileIds.has(plant.id);
                 return (
                   <li key={plant.id}>
-                    <Link
-                      href={`/vault/${plant.id}?from=garden`}
-                      className="flex items-center gap-3 rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all group"
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => handlers.handleClick(e as unknown as React.MouseEvent)}
+                      onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
+                      {...handlers}
+                      className={`flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all group cursor-pointer min-h-[44px] ${
+                        selected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
+                      }`}
                       style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
                     >
-                      <div className="shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                      <div className="relative shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
                         {imgUrl ? (
                           <Image src={imgUrl} alt="" width={48} height={48} className="w-full h-full object-cover group-hover:scale-105 transition-transform" unoptimized />
                         ) : (
                           <span className="text-xl" aria-hidden>🌱</span>
+                        )}
+                        {selected && (
+                          <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          </span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -360,7 +427,7 @@ export function MyPlantsView({
                         </span>
                       )}
                       <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium">Perennial</span>
-                    </Link>
+                    </div>
                   </li>
                 );
               })}
@@ -369,8 +436,20 @@ export function MyPlantsView({
             <div className="grid grid-cols-3 gap-2">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
+                const handlers = getLongPressHandlers(plant.id);
+                const selected = selectedProfileIds.has(plant.id);
                 return (
-                  <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className="group rounded-lg bg-white overflow-hidden flex flex-col border border-black/5 shadow-card hover:border-emerald-500/40 transition-colors w-full">
+                  <div
+                    key={plant.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => handlers.handleClick(e as unknown as React.MouseEvent)}
+                    onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
+                    {...handlers}
+                    className={`group rounded-lg overflow-hidden flex flex-col border shadow-card transition-colors w-full cursor-pointer min-h-[44px] ${
+                      selected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "bg-white border-black/5 hover:border-emerald-500/40"
+                    }`}
+                  >
                     <div className="px-1.5 pt-1.5 shrink-0">
                       <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
                         {imgUrl ? (
@@ -386,6 +465,11 @@ export function MyPlantsView({
                             FAM
                           </span>
                         )}
+                        {selected && (
+                          <span className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
@@ -398,7 +482,7 @@ export function MyPlantsView({
                         {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

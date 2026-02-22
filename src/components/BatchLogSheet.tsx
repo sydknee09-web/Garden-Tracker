@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -46,6 +46,15 @@ interface BatchLogSheetProps {
 
 const CARE_NOTES: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
 
+function formatLastAction(iso: string | null): string {
+  if (!iso) return "Last: Never";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "Last: Never";
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  return sameDay ? `Last: ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : `Last: ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
 export function BatchLogSheet({
   open,
   batches,
@@ -60,6 +69,7 @@ export function BatchLogSheet({
 }: BatchLogSheetProps) {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const endBatchLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedActions, setSelectedActions] = useState<Set<ActionId>>(new Set());
   const [seedsSprouted, setSeedsSprouted] = useState("");
   const [plantCount, setPlantCount] = useState("");
@@ -70,11 +80,65 @@ export function BatchLogSheet({
   const [careNote, setCareNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [growthMilestonesOpen, setGrowthMilestonesOpen] = useState(false);
+  const [lastWater, setLastWater] = useState<string | null>(null);
+  const [lastFertilize, setLastFertilize] = useState<string | null>(null);
+  const [lastSpray, setLastSpray] = useState<string | null>(null);
 
   const isBulk = batches.length > 1;
   const firstBatch = batches[0];
 
   useEscapeKey(open, onClose);
+
+  // Reset form state when sheet closes so it opens fresh next time
+  useEffect(() => {
+    if (!open) {
+      setSelectedActions(new Set());
+      setSeedsSprouted("");
+      setPlantCount("");
+      setTransplantLocation("");
+      setNote("");
+      setPhoto(null);
+      setPhotoPreview(null);
+      setCareNote("");
+      setGrowthMilestonesOpen(false);
+      setLastWater(null);
+      setLastFertilize(null);
+      setLastSpray(null);
+    }
+  }, [open]);
+
+  // Fetch last water/fertilize/spray for single batch
+  useEffect(() => {
+    if (!open || !firstBatch?.id || isBulk) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("journal_entries")
+        .select("note, created_at")
+        .eq("grow_instance_id", firstBatch.id)
+        .eq("entry_type", "quick")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (cancelled || !data) return;
+      const n = (note: string) => (note ?? "").toLowerCase();
+      let w: string | null = null;
+      let f: string | null = null;
+      let s: string | null = null;
+      for (const row of data as { note: string | null; created_at: string }[]) {
+        const noteStr = n(row.note);
+        if (!w && noteStr.includes("watered")) w = row.created_at;
+        if (!f && noteStr.includes("fertilized")) f = row.created_at;
+        if (!s && noteStr.includes("sprayed")) s = row.created_at;
+      }
+      if (!cancelled) {
+        setLastWater(w);
+        setLastFertilize(f);
+        setLastSpray(s);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, firstBatch?.id, isBulk]);
 
   const toggleAction = useCallback((id: ActionId) => {
     setSelectedActions((prev) => {
@@ -111,6 +175,21 @@ export function BatchLogSheet({
       onClose();
     }
   }, [firstBatch, onEndBatch, onClose]);
+
+  const END_BATCH_LONG_PRESS_MS = 500;
+  const startEndBatchLongPress = useCallback(() => {
+    if (endBatchLongPressRef.current) return;
+    endBatchLongPressRef.current = setTimeout(() => {
+      endBatchLongPressRef.current = null;
+      handleEndBatch();
+    }, END_BATCH_LONG_PRESS_MS);
+  }, [handleEndBatch]);
+  const cancelEndBatchLongPress = useCallback(() => {
+    if (endBatchLongPressRef.current) {
+      clearTimeout(endBatchLongPressRef.current);
+      endBatchLongPressRef.current = null;
+    }
+  }, []);
 
   const handleDeleteBatch = useCallback(() => {
     if (firstBatch) {
@@ -231,8 +310,8 @@ export function BatchLogSheet({
       (selectedActions.has("plant_count") && plantCount.trim()) ||
       (selectedActions.has("transplant") && (plantCount.trim() || transplantLocation.trim())) ||
       (selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) ||
-      (selectedActions.has("note") && note.trim()) ||
-      (selectedActions.has("photo") && photo);
+      note.trim() ||
+      !!photo;
 
   if (!open) return null;
 
@@ -261,7 +340,12 @@ export function BatchLogSheet({
         </header>
 
         {!isBulk && firstBatch && (
-          <p className="px-4 pb-2 text-sm text-black/60">{displayName}</p>
+          <div className="px-4 pb-2">
+            <p className="text-sm text-black/60">{displayName}</p>
+            {firstBatch.location?.trim() && (
+              <p className="text-xs text-black/50 mt-0.5">{firstBatch.location.trim()}</p>
+            )}
+          </div>
         )}
 
         <div className="flex-1 overflow-y-auto p-4 pt-6 space-y-6">
@@ -270,23 +354,26 @@ export function BatchLogSheet({
             <button
               type="button"
               onClick={() => (isBulk ? handleQuickCareTap("water") : toggleAction("water"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium"
+              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium py-2"
             >
-              <span>💧</span> Water
+              <span className="flex items-center gap-1.5"><span>💧</span> Water</span>
+              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastWater)}</span>}
             </button>
             <button
               type="button"
               onClick={() => (isBulk ? handleQuickCareTap("fertilize") : toggleAction("fertilize"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-sm font-medium"
+              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-sm font-medium py-2"
             >
-              <span>🌿</span> Fertilize
+              <span className="flex items-center gap-1.5"><span>🌿</span> Fertilize</span>
+              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastFertilize)}</span>}
             </button>
             <button
               type="button"
               onClick={() => (isBulk ? handleQuickCareTap("spray") : toggleAction("spray"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm font-medium"
+              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm font-medium py-2"
             >
-              <span>🧴</span> Spray
+              <span className="flex items-center gap-1.5"><span>🧴</span> Spray</span>
+              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastSpray)}</span>}
             </button>
           </div>
 
@@ -426,70 +513,42 @@ export function BatchLogSheet({
                 <span>🧺</span> Harvest
               </button>
 
-              {/* Media — Add note, Add photo */}
-              <div className="space-y-1 divide-y divide-black/5">
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleAction("note")}
-                    className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
-                      selectedActions.has("note") ? "text-emerald-700" : "text-black/80 hover:text-black"
-                    }`}
-                  >
-                    Add note
-                    <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
-                  </button>
-                  {selectedActions.has("note") && (
-                    <div className="mt-2">
-                      <textarea
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Growth update, note…"
-                        rows={3}
-                        className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
-                      />
-                    </div>
-                  )}
+              {/* Quick memo + Add photo — always visible, no accordion */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-black/60 mb-1">Quick memo</label>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Growth update, note…"
+                    rows={2}
+                    className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
+                  />
                 </div>
-
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleAction("photo")}
-                    className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
-                      selectedActions.has("photo") ? "text-emerald-700" : "text-black/80 hover:text-black"
-                    }`}
-                  >
-                    Add photo
-                    <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
-                  </button>
-                  {selectedActions.has("photo") && (
-                    <div className="mt-2">
-                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                      {photoPreview ? (
-                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                          <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPhoto(null);
-                              setPhotoPreview(null);
-                            }}
-                            className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border border-black/10 text-black/60 hover:bg-black/5 text-sm"
-                        >
-                          Choose photo or take one
-                        </button>
-                      )}
+                <div>
+                  <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+                  {photoPreview ? (
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
+                      <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoto(null);
+                          setPhotoPreview(null);
+                        }}
+                        className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs"
+                      >
+                        Remove
+                      </button>
                     </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <span>📷</span> Add photo
+                    </button>
                   )}
                 </div>
               </div>
@@ -565,15 +624,20 @@ export function BatchLogSheet({
             </div>
           )}
 
-          {/* Administrative — End batch, Delete — single only */}
+          {/* Administrative — End batch (long-press), Delete — single only */}
           {!isBulk && firstBatch && (
             <div className="pt-6 mt-6 border-t border-black/10 space-y-2">
               <button
                 type="button"
-                onClick={handleEndBatch}
+                onTouchStart={startEndBatchLongPress}
+                onTouchEnd={cancelEndBatchLongPress}
+                onTouchCancel={cancelEndBatchLongPress}
+                onMouseDown={startEndBatchLongPress}
+                onMouseUp={cancelEndBatchLongPress}
+                onMouseLeave={cancelEndBatchLongPress}
                 className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border border-red-200/60 text-red-600 hover:bg-red-50 text-sm font-medium"
               >
-                <span>📦</span> End batch
+                <span>📦</span> End batch <span className="text-xs text-black/50">(hold to confirm)</span>
               </button>
               <button
                 type="button"

@@ -141,6 +141,8 @@ Never mix these up. The tab structure and available actions change based on prof
 
 **Key routes:** Shopping List at `/shopping-list` (linked from dashboard). Chat at `/chat` (planned; placeholder).
 
+**Navigation map:** See [docs/NAVIGATION_MAP.md](../../docs/NAVIGATION_MAP.md). Do not change navigation flows (e.g., FAB destinations, back behavior, modal vs. page) without approval; update the map when changing.
+
 ### Mobile-First Touch Targets
 
 All interactive elements must have `min-w-[44px] min-h-[44px]` for accessibility. Modals use `max-h-[85vh]` with internal scroll. Fixed bottom nav is 80px tall -- content must not be obscured.

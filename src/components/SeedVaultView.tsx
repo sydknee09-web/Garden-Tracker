@@ -913,7 +913,8 @@ export function SeedVaultView({
       let packetsQuery = supabase
         .from("seed_packets")
         .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date, packet_rating")
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .or("is_archived.is.null,is_archived.eq.false");
       if (!isFamilyView) packetsQuery = packetsQuery.eq("user_id", user.id);
       let packetImagesQuery = supabase
         .from("seed_packets")

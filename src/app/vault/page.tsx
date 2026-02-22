@@ -949,13 +949,30 @@ function VaultPageInner() {
                     Clear Filters
                   </button>
                 )}
-                {!batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
+                {(viewMode === "grid" || viewMode === "list") && (
                   <button
                     type="button"
-                    onClick={() => setBatchSelectMode(true)}
+                    onClick={() => {
+                    if (batchSelectMode) {
+                      setBatchSelectMode(false);
+                      setSelectedVarietyIds(new Set());
+                      setSelectionActionsOpen(false);
+                    } else {
+                      setBatchSelectMode(true);
+                    }
+                  }}
                     className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
                   >
-                    Select
+                    {batchSelectMode ? "Cancel" : "Select"}
+                  </button>
+                )}
+                {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
+                  >
+                    Select All
                   </button>
                 )}
                 {viewMode === "grid" && (
@@ -968,24 +985,6 @@ function VaultPageInner() {
                   >
                     {gridDisplayStyle === "condensed" ? <PhotoCardsGridIcon /> : <CondensedGridIcon />}
                   </button>
-                )}
-                {batchSelectMode && (viewMode === "grid" || viewMode === "list") && (
-                  <div className="flex flex-wrap items-center gap-2 bg-neutral-50/80 rounded-lg px-2 py-1.5 border border-black/5" role="toolbar" aria-label="Selection">
-                    <button
-                      type="button"
-                      onClick={() => { setBatchSelectMode(false); setSelectedVarietyIds(new Set()); setSelectionActionsOpen(false); }}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 shrink-0"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectAll}
-                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-sm font-medium text-black/80 bg-white hover:bg-black/5 shrink-0"
-                    >
-                      Select All
-                    </button>
-                  </div>
                 )}
               </div>
             </div>

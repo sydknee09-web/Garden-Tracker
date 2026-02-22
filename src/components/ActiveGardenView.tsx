@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -61,34 +61,9 @@ type GrowingBatch = {
   primary_image_path?: string | null;
 };
 
-export function ActiveGardenView({
-  refetchTrigger,
-  highlightGrowId = null,
-  searchQuery = "",
-  onLogGrowth,
-  onLogHarvest,
-  onEndCrop,
-  categoryFilter = null,
-  onCategoryChipsLoaded,
-  varietyFilter = null,
-  sunFilter = null,
-  spacingFilter = null,
-  germinationFilter = null,
-  maturityFilter = null,
-  tagFilters = [],
-  onRefineChipsLoaded,
-  onFilteredCountChange,
-  onEmptyStateChange,
-  openBulkJournalRequest = false,
-  onBulkJournalRequestHandled,
-  onBulkSelectionChange,
-  openBulkLogRequest = false,
-  onBulkLogRequestHandled,
-  onBulkModeChange,
-  displayStyle = "list",
-  sortBy = "sown_date",
-  sortDir = "desc",
-}: {
+export type ActiveGardenViewHandle = { exitBulkMode: () => void };
+
+export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   refetchTrigger: number;
   /** When set, scroll to this grow instance and clear the URL param. Used when navigating from plant profile. */
   highlightGrowId?: string | null;
@@ -127,7 +102,34 @@ export function ActiveGardenView({
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "sown_date" | "harvest_date";
   sortDir?: "asc" | "desc";
-}) {
+}>(({
+  refetchTrigger,
+  highlightGrowId = null,
+  searchQuery = "",
+  onLogGrowth,
+  onLogHarvest,
+  onEndCrop,
+  categoryFilter = null,
+  onCategoryChipsLoaded,
+  varietyFilter = null,
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  tagFilters = [],
+  onRefineChipsLoaded,
+  onFilteredCountChange,
+  onEmptyStateChange,
+  openBulkJournalRequest = false,
+  onBulkJournalRequestHandled,
+  onBulkSelectionChange,
+  openBulkLogRequest = false,
+  onBulkLogRequestHandled,
+  onBulkModeChange,
+  displayStyle = "list",
+  sortBy = "sown_date",
+  sortDir = "desc",
+}, ref) => {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
@@ -165,6 +167,15 @@ export function ActiveGardenView({
   const [batchLogBatches, setBatchLogBatches] = useState<BatchLogBatch[]>([]);
   const longPressFiredRef = useRef(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const exitBulkMode = useCallback(() => {
+    setBulkMode(false);
+    setBulkSelected(new Set());
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+  }, [onBulkSelectionChange, onBulkModeChange]);
+
+  useImperativeHandle(ref, () => ({ exitBulkMode }), [exitBulkMode]);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
@@ -516,15 +527,24 @@ export function ActiveGardenView({
         };
       });
       const { error } = await insertManyWithOfflineQueue("journal_entries", entries);
-      if (error) { setQuickToast("Failed to save — try again"); } else { setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`); }
-      setTimeout(() => setQuickToast(null), 2000);
+      if (error) {
+        setQuickToast("Failed to save — try again");
+        setTimeout(() => setQuickToast(null), 2000);
+      } else {
+        setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`);
+        setTimeout(() => setQuickToast(null), 2000);
+        setBulkSelected(new Set());
+        setBulkMode(false);
+        onBulkSelectionChange?.(0);
+        onBulkModeChange?.(false);
+      }
     } catch {
       setQuickToast("Failed to save — try again");
       setTimeout(() => setQuickToast(null), 2000);
     } finally {
       setBulkSaving(false);
     }
-  }, [user?.id, bulkSelected, growing]);
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange]);
 
   // End batch with reason
   const handleEndBatch = useCallback(async () => {
@@ -699,36 +719,25 @@ export function ActiveGardenView({
         </div>
       )}
 
-      {/* Bulk mode: Cancel exits; Delete removes grow instances and related data. Tap cards to select. */}
-      {bulkMode && (
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+      {/* Bulk mode: Cancel is in parent Filter row (like Vault). Selecting + Delete when items selected. */}
+      {bulkMode && bulkSelected.size > 0 && (
+        <div className="flex items-center justify-end gap-3 flex-wrap mb-3">
+          <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
           <button
             type="button"
-            onClick={() => { setBulkMode(false); setBulkSelected(new Set()); onBulkSelectionChange?.(0); onBulkModeChange?.(false); }}
-            className="text-sm font-medium px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 shrink-0"
+            onClick={() => setBulkDeleteConfirmOpen(true)}
+            className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+            aria-label="Delete selected plants"
           >
-            Cancel
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              <line x1="10" y1="11" x2="10" y2="17" />
+              <line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
+            Delete
           </button>
-          {bulkSelected.size > 0 && (
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
-              <button
-                type="button"
-                onClick={() => setBulkDeleteConfirmOpen(true)}
-                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
-                aria-label="Delete selected plants"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
-                Delete
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1029,7 +1038,7 @@ export function ActiveGardenView({
       </section>
     </div>
   );
-}
+});
 
 /** Hands/care icon: cupped hands with heart and sprout — for logging care journal entries. */
 function CareHandsIcon() {

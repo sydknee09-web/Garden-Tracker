@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +42,8 @@ function UploadIcon() {
 
 export default function JournalNewPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromGarden = searchParams.get("from") === "garden";
   const { user } = useAuth();
   const { setSyncing } = useSync();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
@@ -238,15 +240,15 @@ export default function JournalNewPage() {
       setSubmitError(insertErr.message);
       return;
     }
-    router.push("/journal");
+    router.push(fromGarden ? "/garden" : "/journal");
   }
 
   if (!user) {
     return (
       <div className="px-6 py-8">
         <p className="text-black/70">Sign in to add journal entries.</p>
-        <Link href="/journal" className="text-emerald-600 font-medium mt-2 inline-block">
-          ← Back to Journal
+        <Link href={fromGarden ? "/garden" : "/journal"} className="text-emerald-600 font-medium mt-2 inline-block">
+          ← Back to {fromGarden ? "Garden" : "Journal"}
         </Link>
       </div>
     );
@@ -256,7 +258,7 @@ export default function JournalNewPage() {
     <div className="px-6 pb-8 max-w-lg mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link
-          href="/journal"
+          href={fromGarden ? "/garden" : "/journal"}
           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl border border-black/10 text-black/80 font-medium"
         >
           ←
@@ -412,7 +414,7 @@ export default function JournalNewPage() {
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={() => router.push("/journal")}
+            onClick={() => router.push(fromGarden ? "/garden" : "/journal")}
             className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
           >
             Cancel

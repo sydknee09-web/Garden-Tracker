@@ -5,16 +5,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useSync } from "@/contexts/SyncContext";
-import { fetchWeatherSnapshot, formatWeatherBadge } from "@/lib/weatherSnapshot";
+import { formatWeatherBadge } from "@/lib/weatherSnapshot";
 import type { JournalEntry } from "@/types/garden";
 import type { GrowInstance } from "@/types/garden";
-import { compressImage } from "@/lib/compressImage";
-import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 
 type JournalEntryWithPlant = JournalEntry & {
   plant_name?: string;
@@ -22,8 +20,6 @@ type JournalEntryWithPlant = JournalEntry & {
   plant_profile_id?: string | null;
   weather_snapshot?: JournalEntry["weather_snapshot"];
 };
-
-const GENERAL_OPTION = { id: "", name: "General Garden Note (923 Capri Drive)", variety_name: null as string | null };
 
 function TrashIcon() {
   return (
@@ -34,15 +30,6 @@ function TrashIcon() {
       <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   );
-}
-
-function isMobileDevice(): boolean {
-  if (typeof window === "undefined") return false;
-  const ua = navigator.userAgent.toLowerCase();
-  const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  const mobileKeywords = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
-  const narrowScreen = typeof window !== "undefined" && window.innerWidth < 768;
-  return (hasTouch && mobileKeywords.test(ua)) || narrowScreen || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
 type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" };
@@ -269,24 +256,6 @@ export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [addChoiceOpen, setAddChoiceOpen] = useState(false);
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [openAsSnapshot, setOpenAsSnapshot] = useState(false);
-  const [note, setNote] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [selectedPlantId, setSelectedPlantId] = useState<string>("");
-  const [selectedSowingId, setSelectedSowingId] = useState<string>("");
-  const [selectedPacketId, setSelectedPacketId] = useState<string>("");
-  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
-  const [packets, setPackets] = useState<{ id: string; vendor_name: string | null; purchase_date: string | null; qty_status: number }[]>([]);
-  const [sowings, setSowings] = useState<GrowInstance[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [webcamActive, setWebcamActive] = useState(false);
-  const [webcamError, setWebcamError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const viewFromUrl = searchParams.get("view");
   const [viewMode, setViewMode] = useState<"table" | "grid" | "timeline">(() => {
@@ -302,12 +271,8 @@ export default function JournalPage() {
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [deleteConfirmEntryIds, setDeleteConfirmEntryIds] = useState<string[] | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
-  const cameraMobileRef = useRef<HTMLInputElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (viewFromUrl === "timeline") setViewMode("timeline");
@@ -320,54 +285,6 @@ export default function JournalPage() {
     if (typeof window === "undefined") return;
     try { sessionStorage.setItem("journal-view-mode", viewMode); } catch { /* ignore */ }
   }, [viewMode]);
-
-  useEffect(() => {
-    setIsMobile(isMobileDevice());
-  }, []);
-
-  function stopWebcamStream() {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setWebcamActive(false);
-    setWebcamError(null);
-  }
-
-  async function startDesktopWebcam() {
-    setWebcamError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-      streamRef.current = stream;
-      setWebcamActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      setWebcamError("Camera access denied. Choose a file instead.");
-      streamRef.current = null;
-      fileInputRef.current?.click();
-    }
-  }
-
-  function captureFromWebcam() {
-    const video = videoRef.current;
-    if (!video || !streamRef.current) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `journal-${Date.now()}.jpg`, { type: "image/jpeg" });
-        handleImageSelected(file);
-        stopWebcamStream();
-      },
-      "image/jpeg",
-      0.9
-    );
-  }
 
   useEffect(() => {
     if (!user) {
@@ -438,164 +355,6 @@ export default function JournalPage() {
       cancelled = true;
     };
   }, [user?.id, householdViewMode]);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("plant_profiles")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id)
-        .order("name");
-      if (!cancelled && data) setProfiles(data);
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!selectedPlantId || !user) {
-      setSowings([]);
-      setSelectedSowingId("");
-      setPackets([]);
-      setSelectedPacketId("");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const [sowRes, pktRes] = await Promise.all([
-        supabase
-          .from("grow_instances")
-          .select("id, sown_date, expected_harvest_date, created_at")
-          .eq("plant_profile_id", selectedPlantId)
-          .eq("user_id", user.id)
-          .order("sown_date", { ascending: false }),
-        supabase
-          .from("seed_packets")
-          .select("id, vendor_name, purchase_date, qty_status")
-          .eq("plant_profile_id", selectedPlantId)
-          .eq("user_id", user.id)
-          .or("is_archived.eq.false,is_archived.is.null")
-          .order("created_at", { ascending: false }),
-      ]);
-      if (!cancelled) {
-        if (sowRes.data) setSowings(sowRes.data as GrowInstance[]);
-        if (pktRes.data) setPackets(pktRes.data as { id: string; vendor_name: string | null; purchase_date: string | null; qty_status: number }[]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedPlantId, user?.id]);
-
-  async function handleSubmitEntry(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-    setModalError(null);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const sessionUserId = session?.user?.id ?? user.id;
-    if (!sessionUserId) {
-      setModalError("You must be signed in to save journal entries.");
-      return;
-    }
-
-    const noteTrim = note.trim() || null;
-    let imagePath: string | null = null;
-
-    if (imageFile) {
-      setUploadingPhoto(true);
-      const { blob } = await compressImage(imageFile);
-      const path = `${sessionUserId}/${crypto.randomUUID()}.jpg`;
-      const { error: uploadErr } = await supabase.storage
-        .from("journal-photos")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-      setUploadingPhoto(false);
-      if (uploadErr) {
-        setModalError(uploadErr.message);
-        return;
-      }
-      imagePath = path;
-    }
-
-    if (!noteTrim && !imagePath) {
-      setModalError("Add a note or photo.");
-      return;
-    }
-
-    setSaving(true);
-    setSyncing(true);
-    const weatherSnapshot = await fetchWeatherSnapshot();
-    let insertErr: { message: string } | null = null;
-    try {
-      const payload = {
-        user_id: sessionUserId,
-        plant_profile_id: selectedPlantId || null,
-        grow_instance_id: selectedSowingId || null,
-        seed_packet_id: selectedPacketId || null,
-        note: noteTrim,
-        entry_type: "note",
-        image_file_path: imagePath,
-        weather_snapshot: weatherSnapshot ?? undefined,
-      };
-      const result = await insertWithOfflineQueue("journal_entries", payload as Record<string, unknown>);
-      insertErr = result.error;
-    } finally {
-      setSyncing(false);
-      setSaving(false);
-    }
-    if (insertErr) {
-      setModalError(insertErr.message);
-      return;
-    }
-
-    setAddModalOpen(false);
-    setNote("");
-    setImageFile(null);
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
-    }
-    setSelectedPlantId("");
-    setSelectedSowingId("");
-    setSelectedPacketId("");
-
-    const { data: rows } = await supabase
-      .from("journal_entries")
-      .select("id, plant_profile_id, plant_variety_id, grow_instance_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-      .eq("user_id", user!.id)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .limit(200);
-    const profileIds = Array.from(new Set((rows ?? []).map((r: { plant_profile_id?: string | null }) => r.plant_profile_id).filter(Boolean)));
-    const varietyIds = Array.from(new Set((rows ?? []).map((r: { plant_variety_id: string | null }) => r.plant_variety_id).filter(Boolean)));
-    const names: Record<string, string> = {};
-    const displayNames: Record<string, string> = {};
-    if (profileIds.length > 0) {
-      const { data: p } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds).is("deleted_at", null);
-      (p ?? []).forEach((x: { id: string; name: string; variety_name?: string | null }) => {
-        names[x.id] = x.name;
-        displayNames[x.id] = x.variety_name?.trim() ? `${x.name} (${x.variety_name})` : x.name;
-      });
-    }
-    if (varietyIds.length > 0) {
-      const { data: v } = await supabase.from("plant_varieties").select("id, name").in("id", varietyIds);
-      (v ?? []).forEach((x: { id: string; name: string }) => {
-        if (!names[x.id]) names[x.id] = x.name;
-        if (!displayNames[x.id]) displayNames[x.id] = x.name;
-      });
-    }
-    setEntries((rows ?? [])
-      .map((r: JournalEntry & { plant_profile_id?: string | null }) => {
-        const id = (r as { plant_profile_id?: string | null; plant_variety_id?: string | null }).plant_profile_id ?? (r as { plant_variety_id?: string | null }).plant_variety_id;
-        const plant_name = id ? (names[id] ?? "Unknown") : "General";
-        const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
-        return { ...r, plant_name, plant_display_name };
-      })
-      .filter((r: JournalEntryWithPlant) => {
-        const id = r.plant_profile_id ?? r.plant_variety_id;
-        if (!id) return true;
-        return (names as Record<string, string>)[id] != null;
-      }));
-  }
 
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
@@ -696,71 +455,6 @@ export default function JournalPage() {
     (entryIds: string[]) => entryIds.length > 0 && entryIds.every((id) => selectedEntryIds.includes(id)),
     [selectedEntryIds]
   );
-
-  function openAddModal(opts?: { asSnapshot?: boolean }) {
-    setAddModalOpen(true);
-    if (opts?.asSnapshot) setOpenAsSnapshot(true);
-    setNote("");
-    setImageFile(null);
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
-    }
-    setModalError(null);
-    setSelectedPlantId("");
-    setSelectedSowingId("");
-    setSelectedPacketId("");
-    stopWebcamStream();
-  }
-
-  useEffect(() => {
-    if (!webcamActive || !videoRef.current || !streamRef.current) return;
-    videoRef.current.srcObject = streamRef.current;
-    return () => {
-      if (videoRef.current) videoRef.current.srcObject = null;
-    };
-  }, [webcamActive]);
-
-  useEffect(() => {
-    if (addModalOpen && openAsSnapshot) {
-      setOpenAsSnapshot(false);
-      if (isMobile) {
-        cameraMobileRef.current?.click();
-      } else {
-        startDesktopWebcam();
-      }
-    }
-  }, [addModalOpen, openAsSnapshot, isMobile]);
-
-  useEffect(() => {
-    if (!addModalOpen || !user?.id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("grow_instances")
-        .select("plant_profile_id")
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .in("status", ["growing", "pending"])
-        .order("sown_date", { ascending: false })
-        .limit(10);
-      if (cancelled || !data?.length) return;
-      const profileIds = [...new Set((data as { plant_profile_id: string | null }[]).map((r) => r.plant_profile_id).filter(Boolean))];
-      if (profileIds.length === 1) {
-        setSelectedPlantId(profileIds[0] as string);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [addModalOpen, user?.id]);
-
-  function handleImageSelected(f: File | null) {
-    if (imagePreviewUrl) {
-      URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
-    }
-    setImageFile(f);
-    if (f) setImagePreviewUrl(URL.createObjectURL(f));
-  }
 
   if (loading) {
     return (
@@ -1187,19 +881,15 @@ export default function JournalPage() {
         onClick={() => {
           if (selectedEntryIds.length > 0) {
             setSelectionActionsOpen(true);
-          } else if (addChoiceOpen) {
-            setAddChoiceOpen(false);
           } else {
-            setAddChoiceOpen(true);
+            router.push("/journal/new");
           }
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-          selectedEntryIds.length > 0 ? "bg-amber-500 text-white" : addChoiceOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+          selectedEntryIds.length > 0 ? "bg-amber-500 text-white" : "bg-emerald text-white"
         }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={
-          selectedEntryIds.length > 0 ? "Actions for selected" : addChoiceOpen ? "Close add menu" : "Add journal entry"
-        }
+        aria-label={selectedEntryIds.length > 0 ? "Actions for selected" : "Add journal entry"}
       >
         {selectedEntryIds.length > 0 ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1217,7 +907,6 @@ export default function JournalPage() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${addChoiceOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -1225,72 +914,6 @@ export default function JournalPage() {
           </svg>
         )}
       </button>
-
-      {addChoiceOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/20"
-            aria-hidden
-            onClick={() => setAddChoiceOpen(false)}
-          />
-          <div
-            className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
-            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-journal-choice-title"
-          >
-            <h2 id="add-journal-choice-title" className="text-xl font-bold text-center text-neutral-900 mb-1">
-              Quick log
-            </h2>
-            <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add an entry.</p>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setAddChoiceOpen(false);
-                  openAddModal({ asSnapshot: true });
-                }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
-                Snapshot — take a photo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddChoiceOpen(false);
-                  openAddModal();
-                }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
-                Quick Note — text only
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddChoiceOpen(false);
-                  router.push("/journal/new");
-                }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📋</span>
-                Detailed Log — link plant, packet, sowing
-              </button>
-              <div className="pt-4">
-                <button
-                  type="button"
-                  onClick={() => setAddChoiceOpen(false)}
-                  className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {selectionActionsOpen && selectedEntryIds.length > 0 && (
         <>
@@ -1395,254 +1018,7 @@ export default function JournalPage() {
           </div>
         </div>
       )}
-
-      {addModalOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/20"
-            aria-hidden
-            onClick={() => {
-              stopWebcamStream();
-              setAddModalOpen(false);
-            }}
-          />
-          <div
-            className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-entry-title"
-          >
-            <h2 id="add-entry-title" className="text-lg font-semibold text-black mb-4">
-              Add Journal Entry
-            </h2>
-            <form onSubmit={handleSubmitEntry} className="space-y-4">
-              <input
-                ref={cameraMobileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                aria-label="Take photo (mobile)"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleImageSelected(f);
-                  e.target.value = "";
-                }}
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                aria-label="Choose file"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleImageSelected(f);
-                  e.target.value = "";
-                }}
-              />
-              <div>
-                <span className="block text-sm font-medium text-black/80 mb-2">Photo (optional)</span>
-                {webcamActive ? (
-                  <div className="space-y-2">
-                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={captureFromWebcam}
-                        className="inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-emerald text-white text-sm font-medium"
-                      >
-                        <CameraIcon />
-                        Capture
-                      </button>
-                      <button
-                        type="button"
-                        onClick={stopWebcamStream}
-                        className="py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : imageFile && imagePreviewUrl ? (
-                  <div className="relative">
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Preview"
-                      className="w-full rounded-xl object-cover h-40 bg-black/5"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleImageSelected(null)}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center text-sm leading-none hover:bg-black/70"
-                      aria-label="Remove photo"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isMobile) {
-                          cameraMobileRef.current?.click();
-                        } else {
-                          startDesktopWebcam();
-                        }
-                      }}
-                      className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
-                    >
-                      <CameraIcon />
-                      Take Photo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
-                    >
-                      <UploadIcon />
-                      Choose from Files
-                    </button>
-                  </div>
-                )}
-                {webcamError && (
-                  <p className="text-xs text-citrus mt-1">{webcamError}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="journal-note" className="block text-sm font-medium text-black/80 mb-1">
-                  Note
-                </label>
-                <textarea
-                  id="journal-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Transplants, slope progress, weather…"
-                  rows={3}
-                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                />
-              </div>
-              <div>
-                <label htmlFor="journal-plant" className="block text-sm font-medium text-black/80 mb-1">
-                  Link to (optional)
-                </label>
-                <select
-                  id="journal-plant"
-                  value={selectedPlantId}
-                  onChange={(e) => {
-                    setSelectedPlantId(e.target.value);
-                    setSelectedSowingId("");
-                    setSelectedPacketId("");
-                  }}
-                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                >
-                  <option value={GENERAL_OPTION.id}>{GENERAL_OPTION.name}</option>
-                  {profiles.length === 0 ? (
-                    <option value="" disabled>No varieties in vault. Add seeds first.</option>
-                  ) : (
-                    profiles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-              {selectedPlantId && packets.length > 0 && (
-                <div>
-                  <label htmlFor="journal-packet" className="block text-sm font-medium text-black/80 mb-1">
-                    Which packet did you use? (optional — decrements that packet)
-                  </label>
-                  <select
-                    id="journal-packet"
-                    value={selectedPacketId}
-                    onChange={(e) => setSelectedPacketId(e.target.value)}
-                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                  >
-                    <option value="">None</option>
-                    {packets.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.vendor_name?.trim() || "Packet"} — {qtyStatusToLabel(p.qty_status)} left
-                        {p.purchase_date ? ` (${new Date(p.purchase_date).getFullYear()})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {selectedPlantId && sowings.length > 0 && (
-                <div>
-                  <label htmlFor="journal-sowing" className="block text-sm font-medium text-black/80 mb-1">
-                    Active sowing (optional)
-                  </label>
-                  <select
-                    id="journal-sowing"
-                    value={selectedSowingId}
-                    onChange={(e) => setSelectedSowingId(e.target.value)}
-                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                  >
-                    <option value="">None</option>
-                    {sowings.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        Sown {new Date(s.sown_date).toLocaleDateString()}
-                        {s.expected_harvest_date ? ` → ${new Date(s.expected_harvest_date).toLocaleDateString()}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {modalError && <p className="text-sm text-citrus font-medium">{modalError}</p>}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopWebcamStream();
-                    setAddModalOpen(false);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || uploadingPhoto}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
-                >
-                  {uploadingPhoto ? "Uploading…" : saving ? "Saving…" : "Save entry"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </>
-      )}
     </div>
-  );
-}
-
-function CameraIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
   );
 }
 
