@@ -288,38 +288,27 @@ export default function VaultSeedPage() {
       setProfileOwnerId(ownerIdFromData);
       setIsOwnProfile(ownerIdFromData === user.id);
 
-      // Packets (same scope as vault: all non-deleted; profile page shows archived too)
-      const { data: packetData, error: packetErr } = await supabase.from("seed_packets")
-        .select(SEED_PACKET_PROFILE_SELECT)
-        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
-      const packetRows = packetErr ? [] : ((packetData ?? []) as SeedPacket[]);
-      if (packetErr) setError(packetErr.message);
-      setPackets(packetRows);
-      // Fetch packet_images for additional photos (e.g. front + back)
-      const packetIds = packetRows.map((p) => p.id);
-      if (packetIds.length > 0) {
-        const { data: extraImages } = await supabase
-          .from("packet_images")
-          .select("seed_packet_id, image_path, sort_order")
-          .in("seed_packet_id", packetIds)
-          .order("sort_order", { ascending: true });
-        const byPacket = new Map<string, { image_path: string }[]>();
-        for (const row of extraImages ?? []) {
-          const r = row as { seed_packet_id: string; image_path: string };
-          const list = byPacket.get(r.seed_packet_id) ?? [];
-          list.push({ image_path: r.image_path });
-          byPacket.set(r.seed_packet_id, list);
-        }
-        setPacketImagesByPacketId(byPacket);
-      } else {
-        setPacketImagesByPacketId(new Map());
-      }
-
-      // Grow instances — primary query by plant_profile_id
-      const { data: grows } = await supabase.from("grow_instances")
+      const isPermanentProfile = (profileData as { profile_type?: string })?.profile_type === "permanent";
+      const careQuery = supabase.from("care_schedules")
         .select("*")
-        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("sown_date", { ascending: false });
-      let allGrows = (grows ?? []) as GrowInstance[];
+        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
+        .order("title", { ascending: true });
+      const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
+
+      // Batch 2: Fetch packets, grows, journals, care, journal photos in parallel
+      const [packetsRes, growsRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
+        supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
+        supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("sown_date", { ascending: false }),
+        supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
+        careQueryFinal,
+        supabase.from("journal_entries").select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false }),
+      ]);
+
+      const packetRows = packetsRes.error ? [] : ((packetsRes.data ?? []) as SeedPacket[]);
+      if (packetsRes.error) setError(packetsRes.error.message);
+      setPackets(packetRows);
+
+      let allGrows = (growsRes.data ?? []) as GrowInstance[];
       // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
       if (allGrows.length === 0 && packetRows.length > 0) {
         const pktIds = packetRows.map((p) => p.id);
@@ -350,27 +339,29 @@ export default function VaultSeedPage() {
         await supabase.from("plant_profiles").update({ status: "active" }).eq("id", id).eq("user_id", ownerIdFromData);
       }
 
-      // All journal entries for this profile
-      const { data: journals } = await supabase.from("journal_entries")
-        .select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
-        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
-      setJournalEntries((journals ?? []) as JournalEntry[]);
+      setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
+      setCareSchedules((careRes.data ?? []) as CareSchedule[]);
+      setJournalPhotos((journalPhotosRes.data ?? []) as JournalPhoto[]);
 
-      // Care schedules: seed = templates only; permanent = all (they use is_template=false)
-      const isPermanentProfile = (profileData as { profile_type?: string })?.profile_type === "permanent";
-      let careQuery = supabase.from("care_schedules")
-        .select("*")
-        .eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
-        .order("title", { ascending: true });
-      if (!isPermanentProfile) careQuery = careQuery.eq("is_template", true);
-      const { data: careData } = await careQuery;
-      setCareSchedules((careData ?? []) as CareSchedule[]);
-
-      // Journal photos for hero picker
-      const { data: journalRows } = await supabase.from("journal_entries")
-        .select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
-        .is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false });
-      setJournalPhotos((journalRows ?? []) as JournalPhoto[]);
+      // Batch 3: packet_images (depends on packetIds)
+      const packetIds = packetRows.map((p) => p.id);
+      if (packetIds.length > 0) {
+        const { data: extraImages } = await supabase
+          .from("packet_images")
+          .select("seed_packet_id, image_path, sort_order")
+          .in("seed_packet_id", packetIds)
+          .order("sort_order", { ascending: true });
+        const byPacket = new Map<string, { image_path: string }[]>();
+        for (const row of extraImages ?? []) {
+          const r = row as { seed_packet_id: string; image_path: string };
+          const list = byPacket.get(r.seed_packet_id) ?? [];
+          list.push({ image_path: r.image_path });
+          byPacket.set(r.seed_packet_id, list);
+        }
+        setPacketImagesByPacketId(byPacket);
+      } else {
+        setPacketImagesByPacketId(new Map());
+      }
 
       // Plantable now check (from profile.planting_window or zone10b fallback)
       setIsPlantableNow(isPlantableInMonth(profileData as { name: string; planting_window?: string | null }, new Date().getMonth()));

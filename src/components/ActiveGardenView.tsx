@@ -752,7 +752,6 @@ export function ActiveGardenView({
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
         ) : (
           <>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-emerald-700 mb-3 flex items-center gap-2">Growing ({filteredBySearch.length})</h2>
           <ul className="space-y-4">
             {filteredBySearch.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();

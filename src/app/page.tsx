@@ -65,85 +65,69 @@ export default function HomePage() {
     let cancelled = false;
 
     async function load() {
-      // Fetch user_settings for weather coords + location name
-      const { data: settingsRow } = await supabase
-        .from("user_settings")
-        .select("planting_zone, latitude, longitude, timezone, location_name")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      const settings = settingsRow as UserSettingsRow | null;
+      const twoWeeksOut = new Date();
+      twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
+
+      // Batch 1: Fetch all independent data in parallel
+      const [settingsRes, tasksRes, listRes, careRes] = await Promise.all([
+        supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
+        supabase.from("tasks").select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(20),
+        supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
+        supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(10),
+      ]);
+
+      const settings = settingsRes.data as UserSettingsRow | null;
       if (!cancelled) setUserSettings(settings);
 
-      // Tasks
-      const { data: tasksData } = await supabase
-        .from("tasks")
-        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title")
-        .eq("user_id", user!.id)
-        .is("deleted_at", null)
-        .is("completed_at", null)
-        .order("due_date", { ascending: true })
-        .limit(20);
-      const taskRows = Array.isArray(tasksData) ? tasksData : [];
+      const taskRows = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+      const listRows = listRes.data ?? [];
+      const careData = careRes.data ?? [];
 
-      // Resolve names for tasks
+      // Batch 2: Resolve names — collect all profile/variety IDs and fetch in parallel
       const profileIds = taskRows.map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter((id): id is string => Boolean(id));
       const varietyIds = taskRows.map((t: { plant_variety_id?: string | null }) => t.plant_variety_id).filter((id): id is string => Boolean(id));
+      const listIds = Array.from(new Set(listRows.map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
+      const careProfileIds = careData.length > 0 ? Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id))) : [];
+      const allProfileIds = Array.from(new Set([...profileIds, ...listIds, ...careProfileIds]));
+
+      const [profilesRes, varietiesRes] = await Promise.all([
+        allProfileIds.length > 0 ? supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : Promise.resolve({ data: [] }),
+        varietyIds.length > 0 ? supabase.from("plant_varieties").select("id, name").in("id", Array.from(new Set(varietyIds))) : Promise.resolve({ data: [] }),
+      ]);
+
+      const profiles = profilesRes.data ?? [];
+      const varieties = varietiesRes.data ?? [];
       const names: Record<string, string> = {};
-      if (profileIds.length > 0) {
-        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", Array.from(new Set(profileIds)));
-        (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
-          names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
-        });
-      }
-      if (varietyIds.length > 0) {
-        const { data: varieties } = await supabase.from("plant_varieties").select("id, name").in("id", Array.from(new Set(varietyIds)));
-        (varieties ?? []).forEach((v: { id: string; name: string }) => { names[v.id] = v.name; });
-      }
-      const withNames: TaskWithPlant[] = taskRows.map((t: any) => {
+      profiles.forEach((p: { id: string; name: string; variety_name: string | null }) => {
+        names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+      });
+      varieties.forEach((v: { id: string; name: string }) => { names[v.id] = v.name; });
+
+      const listNames: Record<string, { name: string; variety_name: string | null }> = {};
+      profiles.forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
+
+      const withNames: TaskWithPlant[] = taskRows.map((t: Task & { plant_profile_id?: string | null; plant_variety_id?: string | null }) => {
         const linkId = t.plant_profile_id ?? t.plant_variety_id;
         return { ...t, plant_name: linkId ? names[linkId] ?? "Unknown" : undefined };
       });
       if (!cancelled) setPendingTasks(withNames);
 
-      // Shopping list (profile-linked + placeholders)
-      const { data: listRows } = await supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false });
-      const listIds = Array.from(new Set((listRows ?? []).map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
-      const listNames: Record<string, { name: string; variety_name: string | null }> = {};
-      if (listIds.length > 0) {
-        const { data: v } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", listIds);
-        (v ?? []).forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
-      }
       if (!cancelled) setShoppingList(
-        (listRows ?? []).map((r: { id: string; user_id: string; plant_profile_id: string | null; created_at: string; placeholder_name?: string | null; placeholder_variety?: string | null }) => ({
+        listRows.map((r: { id: string; user_id: string; plant_profile_id: string | null; created_at: string; placeholder_name?: string | null; placeholder_variety?: string | null }) => ({
           ...r,
           name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.name ?? "Unknown") : (r.placeholder_name ?? "Wishlist"),
           variety_name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.variety_name ?? null) : (r.placeholder_variety ?? null),
         }))
       );
 
-      // Upcoming care schedules (next 14 days)
-      const twoWeeksOut = new Date();
-      twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
-      const { data: careData } = await supabase.from("care_schedules")
-        .select("id, title, category, next_due_date, plant_profile_id")
-        .eq("user_id", user!.id).eq("is_active", true)
-        .lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10))
-        .order("next_due_date", { ascending: true })
-        .limit(10);
-      if (careData && careData.length > 0) {
-        const careProfileIds = Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id)));
-        const { data: careProfiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", careProfileIds);
-        const careNames: Record<string, string> = {};
-        (careProfiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
-          careNames[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
-        });
-        if (!cancelled) setUpcomingCare(careData.map((c: { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string }) => ({
+      if (careData.length > 0 && !cancelled) {
+        setUpcomingCare(careData.map((c: { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string }) => ({
           ...c,
-          plant_name: careNames[c.plant_profile_id] ?? "Unknown",
+          plant_name: names[c.plant_profile_id] ?? "Unknown",
         })));
       }
 
-      // Weather -- use user coords if available
+      // Weather -- use user coords if available (runs after batch 1 for settings)
       try {
         const forecastUrl = buildForecastUrl(settings ? { latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone } : null);
         const res = await fetch(forecastUrl);
