@@ -6,6 +6,7 @@ import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/Acti
 import { MyPlantsView } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
 import { AddPlantModal } from "@/components/AddPlantModal";
+import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -17,6 +18,7 @@ import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFilterState } from "@/hooks/useFilterState";
 import type { RefineChips } from "@/types/garden";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
@@ -32,10 +34,8 @@ function GardenPageInner() {
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [activeFilteredCount, setActiveFilteredCount] = useState(0);
-  const [plantsCategoryFilter, setPlantsCategoryFilter] = useState<string | null>(null);
   const [plantsCategoryChips, setPlantsCategoryChips] = useState<{ type: string; count: number }[]>([]);
   const [plantsFilteredCount, setPlantsFilteredCount] = useState(0);
   const [plantsHasItems, setPlantsHasItems] = useState(false);
@@ -44,18 +44,13 @@ function GardenPageInner() {
   const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
   const [activeRefineChips, setActiveRefineChips] = useState<RefineChips | null>(null);
   const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
-  const [activeVarietyFilter, setActiveVarietyFilter] = useState<string | null>(null);
-  const [activeSunFilter, setActiveSunFilter] = useState<string | null>(null);
-  const [activeSpacingFilter, setActiveSpacingFilter] = useState<string | null>(null);
-  const [activeGerminationFilter, setActiveGerminationFilter] = useState<string | null>(null);
-  const [activeMaturityFilter, setActiveMaturityFilter] = useState<string | null>(null);
-  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
-  const [plantsVarietyFilter, setPlantsVarietyFilter] = useState<string | null>(null);
-  const [plantsSunFilter, setPlantsSunFilter] = useState<string | null>(null);
-  const [plantsSpacingFilter, setPlantsSpacingFilter] = useState<string | null>(null);
-  const [plantsGerminationFilter, setPlantsGerminationFilter] = useState<string | null>(null);
-  const [plantsMaturityFilter, setPlantsMaturityFilter] = useState<string | null>(null);
-  const [plantsTagFilters, setPlantsTagFilters] = useState<string[]>([]);
+
+  const closeRefinePanel = useCallback(() => {
+    setRefineByOpen(false);
+    setRefineBySection(null);
+  }, []);
+  const activeFilters = useFilterState({ schema: "garden", onClear: closeRefinePanel });
+  const plantsFilters = useFilterState({ schema: "garden", onClear: closeRefinePanel });
   const [activeSortBy, setActiveSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-active-sort", "sown_date", {
     serialize: (v) => v,
     deserialize: (s) => (s === "name" || s === "sown_date" || s === "harvest_date" ? s : "sown_date"),
@@ -107,6 +102,7 @@ function GardenPageInner() {
   const [quickAddPhotoPreview, setQuickAddPhotoPreview] = useState<string | null>(null);
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
+  const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -133,31 +129,13 @@ function GardenPageInner() {
     setPlantsRefineChips(chips);
   }, []);
 
-  const toggleActiveTagFilter = useCallback((tag: string) => {
-    setActiveTagFilters((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
-  }, []);
-  const togglePlantsTagFilter = useCallback((tag: string) => {
-    setPlantsTagFilters((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
-  }, []);
+  const clearAllFilters = useCallback(() => {
+    activeFilters.clearAllFilters();
+    plantsFilters.clearAllFilters();
+  }, [activeFilters.clearAllFilters, plantsFilters.clearAllFilters]);
 
-  const activeFilterCount = [
-    activeCategoryFilter !== null,
-    activeVarietyFilter !== null,
-    activeSunFilter !== null,
-    activeSpacingFilter !== null,
-    activeGerminationFilter !== null,
-    activeMaturityFilter !== null,
-    activeTagFilters.length > 0,
-  ].filter(Boolean).length;
-  const plantsFilterCount = [
-    plantsCategoryFilter !== null,
-    plantsVarietyFilter !== null,
-    plantsSunFilter !== null,
-    plantsSpacingFilter !== null,
-    plantsGerminationFilter !== null,
-    plantsMaturityFilter !== null,
-    plantsTagFilters.length > 0,
-  ].filter(Boolean).length;
+  const activeFilterCount = activeFilters.filterCount;
+  const plantsFilterCount = plantsFilters.filterCount;
 
   const openLogGrowth = useCallback((batch: GrowingBatchForLog) => {
     setLogGrowthBatch(batch);
@@ -325,7 +303,11 @@ function GardenPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "active"}
-              onClick={() => setViewMode("active")}
+              onClick={() => {
+                setViewMode("active");
+                const grow = searchParams.get("grow");
+                router.replace(grow ? `/garden?tab=active&grow=${grow}` : "/garden?tab=active");
+              }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
@@ -336,7 +318,10 @@ function GardenPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "plants"}
-              onClick={() => setViewMode("plants")}
+              onClick={() => {
+                setViewMode("plants");
+                router.replace("/garden?tab=plants");
+              }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
@@ -379,6 +364,16 @@ function GardenPageInner() {
                   </span>
                 ) : null}
               </button>
+              {((viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0)) && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
+                  aria-label="Clear all filters"
+                >
+                  Clear filters
+                </button>
+              )}
               {viewMode === "active" && bulkModeActive && (
                 <button
                   type="button"
@@ -430,11 +425,23 @@ function GardenPageInner() {
           <>
             <button type="button" className="fixed inset-0 z-20 bg-black/20" aria-label="Close" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
             <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-30 bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[70vh]">
-              <header className="flex items-center justify-between p-4 border-b border-black/10">
+              <header className="flex items-center justify-between gap-2 p-4 border-b border-black/10">
                 <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
-                <button type="button" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5" aria-label="Close">
-                  <span className="text-xl leading-none" aria-hidden>×</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  {((viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0)) && (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                      aria-label="Clear all filters"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5" aria-label="Close">
+                    <span className="text-xl leading-none" aria-hidden>×</span>
+                  </button>
+                </div>
               </header>
               <div className="flex-1 overflow-y-auto">
                 <div className="border-b border-black/5">
@@ -509,18 +516,18 @@ function GardenPageInner() {
                     <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
                       <button
                         type="button"
-                        onClick={() => (viewMode === "active" ? setActiveCategoryFilter(null) : setPlantsCategoryFilter(null))}
+                        onClick={() => (viewMode === "active" ? activeFilters.setCategory(null) : plantsFilters.setCategory(null))}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm bg-emerald/10 text-emerald-800 font-medium"
                       >
                         All
                       </button>
                       {(viewMode === "active" ? activeCategoryChips : plantsCategoryChips).map(({ type, count }) => {
-                        const selected = viewMode === "active" ? activeCategoryFilter === type : plantsCategoryFilter === type;
+                        const selected = viewMode === "active" ? activeFilters.filters.category === type : plantsFilters.filters.category === type;
                         return (
                           <button
                             key={type}
                             type="button"
-                            onClick={() => (viewMode === "active" ? setActiveCategoryFilter(type) : setPlantsCategoryFilter(type))}
+                            onClick={() => (viewMode === "active" ? activeFilters.setCategory(type) : plantsFilters.setCategory(type))}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                           >
                             {type} ({count})
@@ -532,18 +539,19 @@ function GardenPageInner() {
                 </div>
                 {(() => {
                   const chips = viewMode === "active" ? activeRefineChips : plantsRefineChips;
-                  const setVariety = viewMode === "active" ? setActiveVarietyFilter : setPlantsVarietyFilter;
-                  const setSun = viewMode === "active" ? setActiveSunFilter : setPlantsSunFilter;
-                  const setSpacing = viewMode === "active" ? setActiveSpacingFilter : setPlantsSpacingFilter;
-                  const setGermination = viewMode === "active" ? setActiveGerminationFilter : setPlantsGerminationFilter;
-                  const setMaturity = viewMode === "active" ? setActiveMaturityFilter : setPlantsMaturityFilter;
-                  const varietyFilter = viewMode === "active" ? activeVarietyFilter : plantsVarietyFilter;
-                  const sunFilter = viewMode === "active" ? activeSunFilter : plantsSunFilter;
-                  const spacingFilter = viewMode === "active" ? activeSpacingFilter : plantsSpacingFilter;
-                  const germinationFilter = viewMode === "active" ? activeGerminationFilter : plantsGerminationFilter;
-                  const maturityFilter = viewMode === "active" ? activeMaturityFilter : plantsMaturityFilter;
-                  const tagFilters = viewMode === "active" ? activeTagFilters : plantsTagFilters;
-                  const toggleTag = viewMode === "active" ? toggleActiveTagFilter : togglePlantsTagFilter;
+                  const f = viewMode === "active" ? activeFilters : plantsFilters;
+                  const setVariety = f.setVariety;
+                  const setSun = f.setSun;
+                  const setSpacing = f.setSpacing;
+                  const setGermination = f.setGermination;
+                  const setMaturity = f.setMaturity;
+                  const varietyFilter = f.filters.variety;
+                  const sunFilter = f.filters.sun;
+                  const spacingFilter = f.filters.spacing;
+                  const germinationFilter = f.filters.germination;
+                  const maturityFilter = f.filters.maturity;
+                  const tagFilters = f.filters.tags;
+                  const toggleTag = f.toggleTagFilter;
                   if (!chips) return null;
                   return (
                     <>
@@ -675,14 +683,14 @@ function GardenPageInner() {
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
               onEndCrop={handleEndCrop}
-              categoryFilter={activeCategoryFilter}
+              categoryFilter={activeFilters.filters.category}
               onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
-              varietyFilter={activeVarietyFilter}
-              sunFilter={activeSunFilter}
-              spacingFilter={activeSpacingFilter}
-              germinationFilter={activeGerminationFilter}
-              maturityFilter={activeMaturityFilter}
-              tagFilters={activeTagFilters}
+              varietyFilter={activeFilters.filters.variety}
+              sunFilter={activeFilters.filters.sun}
+              spacingFilter={activeFilters.filters.spacing}
+              germinationFilter={activeFilters.filters.germination}
+              maturityFilter={activeFilters.filters.maturity}
+              tagFilters={activeFilters.filters.tags}
               onRefineChipsLoaded={handleActiveRefineChipsLoaded}
               onFilteredCountChange={setActiveFilteredCount}
               onEmptyStateChange={(empty) => setActiveHasItems(!empty)}
@@ -705,14 +713,14 @@ function GardenPageInner() {
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchDebounced}
               onPermanentPlantAdded={handlePermanentPlantAdded}
-              categoryFilter={plantsCategoryFilter}
+              categoryFilter={plantsFilters.filters.category}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
-              varietyFilter={plantsVarietyFilter}
-              sunFilter={plantsSunFilter}
-              spacingFilter={plantsSpacingFilter}
-              germinationFilter={plantsGerminationFilter}
-              maturityFilter={plantsMaturityFilter}
-              tagFilters={plantsTagFilters}
+              varietyFilter={plantsFilters.filters.variety}
+              sunFilter={plantsFilters.filters.sun}
+              spacingFilter={plantsFilters.filters.spacing}
+              germinationFilter={plantsFilters.filters.germination}
+              maturityFilter={plantsFilters.filters.maturity}
+              tagFilters={plantsFilters.filters.tags}
               onRefineChipsLoaded={handlePlantsRefineChipsLoaded}
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
@@ -862,6 +870,12 @@ function GardenPageInner() {
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
                 Add journal entry
               </button>
+              {viewMode === "plants" && (
+                <button type="button" onClick={() => { setPurchaseOrderOpen(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
+                  Scan purchase order
+                </button>
+              )}
               <div className="pt-4">
                 <button type="button" onClick={() => setFabMenuOpen(false)} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
                   Cancel
@@ -928,6 +942,11 @@ function GardenPageInner() {
       )}
 
       <AddPlantModal open={showAddPlantModal} onClose={() => setShowAddPlantModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
+      <PurchaseOrderImport
+        open={purchaseOrderOpen}
+        onClose={() => setPurchaseOrderOpen(false)}
+        defaultProfileType="permanent"
+      />
     </div>
   );
 }

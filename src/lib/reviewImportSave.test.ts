@@ -160,4 +160,25 @@ describe("buildPlantProfileInsertPayload", () => {
     );
     expect(payload.growing_notes).toBe("Start indoors 6 weeks before last frost.");
   });
+
+  it("defaults profile_type to seed", () => {
+    const payload = buildPlantProfileInsertPayload(
+      minimalItem(),
+      mockZone10b,
+      "user-1",
+      () => ""
+    );
+    expect(payload.profile_type).toBe("seed");
+  });
+
+  it("sets profile_type to permanent when specified", () => {
+    const payload = buildPlantProfileInsertPayload(
+      minimalItem(),
+      mockZone10b,
+      "user-1",
+      () => "",
+      "permanent"
+    );
+    expect(payload.profile_type).toBe("permanent");
+  });
 });

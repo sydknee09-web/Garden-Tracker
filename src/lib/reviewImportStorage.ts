@@ -74,6 +74,8 @@ export type ReviewImportData = {
   items: ReviewImportItem[];
   /** When "purchase_order", review page skips auto hero fetch; user must click "Find Hero Photos" to go to hero step. */
   source?: ReviewImportSource;
+  /** When "permanent", new profiles are created as trees/perennials (My Plants). Default "seed". */
+  defaultProfileType?: "seed" | "permanent";
 };
 
 export function getReviewImportData(): ReviewImportData | null {

@@ -149,7 +149,7 @@ export function MyPlantsView({
             onToggleProfileSelection?.(profileId);
             return;
           }
-          router.push(`/vault/${profileId}?from=garden`);
+          router.push(`/vault/${profileId}?from=garden&gardenTab=plants`);
         },
       };
     },

@@ -21,6 +21,7 @@ export type PlantProfileInsertPayload = {
   variety_name: string | null;
   primary_image_path: null;
   hero_image_url: string;
+  profile_type?: "seed" | "permanent";
   tags?: string[];
   sun?: string;
   plant_spacing?: string;
@@ -42,7 +43,8 @@ export function buildPlantProfileInsertPayload(
   item: ReviewImportItem,
   zone10b: Zone10bForProfile,
   userId: string,
-  todayISO: () => string
+  todayISO: () => string,
+  profileType: "seed" | "permanent" = "seed"
 ): PlantProfileInsertPayload {
   const name = stripHtmlForDisplay(item.type ?? "").trim() || "Unknown";
   const varietyName = stripHtmlForDisplay(item.variety ?? "").trim() || null;
@@ -71,6 +73,7 @@ export function buildPlantProfileInsertPayload(
     variety_name: coreVarietyName || varietyName,
     primary_image_path: null,
     hero_image_url: heroUrlForNew,
+    profile_type: profileType,
     tags: item.tags?.length ? item.tags : undefined,
     ...(researchSun && { sun: researchSun }),
     ...(researchSpacing && { plant_spacing: researchSpacing }),

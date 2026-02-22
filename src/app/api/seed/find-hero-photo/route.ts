@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 30;
 
@@ -316,6 +317,11 @@ export async function POST(req: Request) {
       if (combined.length === 0) {
         return NextResponse.json({ urls: [], error: "No images found. Try again." });
       }
+      if (token) {
+        const sb = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+        const { data: { user } } = await sb.auth.getUser(token);
+        if (user?.id) logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "find-hero-photo-gallery" });
+      }
       return NextResponse.json({ urls: combined });
     }
 
@@ -434,6 +440,7 @@ export async function POST(req: Request) {
       });
       const { data: { user } } = await sb.auth.getUser(token);
       if (user?.id) {
+        logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "find-hero-photo" });
         // Download the image server-side and store it in journal-photos bucket
         const pid = profile_id || "unknown";
         storagePath = await downloadAndStore(url, user.id, pid);

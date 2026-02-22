@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       const isRareseeds = url.toLowerCase().includes("rareseeds.com");
       const scrapeRes = await fetch(`${origin}/api/seed/scrape-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           url,
           ...(isRareseeds && { knownPlantTypes }),

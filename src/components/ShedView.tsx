@@ -24,6 +24,13 @@ export function ShedView({
   refetchTrigger = 0,
   categoryFromUrl = null,
   scrollContainerRef,
+  searchQuery: externalSearchQuery,
+  categoryFilter: externalCategoryFilter,
+  batchSelectMode = false,
+  selectedIds = new Set<string>(),
+  onToggleSelection,
+  onLongPress,
+  onFilteredIdsChange,
 }: {
   /** When true, omit back link and title (used in vault inline). */
   embedded?: boolean;
@@ -31,6 +38,14 @@ export function ShedView({
   categoryFromUrl?: string | null;
   /** Optional ref to scroll container for pull-to-refresh (vault page). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  /** When embedded, vault provides search/filter. */
+  searchQuery?: string;
+  categoryFilter?: string | null;
+  batchSelectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
+  onLongPress?: (id: string) => void;
+  onFilteredIdsChange?: (ids: string[]) => void;
 }) {
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser } = useHousehold();
@@ -38,8 +53,10 @@ export function ShedView({
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
+  const searchQuery = embedded && externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const categoryFilter = embedded && externalCategoryFilter !== undefined ? externalCategoryFilter : internalCategoryFilter;
 
   const isFamilyView = householdViewMode === "family";
 
@@ -89,10 +106,10 @@ export function ShedView({
   }, [fetchSupplies, refetchTrigger]);
 
   useEffect(() => {
-    if (categoryFromUrl && SUPPLY_CATEGORIES.includes(categoryFromUrl as (typeof SUPPLY_CATEGORIES)[number])) {
-      setCategoryFilter(categoryFromUrl);
+    if (!embedded && categoryFromUrl && SUPPLY_CATEGORIES.includes(categoryFromUrl as (typeof SUPPLY_CATEGORIES)[number])) {
+      setInternalCategoryFilter(categoryFromUrl);
     }
-  }, [categoryFromUrl]);
+  }, [embedded, categoryFromUrl]);
 
   const filteredSupplies = supplies.filter((s) => {
     const matchCategory = !categoryFilter || s.category === categoryFilter;
@@ -104,18 +121,24 @@ export function ShedView({
     return matchCategory && matchSearch;
   });
 
+  useEffect(() => {
+    if (embedded && onFilteredIdsChange) {
+      onFilteredIdsChange(filteredSupplies.map((s) => s.id));
+    }
+  }, [embedded, onFilteredIdsChange, filteredSupplies]);
+
   const handleAddSuccess = useCallback(() => {
     fetchSupplies();
     setQuickAddOpen(false);
   }, [fetchSupplies]);
 
   const setCategory = useCallback((cat: string | null) => {
-    setCategoryFilter(cat);
     if (embedded) {
       router.replace(cat ? `/vault?tab=shed&category=${cat}` : "/vault?tab=shed", { scroll: false });
     } else {
       router.replace(cat ? `/shed?category=${cat}` : "/shed", { scroll: false });
     }
+    if (!embedded) setInternalCategoryFilter(cat);
   }, [embedded, router]);
 
   usePullToRefresh({ onRefresh: fetchSupplies, disabled: loading, containerRef: scrollContainerRef });
@@ -142,55 +165,59 @@ export function ShedView({
         </>
       )}
 
-      <div className="flex gap-2 mb-4">
-        <div className="flex-1 relative">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none"
-            aria-hidden
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search supplies…"
-            className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset min-h-[44px]"
-            aria-label="Search supplies"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setQuickAddOpen(true)}
-          className="min-h-[44px] min-w-[44px] px-4 rounded-xl bg-emerald text-white font-medium hover:opacity-90 shrink-0"
-        >
-          Add
-        </button>
-      </div>
+      {!embedded && (
+        <>
+          <div className="flex gap-2 mb-4">
+            <div className="flex-1 relative">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setInternalSearchQuery(e.target.value)}
+                placeholder="Search supplies…"
+                className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset min-h-[44px]"
+                aria-label="Search supplies"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuickAddOpen(true)}
+              className="min-h-[44px] min-w-[44px] px-4 rounded-xl bg-emerald text-white font-medium hover:opacity-90 shrink-0"
+            >
+              Add
+            </button>
+          </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {SUPPLY_CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setCategory(categoryFilter === cat ? null : cat)}
-            className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${
-              categoryFilter === cat
-                ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                : "border-black/10 text-black/70 hover:bg-black/5"
-            }`}
-          >
-            {CATEGORY_LABELS[cat]}
-          </button>
-        ))}
-      </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {SUPPLY_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(categoryFilter === cat ? null : cat)}
+                className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${
+                  categoryFilter === cat
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                    : "border-black/10 text-black/70 hover:bg-black/5"
+                }`}
+              >
+                {CATEGORY_LABELS[cat]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {loading ? (
         <p className="text-neutral-500 py-8">Loading…</p>
@@ -233,13 +260,18 @@ export function ShedView({
             const detailHref = embedded
               ? `/shed/${s.id}${categoryFilter ? `?from=vault&category=${categoryFilter}` : "?from=vault"}`
               : `/shed/${s.id}${categoryFilter ? `?from=shed&category=${categoryFilter}` : "?from=shed"}`;
-            return (
-              <Link
-                key={s.id}
-                href={detailHref}
-                className="group rounded-xl bg-white border border-black/10 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[120px] flex flex-col"
-              >
+            const isSelected = batchSelectMode && selectedIds.has(s.id);
+            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[120px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
+            const cardInner = (
+              <>
                 <div className="aspect-square bg-neutral-100 relative flex items-center justify-center">
+                  {batchSelectMode && (
+                    <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white" aria-hidden>
+                      {isSelected ? (
+                        <span className="w-3 h-3 rounded-full bg-emerald-600" />
+                      ) : null}
+                    </span>
+                  )}
                   {thumbUrl ? (
                     <img
                       src={thumbUrl}
@@ -274,6 +306,20 @@ export function ShedView({
                     <span className="text-xs text-neutral-400 mt-0.5">Last used: {lastUsed}</span>
                   )}
                 </div>
+              </>
+            );
+            return batchSelectMode && onToggleSelection ? (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onToggleSelection(s.id)}
+                className={cardClassName}
+              >
+                {cardInner}
+              </button>
+            ) : (
+              <Link key={s.id} href={detailHref} className={cardClassName}>
+                {cardInner}
               </Link>
             );
           })}

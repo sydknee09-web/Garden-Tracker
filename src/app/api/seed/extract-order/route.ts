@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getSupabaseUser } from "@/app/api/import/auth";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 60;
 
@@ -25,6 +27,7 @@ const GEMINI_KEY =
 
 export async function POST(req: Request) {
   try {
+    const auth = await getSupabaseUser(req);
     const body = (await req.json()) as { imageBase64?: string; mimeType?: string };
     const { imageBase64, mimeType } = body;
 
@@ -103,6 +106,7 @@ Important:
       }))
       .filter((item) => item.name !== "Unknown" || item.variety !== "");
 
+    if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-order" });
     return NextResponse.json({ items, vendor } satisfies ExtractOrderResponse);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";

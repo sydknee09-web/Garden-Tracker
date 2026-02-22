@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 const PERENUAL_BASE = "https://perenual.com/api/v2";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export type PerenualEnrichResult = {
   perenual_id: number;
@@ -20,6 +24,15 @@ export type PerenualEnrichResult = {
  * Requires PERENUAL_API_KEY in env.
  */
 export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+  let userId: string | null = null;
+  if (token) {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+    const { data: { user } } = await supabase.auth.getUser(token);
+    userId = user?.id ?? null;
+  }
+
   const key = process.env.PERENUAL_API_KEY;
   if (!key?.trim()) {
     return NextResponse.json({ error: "Perenual API key not configured." }, { status: 503 });
@@ -85,6 +98,7 @@ export async function GET(request: Request) {
       scientific_name: scientificName ?? null,
       botanical_care_notes,
     };
+    if (userId) logApiUsageAsync({ userId, provider: "perenual", operation: "perenual-enrich" });
     return NextResponse.json(result);
   } catch (e) {
     console.error("Perenual enrich error:", e);

@@ -192,6 +192,9 @@ export async function POST(req: Request) {
     }
     delete (result as Record<string, unknown>).image_url;
 
+    const { logApiUsageAsync } = await import("@/lib/logApiUsage");
+    logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "supply-extract-from-url" });
+
     return NextResponse.json(result);
   } catch (e) {
     console.error("[supply/extract-from-url]", e);

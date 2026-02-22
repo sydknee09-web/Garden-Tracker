@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "@/app/api/import/auth";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import {
@@ -427,6 +429,7 @@ async function researchVarietyForExtract(
 
 export async function POST(req: Request) {
   try {
+    const auth = await getSupabaseUser(req);
     const body = await req.json();
     const url = typeof body?.url === "string" ? body.url.trim() : "";
 
@@ -472,6 +475,7 @@ export async function POST(req: Request) {
                 result.hero_image_url = pass2Url;
               }
             }
+            if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-url" });
             send("result:" + JSON.stringify(result));
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Extraction failed";
@@ -564,6 +568,7 @@ export async function POST(req: Request) {
 
         const blocked = await getBlockedTagsForRequest(req);
         let filteredTags = filterBlockedTags(tags ?? [], blocked);
+        if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-image" });
 
         // Same normalization as link import: strip plant from variety, clean variety, merge F1/Heirloom into tags
         let varietyForResponse = (variety ?? "").trim();
@@ -589,6 +594,7 @@ export async function POST(req: Request) {
           const research = await researchVarietyForExtract(apiKey, typeForNorm, varietyForResponse, vendor);
           if (research) {
             Object.assign(base, research);
+            if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-research" });
           }
         }
 

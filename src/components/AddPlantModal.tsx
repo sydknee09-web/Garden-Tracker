@@ -24,6 +24,10 @@ export function AddPlantModal({
   stayInGarden = false,
   /** When true, hide the Permanent/Seasonal toggle (e.g. when opened from Garden — type is inferred from tab). */
   hidePlantTypeToggle = false,
+  /** When set, add a plant to this existing profile. Skips mode toggle and profile selector; shows date, location, photo, quantity only. */
+  profileId: profileIdProp,
+  /** Optional display name for the profile (e.g. "Rose (Cecile Brunner)"). When profileIdProp is set, used for journal note if provided. */
+  profileDisplayName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,7 +35,10 @@ export function AddPlantModal({
   defaultPlantType?: "permanent" | "seasonal";
   stayInGarden?: boolean;
   hidePlantTypeToggle?: boolean;
+  profileId?: string;
+  profileDisplayName?: string;
 }) {
+  const addToExistingProfile = !!profileIdProp;
   const { user } = useAuth();
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -66,13 +73,14 @@ export function AddPlantModal({
 
   const profileTypeFilter = plantType === "permanent" ? "permanent" : "seed";
 
-  const loadProfiles = useCallback(async () => {
+  const loadProfiles = useCallback(async (profileType?: "permanent" | "seed") => {
     if (!user?.id) return;
+    const type = profileType ?? profileTypeFilter;
     const { data } = await supabase
       .from("plant_profiles")
       .select("id, name, variety_name, profile_type")
       .eq("user_id", user.id)
-      .eq("profile_type", profileTypeFilter)
+      .eq("profile_type", type)
       .is("deleted_at", null)
       .order("name", { ascending: true })
       .limit(150);
@@ -81,12 +89,21 @@ export function AddPlantModal({
   }, [user?.id, profileTypeFilter]);
 
   useEffect(() => {
-    if (open && user?.id) loadProfiles();
-  }, [open, user?.id, loadProfiles]);
+    if (open && user?.id) {
+      if (addToExistingProfile && profileIdProp) {
+        setPlantType("permanent");
+        setMode("existing");
+        setSelectedProfileId(profileIdProp);
+      } else {
+        setPlantType(defaultPlantType);
+        loadProfiles(defaultPlantType);
+      }
+    }
+  }, [open, user?.id, defaultPlantType, loadProfiles, addToExistingProfile, profileIdProp]);
 
   useEffect(() => {
-    setPlantType(defaultPlantType);
-  }, [defaultPlantType, open]);
+    if (open && user?.id && !hidePlantTypeToggle) loadProfiles();
+  }, [open, user?.id, hidePlantTypeToggle, plantType, loadProfiles]);
 
   const loadPacketsForProfile = useCallback(async (profileId: string) => {
     if (!user?.id || plantType !== "seasonal") return;
@@ -385,8 +402,17 @@ export function AddPlantModal({
         }
 
         const weather = await fetchWeatherSnapshot();
-        const profile = profiles.find((p) => p.id === profileId);
-        const displayName = profile?.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile?.name ?? "Planted";
+        let displayName: string;
+        if (addToExistingProfile && profileDisplayName) {
+          displayName = profileDisplayName;
+        } else if (addToExistingProfile && profileId) {
+          const { data: p } = await supabase.from("plant_profiles").select("name, variety_name").eq("id", profileId).single();
+          const prof = p as { name?: string; variety_name?: string | null } | null;
+          displayName = prof?.variety_name?.trim() ? `${prof.name} (${prof.variety_name})` : prof?.name ?? "Planted";
+        } else {
+          const profile = profiles.find((p) => p.id === profileId);
+          displayName = profile?.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile?.name ?? "Planted";
+        }
 
         if (plantType === "permanent" && photoFiles.length > 0) {
           let heroPath: string | null = null;
@@ -475,7 +501,7 @@ export function AddPlantModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-            <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
+            <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
             <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
             {!hidePlantTypeToggle && (
               <div className="flex gap-2 mt-3">
@@ -497,27 +523,31 @@ export function AddPlantModal({
             )}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setMode("existing")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Link to existing
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("new")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Create new
-              </button>
-            </div>
+            {!addToExistingProfile && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("existing")}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Link to existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("new")}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Create new
+                </button>
+              </div>
+            )}
 
-            {mode === "existing" ? (
+            {mode === "existing" && !addToExistingProfile ? (
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">Variety</label>
+                  <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">
+                    {plantType === "permanent" ? "Plant profile" : "Variety"}
+                  </label>
                   <select
                     id="add-plant-profile"
                     value={selectedProfileId}

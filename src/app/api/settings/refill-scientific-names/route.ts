@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       try {
         const res = await fetch(
           `${origin}/api/seed/perenual-enrich?q=${encodeURIComponent(query)}`,
-          { next: { revalidate: 0 } }
+          { next: { revalidate: 0 }, headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) {
           failed++;

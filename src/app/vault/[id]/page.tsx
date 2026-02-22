@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
@@ -17,6 +18,7 @@ import { StarRating } from "@/components/StarRating";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
+import { AddPlantModal } from "@/components/AddPlantModal";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
@@ -153,7 +155,7 @@ export default function VaultSeedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
-  const { canEditUser } = useHousehold();
+  const { canEditUser, getShorthandForUser, viewMode: householdViewMode } = useHousehold();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -175,11 +177,12 @@ export default function VaultSeedPage() {
   const [endSaving, setEndSaving] = useState(false);
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<BatchLogBatch | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
+  const [editGrowTarget, setEditGrowTarget] = useState<GrowInstance | null>(null);
+  const [editGrowLocation, setEditGrowLocation] = useState("");
+  const [editGrowPlantCount, setEditGrowPlantCount] = useState(1);
+  const [editGrowSownDate, setEditGrowSownDate] = useState("");
+  const [editGrowSaving, setEditGrowSaving] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
-  const [addPlantDate, setAddPlantDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [addPlantLocation, setAddPlantLocation] = useState("");
-  const [addPlantSaving, setAddPlantSaving] = useState(false);
-  const [addPlantError, setAddPlantError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -246,7 +249,9 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
-  useModalBackClose(showAddPlantModal, () => { setShowAddPlantModal(false); setAddPlantError(null); });
+  const handleAddPlantClose = useCallback(() => setShowAddPlantModal(false), []);
+  useModalBackClose(showAddPlantModal, handleAddPlantClose);
+  useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
   useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
   useEffect(() => {
@@ -442,30 +447,30 @@ export default function VaultSeedPage() {
     loadProfile();
   }, [user?.id, deleteBatchTarget, loadProfile]);
 
-  const handleAddPlant = useCallback(async () => {
-    if (!user?.id || !id) return;
-    setAddPlantSaving(true);
-    setAddPlantError(null);
-    const { error } = await supabase.from("grow_instances").insert({
-      user_id: user.id,
-      plant_profile_id: id,
-      sown_date: addPlantDate,
-      expected_harvest_date: null,
-      status: "growing",
-      seed_packet_id: null,
-      location: addPlantLocation.trim() || null,
-      plant_count: 1,
-    });
-    setAddPlantSaving(false);
-    if (error) {
-      setAddPlantError("Failed to add plant. Try again.");
-      return;
-    }
-    setShowAddPlantModal(false);
-    setAddPlantDate(new Date().toISOString().slice(0, 10));
-    setAddPlantLocation("");
+  const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
+    setEditGrowTarget(gi);
+    setEditGrowLocation(gi.location ?? "");
+    setEditGrowPlantCount(Math.max(1, (gi as GrowInstance).plant_count ?? 1));
+    setEditGrowSownDate(gi.sown_date ? gi.sown_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  }, []);
+
+  const handleEditGrowSave = useCallback(async () => {
+    if (!user?.id || !editGrowTarget) return;
+    setEditGrowSaving(true);
+    const ownerId = (editGrowTarget as { user_id?: string }).user_id ?? user.id;
+    const { error } = await supabase.from("grow_instances")
+      .update({
+        location: editGrowLocation.trim() || null,
+        plant_count: Math.max(1, editGrowPlantCount),
+        sown_date: editGrowSownDate || editGrowTarget.sown_date,
+      })
+      .eq("id", editGrowTarget.id)
+      .eq("user_id", ownerId);
+    setEditGrowSaving(false);
+    if (error) return;
+    setEditGrowTarget(null);
     loadProfile();
-  }, [user?.id, id, addPlantDate, addPlantLocation, loadProfile]);
+  }, [user?.id, editGrowTarget, editGrowLocation, editGrowPlantCount, editGrowSownDate, loadProfile]);
 
   // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
   useEffect(() => {
@@ -565,7 +570,7 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || showAddPlantModal;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || showAddPlantModal || !!editGrowTarget;
   const handleSwipeStart = useCallback((e: React.TouchEvent) => {
     swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
   }, []);
@@ -579,10 +584,11 @@ export default function VaultSeedPage() {
     const deltaY = end.clientY - start.y;
     if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) return;
     const tab = validTab !== "about" ? `?tab=${validTab}` : "";
-    const from = fromParam === "garden" ? (tab ? `&from=garden` : `?from=garden`) : "";
+    const gardenTab = searchParams.get("gardenTab");
+    const from = fromParam === "garden" ? (tab ? `&from=garden` : `?from=garden`) + (gardenTab ? `&gardenTab=${gardenTab}` : "") : "";
     if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}${from}`);
     else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}${from}`);
-  }, [modalOpen, nextId, prevId, router, validTab, fromParam]);
+  }, [modalOpen, nextId, prevId, router, validTab, fromParam, searchParams]);
 
   // =========================================================================
   // Handlers
@@ -1017,7 +1023,7 @@ export default function VaultSeedPage() {
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
-  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden?tab=plants" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to My Plants</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
+  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href={searchParams.get("gardenTab") === "active" ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to {searchParams.get("gardenTab") === "active" ? "Active Garden" : "My Plants"}</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   const careList = [
     { label: "Sowing Method", value: displaySowing || "--" },
@@ -1312,13 +1318,13 @@ export default function VaultSeedPage() {
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
-        {/* Prev/next profile arrows (mobile-friendly tap targets) */}
+        {/* Prev/next profile arrows (hidden on mobile; swipe still works) */}
         {(prevId ?? nextId) && (
           <>
             {prevId ? (
               <Link
                 href={validTab !== "about" ? `/vault/${prevId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : ""}` : `/vault/${prevId}${fromParam === "garden" ? "?from=garden" : ""}`}
-                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous plant profile"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
@@ -1326,8 +1332,8 @@ export default function VaultSeedPage() {
             ) : null}
             {nextId ? (
               <Link
-                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : ""}` : `/vault/${nextId}${fromParam === "garden" ? "?from=garden" : ""}`}
-                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}${fromParam === "garden" ? `&from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : ""}` : `/vault/${nextId}${fromParam === "garden" ? `?from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : ""}`}
+                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next plant profile"
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
@@ -1338,7 +1344,15 @@ export default function VaultSeedPage() {
         {validTab === "journal" ? (
           <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
         ) : fromParam === "garden" ? (
-          <Link href="/garden?tab=plants" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to My Plants</Link>
+          (() => {
+            const gardenTab = searchParams.get("gardenTab");
+            const isActive = gardenTab === "active";
+            return (
+              <Link href={isActive ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+                &larr; Back to {isActive ? "Active Garden" : "My Plants"}
+              </Link>
+            );
+          })()
         ) : (
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}
@@ -1367,6 +1381,9 @@ export default function VaultSeedPage() {
               )}
               {isPlantableNow && (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Plant now</span>
+              )}
+              {householdViewMode === "family" && !isOwnProfile && profileOwnerId && (
+                <OwnerBadge shorthand={getShorthandForUser(profileOwnerId)} canEdit={canEditUser(profileOwnerId)} size="xs" />
               )}
             </div>
           </div>
@@ -1739,6 +1756,7 @@ export default function VaultSeedPage() {
                     const pktImageUrls = getPacketImageUrls(pkt, extraImgs);
                     const pktImageUrl = pktImageUrls[0] ?? null;
                     const isArchived = (pkt.qty_status ?? 0) <= 0;
+                    const isOldPacket = pkt.purchase_date && (Date.now() - new Date(pkt.purchase_date).getTime()) > 730 * 24 * 60 * 60 * 1000; // >2 years
                     return (
                       <li key={pkt.id} className={`p-4 ${isArchived ? "bg-neutral-50 text-neutral-500" : ""}`}>
                         {/* Row 1: image | vendor+stars+chevron */}
@@ -1792,6 +1810,9 @@ export default function VaultSeedPage() {
                         {/* Row 2: date + qty controls */}
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
                           <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" disabled={!canEdit} />
+                          {isOldPacket && !isArchived && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" title="Seeds older than 2 years may have reduced germination">Low germination</span>
+                          )}
                           <PacketQtyOptions
                             value={pkt.qty_status}
                             onChange={(v) => updatePacketQty(pkt.id, v)}
@@ -1950,7 +1971,7 @@ export default function VaultSeedPage() {
                 {isPermanent && canEdit && (
                   <button
                     type="button"
-                    onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
+                    onClick={() => setShowAddPlantModal(true)}
                     className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     aria-label="Add plant"
                   >
@@ -1969,28 +1990,6 @@ export default function VaultSeedPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {canEdit && (
-                  <div className="flex justify-end">
-                    {isPermanent ? (
-                      <button
-                        type="button"
-                        onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
-                        className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        aria-label="Add plant"
-                      >
-                        + Add plant
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/vault/plant?ids=${encodeURIComponent(id)}`}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        aria-label="Add planting"
-                      >
-                        + Add plant
-                      </Link>
-                    )}
-                  </div>
-                )}
                 {growInstances.map((gi, giIdx) => {
                   const giJournals = journalEntries.filter((j) => j.grow_instance_id === gi.id);
                   const harvests = giJournals.filter((j) => j.entry_type === "harvest");
@@ -1999,6 +1998,13 @@ export default function VaultSeedPage() {
                   const giCanEdit = canEditUser((gi as { user_id?: string }).user_id ?? profileOwnerId);
                   const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
                   const plantLabel = isPermanent ? (gi.location?.trim() || `Plant ${giIdx + 1}`) : null;
+                  const sown = new Date(gi.sown_date).getTime();
+                  const rawExpected = gi.expected_harvest_date ? new Date(gi.expected_harvest_date).getTime() : (profile as PlantProfile)?.harvest_days ? sown + (profile as PlantProfile).harvest_days! * 86400000 : null;
+                  const now = Date.now();
+                  const daysSinceSown = Math.floor((now - sown) / 86400000);
+                  const daysTotal = rawExpected ? Math.max(1, (rawExpected - sown) / 86400000) : null;
+                  const progress = daysTotal ? Math.min(1, Math.max(0, (now - sown) / 86400000 / daysTotal)) : null;
+                  const isReadyToPick = isActive && !isPermanent && progress != null && progress >= 0.8;
                   const cardContent = (
                     <>
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -2006,10 +2012,16 @@ export default function VaultSeedPage() {
                           {isPermanent && plantLabel && <span className="text-sm font-medium text-neutral-900">{plantLabel}</span>}
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>{gi.status ?? "unknown"}</span>
                           {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
+                          {isReadyToPick && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Ready to pick</span>}
                           {!isPermanent && gi.location && <span className="text-xs text-neutral-500">{gi.location}</span>}
                         </div>
-                        <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
+                        <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}{isActive && daysSinceSown >= 0 ? ` · ${daysSinceSown}d` : ""}</span>
                       </div>
+                      {isActive && progress != null && (
+                        <div className="mb-2 h-1.5 rounded-full bg-black/10 overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress * 100}%` }} aria-hidden />
+                        </div>
+                      )}
                       <div className="text-sm text-neutral-700 space-y-1">
                         {(gi as GrowInstance).seeds_sown != null && <span className="text-xs text-neutral-600">{(gi as GrowInstance).seeds_sown} sown</span>}
                         {(gi as GrowInstance).seeds_sprouted != null && (gi as GrowInstance).seeds_sown != null && (
@@ -2053,7 +2065,7 @@ export default function VaultSeedPage() {
                     <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          {isActive && !isPermanent ? (
+                          {isActive ? (
                             <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
                               {cardContent}
                             </Link>
@@ -2062,22 +2074,54 @@ export default function VaultSeedPage() {
                           )}
                         </div>
                         {giCanEdit && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 shrink-0"
-                            aria-label="Log care or journal entry"
-                          >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" /><path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
-                              <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEditGrowOpen(gi); }}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
+                              aria-label="Edit plant"
+                            >
+                              <PencilIcon />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                              aria-label="Log care or journal entry"
+                            >
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" /><path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
+                                <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
+                              </svg>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
+                {canEdit && (
+                  <div className="pt-4 flex justify-center">
+                    {isPermanent ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPlantModal(true)}
+                        className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Add plant"
+                      >
+                        + Add plant
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/vault/plant?ids=${encodeURIComponent(id)}`}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        aria-label="Add planting"
+                      >
+                        + Add plant
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -2183,44 +2227,66 @@ export default function VaultSeedPage() {
         </div>
       )}
 
-      {/* Add Plant modal (permanent profiles) */}
-      {showAddPlantModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
+      {/* Edit grow instance modal */}
+      {editGrowTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
           <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
-            <h2 id="add-plant-title" className="text-lg font-bold text-neutral-900 mb-4">Add plant</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddPlant(); }} className="space-y-4">
+            <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900 mb-4">Edit plant</h2>
+            <div className="space-y-4">
               <div>
-                <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
+                <label htmlFor="edit-grow-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
                 <input
-                  id="add-plant-date"
+                  id="edit-grow-date"
                   type="date"
-                  value={addPlantDate}
-                  onChange={(e) => setAddPlantDate(e.target.value)}
+                  value={editGrowSownDate}
+                  onChange={(e) => setEditGrowSownDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Date planted"
                 />
               </div>
               <div>
-                <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
+                <label htmlFor="edit-grow-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
                 <input
-                  id="add-plant-location"
+                  id="edit-grow-location"
                   type="text"
-                  value={addPlantLocation}
-                  onChange={(e) => setAddPlantLocation(e.target.value)}
+                  value={editGrowLocation}
+                  onChange={(e) => setEditGrowLocation(e.target.value)}
                   placeholder="e.g. North fence, Backyard"
                   className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Location"
                 />
               </div>
-              {addPlantError && <p className="text-sm text-red-600" role="alert">{addPlantError}</p>}
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => { setShowAddPlantModal(false); setAddPlantError(null); }} disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPlantSaving ? "Adding…" : "Add plant"}</button>
-              </div>
-            </form>
+              {isPermanent && (
+                <div>
+                  <label htmlFor="edit-grow-count" className="block text-sm font-medium text-neutral-700 mb-1">Number of plants</label>
+                  <input
+                    id="edit-grow-count"
+                    type="number"
+                    min={1}
+                    value={editGrowPlantCount}
+                    onChange={(e) => setEditGrowPlantCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
+              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Add Plant modal (permanent profiles) */}
+      <AddPlantModal
+        open={showAddPlantModal}
+        onClose={handleAddPlantClose}
+        onSuccess={loadProfile}
+        profileId={id}
+        profileDisplayName={displayName}
+        defaultPlantType="permanent"
+        hidePlantTypeToggle
+        stayInGarden
+      />
 
       {/* BatchLogSheet for Plantings tab */}
       <BatchLogSheet
@@ -2258,6 +2324,9 @@ export default function VaultSeedPage() {
                 { value: "season_ended", label: "Season Ended" },
                 { value: "harvested_all", label: "Harvested All" },
                 { value: "plant_died", label: "Plant Died" },
+                { value: "pests", label: "Pests" },
+                { value: "weather", label: "Weather" },
+                { value: "forgot_to_water", label: "Forgot to Water" },
               ].map((opt) => (
                 <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="end-reason" value={opt.value} checked={endReason === opt.value} onChange={() => setEndReason(opt.value)} className="text-emerald-600 focus:ring-emerald-500" />

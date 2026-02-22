@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createRequire } from "module";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { parseCatalogWithGemini, toCacheRow } from "@/lib/importPdfCatalog";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 120;
 
@@ -72,6 +73,10 @@ export async function POST(req: Request) {
     }
 
     const rawRows = await parseCatalogWithGemini(text.slice(0, 280000), vendor);
+    const chunkCount = Math.ceil(Math.min(text.length, 280000) / 45000) || 1;
+    for (let i = 0; i < chunkCount; i++) {
+      logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "import-catalog" });
+    }
     let inserted = 0;
     let skipped = 0;
 

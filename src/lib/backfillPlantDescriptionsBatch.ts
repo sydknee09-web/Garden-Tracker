@@ -121,11 +121,12 @@ export type BackfillPlantDescriptionsResult = {
 
 export async function runBackfillPlantDescriptionsBatch(
   admin: SupabaseClient,
-  options: { batchSize?: number; dryRun?: boolean; geminiKey?: string }
+  options: { batchSize?: number; dryRun?: boolean; geminiKey?: string; onGeminiCall?: () => void }
 ): Promise<BackfillPlantDescriptionsResult> {
   const batchSize = options.batchSize ?? 50;
   const dryRun = options.dryRun ?? false;
   const geminiKey = (options.geminiKey ?? "").trim();
+  const onGeminiCall = options.onGeminiCall;
 
   const { data: rawProfiles, error: listError } = await admin
     .from("plant_profiles")
@@ -273,6 +274,7 @@ export async function runBackfillPlantDescriptionsBatch(
       continue;
     }
 
+    onGeminiCall?.();
     const result = await researchVariety(geminiKey, name, variety, vendor);
     updates = {};
     if (result) {

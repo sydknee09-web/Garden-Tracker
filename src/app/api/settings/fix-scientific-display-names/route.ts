@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { looksLikeScientificName } from "@/lib/htmlEntities";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 120;
 
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
           failed++;
           continue;
         }
+        logApiUsageAsync({ userId: user.id, provider: "perenual", operation: "fix-scientific-display-names" });
         const listData = (await listRes.json()) as {
           data?: { common_name?: string | null; scientific_name?: string | string[] | null }[];
         };

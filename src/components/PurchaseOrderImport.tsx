@@ -18,9 +18,11 @@ async function resizeImageIfNeeded(file: File, maxLongEdge = 1000, quality = 0.8
 interface PurchaseOrderImportProps {
   open: boolean;
   onClose: () => void;
+  /** When "permanent", imported items become trees/perennials (My Plants). Default "seed". */
+  defaultProfileType?: "seed" | "permanent";
 }
 
-export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps) {
+export function PurchaseOrderImport({ open, onClose, defaultProfileType = "seed" }: PurchaseOrderImportProps) {
   const router = useRouter();
   const { session: authSession } = useAuth();
   const [isExtracting, setIsExtracting] = useState(false);
@@ -166,7 +168,7 @@ export function PurchaseOrderImport({ open, onClose }: PurchaseOrderImportProps)
         purchaseDate: todayISO(),
       }));
 
-      setReviewImportData({ items: reviewItems, source: "purchase_order" });
+      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType });
       onClose();
       router.push("/vault/review-import");
     } catch (e) {

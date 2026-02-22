@@ -76,12 +76,13 @@ export type BackfillCacheResult = {
 
 export async function runBackfillCacheBatch(
   admin: SupabaseClient,
-  options: { batchSize?: number; dryRun?: boolean; geminiKey: string; offset?: number }
+  options: { batchSize?: number; dryRun?: boolean; geminiKey: string; offset?: number; onGeminiCall?: () => void }
 ): Promise<BackfillCacheResult> {
   const batchSize = options.batchSize ?? MAX_PROCESS_PER_BATCH;
   const dryRun = options.dryRun ?? false;
   const geminiKey = options.geminiKey.trim();
   const offset = options.offset ?? 0;
+  const onGeminiCall = options.onGeminiCall;
 
   const { data: rows, error } = await admin
     .from("global_plant_cache")
@@ -109,6 +110,7 @@ export async function runBackfillCacheBatch(
     const variety = String(ed.variety ?? ed.variety_name ?? "").trim();
     const vendor = (row.vendor ?? "").trim();
 
+    onGeminiCall?.();
     const result = await researchVariety(geminiKey, type, variety, vendor);
     if (!result) {
       failed++;

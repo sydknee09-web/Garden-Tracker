@@ -39,7 +39,7 @@ interface BatchLogSheetProps {
   onEndBatch: (batch: BatchLogBatch) => void;
   onDeleteBatch: (batch: BatchLogBatch) => void;
   onQuickCare: (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => void;
-  onBulkQuickCare?: (batches: BatchLogBatch[], action: "water" | "fertilize" | "spray") => void;
+  onBulkQuickCare?: (batches: BatchLogBatch[], action: "water" | "fertilize" | "spray", note?: string) => void;
   /** When true, hide seed-specific actions (e.g. Log germination) for permanent plants. */
   isPermanent?: boolean;
 }
@@ -68,7 +68,8 @@ export function BatchLogSheet({
   isPermanent = false,
 }: BatchLogSheetProps) {
   const { user } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const endBatchLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedActions, setSelectedActions] = useState<Set<ActionId>>(new Set());
   const [seedsSprouted, setSeedsSprouted] = useState("");
@@ -83,6 +84,7 @@ export function BatchLogSheet({
   const [lastWater, setLastWater] = useState<string | null>(null);
   const [lastFertilize, setLastFertilize] = useState<string | null>(null);
   const [lastSpray, setLastSpray] = useState<string | null>(null);
+  const [bulkCareNote, setBulkCareNote] = useState("");
 
   const isBulk = batches.length > 1;
   const firstBatch = batches[0];
@@ -104,6 +106,7 @@ export function BatchLogSheet({
       setLastWater(null);
       setLastFertilize(null);
       setLastSpray(null);
+      setBulkCareNote("");
     }
   }, [open]);
 
@@ -152,14 +155,14 @@ export function BatchLogSheet({
   const handleQuickCareTap = useCallback(
     (action: "water" | "fertilize" | "spray") => {
       if (isBulk && onBulkQuickCare) {
-        onBulkQuickCare(batches, action);
+        onBulkQuickCare(batches, action, bulkCareNote.trim() || undefined);
       } else if (firstBatch) {
         onQuickCare(firstBatch, action);
       }
       onSaved();
       onClose();
     },
-    [isBulk, batches, firstBatch, onBulkQuickCare, onQuickCare, onSaved, onClose],
+    [isBulk, batches, firstBatch, bulkCareNote, onBulkQuickCare, onQuickCare, onSaved, onClose],
   );
 
   const handleHarvest = useCallback(() => {
@@ -320,9 +323,9 @@ export function BatchLogSheet({
     : "";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4 bg-black/40" aria-modal="true" role="dialog">
+    <div className="fixed inset-0 z-50 flex items-end justify-center pb-20 sm:pb-4 sm:items-center sm:p-4 bg-black/40" aria-modal="true" role="dialog">
       <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-lg border border-black/10 w-full max-w-md max-h-[85vh] flex flex-col"
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-lg border border-black/10 w-full max-w-md max-h-[70vh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between p-4 border-b border-black/10 shrink-0">
@@ -349,6 +352,9 @@ export function BatchLogSheet({
         )}
 
         <div className="flex-1 overflow-y-auto p-4 pt-6 space-y-6">
+          {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} aria-hidden />
+          <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} aria-hidden />
           {/* Primary actions — Water, Fertilize, Spray */}
           <div className="flex gap-2">
             <button
@@ -376,6 +382,19 @@ export function BatchLogSheet({
               {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastSpray)}</span>}
             </button>
           </div>
+
+          {isBulk && (
+            <div>
+              <label className="block text-xs font-medium text-black/60 mb-1">Optional note (for Water/Fertilize/Spray)</label>
+              <input
+                type="text"
+                value={bulkCareNote}
+                onChange={(e) => setBulkCareNote(e.target.value)}
+                placeholder="e.g. Watered all 3, With fish emulsion"
+                className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
 
           {!isBulk && (
             <>
@@ -526,7 +545,6 @@ export function BatchLogSheet({
                   />
                 </div>
                 <div>
-                  <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
                   {photoPreview ? (
                     <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
                       <img src={photoPreview} alt="" className="w-full h-full object-cover" />
@@ -542,13 +560,22 @@ export function BatchLogSheet({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
-                    >
-                      <span>📷</span> Add photo
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <span>📷</span> Take photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <span>🖼</span> From gallery
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -594,7 +621,6 @@ export function BatchLogSheet({
                 </button>
                 {selectedActions.has("photo") && (
                   <div className="mt-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                     {photoPreview ? (
                       <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
                         <img src={photoPreview} alt="" className="w-full h-full object-cover" />
@@ -610,13 +636,22 @@ export function BatchLogSheet({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border border-black/10 text-black/60 hover:bg-black/5 text-sm"
-                      >
-                        Choose photo
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <span>📷</span> Take photo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <span>🖼</span> From gallery
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

@@ -111,6 +111,11 @@ export default function SettingsDeveloperPage() {
     failed: number;
     message?: string;
   } | null>(null);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [usageData, setUsageData] = useState<{
+    byProvider: Record<string, { thisMonth: number; lastMonth: number; thisYear: number; tokensThisMonth: number; tokensThisYear: number }>;
+    note?: string;
+  } | null>(null);
 
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
@@ -186,9 +191,27 @@ export default function SettingsDeveloperPage() {
     setPlantingsLoading(false);
   }, [user?.id]);
 
+  const loadUsage = useCallback(async () => {
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/developer/usage", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { byProvider: Record<string, { thisMonth: number; lastMonth: number; thisYear: number; tokensThisMonth: number; tokensThisYear: number }>; note?: string };
+        setUsageData(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [session?.access_token]);
+
   useEffect(() => { loadArchived(); }, [loadArchived]);
   useEffect(() => { loadArchivedPlantings(); }, [loadArchivedPlantings]);
   useEffect(() => { loadTrash(); }, [loadTrash]);
+  useEffect(() => { loadUsage(); }, [loadUsage]);
 
   const [deletingPlantingId, setDeletingPlantingId] = useState<string | null>(null);
   const handleDeleteArchivedPlanting = useCallback(async (growInstanceId: string) => {
@@ -650,6 +673,56 @@ export default function SettingsDeveloperPage() {
           aria-label="Search developer tools"
         />
       </div>
+
+      {/* API Usage */}
+      {matchesSection({ title: "API Usage", desc: "Gemini OpenAI Perenual Supabase billing limits" }) && (
+      <section className="mb-8">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">API Usage</h3>
+          <p className="text-sm text-neutral-500 mb-4">Self-tracked calls to Gemini, OpenAI, and Perenual. For exact billing, check each provider&apos;s dashboard.</p>
+          {usageLoading ? (
+            <p className="text-neutral-400 text-sm">Loading...</p>
+          ) : usageData ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                {(["gemini", "openai", "perenual"] as const).map((provider) => {
+                  const p = usageData.byProvider[provider];
+                  if (!p) return null;
+                  const label = provider === "gemini" ? "Gemini" : provider === "openai" ? "OpenAI" : "Perenual";
+                  return (
+                    <div key={provider} className="rounded-xl border border-neutral-100 bg-neutral-50/50 p-4">
+                      <p className="text-sm font-medium text-neutral-700 mb-2">{label}</p>
+                      <p className="text-xs text-neutral-500">This month: {p.thisMonth} calls</p>
+                      <p className="text-xs text-neutral-500">Last month: {p.lastMonth} calls</p>
+                      <p className="text-xs text-neutral-500">This year: {p.thisYear} calls</p>
+                      {(p.tokensThisMonth > 0 || p.tokensThisYear > 0) && (
+                        <p className="text-xs text-neutral-500 mt-1">Tokens: {p.tokensThisMonth.toLocaleString()} this month, {p.tokensThisYear.toLocaleString()} YTD</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100">
+                <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline min-h-[44px] min-w-[44px] inline-flex items-center">
+                  Gemini / Google AI Studio
+                </a>
+                <span className="text-neutral-300">|</span>
+                <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline min-h-[44px] min-w-[44px] inline-flex items-center">
+                  OpenAI usage
+                </a>
+                <span className="text-neutral-300">|</span>
+                <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline min-h-[44px] min-w-[44px] inline-flex items-center">
+                  Supabase dashboard
+                </a>
+              </div>
+              <p className="text-xs text-neutral-400">Gemini free tier: ~15 req/min, 1M tokens/day. Supabase: check your project billing.</p>
+            </div>
+          ) : (
+            <p className="text-neutral-400 text-sm">Could not load usage.</p>
+          )}
+        </div>
+      </section>
+      )}
 
       {/* Safe Tools */}
       <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Safe tools</h2>

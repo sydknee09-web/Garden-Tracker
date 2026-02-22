@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { researchVariety } from "@/app/api/seed/extract/route";
 import { logApiError } from "@/lib/apiErrorLog";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { getSupabaseUser } from "@/app/api/import/auth";
 
 export const maxDuration = 30;
 
@@ -25,6 +27,7 @@ export type EnrichFromNameResponse = {
 /** Enrich plant profile from name + variety only (no vendor in search). Used for store-bought new profiles. */
 export async function POST(req: Request) {
   try {
+    const auth = await getSupabaseUser(req);
     const body = await req.json();
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const variety = typeof body?.variety === "string" ? body.variety.trim() : "";
@@ -57,6 +60,9 @@ export async function POST(req: Request) {
       plant_description: result.plant_description?.trim() || null,
       growing_notes: result.growing_notes?.trim() || null,
     };
+    if (auth?.user?.id) {
+      logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });
+    }
     return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
   } catch (e) {
     logApiError("enrich-from-name", e);

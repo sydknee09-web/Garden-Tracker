@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { runBackfillPlantDescriptionsBatch } from "@/lib/backfillPlantDescriptionsBatch";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 120;
 
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
       batchSize,
       dryRun,
       geminiKey: geminiKey || undefined,
+      onGeminiCall: () => logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "backfill-plant-descriptions" }),
     });
 
     return NextResponse.json(result);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getSupabaseUser } from "@/app/api/import/auth";
+import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { PLANT_CATEGORY_DEFAULTS, type PlantCategoryKey } from "@/constants/plantDefaults";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import {
@@ -3481,6 +3483,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await getSupabaseUser(request);
   let body: { url?: string; knownPlantTypes?: string[] };
   try {
     body = await request.json();
@@ -3820,6 +3823,7 @@ export async function POST(request: Request) {
     const pageText = getPageTextForGemini(html, metadata);
     const geminiResult = await extractWithGemini(pageText, url);
     if (geminiResult) {
+      if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "scrape-url" });
       const plantName =
         (metadata?.ogTitle ?? "").trim() ||
         (url.pathname.split("/").filter(Boolean).pop() ?? "Unknown");

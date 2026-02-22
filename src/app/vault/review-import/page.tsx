@@ -200,6 +200,7 @@ export default function ReviewImportPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<ReviewImportItem[]>([]);
   const [importSource, setImportSource] = useState<ReviewImportSource | undefined>(undefined);
+  const [defaultProfileType, setDefaultProfileType] = useState<"seed" | "permanent">("seed");
   const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingPhase, setSavingPhase] = useState("Saving\u2026");
@@ -219,6 +220,7 @@ export default function ReviewImportPage() {
   /** Full-screen lightbox for packet/hero image (tap to expand on mobile) */
   const [expandedImageSrc, setExpandedImageSrc] = useState<string | null>(null);
   const addPhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const addPhotoGalleryRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const addHeroInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Plant suggestions from global_plant_cache
@@ -253,6 +255,7 @@ export default function ReviewImportPage() {
       return;
     }
     setImportSource(data.source);
+    setDefaultProfileType(data.defaultProfileType === "permanent" ? "permanent" : "seed");
     setItems(
       data.items.map((i) => ({
         ...i,
@@ -835,8 +838,8 @@ export default function ReviewImportPage() {
   );
 
   useEffect(() => {
-    if (items.length) setReviewImportData({ items, source: importSource });
-  }, [items, importSource]);
+    if (items.length) setReviewImportData({ items, source: importSource, defaultProfileType });
+  }, [items, importSource, defaultProfileType]);
 
   useEffect(() => {
     return () => {
@@ -900,6 +903,7 @@ export default function ReviewImportPage() {
         .from("plant_profiles")
         .select("id, name, variety_name")
         .eq("user_id", user.id)
+        .eq("profile_type", defaultProfileType)
         .is("deleted_at", null);
       const exact = (allProfiles ?? []).find(
         (p: { name: string; variety_name: string | null }) =>
@@ -940,7 +944,7 @@ export default function ReviewImportPage() {
           }
         }
       } else {
-        const payload = buildPlantProfileInsertPayload(item, zone10b, user.id, todayISO);
+        const payload = buildPlantProfileInsertPayload(item, zone10b, user.id, todayISO, defaultProfileType);
         const heroUrlForNew = payload.hero_image_url;
         const { data: newProfile, error: profileErr } = await supabase
           .from("plant_profiles")
@@ -968,58 +972,76 @@ export default function ReviewImportPage() {
               ...((item.plant_description ?? "").trim() && { plant_description: item.plant_description!.trim() }),
             }
           : undefined;
-      const allUrls = [
-        (item.source_url ?? "").trim(),
-        ...((item.secondary_urls ?? []).map((u) => (u ?? "").trim()).filter(Boolean)),
-      ].filter(Boolean) as string[];
-      const urlsToSave = allUrls.length > 0 ? allUrls : [null];
       let firstPacketId: string | null = null;
-      const extraImages = item.extraPacketImages ?? [];
-      for (let u = 0; u < urlsToSave.length; u++) {
-        const purchaseUrl = urlsToSave[u];
-        const isFirst = u === 0;
-        const { data: packetRow, error: packetErr } = await supabase.from("seed_packets").insert({
-          plant_profile_id: profileId,
+      if (defaultProfileType === "permanent") {
+        // Permanent plants: create grow_instance (no seed_packet). Both new and matched profiles get a grow.
+        const { error: growErr } = await supabase.from("grow_instances").insert({
           user_id: user.id,
-          vendor_name: (item.vendor ?? "").trim() ? (toCanonicalDisplay((item.vendor ?? "").trim()) || (item.vendor ?? "").trim()) : null,
-          qty_status: 100,
-          ...(isFirst && path && { primary_image_path: path }),
-          purchase_date: purchaseDate,
-          ...(purchaseUrl && { purchase_url: purchaseUrl }),
-          ...(tagsToSave.length > 0 && { tags: tagsToSave }),
-          ...(vendorSpecs && Object.keys(vendorSpecs).length > 0 && { vendor_specs: vendorSpecs }),
-          ...((item.user_notes ?? "").trim() && { user_notes: item.user_notes!.trim() }),
-          ...((item.storage_location ?? "").trim() && { storage_location: item.storage_location!.trim() }),
-        }).select("id").single();
-        if (packetErr) {
-          setError(packetErr.message);
+          plant_profile_id: profileId,
+          sown_date: purchaseDate,
+          expected_harvest_date: null,
+          status: "growing",
+          seed_packet_id: null,
+          plant_count: 1,
+        });
+        if (growErr) {
+          setError(growErr.message);
           setSaving(false);
           return;
         }
-        if (isFirst && packetRow) firstPacketId = (packetRow as { id: string }).id;
-      }
-      // Upload extra packet images to packet_images table (first packet only)
-      if (firstPacketId && extraImages.length > 0) {
-        for (let i = 0; i < extraImages.length; i++) {
-          const extraPath = `${user.id}/${crypto.randomUUID()}.jpg`;
-          const rawBlob = base64ToBlob(extraImages[i], "image/jpeg");
-          const file = new File([rawBlob], `packet-extra-${i}.jpg`, { type: "image/jpeg" });
-          const { blob } = await compressImage(file);
-          const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(extraPath, blob, {
-            contentType: "image/jpeg",
-            upsert: false,
-          });
-          if (!uploadErr) {
-            await supabase.from("packet_images").insert({
-              seed_packet_id: firstPacketId,
-              image_path: extraPath,
-              sort_order: i,
+      } else {
+        const allUrls = [
+          (item.source_url ?? "").trim(),
+          ...((item.secondary_urls ?? []).map((u) => (u ?? "").trim()).filter(Boolean)),
+        ].filter(Boolean) as string[];
+        const urlsToSave = allUrls.length > 0 ? allUrls : [null];
+        const extraImages = item.extraPacketImages ?? [];
+        for (let u = 0; u < urlsToSave.length; u++) {
+          const purchaseUrl = urlsToSave[u];
+          const isFirst = u === 0;
+          const { data: packetRow, error: packetErr } = await supabase.from("seed_packets").insert({
+            plant_profile_id: profileId,
+            user_id: user.id,
+            vendor_name: (item.vendor ?? "").trim() ? (toCanonicalDisplay((item.vendor ?? "").trim()) || (item.vendor ?? "").trim()) : null,
+            qty_status: 100,
+            ...(isFirst && path && { primary_image_path: path }),
+            purchase_date: purchaseDate,
+            ...(purchaseUrl && { purchase_url: purchaseUrl }),
+            ...(tagsToSave.length > 0 && { tags: tagsToSave }),
+            ...(vendorSpecs && Object.keys(vendorSpecs).length > 0 && { vendor_specs: vendorSpecs }),
+            ...((item.user_notes ?? "").trim() && { user_notes: item.user_notes!.trim() }),
+            ...((item.storage_location ?? "").trim() && { storage_location: item.storage_location!.trim() }),
+          }).select("id").single();
+          if (packetErr) {
+            setError(packetErr.message);
+            setSaving(false);
+            return;
+          }
+          if (isFirst && packetRow) firstPacketId = (packetRow as { id: string }).id;
+        }
+        // Upload extra packet images to packet_images table (first packet only)
+        if (firstPacketId && extraImages.length > 0) {
+          for (let i = 0; i < extraImages.length; i++) {
+            const extraPath = `${user.id}/${crypto.randomUUID()}.jpg`;
+            const rawBlob = base64ToBlob(extraImages[i], "image/jpeg");
+            const file = new File([rawBlob], `packet-extra-${i}.jpg`, { type: "image/jpeg" });
+            const { blob } = await compressImage(file);
+            const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(extraPath, blob, {
+              contentType: "image/jpeg",
+              upsert: false,
             });
+            if (!uploadErr) {
+              await supabase.from("packet_images").insert({
+                seed_packet_id: firstPacketId,
+                image_path: extraPath,
+                sort_order: i,
+              });
+            }
           }
         }
+        // Reinstate profile when adding a packet (e.g. was out_of_stock / archived)
+        await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
       }
-      // Reinstate profile when adding a packet (e.g. was out_of_stock / archived)
-      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
       savedItems.push({ item, profileId, packetImagePath: path ?? undefined, skipPacketAsHero: profileAlreadyHadHero });
     }
 
@@ -1209,10 +1231,10 @@ export default function ReviewImportPage() {
     setSaveSuccess(true);
     const t = setTimeout(() => {
       clearReviewImportData();
-      router.replace("/vault?status=vault&added=1");
+      router.replace(defaultProfileType === "permanent" ? "/garden?tab=plants" : "/vault?status=vault&added=1");
     }, 1500);
     saveSuccessTimeoutRef.current = t;
-  }, [user?.id, items, router]);
+  }, [user?.id, items, router, defaultProfileType]);
 
   if (!user) return null;
   if (items.length === 0) {
@@ -1485,7 +1507,7 @@ export default function ReviewImportPage() {
                           Please find or upload a photo first
                         </p>
                       )}
-                      {/* Add packet photo(s): available for all import types (manual, link, photo) */}
+                      {/* Add packet photo(s): Take photo or choose from gallery */}
                       <div className="mt-2 space-y-1">
                         <input
                           ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
@@ -1500,13 +1522,40 @@ export default function ReviewImportPage() {
                             e.target.value = "";
                           }}
                         />
-                        <button
-                          type="button"
-                          onClick={() => addPhotoInputRefs.current[item.id]?.click()}
-                          className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
-                        >
-                          + Add packet photo(s)
-                        </button>
+                        <input
+                          ref={(el) => { addPhotoGalleryRefs.current[item.id] = el; }}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          aria-hidden
+                          onChange={async (e) => {
+                            const files = e.target.files;
+                            if (files) {
+                              for (let i = 0; i < files.length; i++) {
+                                const file = files[i];
+                                if (file?.type?.startsWith("image/")) await handleAddPacketPhoto(item.id, file);
+                              }
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => addPhotoInputRefs.current[item.id]?.click()}
+                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                          >
+                            Take photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addPhotoGalleryRefs.current[item.id]?.click()}
+                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                          >
+                            From gallery
+                          </button>
+                        </div>
                         {(item.extraPacketImages?.length ?? 0) > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {(item.extraPacketImages ?? []).map((b64, idx) => {
