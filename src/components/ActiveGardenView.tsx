@@ -202,25 +202,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightGrowId, loading]);
 
-  // Report highlighted batch for "Viewing" chip when highlightGrowId matches; only call when loading done
-  useEffect(() => {
-    if (!onHighlightedBatch || loading) return;
-    if (!highlightGrowId) {
-      onHighlightedBatch(null);
-      return;
-    }
-    const batch = displayBatches[0] ?? growing.find((b) => b.id === highlightGrowId);
-    if (batch) {
-      onHighlightedBatch({
-        id: batch.id,
-        profile_name: batch.profile_name,
-        profile_variety_name: batch.profile_variety_name,
-      });
-    } else {
-      onHighlightedBatch(null);
-    }
-  }, [highlightGrowId, loading, displayBatches, growing, onHighlightedBatch]);
-
   const load = useCallback(async () => {
     if (!user?.id) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -407,6 +388,25 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     const fromGrowing = growing.find((b) => b.id === highlightGrowId);
     return fromGrowing ? [fromGrowing] : [];
   }, [highlightGrowId, filteredBySearch, growing]);
+
+  // Report highlighted batch for "Viewing" chip when highlightGrowId matches; only call when loading done
+  useEffect(() => {
+    if (!onHighlightedBatch || loading) return;
+    if (!highlightGrowId) {
+      onHighlightedBatch(null);
+      return;
+    }
+    const batch = displayBatches[0] ?? growing.find((b) => b.id === highlightGrowId);
+    if (batch) {
+      onHighlightedBatch({
+        id: batch.id,
+        profile_name: batch.profile_name,
+        profile_variety_name: batch.profile_variety_name,
+      });
+    } else {
+      onHighlightedBatch(null);
+    }
+  }, [highlightGrowId, loading, displayBatches, growing, onHighlightedBatch]);
 
   const sortedBatches = useMemo(() => {
     const list = [...displayBatches];

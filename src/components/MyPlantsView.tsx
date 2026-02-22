@@ -63,6 +63,7 @@ export function MyPlantsView({
   tagFilters = [],
   profileIdFilter = null,
   onProfileFilteredPlantName,
+  onProfileFilterEmpty,
   onClearProfileFilter,
   onRefineChipsLoaded,
   onFilteredCountChange,
