@@ -22,9 +22,9 @@ export function usePullToRefresh(options: {
   const startScrollTop = useRef(0);
   const currentPullY = useRef(0);
 
-  const getScrollContainer = useCallback(() => {
+  const getScrollContainer = useCallback((): HTMLElement | null => {
     if (containerRef?.current) return containerRef.current;
-    return typeof document !== "undefined" ? document : null;
+    return typeof document !== "undefined" ? document.documentElement : null;
   }, [containerRef]);
 
   const isAtTop = useCallback(() => {
@@ -39,7 +39,7 @@ export function usePullToRefresh(options: {
       if (disabled || isRefreshing) return;
       const el = getScrollContainer();
       if (!el) return;
-      const scrollTop = el === document.documentElement ? window.scrollY ?? el.scrollTop : el.scrollTop;
+      const scrollTop = el.scrollTop;
       startY.current = e.touches[0].clientY;
       startScrollTop.current = scrollTop;
       currentPullY.current = 0;

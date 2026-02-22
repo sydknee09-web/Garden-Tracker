@@ -231,6 +231,7 @@ export function SeedVaultView({
   statusFilter = "",
   tagFilters = [],
   onOpenScanner,
+  onAddFirst,
   onTagsLoaded,
   batchSelectMode = false,
   selectedVarietyIds,
