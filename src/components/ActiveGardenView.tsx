@@ -90,6 +90,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   onEmptyStateChange?: (isEmpty: boolean) => void;
   /** Called when loading done: batch info for "Viewing" chip, or null if not found. Only called when !loading. */
   onHighlightedBatch?: (batch: { id: string; profile_name: string; profile_variety_name: string | null } | null) => void;
+  /** Called when user taps "Show all" in empty state (batch not found). Clears grow param. */
+  onClearGrowView?: () => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
@@ -122,6 +124,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   onFilteredCountChange,
   onEmptyStateChange,
   onHighlightedBatch,
+  onClearGrowView,
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
   onBulkSelectionChange,
@@ -819,7 +822,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         ) : highlightGrowId && displayBatches.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
             <p className="text-black/70 font-medium mb-2">Planting not found</p>
-            <p className="text-sm text-black/50">This planting may have been archived. Use the Cancel button above to view all plantings.</p>
+            <p className="text-sm text-black/50 mb-6">This planting may have been archived.</p>
+            <button
+              type="button"
+              onClick={onClearGrowView}
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+            >
+              Show all plantings
+            </button>
           </div>
         ) : sortedBatches.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
