@@ -341,11 +341,9 @@ function GardenPageInner() {
               My Plants
             </button>
           </div>
-        </div>
 
-        {((effectiveViewMode === "active" && activeHasItems) || (effectiveViewMode === "plants" && plantsHasItems)) && (
-          <>
-            <div className="flex gap-2 mb-2 mt-2">
+          {/* Search and filter always visible to prevent layout shift and keep controls accessible when scrolling */}
+          <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
                   <circle cx="11" cy="11" r="8" />
@@ -429,8 +427,6 @@ function GardenPageInner() {
                 )}
               </button>
             </div>
-          </>
-        )}
         </div>
 
         {refineByOpen && (
