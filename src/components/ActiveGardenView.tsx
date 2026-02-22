@@ -300,6 +300,16 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
 
+  // Escape hatch: if loading for >10s, show error so user can switch tabs
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => {
+      setLoadError("Loading is taking longer than expected");
+      setLoading(false);
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
     if (days < 60) return "<60";
@@ -680,19 +690,38 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }, []);
 
   if (!user) return null;
-  if (loading) return <div className="py-8 text-center text-black/50 text-sm">Loading Active Garden...</div>;
+  if (loading) {
+    return (
+      <div className="py-8 px-4 text-center space-y-4">
+        <p className="text-black/50 text-sm">Loading Active Garden...</p>
+        <p className="text-sm text-black/60">
+          <Link href="/garden?tab=plants" className="text-emerald-600 font-medium underline hover:text-emerald-700">
+            Switch to My Plants
+          </Link>
+        </p>
+      </div>
+    );
+  }
   if (loadError) {
     return (
-      <div className="py-8 px-4 text-center">
+      <div className="py-8 px-4 text-center space-y-4">
         <p className="text-black/70 font-medium mb-2">Couldn&apos;t load Active Garden</p>
-        <p className="text-sm text-black/50 mb-4">{loadError}</p>
-        <button
-          type="button"
-          onClick={() => load()}
-          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-        >
-          Try again
-        </button>
+        <p className="text-sm text-black/50">{loadError}</p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+          <button
+            type="button"
+            onClick={() => load()}
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+          >
+            Try again
+          </button>
+          <Link
+            href="/garden?tab=plants"
+            className="min-h-[44px] px-4 py-2 rounded-xl border border-emerald-600 text-emerald-600 text-sm font-medium hover:bg-emerald-50 inline-flex items-center justify-center"
+          >
+            Switch to My Plants
+          </Link>
+        </div>
       </div>
     );
   }

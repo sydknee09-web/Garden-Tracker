@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
 import { MyPlantsView } from "@/components/MyPlantsView";
@@ -370,26 +369,28 @@ function GardenPageInner() {
         <div className="sticky top-11 z-40 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
           <div className="flex mb-3" role="tablist" aria-label="View">
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
-            <Link
-              href={growParam ? `/garden?tab=active&grow=${encodeURIComponent(growParam)}` : "/garden?tab=active"}
+            <button
+              type="button"
               role="tab"
               aria-selected={effectiveViewMode === "active"}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center ${
+              onClick={() => router.replace(growParam ? `/garden?tab=active&grow=${encodeURIComponent(growParam)}` : "/garden?tab=active")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 effectiveViewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
               Active Garden
-            </Link>
-            <Link
-              href={profileParam ? `/garden?tab=plants&profile=${encodeURIComponent(profileParam)}` : "/garden?tab=plants"}
+            </button>
+            <button
+              type="button"
               role="tab"
               aria-selected={effectiveViewMode === "plants"}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center ${
+              onClick={() => router.replace(profileParam ? `/garden?tab=plants&profile=${encodeURIComponent(profileParam)}` : "/garden?tab=plants")}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 effectiveViewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
               My Plants
-            </Link>
+            </button>
           </div>
         </div>
 
