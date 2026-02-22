@@ -7,6 +7,7 @@ import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components
 import { ShedView } from "@/components/ShedView";
 import { SupplyPicker } from "@/components/SupplyPicker";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
+import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
 import { QRScannerModal } from "@/components/QRScannerModal";
@@ -92,6 +93,7 @@ function VaultPageInner() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">("grid");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -1371,6 +1373,11 @@ function VaultPageInner() {
 
       {viewMode === "shed" && (
         <div className="relative z-10">
+          <QuickAddSupply
+            open={shedQuickAddOpen}
+            onClose={() => setShedQuickAddOpen(false)}
+            onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          />
           <ShedView
             embedded
             refetchTrigger={refetchTrigger}
@@ -1813,6 +1820,9 @@ function VaultPageInner() {
         onClick={() => {
           if ((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) {
             setSelectionActionsOpen(true);
+          } else if (viewMode === "shed") {
+            if (shedQuickAddOpen) setShedQuickAddOpen(false);
+            else setShedQuickAddOpen(true);
           } else if (quickAddOpen) {
             setQuickAddOpen(false);
             setQrPrefill(null);
@@ -1823,7 +1833,7 @@ function VaultPageInner() {
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
           (viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0
             ? "bg-amber-500 text-white"
-            : quickAddOpen
+            : quickAddOpen || shedQuickAddOpen
               ? "bg-emerald-700 text-white"
               : "bg-emerald text-white"
         }`}
@@ -1831,9 +1841,11 @@ function VaultPageInner() {
         aria-label={
           (viewMode === "grid" || viewMode === "list") && batchSelectMode
             ? "Selection actions"
-            : quickAddOpen
+            : quickAddOpen || shedQuickAddOpen
               ? "Close add menu"
-              : "Add seed"
+              : viewMode === "shed"
+                ? "Add shed product"
+                : "Add seed"
         }
       >
         {(viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0 ? (
@@ -1851,7 +1863,7 @@ function VaultPageInner() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${quickAddOpen ? "rotate-45" : "rotate-0"}`}
+            className={`transition-transform duration-200 ${quickAddOpen || shedQuickAddOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
             <line x1="12" y1="5" x2="12" y2="19" />
