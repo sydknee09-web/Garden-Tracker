@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  useReactTable,
+  getCoreRowModel,
+  type ColumnDef,
+  type ColumnSizingState,
+  type Header,
+} from "@tanstack/react-table";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -332,12 +339,31 @@ export function SeedVaultView({
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
   const [listColumnWidths, setListColumnWidths] = useState<Record<string, number>>(() => loadListTableState().columnWidths);
-  const resizeRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
   const isOnline = useOnlineStatus();
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
   const dragOverColIdRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
+
+  const listColumns = useMemo<ColumnDef<VaultCardItem, unknown>[]>(
+    () =>
+      (DEFAULT_LIST_COLUMN_ORDER as ListDataColumnId[]).map((id) => {
+        const accessorKey =
+          id === "name" ? "name" : id === "variety" ? "variety" : id === "vendor" ? "vendor_display"
+          : id === "sun" ? "sun" : id === "spacing" ? "plant_spacing" : id === "germination" ? "days_to_germination"
+          : id === "maturity" ? "harvest_days" : id === "pkts" ? "packet_count" : id === "rating" ? "best_rating"
+          : id;
+        return {
+          id,
+          accessorKey,
+          size: DEFAULT_LIST_COLUMN_WIDTHS[id],
+          minSize: 60,
+          enableResizing: true,
+          header: () => null,
+        };
+      }),
+    [],
+  );
 
   useEffect(() => {
     saveListTableState(listColumnOrder, listColumnWidths);
@@ -393,26 +419,6 @@ export function SeedVaultView({
       setListSortColumn(null);
     }
   };
-
-  const handleResizeStart = useCallback((colId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const w = listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId as ListDataColumnId];
-    resizeRef.current = { colId, startX: e.clientX, startW: w };
-    const onMove = (moveEvent: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const delta = moveEvent.clientX - resizeRef.current.startX;
-      const newW = Math.max(60, resizeRef.current.startW + delta);
-      setListColumnWidths((prev) => ({ ...prev, [resizeRef.current!.colId]: newW }));
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      resizeRef.current = null;
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [listColumnWidths]);
 
   const handleColumnReorder = useCallback((fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -727,6 +733,26 @@ export function SeedVaultView({
     });
     return list;
   }, [filteredSeeds, listSortColumn, listSortDir, sortByProp, vaultSortCmp]);
+
+  const listTable = useReactTable({
+    data: sortedListSeeds,
+    columns: listColumns,
+    state: {
+      columnOrder: listColumnOrder,
+      columnSizing: listColumnWidths as ColumnSizingState,
+    },
+    onColumnOrderChange: (updater) => {
+      setListColumnOrder((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : prev;
+        return next.filter((id): id is ListDataColumnId => DEFAULT_LIST_COLUMN_ORDER.includes(id as ListDataColumnId));
+      });
+    },
+    onColumnSizingChange: (updater) => {
+      setListColumnWidths((prev) => (typeof updater === "function" ? updater(prev) : prev));
+    },
+    getCoreRowModel: getCoreRowModel(),
+    columnResizeMode: "onChange",
+  });
 
   const sortedGridSeeds = useMemo(() => {
     const list = [...filteredSeeds];
@@ -1310,8 +1336,8 @@ export function SeedVaultView({
     return `${days} d`;
   }
 
-  const renderHeader = (colId: ListDataColumnId) => {
-    const w = listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId];
+  const renderHeader = (colId: ListDataColumnId, header?: Header<VaultCardItem, unknown>) => {
+    const w = header ? header.getSize() : (listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId]);
     const isDragging = draggedColId === colId;
     const label =
       colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "vendor" ? "Vendor" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : colId === "pkts" ? "Pkts" : "Rating";
@@ -1373,7 +1399,8 @@ export function SeedVaultView({
           role="separator"
           aria-orientation="vertical"
           className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-emerald-400/50 active:bg-emerald-500 shrink-0"
-          onMouseDown={(e) => { e.preventDefault(); handleResizeStart(colId, e); }}
+          onMouseDown={header?.getResizeHandler()}
+          onTouchStart={header?.getResizeHandler()}
           title="Drag to resize column"
         />
       </th>
@@ -1469,12 +1496,12 @@ export function SeedVaultView({
       </div>
       {/* Full table for sm and up */}
       <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white">
-      <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: (batchSelectMode ? 40 : 0) + 44 + listColumnOrder.reduce((s, id) => s + (listColumnWidths[id] ?? DEFAULT_LIST_COLUMN_WIDTHS[id]), 0) }}>
+      <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: (batchSelectMode ? 40 : 0) + 44 + (listTable.getHeaderGroups()[0]?.headers.reduce((s, h) => s + h.getSize(), 0) ?? 0) }}>
         <colgroup>
           {batchSelectMode && <col style={{ width: 40 }} />}
           <col style={{ width: 44 }} />
-          {listColumnOrder.map((id) => (
-            <col key={id} style={{ width: listColumnWidths[id] ?? DEFAULT_LIST_COLUMN_WIDTHS[id] }} />
+          {listTable.getHeaderGroups()[0]?.headers.map((h) => (
+            <col key={h.id} style={{ width: h.getSize() }} />
           ))}
         </colgroup>
         <thead>
@@ -1483,11 +1510,12 @@ export function SeedVaultView({
               <th className="text-left py-2.5 px-3 w-10 bg-white" scope="col"><span className="sr-only">Select</span></th>
             )}
             <th className="text-left py-2.5 px-3 w-10 bg-white shrink-0" scope="col"><span className="sr-only">Icon</span></th>
-            {listColumnOrder.map((id) => renderHeader(id))}
+            {listTable.getHeaderGroups()[0]?.headers.map((h) => renderHeader(h.column.id as ListDataColumnId, h))}
           </tr>
         </thead>
         <tbody>
-          {sortedListSeeds.map((seed) => {
+          {listTable.getRowModel().rows.map((row) => {
+            const seed = row.original;
             const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
             return (
             <tr
@@ -1522,7 +1550,7 @@ export function SeedVaultView({
                   );
                 })()}
               </td>
-              {listColumnOrder.map((id) => renderCell(id, seed))}
+              {row.getVisibleCells().map((cell) => renderCell(cell.column.id as ListDataColumnId, seed))}
             </tr>
             );
           })}

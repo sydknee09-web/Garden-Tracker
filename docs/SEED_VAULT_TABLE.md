@@ -12,7 +12,7 @@ Short reference for the next AI assistant or developer.
 - **Load:** `loadListTableState()` — merges saved order with default so all 7 columns appear; missing columns are appended. Widths default then override from storage.
 - **Save:** `saveListTableState(columnOrder, columnWidths)` — called when order or widths change.
 - **Interactions:** Column **resize** = drag the right edge of a data column header; **reorder** = drag a data column header to a new position. Fixed columns: optional batch checkbox, then icon; then the seven data columns in `listColumnOrder`.
-- **Rendering:** `<colgroup>` + `tableLayout: "fixed"`; headers and cells built from `listColumnOrder` via `renderHeader(colId)` and `renderCell(colId, seed)`.
+- **Rendering:** `<colgroup>` + `tableLayout: "fixed"`; headers and cells built from `listTable.getHeaderGroups()` and `listTable.getRowModel().rows` via `renderHeader(colId, header)` and `renderCell(colId, seed)`.
 
 ## Database relationships (Variety vs Packet)
 
@@ -27,4 +27,4 @@ Short reference for the next AI assistant or developer.
 
 ## Dependencies
 
-- **@tanstack/react-table** is installed but **not used** in the current table implementation (vanilla state + HTML5 drag-and-drop and resize). Optional: migrate to `useReactTable` for column APIs or remove the package if not needed elsewhere.
+- **@tanstack/react-table** — list view uses `useReactTable` with `getCoreRowModel`, `columnResizeMode: "onChange"`, and state for `columnOrder` and `columnSizing`. Column resize uses `header.getResizeHandler()` and `header.getSize()`; reorder uses `onColumnOrderChange` with `ListDataColumnId[]` filtering.
