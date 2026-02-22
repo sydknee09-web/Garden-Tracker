@@ -19,7 +19,7 @@ interface QuickAddSupplyProps {
 }
 
 export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickAddSupplyProps) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState<string>("fertilizer");
@@ -31,15 +31,21 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [importedImagePath, setImportedImagePath] = useState<string | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [importExpanded, setImportExpanded] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!initialData?.id;
+  const storedImagePath = importedImagePath ?? initialData?.primary_image_path?.trim();
   const existingImageUrl =
-    initialData?.primary_image_path?.trim() && !photoFile
-      ? supabase.storage.from("journal-photos").getPublicUrl(initialData.primary_image_path).data.publicUrl
+    storedImagePath && !photoFile && !photoRemoved
+      ? supabase.storage.from("journal-photos").getPublicUrl(storedImagePath).data.publicUrl
       : null;
 
   useEffect(() => {
@@ -49,6 +55,10 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       setPhotoFile(null);
       setPhotoPreviewUrl(null);
       setPhotoRemoved(false);
+      setImportedImagePath(null);
+      setImportUrl("");
+      setImportExpanded(false);
+      setImportError(null);
       if (initialData) {
         setName(initialData.name ?? "");
         setBrand(initialData.brand ?? "");
@@ -83,9 +93,58 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
   const handleRemovePhoto = useCallback(() => {
     setPhotoFile(null);
     setPhotoRemoved(true);
+    setImportedImagePath(null);
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
     setPhotoPreviewUrl(null);
   }, [photoPreviewUrl]);
+
+  const handleImportFromLink = useCallback(async () => {
+    const url = importUrl.trim();
+    if (!url.startsWith("http")) {
+      setImportError("Enter a valid product URL");
+      return;
+    }
+    if (!session?.access_token) {
+      setImportError("Please sign in to import");
+      return;
+    }
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/supply/extract-from-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setImportError((data.error as string) ?? "Import failed");
+        return;
+      }
+      setName((data.name as string) ?? "");
+      setBrand((data.brand as string) ?? "");
+      setCategory(
+        ["fertilizer", "pesticide", "soil_amendment", "other"].includes((data.category as string)?.toLowerCase())
+          ? (data.category as string).toLowerCase()
+          : "other"
+      );
+      setUsageInstructions((data.usage_instructions as string) ?? "");
+      setApplicationRate((data.application_rate as string) ?? "");
+      setNpk((data.npk as string) ?? "");
+      setSourceUrl((data.source_url as string) ?? "");
+      if (data.primary_image_path) setImportedImagePath(data.primary_image_path as string);
+      setPhotoRemoved(false);
+      setImportExpanded(false);
+      setImportUrl("");
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }, [importUrl, session?.access_token]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -103,10 +162,12 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       setSubmitting(true);
       setError(null);
       try {
-        let primaryImagePath: string | null =
-          !photoRemoved && isEdit && initialData?.primary_image_path?.trim()
-            ? initialData.primary_image_path
-            : null;
+        let primaryImagePath: string | null = photoRemoved
+          ? null
+          : importedImagePath ??
+            (isEdit && initialData?.primary_image_path?.trim()
+              ? initialData.primary_image_path
+              : null);
 
         if (photoFile) {
           const { blob } = await compressImage(photoFile);
@@ -170,6 +231,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       sourceUrl,
       photoFile,
       photoRemoved,
+      importedImagePath,
       isEdit,
       initialData?.id,
       initialData?.primary_image_path,
@@ -195,6 +257,44 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isEdit && (
+            <div className="rounded-xl border border-black/10 bg-neutral-50/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setImportExpanded((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 min-h-[44px]"
+                aria-expanded={importExpanded}
+              >
+                <span>Import from product link</span>
+                <span aria-hidden>{importExpanded ? "−" : "+"}</span>
+              </button>
+              {importExpanded && (
+                <div className="border-t border-black/10 px-4 py-3 space-y-2">
+                  <input
+                    type="url"
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+                    aria-label="Product URL"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleImportFromLink}
+                    disabled={importing}
+                    className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 min-h-[44px]"
+                  >
+                    {importing ? "Importing…" : "Import"}
+                  </button>
+                  {importError && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {importError}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
