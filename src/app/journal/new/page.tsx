@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -214,7 +215,7 @@ export default function JournalNewPage() {
     let insertErr: { message: string } | null = null;
     try {
       for (const profileId of idsToInsert) {
-        const { error } = await supabase.from("journal_entries").insert({
+        const { error } = await insertWithOfflineQueue("journal_entries", {
           user_id: sessionUserId,
           plant_profile_id: profileId,
           grow_instance_id: null,
@@ -223,7 +224,7 @@ export default function JournalNewPage() {
           entry_type: "note",
           image_file_path: imagePath,
           weather_snapshot: weatherSnapshot ?? undefined,
-        });
+        } as Record<string, unknown>);
         if (error) {
           insertErr = error;
           break;

@@ -9,7 +9,7 @@ const DB_VERSION = 1;
 const STORE_NAME = "pending_writes";
 
 /** Tables that must use soft delete only. Never enqueue operation "delete" for these. */
-const PROTECTED_TABLES = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks"];
+const PROTECTED_TABLES = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks", "supply_profiles"];
 
 export interface QueuedWrite {
   id: string;

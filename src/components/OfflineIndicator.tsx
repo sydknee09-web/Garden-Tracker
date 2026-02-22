@@ -129,7 +129,7 @@ async function replayOneWrite(write: QueuedWrite): Promise<void> {
     }
     case "delete": {
       // Law 2: protected tables must use soft delete; never hard-delete on replay
-      const protectedTables = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks"];
+      const protectedTables = ["plant_profiles", "seed_packets", "journal_entries", "grow_instances", "tasks", "supply_profiles"];
       if (protectedTables.includes(table)) {
         let updateQuery = supabase.from(table).update({ deleted_at: new Date().toISOString() });
         if (filters) {

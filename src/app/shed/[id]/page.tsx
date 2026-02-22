@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
@@ -100,9 +101,10 @@ export default function ShedDetailPage() {
   const handleAddToShoppingList = useCallback(async () => {
     if (!user?.id || !supply?.id) return;
     setAddingToList(true);
-    const { error } = await supabase.from("shopping_list").upsert(
+    const { error } = await upsertWithOfflineQueue(
+      "shopping_list",
       { user_id: user.id, supply_profile_id: supply.id, is_purchased: false },
-      { onConflict: "user_id,supply_profile_id", ignoreDuplicates: false }
+      { onConflict: "user_id,supply_profile_id" }
     );
     setAddingToList(false);
     if (error) {
@@ -113,10 +115,7 @@ export default function ShedDetailPage() {
         .eq("supply_profile_id", supply.id)
         .maybeSingle();
       if (existing) {
-        await supabase
-          .from("shopping_list")
-          .update({ is_purchased: false })
-          .eq("id", (existing as { id: string }).id);
+        await updateWithOfflineQueue("shopping_list", { is_purchased: false }, { id: (existing as { id: string }).id, user_id: user.id });
       }
     }
   }, [user?.id, supply?.id]);
@@ -125,7 +124,7 @@ export default function ShedDetailPage() {
     if (!user?.id || !supply?.id) return;
     setUsedTodaySaving(true);
     const weather = await fetchWeatherSnapshot();
-    const { error } = await supabase.from("journal_entries").insert({
+    const { error } = await insertWithOfflineQueue("journal_entries", {
       user_id: user.id,
       supply_profile_id: supply.id,
       note: `Used ${supply.name}`,

@@ -18,6 +18,7 @@ import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
 import { StarRating } from "@/components/StarRating";
+import { VaultGridSkeleton } from "@/components/PageSkeleton";
 import { normalizeSeedStockRows } from "@/lib/vault";
 import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
 
@@ -365,8 +366,16 @@ export function SeedVaultView({
     [],
   );
 
+  const saveStateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    saveListTableState(listColumnOrder, listColumnWidths);
+    if (saveStateTimeoutRef.current) clearTimeout(saveStateTimeoutRef.current);
+    saveStateTimeoutRef.current = setTimeout(() => {
+      saveStateTimeoutRef.current = null;
+      saveListTableState(listColumnOrder, listColumnWidths);
+    }, 150);
+    return () => {
+      if (saveStateTimeoutRef.current) clearTimeout(saveStateTimeoutRef.current);
+    };
   }, [listColumnOrder, listColumnWidths]);
 
   const LONG_PRESS_MS = 500;
@@ -435,8 +444,6 @@ export function SeedVaultView({
 
   const q = searchQuery.trim().toLowerCase();
 
-  const displayedSeeds = useMemo(() => seeds, [seeds]);
-
   function goToProfile(profileId: string) {
     router.push(`/vault/${profileId}`);
   }
@@ -462,7 +469,7 @@ export function SeedVaultView({
   };
 
   const filteredSeeds = useMemo(() => {
-    return displayedSeeds.filter((s) => {
+    return seeds.filter((s) => {
       if (hideArchivedProfiles && statusFilter !== "archived" && (s.packet_count ?? 0) <= 0) return false;
       if (categoryFilter !== null) {
         const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
@@ -523,7 +530,7 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [displayedSeeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -630,8 +637,8 @@ export function SeedVaultView({
   }, [sowingMonthChips, onSowingMonthChipsLoaded]);
 
   const uniquePlantNames = useMemo(
-    () => Array.from(new Set(displayedSeeds.map((s) => s.name))).sort((a, b) => a.localeCompare(b)),
-    [displayedSeeds]
+    () => Array.from(new Set(seeds.map((s) => s.name))).sort((a, b) => a.localeCompare(b)),
+    [seeds]
   );
 
   const filteredPlantNames = useMemo(() => {
@@ -885,18 +892,43 @@ export function SeedVaultView({
         return;
       }
 
-      // Count all non-deleted packets (including archived) so vault count matches profile page; include purchase_date, packet_rating for sort/display
+      // Run packets, packet images, and active grows in parallel
+      const profileIds = (profiles as { id: string }[]).map((pr) => pr.id);
       let packetsQuery = supabase
         .from("seed_packets")
         .select("plant_profile_id, tags, vendor_name, qty_status, purchase_date, packet_rating")
         .is("deleted_at", null);
       if (!isFamilyView) packetsQuery = packetsQuery.eq("user_id", user.id);
-      const { data: packets } = await packetsQuery;
+      let packetImagesQuery = supabase
+        .from("seed_packets")
+        .select("plant_profile_id, primary_image_path")
+        .is("deleted_at", null)
+        .not("primary_image_path", "is", null)
+        .order("created_at", { ascending: true });
+      if (!isFamilyView) packetImagesQuery = packetImagesQuery.eq("user_id", user.id);
+      let growsQuery = supabase
+        .from("grow_instances")
+        .select("plant_profile_id")
+        .in("plant_profile_id", profileIds)
+        .in("status", ["pending", "growing"])
+        .is("deleted_at", null);
+      if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
+
+      const [packetsRes, packetImagesRes, activeGrowsRes] = await Promise.all([
+        packetsQuery,
+        packetImagesQuery,
+        growsQuery,
+      ]);
+      const packets = packetsRes.data;
+      const packetImages = packetImagesRes.data;
+      const activeGrows = activeGrowsRes.data;
+
+      if (cancelled) return;
+
       const countByProfile = new Map<string, number>();
       const sumQtyByProfile = new Map<string, number>();
       const vendorsByProfile = new Map<string, Set<string>>();
       const f1ProfileIds = new Set<string>();
-      /** Latest (max) purchase_date per profile for sort by purchase date. */
       const latestPurchaseByProfile = new Map<string, string>();
       const maxQtyByProfile = new Map<string, number>();
       const bestRatingByProfile = new Map<string, number>();
@@ -927,14 +959,6 @@ export function SeedVaultView({
         }
       }
 
-      let packetImagesQuery = supabase
-        .from("seed_packets")
-        .select("plant_profile_id, primary_image_path")
-        .is("deleted_at", null)
-        .not("primary_image_path", "is", null)
-        .order("created_at", { ascending: true });
-      if (!isFamilyView) packetImagesQuery = packetImagesQuery.eq("user_id", user.id);
-      const { data: packetImages } = await packetImagesQuery;
       const firstPacketImageByProfile = new Map<string, string>();
       for (const row of packetImages ?? []) {
         const pid = (row as { plant_profile_id: string; primary_image_path: string }).plant_profile_id;
@@ -942,21 +966,7 @@ export function SeedVaultView({
         if (pid && path?.trim() && !firstPacketImageByProfile.has(pid)) firstPacketImageByProfile.set(pid, path.trim());
       }
 
-      // Profiles with active grow_instances should display as "active" even if DB status is stale
-      let activeProfileIds = new Set<string>();
-      if (profiles?.length) {
-        const profileIds = (profiles as { id: string }[]).map((pr) => pr.id);
-        let growsQuery = supabase
-          .from("grow_instances")
-          .select("plant_profile_id")
-          .in("plant_profile_id", profileIds)
-          .in("status", ["pending", "growing"])
-          .is("deleted_at", null);
-        if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
-        const { data: activeGrows } = await growsQuery;
-        activeProfileIds = new Set((activeGrows ?? []).map((g: { plant_profile_id: string }) => g.plant_profile_id));
-      }
-      if (cancelled) return;
+      const activeProfileIds = new Set((activeGrows ?? []).map((g: { plant_profile_id: string }) => g.plant_profile_id));
 
       const items: VaultCardItem[] = (profiles ?? []).map((p: Record<string, unknown>) => {
         const effective = getEffectiveCare(
@@ -1069,8 +1079,8 @@ export function SeedVaultView({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-black/60">
-        Loading…
+      <div className="relative z-10">
+        <VaultGridSkeleton />
       </div>
     );
   }
@@ -1174,7 +1184,7 @@ export function SeedVaultView({
                       ) : showSeedling ? (
                         <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-3xl">🌱</div>
                       ) : (
-                        <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
+                        <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
                       )}
                       {batchSelectMode && onToggleVarietySelection && (
                         <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
@@ -1260,7 +1270,7 @@ export function SeedVaultView({
                     ) : showSeedling ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
                     ) : (
-                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
                     )}
                     {batchSelectMode && onToggleVarietySelection && (
                       <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
@@ -1477,7 +1487,7 @@ export function SeedVaultView({
                     ) : showSeedling ? (
                       <span className="text-lg">🌱</span>
                     ) : (
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => markThumbError(seed.id)} />
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
@@ -1545,7 +1555,7 @@ export function SeedVaultView({
                     <div className="w-10 h-10 rounded-lg bg-emerald/10 flex items-center justify-center text-lg shrink-0">🌱</div>
                   ) : (
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => markThumbError(seed.id)} />
                     </div>
                   );
                 })()}

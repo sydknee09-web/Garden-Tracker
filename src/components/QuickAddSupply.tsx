@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
 import type { SupplyProfile } from "@/types/garden";
@@ -75,9 +76,9 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       setError(null);
       try {
         if (isEdit && initialData?.id) {
-          const { error: updateErr } = await supabase
-            .from("supply_profiles")
-            .update({
+          const { error: updateErr } = await updateWithOfflineQueue(
+            "supply_profiles",
+            {
               name: nameTrim,
               brand: brand.trim() || null,
               category,
@@ -87,12 +88,12 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
               notes: notes.trim() || null,
               source_url: sourceUrl.trim() || null,
               updated_at: new Date().toISOString(),
-            })
-            .eq("id", initialData.id)
-            .eq("user_id", user.id);
+            },
+            { id: initialData.id, user_id: user.id }
+          );
           if (updateErr) throw updateErr;
         } else {
-          const { error: insertErr } = await supabase.from("supply_profiles").insert({
+          const { error: insertErr } = await insertWithOfflineQueue("supply_profiles", {
             user_id: user.id,
             name: nameTrim,
             brand: brand.trim() || null,

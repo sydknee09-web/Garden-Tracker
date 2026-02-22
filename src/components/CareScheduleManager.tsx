@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import type { CareSchedule, GrowInstance } from "@/types/garden";
 
 const CARE_CATEGORIES = ["fertilize", "prune", "water", "spray", "repot", "harvest", "mulch", "other"] as const;
@@ -106,8 +107,8 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
       }
 
       const { error } = editingId
-        ? await supabase.from("care_schedules").update(payload).eq("id", editingId).eq("user_id", userId)
-        : await supabase.from("care_schedules").insert(payload);
+        ? await updateWithOfflineQueue("care_schedules", payload, { id: editingId, user_id: userId })
+        : await insertWithOfflineQueue("care_schedules", payload);
 
       if (error) { setSaveError("Failed to save schedule. Try again."); setSaving(false); return; }
 
@@ -123,7 +124,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
     try {
-      const { error } = await supabase.from("care_schedules").update({ is_active: false }).eq("id", scheduleId).eq("user_id", userId);
+      const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false }, { id: scheduleId, user_id: userId });
       if (error) { setSaveError("Failed to remove schedule."); return; }
       setSaveError(null);
       onChanged();

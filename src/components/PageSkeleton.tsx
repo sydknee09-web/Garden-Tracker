@@ -58,6 +58,23 @@ export function PageSkeletonHome() {
   );
 }
 
+/** Compact grid skeleton for SeedVaultView loading state (no header). */
+export function VaultGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+        <div key={i} className="rounded-xl overflow-hidden bg-white border border-black/5 shadow-card">
+          <div className="aspect-square bg-neutral-200 animate-pulse" />
+          <div className="p-2 space-y-1.5">
+            <SkeletonBar className="w-full h-4" />
+            <SkeletonBar className="w-3/4 h-3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PageSkeletonVault() {
   return (
     <div className="min-h-screen bg-paper">
