@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
 
@@ -25,6 +26,7 @@ export function AddPlantModal({
   const { user } = useAuth();
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useFocusTrap(open);
   useEscapeKey(open, onClose);
 
   const [plantType, setPlantType] = useState<"permanent" | "seasonal">(defaultPlantType);
@@ -287,7 +289,7 @@ export function AddPlantModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-        <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
+        <div ref={modalRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">Add Plant</h2>
             <p className="text-sm text-neutral-500 mt-1">Add a new plant — permanent (trees, perennials) or seasonal (annuals).</p>

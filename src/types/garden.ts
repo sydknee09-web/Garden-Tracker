@@ -3,6 +3,19 @@
 // ============================================================================
 
 // ---------------------------------------------------------------------------
+// Refine / Filter Chips (Garden, Vault)
+// ---------------------------------------------------------------------------
+/** Chip counts for refine-by filters. Used by Active Garden, My Plants, and Vault. */
+export type RefineChips = {
+  variety: { value: string; count: number }[];
+  sun: { value: string; count: number }[];
+  spacing: { value: string; count: number }[];
+  germination: { value: string; count: number }[];
+  maturity: { value: string; count: number }[];
+  tags: string[];
+};
+
+// ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
 export type TaskType =

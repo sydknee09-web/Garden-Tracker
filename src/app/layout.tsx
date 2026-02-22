@@ -6,6 +6,7 @@ import { HouseholdProvider } from "@/contexts/HouseholdContext";
 import { SyncProvider } from "@/contexts/SyncContext";
 import { DeveloperUnlockProvider } from "@/contexts/DeveloperUnlockContext";
 import { AuthGuard } from "@/components/AuthGuard";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
@@ -49,7 +50,9 @@ export default function RootLayout({
           <HouseholdProvider>
             <SyncProvider>
               <DeveloperUnlockProvider>
-                <AuthGuard>{children}</AuthGuard>
+                <ErrorBoundary>
+                  <AuthGuard>{children}</AuthGuard>
+                </ErrorBoundary>
               </DeveloperUnlockProvider>
             </SyncProvider>
           </HouseholdProvider>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -26,6 +27,14 @@ type PermanentPlant = {
   tags?: string[] | null;
   user_id?: string | null;
 };
+
+/** Law 7: hero_image_url → hero_image_path → primary_image_path. Memoized outside component. */
+function getPlantImageUrl(plant: { hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }): string | null {
+  if ((plant.hero_image_url ?? "").trim().startsWith("http")) return plant.hero_image_url!.trim();
+  if ((plant.hero_image_path ?? "").trim()) return supabase.storage.from("journal-photos").getPublicUrl(plant.hero_image_path!.trim()).data.publicUrl;
+  if ((plant.primary_image_path ?? "").trim()) return supabase.storage.from("seed-packets").getPublicUrl(plant.primary_image_path!.trim()).data.publicUrl;
+  return null;
+}
 
 function formatPlantedAgo(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
@@ -248,18 +257,17 @@ export function MyPlantsView({
     if (!loading) onEmptyStateChange?.(plants.length === 0);
   }, [loading, plants.length, onEmptyStateChange]);
 
-  const getImageUrl = (plant: PermanentPlant) => {
-    if (plant.hero_image_url) return plant.hero_image_url;
-    if (plant.hero_image_path) return supabase.storage.from("journal-photos").getPublicUrl(plant.hero_image_path).data.publicUrl;
-    if (plant.primary_image_path) return supabase.storage.from("seed-packets").getPublicUrl(plant.primary_image_path).data.publicUrl;
-    return null;
-  };
-
   if (loading) {
     return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="rounded-xl bg-white border border-black/10 p-4 animate-pulse h-24" />
+      <div className={`grid gap-2 ${gridDisplayStyle === "condensed" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"}`}>
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="rounded-xl bg-white border border-emerald-100 overflow-hidden animate-pulse">
+            <div className={`bg-emerald-50/50 ${gridDisplayStyle === "condensed" ? "aspect-square" : "aspect-[16/10]"}`} />
+            <div className="p-3 space-y-2">
+              <div className="h-4 bg-neutral-200 rounded w-3/4" />
+              <div className="h-3 bg-neutral-100 rounded w-1/2" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -294,14 +302,14 @@ export function MyPlantsView({
           </div>
           <div className={`grid gap-2 ${gridDisplayStyle === "condensed" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"}`}>
             {filteredBySearch.map((plant) => {
-              const imgUrl = getImageUrl(plant);
+              const imgUrl = getPlantImageUrl(plant);
               const isCondensed = gridDisplayStyle === "condensed";
               return (
                 <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className={`group bg-white border border-emerald-100 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all flex flex-col ${isCondensed ? "rounded-lg" : "rounded-xl"}`} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
                   <div className={`bg-emerald-50/50 relative overflow-hidden shrink-0 ${isCondensed ? "px-1.5 pt-1.5" : ""}`}>
                     <div className={`relative overflow-hidden ${isCondensed ? "aspect-square rounded-md" : "aspect-[16/10]"}`}>
                       {imgUrl ? (
-                        <img src={imgUrl} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <Image src={imgUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes={gridDisplayStyle === "condensed" ? "120px" : "(max-width: 640px) 50vw, 33vw"} unoptimized />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
                           {isCondensed ? (

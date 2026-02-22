@@ -13,15 +13,10 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { compressImage } from "@/lib/compressImage";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
-
-type RefineChips = {
-  variety: { value: string; count: number }[];
-  sun: { value: string; count: number }[];
-  spacing: { value: string; count: number }[];
-  germination: { value: string; count: number }[];
-  maturity: { value: string; count: number }[];
-  tags: string[];
-};
+import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import type { RefineChips } from "@/types/garden";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
 
@@ -29,12 +24,9 @@ function GardenPageInner() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<"active" | "plants">(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("garden-view-mode");
-      if (saved === "active" || saved === "plants") return saved;
-    }
-    return "active";
+  const [viewMode, setViewMode] = useSessionStorage<"active" | "plants">("garden-view-mode", "active", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "active" || s === "plants" ? s : "active"),
   });
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
@@ -71,12 +63,9 @@ function GardenPageInner() {
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
-  const [plantsGridDisplayStyle, setPlantsGridDisplayStyle] = useState<"photo" | "condensed">(() => {
-    if (typeof window !== "undefined") {
-      const saved = sessionStorage.getItem("garden-plants-grid-style");
-      if (saved === "photo" || saved === "condensed") return saved;
-    }
-    return "condensed";
+  const [plantsGridDisplayStyle, setPlantsGridDisplayStyle] = useSessionStorage<"photo" | "condensed">("garden-plants-grid-style", "condensed", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "photo" || s === "condensed" ? s : "condensed"),
   });
 
   const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
@@ -84,6 +73,7 @@ function GardenPageInner() {
   const [logGrowthFile, setLogGrowthFile] = useState<File | null>(null);
   const [logGrowthPreview, setLogGrowthPreview] = useState<string | null>(null);
   const [logGrowthSaving, setLogGrowthSaving] = useState(false);
+  const [logGrowthError, setLogGrowthError] = useState<string | null>(null);
   const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
@@ -92,17 +82,13 @@ function GardenPageInner() {
     const tab = searchParams.get("tab");
     if (tab === "active" || tab === "plants") setViewMode(tab);
     if (tab === "active") setRefetchTrigger((t) => t + 1);
-  }, [searchParams]);
+  }, [searchParams, setViewMode]);
 
-  // Persist garden tab so it survives navigation within the app
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { sessionStorage.setItem("garden-view-mode", viewMode); } catch { /* ignore */ }
-  }, [viewMode]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { sessionStorage.setItem("garden-plants-grid-style", plantsGridDisplayStyle); } catch { /* ignore */ }
-  }, [plantsGridDisplayStyle]);
+  const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
+  const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
+
+  useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
+  useEscapeKey(refineByOpen, () => { setRefineByOpen(false); setRefineBySection(null); });
 
   const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setActiveCategoryChips(chips);
@@ -148,6 +134,7 @@ function GardenPageInner() {
     setLogGrowthNote("");
     setLogGrowthFile(null);
     setLogGrowthPreview(null);
+    setLogGrowthError(null);
   }, []);
 
   const openLogHarvest = useCallback((batch: GrowingBatchForLog) => {
@@ -205,12 +192,14 @@ function GardenPageInner() {
   const handleLogGrowthSubmit = useCallback(async () => {
     if (!user?.id || !logGrowthBatch) return;
     setLogGrowthSaving(true);
+    setLogGrowthError(null);
     let imagePath: string | null = null;
     if (logGrowthFile) {
       const { blob } = await compressImage(logGrowthFile);
       const path = `${user.id}/${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (upErr) {
+        setLogGrowthError(upErr.message || "Failed to upload photo. Try again.");
         setLogGrowthSaving(false);
         return;
       }
@@ -228,7 +217,10 @@ function GardenPageInner() {
       weather_snapshot: weatherSnapshot ?? undefined,
     });
     setLogGrowthSaving(false);
-    if (journalErr) return;
+    if (journalErr) {
+      setLogGrowthError(journalErr.message || "Failed to save. Try again.");
+      return;
+    }
     setLogGrowthBatch(null);
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthFile]);
@@ -508,7 +500,7 @@ function GardenPageInner() {
             <ActiveGardenView
               refetchTrigger={refetchTrigger}
               highlightGrowId={searchParams.get("grow")}
-              searchQuery={activeSearchQuery}
+              searchQuery={activeSearchDebounced}
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
               onEndCrop={handleEndCrop}
@@ -537,7 +529,7 @@ function GardenPageInner() {
           <div className="pt-2">
             <MyPlantsView
               refetchTrigger={refetchTrigger}
-              searchQuery={plantsSearchQuery}
+              searchQuery={plantsSearchDebounced}
               onPermanentPlantAdded={handlePermanentPlantAdded}
               categoryFilter={plantsCategoryFilter}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
@@ -594,9 +586,10 @@ function GardenPageInner() {
                 <label className="block text-xs font-medium text-black/60 mb-1">Note</label>
                 <textarea value={logGrowthNote} onChange={(e) => setLogGrowthNote(e.target.value)} placeholder="Growth update, note…" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
               </div>
+              {logGrowthError && <p className="text-sm text-red-600" role="alert">{logGrowthError}</p>}
             </div>
             <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
-              <button type="button" onClick={() => { setLogGrowthBatch(null); if (logGrowthPreview) URL.revokeObjectURL(logGrowthPreview); setLogGrowthPreview(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+              <button type="button" onClick={() => { setLogGrowthBatch(null); setLogGrowthError(null); if (logGrowthPreview) URL.revokeObjectURL(logGrowthPreview); setLogGrowthPreview(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
               <button type="button" disabled={logGrowthSaving} onClick={handleLogGrowthSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{logGrowthSaving ? "Saving…" : "Save"}</button>
             </div>
           </div>
@@ -710,7 +703,7 @@ function GardenPageInner() {
       )}
 
       {addedToMyPlantsToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
           Added to My Plants
         </div>
       )}

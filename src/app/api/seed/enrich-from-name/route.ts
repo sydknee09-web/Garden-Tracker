@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { researchVariety } from "@/app/api/seed/extract/route";
+import { logApiError } from "@/lib/apiErrorLog";
 
 export const maxDuration = 30;
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     };
     return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
   } catch (e) {
-    console.error("[enrich-from-name]", e);
+    logApiError("enrich-from-name", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Enrichment failed" },
       { status: 500 }
