@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
+import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
+import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -39,7 +41,7 @@ export function AddPlantModal({
   profileDisplayName?: string;
 }) {
   const addToExistingProfile = !!profileIdProp;
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useFocusTrap(open);
@@ -210,19 +212,20 @@ export function AddPlantModal({
           hapticError();
           return;
         }
+        const basePayload = buildProfileInsertFromName(name, variety.trim(), user.id, {
+          profileType: plantType === "permanent" ? "permanent" : "seed",
+          status: "active",
+        });
+        const insertPayload = {
+          ...basePayload,
+          growing_notes: notes.trim() || null,
+          purchase_date: plantedDate || null,
+          purchase_vendor: plantType === "seasonal" ? (vendor.trim() || null) : null,
+          purchase_nursery: nursery.trim() || null,
+        };
         const { data: insertRow, error: insertErr } = await supabase
           .from("plant_profiles")
-          .insert({
-            user_id: user.id,
-            name,
-            variety_name: variety.trim() || null,
-            profile_type: plantType,
-            status: "active",
-            growing_notes: notes.trim() || null,
-            purchase_date: plantedDate || null,
-            purchase_vendor: plantType === "seasonal" ? (vendor.trim() || null) : null,
-            purchase_nursery: nursery.trim() || null,
-          })
+          .insert(insertPayload)
           .select("id")
           .single();
         if (insertErr) {
@@ -280,6 +283,22 @@ export function AddPlantModal({
           await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
         }
 
+        // Enrichment before seasonal tasks so harvest_days is available for harvest task
+        const { enriched } = await enrichProfileFromName(
+          supabase,
+          profileId,
+          user.id,
+          name,
+          variety.trim(),
+          {
+            vendor: vendor.trim(),
+            skipHero: photoFiles.length > 0,
+            existingGrowingNotes: notes.trim() || null,
+            accessToken: session?.access_token ?? undefined,
+          }
+        );
+        if (!enriched) setEnrichmentFailed(true);
+
         if (plantType === "seasonal") {
           await copyCareTemplatesToInstance(profileId, growInstanceIdNew, user.id, plantedDate);
           const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
@@ -305,49 +324,6 @@ export function AddPlantModal({
               title: `Harvest ${displayNameNew}`,
             });
           }
-        }
-
-        // Enrichment for new seasonal profiles (sun, spacing, etc.)
-        if (plantType === "seasonal") {
-          const needsEnrichment = true;
-          const needsHero = photoFiles.length === 0;
-          let enriched = false;
-
-          if (needsEnrichment) {
-            const enrichRes = await fetch("/api/seed/enrich-from-name", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name, variety: variety.trim() }),
-            });
-            const enrichData = (await enrichRes.json()) as { enriched?: boolean; sun?: string; plant_spacing?: string; days_to_germination?: string; harvest_days?: number; sowing_depth?: string; source_url?: string };
-            if (enrichData.enriched && enrichData) {
-              enriched = true;
-              const updates: Record<string, unknown> = {};
-              if (enrichData.sun != null) updates.sun = enrichData.sun;
-              if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;
-              if (enrichData.days_to_germination != null) updates.days_to_germination = enrichData.days_to_germination;
-              if (enrichData.harvest_days != null) updates.harvest_days = enrichData.harvest_days;
-              if (enrichData.sowing_depth != null) updates.sowing_method = enrichData.sowing_depth;
-              if (Object.keys(updates).length > 0) {
-                await supabase.from("plant_profiles").update(updates).eq("id", profileId).eq("user_id", user.id);
-              }
-            }
-          }
-
-          if (needsHero) {
-            const heroRes = await fetch("/api/seed/find-hero-photo", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name, variety: variety.trim(), vendor: vendor.trim() }),
-            });
-            const heroData = (await heroRes.json()) as { hero_image_url?: string; error?: string };
-            const heroUrl = heroData.hero_image_url?.trim();
-            if (heroUrl) {
-              await supabase.from("plant_profiles").update({ hero_image_url: heroUrl }).eq("id", profileId).eq("user_id", user.id);
-            }
-          }
-
-          if (needsEnrichment && !enriched) setEnrichmentFailed(true);
         }
       }
 

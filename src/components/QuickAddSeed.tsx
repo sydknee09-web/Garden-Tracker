@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
+import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
+import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
@@ -57,7 +59,7 @@ function applyPrefillToForm(
 }
 
 export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport }: QuickAddSeedProps) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
   const [varietyCultivar, setVarietyCultivar] = useState("");
@@ -187,18 +189,21 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     if (match) {
       await supabase.from("plant_profiles").update({ status: "out_of_stock", updated_at: new Date().toISOString() }).eq("id", match.id).eq("user_id", userId);
     } else {
+      const basePayload = buildProfileInsertFromName(name, varietyCultivar.trim(), userId, {
+        profileType: "seed",
+        status: "out_of_stock",
+      });
+      const allTags = [...new Set([...(basePayload.tags ?? []), ...tagsToSave])];
       const careNotes: Record<string, unknown> = {};
       if (sourceUrlVal) careNotes.source_url = sourceUrlVal;
+      const insertPayload = {
+        ...basePayload,
+        tags: allTags.length > 0 ? allTags : undefined,
+        ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
+      };
       const { data: newProfile, error: profileErr } = await supabase
         .from("plant_profiles")
-        .insert({
-          user_id: userId,
-          name: name.trim(),
-          variety_name: varietyName,
-          status: "out_of_stock",
-          tags: tagsToSave.length > 0 ? tagsToSave : undefined,
-          ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
-        })
+        .insert(insertPayload)
         .select("id")
         .single();
       if (profileErr) {
@@ -206,6 +211,12 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         setSubmitting(false);
         return;
       }
+      const profileId = (newProfile as { id: string }).id;
+      await enrichProfileFromName(supabase, profileId, userId, name, varietyCultivar.trim(), {
+        vendor: vendor.trim(),
+        skipHero: false,
+        accessToken: session?.access_token ?? undefined,
+      });
     }
 
     setSubmitting(false);

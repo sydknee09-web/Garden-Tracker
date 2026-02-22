@@ -19,6 +19,9 @@ export type EnrichFromNameResponse = {
   days_to_germination?: string | null;
   harvest_days?: number | null;
   sowing_depth?: string | null;
+  sowing_method?: string | null;
+  planting_window?: string | null;
+  water?: string | null;
   source_url?: string | null;
   plant_description?: string | null;
   growing_notes?: string | null;
@@ -56,6 +59,9 @@ export async function POST(req: Request) {
       days_to_germination: result.days_to_germination?.trim() || null,
       harvest_days: harvestDays,
       sowing_depth: result.sowing_depth?.trim() || null,
+      sowing_method: result.sowing_method?.trim() || null,
+      planting_window: result.planting_window?.trim() || null,
+      water: result.water?.trim() || null,
       source_url: result.source_url?.trim() || null,
       plant_description: result.plant_description?.trim() || null,
       growing_notes: result.growing_notes?.trim() || null,

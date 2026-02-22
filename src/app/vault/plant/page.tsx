@@ -8,6 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
+import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
+import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { SupplyPicker } from "@/components/SupplyPicker";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
@@ -25,7 +27,7 @@ function parseNameVariety(text: string): { name: string; variety_name: string | 
 
 function VaultPlantPageInner() {
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [rows, setRows] = useState<PlantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -216,9 +218,13 @@ function VaultPlantPageInner() {
       if ("isNew" in row) {
         const { name, variety_name } = parseNameVariety(row.customName);
         if (!name.trim()) continue;
+        const basePayload = buildProfileInsertFromName(name, variety_name ?? "", user.id, {
+          profileType: "seed",
+          status: "in_stock",
+        });
         const { data: newProfile, error: profileErr } = await supabase
           .from("plant_profiles")
-          .insert({ user_id: user.id, name: name.trim(), variety_name: variety_name?.trim() || null, status: "in_stock" })
+          .insert(basePayload)
           .select("id, name, variety_name, harvest_days")
           .single();
         if (profileErr || !newProfile) {
@@ -226,6 +232,17 @@ function VaultPlantPageInner() {
           break;
         }
         profile = newProfile as Profile;
+        await enrichProfileFromName(supabase, profile.id, user.id, name, variety_name ?? "", {
+          vendor: (newPacketVendorByProfileId[row.rowId] ?? "").trim(),
+          skipHero: false,
+          accessToken: session?.access_token ?? undefined,
+        });
+        const { data: profileAfter } = await supabase
+          .from("plant_profiles")
+          .select("harvest_days")
+          .eq("id", profile.id)
+          .single();
+        if (profileAfter) profile = { ...profile, harvest_days: (profileAfter as { harvest_days: number | null }).harvest_days };
         const newVarietyVendor = (newPacketVendorByProfileId[row.rowId] ?? "").trim() || null;
         const { data: newPacket, error: packetErr } = await supabase
           .from("seed_packets")

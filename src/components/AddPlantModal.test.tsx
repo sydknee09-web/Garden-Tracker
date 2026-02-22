@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { AddPlantModal } from "./AddPlantModal";
 
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { id: "test-user" } }),
+  useAuth: () => ({ user: { id: "test-user" }, session: { access_token: "fake-token" } }),
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),

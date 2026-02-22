@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { rareseedsAutotreatment, slugToSpaced } from "@/lib/rareseedsAutotreatment";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
+import { getTagsFromText } from "@/lib/parseSeedFromImportUrl";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
@@ -581,6 +582,8 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
       }
       const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety ?? "");
       const coreVarietyName = coreVariety || varietyName;
+      const functionalTags = getTagsFromText([name, varietyName ?? ""].filter(Boolean).join(" "));
+      const allTags = [...new Set([...packetTags, ...functionalTags, ...(item.tags ?? [])])];
       const zone10b = applyZone10bToProfile(name, {});
       const nameNorm = normalizeForMatch(name);
       const varietyNorm = normalizeForMatch(coreVarietyName);
@@ -603,7 +606,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
             name: name.trim(),
             variety_name: coreVarietyName || varietyName,
             primary_image_path: path,
-            tags: (item.tags ?? []).length > 0 ? item.tags : undefined,
+            tags: allTags.length > 0 ? allTags : undefined,
             ...(zone10b.sun && { sun: zone10b.sun }),
             ...(zone10b.plant_spacing && { plant_spacing: zone10b.plant_spacing }),
             ...(zone10b.days_to_germination && { days_to_germination: zone10b.days_to_germination }),
