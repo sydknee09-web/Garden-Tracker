@@ -428,6 +428,7 @@ function GardenPageInner() {
               </button>
             </div>
         </div>
+        </div>
 
         {refineByOpen && (
           <>
