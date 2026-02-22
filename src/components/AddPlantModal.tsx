@@ -96,7 +96,7 @@ export function AddPlantModal({
         setSelectedProfileId(profileIdProp);
       } else {
         setPlantType(defaultPlantType);
-        loadProfiles(defaultPlantType);
+        loadProfiles(defaultPlantType === "seasonal" ? "seed" : "permanent");
       }
     }
   }, [open, user?.id, defaultPlantType, loadProfiles, addToExistingProfile, profileIdProp]);

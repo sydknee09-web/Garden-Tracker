@@ -1486,7 +1486,7 @@ function VaultPageInner() {
                           </button>
                           {refineBySection === "packetCount" && (
                             <div className="px-4 pb-3 pt-0 space-y-0.5">
-                              <button type="button" onClick={() => setPacketCountFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.packetCount === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                              <button type="button" onClick={() => vaultFilters.setPacketCount(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.packetCount === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
                               {refineChips.packetCount.map(({ value, count }) => (
                                 <button key={value} type="button" onClick={() => vaultFilters.setPacketCount(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.packetCount === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "2+" ? "2+ packets" : value === "1" ? "1 packet" : "0 packets"} ({count})</button>
                               ))}
@@ -1563,7 +1563,7 @@ function VaultPageInner() {
             refetchTrigger={refetchTrigger}
             scrollContainerRef={scrollContainerRef}
             searchQuery={searchQuery}
-            statusFilter={vaultFilters.filters.status}
+            statusFilter={vaultFilters.filters.status as StatusFilter}
             tagFilters={vaultFilters.filters.tags}
             onTagsLoaded={handleTagsLoaded}
             onOpenScanner={() => setScannerOpen(true)}
