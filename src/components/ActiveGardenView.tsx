@@ -81,6 +81,8 @@ export function ActiveGardenView({
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
   onBulkSelectionChange,
+  openBulkLogRequest = false,
+  onBulkLogRequestHandled,
   onBulkModeChange,
 }: {
   refetchTrigger: number;
@@ -112,6 +114,9 @@ export function ActiveGardenView({
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
   onBulkSelectionChange?: (count: number) => void;
+  /** When true, open BatchLogSheet for selected batches (from FAB pencil when selections exist). */
+  openBulkLogRequest?: boolean;
+  onBulkLogRequestHandled?: () => void;
   /** Called when bulk mode changes (true = in bulk mode, false = exited). */
   onBulkModeChange?: (inBulkMode: boolean) => void;
 }) {
@@ -390,6 +395,15 @@ export function ActiveGardenView({
   useEffect(() => {
     onBulkSelectionChange?.(bulkSelected.size);
   }, [bulkSelected.size, onBulkSelectionChange]);
+
+  useEffect(() => {
+    if (openBulkLogRequest && bulkSelected.size > 0) {
+      const selected = growing.filter((b) => bulkSelected.has(b.id));
+      setBatchLogBatches(selected.map(toBatchLogBatch));
+      setBatchLogOpen(true);
+      onBulkLogRequestHandled?.();
+    }
+  }, [openBulkLogRequest, bulkSelected, growing, onBulkLogRequestHandled]);
 
 
   // Quick-tap handler
