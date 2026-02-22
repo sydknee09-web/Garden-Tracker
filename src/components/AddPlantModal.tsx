@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
+import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
+type PacketOption = { id: string; vendor_name: string | null; qty_status: number; is_archived?: boolean };
 
 export function AddPlantModal({
   open,
@@ -19,12 +22,15 @@ export function AddPlantModal({
   defaultPlantType = "seasonal",
   /** When true, do not redirect to vault after add (e.g. when opened from Garden). */
   stayInGarden = false,
+  /** When true, hide the Permanent/Seasonal toggle (e.g. when opened from Garden — type is inferred from tab). */
+  hidePlantTypeToggle = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   defaultPlantType?: "permanent" | "seasonal";
   stayInGarden?: boolean;
+  hidePlantTypeToggle?: boolean;
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -51,6 +57,13 @@ export function AddPlantModal({
   const [enrichmentFailed, setEnrichmentFailed] = useState(false);
   const [createdProfileId, setCreatedProfileId] = useState<string | null>(null);
 
+  // Packet selection for "link existing" seasonal
+  const [packetsForProfile, setPacketsForProfile] = useState<PacketOption[]>([]);
+  const [selectedPacketId, setSelectedPacketId] = useState<string>("");
+  const [showAddPacketInline, setShowAddPacketInline] = useState(false);
+  const [addPacketVendor, setAddPacketVendor] = useState("");
+  const [addPacketSaving, setAddPacketSaving] = useState(false);
+
   const profileTypeFilter = plantType === "permanent" ? "permanent" : "seed";
 
   const loadProfiles = useCallback(async () => {
@@ -75,6 +88,27 @@ export function AddPlantModal({
     setPlantType(defaultPlantType);
   }, [defaultPlantType, open]);
 
+  const loadPacketsForProfile = useCallback(async (profileId: string) => {
+    if (!user?.id || plantType !== "seasonal") return;
+    const { data } = await supabase
+      .from("seed_packets")
+      .select("id, vendor_name, qty_status, is_archived")
+      .eq("plant_profile_id", profileId)
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .or("is_archived.eq.false,is_archived.is.null")
+      .order("created_at", { ascending: true });
+    const list = (data ?? []) as PacketOption[];
+    setPacketsForProfile(list);
+    setSelectedPacketId(list.length > 0 ? list[0].id : "");
+    setShowAddPacketInline(false);
+  }, [user?.id, plantType]);
+
+  useEffect(() => {
+    if (selectedProfileId && plantType === "seasonal") loadPacketsForProfile(selectedProfileId);
+    else { setPacketsForProfile([]); setSelectedPacketId(""); setShowAddPacketInline(false); }
+  }, [selectedProfileId, plantType, loadPacketsForProfile]);
+
   useEffect(() => {
     const urls = photoFiles.map((f) => URL.createObjectURL(f));
     setPhotoPreviews(urls);
@@ -94,6 +128,10 @@ export function AddPlantModal({
   const resetForm = useCallback(() => {
     setMode("new");
     setSelectedProfileId("");
+    setPacketsForProfile([]);
+    setSelectedPacketId("");
+    setShowAddPacketInline(false);
+    setAddPacketVendor("");
     setPlantName("");
     setVariety("");
     setVendor("");
@@ -112,6 +150,24 @@ export function AddPlantModal({
     onClose();
     resetForm();
   }, [onClose, resetForm]);
+
+  const handleAddPacketInline = useCallback(async () => {
+    if (!user?.id || !selectedProfileId) return;
+    setAddPacketSaving(true);
+    const vendor = addPacketVendor.trim() || null;
+    const { data: newPkt, error } = await supabase
+      .from("seed_packets")
+      .insert({ user_id: user.id, plant_profile_id: selectedProfileId, qty_status: 100, vendor_name: vendor })
+      .select("id, vendor_name, qty_status")
+      .single();
+    setAddPacketSaving(false);
+    if (error) { setError(error.message); return; }
+    const pkt = newPkt as PacketOption;
+    setPacketsForProfile((prev) => [...prev, pkt]);
+    setSelectedPacketId(pkt.id);
+    setAddPacketVendor("");
+    setShowAddPacketInline(false);
+  }, [user?.id, selectedProfileId, addPacketVendor]);
 
   const handleSubmit = async () => {
     if (!user?.id) return;
@@ -207,6 +263,33 @@ export function AddPlantModal({
           await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
         }
 
+        if (plantType === "seasonal") {
+          await copyCareTemplatesToInstance(profileId, growInstanceIdNew, user.id, plantedDate);
+          const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
+          const hDays = (pRow as { harvest_days?: number | null })?.harvest_days;
+          const expHarvest = hDays != null && hDays > 0 ? new Date(new Date(plantedDate).getTime() + hDays * 86400000).toISOString().slice(0, 10) : null;
+          const displayNameNew = variety.trim() ? `${name} (${variety.trim()})` : name;
+          await supabase.from("tasks").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growInstanceIdNew,
+            category: "sow",
+            due_date: plantedDate,
+            completed_at: new Date().toISOString(),
+            title: `Sow ${displayNameNew}`,
+          });
+          if (expHarvest) {
+            await supabase.from("tasks").insert({
+              user_id: user.id,
+              plant_profile_id: profileId,
+              grow_instance_id: growInstanceIdNew,
+              category: "harvest",
+              due_date: expHarvest,
+              title: `Harvest ${displayNameNew}`,
+            });
+          }
+        }
+
         // Enrichment for new seasonal profiles (sun, spacing, etc.)
         if (plantType === "seasonal") {
           const needsEnrichment = true;
@@ -252,22 +335,92 @@ export function AddPlantModal({
       }
 
       if (mode === "existing") {
-        const plantCount = plantType === "permanent" ? Math.max(1, parseInt(String(quantity), 10) || 1) : 1;
-        const { error: growErr } = await supabase.from("grow_instances").insert({
+        const plantCount = plantType === "permanent" ? Math.max(1, parseInt(String(quantity), 10) || 1) : Math.max(1, parseInt(String(quantity), 10) || 1);
+        let primaryPacketId: string | null = null;
+
+        if (plantType === "seasonal") {
+          if (packetsForProfile.length > 0 && selectedPacketId) {
+            primaryPacketId = selectedPacketId;
+          } else if (packetsForProfile.length === 0) {
+            const { data: newPkt, error: pktErr } = await supabase
+              .from("seed_packets")
+              .insert({ user_id: user.id, plant_profile_id: profileId, qty_status: 100, vendor_name: null })
+              .select("id")
+              .single();
+            if (pktErr || !newPkt) {
+              setError(pktErr?.message ?? "Could not create seed packet.");
+              setSubmitting(false);
+              return;
+            }
+            primaryPacketId = (newPkt as { id: string }).id;
+            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", primaryPacketId).eq("user_id", user.id);
+          }
+        }
+
+        const { data: profileRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
+        const harvestDays = (profileRow as { harvest_days?: number | null })?.harvest_days;
+        const expectedHarvestDate = harvestDays != null && harvestDays > 0
+          ? new Date(new Date(plantedDate).getTime() + harvestDays * 86400000).toISOString().slice(0, 10)
+          : null;
+
+        const { data: growRow, error: growErr } = await supabase.from("grow_instances").insert({
           user_id: user.id,
           plant_profile_id: profileId,
           sown_date: plantedDate,
-          expected_harvest_date: null,
+          expected_harvest_date: expectedHarvestDate,
           status: "growing",
-          seed_packet_id: null,
+          seed_packet_id: primaryPacketId,
           location: location.trim() || null,
           plant_count: plantCount,
-        });
-        if (growErr) {
-          setError(growErr.message);
+        }).select("id").single();
+        if (growErr || !growRow) {
+          setError(growErr?.message ?? "Could not create planting.");
           setSubmitting(false);
           return;
         }
+        const growId = (growRow as { id: string }).id;
+
+        if (primaryPacketId && plantType === "seasonal" && packetsForProfile.length > 0) {
+          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", primaryPacketId).eq("user_id", user.id);
+        }
+
+        const weather = await fetchWeatherSnapshot();
+        const profile = profiles.find((p) => p.id === profileId);
+        const displayName = profile?.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile?.name ?? "Planted";
+        await supabase.from("journal_entries").insert({
+          user_id: user.id,
+          plant_profile_id: profileId,
+          grow_instance_id: growId,
+          note: `Planted ${displayName}`,
+          entry_type: "planting",
+          weather_snapshot: weather ?? undefined,
+        });
+
+        if (plantType === "seasonal") {
+          await copyCareTemplatesToInstance(profileId, growId, user.id, plantedDate);
+        }
+
+        const nowIso = new Date().toISOString();
+        await supabase.from("tasks").insert({
+          user_id: user.id,
+          plant_profile_id: profileId,
+          grow_instance_id: growId,
+          category: "sow",
+          due_date: plantedDate,
+          completed_at: nowIso,
+          title: `Sow ${displayName}`,
+        });
+        if (expectedHarvestDate) {
+          await supabase.from("tasks").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            category: "harvest",
+            due_date: expectedHarvestDate,
+            title: `Harvest ${displayName}`,
+          });
+        }
+
         await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profileId).eq("user_id", user.id);
       }
 
@@ -294,24 +447,26 @@ export function AddPlantModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-            <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">Add Plant</h2>
-            <p className="text-sm text-neutral-500 mt-1">Add a new plant — permanent (trees, perennials) or seasonal (annuals).</p>
-            <div className="flex gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() => setPlantType("permanent")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Permanent
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlantType("seasonal")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Seasonal
-              </button>
-            </div>
+            <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
+            <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
+            {!hidePlantTypeToggle && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setPlantType("permanent")}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Permanent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlantType("seasonal")}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Seasonal
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             <div className="flex gap-2">
@@ -332,21 +487,85 @@ export function AddPlantModal({
             </div>
 
             {mode === "existing" ? (
-              <div>
-                <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">Variety</label>
-                <select
-                  id="add-plant-profile"
-                  value={selectedProfileId}
-                  onChange={(e) => setSelectedProfileId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
-                    </option>
-                  ))}
-                  {profiles.length === 0 && <option value="">No {plantType === "permanent" ? "permanent" : "seasonal"} plants yet</option>}
-                </select>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">Variety</label>
+                  <select
+                    id="add-plant-profile"
+                    value={selectedProfileId}
+                    onChange={(e) => setSelectedProfileId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                  >
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
+                      </option>
+                    ))}
+                    {profiles.length === 0 && <option value="">No {plantType === "permanent" ? "permanent" : "seasonal"} plants yet</option>}
+                  </select>
+                </div>
+                {plantType === "seasonal" && selectedProfileId && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Seed packet</label>
+                    {packetsForProfile.length > 0 ? (
+                      <div className="space-y-2">
+                        <select
+                          value={selectedPacketId}
+                          onChange={(e) => setSelectedPacketId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                        >
+                          {packetsForProfile.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.vendor_name?.trim() || "Unnamed"} ({p.qty_status}%)
+                            </option>
+                          ))}
+                        </select>
+                        {!showAddPacketInline ? (
+                          <button type="button" onClick={() => setShowAddPacketInline(true)} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                            + Add packet
+                          </button>
+                        ) : (
+                          <div className="p-3 rounded-lg border border-neutral-200 bg-neutral-50 space-y-2">
+                            <input
+                              type="text"
+                              value={addPacketVendor}
+                              onChange={(e) => setAddPacketVendor(e.target.value)}
+                              placeholder="Vendor (optional)"
+                              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-neutral-600">Cancel</button>
+                              <button type="button" onClick={handleAddPacketInline} disabled={addPacketSaving} className="text-sm font-medium text-emerald-600">{addPacketSaving ? "Adding…" : "Add"}</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-neutral-500">No packets. Add one to track this planting.</p>
+                        {!showAddPacketInline ? (
+                          <button type="button" onClick={() => setShowAddPacketInline(true)} className="min-h-[44px] px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50">
+                            + Add packet
+                          </button>
+                        ) : (
+                          <div className="p-3 rounded-lg border border-neutral-200 bg-neutral-50 space-y-2">
+                            <input
+                              type="text"
+                              value={addPacketVendor}
+                              onChange={(e) => setAddPacketVendor(e.target.value)}
+                              placeholder="Vendor (optional)"
+                              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-neutral-600">Cancel</button>
+                              <button type="button" onClick={handleAddPacketInline} disabled={addPacketSaving} className="text-sm font-medium text-emerald-600">{addPacketSaving ? "Adding…" : "Add"}</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -458,7 +677,7 @@ export function AddPlantModal({
                 className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
-            {plantType === "permanent" && (
+            {(plantType === "permanent" || mode === "existing") && (
               <div>
                 <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
                 <input

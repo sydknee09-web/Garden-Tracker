@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
+import { ShedView } from "@/components/ShedView";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
@@ -88,7 +89,7 @@ function CondensedGridIcon() {
 }
 function VaultPageInner() {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">("grid");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -255,7 +256,7 @@ function VaultPageInner() {
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "grid" || tab === "list") {
+    if (tab === "grid" || tab === "list" || tab === "shed") {
       setViewMode(tab);
     } else if (tab === "table") {
       setViewMode("list");
@@ -837,7 +838,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "grid"}
-              onClick={() => setViewMode("grid")}
+              onClick={() => { setViewMode("grid"); router.replace("/vault?tab=grid", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "grid"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -850,7 +851,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "list"}
-              onClick={() => setViewMode("list")}
+              onClick={() => { setViewMode("list"); router.replace("/vault?tab=list", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "list"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -859,12 +860,19 @@ function VaultPageInner() {
             >
               Seed Vault
             </button>
-            <Link
-              href="/shed"
-              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium text-black/60 hover:text-black flex items-center"
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === "shed"}
+              onClick={() => { setViewMode("shed"); router.replace("/vault?tab=shed", { scroll: false }); }}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === "shed"
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-black/60 hover:text-black"
+              }`}
             >
               Shed
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -1344,6 +1352,16 @@ function VaultPageInner() {
             </footer>
           </div>
         </>
+      )}
+
+      {viewMode === "shed" && (
+        <div className="relative z-10">
+          <ShedView
+            embedded
+            refetchTrigger={refetchTrigger}
+            categoryFromUrl={searchParams.get("category")}
+          />
+        </div>
       )}
 
       {(viewMode === "grid" || viewMode === "list") && (

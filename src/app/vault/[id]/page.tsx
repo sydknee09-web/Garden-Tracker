@@ -193,8 +193,8 @@ export default function VaultSeedPage() {
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
   const fromParam = searchParams.get("from");
-  const validTab = ["about", "packets", "plantings", "journal", "care"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" | "care" : "about";
-  const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal" | "care">(validTab);
+  const validTab = ["about", "packets", "plantings", "journal"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" : "about";
+  const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal">(validTab);
 
   useEffect(() => {
     setActiveTab(validTab);
@@ -1414,12 +1414,12 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Tabs — condensed so all fit on one row on mobile without horizontal scroll */}
+        {/* Tabs — unified for all profile types: About, Packets, Plantings, Journal. Care is in About. */}
         <div className="flex flex-wrap border-b border-neutral-200 gap-0 mb-4 overflow-visible">
-          {(isPermanent ? (["about","plantings","care","journal"] as const) : (["about","packets","plantings","journal"] as const)).map((tab) => (
+          {(["about","packets","plantings","journal"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`flex-1 min-w-0 min-h-[44px] px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
-              {tab === "about" ? "About" : tab === "packets" ? `Pkts (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : tab === "care" ? `Care (${careSchedules.length})` : `Journal (${journalEntries.length})`}
+              {tab === "about" ? "About" : tab === "packets" ? `Pkts (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : `Journal (${journalEntries.length})`}
             </button>
           ))}
         </div>
@@ -1623,6 +1623,21 @@ export default function VaultSeedPage() {
               </div>
             )}
 
+            {/* Care Schedules (permanent profiles -- instance-level) */}
+            {isPermanent && !isLegacy && (
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("careSchedules")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("careSchedules")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Care Schedules</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careSchedules") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("careSchedules") && (
+                <div className="px-4 pb-4 pt-0">
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
+                </div>
+                )}
+              </div>
+            )}
+
             {/* Source URL */}
             {packets.length > 0 && packets[0].purchase_url?.trim() && (
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
@@ -1710,7 +1725,7 @@ export default function VaultSeedPage() {
             {packets.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">No seed packets yet.</p>
-                {canEdit && (
+                {canEdit && !isPermanent && (
                   <>
                     <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
                     <button
@@ -1914,7 +1929,7 @@ export default function VaultSeedPage() {
                     );
                   })}
                 </ul>
-                {canEdit && (
+                {canEdit && !isPermanent && (
                   <div className="p-4 border-t border-neutral-100">
                     <button
                       type="button"
@@ -2124,9 +2139,6 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {/* CARE TAB (permanent plants)                                   */}
         {/* ============================================================ */}
-        {activeTab === "care" && (
-          <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
-        )}
       </div>
 
       {/* Add seed packet modal (when profile has 0 packets or adding another) */}

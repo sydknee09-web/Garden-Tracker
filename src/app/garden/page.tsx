@@ -712,7 +712,7 @@ function GardenPageInner() {
         </div>
       )}
 
-      <AddPlantModal open={showAddPlantModal} onClose={() => setShowAddPlantModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} defaultPlantType={addPlantDefaultType} stayInGarden />
+      <AddPlantModal open={showAddPlantModal} onClose={() => setShowAddPlantModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
     </div>
   );
 }
