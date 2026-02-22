@@ -1432,11 +1432,11 @@ export default function VaultSeedPage() {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-neutral-200 mb-4 overflow-x-auto">
+        {/* Tabs — grid on mobile so all fit without scroll; flex on larger screens */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:border-b sm:border-neutral-200 gap-2 sm:gap-0 mb-4 sm:overflow-visible">
           {(isPermanent ? (["about","plantings","care","journal"] as const) : (["about","packets","plantings","journal"] as const)).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
+              className={`px-3 py-2.5 text-xs sm:text-sm font-medium rounded-lg sm:rounded-none sm:border-b-2 sm:-mb-px transition-colors text-center min-h-[44px] ${activeTab === tab ? "bg-emerald-50 text-emerald-700 sm:bg-transparent sm:border-emerald-600 border border-emerald-200 sm:border-transparent" : "bg-neutral-50 text-neutral-500 hover:text-neutral-800 sm:bg-transparent sm:border-transparent"}`}>
               {tab === "about" ? "About" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plantings (${plantingsCount})` : tab === "care" ? `Care (${careSchedules.length})` : `Journal (${journalEntries.length})`}
             </button>
           ))}
