@@ -121,7 +121,7 @@ export function BatchLogSheet({
         .order("created_at", { ascending: false })
         .limit(20);
       if (cancelled || !data) return;
-      const n = (note: string) => (note ?? "").toLowerCase();
+      const n = (note: string | null) => (note ?? "").toLowerCase();
       let w: string | null = null;
       let f: string | null = null;
       let s: string | null = null;
