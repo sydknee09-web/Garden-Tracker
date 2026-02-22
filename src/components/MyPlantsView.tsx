@@ -66,7 +66,9 @@ export function MyPlantsView({
   onEmptyStateChange,
   onAddClick,
   onPermanentPlantAdded,
-  gridDisplayStyle = "condensed",
+  displayStyle = "grid",
+  sortBy = "name",
+  sortDir = "asc",
 }: {
   refetchTrigger: number;
   searchQuery?: string;
@@ -90,8 +92,10 @@ export function MyPlantsView({
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onAddClick?: () => void;
-  /** When "condensed", smaller 3-col grid; when "photo", larger 2-col cards. Matches vault dial. */
-  gridDisplayStyle?: "photo" | "condensed";
+  /** "grid" = small badges (2–3 col), "list" = detailed rows. */
+  displayStyle?: "grid" | "list";
+  sortBy?: "name" | "planted_date" | "care_count";
+  sortDir?: "asc" | "desc";
 }) {
   const { user } = useAuth();
   const { viewMode: householdViewMode } = useHousehold();
@@ -241,6 +245,32 @@ export function MyPlantsView({
     });
   }, [filteredPlants, q]);
 
+  const sortedPlants = useMemo(() => {
+    const list = [...filteredBySearch];
+    const cmp = (a: PermanentPlant, b: PermanentPlant): number => {
+      switch (sortBy) {
+        case "name": {
+          const na = (a.name ?? "").trim().toLowerCase();
+          const nb = (b.name ?? "").trim().toLowerCase();
+          const va = (a.variety_name ?? "").trim().toLowerCase();
+          const vb = (b.variety_name ?? "").trim().toLowerCase();
+          return `${na} ${va}`.localeCompare(`${nb} ${vb}`, undefined, { sensitivity: "base" });
+        }
+        case "planted_date": {
+          const da = new Date(a.purchase_date ?? a.created_at ?? 0).getTime();
+          const db = new Date(b.purchase_date ?? b.created_at ?? 0).getTime();
+          return da - db;
+        }
+        case "care_count":
+          return (a.care_count ?? 0) - (b.care_count ?? 0);
+        default:
+          return 0;
+      }
+    };
+    list.sort((a, b) => (sortDir === "asc" ? cmp(a, b) : -cmp(a, b)));
+    return list;
+  }, [filteredBySearch, sortBy, sortDir]);
+
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
@@ -259,10 +289,10 @@ export function MyPlantsView({
 
   if (loading) {
     return (
-      <div className={`grid gap-2 ${gridDisplayStyle === "condensed" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"}`}>
+      <div className={`grid gap-2 ${displayStyle === "grid" ? "grid-cols-3" : "grid-cols-1"}`}>
         {[...Array(6)].map((_, i) => (
           <div key={i} className="rounded-xl bg-white border border-emerald-100 overflow-hidden animate-pulse">
-            <div className={`bg-emerald-50/50 ${gridDisplayStyle === "condensed" ? "aspect-square" : "aspect-[16/10]"}`} />
+            <div className={`bg-emerald-50/50 ${displayStyle === "grid" ? "aspect-square" : "aspect-[16/10]"}`} />
             <div className="p-3 space-y-2">
               <div className="h-4 bg-neutral-200 rounded w-3/4" />
               <div className="h-3 bg-neutral-100 rounded w-1/2" />
@@ -297,54 +327,87 @@ export function MyPlantsView({
       ) : (
         <>
           <div className="mb-3">
-            <p className="text-sm text-black/50">{filteredBySearch.length} plant{filteredBySearch.length !== 1 ? "s" : ""}</p>
+            <p className="text-sm text-black/50">{sortedPlants.length} plant{sortedPlants.length !== 1 ? "s" : ""}</p>
           </div>
-          <div className={`grid gap-2 ${gridDisplayStyle === "condensed" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"}`}>
-            {filteredBySearch.map((plant) => {
-              const imgUrl = getPlantImageUrl(plant);
-              const isCondensed = gridDisplayStyle === "condensed";
-              return (
-                <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className={`group bg-white border border-emerald-100 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all flex flex-col ${isCondensed ? "rounded-lg" : "rounded-xl"}`} style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                  <div className={`bg-emerald-50/50 relative overflow-hidden shrink-0 ${isCondensed ? "px-1.5 pt-1.5" : ""}`}>
-                    <div className={`relative overflow-hidden ${isCondensed ? "aspect-square rounded-md" : "aspect-[16/10]"}`}>
-                      {imgUrl ? (
-                        <Image src={imgUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes={gridDisplayStyle === "condensed" ? "120px" : "(max-width: 640px) 50vw, 33vw"} unoptimized />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
-                          {isCondensed ? (
-                            <span className="text-2xl" aria-hidden>🌱</span>
-                          ) : (
-                            <svg width="40" height="40" viewBox="0 0 64 64" fill="none" className="text-emerald-300" aria-hidden>
-                              <path d="M32 60v-12" stroke="#78716c" strokeWidth="2" strokeLinecap="round" />
-                              <path d="M32 48c-10 0-18-8-18-18s8-18 18-18 18 8 18 18-8 18-18 18z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                            </svg>
-                          )}
+          {displayStyle === "list" ? (
+            <ul className="space-y-4" role="list">
+              {sortedPlants.map((plant) => {
+                const imgUrl = getPlantImageUrl(plant);
+                return (
+                  <li key={plant.id}>
+                    <Link
+                      href={`/vault/${plant.id}?from=garden`}
+                      className="flex items-center gap-3 rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all group"
+                      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
+                    >
+                      <div className="shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                        {imgUrl ? (
+                          <Image src={imgUrl} alt="" width={48} height={48} className="w-full h-full object-cover group-hover:scale-105 transition-transform" unoptimized />
+                        ) : (
+                          <span className="text-xl" aria-hidden>🌱</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-neutral-900 truncate">{plant.name}</h3>
+                        {plant.variety_name && <p className="text-sm text-neutral-500 truncate">{plant.variety_name}</p>}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-neutral-500">
+                          {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
+                          {plant.care_count > 0 && <span>{plant.care_count} care</span>}
+                          {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
+                          {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
                         </div>
-                      )}
-                      <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium ${isCondensed ? "text-[9px]" : "text-[10px]"}`} aria-hidden>
-                        Perennial
-                      </span>
+                      </div>
                       {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
-                        <span className="absolute top-1 left-1 text-[8px] font-semibold px-1 py-0.5 rounded-full bg-violet-500 text-white leading-none">
+                        <span className="shrink-0 text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white">
                           FAM
                         </span>
                       )}
+                      <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium">Perennial</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="grid gap-2 grid-cols-3">
+              {sortedPlants.map((plant) => {
+                const imgUrl = getPlantImageUrl(plant);
+                return (
+                  <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className="group bg-white border border-emerald-100 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all flex flex-col rounded-lg" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+                    <div className="bg-emerald-50/50 relative overflow-hidden shrink-0 px-1.5 pt-1.5">
+                      <div className="relative overflow-hidden aspect-square rounded-md w-full">
+                        {imgUrl ? (
+                          <Image src={imgUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="120px" unoptimized />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
+                            <span className="text-2xl" aria-hidden>🌱</span>
+                          </div>
+                        )}
+                        <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
+                          Perennial
+                        </span>
+                        {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
+                          <span className="absolute top-1 left-1 text-[8px] font-semibold px-1 py-0.5 rounded-full bg-violet-500 text-white leading-none">
+                            FAM
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className={isCondensed ? "px-1.5 pt-1 pb-1.5 flex flex-col flex-1 min-h-0" : "p-3"}>
-                    <h3 className={`font-semibold text-neutral-900 truncate ${isCondensed ? "text-xs leading-tight" : "text-sm"}`}>{plant.name}</h3>
-                    {plant.variety_name && <p className={`text-neutral-500 truncate ${isCondensed ? "text-[10px] italic" : "text-xs"}`}>{plant.variety_name}</p>}
-                    <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-neutral-500 ${isCondensed ? "text-[10px] line-clamp-2" : "text-xs"}`}>
-                      {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
-                      {plant.care_count > 0 && <span>{plant.care_count} care</span>}
-                      {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
-                      {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
+                    <div className="px-1.5 pt-1 pb-1.5 flex flex-col flex-1 min-h-0">
+                      <h3 className="font-semibold text-neutral-900 truncate text-xs leading-tight">{plant.name}</h3>
+                      {plant.variety_name && <p className="text-neutral-500 truncate text-[10px] italic">{plant.variety_name}</p>}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-neutral-500 text-[10px] line-clamp-2">
+                        {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
+                        {plant.care_count > 0 && <span>{plant.care_count} care</span>}
+                        {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
+                        {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </div>

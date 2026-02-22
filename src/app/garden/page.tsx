@@ -40,7 +40,7 @@ function GardenPageInner() {
   const [plantsHasItems, setPlantsHasItems] = useState(false);
   const [activeHasItems, setActiveHasItems] = useState(false);
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
   const [activeRefineChips, setActiveRefineChips] = useState<RefineChips | null>(null);
   const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
   const [activeVarietyFilter, setActiveVarietyFilter] = useState<string | null>(null);
@@ -55,6 +55,22 @@ function GardenPageInner() {
   const [plantsGerminationFilter, setPlantsGerminationFilter] = useState<string | null>(null);
   const [plantsMaturityFilter, setPlantsMaturityFilter] = useState<string | null>(null);
   const [plantsTagFilters, setPlantsTagFilters] = useState<string[]>([]);
+  const [activeSortBy, setActiveSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-active-sort", "sown_date", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "name" || s === "sown_date" || s === "harvest_date" ? s : "sown_date"),
+  });
+  const [activeSortDir, setActiveSortDir] = useSessionStorage<"asc" | "desc">("garden-active-sort-dir", "desc", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "asc" || s === "desc" ? s : "desc"),
+  });
+  const [plantsSortBy, setPlantsSortBy] = useSessionStorage<"name" | "planted_date" | "care_count">("garden-plants-sort", "name", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "name" || s === "planted_date" || s === "care_count" ? s : "name"),
+  });
+  const [plantsSortDir, setPlantsSortDir] = useSessionStorage<"asc" | "desc">("garden-plants-sort-dir", "asc", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "asc" || s === "desc" ? s : "asc"),
+  });
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
@@ -63,9 +79,13 @@ function GardenPageInner() {
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
-  const [plantsGridDisplayStyle, setPlantsGridDisplayStyle] = useSessionStorage<"photo" | "condensed">("garden-plants-grid-style", "condensed", {
+  const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "list", {
     serialize: (v) => v,
-    deserialize: (s) => (s === "photo" || s === "condensed" ? s : "condensed"),
+    deserialize: (s) => (s === "grid" || s === "list" ? s : "list"),
+  });
+  const [plantsDisplayStyle, setPlantsDisplayStyle] = useSessionStorage<"grid" | "list">("garden-plants-display-style", "grid", {
+    serialize: (v) => v,
+    deserialize: (s) => (s === "grid" || s === "list" ? s : "grid"),
   });
 
   const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
@@ -291,25 +311,27 @@ function GardenPageInner() {
               <span className="text-sm text-black/50">
                 {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
               </span>
-              {viewMode === "plants" && plantsHasItems && (
-                <button
-                  type="button"
-                  onClick={() => setPlantsGridDisplayStyle((s) => (s === "condensed" ? "photo" : "condensed"))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                  title={plantsGridDisplayStyle === "condensed" ? "Photo cards" : "Condensed grid"}
-                  aria-label={plantsGridDisplayStyle === "condensed" ? "Switch to photo cards" : "Switch to condensed grid"}
-                >
-                  {plantsGridDisplayStyle === "condensed" ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <rect x="2" y="2" width="5" height="5" /><rect x="9.5" y="2" width="5" height="5" /><rect x="17" y="2" width="5" height="5" /><rect x="2" y="9.5" width="5" height="5" /><rect x="9.5" y="9.5" width="5" height="5" /><rect x="17" y="9.5" width="5" height="5" />
-                    </svg>
-                  )}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() =>
+                  viewMode === "active"
+                    ? setActiveDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
+                    : setPlantsDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
+                }
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
+                title={viewMode === "active" ? (activeDisplayStyle === "grid" ? "List view" : "Grid view") : plantsDisplayStyle === "grid" ? "List view" : "Grid view"}
+                aria-label={viewMode === "active" ? (activeDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view") : plantsDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
+              >
+                {(viewMode === "active" ? activeDisplayStyle : plantsDisplayStyle) === "grid" ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                  </svg>
+                )}
+              </button>
             </div>
           </>
         )}
@@ -325,6 +347,64 @@ function GardenPageInner() {
                 </button>
               </header>
               <div className="flex-1 overflow-y-auto">
+                <div className="border-b border-black/5">
+                  <button
+                    type="button"
+                    onClick={() => setRefineBySection((s) => (s === "sort" ? null : "sort"))}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                    aria-expanded={refineBySection === "sort"}
+                  >
+                    <span>Sort by</span>
+                    <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▴" : "▾"}</span>
+                  </button>
+                  {refineBySection === "sort" && (
+                    <div className="px-4 pb-3 pt-0 space-y-0.5">
+                      {viewMode === "active" ? (
+                        <>
+                          {(["name", "sown_date", "harvest_date"] as const).map((opt) => {
+                            const selected = activeSortBy === opt;
+                            const label = opt === "name" ? "Name" : opt === "sown_date" ? "Date sown" : "Harvest date";
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                  if (activeSortBy === opt) setActiveSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                                  else setActiveSortBy(opt);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              >
+                                {label}
+                                {selected && <span className="text-xs text-black/50">{activeSortDir === "asc" ? "↑" : "↓"}</span>}
+                              </button>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <>
+                          {(["name", "planted_date", "care_count"] as const).map((opt) => {
+                            const selected = plantsSortBy === opt;
+                            const label = opt === "name" ? "Name" : opt === "planted_date" ? "Date planted" : "Care count";
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => {
+                                  if (plantsSortBy === opt) setPlantsSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                                  else setPlantsSortBy(opt);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              >
+                                {label}
+                                {selected && <span className="text-xs text-black/50">{plantsSortDir === "asc" ? "↑" : "↓"}</span>}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="border-b border-black/5">
                   <button
                     type="button"
@@ -521,6 +601,9 @@ function GardenPageInner() {
               openBulkLogRequest={openBulkLogForActive}
               onBulkLogRequestHandled={() => setOpenBulkLogForActive(false)}
               onBulkModeChange={setBulkModeActive}
+              displayStyle={activeDisplayStyle}
+              sortBy={activeSortBy}
+              sortDir={activeSortDir}
             />
           </div>
         )}
@@ -543,7 +626,9 @@ function GardenPageInner() {
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
               onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
-              gridDisplayStyle={plantsGridDisplayStyle}
+              displayStyle={plantsDisplayStyle}
+              sortBy={plantsSortBy}
+              sortDir={plantsSortDir}
             />
           </div>
         )}

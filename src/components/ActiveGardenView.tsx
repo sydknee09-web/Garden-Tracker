@@ -85,6 +85,9 @@ export function ActiveGardenView({
   openBulkLogRequest = false,
   onBulkLogRequestHandled,
   onBulkModeChange,
+  displayStyle = "list",
+  sortBy = "sown_date",
+  sortDir = "desc",
 }: {
   refetchTrigger: number;
   /** When set, scroll to this grow instance and clear the URL param. Used when navigating from plant profile. */
@@ -120,12 +123,16 @@ export function ActiveGardenView({
   onBulkLogRequestHandled?: () => void;
   /** Called when bulk mode changes (true = in bulk mode, false = exited). */
   onBulkModeChange?: (inBulkMode: boolean) => void;
+  /** "grid" = small badges, "list" = detailed rows. */
+  displayStyle?: "grid" | "list";
+  sortBy?: "name" | "sown_date" | "harvest_date";
+  sortDir?: "asc" | "desc";
 }) {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const highlightBatchRef = useRef<HTMLLIElement | null>(null);
+  const highlightBatchRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -362,6 +369,37 @@ export function ActiveGardenView({
       return name.includes(q) || variety.includes(q);
     });
   }, [filteredGrowing, q]);
+
+  const sortedBatches = useMemo(() => {
+    const list = [...filteredBySearch];
+    const cmp = (a: GrowingBatch, b: GrowingBatch): number => {
+      switch (sortBy) {
+        case "name": {
+          const na = (a.profile_name ?? "").trim().toLowerCase();
+          const nb = (b.profile_name ?? "").trim().toLowerCase();
+          const va = (a.profile_variety_name ?? "").trim().toLowerCase();
+          const vb = (b.profile_variety_name ?? "").trim().toLowerCase();
+          const keyA = `${na} ${va}`;
+          const keyB = `${nb} ${vb}`;
+          return keyA.localeCompare(keyB, undefined, { sensitivity: "base" });
+        }
+        case "sown_date": {
+          const da = new Date(a.sown_date).getTime();
+          const db = new Date(b.sown_date).getTime();
+          return da - db;
+        }
+        case "harvest_date": {
+          const rawA = a.expected_harvest_date ? new Date(a.expected_harvest_date).getTime() : a.harvest_days ? new Date(a.sown_date).getTime() + (a.harvest_days * 86400000) : 0;
+          const rawB = b.expected_harvest_date ? new Date(b.expected_harvest_date).getTime() : b.harvest_days ? new Date(b.sown_date).getTime() + (b.harvest_days * 86400000) : 0;
+          return rawA - rawB;
+        }
+        default:
+          return 0;
+      }
+    };
+    list.sort((a, b) => (sortDir === "asc" ? cmp(a, b) : -cmp(a, b)));
+    return list;
+  }, [filteredBySearch, sortBy, sortDir]);
 
   const filteredPending = useMemo(() => {
     if (!q) return pending;
@@ -745,12 +783,116 @@ export function ActiveGardenView({
               Go to Seed Vault
             </Link>
           </div>
-        ) : filteredBySearch.length === 0 ? (
+        ) : sortedBatches.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
+        ) : displayStyle === "grid" ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {sortedBatches.map((batch) => {
+              const thumbUrl = getBatchImageUrl(batch);
+              return (
+                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-xl border border-emerald-200/80 bg-white overflow-hidden shadow-sm flex flex-col ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}>
+                  <Link
+                    href={`/vault/${batch.plant_profile_id}?tab=plantings`}
+                    className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
+                    onClick={(e) => {
+                      if (bulkMode && canEditUser(batch.user_id ?? "")) {
+                        e.preventDefault();
+                        toggleBulkSelect(batch.id);
+                      }
+                      if (longPressFiredRef.current) {
+                        e.preventDefault();
+                        longPressFiredRef.current = false;
+                      }
+                    }}
+                    onTouchStart={canEditUser(batch.user_id ?? "") ? () => {
+                      longPressFiredRef.current = false;
+                      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = setTimeout(() => {
+                        longPressTimerRef.current = null;
+                        longPressFiredRef.current = true;
+                        setBulkMode(true);
+                        setBulkSelected((prev) => new Set(prev).add(batch.id));
+                        onBulkModeChange?.(true);
+                      }, LONG_PRESS_MS);
+                    } : undefined}
+                    onTouchMove={canEditUser(batch.user_id ?? "") ? () => {
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+                    } : undefined}
+                    onTouchEnd={canEditUser(batch.user_id ?? "") ? () => {
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+                    } : undefined}
+                    onTouchCancel={canEditUser(batch.user_id ?? "") ? () => {
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+                    } : undefined}
+                  >
+                    <div className="relative aspect-square bg-emerald-50 overflow-hidden shrink-0">
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-2xl" aria-hidden>🌱</span>
+                        </div>
+                      )}
+                      {batch.planting_method_badge && (
+                        <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
+                      )}
+                      {viewMode === "family" && batch.user_id && (
+                        <span className="absolute top-1 left-1">
+                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
+                        </span>
+                      )}
+                      {bulkMode && canEditUser(batch.user_id ?? "") && (
+                        <div className="absolute bottom-1 left-1" onClick={(e) => e.stopPropagation()} role="presentation">
+                          <input
+                            type="checkbox"
+                            checked={bulkSelected.has(batch.id)}
+                            onChange={() => toggleBulkSelect(batch.id)}
+                            className="w-4 h-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 bg-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2 flex-1 min-h-0 flex flex-col">
+                      <h3 className="font-semibold text-neutral-900 text-xs leading-tight truncate">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
+                      <p className="text-[10px] text-neutral-500 mt-0.5 line-clamp-2">
+                        Sown {new Date(batch.sown_date).toLocaleDateString()}
+                        {batch.harvest_count > 0 && ` · ${batch.harvest_count} harvest`}
+                      </p>
+                    </div>
+                  </Link>
+                  {canEditUser(batch.user_id ?? "") && (
+                    <div className="p-1.5 border-t border-black/5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBatchLogBatches([toBatchLogBatch(batch)]);
+                          setBatchLogOpen(true);
+                        }}
+                        className="min-w-[44px] min-h-[44px] w-full flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 text-xs font-medium"
+                        aria-label="Log care or journal entry"
+                      >
+                        <CareHandsIcon />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <>
           <ul className="space-y-4">
-            {filteredBySearch.map((batch) => {
+            {sortedBatches.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();
               const rawExpected = batch.expected_harvest_date
                 ? new Date(batch.expected_harvest_date).getTime()
@@ -771,7 +913,7 @@ export function ActiveGardenView({
               return (
                 <li
                   key={batch.id}
-                  ref={highlightGrowId === batch.id ? highlightBatchRef : undefined}
+                  ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
                   className={`rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-3">
