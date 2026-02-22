@@ -153,7 +153,7 @@ export default function VaultSeedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
-  const { canEditUser } = useHousehold();
+  const { canEditUser, viewMode } = useHousehold();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -302,11 +302,14 @@ export default function VaultSeedPage() {
       const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
 
       // Batch 2: Fetch packets, grows, journals, care, journal photos in parallel
-      // grow_instances: no user_id filter — RLS returns rows from profile owner + household members.
-      // This ensures permanent plants added by any household member show in the Plantings tab.
+      // grow_instances: match Active Garden — in family view show all household grows;
+      // in personal view filter by current user so your permanent plants show in Plantings tab.
+      const isFamilyView = viewMode === "family";
+      let growQuery = supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false });
+      if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
       const [packetsRes, growsRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
-        supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
+        growQuery,
         supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         careQueryFinal,
         supabase.from("journal_entries").select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false }),
@@ -390,7 +393,7 @@ export default function VaultSeedPage() {
       setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map());
     }
     setLoading(false);
-  }, [id, user?.id]);
+  }, [id, user?.id, viewMode]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
