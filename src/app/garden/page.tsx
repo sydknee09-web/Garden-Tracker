@@ -149,11 +149,16 @@ function GardenPageInner() {
     if (!growParam) hasClearedStaleGrowRef.current = false;
   }, [highlightResolved, highlightedBatch, growParam, router]);
 
+  // Sync tab from URL; only refetch when switching TO active (avoid infinite loop from unstable searchParams)
+  const prevTabRef = useRef<string | null>(null);
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "active" || tab === "plants") setViewMode(tab);
-    if (tab === "active") setRefetchTrigger((t) => t + 1);
-  }, [searchParams, setViewMode]);
+    if (tabParam === "active" || tabParam === "plants") setViewMode(tabParam);
+    if (tabParam === "active" && prevTabRef.current !== "active") {
+      prevTabRef.current = "active";
+      setRefetchTrigger((t) => t + 1);
+    }
+    if (tabParam !== "active") prevTabRef.current = tabParam;
+  }, [tabParam, setViewMode]);
 
   const setTab = useCallback(
     (tab: "active" | "plants") => {
