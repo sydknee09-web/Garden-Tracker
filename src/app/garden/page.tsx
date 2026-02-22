@@ -112,17 +112,32 @@ function GardenPageInner() {
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
+  const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
   const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);
+  const [highlightResolved, setHighlightResolved] = useState(false);
 
   const growParam = searchParams.get("grow");
 
   useEffect(() => {
-    if (!profileParam) setProfileFilteredPlantName(null);
+    if (!profileParam) {
+      setProfileFilteredPlantName(null);
+      setProfileFilterEmpty(false);
+    }
   }, [profileParam]);
 
   useEffect(() => {
-    if (!growParam) setHighlightedBatch(null);
+    if (!growParam) {
+      setHighlightedBatch(null);
+      setHighlightResolved(false);
+    } else {
+      setHighlightResolved(false);
+    }
   }, [growParam]);
+
+  const handleHighlightedBatch = useCallback((batch: { id: string; profile_name: string; profile_variety_name: string | null } | null) => {
+    setHighlightedBatch(batch);
+    setHighlightResolved(true);
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -133,9 +148,10 @@ function GardenPageInner() {
   const setTab = useCallback(
     (tab: "active" | "plants") => {
       setViewMode(tab);
-      router.replace(tab === "active" ? "/garden?tab=active" : "/garden?tab=plants");
+      const preserve = tab === "active" && growParam ? `&grow=${encodeURIComponent(growParam)}` : tab === "plants" && profileParam ? `&profile=${encodeURIComponent(profileParam)}` : "";
+      router.replace(tab === "active" ? `/garden?tab=active${preserve}` : `/garden?tab=plants${preserve}`);
     },
-    [setViewMode, router]
+    [setViewMode, router, growParam, profileParam]
   );
 
   const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
@@ -143,6 +159,10 @@ function GardenPageInner() {
 
   useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
   useEscapeKey(refineByOpen, () => { setRefineByOpen(false); setRefineBySection(null); });
+  useEscapeKey(
+    !fabMenuOpen && !refineByOpen && (!!profileParam || !!growParam),
+    () => { if (profileParam) clearProfileFilter(); else if (growParam) clearGrowView(); }
+  );
 
   const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setActiveCategoryChips(chips);
@@ -397,7 +417,7 @@ function GardenPageInner() {
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 {effectiveViewMode === "plants" && profileParam && (
                   <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
-                    Showing: {profileFilteredPlantName ?? "plant"}
+                    Showing: {profileFilterEmpty ? "No plants match" : (profileFilteredPlantName ?? "Loading…")}
                     <button
                       type="button"
                       onClick={clearProfileFilter}
@@ -410,7 +430,7 @@ function GardenPageInner() {
                 )}
                 {effectiveViewMode === "active" && growParam && (
                   <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
-                    Viewing: {highlightedBatch ? (highlightedBatch.profile_variety_name?.trim() ? `${highlightedBatch.profile_name} (${highlightedBatch.profile_variety_name})` : highlightedBatch.profile_name) : "planting"}
+                    Viewing: {!highlightResolved ? "Loading…" : highlightedBatch ? (highlightedBatch.profile_variety_name?.trim() ? `${highlightedBatch.profile_name} (${highlightedBatch.profile_variety_name})` : highlightedBatch.profile_name) : "Planting not found"}
                     <button
                       type="button"
                       onClick={clearGrowView}
@@ -753,7 +773,7 @@ function GardenPageInner() {
               ref={activeGardenRef}
               refetchTrigger={refetchTrigger}
               highlightGrowId={growParam}
-              onHighlightedBatch={setHighlightedBatch}
+              onHighlightedBatch={handleHighlightedBatch}
               searchQuery={activeSearchDebounced}
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
@@ -790,7 +810,12 @@ function GardenPageInner() {
               onPermanentPlantAdded={handlePermanentPlantAdded}
               categoryFilter={plantsFilters.filters.category}
               profileIdFilter={profileParam}
-              onProfileFilteredPlantName={setProfileFilteredPlantName}
+              onProfileFilteredPlantName={(name) => {
+                setProfileFilteredPlantName(name);
+                if (name) setProfileFilterEmpty(false);
+              }}
+              onProfileFilterEmpty={() => setProfileFilterEmpty(true)}
+              onClearProfileFilter={clearProfileFilter}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               varietyFilter={plantsFilters.filters.variety}
               sunFilter={plantsFilters.filters.sun}

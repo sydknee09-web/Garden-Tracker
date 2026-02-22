@@ -149,3 +149,4 @@
 | 2025-02-22 | Garden: Always show toolbar (search, filter, view toggle) even when list is empty. Vault profile Add planting: pass from=garden when opened from garden so redirect returns to garden. |
 | 2025-02-22 | Garden My Plants: ?profile=xxx URL param pre-filters to that plant when navigating from vault profile (Back to My Plants). Permanent plants only. Clear filters removes profile param. |
 | 2025-02-22 | Garden: Visible "Showing"/"Viewing" chips with Cancel (×) when profile or grow param applied. User can clear filter/view to return to full list. Grow param no longer auto-clears. |
+| 2025-02-22 | Garden: When grow=xxx, Active Garden filters to single batch (visible filter). Empty states for profile/grow filters. Preserve params when switching tabs. Escape clears filter. Loading/not-found chip labels. |

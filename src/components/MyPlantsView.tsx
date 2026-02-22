@@ -63,6 +63,7 @@ export function MyPlantsView({
   tagFilters = [],
   profileIdFilter = null,
   onProfileFilteredPlantName,
+  onClearProfileFilter,
   onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
@@ -90,6 +91,10 @@ export function MyPlantsView({
   profileIdFilter?: string | null;
   /** Called when profileIdFilter is set and exactly one plant matches; reports its display name for the filter chip. */
   onProfileFilteredPlantName?: (name: string | null) => void;
+  /** Called when profileIdFilter is set and filter returns 0 results (so chip can show "No plants match"). */
+  onProfileFilterEmpty?: () => void;
+  /** Called by parent to clear profile filter; used for empty-state Clear button when filter returns 0 results. */
+  onClearProfileFilter?: () => void;
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
     sun: { value: string; count: number }[];
@@ -351,15 +356,16 @@ export function MyPlantsView({
   }, [loading, plants.length, onEmptyStateChange]);
 
   useEffect(() => {
-    if (!profileIdFilter || !onProfileFilteredPlantName) return;
+    if (!profileIdFilter) return;
     if (filteredBySearch.length === 1) {
       const p = filteredBySearch[0];
       const name = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
-      onProfileFilteredPlantName(name ?? "");
+      onProfileFilteredPlantName?.(name ?? "");
     } else {
-      onProfileFilteredPlantName(null);
+      onProfileFilteredPlantName?.(null);
+      if (filteredBySearch.length === 0) onProfileFilterEmpty?.();
     }
-  }, [profileIdFilter, filteredBySearch, onProfileFilteredPlantName]);
+  }, [profileIdFilter, filteredBySearch, onProfileFilteredPlantName, onProfileFilterEmpty]);
 
   if (loading) {
     return (
@@ -396,6 +402,18 @@ export function MyPlantsView({
             className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
           >
             Add a Perennial
+          </button>
+        </div>
+      ) : profileIdFilter && sortedPlants.length === 0 ? (
+        <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+          <p className="text-black/70 font-medium mb-2">No plants match this filter</p>
+          <p className="text-sm text-black/50 mb-6">This plant may have been removed or doesn&apos;t appear in My Plants.</p>
+          <button
+            type="button"
+            onClick={onClearProfileFilter}
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+          >
+            Clear filter
           </button>
         </div>
       ) : (

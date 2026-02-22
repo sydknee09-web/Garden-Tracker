@@ -88,7 +88,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }) => void;
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
-  /** Called when highlightGrowId is set and a matching batch exists; reports batch info for the "Viewing" chip. */
+  /** Called when loading done: batch info for "Viewing" chip, or null if not found. Only called when !loading. */
   onHighlightedBatch?: (batch: { id: string; profile_name: string; profile_variety_name: string | null } | null) => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
@@ -199,14 +199,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightGrowId, loading]);
 
-  // Report highlighted batch for "Viewing" chip when highlightGrowId matches a batch
+  // Report highlighted batch for "Viewing" chip when highlightGrowId matches; only call when loading done
   useEffect(() => {
-    if (!onHighlightedBatch) return;
+    if (!onHighlightedBatch || loading) return;
     if (!highlightGrowId) {
       onHighlightedBatch(null);
       return;
     }
-    const batch = filteredBySearch.find((b) => b.id === highlightGrowId);
+    const batch = displayBatches[0] ?? growing.find((b) => b.id === highlightGrowId);
     if (batch) {
       onHighlightedBatch({
         id: batch.id,
@@ -216,7 +216,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     } else {
       onHighlightedBatch(null);
     }
-  }, [highlightGrowId, filteredBySearch, onHighlightedBatch]);
+  }, [highlightGrowId, loading, displayBatches, growing, onHighlightedBatch]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -396,8 +396,17 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     });
   }, [filteredGrowing, q]);
 
+  /** When highlightGrowId is set, filter to only that batch so user sees applied filter and can cancel to full view. */
+  const displayBatches = useMemo(() => {
+    if (!highlightGrowId) return filteredBySearch;
+    const match = filteredBySearch.find((b) => b.id === highlightGrowId);
+    if (match) return [match];
+    const fromGrowing = growing.find((b) => b.id === highlightGrowId);
+    return fromGrowing ? [fromGrowing] : [];
+  }, [highlightGrowId, filteredBySearch, growing]);
+
   const sortedBatches = useMemo(() => {
-    const list = [...filteredBySearch];
+    const list = [...displayBatches];
     const cmp = (a: GrowingBatch, b: GrowingBatch): number => {
       switch (sortBy) {
         case "name": {
@@ -425,7 +434,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     };
     list.sort((a, b) => (sortDir === "asc" ? cmp(a, b) : -cmp(a, b)));
     return list;
-  }, [filteredBySearch, sortBy, sortDir]);
+  }, [displayBatches, sortBy, sortDir]);
 
   const filteredPending = useMemo(() => {
     if (!q) return pending;
@@ -441,12 +450,12 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }, [refineChips, onRefineChipsLoaded]);
 
   useEffect(() => {
-    onFilteredCountChange?.(filteredPending.length + filteredBySearch.length);
-  }, [filteredPending.length, filteredBySearch.length, onFilteredCountChange]);
+    onFilteredCountChange?.(filteredPending.length + displayBatches.length);
+  }, [filteredPending.length, displayBatches.length, onFilteredCountChange]);
 
   useEffect(() => {
-    if (!loading) onEmptyStateChange?.(filteredPending.length === 0 && filteredBySearch.length === 0);
-  }, [loading, filteredPending.length, filteredBySearch.length, onEmptyStateChange]);
+    if (!loading) onEmptyStateChange?.(filteredPending.length === 0 && displayBatches.length === 0);
+  }, [loading, filteredPending.length, displayBatches.length, onEmptyStateChange]);
 
   // Enter bulk mode when parent requests it (e.g. FAB "Add journal entry").
   useEffect(() => {
@@ -806,6 +815,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             >
               Go to Seed Vault
             </Link>
+          </div>
+        ) : highlightGrowId && displayBatches.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+            <p className="text-black/70 font-medium mb-2">Planting not found</p>
+            <p className="text-sm text-black/50">This planting may have been archived. Use the Cancel button above to view all plantings.</p>
           </div>
         ) : sortedBatches.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
