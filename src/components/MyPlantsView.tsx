@@ -62,6 +62,7 @@ export function MyPlantsView({
   maturityFilter = null,
   tagFilters = [],
   profileIdFilter = null,
+  onProfileFilteredPlantName,
   onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
@@ -87,6 +88,8 @@ export function MyPlantsView({
   tagFilters?: string[];
   /** When set (e.g. from ?profile=xxx URL), filter to only this plant profile. Used when navigating from vault profile. */
   profileIdFilter?: string | null;
+  /** Called when profileIdFilter is set and exactly one plant matches; reports its display name for the filter chip. */
+  onProfileFilteredPlantName?: (name: string | null) => void;
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
     sun: { value: string; count: number }[];
@@ -346,6 +349,17 @@ export function MyPlantsView({
   useEffect(() => {
     if (!loading) onEmptyStateChange?.(plants.length === 0);
   }, [loading, plants.length, onEmptyStateChange]);
+
+  useEffect(() => {
+    if (!profileIdFilter || !onProfileFilteredPlantName) return;
+    if (filteredBySearch.length === 1) {
+      const p = filteredBySearch[0];
+      const name = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+      onProfileFilteredPlantName(name ?? "");
+    } else {
+      onProfileFilteredPlantName(null);
+    }
+  }, [profileIdFilter, filteredBySearch, onProfileFilteredPlantName]);
 
   if (loading) {
     return (

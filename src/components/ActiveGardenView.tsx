@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,6 +88,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }) => void;
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
+  /** Called when highlightGrowId is set and a matching batch exists; reports batch info for the "Viewing" chip. */
+  onHighlightedBatch?: (batch: { id: string; profile_name: string; profile_variety_name: string | null } | null) => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
@@ -120,6 +121,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
+  onHighlightedBatch,
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
   onBulkSelectionChange,
@@ -132,8 +134,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 }, ref) => {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const highlightBatchRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
@@ -192,16 +192,31 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   });
 
   // Scroll to highlighted batch when navigating from plant profile (e.g. /garden?tab=active&grow=xxx)
+  // Keep grow param in URL so user sees "Viewing" chip and can cancel; do not auto-clear
   useEffect(() => {
     if (!highlightGrowId || !highlightBatchRef.current) return;
     const el = highlightBatchRef.current;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Clear the grow param so URL stays clean
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("grow");
-    const qs = params.toString();
-    router.replace(qs ? `/garden?${qs}` : "/garden");
-  }, [highlightGrowId, router, searchParams, loading]);
+  }, [highlightGrowId, loading]);
+
+  // Report highlighted batch for "Viewing" chip when highlightGrowId matches a batch
+  useEffect(() => {
+    if (!onHighlightedBatch) return;
+    if (!highlightGrowId) {
+      onHighlightedBatch(null);
+      return;
+    }
+    const batch = filteredBySearch.find((b) => b.id === highlightGrowId);
+    if (batch) {
+      onHighlightedBatch({
+        id: batch.id,
+        profile_name: batch.profile_name,
+        profile_variety_name: batch.profile_variety_name,
+      });
+    } else {
+      onHighlightedBatch(null);
+    }
+  }, [highlightGrowId, filteredBySearch, onHighlightedBatch]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;

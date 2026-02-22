@@ -111,6 +111,18 @@ function GardenPageInner() {
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
+  const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);
+
+  const growParam = searchParams.get("grow");
+
+  useEffect(() => {
+    if (!profileParam) setProfileFilteredPlantName(null);
+  }, [profileParam]);
+
+  useEffect(() => {
+    if (!growParam) setHighlightedBatch(null);
+  }, [growParam]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -152,6 +164,15 @@ function GardenPageInner() {
       router.replace("/garden?tab=plants");
     }
   }, [activeFilters.clearAllFilters, plantsFilters.clearAllFilters, effectiveViewMode, profileParam, router]);
+
+  const clearProfileFilter = useCallback(() => {
+    plantsFilters.clearAllFilters();
+    if (profileParam) router.replace("/garden?tab=plants");
+  }, [plantsFilters.clearAllFilters, profileParam, router]);
+
+  const clearGrowView = useCallback(() => {
+    if (growParam) router.replace("/garden?tab=active");
+  }, [growParam, router]);
 
   const activeFilterCount = activeFilters.filterCount;
   const plantsFilterCount = plantsFilters.filterCount;
@@ -370,6 +391,38 @@ function GardenPageInner() {
                 />
               </div>
             </div>
+
+            {/* Filter/view chips: show when navigating from plant profile with profile or grow param */}
+            {(effectiveViewMode === "plants" && profileParam) || (effectiveViewMode === "active" && growParam) ? (
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {effectiveViewMode === "plants" && profileParam && (
+                  <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
+                    Showing: {profileFilteredPlantName ?? "plant"}
+                    <button
+                      type="button"
+                      onClick={clearProfileFilter}
+                      className="min-w-[44px] min-h-[44px] -m-1 flex items-center justify-center rounded-lg hover:bg-emerald-100/80 transition-colors"
+                      aria-label="Clear filter and show all plants"
+                    >
+                      <span aria-hidden>×</span>
+                    </button>
+                  </span>
+                )}
+                {effectiveViewMode === "active" && growParam && (
+                  <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
+                    Viewing: {highlightedBatch ? (highlightedBatch.profile_variety_name?.trim() ? `${highlightedBatch.profile_name} (${highlightedBatch.profile_variety_name})` : highlightedBatch.profile_name) : "planting"}
+                    <button
+                      type="button"
+                      onClick={clearGrowView}
+                      className="min-w-[44px] min-h-[44px] -m-1 flex items-center justify-center rounded-lg hover:bg-emerald-100/80 transition-colors"
+                      aria-label="Clear view and show all plantings"
+                    >
+                      <span aria-hidden>×</span>
+                    </button>
+                  </span>
+                )}
+              </div>
+            ) : null}
 
             <div className="flex items-center gap-3 mb-2">
               <button
@@ -699,7 +752,8 @@ function GardenPageInner() {
             <ActiveGardenView
               ref={activeGardenRef}
               refetchTrigger={refetchTrigger}
-              highlightGrowId={searchParams.get("grow")}
+              highlightGrowId={growParam}
+              onHighlightedBatch={setHighlightedBatch}
               searchQuery={activeSearchDebounced}
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
@@ -736,6 +790,7 @@ function GardenPageInner() {
               onPermanentPlantAdded={handlePermanentPlantAdded}
               categoryFilter={plantsFilters.filters.category}
               profileIdFilter={profileParam}
+              onProfileFilteredPlantName={setProfileFilteredPlantName}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               varietyFilter={plantsFilters.filters.variety}
               sunFilter={plantsFilters.filters.sun}
