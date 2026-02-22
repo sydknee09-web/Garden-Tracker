@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,11 +23,14 @@ export function ShedView({
   embedded = false,
   refetchTrigger = 0,
   categoryFromUrl = null,
+  scrollContainerRef,
 }: {
   /** When true, omit back link and title (used in vault inline). */
   embedded?: boolean;
   refetchTrigger?: number;
   categoryFromUrl?: string | null;
+  /** Optional ref to scroll container for pull-to-refresh (vault page). */
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser } = useHousehold();
@@ -113,6 +117,8 @@ export function ShedView({
       router.replace(cat ? `/shed?category=${cat}` : "/shed", { scroll: false });
     }
   }, [embedded, router]);
+
+  usePullToRefresh({ onRefresh: fetchSupplies, disabled: loading, containerRef: scrollContainerRef });
 
   return (
     <div className="pt-2">

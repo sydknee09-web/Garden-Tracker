@@ -11,6 +11,8 @@
 
 **Current state:** The app already supports deep links. Routes like `/vault/[id]` and `/shed/[id]` work when you navigate or paste the URL. What’s missing is explicit “Share” or “Copy link” actions so users can easily get these URLs.
 
+**How they would appear:** A "Share" or "Copy link" button on the plant profile or supply detail page. Tapping it would copy the URL (e.g. `https://yourapp.com/vault/abc123`) to the clipboard and optionally show a brief toast: "Link copied." On mobile, the native share sheet could also appear (e.g. "Share to Messages").
+
 ---
 
 ## Breadcrumbs
@@ -23,6 +25,8 @@
 - **Context** — Especially useful on nested pages like profile detail or packet edit
 
 **Current state:** Back links exist (e.g. “← Back to Shed”) but there’s no full breadcrumb trail. Adding breadcrumbs would make hierarchy clearer on deeper pages.
+
+**How they would appear:** A horizontal trail near the top of the page, e.g. `Vault › Tomato › Roma`. Each segment is a link (except the last). On the plant profile page: `Vault › [Plant name]`. On a packet edit modal or nested view: `Vault › [Plant] › Packet`. Styled subtly (e.g. gray text, separators) so they don't compete with the main content.
 
 ---
 

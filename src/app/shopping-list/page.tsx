@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 
@@ -52,18 +54,28 @@ export default function ShoppingListPage() {
 
   const handlePurchased = useCallback(
     async (id: string) => {
+      const removed = items.find((i) => i.id === id);
+      if (!removed) return;
+      setItems((prev) => prev.filter((i) => i.id !== id));
       setTogglingId(id);
       const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id, user_id: user!.id });
-      if (!error) setItems((prev) => prev.filter((i) => i.id !== id));
       setTogglingId(null);
+      if (error) {
+        hapticError();
+        setItems((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
+      } else {
+        hapticSuccess();
+      }
     },
-    [user?.id]
+    [user?.id, items]
   );
 
   const handlePlaceholderBoughtSuccess = useCallback(() => {
     if (buyPlaceholderItem) handlePurchased(buyPlaceholderItem.id);
     setBuyPlaceholderItem(null);
   }, [buyPlaceholderItem, handlePurchased]);
+
+  usePullToRefresh({ onRefresh: fetchList, disabled: loading });
 
   return (
     <div className="min-h-screen bg-neutral-50 p-6">

@@ -326,9 +326,6 @@ export function MyPlantsView({
         </div>
       ) : (
         <>
-          <div className="mb-3">
-            <p className="text-sm text-black/50">{sortedPlants.length} plant{sortedPlants.length !== 1 ? "s" : ""}</p>
-          </div>
           {displayStyle === "list" ? (
             <ul className="space-y-4" role="list">
               {sortedPlants.map((plant) => {

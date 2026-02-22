@@ -12,6 +12,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useAnnouncer } from "@/contexts/AnnouncerContext";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
@@ -259,9 +261,12 @@ export function SeedVaultView({
   onEmptyStateChange,
   sortBy: sortByProp = null,
   sortDirection: sortDirectionProp = "asc",
+  scrollContainerRef,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
+  /** Optional ref to scroll container for pull-to-refresh (vault page). */
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
   searchQuery?: string;
   statusFilter?: StatusFilter;
   tagFilters?: TagFilter;
@@ -325,6 +330,7 @@ export function SeedVaultView({
   const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditUser } = useHousehold();
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pullRefetch, setPullRefetch] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const pendingSinceRef = useRef<Map<string, number>>(new Map());
   const [tick, setTick] = useState(0);
@@ -343,6 +349,7 @@ export function SeedVaultView({
   const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
   const [listColumnWidths, setListColumnWidths] = useState<Record<string, number>>(() => loadListTableState().columnWidths);
   const isOnline = useOnlineStatus();
+  const { announce } = useAnnouncer();
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
   const dragOverColIdRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -807,6 +814,12 @@ export function SeedVaultView({
     if (!loading) onEmptyStateChange?.(seeds.length === 0);
   }, [loading, seeds.length, onEmptyStateChange]);
 
+  useEffect(() => {
+    if (!loading && seeds.length > 0) {
+      announce(`${seeds.length} seed${seeds.length !== 1 ? "s" : ""} loaded`);
+    }
+  }, [loading, seeds.length, announce]);
+
 
   useEffect(() => {
     if (!user) {
@@ -1029,11 +1042,17 @@ export function SeedVaultView({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, refetchTrigger, householdViewMode]);
+  }, [user?.id, refetchTrigger, householdViewMode, pullRefetch]);
 
   useEffect(() => {
     setImageErrorIds(new Set());
   }, [refetchTrigger]);
+
+  usePullToRefresh({
+    onRefresh: () => setPullRefetch((r) => r + 1),
+    disabled: loading,
+    containerRef: scrollContainerRef,
+  });
 
   const filteredIds = useMemo(
     () => filteredSeeds.map((s) => s.id),

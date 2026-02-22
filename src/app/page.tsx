@@ -7,6 +7,7 @@ import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
+import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
@@ -175,11 +176,18 @@ export default function HomePage() {
 
   async function handleMarkPurchased(item: ShoppingItemWithName) {
     if (!user?.id) return;
+    const removed = item;
+    setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
     setMarkingPurchasedId(item.id);
     setSyncing(true);
     try {
       const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: user.id });
-      if (!error) setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
+      if (error) {
+        hapticError();
+        setShoppingList((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
+      } else {
+        hapticSuccess();
+      }
     } finally { setMarkingPurchasedId(null); setSyncing(false); }
   }
 

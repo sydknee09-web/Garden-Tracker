@@ -10,6 +10,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { hapticSuccess } from "@/lib/haptics";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
 
 function formatDisplayDate(value: string): string {
@@ -126,6 +127,19 @@ export default function ShedDetailPage() {
 
   const handleUsedToday = useCallback(async () => {
     if (!user?.id || !supply?.id) return;
+    const optimisticEntry: JournalEntry & { plant_name?: string } = {
+      id: "temp-used",
+      plant_profile_id: null,
+      plant_variety_id: null,
+      grow_instance_id: null,
+      note: `Used ${supply.name}`,
+      photo_url: null,
+      image_file_path: null,
+      entry_type: "care",
+      created_at: new Date().toISOString(),
+      user_id: user.id,
+    };
+    setHistory((prev) => [optimisticEntry, ...prev]);
     setUsedTodaySaving(true);
     const weather = await fetchWeatherSnapshot();
     const { error } = await insertWithOfflineQueue("journal_entries", {
@@ -136,7 +150,10 @@ export default function ShedDetailPage() {
       weather_snapshot: weather ?? undefined,
     });
     setUsedTodaySaving(false);
-    if (!error) {
+    if (error) {
+      setHistory((prev) => prev.filter((e) => e.id !== "temp-used"));
+    } else {
+      hapticSuccess();
       fetchHistory();
       setToastMessage("Usage logged");
       setTimeout(() => setToastMessage(null), 2500);

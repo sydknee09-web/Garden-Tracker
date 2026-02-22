@@ -129,6 +129,7 @@ function VaultPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const [tagSearchQuery, setTagSearchQuery] = useState("");
@@ -1031,7 +1032,7 @@ function VaultPageInner() {
                 </button>
               </div>
             </header>
-            <div className="flex-1 overflow-y-auto">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
               {/* Content for Plant Profiles / Seed Vault / Table */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
@@ -1375,6 +1376,7 @@ function VaultPageInner() {
             embedded
             refetchTrigger={refetchTrigger}
             categoryFromUrl={searchParams.get("category")}
+            scrollContainerRef={scrollContainerRef}
           />
         </div>
       )}
@@ -1395,6 +1397,7 @@ function VaultPageInner() {
           <SeedVaultView
             mode={viewMode}
             refetchTrigger={refetchTrigger}
+            scrollContainerRef={scrollContainerRef}
             searchQuery={searchQuery}
             statusFilter={statusFilter}
             tagFilters={tagFilters}
