@@ -396,20 +396,6 @@ function GardenPageInner() {
         {/* Always show toolbar (search, filter, toggle) so users can search/add even when list is empty */}
         {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
           <>
-            {/* Mobile rescue: when 0 items, show prominent "Add from Vault" at top so user doesn't have to scroll */}
-            {((effectiveViewMode === "active" && activeFilteredCount === 0) || (effectiveViewMode === "plants" && plantsFilteredCount === 0)) && !growParam && !profileParam && (
-              <div className="flex items-center justify-between gap-3 mb-2 mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200/80">
-                <span className="text-sm text-emerald-800 font-medium">
-                  {effectiveViewMode === "active" ? "No active plantings yet." : "No plants yet."}
-                </span>
-                <Link
-                  href={effectiveViewMode === "active" ? "/vault/plant?from=garden" : "/vault"}
-                  className="min-h-[44px] shrink-0 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 inline-flex items-center justify-center"
-                >
-                  {effectiveViewMode === "active" ? "Add from Vault" : "Go to Vault"}
-                </Link>
-              </div>
-            )}
             <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
