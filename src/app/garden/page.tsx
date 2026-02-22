@@ -343,7 +343,8 @@ function GardenPageInner() {
           </div>
         </div>
 
-        {((effectiveViewMode === "active" && activeHasItems) || (effectiveViewMode === "plants" && plantsHasItems)) && (
+        {/* Always show toolbar (search, filter, toggle) so users can search/add even when list is empty */}
+        {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
           <>
             <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">

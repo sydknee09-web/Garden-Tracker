@@ -1999,7 +1999,7 @@ export default function VaultSeedPage() {
                 )}
                 {!isPermanent && canEdit && (
                   <Link
-                    href={`/vault/plant?ids=${encodeURIComponent(id)}`}
+                    href={`/vault/plant?ids=${encodeURIComponent(id)}${fromParam === "garden" ? "&from=garden" : ""}`}
                     className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     aria-label="Add planting"
                   >
