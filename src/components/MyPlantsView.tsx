@@ -369,34 +369,32 @@ export function MyPlantsView({
               })}
             </ul>
           ) : (
-            <div className="grid gap-2 grid-cols-3">
+            <div className="grid grid-cols-3 gap-2">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
                 return (
-                  <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className="group bg-white border border-emerald-100 overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all flex flex-col rounded-lg" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                    <div className="bg-emerald-50/50 relative overflow-hidden shrink-0 px-1.5 pt-1.5">
-                      <div className="relative overflow-hidden aspect-square rounded-md w-full">
+                  <Link key={plant.id} href={`/vault/${plant.id}?from=garden`} className="group rounded-lg bg-white overflow-hidden flex flex-col border border-black/5 shadow-card hover:border-emerald-500/40 transition-colors w-full">
+                    <div className="px-1.5 pt-1.5 shrink-0">
+                      <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
                         {imgUrl ? (
-                          <Image src={imgUrl} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="120px" unoptimized />
+                          <Image src={imgUrl} alt="" fill className="object-cover object-center group-hover:scale-105 transition-transform" sizes="120px" unoptimized />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
-                            <span className="text-2xl" aria-hidden>🌱</span>
-                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
                         )}
                         <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
                           Perennial
                         </span>
                         {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
-                          <span className="absolute top-1 left-1 text-[8px] font-semibold px-1 py-0.5 rounded-full bg-violet-500 text-white leading-none">
+                          <span className="absolute top-0.5 left-0.5 text-[8px] font-semibold px-1 py-0.5 rounded-full bg-violet-500 text-white leading-none">
                             FAM
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="px-1.5 pt-1 pb-1.5 flex flex-col flex-1 min-h-0">
-                      <h3 className="font-semibold text-neutral-900 truncate text-xs leading-tight">{plant.name}</h3>
-                      {plant.variety_name && <p className="text-neutral-500 truncate text-[10px] italic">{plant.variety_name}</p>}
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-neutral-500 text-[10px] line-clamp-2">
+                    <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{plant.name}</h3>
+                      <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${plant.variety_name ? "italic" : ""}`} title={plant.variety_name || undefined}>{plant.variety_name || "—"}</div>
+                      <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full text-[9px] text-black/60">
                         {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
                         {plant.care_count > 0 && <span>{plant.care_count} care</span>}
                         {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}

@@ -247,9 +247,10 @@ function GardenPageInner() {
 
   return (
     <div className="min-h-screen pb-24">
-      <div className="px-4 pt-2 pb-4">
-        <div className="flex mb-3">
-          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="View">
+      <div className="px-6 pt-0 pb-6">
+        <div className="sticky top-11 z-40 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
+          <div className="flex mb-3" role="tablist" aria-label="View">
+            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
             <button
               type="button"
               role="tab"
@@ -277,7 +278,7 @@ function GardenPageInner() {
 
         {((viewMode === "active" && activeHasItems) || (viewMode === "plants" && plantsHasItems)) && (
           <>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
                   <circle cx="11" cy="11" r="8" />
@@ -335,6 +336,7 @@ function GardenPageInner() {
             </div>
           </>
         )}
+        </div>
 
         {refineByOpen && (
           <>

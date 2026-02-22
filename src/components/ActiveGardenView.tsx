@@ -786,11 +786,11 @@ export function ActiveGardenView({
         ) : sortedBatches.length === 0 ? (
           <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
         ) : displayStyle === "grid" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {
               const thumbUrl = getBatchImageUrl(batch);
               return (
-                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-xl border border-emerald-200/80 bg-white overflow-hidden shadow-sm flex flex-col ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}>
+                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border border-black/5 shadow-card ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500" : ""}`}>
                   <Link
                     href={`/vault/${batch.plant_profile_id}?tab=plantings`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
@@ -834,43 +834,43 @@ export function ActiveGardenView({
                       }
                     } : undefined}
                   >
-                    <div className="relative aspect-square bg-emerald-50 overflow-hidden shrink-0">
-                      {thumbUrl ? (
-                        <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-2xl" aria-hidden>🌱</span>
-                        </div>
-                      )}
-                      {batch.planting_method_badge && (
-                        <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
-                      )}
-                      {viewMode === "family" && batch.user_id && (
-                        <span className="absolute top-1 left-1">
-                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
-                        </span>
-                      )}
-                      {bulkMode && canEditUser(batch.user_id ?? "") && (
-                        <div className="absolute bottom-1 left-1" onClick={(e) => e.stopPropagation()} role="presentation">
-                          <input
-                            type="checkbox"
-                            checked={bulkSelected.has(batch.id)}
-                            onChange={() => toggleBulkSelect(batch.id)}
-                            className="w-4 h-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 bg-white"
-                          />
-                        </div>
-                      )}
+                    <div className="px-1.5 pt-1.5 shrink-0">
+                      <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                        {thumbUrl ? (
+                          <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
+                        )}
+                        {batch.planting_method_badge && (
+                          <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
+                        )}
+                        {viewMode === "family" && batch.user_id && (
+                          <span className="absolute top-0.5 right-0.5">
+                            <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
+                          </span>
+                        )}
+                        {bulkMode && canEditUser(batch.user_id ?? "") && (
+                          <div className="absolute bottom-1 left-1" onClick={(e) => e.stopPropagation()} role="presentation">
+                            <input
+                              type="checkbox"
+                              checked={bulkSelected.has(batch.id)}
+                              onChange={() => toggleBulkSelect(batch.id)}
+                              className="w-4 h-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 bg-white"
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="p-2 flex-1 min-h-0 flex flex-col">
-                      <h3 className="font-semibold text-neutral-900 text-xs leading-tight truncate">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
-                      <p className="text-[10px] text-neutral-500 mt-0.5 line-clamp-2">
+                    <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
+                      <p className="text-[10px] text-black/60 leading-tight line-clamp-2 w-full min-h-0">
                         Sown {new Date(batch.sown_date).toLocaleDateString()}
                         {batch.harvest_count > 0 && ` · ${batch.harvest_count} harvest`}
                       </p>
                     </div>
                   </Link>
                   {canEditUser(batch.user_id ?? "") && (
-                    <div className="p-1.5 border-t border-black/5">
+                    <div className="px-1.5 pb-1 pt-0 border-t border-black/5">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -878,7 +878,7 @@ export function ActiveGardenView({
                           setBatchLogBatches([toBatchLogBatch(batch)]);
                           setBatchLogOpen(true);
                         }}
-                        className="min-w-[44px] min-h-[44px] w-full flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 text-xs font-medium"
+                        className="min-w-[44px] min-h-[36px] w-full flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
                         aria-label="Log care or journal entry"
                       >
                         <CareHandsIcon />
