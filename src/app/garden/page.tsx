@@ -139,6 +139,16 @@ function GardenPageInner() {
     setHighlightResolved(true);
   }, []);
 
+  // Auto-clear stale grow param when batch not found — rescues user from "0 items" trap
+  const hasClearedStaleGrowRef = useRef(false);
+  useEffect(() => {
+    if (highlightResolved && !highlightedBatch && growParam && !hasClearedStaleGrowRef.current) {
+      hasClearedStaleGrowRef.current = true;
+      router.replace("/garden?tab=active");
+    }
+    if (!growParam) hasClearedStaleGrowRef.current = false;
+  }, [highlightResolved, highlightedBatch, growParam, router]);
+
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "active" || tab === "plants") setViewMode(tab);
