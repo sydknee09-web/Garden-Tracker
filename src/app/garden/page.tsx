@@ -630,8 +630,8 @@ function GardenPageInner() {
             aria-modal="true"
             aria-labelledby="garden-fab-title"
           >
-            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add to garden</h2>
-            <p className="text-sm text-neutral-500 text-center mb-4">What would you like to add?</p>
+            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">{viewMode === "plants" ? "Add permanent plant" : "Add to garden"}</h2>
+            <p className="text-sm text-neutral-500 text-center mb-4">{viewMode === "plants" ? "Add trees, perennials, and other long-lived plants." : "What would you like to add?"}</p>
             <div className="space-y-3">
               <button type="button" onClick={() => { router.push("/vault/plant"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
@@ -639,7 +639,7 @@ function GardenPageInner() {
               </button>
               <button type="button" onClick={() => { setAddPlantDefaultType(viewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌱</span>
-                Add plant
+                {viewMode === "plants" ? "Add permanent plant" : "Add plant"}
               </button>
               <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else router.push("/journal"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
@@ -674,7 +674,9 @@ function GardenPageInner() {
               ? "Log for selected plants"
               : fabMenuOpen
                 ? "Close menu"
-                : "Add to garden"
+                : viewMode === "plants"
+                  ? "Add permanent plant"
+                  : "Add to garden"
           }
         >
           {viewMode === "active" && bulkModeActive && bulkSelectedCount > 0 ? (

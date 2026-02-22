@@ -296,9 +296,8 @@ export function MyPlantsView({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3">
             <p className="text-sm text-black/50">{filteredBySearch.length} plant{filteredBySearch.length !== 1 ? "s" : ""}</p>
-            <button type="button" onClick={() => onAddClick?.()} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add Plant</button>
           </div>
           <div className={`grid gap-2 ${gridDisplayStyle === "condensed" ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"}`}>
             {filteredBySearch.map((plant) => {
