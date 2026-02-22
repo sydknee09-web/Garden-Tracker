@@ -52,6 +52,7 @@ function VaultPlantPageInner() {
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
+  const fromGarden = searchParams.get("from") === "garden";
 
   const setUsePercentForPacket = useCallback((packetId: string, value: number) => {
     setUsePercentByPacketId((prev) => ({ ...prev, [packetId]: Math.max(0, Math.min(100, value)) }));
@@ -388,15 +389,16 @@ function VaultPlantPageInner() {
     }
     setError(null);
     setShowSeedlingCelebration(true);
+    const redirectUrl = fromGarden ? "/garden?tab=active" : "/vault";
     setTimeout(() => {
       setShowSeedlingCelebration(false);
       // Use hard navigation for reliable post-submit redirect (avoids PWA/client-router quirks)
-      window.location.href = "/vault";
+      window.location.href = redirectUrl;
     }, 800);
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, fromGarden]);
 
   if (!user) return null;
 
@@ -411,8 +413,8 @@ function VaultPlantPageInner() {
   return (
     <div className="px-6 pt-8 pb-40 max-w-2xl mx-auto">
       <div className="text-center mb-4">
-        <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
-          ← Back to Vault
+        <Link href={fromGarden ? "/garden?tab=active" : "/vault"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
+          ← {fromGarden ? "Back to Garden" : "Back to Vault"}
         </Link>
         <h1 className="text-xl font-semibold text-black mb-1">Planting</h1>
         <p className="text-sm text-black/60 mb-3">

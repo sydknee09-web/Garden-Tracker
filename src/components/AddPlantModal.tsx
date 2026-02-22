@@ -17,11 +17,14 @@ export function AddPlantModal({
   onSuccess,
   /** When set, pre-selects plant type and filters "Link to existing" by that type. */
   defaultPlantType = "seasonal",
+  /** When true, do not redirect to vault after add (e.g. when opened from Garden). */
+  stayInGarden = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
   defaultPlantType?: "permanent" | "seasonal";
+  stayInGarden?: boolean;
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -506,7 +509,7 @@ export function AddPlantModal({
                 type="button"
                 onClick={() => {
                   setEnrichmentFailed(false);
-                  if (createdProfileId) router.push(`/vault/${createdProfileId}`);
+                  if (createdProfileId && !stayInGarden) router.push(`/vault/${createdProfileId}`);
                   handleClose();
                 }}
                 className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700"
