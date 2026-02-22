@@ -31,6 +31,7 @@ export default function ShedDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const categoryFromUrl = searchParams.get("category");
   const backHref = categoryFromUrl ? `/vault?tab=shed&category=${categoryFromUrl}` : "/vault?tab=shed";
@@ -117,6 +118,9 @@ export default function ShedDetailPage() {
       if (existing) {
         await updateWithOfflineQueue("shopping_list", { is_purchased: false }, { id: (existing as { id: string }).id, user_id: user.id });
       }
+    } else {
+      setToastMessage("Added to shopping list");
+      setTimeout(() => setToastMessage(null), 2500);
     }
   }, [user?.id, supply?.id]);
 
@@ -132,7 +136,11 @@ export default function ShedDetailPage() {
       weather_snapshot: weather ?? undefined,
     });
     setUsedTodaySaving(false);
-    if (!error) fetchHistory();
+    if (!error) {
+      fetchHistory();
+      setToastMessage("Usage logged");
+      setTimeout(() => setToastMessage(null), 2500);
+    }
   }, [user?.id, supply?.id, supply?.name, fetchHistory]);
 
   if (loading || !supply) {
@@ -160,6 +168,11 @@ export default function ShedDetailPage() {
 
   return (
     <div className="px-6 pb-10">
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      )}
       <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
         ← Back to Shed
       </Link>

@@ -366,7 +366,7 @@ export default function SettingsProfilePage() {
 
   const fetchExportData = useCallback(async () => {
     if (!user?.id) return null;
-    const [profiles, packets, grows, journal, tasks, shopping, careScheds, settings] = await Promise.all([
+    const [profiles, packets, grows, journal, tasks, shopping, careScheds, settings, supplies] = await Promise.all([
       supabase.from("plant_profiles").select("*").eq("user_id", user.id).is("deleted_at", null),
       supabase.from("seed_packets").select("*").eq("user_id", user.id).is("deleted_at", null),
       supabase.from("grow_instances").select("*").eq("user_id", user.id).is("deleted_at", null),
@@ -375,6 +375,7 @@ export default function SettingsProfilePage() {
       supabase.from("shopping_list").select("*").eq("user_id", user.id),
       supabase.from("care_schedules").select("*").eq("user_id", user.id),
       supabase.from("user_settings").select("*").eq("user_id", user.id),
+      supabase.from("supply_profiles").select("*").eq("user_id", user.id).is("deleted_at", null),
     ]);
     return {
       exported_at: new Date().toISOString(),
@@ -386,10 +387,11 @@ export default function SettingsProfilePage() {
       shopping_list: shopping.data ?? [],
       care_schedules: careScheds.data ?? [],
       user_settings: settings.data ?? [],
+      supply_profiles: supplies.data ?? [],
     };
   }, [user?.id]);
 
-  const handleExportData = useCallback(async () => {
+  const handleExportJSON = useCallback(async () => {
     if (!user?.id) return;
     setExporting(true);
     try {
@@ -400,6 +402,59 @@ export default function SettingsProfilePage() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `garden-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }, [user?.id, fetchExportData]);
+
+  const handleExportCSV = useCallback(async () => {
+    if (!user?.id) return;
+    setExporting(true);
+    try {
+      const exportData = await fetchExportData();
+      if (!exportData) return;
+      const date = new Date().toISOString().slice(0, 10);
+      const headers = ["name", "variety", "status", "packet_count", "vendor", "sun", "spacing", "germination", "maturity", "tags", "source_url"];
+      const vendorByProfile = new Map<string, string>();
+      for (const p of exportData.seed_packets as { plant_profile_id?: string; vendor_name?: string | null }[]) {
+        const pid = p.plant_profile_id ?? "";
+        const v = (p.vendor_name ?? "").trim();
+        if (v) {
+          const cur = vendorByProfile.get(pid) ?? "";
+          vendorByProfile.set(pid, cur ? `${cur}, ${v}` : v);
+        }
+      }
+      const countByProfile = new Map<string, number>();
+      for (const p of exportData.seed_packets as { plant_profile_id?: string }[]) {
+        const pid = p.plant_profile_id ?? "";
+        countByProfile.set(pid, (countByProfile.get(pid) ?? 0) + 1);
+      }
+      const rows = (exportData.plant_profiles as { id?: string; name?: string | null; variety_name?: string | null; status?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; source_url?: string | null }[]).map((pr) => {
+        const count = countByProfile.get(pr.id ?? "") ?? 0;
+        const vendor = vendorByProfile.get(pr.id ?? "") ?? "";
+        const tags = Array.isArray(pr.tags) ? pr.tags.join("; ") : "";
+        return [
+          (pr.name ?? "").replace(/"/g, '""'),
+          (pr.variety_name ?? "").replace(/"/g, '""'),
+          (pr.status ?? "").replace(/"/g, '""'),
+          String(count),
+          vendor.replace(/"/g, '""'),
+          (pr.sun ?? "").replace(/"/g, '""'),
+          (pr.plant_spacing ?? "").replace(/"/g, '""'),
+          (pr.days_to_germination ?? "").replace(/"/g, '""'),
+          pr.harvest_days != null ? String(pr.harvest_days) : "",
+          tags.replace(/"/g, '""'),
+          (pr.source_url ?? "").replace(/"/g, '""'),
+        ];
+      });
+      const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vault-export-${date}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -662,13 +717,16 @@ export default function SettingsProfilePage() {
         <div className="space-y-3">
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">Back up my data</h3>
-            <p className="text-sm text-neutral-500 mb-3">Download or copy all your garden data for safekeeping.</p>
+            <p className="text-sm text-neutral-500 mb-3">Download or copy all your garden data for backups and migrations. Includes seeds, supplies, journal, tasks, and settings.</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={handleExportData} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-                {exporting ? "..." : "Download"}
+              <button type="button" onClick={handleExportJSON} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
+                {exporting ? "..." : "Download JSON"}
+              </button>
+              <button type="button" onClick={handleExportCSV} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                {exporting ? "..." : "Download CSV"}
               </button>
               <button type="button" onClick={handleCopyExport} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
-                {copySuccess ? "Copied!" : "Copy to Clipboard"}
+                {copySuccess ? "Copied!" : "Copy JSON"}
               </button>
             </div>
           </div>
@@ -698,6 +756,12 @@ export default function SettingsProfilePage() {
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm mt-2">
             <h3 className="text-base font-semibold text-neutral-800 mb-1">My Family</h3>
             <p className="text-sm text-neutral-500 mb-3">Share your garden with family members. Use the Personal / Family toggle in the header to switch views.</p>
+            {household && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 mb-4">
+                <p className="text-xs font-medium text-amber-800 mb-0.5">Conflict handling</p>
+                <p className="text-xs text-amber-700">When multiple people edit the same item (e.g. a plant profile), the most recent save wins. No merge or conflict resolution is applied. Avoid editing the same item at the same time to prevent overwriting each other&apos;s changes.</p>
+              </div>
+            )}
 
             {/* Your badge — edit your own shorthand (1–4 letters shown to family) */}
             <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3 mb-4">

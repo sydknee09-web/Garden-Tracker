@@ -1400,6 +1400,7 @@ function VaultPageInner() {
             tagFilters={tagFilters}
             onTagsLoaded={handleTagsLoaded}
             onOpenScanner={() => setScannerOpen(true)}
+            onAddFirst={() => setQuickAddOpen(true)}
             batchSelectMode={batchSelectMode}
             selectedVarietyIds={selectedVarietyIds}
             onToggleVarietySelection={toggleVarietySelection}

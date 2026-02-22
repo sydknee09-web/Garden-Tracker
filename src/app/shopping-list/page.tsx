@@ -82,9 +82,18 @@ export default function ShoppingListPage() {
         {loading ? (
           <p className="text-neutral-500">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="text-neutral-500">
-            No items. Add from Vault (🛒 when out of stock) or from Quick Add → &quot;Add to Shopping List&quot; for varieties you don&apos;t own yet.
-          </p>
+          <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
+            <p className="text-neutral-600 mb-2">No items on your shopping list yet.</p>
+            <p className="text-neutral-500 text-sm mb-4">
+              Add from Vault (🛒 when out of stock) or from Quick Add → &quot;Add to Shopping List&quot; for varieties you don&apos;t own yet.
+            </p>
+            <Link
+              href="/vault"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+            >
+              Go to Vault
+            </Link>
+          </div>
         ) : (
           <ul className="space-y-2">
             {items.map((item) => {

@@ -266,6 +266,8 @@ export function SeedVaultView({
   statusFilter?: StatusFilter;
   tagFilters?: TagFilter;
   onOpenScanner?: () => void;
+  /** When vault is empty, optional callback for "Add your first packet" CTA. */
+  onAddFirst?: () => void;
   onTagsLoaded?: (tags: string[]) => void;
   batchSelectMode?: boolean;
   selectedVarietyIds?: Set<string>;
@@ -1110,19 +1112,38 @@ export function SeedVaultView({
           </svg>
         </div>
         <p className="text-slate-600 font-medium mb-2">Your vault is empty</p>
-        <p className="text-sm text-slate-500">Tap the + button below to add a packet or scan one with your camera.</p>
+        <p className="text-sm text-slate-500 mb-4">Add a packet or scan one with your camera to get started.</p>
+        {onAddFirst && (
+          <button
+            type="button"
+            onClick={onAddFirst}
+            className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+          >
+            Add your first packet
+          </button>
+        )}
       </div>
     );
   }
 
   if (filteredSeeds.length === 0) {
+    const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || categoryFilter !== null);
     return (
       <div className="rounded-card-lg bg-white p-6 shadow-card border border-black/5 text-center max-w-md mx-auto">
-        <p className="text-slate-600">
-          {q || statusFilter || tagFilters.length > 0 || categoryFilter !== null
+        <p className="text-slate-600 mb-4">
+          {hasFilters
             ? "No seeds match your search or filters. Try changing filters or search."
-            : "No seeds yet. Tap + to add your first packet."}
+            : "No seeds yet. Add your first packet to get started."}
         </p>
+        {!hasFilters && onAddFirst && (
+          <button
+            type="button"
+            onClick={onAddFirst}
+            className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+          >
+            Add your first packet
+          </button>
+        )}
       </div>
     );
   }
