@@ -31,6 +31,9 @@ function GardenPageInner() {
     serialize: (v) => v,
     deserialize: (s) => (s === "active" || s === "plants" ? s : "active"),
   });
+  const tabParam = searchParams.get("tab");
+  const viewModeFromUrl = tabParam === "active" || tabParam === "plants" ? tabParam : null;
+  const effectiveViewMode = viewModeFromUrl ?? viewMode;
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
@@ -110,6 +113,14 @@ function GardenPageInner() {
     if (tab === "active") setRefetchTrigger((t) => t + 1);
   }, [searchParams, setViewMode]);
 
+  const setTab = useCallback(
+    (tab: "active" | "plants") => {
+      setViewMode(tab);
+      router.replace(tab === "active" ? "/garden?tab=active" : "/garden?tab=plants");
+    },
+    [setViewMode, router]
+  );
+
   const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
   const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
 
@@ -154,12 +165,12 @@ function GardenPageInner() {
   }, []);
 
   const handlePermanentPlantAdded = useCallback(() => {
-    if (viewMode === "active") {
-      setViewMode("plants");
+    if (effectiveViewMode === "active") {
+      setTab("plants");
       setAddedToMyPlantsToast(true);
       setTimeout(() => setAddedToMyPlantsToast(false), 2500);
     }
-  }, [viewMode]);
+  }, [effectiveViewMode, setTab]);
 
   const confirmEndCrop = useCallback(async () => {
     if (!user?.id || !endCropConfirmBatch) return;
@@ -302,14 +313,18 @@ function GardenPageInner() {
             <button
               type="button"
               role="tab"
-              aria-selected={viewMode === "active"}
+              aria-selected={effectiveViewMode === "active"}
               onClick={() => {
-                setViewMode("active");
                 const grow = searchParams.get("grow");
-                router.replace(grow ? `/garden?tab=active&grow=${grow}` : "/garden?tab=active");
+                if (grow) {
+                  setViewMode("active");
+                  router.replace(`/garden?tab=active&grow=${grow}`);
+                } else {
+                  setTab("active");
+                }
               }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+                effectiveViewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
               Active Garden
@@ -317,13 +332,10 @@ function GardenPageInner() {
             <button
               type="button"
               role="tab"
-              aria-selected={viewMode === "plants"}
-              onClick={() => {
-                setViewMode("plants");
-                router.replace("/garden?tab=plants");
-              }}
+              aria-selected={effectiveViewMode === "plants"}
+              onClick={() => setTab("plants")}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+                effectiveViewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
               }`}
             >
               My Plants
@@ -331,7 +343,7 @@ function GardenPageInner() {
           </div>
         </div>
 
-        {((viewMode === "active" && activeHasItems) || (viewMode === "plants" && plantsHasItems)) && (
+        {((effectiveViewMode === "active" && activeHasItems) || (effectiveViewMode === "plants" && plantsHasItems)) && (
           <>
             <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
@@ -341,11 +353,11 @@ function GardenPageInner() {
                 </svg>
                 <input
                   type="search"
-                  value={viewMode === "active" ? activeSearchQuery : plantsSearchQuery}
-                  onChange={(e) => (viewMode === "active" ? setActiveSearchQuery(e.target.value) : setPlantsSearchQuery(e.target.value))}
-                  placeholder={viewMode === "active" ? "Search your garden…" : "Search plants…"}
+                  value={effectiveViewMode === "active" ? activeSearchQuery : plantsSearchQuery}
+                  onChange={(e) => (effectiveViewMode === "active" ? setActiveSearchQuery(e.target.value) : setPlantsSearchQuery(e.target.value))}
+                  placeholder={effectiveViewMode === "active" ? "Search your garden…" : "Search plants…"}
                   className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
-                  aria-label={viewMode === "active" ? "Search batches" : "Search plants"}
+                  aria-label={effectiveViewMode === "active" ? "Search batches" : "Search plants"}
                 />
               </div>
             </div>
@@ -358,13 +370,13 @@ function GardenPageInner() {
                 aria-label="Filter by plant type"
               >
                 Filter
-                {(viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0) ? (
+                {(effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0) ? (
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                    {viewMode === "active" ? activeFilterCount : plantsFilterCount}
+                    {effectiveViewMode === "active" ? activeFilterCount : plantsFilterCount}
                   </span>
                 ) : null}
               </button>
-              {((viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0)) && (
+              {((effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0)) && (
                 <button
                   type="button"
                   onClick={clearAllFilters}
@@ -374,7 +386,7 @@ function GardenPageInner() {
                   Clear filters
                 </button>
               )}
-              {viewMode === "active" && bulkModeActive && (
+              {effectiveViewMode === "active" && bulkModeActive && (
                 <button
                   type="button"
                   onClick={() => activeGardenRef.current?.exitBulkMode()}
@@ -383,7 +395,7 @@ function GardenPageInner() {
                   Cancel
                 </button>
               )}
-              {viewMode === "plants" && selectedPlantProfileIds.size > 0 && (
+              {effectiveViewMode === "plants" && selectedPlantProfileIds.size > 0 && (
                 <button
                   type="button"
                   onClick={() => setSelectedPlantProfileIds(new Set())}
@@ -393,20 +405,20 @@ function GardenPageInner() {
                 </button>
               )}
               <span className="text-sm text-black/50">
-                {viewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(viewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
+                {effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
               </span>
               <button
                 type="button"
                 onClick={() =>
-                  viewMode === "active"
+                  effectiveViewMode === "active"
                     ? setActiveDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
                     : setPlantsDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
                 }
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                title={viewMode === "active" ? (activeDisplayStyle === "grid" ? "List view" : "Grid view") : plantsDisplayStyle === "grid" ? "List view" : "Grid view"}
-                aria-label={viewMode === "active" ? (activeDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view") : plantsDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
+                title={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "List view" : "Grid view") : plantsDisplayStyle === "grid" ? "List view" : "Grid view"}
+                aria-label={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view") : plantsDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
               >
-                {(viewMode === "active" ? activeDisplayStyle : plantsDisplayStyle) === "grid" ? (
+                {(effectiveViewMode === "active" ? activeDisplayStyle : plantsDisplayStyle) === "grid" ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
@@ -428,7 +440,7 @@ function GardenPageInner() {
               <header className="flex items-center justify-between gap-2 p-4 border-b border-black/10">
                 <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
                 <div className="flex items-center gap-1">
-                  {((viewMode === "active" && activeFilterCount > 0) || (viewMode === "plants" && plantsFilterCount > 0)) && (
+                  {((effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0)) && (
                     <button
                       type="button"
                       onClick={clearAllFilters}
@@ -456,7 +468,7 @@ function GardenPageInner() {
                   </button>
                   {refineBySection === "sort" && (
                     <div className="px-4 pb-3 pt-0 space-y-0.5">
-                      {viewMode === "active" ? (
+                      {effectiveViewMode === "active" ? (
                         <>
                           {(["name", "sown_date", "harvest_date"] as const).map((opt) => {
                             const selected = activeSortBy === opt;
@@ -516,18 +528,18 @@ function GardenPageInner() {
                     <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
                       <button
                         type="button"
-                        onClick={() => (viewMode === "active" ? activeFilters.setCategory(null) : plantsFilters.setCategory(null))}
+                        onClick={() => (effectiveViewMode === "active" ? activeFilters.setCategory(null) : plantsFilters.setCategory(null))}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm bg-emerald/10 text-emerald-800 font-medium"
                       >
                         All
                       </button>
-                      {(viewMode === "active" ? activeCategoryChips : plantsCategoryChips).map(({ type, count }) => {
-                        const selected = viewMode === "active" ? activeFilters.filters.category === type : plantsFilters.filters.category === type;
+                      {(effectiveViewMode === "active" ? activeCategoryChips : plantsCategoryChips).map(({ type, count }) => {
+                        const selected = effectiveViewMode === "active" ? activeFilters.filters.category === type : plantsFilters.filters.category === type;
                         return (
                           <button
                             key={type}
                             type="button"
-                            onClick={() => (viewMode === "active" ? activeFilters.setCategory(type) : plantsFilters.setCategory(type))}
+                            onClick={() => (effectiveViewMode === "active" ? activeFilters.setCategory(type) : plantsFilters.setCategory(type))}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                           >
                             {type} ({count})
@@ -538,8 +550,8 @@ function GardenPageInner() {
                   )}
                 </div>
                 {(() => {
-                  const chips = viewMode === "active" ? activeRefineChips : plantsRefineChips;
-                  const f = viewMode === "active" ? activeFilters : plantsFilters;
+                  const chips = effectiveViewMode === "active" ? activeRefineChips : plantsRefineChips;
+                  const f = effectiveViewMode === "active" ? activeFilters : plantsFilters;
                   const setVariety = f.setVariety;
                   const setSun = f.setSun;
                   const setSpacing = f.setSpacing;
@@ -666,14 +678,14 @@ function GardenPageInner() {
                   onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
                   className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
                 >
-                  Show results ({viewMode === "active" ? activeFilteredCount : plantsFilteredCount})
+                  Show results ({effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount})
                 </button>
               </footer>
             </div>
           </>
         )}
 
-        {viewMode === "active" && (
+        {effectiveViewMode === "active" && (
           <div className="pt-2">
             <ActiveGardenView
               ref={activeGardenRef}
@@ -707,7 +719,7 @@ function GardenPageInner() {
           </div>
         )}
 
-        {viewMode === "plants" && (
+        {effectiveViewMode === "plants" && (
           <div className="pt-2">
             <MyPlantsView
               refetchTrigger={refetchTrigger}
@@ -853,24 +865,24 @@ function GardenPageInner() {
             aria-modal="true"
             aria-labelledby="garden-fab-title"
           >
-            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">{viewMode === "plants" ? "Add permanent plant" : "Add to garden"}</h2>
-            <p className="text-sm text-neutral-500 text-center mb-4">{viewMode === "plants" ? "Add trees, perennials, and other long-lived plants." : "What would you like to add?"}</p>
+            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">{effectiveViewMode === "plants" ? "Add permanent plant" : "Add to garden"}</h2>
+            <p className="text-sm text-neutral-500 text-center mb-4">{effectiveViewMode === "plants" ? "Add trees, perennials, and other long-lived plants." : "What would you like to add?"}</p>
             <div className="space-y-3">
-              {viewMode === "active" && (
+              {effectiveViewMode === "active" && (
                 <button type="button" onClick={() => { router.push("/vault/plant?from=garden"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                   <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
                   Add from Vault
                 </button>
               )}
-              <button type="button" onClick={() => { setAddPlantDefaultType(viewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+              <button type="button" onClick={() => { setAddPlantDefaultType(effectiveViewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌱</span>
-                {viewMode === "plants" ? "Add permanent plant" : "Add plant"}
+                {effectiveViewMode === "plants" ? "Add permanent plant" : "Add plant"}
               </button>
-              <button type="button" onClick={() => { if (viewMode === "active") setOpenBulkJournalForActive(true); else { setQuickAddJournalOpen(true); } setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
+              <button type="button" onClick={() => { if (effectiveViewMode === "active") setOpenBulkJournalForActive(true); else { setQuickAddJournalOpen(true); } setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
                 Add journal entry
               </button>
-              {viewMode === "plants" && (
+              {effectiveViewMode === "plants" && (
                 <button type="button" onClick={() => { setPurchaseOrderOpen(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
                   <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
                   Scan purchase order
@@ -886,11 +898,11 @@ function GardenPageInner() {
         </>
       )}
 
-      {!(viewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && (
+      {!(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && (
         <button
           type="button"
           onClick={() => {
-            if (viewMode === "active" && bulkModeActive && bulkSelectedCount > 0) {
+            if (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) {
               setOpenBulkLogForActive(true);
             } else {
               setFabMenuOpen((o) => !o);
@@ -901,16 +913,16 @@ function GardenPageInner() {
           }`}
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
           aria-label={
-            viewMode === "active" && bulkModeActive && bulkSelectedCount > 0
+            effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0
               ? "Log for selected plants"
               : fabMenuOpen
                 ? "Close menu"
-                : viewMode === "plants"
+                : effectiveViewMode === "plants"
                   ? "Add permanent plant"
                   : "Add to garden"
           }
         >
-          {viewMode === "active" && bulkModeActive && bulkSelectedCount > 0 ? (
+          {effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0 ? (
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />

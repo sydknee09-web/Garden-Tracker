@@ -1406,10 +1406,10 @@ export default function VaultSeedPage() {
               )}
             </div>
           </div>
-          {canEdit && (
+          {isOwnProfile && (
             <div className="flex items-center gap-1 shrink-0">
-              <button type="button" onClick={runFillBlanks} disabled={fillBlanksRunning} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={fillBlanksRunning ? "Filling metadata…" : "Fill empty fields (metadata only, no photos)"} title="Fill empty fields (metadata only, no photos)">{fillBlanksRunning ? <span className="text-xs">…</span> : <SparklesIcon />}</button>
               <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
+              <button type="button" onClick={runFillBlanks} disabled={fillBlanksRunning} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={fillBlanksRunning ? "Filling metadata…" : "Fill empty fields (metadata only, no photos)"} title="Fill empty fields (metadata only, no photos)">{fillBlanksRunning ? <span className="text-xs">…</span> : <SparklesIcon />}</button>
             </div>
           )}
         </div>

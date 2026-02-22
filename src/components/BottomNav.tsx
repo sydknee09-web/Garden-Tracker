@@ -69,7 +69,7 @@ function JournalIcon({ className }: { className?: string }) {
 const navItems: { href: string; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
   { href: "/", label: "Home", Icon: HomeIcon },
   { href: "/vault", label: "Vault", Icon: VaultIcon },
-  { href: "/garden", label: "Garden", Icon: LeafIcon },
+  { href: "/garden?tab=active", label: "Garden", Icon: LeafIcon },
   { href: "/calendar", label: "Calendar", Icon: CalendarIcon },
   { href: "/journal", label: "Journal", Icon: JournalIcon },
 ];
@@ -88,7 +88,8 @@ export function BottomNav() {
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
         {navItems.map((item) => {
           const { href, label, Icon } = item;
-          const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const pathForMatch = href.includes("?") ? href.split("?")[0] : href;
+          const isActive = pathname === pathForMatch || (pathForMatch !== "/" && pathname.startsWith(pathForMatch + "/"));
           return (
             <Link
               key={href}
