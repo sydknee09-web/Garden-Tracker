@@ -1414,30 +1414,12 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Quick Stats — tap cards to open their tabs */}
-        <div className={`grid gap-3 mb-4 ${isPermanent ? "grid-cols-2" : "grid-cols-3"}`}>
-          {!isPermanent && (
-            <button type="button" onClick={() => setActiveTab("packets")} aria-label="Open Packets tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
-              <p className="text-xs text-neutral-500 font-medium">Packets</p>
-              <p className="text-lg font-bold text-neutral-900">{packetCount}</p>
-            </button>
-          )}
-          <button type="button" onClick={() => setActiveTab("plantings")} aria-label="Open Plantings tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
-            <p className="text-xs text-neutral-500 font-medium">Plantings</p>
-            <p className="text-lg font-bold text-neutral-900">{plantingsCount}</p>
-          </button>
-          <button type="button" onClick={() => setActiveTab("journal")} aria-label="Open Journal tab" className="bg-white rounded-xl border border-neutral-200 p-3 text-center min-h-[44px] cursor-pointer hover:bg-neutral-50 active:scale-[0.98] transition-colors w-full">
-            <p className="text-xs text-neutral-500 font-medium">Yield</p>
-            <p className="text-lg font-bold text-neutral-900 truncate">{yieldLabel}</p>
-          </button>
-        </div>
-
-        {/* Tabs — grid on mobile so all fit without scroll; flex on larger screens */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:border-b sm:border-neutral-200 gap-2 sm:gap-0 mb-4 sm:overflow-visible">
+        {/* Tabs — condensed so all fit on one row on mobile without horizontal scroll */}
+        <div className="flex flex-wrap border-b border-neutral-200 gap-0 mb-4 overflow-visible">
           {(isPermanent ? (["about","plantings","care","journal"] as const) : (["about","packets","plantings","journal"] as const)).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
-              className={`px-3 py-2.5 text-xs sm:text-sm font-medium rounded-lg sm:rounded-none sm:border-b-2 sm:-mb-px transition-colors text-center min-h-[44px] ${activeTab === tab ? "bg-emerald-50 text-emerald-700 sm:bg-transparent sm:border-emerald-600 border border-emerald-200 sm:border-transparent" : "bg-neutral-50 text-neutral-500 hover:text-neutral-800 sm:bg-transparent sm:border-transparent"}`}>
-              {tab === "about" ? "About" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plantings (${plantingsCount})` : tab === "care" ? `Care (${careSchedules.length})` : `Journal (${journalEntries.length})`}
+              className={`flex-1 min-w-0 min-h-[44px] px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
+              {tab === "about" ? "About" : tab === "packets" ? `Pkts (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : tab === "care" ? `Care (${careSchedules.length})` : `Journal (${journalEntries.length})`}
             </button>
           ))}
         </div>
