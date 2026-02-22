@@ -7,7 +7,6 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { OwnerBadge } from "@/components/OwnerBadge";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
@@ -18,7 +17,6 @@ import { StarRating } from "@/components/StarRating";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
-import { AddPlantModal } from "@/components/AddPlantModal";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
@@ -140,7 +138,6 @@ const STATUS_COLORS: Record<string, string> = {
 // Icons
 // ---------------------------------------------------------------------------
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
-function SparklesIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>; }
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
@@ -156,7 +153,7 @@ export default function VaultSeedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
-  const { canEditUser, getShorthandForUser, viewMode: householdViewMode } = useHousehold();
+  const { canEditUser } = useHousehold();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -184,6 +181,10 @@ export default function VaultSeedPage() {
   const [editGrowSownDate, setEditGrowSownDate] = useState("");
   const [editGrowSaving, setEditGrowSaving] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [addPlantDate, setAddPlantDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [addPlantLocation, setAddPlantLocation] = useState("");
+  const [addPlantSaving, setAddPlantSaving] = useState(false);
+  const [addPlantError, setAddPlantError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -214,7 +215,6 @@ export default function VaultSeedPage() {
   const [stockPhotoCurrentFailed, setStockPhotoCurrentFailed] = useState(false);
   const [savingWebHero, setSavingWebHero] = useState(false);
   const [saveHeroError, setSaveHeroError] = useState<string | null>(null);
-  const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const searchWebAbortRef = useRef<AbortController | null>(null);
   const photoGalleryLoadedRef = useRef(false);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
@@ -251,8 +251,7 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
-  const handleAddPlantClose = useCallback(() => setShowAddPlantModal(false), []);
-  useModalBackClose(showAddPlantModal, handleAddPlantClose);
+  useModalBackClose(showAddPlantModal, () => { setShowAddPlantModal(false); setAddPlantError(null); });
   useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
   useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
@@ -448,6 +447,31 @@ export default function VaultSeedPage() {
     if (error) return;
     loadProfile();
   }, [user?.id, deleteBatchTarget, loadProfile]);
+
+  const handleAddPlant = useCallback(async () => {
+    if (!user?.id || !id) return;
+    setAddPlantSaving(true);
+    setAddPlantError(null);
+    const { error } = await supabase.from("grow_instances").insert({
+      user_id: user.id,
+      plant_profile_id: id,
+      sown_date: addPlantDate,
+      expected_harvest_date: null,
+      status: "growing",
+      seed_packet_id: null,
+      location: addPlantLocation.trim() || null,
+      plant_count: 1,
+    });
+    setAddPlantSaving(false);
+    if (error) {
+      setAddPlantError("Failed to add plant. Try again.");
+      return;
+    }
+    setShowAddPlantModal(false);
+    setAddPlantDate(new Date().toISOString().slice(0, 10));
+    setAddPlantLocation("");
+    loadProfile();
+  }, [user?.id, id, addPlantDate, addPlantLocation, loadProfile]);
 
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);
@@ -974,23 +998,6 @@ export default function VaultSeedPage() {
     await loadProfile();
   }, [user?.id, profile, id, editForm, loadProfile]);
 
-  const runFillBlanks = useCallback(async () => {
-    if (!id || !session?.access_token || fillBlanksRunning) return;
-    setFillBlanksRunning(true);
-    try {
-      const res = await fetch("/api/seed/fill-blanks-for-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId: id, useGemini: true, skipHero: true }),
-      });
-      if (res.ok) {
-        await loadProfile();
-      }
-    } finally {
-      setFillBlanksRunning(false);
-    }
-  }, [id, session?.access_token, fillBlanksRunning, loadProfile]);
-
   const handleDeleteProfile = useCallback(async () => {
     if (!user?.id || !id || !profile) return;
     const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
@@ -1401,15 +1408,11 @@ export default function VaultSeedPage() {
               {isPlantableNow && (
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Plant now</span>
               )}
-              {householdViewMode === "family" && !isOwnProfile && profileOwnerId && (
-                <OwnerBadge shorthand={getShorthandForUser(profileOwnerId)} canEdit={canEditUser(profileOwnerId)} size="xs" />
-              )}
             </div>
           </div>
           {isOwnProfile && (
             <div className="flex items-center gap-1 shrink-0">
               <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
-              <button type="button" onClick={runFillBlanks} disabled={fillBlanksRunning} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={fillBlanksRunning ? "Filling metadata…" : "Fill empty fields (metadata only, no photos)"} title="Fill empty fields (metadata only, no photos)">{fillBlanksRunning ? <span className="text-xs">…</span> : <SparklesIcon />}</button>
             </div>
           )}
         </div>
@@ -1776,7 +1779,6 @@ export default function VaultSeedPage() {
                     const pktImageUrls = getPacketImageUrls(pkt, extraImgs);
                     const pktImageUrl = pktImageUrls[0] ?? null;
                     const isArchived = (pkt.qty_status ?? 0) <= 0;
-                    const isOldPacket = pkt.purchase_date && (Date.now() - new Date(pkt.purchase_date).getTime()) > 730 * 24 * 60 * 60 * 1000; // >2 years
                     return (
                       <li key={pkt.id} className={`p-4 ${isArchived ? "bg-neutral-50 text-neutral-500" : ""}`}>
                         {/* Row 1: image | vendor+stars+chevron */}
@@ -1830,9 +1832,6 @@ export default function VaultSeedPage() {
                         {/* Row 2: date + qty controls */}
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
                           <input type="date" aria-label="Purchase date" value={pkt.purchase_date ? toDateInputValue(pkt.purchase_date) : ""} onChange={(e) => updatePacketPurchaseDate(pkt.id, e.target.value)} className="w-[8.5rem] px-2 py-1 text-sm rounded border border-neutral-300 focus:ring-emerald-500" disabled={!canEdit} />
-                          {isOldPacket && !isArchived && (
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800" title="Seeds older than 2 years may have reduced germination">Low germination</span>
-                          )}
                           <PacketQtyOptions
                             value={pkt.qty_status}
                             onChange={(v) => updatePacketQty(pkt.id, v)}
@@ -1991,7 +1990,7 @@ export default function VaultSeedPage() {
                 {isPermanent && canEdit && (
                   <button
                     type="button"
-                    onClick={() => setShowAddPlantModal(true)}
+                    onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
                     className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     aria-label="Add plant"
                   >
@@ -2018,13 +2017,6 @@ export default function VaultSeedPage() {
                   const giCanEdit = canEditUser((gi as { user_id?: string }).user_id ?? profileOwnerId);
                   const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
                   const plantLabel = isPermanent ? (gi.location?.trim() || `Plant ${giIdx + 1}`) : null;
-                  const sown = new Date(gi.sown_date).getTime();
-                  const rawExpected = gi.expected_harvest_date ? new Date(gi.expected_harvest_date).getTime() : (profile as PlantProfile)?.harvest_days ? sown + (profile as PlantProfile).harvest_days! * 86400000 : null;
-                  const now = Date.now();
-                  const daysSinceSown = Math.floor((now - sown) / 86400000);
-                  const daysTotal = rawExpected ? Math.max(1, (rawExpected - sown) / 86400000) : null;
-                  const progress = daysTotal ? Math.min(1, Math.max(0, (now - sown) / 86400000 / daysTotal)) : null;
-                  const isReadyToPick = isActive && !isPermanent && progress != null && progress >= 0.8;
                   const cardContent = (
                     <>
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -2032,16 +2024,10 @@ export default function VaultSeedPage() {
                           {isPermanent && plantLabel && <span className="text-sm font-medium text-neutral-900">{plantLabel}</span>}
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>{gi.status ?? "unknown"}</span>
                           {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
-                          {isReadyToPick && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Ready to pick</span>}
                           {!isPermanent && gi.location && <span className="text-xs text-neutral-500">{gi.location}</span>}
                         </div>
-                        <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}{isActive && daysSinceSown >= 0 ? ` · ${daysSinceSown}d` : ""}</span>
+                        <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
                       </div>
-                      {isActive && progress != null && (
-                        <div className="mb-2 h-1.5 rounded-full bg-black/10 overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress * 100}%` }} aria-hidden />
-                        </div>
-                      )}
                       <div className="text-sm text-neutral-700 space-y-1">
                         {(gi as GrowInstance).seeds_sown != null && <span className="text-xs text-neutral-600">{(gi as GrowInstance).seeds_sown} sown</span>}
                         {(gi as GrowInstance).seeds_sprouted != null && (gi as GrowInstance).seeds_sown != null && (
@@ -2125,7 +2111,7 @@ export default function VaultSeedPage() {
                     {isPermanent ? (
                       <button
                         type="button"
-                        onClick={() => setShowAddPlantModal(true)}
+                        onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
                         className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         aria-label="Add plant"
                       >
@@ -2297,16 +2283,43 @@ export default function VaultSeedPage() {
       )}
 
       {/* Add Plant modal (permanent profiles) */}
-      <AddPlantModal
-        open={showAddPlantModal}
-        onClose={handleAddPlantClose}
-        onSuccess={loadProfile}
-        profileId={id}
-        profileDisplayName={displayName}
-        defaultPlantType="permanent"
-        hidePlantTypeToggle
-        stayInGarden
-      />
+      {showAddPlantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
+          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
+            <h2 id="add-plant-title" className="text-lg font-bold text-neutral-900 mb-4">Add plant</h2>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddPlant(); }} className="space-y-4">
+              <div>
+                <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
+                <input
+                  id="add-plant-date"
+                  type="date"
+                  value={addPlantDate}
+                  onChange={(e) => setAddPlantDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Date planted"
+                />
+              </div>
+              <div>
+                <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
+                <input
+                  id="add-plant-location"
+                  type="text"
+                  value={addPlantLocation}
+                  onChange={(e) => setAddPlantLocation(e.target.value)}
+                  placeholder="e.g. North fence, Backyard"
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Location"
+                />
+              </div>
+              {addPlantError && <p className="text-sm text-red-600" role="alert">{addPlantError}</p>}
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => { setShowAddPlantModal(false); setAddPlantError(null); }} disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPlantSaving ? "Adding…" : "Add plant"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* BatchLogSheet for Plantings tab */}
       <BatchLogSheet
@@ -2344,9 +2357,6 @@ export default function VaultSeedPage() {
                 { value: "season_ended", label: "Season Ended" },
                 { value: "harvested_all", label: "Harvested All" },
                 { value: "plant_died", label: "Plant Died" },
-                { value: "pests", label: "Pests" },
-                { value: "weather", label: "Weather" },
-                { value: "forgot_to_water", label: "Forgot to Water" },
               ].map((opt) => (
                 <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="end-reason" value={opt.value} checked={endReason === opt.value} onChange={() => setEndReason(opt.value)} className="text-emerald-600 focus:ring-emerald-500" />

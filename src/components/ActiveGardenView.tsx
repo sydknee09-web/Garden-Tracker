@@ -196,11 +196,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     if (!highlightGrowId || !highlightBatchRef.current) return;
     const el = highlightBatchRef.current;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Clear the grow param so URL stays clean; always preserve tab=active since we're in Active Garden
+    // Clear the grow param so URL stays clean
     const params = new URLSearchParams(searchParams.toString());
     params.delete("grow");
     const qs = params.toString();
-    router.replace(qs ? `/garden?${qs}` : "/garden?tab=active");
+    router.replace(qs ? `/garden?${qs}` : "/garden");
   }, [highlightGrowId, router, searchParams, loading]);
 
   const load = useCallback(async () => {
@@ -509,20 +509,19 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }, [user?.id, bulkSelected, bulkNote, growing]);
 
   // Bulk quick actions (water / fertilize / spray on all selected)
-  const handleBulkQuickTap = useCallback(async (action: "water" | "fertilize" | "spray", customNote?: string) => {
+  const handleBulkQuickTap = useCallback(async (action: "water" | "fertilize" | "spray") => {
     if (!user?.id || bulkSelected.size === 0) return;
     setBulkSaving(true);
     try {
       const weather = await fetchWeatherSnapshot();
       const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-      const noteText = customNote?.trim() || notes[action];
       const entries = Array.from(bulkSelected).map((growId) => {
         const batch = growing.find((b) => b.id === growId);
         return {
           user_id: user.id,
           plant_profile_id: batch?.plant_profile_id ?? null,
           grow_instance_id: growId,
-          note: noteText,
+          note: notes[action],
           entry_type: "quick" as const,
           weather_snapshot: weather ?? undefined,
         };
@@ -665,9 +664,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                 { value: "season_ended", label: "Season Ended" },
                 { value: "harvested_all", label: "Harvested All" },
                 { value: "plant_died", label: "Plant Died" },
-                { value: "pests", label: "Pests" },
-                { value: "weather", label: "Weather" },
-                { value: "forgot_to_water", label: "Forgot to Water" },
               ].map((opt) => (
                 <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="end-reason" value={opt.value} checked={endReason === opt.value} onChange={() => setEndReason(opt.value)} className="text-emerald-600 focus:ring-emerald-500" />
@@ -702,7 +698,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         onEndBatch={(b) => { setEndBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onDeleteBatch={(b) => { setDeleteBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onQuickCare={(batch, action) => { handleQuickTap(batch as GrowingBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onBulkQuickCare={(batches, action, note) => { handleBulkQuickTap(action, note); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onBulkQuickCare={(batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}
       />
 
       {/* Delete Batch Confirmation */}
@@ -802,10 +798,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
           <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {
               const thumbUrl = getBatchImageUrl(batch);
-              const sown = new Date(batch.sown_date).getTime();
-              const rawExpected = batch.expected_harvest_date ? new Date(batch.expected_harvest_date).getTime() : batch.harvest_days ? sown + batch.harvest_days * 86400000 : null;
-              const progress = rawExpected ? Math.min(1, Math.max(0, (Date.now() - sown) / (rawExpected - sown))) : null;
-              const isReadyToPick = progress != null && progress >= 0.8;
               return (
                 <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border border-black/5 shadow-card ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500" : ""}`}>
                   <Link
@@ -860,9 +852,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         )}
                         {batch.planting_method_badge && (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
-                        )}
-                        {isReadyToPick && !bulkMode && (
-                          <span className="absolute bottom-1 left-1 right-1 text-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-100/90 text-amber-800">Ready to pick</span>
                         )}
                         {viewMode === "family" && batch.user_id && (
                           <span className="absolute top-0.5 right-0.5">
