@@ -81,8 +81,6 @@ export function ActiveGardenView({
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
   onBulkSelectionChange,
-  openBulkLogRequest = false,
-  onBulkLogRequestHandled,
   onBulkModeChange,
 }: {
   refetchTrigger: number;
@@ -114,9 +112,6 @@ export function ActiveGardenView({
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
   onBulkSelectionChange?: (count: number) => void;
-  /** When true, open BatchLogSheet for selected batches (from FAB journal icon). */
-  openBulkLogRequest?: boolean;
-  onBulkLogRequestHandled?: () => void;
   /** Called when bulk mode changes (true = in bulk mode, false = exited). */
   onBulkModeChange?: (inBulkMode: boolean) => void;
 }) {
@@ -147,6 +142,10 @@ export function ActiveGardenView({
   // Delete batch confirmation
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<GrowingBatch | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
+
+  // Bulk delete confirmation
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
 
   // BatchLogSheet (single or bulk)
   const [batchLogOpen, setBatchLogOpen] = useState(false);
@@ -392,14 +391,6 @@ export function ActiveGardenView({
     onBulkSelectionChange?.(bulkSelected.size);
   }, [bulkSelected.size, onBulkSelectionChange]);
 
-  useEffect(() => {
-    if (openBulkLogRequest && bulkSelected.size > 0) {
-      const selected = growing.filter((b) => bulkSelected.has(b.id));
-      setBatchLogBatches(selected.map(toBatchLogBatch));
-      setBatchLogOpen(true);
-      onBulkLogRequestHandled?.();
-    }
-  }, [openBulkLogRequest, bulkSelected, growing, onBulkLogRequestHandled]);
 
   // Quick-tap handler
   const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
@@ -548,6 +539,35 @@ export function ActiveGardenView({
     load();
   }, [user?.id, deleteBatchTarget, load]);
 
+  const handleBulkDelete = useCallback(async () => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    setBulkDeleteSaving(true);
+    const now = new Date().toISOString();
+    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
+    let hadError = false;
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      await supabase.from("journal_entries").update({ deleted_at: now }).eq("grow_instance_id", batch.id);
+      await softDeleteTasksForGrowInstance(batch.id, batchUserId);
+      const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batch.id).eq("user_id", batchUserId);
+      if (error) hadError = true;
+    }
+    setBulkDeleteSaving(false);
+    setBulkDeleteConfirmOpen(false);
+    setBulkSelected(new Set());
+    setBulkMode(false);
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+    if (hadError) {
+      setQuickToast("Some deletions failed — try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      setQuickToast(`Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`);
+      setTimeout(() => setQuickToast(null), 2000);
+    }
+    load();
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }, []);
@@ -630,7 +650,7 @@ export function ActiveGardenView({
         </div>
       )}
 
-      {/* Bulk mode: Cancel exits; Log opens BatchLogSheet; FAB also becomes journal icon (garden page). Tap cards to select. */}
+      {/* Bulk mode: Cancel exits; Delete removes grow instances and related data. Tap cards to select. */}
       {bulkMode && (
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <button
@@ -645,23 +665,51 @@ export function ActiveGardenView({
               <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
               <button
                 type="button"
-                onClick={() => {
-                  const selected = growing.filter((b) => bulkSelected.has(b.id));
-                  setBatchLogBatches(selected.map(toBatchLogBatch));
-                  setBatchLogOpen(true);
-                  onBulkLogRequestHandled?.();
-                }}
-                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-                aria-label="Log for selected plants"
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+                aria-label="Delete selected plants"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
                 </svg>
-                Log
+                Delete
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      {bulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-delete-title">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+            <h2 id="bulk-delete-title" className="text-lg font-semibold text-black mb-2">Delete {bulkSelected.size} plant{bulkSelected.size !== 1 ? "s" : ""}?</h2>
+            <p className="text-sm text-black/70 mb-4">
+              All related data (journal entries, tasks) will be removed. If you want to preserve history, use End Crop instead to archive.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteConfirmOpen(false)}
+                disabled={bulkDeleteSaving}
+                className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteSaving}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
+              >
+                {bulkDeleteSaving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
