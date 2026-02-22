@@ -302,8 +302,7 @@ export default function VaultSeedPage() {
       const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
 
       // Batch 2: Fetch packets, grows, journals, care, journal photos in parallel
-      // grow_instances: no user_id filter — RLS returns rows from profile owner + household.
-      // Ensures permanent plants show in Plants tab regardless of view mode.
+      // grow_instances: fetch by plant_profile_id only; RLS allows own + household rows.
       const [packetsRes, growsRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
@@ -317,6 +316,35 @@ export default function VaultSeedPage() {
       setPackets(packetRows);
 
       let allGrows = (growsRes.data ?? []) as GrowInstance[];
+      // Fallback for permanent: find grows via journal_entries (handles orphaned plant_profile_id)
+      if (allGrows.length === 0 && isPermanentProfile) {
+        const { data: journalsWithGrow } = await supabase
+          .from("journal_entries")
+          .select("grow_instance_id")
+          .eq("plant_profile_id", id)
+          .not("grow_instance_id", "is", null)
+          .is("deleted_at", null);
+        const growIds = [...new Set((journalsWithGrow ?? []).map((j: { grow_instance_id: string }) => j.grow_instance_id).filter(Boolean))];
+        if (growIds.length > 0) {
+          const { data: growsById } = await supabase
+            .from("grow_instances")
+            .select("*")
+            .in("id", growIds)
+            .is("deleted_at", null)
+            .order("sown_date", { ascending: false });
+          if (growsById?.length) {
+            allGrows = growsById as GrowInstance[];
+            // Repair: set plant_profile_id on any that are missing
+            const toRepair = allGrows.filter((g) => !g.plant_profile_id || g.plant_profile_id !== id);
+            if (toRepair.length > 0 && ownerIdFromData === user.id) {
+              await supabase.from("grow_instances")
+                .update({ plant_profile_id: id })
+                .in("id", toRepair.map((g) => g.id))
+                .eq("user_id", user.id);
+            }
+          }
+        }
+      }
       // Fallback: catch grow instances linked via seed_packet_id but missing plant_profile_id
       if (allGrows.length === 0 && packetRows.length > 0) {
         const pktIds = packetRows.map((p) => p.id);
