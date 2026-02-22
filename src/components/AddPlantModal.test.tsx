@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { AddPlantModal } from "./AddPlantModal";
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -42,16 +42,20 @@ describe("AddPlantModal", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders modal when open with Permanent and Seasonal options", () => {
+  it("renders modal when open with Permanent and Seasonal options", async () => {
     render(<AddPlantModal open onClose={vi.fn()} />);
-    expect(screen.getByRole("heading", { name: "Add Plant" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Add Plant" })).toBeInTheDocument();
+    });
     expect(screen.getByText("Permanent")).toBeInTheDocument();
     expect(screen.getByText("Seasonal")).toBeInTheDocument();
   });
 
-  it("shows Create new and Link to existing modes", () => {
+  it("shows Create new and Link to existing modes", async () => {
     render(<AddPlantModal open onClose={vi.fn()} />);
-    expect(screen.getByText("Link to existing")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Link to existing")).toBeInTheDocument();
+    });
     expect(screen.getByText("Create new")).toBeInTheDocument();
   });
 });
