@@ -196,11 +196,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     if (!highlightGrowId || !highlightBatchRef.current) return;
     const el = highlightBatchRef.current;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Clear the grow param so URL stays clean
+    // Clear the grow param so URL stays clean; always preserve tab=active since we're in Active Garden
     const params = new URLSearchParams(searchParams.toString());
     params.delete("grow");
     const qs = params.toString();
-    router.replace(qs ? `/garden?${qs}` : "/garden");
+    router.replace(qs ? `/garden?${qs}` : "/garden?tab=active");
   }, [highlightGrowId, router, searchParams, loading]);
 
   const load = useCallback(async () => {

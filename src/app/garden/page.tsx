@@ -104,11 +104,19 @@ function GardenPageInner() {
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
 
+  // Sync viewMode from URL; ensure URL has tab when missing (keeps URL and state in sync after back nav)
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "active" || tab === "plants") setViewMode(tab);
-    if (tab === "active") setRefetchTrigger((t) => t + 1);
-  }, [searchParams, setViewMode]);
+    if (tab === "active" || tab === "plants") {
+      setViewMode(tab);
+      if (tab === "active") setRefetchTrigger((t) => t + 1);
+    } else {
+      // URL has no tab (e.g. /garden) — sync URL from sessionStorage so tab and URL stay aligned
+      const stored = typeof window !== "undefined" ? sessionStorage.getItem("garden-view-mode") : null;
+      const mode = stored === "plants" ? "plants" : "active";
+      router.replace(`/garden?tab=${mode}`);
+    }
+  }, [searchParams, setViewMode, router]);
 
   const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
   const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
