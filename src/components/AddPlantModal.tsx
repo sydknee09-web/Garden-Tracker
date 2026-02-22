@@ -387,14 +387,42 @@ export function AddPlantModal({
         const weather = await fetchWeatherSnapshot();
         const profile = profiles.find((p) => p.id === profileId);
         const displayName = profile?.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile?.name ?? "Planted";
-        await supabase.from("journal_entries").insert({
-          user_id: user.id,
-          plant_profile_id: profileId,
-          grow_instance_id: growId,
-          note: `Planted ${displayName}`,
-          entry_type: "planting",
-          weather_snapshot: weather ?? undefined,
-        });
+
+        if (plantType === "permanent" && photoFiles.length > 0) {
+          let heroPath: string | null = null;
+          for (let i = 0; i < photoFiles.length; i++) {
+            const file = photoFiles[i];
+            const { blob } = await compressImage(file);
+            const path = `${user.id}/plant-${profileId}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+            const { error: uploadErr } = await supabase.storage
+              .from("journal-photos")
+              .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            if (uploadErr) continue;
+            if (i === 0) heroPath = path;
+            await supabase.from("journal_entries").insert({
+              user_id: user.id,
+              plant_profile_id: profileId,
+              grow_instance_id: growId,
+              seed_packet_id: null,
+              note: i === 0 ? `Planted ${displayName}` : null,
+              entry_type: i === 0 ? "planting" : "growth",
+              image_file_path: path,
+              weather_snapshot: i === 0 ? weather ?? undefined : undefined,
+            });
+          }
+          if (heroPath) {
+            await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
+          }
+        } else {
+          await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            note: `Planted ${displayName}`,
+            entry_type: "planting",
+            weather_snapshot: weather ?? undefined,
+          });
+        }
 
         if (plantType === "seasonal") {
           await copyCareTemplatesToInstance(profileId, growId, user.id, plantedDate);
@@ -627,44 +655,47 @@ export function AddPlantModal({
                     className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    multiple
-                    className="hidden"
-                    aria-label="Take or add photo"
-                    onChange={(e) => addPhoto(e.target.files)}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {photoPreviews.map((url, i) => (
-                      <div key={i} className="relative">
-                        <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(i)}
-                          className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
-                          aria-label="Remove photo"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => photoInputRef.current?.click()}
-                      className="min-h-[80px] w-20 flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
-                      aria-label="Take or add another photo"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
-                </div>
               </>
+            )}
+
+            {(mode === "new" || (mode === "existing" && plantType === "permanent")) && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  className="hidden"
+                  aria-label="Take or add photo"
+                  onChange={(e) => addPhoto(e.target.files)}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {photoPreviews.map((url, i) => (
+                    <div key={i} className="relative">
+                      <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
+                        aria-label="Remove photo"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="min-h-[80px] w-20 flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
+                    aria-label="Take or add another photo"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
+              </div>
             )}
 
             <div>
