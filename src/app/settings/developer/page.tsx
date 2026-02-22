@@ -356,7 +356,7 @@ export default function SettingsDeveloperPage() {
     setRepairHeroRunning(false);
   }, [user?.id, session?.access_token, repairHeroRunning]);
 
-  const runFillInBlanks = useCallback(async (useGemini: boolean) => {
+  const runFillInBlanks = useCallback(async (opts: { useGemini: boolean; skipHero?: boolean }) => {
     if (!user?.id || fillInBlanksRunning) return;
     setFillInBlanksRunning(true);
     setFillInBlanksResult(null);
@@ -367,7 +367,7 @@ export default function SettingsDeveloperPage() {
       const res = await fetch("/api/settings/fill-in-blanks", {
         method: "POST",
         headers,
-        body: JSON.stringify({ useGemini, stream: true }),
+        body: JSON.stringify({ useGemini: opts.useGemini, skipHero: opts.skipHero ?? false, stream: true }),
       });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
@@ -908,7 +908,7 @@ export default function SettingsDeveloperPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => runFillInBlanks(false)}
+              onClick={() => runFillInBlanks({ useGemini: false })}
               disabled={fillInBlanksRunning}
               className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 bg-white text-neutral-800"
             >
@@ -916,12 +916,21 @@ export default function SettingsDeveloperPage() {
             </button>
             <button
               type="button"
-              onClick={() => runFillInBlanks(true)}
+              onClick={() => runFillInBlanks({ useGemini: true })}
               disabled={fillInBlanksRunning}
               className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
               style={{ backgroundColor: "#059669", color: "#ffffff" }}
             >
               {fillInBlanksRunning ? "Running…" : "Cache + AI"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runFillInBlanks({ useGemini: true, skipHero: true })}
+              disabled={fillInBlanksRunning}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-amber-300 bg-amber-50 text-amber-900"
+              title="Fill sun, description, growing notes, etc. Never touch photos."
+            >
+              {fillInBlanksRunning ? "Running…" : "Metadata only (no photos)"}
             </button>
           </div>
         </div>

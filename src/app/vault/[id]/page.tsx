@@ -140,6 +140,7 @@ const STATUS_COLORS: Record<string, string> = {
 // Icons
 // ---------------------------------------------------------------------------
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
+function SparklesIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>; }
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
@@ -213,6 +214,7 @@ export default function VaultSeedPage() {
   const [stockPhotoCurrentFailed, setStockPhotoCurrentFailed] = useState(false);
   const [savingWebHero, setSavingWebHero] = useState(false);
   const [saveHeroError, setSaveHeroError] = useState<string | null>(null);
+  const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const searchWebAbortRef = useRef<AbortController | null>(null);
   const photoGalleryLoadedRef = useRef(false);
   const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
@@ -972,6 +974,23 @@ export default function VaultSeedPage() {
     await loadProfile();
   }, [user?.id, profile, id, editForm, loadProfile]);
 
+  const runFillBlanks = useCallback(async () => {
+    if (!id || !session?.access_token || fillBlanksRunning) return;
+    setFillBlanksRunning(true);
+    try {
+      const res = await fetch("/api/seed/fill-blanks-for-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ profileId: id, useGemini: true, skipHero: true }),
+      });
+      if (res.ok) {
+        await loadProfile();
+      }
+    } finally {
+      setFillBlanksRunning(false);
+    }
+  }, [id, session?.access_token, fillBlanksRunning, loadProfile]);
+
   const handleDeleteProfile = useCallback(async () => {
     if (!user?.id || !id || !profile) return;
     const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
@@ -1387,8 +1406,9 @@ export default function VaultSeedPage() {
               )}
             </div>
           </div>
-          {isOwnProfile && (
+          {canEdit && (
             <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={runFillBlanks} disabled={fillBlanksRunning} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={fillBlanksRunning ? "Filling metadata…" : "Fill empty fields (metadata only, no photos)"} title="Fill empty fields (metadata only, no photos)">{fillBlanksRunning ? <span className="text-xs">…</span> : <SparklesIcon />}</button>
               <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
             </div>
           )}

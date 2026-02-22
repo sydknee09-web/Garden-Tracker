@@ -70,6 +70,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const profileId = typeof body?.profileId === "string" ? body.profileId.trim() : "";
     const useGemini = Boolean(body?.useGemini);
+    /** When true, only fill metadata; never touch hero/photos. */
+    const skipHero = Boolean(body?.skipHero);
     if (!profileId) {
       return NextResponse.json({ error: "profileId required" }, { status: 400 });
     }
@@ -106,9 +108,13 @@ export async function POST(req: Request) {
     }
 
     const bestRow = await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor);
-    const updates = bestRow
+    let updates = bestRow
       ? await buildUpdatesFromCacheRow(profile as Parameters<typeof buildUpdatesFromCacheRow>[0], bestRow)
       : {};
+    if (skipHero) {
+      delete (updates as Record<string, unknown>).hero_image_url;
+      delete (updates as Record<string, unknown>).hero_image_path;
+    }
 
     let fromCache = false;
     let fromAi = false;
@@ -123,6 +129,7 @@ export async function POST(req: Request) {
     }
 
     const hadNoHero =
+      !skipHero &&
       !(profile.hero_image_path ?? "").trim() &&
       (!(profile.hero_image_url ?? "").trim() ||
         (profile.hero_image_url ?? "").trim().toLowerCase().endsWith("seedling-icon.svg"));
@@ -167,10 +174,10 @@ export async function POST(req: Request) {
             const data = (await enrichRes.json()) as {
               plant_description?: string;
               growing_notes?: string;
-              sun_requirement?: string;
-              spacing?: string;
+              sun?: string;
+              plant_spacing?: string;
               days_to_germination?: string;
-              days_to_maturity?: string;
+              harvest_days?: number;
               sowing_depth?: string;
               water?: string;
               sowing_method?: string;
@@ -178,10 +185,27 @@ export async function POST(req: Request) {
             };
             const aiDesc = (data.plant_description ?? "").trim();
             const aiNotes = (data.growing_notes ?? "").trim();
-            if (aiDesc || aiNotes) {
+            const aiSun = (data.sun ?? "").trim();
+            const aiSpacing = (data.plant_spacing ?? "").trim();
+            const aiGerm = (data.days_to_germination ?? "").trim();
+            const aiHarvest = data.harvest_days;
+            const aiSowingDepth = (data.sowing_depth ?? "").trim();
+            const aiWater = (data.water ?? "").trim();
+            const aiSowingMethod = (data.sowing_method ?? "").trim();
+            const aiPlantingWindow = (data.planting_window ?? "").trim();
+            const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow;
+            if (hasAiData) {
               const aiUpdates: Record<string, unknown> = { description_source: "ai" };
               if (aiDesc) aiUpdates.plant_description = aiDesc;
               if (aiNotes) aiUpdates.growing_notes = aiNotes;
+              if (aiSun) aiUpdates.sun = aiSun;
+              if (aiSpacing) aiUpdates.plant_spacing = aiSpacing;
+              if (aiGerm) aiUpdates.days_to_germination = aiGerm;
+              if (aiHarvest != null && aiHarvest > 0) aiUpdates.harvest_days = aiHarvest;
+              if (aiSowingDepth) aiUpdates.sowing_depth = aiSowingDepth;
+              if (aiWater) aiUpdates.water = aiWater;
+              if (aiSowingMethod) aiUpdates.sowing_method = aiSowingMethod;
+              if (aiPlantingWindow) aiUpdates.planting_window = aiPlantingWindow;
               const { error: aiErr } = await supabase
                 .from("plant_profiles")
                 .update(aiUpdates)
@@ -194,14 +218,14 @@ export async function POST(req: Request) {
                   const enrichData: EnrichDataForCache = {
                     plant_description: aiDesc || undefined,
                     growing_notes: aiNotes || undefined,
-                    sun_requirement: data.sun_requirement ?? undefined,
-                    spacing: data.spacing ?? undefined,
-                    days_to_germination: data.days_to_germination ?? undefined,
-                    days_to_maturity: data.days_to_maturity ?? undefined,
-                    sowing_depth: data.sowing_depth ?? undefined,
-                    water: data.water ?? undefined,
-                    sowing_method: data.sowing_method ?? undefined,
-                    planting_window: data.planting_window ?? undefined,
+                    sun_requirement: aiSun || undefined,
+                    spacing: aiSpacing || undefined,
+                    days_to_germination: aiGerm || undefined,
+                    days_to_maturity: aiHarvest != null ? String(aiHarvest) : undefined,
+                    sowing_depth: aiSowingDepth || undefined,
+                    water: aiWater || undefined,
+                    sowing_method: aiSowingMethod || undefined,
+                    planting_window: aiPlantingWindow || undefined,
                   };
                   await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
                 }

@@ -42,8 +42,10 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const useGemini = Boolean(body?.useGemini);
     const stream = body?.stream === true;
+    /** When true, only fill metadata (sun, description, etc.); never touch hero/photos. */
+    const skipHero = Boolean(body?.skipHero);
 
-    // Profiles that need filling: missing hero (and optionally sparse metadata)
+    // Profiles that need filling: missing hero (unless skipHero), sparse metadata, or missing description
     const { data: profiles, error: profilesError } = await supabase
       .from("plant_profiles")
       .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window")
@@ -79,10 +81,10 @@ export async function POST(req: Request) {
 
     const missingDescription = (p: { plant_description?: string | null }) => !(p.plant_description ?? "").trim();
 
-    // Include profile if missing hero OR sparse metadata OR missing description (so cache/AI can fill)
+    // Include profile if missing hero (unless skipHero) OR sparse metadata OR missing description
     const needFilling = profiles.filter(
       (p: { hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_description?: string | null; water?: string | null; sowing_depth?: string | null; sowing_method?: string | null; planting_window?: string | null }) =>
-        missingHero(p) || metadataSparse(p) || missingDescription(p)
+        (!skipHero && missingHero(p)) || metadataSparse(p) || missingDescription(p)
     );
 
     if (needFilling.length === 0) {
@@ -156,19 +158,25 @@ export async function POST(req: Request) {
       const vendor = vendorByProfile[p.id] ?? "";
       const linkUrl = urlByProfile[p.id]?.trim();
       const bestRow = await getBestCacheRow(supabase, identityKey, linkUrl ?? null, vendor);
-      const updates = bestRow ? await buildUpdatesFromCacheRow(p, bestRow) : {};
+      let updates = bestRow ? await buildUpdatesFromCacheRow(p, bestRow) : {};
+      if (skipHero) {
+        delete updates.hero_image_url;
+        delete updates.hero_image_path;
+      }
 
       if (Object.keys(updates).length === 0) {
         if (useGemini) {
           let didAiUpdate = false;
-          const aiHero = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
-          if (aiHero) {
-            const { error: upErr } = await supabase
-              .from("plant_profiles")
-              .update({ hero_image_url: aiHero })
-              .eq("id", p.id)
-              .eq("user_id", user.id);
-            if (!upErr) { fromAi++; didAiUpdate = true; }
+          if (!skipHero) {
+            const aiHero = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
+            if (aiHero) {
+              const { error: upErr } = await supabase
+                .from("plant_profiles")
+                .update({ hero_image_url: aiHero })
+                .eq("id", p.id)
+                .eq("user_id", user.id);
+              if (!upErr) { fromAi++; didAiUpdate = true; }
+            }
           }
           // Try AI for description/notes when cache had nothing
           const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -183,10 +191,10 @@ export async function POST(req: Request) {
               const data = (await enrichRes.json()) as {
                 plant_description?: string;
                 growing_notes?: string;
-                sun_requirement?: string;
-                spacing?: string;
+                sun?: string;
+                plant_spacing?: string;
                 days_to_germination?: string;
-                days_to_maturity?: string;
+                harvest_days?: number;
                 sowing_depth?: string;
                 water?: string;
                 sowing_method?: string;
@@ -194,10 +202,27 @@ export async function POST(req: Request) {
               };
               const aiDesc = (data.plant_description ?? "").trim();
               const aiNotes = (data.growing_notes ?? "").trim();
-              if (aiDesc || aiNotes) {
+              const aiSun = (data.sun ?? "").trim();
+              const aiSpacing = (data.plant_spacing ?? "").trim();
+              const aiGerm = (data.days_to_germination ?? "").trim();
+              const aiHarvest = data.harvest_days;
+              const aiSowingDepth = (data.sowing_depth ?? "").trim();
+              const aiWater = (data.water ?? "").trim();
+              const aiSowingMethod = (data.sowing_method ?? "").trim();
+              const aiPlantingWindow = (data.planting_window ?? "").trim();
+              const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow;
+              if (hasAiData) {
                 const aiUpdates: Record<string, unknown> = { description_source: "ai" };
                 if (aiDesc) aiUpdates.plant_description = aiDesc;
                 if (aiNotes) aiUpdates.growing_notes = aiNotes;
+                if (aiSun) aiUpdates.sun = aiSun;
+                if (aiSpacing) aiUpdates.plant_spacing = aiSpacing;
+                if (aiGerm) aiUpdates.days_to_germination = aiGerm;
+                if (aiHarvest != null && aiHarvest > 0) aiUpdates.harvest_days = aiHarvest;
+                if (aiSowingDepth) aiUpdates.sowing_depth = aiSowingDepth;
+                if (aiWater) aiUpdates.water = aiWater;
+                if (aiSowingMethod) aiUpdates.sowing_method = aiSowingMethod;
+                if (aiPlantingWindow) aiUpdates.planting_window = aiPlantingWindow;
                 const { error: aiErr } = await supabase.from("plant_profiles").update(aiUpdates).eq("id", p.id).eq("user_id", user.id);
                 if (!aiErr) {
                   if (!didAiUpdate) fromAi++;
@@ -207,14 +232,14 @@ export async function POST(req: Request) {
                     const enrichData: EnrichDataForCache = {
                       plant_description: aiDesc || undefined,
                       growing_notes: aiNotes || undefined,
-                      sun_requirement: data.sun_requirement ?? undefined,
-                      spacing: data.spacing ?? undefined,
-                      days_to_germination: data.days_to_germination ?? undefined,
-                      days_to_maturity: data.days_to_maturity ?? undefined,
-                      sowing_depth: data.sowing_depth ?? undefined,
-                      water: data.water ?? undefined,
-                      sowing_method: data.sowing_method ?? undefined,
-                      planting_window: data.planting_window ?? undefined,
+                      sun_requirement: aiSun || undefined,
+                      spacing: aiSpacing || undefined,
+                      days_to_germination: aiGerm || undefined,
+                      days_to_maturity: aiHarvest != null ? String(aiHarvest) : undefined,
+                      sowing_depth: aiSowingDepth || undefined,
+                      water: aiWater || undefined,
+                      sowing_method: aiSowingMethod || undefined,
+                      planting_window: aiPlantingWindow || undefined,
                     };
                     await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
                   }
@@ -241,8 +266,8 @@ export async function POST(req: Request) {
         failed++;
       } else {
         fromCache++;
-        // Cache had metadata but no usable hero; optionally fill hero via AI
-        if (useGemini && !updates.hero_image_url) {
+        // Cache had metadata but no usable hero; optionally fill hero via AI (unless skipHero)
+        if (!skipHero && useGemini && !updates.hero_image_url) {
           const aiHero = await findHeroPhotoWithToken(token, name, variety, vendor, identityKey);
           if (aiHero) {
             const { error: upErr } = await supabase
