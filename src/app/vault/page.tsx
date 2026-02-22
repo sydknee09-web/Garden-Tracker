@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
 import { ShedView } from "@/components/ShedView";
+import { SupplyPicker } from "@/components/SupplyPicker";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
@@ -534,6 +535,7 @@ function VaultPageInner() {
   const [plantModalRows, setPlantModalRows] = useState<PlantModalRow[]>([]);
   const [plantSowMethod, setPlantSowMethod] = useState<"direct_sow" | "seed_start" | null>(null);
   const [plantSeedsSownByProfileId, setPlantSeedsSownByProfileId] = useState<Record<string, number | "">>({});
+  const [plantSelectedSupplyIds, setPlantSelectedSupplyIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!plantModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
     setPlantDate(new Date().toISOString().slice(0, 10));
@@ -647,6 +649,18 @@ function VaultPageInner() {
         break;
       }
 
+      // Care entries for supplies used at planting (e.g. seed starter, fertilizer at sowing)
+      for (const supplyId of plantSelectedSupplyIds) {
+        await supabase.from("journal_entries").insert({
+          user_id: user.id,
+          plant_profile_id: p.id,
+          grow_instance_id: growRow.id,
+          supply_profile_id: supplyId,
+          note: "Used at planting",
+          entry_type: "care",
+        });
+      }
+
       const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
       await supabase.from("tasks").insert({
         user_id: user.id,
@@ -690,11 +704,12 @@ function VaultPageInner() {
     }
     setPlantModalOpen(false);
     setSelectedVarietyIds(new Set());
+    setPlantSelectedSupplyIds(new Set());
     setBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
     setSaveToastMessage("Planted!");
     setTimeout(() => router.push("/garden?tab=active"), 600);
-  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, router, consumePackets]);
+  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantSelectedSupplyIds, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {
     setPlantModalRows((prev) => prev.map((r) => (r.profile.id === profileId ? { ...r, quantityChoice: choice } : r)));
@@ -1616,6 +1631,14 @@ function VaultPageInner() {
                   </button>
                 </div>
               </div>
+              <div className="mt-3">
+                <SupplyPicker
+                  selectedIds={plantSelectedSupplyIds}
+                  onChange={setPlantSelectedSupplyIds}
+                  label="Supplies used (optional)"
+                  placeholder="e.g. seed starter, fertilizer at sowing"
+                />
+              </div>
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {plantModalRows.length === 0 ? (
@@ -1691,7 +1714,7 @@ function VaultPageInner() {
             <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => setPlantModalOpen(false)}
+                onClick={() => { setPlantModalOpen(false); setPlantSelectedSupplyIds(new Set()); }}
                 className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
               >
                 Cancel

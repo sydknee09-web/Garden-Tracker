@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
+import { SupplyPicker } from "@/components/SupplyPicker";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
@@ -49,6 +50,8 @@ function VaultPlantPageInner() {
   /** Per-row optional seeds sown. Key: profile.id for existing, rowId for new variety. */
   const [seedsSownByProfileId, setSeedsSownByProfileId] = useState<Record<string, number | "">>({});
   const [seedsSownByRowId, setSeedsSownByRowId] = useState<Record<string, number | "">>({});
+  /** Supplies used at planting (e.g. seed starter, fertilizer). */
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
 
   const idsParam = searchParams.get("ids");
   const profileIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
@@ -343,6 +346,18 @@ function VaultPlantPageInner() {
         weather_snapshot: weatherSnapshot ?? undefined,
       });
 
+      // Care entries for supplies used at planting (e.g. seed starter, fertilizer at sowing)
+      for (const supplyId of selectedSupplyIds) {
+        await supabase.from("journal_entries").insert({
+          user_id: user.id,
+          plant_profile_id: profile.id,
+          grow_instance_id: growRow.id,
+          supply_profile_id: supplyId,
+          note: "Used at planting",
+          entry_type: "care",
+        });
+      }
+
       // Copy care schedule templates to the new grow instance
       await copyCareTemplatesToInstance(profile.id, growRow.id, user.id, today);
 
@@ -398,7 +413,7 @@ function VaultPlantPageInner() {
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, fromGarden]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, selectedSupplyIds, fromGarden]);
 
   if (!user) return null;
 
@@ -482,6 +497,14 @@ function VaultPlantPageInner() {
             onChange={(e) => setPlantNotes(e.target.value)}
             placeholder="e.g. Started indoors"
             className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm text-black"
+          />
+        </div>
+        <div className="w-full">
+          <SupplyPicker
+            selectedIds={selectedSupplyIds}
+            onChange={setSelectedSupplyIds}
+            label="Supplies used (optional)"
+            placeholder="e.g. seed starter, fertilizer at sowing"
           />
         </div>
       </div>
