@@ -120,6 +120,7 @@ export function MyPlantsView({
   const { viewMode: householdViewMode } = useHousehold();
   const [plants, setPlants] = useState<PermanentPlant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -169,9 +170,14 @@ export function MyPlantsView({
   );
 
   const fetchPlants = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setLoading(true);
 
+    try {
     const isFamilyView = householdViewMode === "family";
 
     let profileQuery = supabase
@@ -185,7 +191,6 @@ export function MyPlantsView({
 
     if (!profiles || profiles.length === 0) {
       setPlants([]);
-      setLoading(false);
       return;
     }
 
@@ -215,7 +220,11 @@ export function MyPlantsView({
       care_count: careCounts.get(p.id) ?? 0,
       journal_count: journalCounts.get(p.id) ?? 0,
     })));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
     setLoading(false);
+    }
   }, [user?.id, householdViewMode]);
 
   useEffect(() => { fetchPlants(); }, [fetchPlants, refetchTrigger]);
@@ -367,6 +376,22 @@ export function MyPlantsView({
       if (filteredBySearch.length === 0) onProfileFilterEmpty?.();
     }
   }, [profileIdFilter, filteredBySearch, onProfileFilteredPlantName, onProfileFilterEmpty]);
+
+  if (loadError) {
+    return (
+      <div className="py-8 px-4 text-center">
+        <p className="text-black/70 font-medium mb-2">Couldn&apos;t load My Plants</p>
+        <p className="text-sm text-black/50 mb-4">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => fetchPlants()}
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

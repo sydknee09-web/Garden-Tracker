@@ -141,6 +141,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Bulk select state
   const [bulkMode, setBulkMode] = useState(false);
@@ -203,11 +204,17 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }, [highlightGrowId, loading]);
 
   const load = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
+    setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
 
     const isFamilyView = viewMode === "family";
 
+    try {
     let pendingQuery = supabase
       .from("tasks")
       .select("id, plant_profile_id, due_date, title")
@@ -231,7 +238,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
     const { data: growRows } = await growQuery;
 
-    if (!growRows?.length) { setGrowing([]); setLoading(false); return; }
+    if (!growRows?.length) { setGrowing([]); return; }
 
     const profileIds = Array.from(new Set((growRows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id).filter(Boolean)));
     const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path").in("id", profileIds);
@@ -251,7 +258,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         if (j.note?.trim()) plantingNoteByGrow.set(j.grow_instance_id, j.note.trim());
       }
     });
-    function badgeFromNote(note: string | undefined): string | null {
+    const badgeFromNote = (note: string | undefined): string | null => {
       if (!note) return null;
       const hasDirect = /direct\s*sow|direct\s*&|direct\s*and/i.test(note);
       const hasGreenhouse = /greenhouse/i.test(note);
@@ -259,7 +266,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       if (hasGreenhouse) return "Greenhouse";
       if (hasDirect) return "Direct";
       return null;
-    }
+    };
     const harvestCountByGrow = new Map<string, number>();
     (harvestRes.data ?? []).forEach((h: { grow_instance_id: string | null }) => {
       if (h.grow_instance_id) harvestCountByGrow.set(h.grow_instance_id, (harvestCountByGrow.get(h.grow_instance_id) ?? 0) + 1);
@@ -284,7 +291,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         };
       });
     setGrowing(batches);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
     setLoading(false);
+    }
   }, [user?.id, viewMode]);
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
@@ -670,6 +681,21 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
   if (!user) return null;
   if (loading) return <div className="py-8 text-center text-black/50 text-sm">Loading Active Garden...</div>;
+  if (loadError) {
+    return (
+      <div className="py-8 px-4 text-center">
+        <p className="text-black/70 font-medium mb-2">Couldn&apos;t load Active Garden</p>
+        <p className="text-sm text-black/50 mb-4">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => load()}
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
