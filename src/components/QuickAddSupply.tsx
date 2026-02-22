@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
+import { compressImage } from "@/lib/compressImage";
 import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -27,16 +28,27 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
   const [npk, setNpk] = useState("");
   const [notes, setNotes] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!initialData?.id;
+  const existingImageUrl =
+    initialData?.primary_image_path?.trim() && !photoFile
+      ? supabase.storage.from("journal-photos").getPublicUrl(initialData.primary_image_path).data.publicUrl
+      : null;
 
   useEffect(() => {
     if (open) {
       setError(null);
       setAdded(false);
+      setPhotoFile(null);
+      setPhotoPreviewUrl(null);
+      setPhotoRemoved(false);
       if (initialData) {
         setName(initialData.name ?? "");
         setBrand(initialData.brand ?? "");
@@ -59,6 +71,22 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
     }
   }, [open, initialData]);
 
+  const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      setPhotoFile(f);
+      setPhotoPreviewUrl(URL.createObjectURL(f));
+    }
+    e.target.value = "";
+  }, []);
+
+  const handleRemovePhoto = useCallback(() => {
+    setPhotoFile(null);
+    setPhotoRemoved(true);
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setPhotoPreviewUrl(null);
+  }, [photoPreviewUrl]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -75,34 +103,46 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       setSubmitting(true);
       setError(null);
       try {
+        let primaryImagePath: string | null =
+          !photoRemoved && isEdit && initialData?.primary_image_path?.trim()
+            ? initialData.primary_image_path
+            : null;
+
+        if (photoFile) {
+          const { blob } = await compressImage(photoFile);
+          const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
+          const { error: uploadErr } = await supabase.storage
+            .from("journal-photos")
+            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+          if (uploadErr) throw uploadErr;
+          primaryImagePath = path;
+        }
+
+        const basePayload = {
+          name: nameTrim,
+          brand: brand.trim() || null,
+          category,
+          usage_instructions: usageInstructions.trim() || null,
+          application_rate: applicationRate.trim() || null,
+          npk: npk.trim() || null,
+          notes: notes.trim() || null,
+          source_url: sourceUrl.trim() || null,
+          ...(primaryImagePath != null && { primary_image_path: primaryImagePath }),
+        };
+
         if (isEdit && initialData?.id) {
+          const updatePayload = { ...basePayload, updated_at: new Date().toISOString() };
+          if (photoRemoved && !photoFile) (updatePayload as Record<string, unknown>).primary_image_path = null;
           const { error: updateErr } = await updateWithOfflineQueue(
             "supply_profiles",
-            {
-              name: nameTrim,
-              brand: brand.trim() || null,
-              category,
-              usage_instructions: usageInstructions.trim() || null,
-              application_rate: applicationRate.trim() || null,
-              npk: npk.trim() || null,
-              notes: notes.trim() || null,
-              source_url: sourceUrl.trim() || null,
-              updated_at: new Date().toISOString(),
-            },
+            updatePayload,
             { id: initialData.id, user_id: user.id }
           );
           if (updateErr) throw updateErr;
         } else {
           const { error: insertErr } = await insertWithOfflineQueue("supply_profiles", {
             user_id: user.id,
-            name: nameTrim,
-            brand: brand.trim() || null,
-            category,
-            usage_instructions: usageInstructions.trim() || null,
-            application_rate: applicationRate.trim() || null,
-            npk: npk.trim() || null,
-            notes: notes.trim() || null,
-            source_url: sourceUrl.trim() || null,
+            ...basePayload,
           });
           if (insertErr) throw insertErr;
         }
@@ -128,8 +168,11 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
       npk,
       notes,
       sourceUrl,
+      photoFile,
+      photoRemoved,
       isEdit,
       initialData?.id,
+      initialData?.primary_image_path,
       onSuccess,
       onClose,
     ]
@@ -152,6 +195,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label="Add product photo"
+            onChange={handlePhotoChange}
+          />
           <div>
             <label htmlFor="supply-name" className="block text-sm font-medium text-black/80 mb-1">
               Product Name *
@@ -165,6 +217,34 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
               className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
               aria-label="Product name"
             />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-black/80 mb-1">Photo (optional)</span>
+            {photoPreviewUrl || (existingImageUrl && !photoRemoved) ? (
+              <div className="space-y-2">
+                <img
+                  src={photoPreviewUrl ?? existingImageUrl ?? ""}
+                  alt="Product"
+                  className="w-full rounded-xl object-cover aspect-video max-h-40 bg-neutral-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="text-sm font-medium text-amber-600 hover:text-amber-700 min-h-[44px]"
+                >
+                  Remove photo
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border-2 border-dashed border-black/15 text-black/50 hover:border-emerald/40 hover:text-emerald-600 flex flex-col items-center justify-center gap-1 text-sm font-medium"
+              >
+                <span aria-hidden>📷</span>
+                Take or choose photo
+              </button>
+            )}
           </div>
           <div>
             <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
