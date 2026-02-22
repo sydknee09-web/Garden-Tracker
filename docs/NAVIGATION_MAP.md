@@ -147,3 +147,4 @@
 | 2025-02-22 | Journal FAB goes directly to /journal/new (Quick log modal removed). Garden My Plants: quick-add modal, long-press multi-select. Journal New: ?from=garden → back/cancel/save return to /garden. |
 | 2025-02-22 | Both maps (Navigation Map + Navigation Issues Log) now include change logs; both will be updated when flows change or issues are logged/fixed. |
 | 2025-02-22 | Garden: Always show toolbar (search, filter, view toggle) even when list is empty. Vault profile Add planting: pass from=garden when opened from garden so redirect returns to garden. |
+| 2025-02-22 | Garden My Plants: ?profile=xxx URL param pre-filters to that plant when navigating from vault profile (Back to My Plants). Permanent plants only. Clear filters removes profile param. |

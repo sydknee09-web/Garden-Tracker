@@ -1373,8 +1373,9 @@ export default function VaultSeedPage() {
           (() => {
             const gardenTab = searchParams.get("gardenTab");
             const isActive = gardenTab === "active";
+            const plantsHref = isPermanent ? `/garden?tab=plants&profile=${encodeURIComponent(id)}` : "/garden?tab=plants";
             return (
-              <Link href={isActive ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+              <Link href={isActive ? "/garden?tab=active" : plantsHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
                 &larr; Back to {isActive ? "Active Garden" : "My Plants"}
               </Link>
             );

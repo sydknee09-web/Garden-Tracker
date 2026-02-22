@@ -61,6 +61,7 @@ export function MyPlantsView({
   germinationFilter = null,
   maturityFilter = null,
   tagFilters = [],
+  profileIdFilter = null,
   onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
@@ -84,6 +85,8 @@ export function MyPlantsView({
   germinationFilter?: string | null;
   maturityFilter?: string | null;
   tagFilters?: string[];
+  /** When set (e.g. from ?profile=xxx URL), filter to only this plant profile. Used when navigating from vault profile. */
+  profileIdFilter?: string | null;
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
     sun: { value: string; count: number }[];
@@ -258,6 +261,9 @@ export function MyPlantsView({
 
   const filteredPlants = useMemo(() => {
     return plants.filter((p) => {
+      if (profileIdFilter) {
+        if (p.id !== profileIdFilter) return false;
+      }
       if (categoryFilter) {
         const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
@@ -287,7 +293,7 @@ export function MyPlantsView({
       }
       return true;
     });
-  }, [plants, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
+  }, [plants, profileIdFilter, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
 
   const q = (searchQuery ?? "").trim().toLowerCase();
   const filteredBySearch = useMemo(() => {

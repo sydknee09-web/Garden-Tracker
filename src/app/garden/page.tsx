@@ -48,12 +48,17 @@ function GardenPageInner() {
   const [activeRefineChips, setActiveRefineChips] = useState<RefineChips | null>(null);
   const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
 
+  const profileParam = searchParams.get("profile");
   const closeRefinePanel = useCallback(() => {
     setRefineByOpen(false);
     setRefineBySection(null);
   }, []);
   const activeFilters = useFilterState({ schema: "garden", onClear: closeRefinePanel });
-  const plantsFilters = useFilterState({ schema: "garden", onClear: closeRefinePanel });
+  const plantsFilters = useFilterState({
+    schema: "garden",
+    onClear: closeRefinePanel,
+    isFilterActive: () => !!profileParam,
+  });
   const [activeSortBy, setActiveSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-active-sort", "sown_date", {
     serialize: (v) => v,
     deserialize: (s) => (s === "name" || s === "sown_date" || s === "harvest_date" ? s : "sown_date"),
@@ -143,7 +148,10 @@ function GardenPageInner() {
   const clearAllFilters = useCallback(() => {
     activeFilters.clearAllFilters();
     plantsFilters.clearAllFilters();
-  }, [activeFilters.clearAllFilters, plantsFilters.clearAllFilters]);
+    if (effectiveViewMode === "plants" && profileParam) {
+      router.replace("/garden?tab=plants");
+    }
+  }, [activeFilters.clearAllFilters, plantsFilters.clearAllFilters, effectiveViewMode, profileParam, router]);
 
   const activeFilterCount = activeFilters.filterCount;
   const plantsFilterCount = plantsFilters.filterCount;
@@ -727,6 +735,7 @@ function GardenPageInner() {
               searchQuery={plantsSearchDebounced}
               onPermanentPlantAdded={handlePermanentPlantAdded}
               categoryFilter={plantsFilters.filters.category}
+              profileIdFilter={profileParam}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               varietyFilter={plantsFilters.filters.variety}
               sunFilter={plantsFilters.filters.sun}
