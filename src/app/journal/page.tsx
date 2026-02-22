@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -525,7 +526,7 @@ export default function JournalPage() {
     const weatherSnapshot = await fetchWeatherSnapshot();
     let insertErr: { message: string } | null = null;
     try {
-      const result = await supabase.from("journal_entries").insert({
+      const payload = {
         user_id: sessionUserId,
         plant_profile_id: selectedPlantId || null,
         grow_instance_id: selectedSowingId || null,
@@ -534,7 +535,8 @@ export default function JournalPage() {
         entry_type: "note",
         image_file_path: imagePath,
         weather_snapshot: weatherSnapshot ?? undefined,
-      });
+      };
+      const result = await insertWithOfflineQueue("journal_entries", payload as Record<string, unknown>);
       insertErr = result.error;
     } finally {
       setSyncing(false);
@@ -663,8 +665,9 @@ export default function JournalPage() {
     if (!user || ids.length === 0) return;
     setSelectionActionsOpen(false);
     setSelectedEntryIds((prev) => prev.filter((id) => !ids.includes(id)));
+    const now = new Date().toISOString();
     for (const entryId of ids) {
-      const { error: e } = await supabase.from("journal_entries").update({ deleted_at: new Date().toISOString() }).eq("id", entryId).eq("user_id", user.id);
+      const { error: e } = await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { id: entryId, user_id: user.id });
       if (e) {
         setError(e.message);
         return;
@@ -678,8 +681,9 @@ export default function JournalPage() {
     const ids = deleteConfirmEntryIds;
     setDeleteConfirmEntryIds(null);
     setSelectedEntryIds((prev) => prev.filter((id) => !ids.includes(id)));
+    const now = new Date().toISOString();
     for (const entryId of ids) {
-      const { error: e } = await supabase.from("journal_entries").update({ deleted_at: new Date().toISOString() }).eq("id", entryId).eq("user_id", user.id);
+      const { error: e } = await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { id: entryId, user_id: user.id });
       if (e) {
         setError(e.message);
         return;

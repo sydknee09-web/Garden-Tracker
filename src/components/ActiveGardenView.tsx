@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -412,7 +413,7 @@ export function ActiveGardenView({
     try {
       const weather = await fetchWeatherSnapshot();
       const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-      const { error } = await supabase.from("journal_entries").insert({
+      const { error } = await insertWithOfflineQueue("journal_entries", {
         user_id: user.id,
         plant_profile_id: batch.plant_profile_id,
         grow_instance_id: batch.id,
@@ -445,7 +446,7 @@ export function ActiveGardenView({
           weather_snapshot: weather ?? undefined,
         };
       });
-      const { error } = await supabase.from("journal_entries").insert(entries);
+      const { error } = await insertManyWithOfflineQueue("journal_entries", entries);
       if (error) { setQuickToast("Failed to save journal entries"); setTimeout(() => setQuickToast(null), 2500); }
       setBulkNote("");
       setBulkSelected(new Set());
@@ -476,7 +477,7 @@ export function ActiveGardenView({
           weather_snapshot: weather ?? undefined,
         };
       });
-      const { error } = await supabase.from("journal_entries").insert(entries);
+      const { error } = await insertManyWithOfflineQueue("journal_entries", entries);
       if (error) { setQuickToast("Failed to save — try again"); } else { setQuickToast(`${notes[action]} (${bulkSelected.size} plant${bulkSelected.size !== 1 ? "s" : ""})`); }
       setTimeout(() => setQuickToast(null), 2000);
     } catch {
@@ -496,11 +497,11 @@ export function ActiveGardenView({
     const isDead = endReason === "plant_died";
     const status = isDead ? "dead" : "archived";
 
-    const { error: updateErr } = await supabase.from("grow_instances").update({
+    const { error: updateErr } = await updateWithOfflineQueue("grow_instances", {
       status,
       ended_at: now,
       end_reason: endReason,
-    }).eq("id", batchId).eq("user_id", user.id);
+    }, { id: batchId, user_id: user.id });
 
     if (updateErr) {
       setEndSaving(false);
@@ -513,7 +514,7 @@ export function ActiveGardenView({
 
     if (endNote.trim() || isDead) {
       const weather = await fetchWeatherSnapshot();
-      await supabase.from("journal_entries").insert({
+      await insertWithOfflineQueue("journal_entries", {
         user_id: user.id,
         plant_profile_id: endBatchTarget.plant_profile_id,
         grow_instance_id: batchId,
@@ -536,11 +537,7 @@ export function ActiveGardenView({
     setDeleteSaving(true);
     const batchId = deleteBatchTarget.id;
     const now = new Date().toISOString();
-    const { error } = await supabase
-      .from("grow_instances")
-      .update({ deleted_at: now })
-      .eq("id", batchId)
-      .eq("user_id", user.id);
+    const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batchId, user_id: user.id });
     if (!error) await softDeleteTasksForGrowInstance(batchId, user.id);
     setDeleteSaving(false);
     setDeleteBatchTarget(null);
@@ -561,9 +558,9 @@ export function ActiveGardenView({
     let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
-      await supabase.from("journal_entries").update({ deleted_at: now }).eq("grow_instance_id", batch.id);
+      await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { grow_instance_id: batch.id, user_id: batchUserId });
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
-      const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batch.id).eq("user_id", batchUserId);
+      const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batch.id, user_id: batchUserId });
       if (error) hadError = true;
     }
     setBulkDeleteSaving(false);

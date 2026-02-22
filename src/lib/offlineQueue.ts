@@ -17,6 +17,8 @@ export interface QueuedWrite {
   operation: "insert" | "update" | "upsert" | "delete";
   payload: Record<string, unknown>;
   filters?: Record<string, unknown>;
+  /** For upsert: conflict columns for onConflict, e.g. "user_id,plant_profile_id" */
+  upsertOnConflict?: string;
   created_at: string;
   retries: number;
 }
@@ -39,7 +41,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function enqueueWrite(write: Omit<QueuedWrite, "id" | "created_at" | "retries">): Promise<string> {
+export async function enqueueWrite(write: Omit<QueuedWrite, "id" | "created_at" | "retries"> & { upsertOnConflict?: string }): Promise<string> {
   const db = await openDB();
   const id = crypto.randomUUID();
 
@@ -59,6 +61,7 @@ export async function enqueueWrite(write: Omit<QueuedWrite, "id" | "created_at" 
     id,
     created_at: new Date().toISOString(),
     retries: 0,
+    ...(write.upsertOnConflict && { upsertOnConflict: write.upsertOnConflict }),
   };
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");

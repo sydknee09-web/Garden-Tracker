@@ -120,7 +120,10 @@ async function replayOneWrite(write: QueuedWrite): Promise<void> {
       break;
     }
     case "upsert": {
-      const { error } = await supabase.from(table).upsert(payload);
+      const opts = (write as QueuedWrite & { upsertOnConflict?: string }).upsertOnConflict
+        ? { onConflict: (write as QueuedWrite & { upsertOnConflict?: string }).upsertOnConflict! }
+        : undefined;
+      const { error } = await supabase.from(table).upsert(payload, opts);
       if (error) throw error;
       break;
     }

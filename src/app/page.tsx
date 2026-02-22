@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
@@ -177,8 +178,8 @@ export default function HomePage() {
     setMarkingPurchasedId(item.id);
     setSyncing(true);
     try {
-      await supabase.from("shopping_list").update({ is_purchased: true }).eq("id", item.id).eq("user_id", user.id);
-      setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
+      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: user.id });
+      if (!error) setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
     } finally { setMarkingPurchasedId(null); setSyncing(false); }
   }
 

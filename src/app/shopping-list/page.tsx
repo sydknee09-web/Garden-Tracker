@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 
@@ -52,8 +53,8 @@ export default function ShoppingListPage() {
   const handlePurchased = useCallback(
     async (id: string) => {
       setTogglingId(id);
-      await supabase.from("shopping_list").update({ is_purchased: true }).eq("id", id).eq("user_id", user!.id);
-      setItems((prev) => prev.filter((i) => i.id !== id));
+      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id, user_id: user!.id });
+      if (!error) setItems((prev) => prev.filter((i) => i.id !== id));
       setTogglingId(null);
     },
     [user?.id]
