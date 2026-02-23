@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,7 +24,11 @@ export default function VaultShedDetailPage() {
   const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params?.id as string | undefined;
+
+  const [orderedSupplyIds, setOrderedSupplyIds] = useState<string[]>([]);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const [supply, setSupply] = useState<SupplyProfile | null>(null);
   const [history, setHistory] = useState<(JournalEntry & { plant_name?: string })[]>([]);
@@ -100,6 +104,48 @@ export default function VaultShedDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [id, fetchSupply, fetchHistory]);
+
+  // Fetch ordered supply IDs for swipe prev/next (updated_at desc, same as ShedView)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("supply_profiles")
+        .select("id")
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false });
+      if (!cancelled && data) setOrderedSupplyIds((data as { id: string }[]).map((r) => r.id));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const { prevId, nextId } = useMemo(() => {
+    if (!id || orderedSupplyIds.length === 0) return { prevId: null as string | null, nextId: null as string | null };
+    const idx = orderedSupplyIds.indexOf(id);
+    if (idx < 0) return { prevId: null, nextId: null };
+    return {
+      prevId: idx > 0 ? orderedSupplyIds[idx - 1]! : null,
+      nextId: idx < orderedSupplyIds.length - 1 ? orderedSupplyIds[idx + 1]! : null,
+    };
+  }, [id, orderedSupplyIds]);
+
+  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
+    swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
+  }, []);
+  const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (start == null || editOpen) return;
+    const end = e.changedTouches[0];
+    if (!end) return;
+    const deltaX = end.clientX - start.x;
+    const deltaY = end.clientY - start.y;
+    if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    const category = categoryFromUrl ? `?category=${categoryFromUrl}` : "";
+    if (deltaX < -50 && nextId) router.push(`/vault/shed/${nextId}${category}`);
+    else if (deltaX > 50 && prevId) router.push(`/vault/shed/${prevId}${category}`);
+  }, [editOpen, nextId, prevId, router, categoryFromUrl]);
 
   const handleAddToShoppingList = useCallback(async () => {
     if (!user?.id || !supply?.id) return;
@@ -254,9 +300,37 @@ export default function VaultShedDetailPage() {
           {toastMessage}
         </div>
       )}
-      <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
-        ← Back to Shed
-      </Link>
+      {/* Main content: swipe left/right on mobile to change product */}
+      <div
+        className="relative touch-pan-y"
+        onTouchStart={handleSwipeStart}
+        onTouchEnd={handleSwipeEnd}
+      >
+        {(prevId ?? nextId) && (
+          <>
+            {prevId ? (
+              <Link
+                href={`/vault/shed/${prevId}${categoryFromUrl ? `?category=${categoryFromUrl}` : ""}`}
+                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                aria-label="Previous product"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+              </Link>
+            ) : null}
+            {nextId ? (
+              <Link
+                href={`/vault/shed/${nextId}${categoryFromUrl ? `?category=${categoryFromUrl}` : ""}`}
+                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                aria-label="Next product"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
+              </Link>
+            ) : null}
+          </>
+        )}
+        <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+          ← Back to Shed
+        </Link>
 
       {!isOwn && householdViewMode === "family" && (
         <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
@@ -388,6 +462,7 @@ export default function VaultShedDetailPage() {
         }}
         initialData={supply}
       />
+      </div>
     </div>
   );
 }
