@@ -12,6 +12,7 @@ import {
   clearReviewImportData,
   type ReviewImportItem,
   type ReviewImportSource,
+  type ReviewImportData,
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { buildPlantProfileInsertPayload } from "@/lib/reviewImportSave";
@@ -249,22 +250,30 @@ export default function ReviewImportPage() {
   }, [items.length, items]);
 
   useEffect(() => {
+    const apply = (data: ReviewImportData) => {
+      setImportSource(data.source);
+      setDefaultProfileType(data.defaultProfileType === "permanent" ? "permanent" : "seed");
+      setItems(
+        data.items.map((i) => ({
+          ...i,
+          variety: decodeHtmlEntities(i.variety ?? "") || (i.variety ?? ""),
+          type: decodeHtmlEntities(i.type ?? "") || (i.type ?? ""),
+          vendor: decodeHtmlEntities(i.vendor ?? "") || (i.vendor ?? ""),
+          useStockPhotoAsHero: hasValidImageUrl(i) ? (i.useStockPhotoAsHero !== false) : false,
+        }))
+      );
+    };
     const data = getReviewImportData();
-    if (!data?.items?.length) {
-      router.replace("/vault");
+    if (data?.items?.length) {
+      apply(data);
       return;
     }
-    setImportSource(data.source);
-    setDefaultProfileType(data.defaultProfileType === "permanent" ? "permanent" : "seed");
-    setItems(
-      data.items.map((i) => ({
-        ...i,
-        variety: decodeHtmlEntities(i.variety ?? "") || (i.variety ?? ""),
-        type: decodeHtmlEntities(i.type ?? "") || (i.type ?? ""),
-        vendor: decodeHtmlEntities(i.vendor ?? "") || (i.vendor ?? ""),
-        useStockPhotoAsHero: hasValidImageUrl(i) ? (i.useStockPhotoAsHero !== false) : false,
-      }))
-    );
+    const id = setTimeout(() => {
+      const retry = getReviewImportData();
+      if (retry?.items?.length) apply(retry);
+      else router.replace("/vault");
+    }, 150);
+    return () => clearTimeout(id);
   }, [router]);
 
   useEffect(() => {

@@ -24,7 +24,8 @@ export type SupplyReviewData = {
 export function getSupplyReviewData(): SupplyReviewData | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(SUPPLY_REVIEW_STORAGE_KEY);
+    let raw = localStorage.getItem(SUPPLY_REVIEW_STORAGE_KEY);
+    if (!raw) raw = sessionStorage.getItem(SUPPLY_REVIEW_STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as SupplyReviewData;
     return Array.isArray(data?.items) ? data : null;

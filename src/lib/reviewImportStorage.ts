@@ -81,7 +81,8 @@ export type ReviewImportData = {
 export function getReviewImportData(): ReviewImportData | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(REVIEW_IMPORT_STORAGE_KEY);
+    let raw = localStorage.getItem(REVIEW_IMPORT_STORAGE_KEY);
+    if (!raw) raw = sessionStorage.getItem(REVIEW_IMPORT_STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as ReviewImportData;
     return Array.isArray(data?.items) ? data : null;
@@ -110,7 +111,7 @@ export function clearReviewImportData(): void {
 /** Check if there's pending review data (used to show banner on vault page). */
 export function hasPendingReviewData(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(REVIEW_IMPORT_STORAGE_KEY) !== null;
+  return localStorage.getItem(REVIEW_IMPORT_STORAGE_KEY) !== null || sessionStorage.getItem(REVIEW_IMPORT_STORAGE_KEY) !== null;
 }
 
 // ---------------------------------------------------------------------------

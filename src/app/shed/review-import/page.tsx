@@ -33,9 +33,17 @@ export default function ShedReviewImportPage() {
     const data = getSupplyReviewData();
     if (data?.items?.length) {
       setItems(data.items);
-    } else {
-      router.replace("/vault?tab=shed");
+      return;
     }
+    const id = setTimeout(() => {
+      const retry = getSupplyReviewData();
+      if (retry?.items?.length) {
+        setItems(retry.items);
+      } else {
+        router.replace("/vault?tab=shed");
+      }
+    }, 150);
+    return () => clearTimeout(id);
   }, [router]);
 
   const updateItem = useCallback((id: string, updates: Partial<SupplyReviewItem>) => {

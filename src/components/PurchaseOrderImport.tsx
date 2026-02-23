@@ -161,7 +161,9 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         }));
         setSupplyReviewData({ items: reviewItems });
         onClose();
-        router.push("/shed/review-import");
+        requestAnimationFrame(() => {
+          router.push("/shed/review-import");
+        });
         return;
       }
 
@@ -210,7 +212,9 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
 
       setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType });
       onClose();
-      router.push("/vault/review-import");
+      requestAnimationFrame(() => {
+        router.push("/vault/review-import");
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Order scan failed");
       setIsExtracting(false);
