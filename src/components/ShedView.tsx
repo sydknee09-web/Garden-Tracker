@@ -323,7 +323,7 @@ export function ShedView({
                 ) : (
                   <a
                     href={detailHref}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(detailHref); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = detailHref; }}
                     className={`block cursor-pointer relative z-[1] ${rowClassName}`}
                   >
                     {rowInner}
@@ -414,7 +414,7 @@ export function ShedView({
               <a
                 key={s.id}
                 href={detailHref}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(detailHref); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = detailHref; }}
                 className={`cursor-pointer relative z-[1] block ${cardClassName}`}
               >
                 {cardInner}
