@@ -24,6 +24,7 @@ type WeatherData = {
   daily: WeatherDay[];
   sunrise?: string; // ISO time for today, e.g. "2024-02-22T06:12"
   sunset?: string;
+  humidity?: number; // 0–100
 } | null;
 
 /** Format ISO time to short local time, e.g. "6:12 AM" */
@@ -158,6 +159,8 @@ export default function HomePage() {
           }));
           const sunrise = daily?.sunrise?.[0];
           const sunset = daily?.sunset?.[0];
+          const humidityRaw = cur.relative_humidity_2m;
+          const humidity = typeof humidityRaw === "number" && humidityRaw >= 0 && humidityRaw <= 100 ? Math.round(humidityRaw) : undefined;
           setWeather({
             temp: Number(cur.temperature_2m),
             condition: weatherCodeToCondition(Number(cur.weather_code)),
@@ -165,6 +168,7 @@ export default function HomePage() {
             daily: days,
             sunrise: typeof sunrise === "string" ? sunrise : undefined,
             sunset: typeof sunset === "string" ? sunset : undefined,
+            humidity,
           });
         } else if (!cancelled) setWeather(null);
       } catch {
@@ -277,6 +281,14 @@ export default function HomePage() {
                 <span className="flex items-center gap-1.5">
                   <span className="text-base" aria-hidden>🌇</span>
                   <span className="tabular-nums">{formatSunTime(weather.sunset)}</span>
+                </span>
+              </div>
+            )}
+            {weather.humidity != null && (
+              <div className="flex items-center justify-center text-sm text-black/70 mb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-base" aria-hidden>💧</span>
+                  <span>Humidity: {weather.humidity}%</span>
                 </span>
               </div>
             )}
