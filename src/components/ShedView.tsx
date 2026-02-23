@@ -323,15 +323,12 @@ export function ShedView({
                     {rowInner}
                   </button>
                 ) : (
-                  <div
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => router.push(detailHref)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(detailHref); } }}
+                  <Link
+                    href={detailHref}
                     className={`block cursor-pointer relative z-[1] ${rowClassName}`}
                   >
                     {rowInner}
-                  </div>
+                  </Link>
                 )}
               </li>
             );
@@ -417,16 +414,13 @@ export function ShedView({
                 {cardInner}
               </button>
             ) : (
-              <div
+              <Link
                 key={s.id}
-                role="link"
-                tabIndex={0}
-                onClick={() => router.push(detailHref)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(detailHref); } }}
-                className={`cursor-pointer relative z-[1] ${cardClassName}`}
+                href={detailHref}
+                className={`cursor-pointer relative z-[1] block ${cardClassName}`}
               >
                 {cardInner}
-              </div>
+              </Link>
             );
           })}
         </div>
