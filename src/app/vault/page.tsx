@@ -603,6 +603,7 @@ function VaultPageInner() {
   const [plantModalRows, setPlantModalRows] = useState<PlantModalRow[]>([]);
   const [plantSowMethod, setPlantSowMethod] = useState<"direct_sow" | "seed_start" | null>(null);
   const [plantSeedsSownByProfileId, setPlantSeedsSownByProfileId] = useState<Record<string, number | "">>({});
+  const [plantPlantCountByProfileId, setPlantPlantCountByProfileId] = useState<Record<string, number | "">>({});
   const [plantSelectedSupplyIds, setPlantSelectedSupplyIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!plantModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
@@ -610,6 +611,7 @@ function VaultPageInner() {
     setPlantNotes("");
     setPlantSowMethod(null);
     setPlantSeedsSownByProfileId({});
+    setPlantPlantCountByProfileId({});
     let cancelled = false;
     (async () => {
       const ids = Array.from(selectedVarietyIds);
@@ -686,6 +688,10 @@ function VaultPageInner() {
       const seedsSownNum = seedsSownVal === "" || seedsSownVal == null ? null : Number(seedsSownVal);
       const seedsSownFinal = typeof seedsSownNum === "number" && !Number.isNaN(seedsSownNum) && seedsSownNum >= 0 ? seedsSownNum : null;
 
+      const plantCountVal = plantPlantCountByProfileId[p.id];
+      const plantCountNum = plantCountVal === "" || plantCountVal == null ? null : Number(plantCountVal);
+      const plantCountFinal = typeof plantCountNum === "number" && !Number.isNaN(plantCountNum) && plantCountNum >= 0 ? plantCountNum : null;
+
       const { data: growRow, error: growErr } = await supabase
         .from("grow_instances")
         .insert({
@@ -696,6 +702,7 @@ function VaultPageInner() {
           status: "growing",
           sow_method: plantSowMethod,
           seeds_sown: seedsSownFinal,
+          plant_count: plantCountFinal,
         })
         .select("id")
         .single();
@@ -777,7 +784,7 @@ function VaultPageInner() {
     setRefetchTrigger((t) => t + 1);
     setSaveToastMessage("Planted!");
     setTimeout(() => router.push("/garden?tab=active"), 600);
-  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantSelectedSupplyIds, router, consumePackets]);
+  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantPlantCountByProfileId, plantSelectedSupplyIds, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {
     setPlantModalRows((prev) => prev.map((r) => (r.profile.id === profileId ? { ...r, quantityChoice: choice } : r)));
@@ -1892,17 +1899,31 @@ function VaultPageInner() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={plantSeedsSownByProfileId[p.id] ?? ""}
-                            onChange={(e) => setPlantSeedsSownByProfileId((prev) => ({ ...prev, [p.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                            placeholder="e.g. 12"
-                            className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
-                            aria-label={`Seeds sown for ${displayName}`}
-                          />
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={plantSeedsSownByProfileId[p.id] ?? ""}
+                              onChange={(e) => setPlantSeedsSownByProfileId((prev) => ({ ...prev, [p.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                              placeholder="e.g. 12"
+                              className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                              aria-label={`Seeds sown for ${displayName}`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={plantPlantCountByProfileId[p.id] ?? ""}
+                              onChange={(e) => setPlantPlantCountByProfileId((prev) => ({ ...prev, [p.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                              placeholder="e.g. 12"
+                              className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                              aria-label={`Plant count for ${displayName}`}
+                            />
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-medium text-black/60">Use:</span>

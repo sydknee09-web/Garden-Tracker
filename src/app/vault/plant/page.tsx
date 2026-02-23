@@ -52,6 +52,9 @@ function VaultPlantPageInner() {
   /** Per-row optional seeds sown. Key: profile.id for existing, rowId for new variety. */
   const [seedsSownByProfileId, setSeedsSownByProfileId] = useState<Record<string, number | "">>({});
   const [seedsSownByRowId, setSeedsSownByRowId] = useState<Record<string, number | "">>({});
+  /** Per-row optional plant count (quantity). Key: profile.id for existing, rowId for new variety. */
+  const [plantCountByProfileId, setPlantCountByProfileId] = useState<Record<string, number | "">>({});
+  const [plantCountByRowId, setPlantCountByRowId] = useState<Record<string, number | "">>({});
   /** Supplies used at planting (e.g. seed starter, fertilizer). */
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
 
@@ -79,6 +82,8 @@ function VaultPlantPageInner() {
     setNewPacketUsePctByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setSeedsSownByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
     setSeedsSownByRowId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setPlantCountByProfileId((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setPlantCountByRowId((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }, []);
 
   const addSeedToBatch = useCallback((row: PlantRow) => {
@@ -290,6 +295,11 @@ function VaultPlantPageInner() {
         : (seedsSownByProfileId[profile.id] === "" || seedsSownByProfileId[profile.id] == null ? null : Number(seedsSownByProfileId[profile.id]));
       const seedsSownNum = typeof seedsSownVal === "number" && !Number.isNaN(seedsSownVal) && seedsSownVal >= 0 ? seedsSownVal : null;
 
+      const plantCountVal = "isNew" in row
+        ? (plantCountByRowId[row.rowId] === "" || plantCountByRowId[row.rowId] == null ? null : Number(plantCountByRowId[row.rowId]))
+        : (plantCountByProfileId[profile.id] === "" || plantCountByProfileId[profile.id] == null ? null : Number(plantCountByProfileId[profile.id]));
+      const plantCountNum = typeof plantCountVal === "number" && !Number.isNaN(plantCountVal) && plantCountVal >= 0 ? plantCountVal : null;
+
       // Create grow_instance FIRST — if this fails we don't want to have already archived the packet
       const { data: growRow, error: growErr } = await supabase
         .from("grow_instances")
@@ -303,6 +313,7 @@ function VaultPlantPageInner() {
           location: plantLocation.trim() || null,
           sow_method: sowMethod,
           seeds_sown: seedsSownNum,
+          plant_count: plantCountNum,
         })
         .select("id")
         .single();
@@ -430,7 +441,7 @@ function VaultPlantPageInner() {
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, selectedSupplyIds, fromGarden]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, plantCountByProfileId, plantCountByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, selectedSupplyIds, fromGarden]);
 
   if (!user) return null;
 
@@ -545,17 +556,31 @@ function VaultPlantPageInner() {
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${row.customName} packet`}
                     />
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={seedsSownByRowId[row.rowId] ?? ""}
-                        onChange={(e) => setSeedsSownByRowId((prev) => ({ ...prev, [row.rowId]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                        placeholder="e.g. 12"
-                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
-                        aria-label={`Seeds sown for ${row.customName}`}
-                      />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={seedsSownByRowId[row.rowId] ?? ""}
+                          onChange={(e) => setSeedsSownByRowId((prev) => ({ ...prev, [row.rowId]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                          placeholder="e.g. 12"
+                          className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                          aria-label={`Seeds sown for ${row.customName}`}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={plantCountByRowId[row.rowId] ?? ""}
+                          onChange={(e) => setPlantCountByRowId((prev) => ({ ...prev, [row.rowId]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                          placeholder="e.g. 12"
+                          className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                          aria-label={`Plant count for ${row.customName}`}
+                        />
+                      </div>
                     </div>
                   </div>
                   <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
@@ -586,17 +611,31 @@ function VaultPlantPageInner() {
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${displayName} packet`}
                     />
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={seedsSownByProfileId[profile.id] ?? ""}
-                        onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                        placeholder="e.g. 12"
-                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
-                        aria-label={`Seeds sown for ${displayName}`}
-                      />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={seedsSownByProfileId[profile.id] ?? ""}
+                          onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                          placeholder="e.g. 12"
+                          className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                          aria-label={`Seeds sown for ${displayName}`}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={plantCountByProfileId[profile.id] ?? ""}
+                          onChange={(e) => setPlantCountByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                          placeholder="e.g. 12"
+                          className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                          aria-label={`Plant count for ${displayName}`}
+                        />
+                      </div>
                     </div>
                   </div>
                   <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
@@ -638,17 +677,31 @@ function VaultPlantPageInner() {
                       })}
                     </div>
                   )}
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={seedsSownByProfileId[profile.id] ?? ""}
-                      onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                      placeholder="e.g. 12"
-                      className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
-                      aria-label={`Seeds sown for ${displayName}`}
-                    />
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={seedsSownByProfileId[profile.id] ?? ""}
+                        onChange={(e) => setSeedsSownByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                        placeholder="e.g. 12"
+                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                        aria-label={`Seeds sown for ${displayName}`}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={plantCountByProfileId[profile.id] ?? ""}
+                        onChange={(e) => setPlantCountByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value === "" ? "" : Number(e.target.value) }))}
+                        placeholder="e.g. 12"
+                        className="w-20 rounded-lg border border-black/10 px-2 py-1.5 text-xs text-black min-h-[36px]"
+                        aria-label={`Plant count for ${displayName}`}
+                      />
+                    </div>
                   </div>
                 </div>
                 <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
