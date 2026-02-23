@@ -302,10 +302,12 @@ export default function VaultSeedPage() {
       const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
 
       // Batch 2: Fetch packets, grows, journals, care, journal photos in parallel
-      // grow_instances: fetch by plant_profile_id only; RLS allows own + household rows.
-      const [packetsRes, growsRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
+      // grow_instances: run both queries and merge — primary (no user filter) + explicit user_id
+      // to handle RLS/visibility edge cases for permanent plants.
+      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
+        supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         careQueryFinal,
         supabase.from("journal_entries").select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false }),
@@ -315,7 +317,18 @@ export default function VaultSeedPage() {
       if (packetsRes.error) setError(packetsRes.error.message);
       setPackets(packetRows);
 
-      let allGrows = (growsRes.data ?? []) as GrowInstance[];
+      // Merge both grow queries — use whichever returns data (handles RLS edge cases)
+      const growsA = (growsRes.data ?? []) as GrowInstance[];
+      const growsB = (growsByUserRes.data ?? []) as GrowInstance[];
+      const seenIds = new Set<string>();
+      let allGrows: GrowInstance[] = [];
+      for (const g of [...growsA, ...growsB]) {
+        if (g?.id && !seenIds.has(g.id)) {
+          seenIds.add(g.id);
+          allGrows.push(g);
+        }
+      }
+      allGrows.sort((a, b) => (b.sown_date ?? "").localeCompare(a.sown_date ?? ""));
       // Fallback for permanent: find grows via journal_entries (handles orphaned plant_profile_id)
       if (allGrows.length === 0 && isPermanentProfile) {
         const { data: journalsWithGrow } = await supabase

@@ -22,7 +22,20 @@ type WeatherData = {
   condition: string;
   code: number;
   daily: WeatherDay[];
+  sunrise?: string; // ISO time for today, e.g. "2024-02-22T06:12"
+  sunset?: string;
 } | null;
+
+/** Format ISO time to short local time, e.g. "6:12 AM" */
+function formatSunTime(iso: string | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  } catch {
+    return "—";
+  }
+}
 
 type UserSettingsRow = {
   planting_zone?: string | null;
@@ -143,11 +156,15 @@ export default function HomePage() {
             low: Number(daily?.temperature_2m_min?.[i]) ?? 0,
             code: Number(daily?.weather_code?.[i]) ?? 0,
           }));
+          const sunrise = daily?.sunrise?.[0];
+          const sunset = daily?.sunset?.[0];
           setWeather({
             temp: Number(cur.temperature_2m),
             condition: weatherCodeToCondition(Number(cur.weather_code)),
             code: Number(cur.weather_code),
             daily: days,
+            sunrise: typeof sunrise === "string" ? sunrise : undefined,
+            sunset: typeof sunset === "string" ? sunset : undefined,
           });
         } else if (!cancelled) setWeather(null);
       } catch {
@@ -251,6 +268,18 @@ export default function HomePage() {
                 <p className="text-xs text-black/60">{weather.condition}</p>
               </div>
             </div>
+            {(weather.sunrise || weather.sunset) && (
+              <div className="flex items-center justify-center gap-6 text-sm text-black/70 mb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-base" aria-hidden>🌅</span>
+                  <span className="tabular-nums">{formatSunTime(weather.sunrise)}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-base" aria-hidden>🌇</span>
+                  <span className="tabular-nums">{formatSunTime(weather.sunset)}</span>
+                </span>
+              </div>
+            )}
             {weather.daily.length > 0 && (
               <div className="flex flex-nowrap gap-0 overflow-x-auto py-1">
                 {weather.daily.map((d, i) => (
