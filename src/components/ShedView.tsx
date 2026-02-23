@@ -321,12 +321,13 @@ export function ShedView({
                     {rowInner}
                   </button>
                 ) : (
-                  <Link
+                  <a
                     href={detailHref}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(detailHref); }}
                     className={`block cursor-pointer relative z-[1] ${rowClassName}`}
                   >
                     {rowInner}
-                  </Link>
+                  </a>
                 )}
               </li>
             );
@@ -410,13 +411,14 @@ export function ShedView({
                 {cardInner}
               </button>
             ) : (
-              <Link
+              <a
                 key={s.id}
                 href={detailHref}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(detailHref); }}
                 className={`cursor-pointer relative z-[1] block ${cardClassName}`}
               >
                 {cardInner}
-              </Link>
+              </a>
             );
           })}
         </div>
