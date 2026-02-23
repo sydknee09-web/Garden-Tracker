@@ -279,9 +279,7 @@ export function ShedView({
                   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
                 })()
               : null;
-            const detailHref = embedded
-              ? `/shed/${s.id}${categoryFilter ? `?from=vault&category=${categoryFilter}` : "?from=vault"}`
-              : `/shed/${s.id}${categoryFilter ? `?from=shed&category=${categoryFilter}` : "?from=shed"}`;
+            const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
             const rowClassName = `flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all min-h-[44px] ${
               isSelected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
@@ -353,9 +351,7 @@ export function ShedView({
                   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
                 })()
               : null;
-            const detailHref = embedded
-              ? `/shed/${s.id}${categoryFilter ? `?from=vault&category=${categoryFilter}` : "?from=vault"}`
-              : `/shed/${s.id}${categoryFilter ? `?from=shed&category=${categoryFilter}` : "?from=shed"}`;
+            const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
             const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[120px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
             const cardInner = (
