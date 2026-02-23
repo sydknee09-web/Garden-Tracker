@@ -1228,17 +1228,12 @@ export function SeedVaultView({
                       ) : (
                         <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
                       )}
-                      {batchSelectMode && onToggleVarietySelection && (
-                        <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedVarietyIds?.has(seed.id) ?? false}
-                            onChange={() => onToggleVarietySelection(seed.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="rounded border-black/20 w-5 h-5"
-                            aria-label={`Select ${decodeHtmlEntities(seed.name)}`}
-                          />
-                        </div>
+                      {batchSelectMode && (
+                        <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                          {selectedVarietyIds?.has(seed.id) ? (
+                            <span className="w-3 h-3 rounded-full bg-emerald-600" />
+                          ) : null}
+                        </span>
                       )}
                       {ownerBadge && (
                         <span className="absolute top-1 right-1 z-10 pointer-events-none">
@@ -1314,10 +1309,12 @@ export function SeedVaultView({
                     ) : (
                       <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
                     )}
-                    {batchSelectMode && onToggleVarietySelection && (
-                      <div className="absolute top-1 left-1 z-10" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-4 h-4" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
-                      </div>
+                    {batchSelectMode && (
+                      <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                        {selectedVarietyIds?.has(seed.id) ? (
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                        ) : null}
+                      </span>
                     )}
                     {ownerBadge && (
                       <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
@@ -1518,9 +1515,13 @@ export function SeedVaultView({
                   className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
                   {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                 >
-                  {batchSelectMode && onToggleVarietySelection && (
-                    <span className="shrink-0 flex items-center min-w-[44px] min-h-[44px] justify-center" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20 w-5 h-5" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+                  {batchSelectMode && (
+                    <span className="shrink-0 flex items-center min-w-[44px] min-h-[44px] justify-center">
+                      <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${selectedVarietyIds?.has(seed.id) ? "border-emerald-500" : "border-black/20"}`} aria-hidden>
+                        {selectedVarietyIds?.has(seed.id) ? (
+                          <span className="w-3 h-3 rounded-full bg-emerald-600" />
+                        ) : null}
+                      </span>
                     </span>
                   )}
                   <span className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
@@ -1579,9 +1580,13 @@ export function SeedVaultView({
               className={`group border-b border-black/5 hover:bg-gray-50 cursor-pointer transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
               {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
             >
-              {batchSelectMode && onToggleVarietySelection && (
-                <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={selectedVarietyIds?.has(seed.id) ?? false} onChange={() => onToggleVarietySelection(seed.id)} onClick={(e) => e.stopPropagation()} className="rounded border-black/20" aria-label={`Select ${decodeHtmlEntities(seed.name)}`} />
+              {batchSelectMode && (
+                <td className="py-2 px-3">
+                  <span className={`inline-flex w-6 h-6 rounded-full border-2 items-center justify-center bg-white ${selectedVarietyIds?.has(seed.id) ? "border-emerald-500" : "border-black/20"}`} aria-hidden>
+                    {selectedVarietyIds?.has(seed.id) ? (
+                      <span className="w-3 h-3 rounded-full bg-emerald-600" />
+                    ) : null}
+                  </span>
                 </td>
               )}
               <td className="py-2 px-3 align-middle shrink-0">
