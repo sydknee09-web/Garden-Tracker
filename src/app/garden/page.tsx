@@ -104,6 +104,7 @@ function GardenPageInner() {
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
   const [selectedPlantProfileIds, setSelectedPlantProfileIds] = useState<Set<string>>(new Set());
+  const [plantsBatchSelectMode, setPlantsBatchSelectMode] = useState(false);
   const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
   const [quickAddNote, setQuickAddNote] = useState("");
   const [quickAddPhoto, setQuickAddPhoto] = useState<File | null>(null);
@@ -365,6 +366,7 @@ function GardenPageInner() {
       setQuickAddPhotoPreview(null);
     }
     setSelectedPlantProfileIds(new Set());
+    setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantProfileIds]);
 
@@ -466,16 +468,29 @@ function GardenPageInner() {
             )}
 
             <div className="flex items-center gap-3 mb-2">
-              {effectiveViewMode === "active" && (
+              {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
                 <button
                   type="button"
-                  onClick={() => (bulkModeActive ? activeGardenRef.current?.exitBulkMode() : activeGardenRef.current?.enterBulkMode())}
+                  onClick={() => {
+                    if (effectiveViewMode === "active") {
+                      bulkModeActive ? activeGardenRef.current?.exitBulkMode() : activeGardenRef.current?.enterBulkMode();
+                    } else {
+                      if (plantsBatchSelectMode) {
+                        setPlantsBatchSelectMode(false);
+                        setSelectedPlantProfileIds(new Set());
+                      } else {
+                        setPlantsBatchSelectMode(true);
+                      }
+                    }
+                  }}
                   className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium flex items-center gap-2 ${
-                    bulkModeActive ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 bg-white text-black/80 hover:bg-black/5"
+                    (effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode)
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                      : "border-black/10 bg-white text-black/80 hover:bg-black/5"
                   }`}
-                  aria-label={bulkModeActive ? "Cancel selection" : "Select items"}
+                  aria-label={(effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode) ? "Cancel selection" : "Select items"}
                 >
-                  {bulkModeActive ? "Cancel" : "Select"}
+                  {(effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode) ? "Cancel" : "Select"}
                 </button>
               )}
               <button
@@ -499,15 +514,6 @@ function GardenPageInner() {
                   aria-label="Clear all filters"
                 >
                   Clear filters
-                </button>
-              )}
-              {effectiveViewMode === "plants" && selectedPlantProfileIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlantProfileIds(new Set())}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
-                >
-                  Cancel
                 </button>
               )}
               <span className="text-sm text-black/50">
@@ -852,9 +858,10 @@ function GardenPageInner() {
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
               onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
+              batchSelectMode={plantsBatchSelectMode}
               selectedProfileIds={selectedPlantProfileIds}
               onToggleProfileSelection={(id) => setSelectedPlantProfileIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
-              onLongPressProfile={(id) => setSelectedPlantProfileIds((prev) => new Set(prev).add(id))}
+              onLongPressProfile={(id) => { setPlantsBatchSelectMode(true); setSelectedPlantProfileIds((prev) => new Set(prev).add(id)); }}
               displayStyle={plantsDisplayStyle}
               sortBy={plantsSortBy}
               sortDir={plantsSortDir}

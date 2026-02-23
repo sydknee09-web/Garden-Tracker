@@ -70,6 +70,7 @@ export function MyPlantsView({
   onEmptyStateChange,
   onAddClick,
   onPermanentPlantAdded,
+  batchSelectMode = false,
   selectedProfileIds = new Set<string>(),
   onToggleProfileSelection,
   onLongPressProfile,
@@ -107,6 +108,7 @@ export function MyPlantsView({
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onAddClick?: () => void;
+  batchSelectMode?: boolean;
   selectedProfileIds?: Set<string>;
   onToggleProfileSelection?: (profileId: string) => void;
   onLongPressProfile?: (profileId: string) => void;
@@ -157,7 +159,7 @@ export function MyPlantsView({
             e?.preventDefault?.();
             return;
           }
-          const inSelectionMode = selectedProfileIds.size > 0;
+          const inSelectionMode = batchSelectMode || selectedProfileIds.size > 0;
           if (inSelectionMode) {
             onToggleProfileSelection?.(profileId);
             return;
@@ -166,7 +168,7 @@ export function MyPlantsView({
         },
       };
     },
-    [onLongPressProfile, onToggleProfileSelection, selectedProfileIds.size, clearLongPressTimer, router]
+    [batchSelectMode, onLongPressProfile, onToggleProfileSelection, selectedProfileIds.size, clearLongPressTimer, router]
   );
 
   const fetchPlants = useCallback(async () => {
@@ -459,20 +461,20 @@ export function MyPlantsView({
                       onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
                       {...handlers}
                       className={`flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all group cursor-pointer min-h-[44px] ${
-                        selected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
+                        selected ? "ring-2 ring-emerald-500 border-2 border-emerald-500 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
                       }`}
                       style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
                     >
+                      {batchSelectMode && (
+                        <span className="shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                          {selected ? <span className="w-3 h-3 rounded-full bg-blue-600" /> : null}
+                        </span>
+                      )}
                       <div className="relative shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
                         {imgUrl ? (
                           <Image src={imgUrl} alt="" width={48} height={48} className="w-full h-full object-cover group-hover:scale-105 transition-transform" unoptimized />
                         ) : (
                           <span className="text-xl" aria-hidden>🌱</span>
-                        )}
-                        {selected && (
-                          <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                          </span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -510,12 +512,17 @@ export function MyPlantsView({
                     onClick={(e) => handlers.handleClick(e as unknown as React.MouseEvent)}
                     onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
                     {...handlers}
-                    className={`group rounded-lg overflow-hidden flex flex-col border shadow-card transition-colors w-full cursor-pointer min-h-[44px] ${
-                      selected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "bg-white border-black/5 hover:border-emerald-500/40"
+                    className={`group rounded-lg overflow-hidden flex flex-col border shadow-card transition-all w-full cursor-pointer min-h-[44px] ${
+                      selected ? "ring-2 ring-emerald-500 border-2 border-emerald-500 bg-emerald-50/50" : "bg-white border-black/5 hover:border-emerald-500/40"
                     }`}
                   >
                     <div className="px-1.5 pt-1.5 shrink-0">
                       <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                        {batchSelectMode && (
+                          <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                            {selected ? <span className="w-3 h-3 rounded-full bg-blue-600" /> : null}
+                          </span>
+                        )}
                         {imgUrl ? (
                           <Image src={imgUrl} alt="" fill className="object-cover object-center group-hover:scale-105 transition-transform" sizes="120px" unoptimized />
                         ) : (
@@ -527,11 +534,6 @@ export function MyPlantsView({
                         {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
                           <span className="absolute top-0.5 left-0.5 text-[8px] font-semibold px-1 py-0.5 rounded-full bg-violet-500 text-white leading-none">
                             FAM
-                          </span>
-                        )}
-                        {selected && (
-                          <span className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                           </span>
                         )}
                       </div>
