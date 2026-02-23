@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +12,7 @@ import {
   type SupplyReviewItem,
 } from "@/lib/supplyReviewStorage";
 import { hapticSuccess } from "@/lib/haptics";
+import { compressImage } from "@/lib/compressImage";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -28,6 +29,8 @@ export default function ShedReviewImportPage() {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [itemPhotos, setItemPhotos] = useState<Record<string, { file: File; previewUrl: string }>>({});
+  const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     const data = getSupplyReviewData();
@@ -35,15 +38,25 @@ export default function ShedReviewImportPage() {
       setItems(data.items);
       return;
     }
-    const id = setTimeout(() => {
-      const retry = getSupplyReviewData();
-      if (retry?.items?.length) {
-        setItems(retry.items);
-      } else {
-        router.replace("/vault?tab=shed");
-      }
-    }, 150);
-    return () => clearTimeout(id);
+    let cancelled = false;
+    const delays = [100, 250, 500, 1000];
+    const ids: ReturnType<typeof setTimeout>[] = [];
+    for (const ms of delays) {
+      const id = setTimeout(() => {
+        if (cancelled) return;
+        const retry = getSupplyReviewData();
+        if (retry?.items?.length) {
+          setItems(retry.items);
+        } else if (ms === delays[delays.length - 1]) {
+          router.replace("/vault?tab=shed");
+        }
+      }, ms);
+      ids.push(id);
+    }
+    return () => {
+      cancelled = true;
+      ids.forEach((id) => clearTimeout(id));
+    };
   }, [router]);
 
   const updateItem = useCallback((id: string, updates: Partial<SupplyReviewItem>) => {
@@ -61,7 +74,35 @@ export default function ShedReviewImportPage() {
       }
       return next;
     });
+    setItemPhotos((prev) => {
+      const next = { ...prev };
+      const p = next[id];
+      if (p?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl);
+      delete next[id];
+      return next;
+    });
   }, [router]);
+
+  const handleItemPhotoChange = useCallback((itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f?.type.startsWith("image/")) return;
+    setItemPhotos((prev) => {
+      const old = prev[itemId];
+      if (old?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(old.previewUrl);
+      return { ...prev, [itemId]: { file: f, previewUrl: URL.createObjectURL(f) } };
+    });
+  }, []);
+
+  const removeItemPhoto = useCallback((itemId: string) => {
+    setItemPhotos((prev) => {
+      const p = prev[itemId];
+      if (p?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl);
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
 
   const handleSaveAll = useCallback(async () => {
     if (!user?.id || items.length === 0) return;
@@ -75,7 +116,18 @@ export default function ShedReviewImportPage() {
         const category = SUPPLY_CATEGORIES.includes(item.category as (typeof SUPPLY_CATEGORIES)[number])
           ? item.category
           : "other";
-        const { error: insertErr } = await insertWithOfflineQueue("supply_profiles", {
+        let primaryImagePath: string | null = null;
+        const photo = itemPhotos[item.id];
+        if (photo?.file) {
+          const { blob } = await compressImage(photo.file);
+          const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
+          const { error: uploadErr } = await supabase.storage
+            .from("journal-photos")
+            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+          if (!uploadErr) primaryImagePath = path;
+        }
+        const vendorNote = (item.vendor ?? "").trim() ? `Vendor: ${item.vendor}` : null;
+        const payload: Record<string, unknown> = {
           user_id: user.id,
           name: nameTrim,
           brand: (item.brand ?? "").trim() || null,
@@ -83,8 +135,10 @@ export default function ShedReviewImportPage() {
           usage_instructions: (item.usage_instructions ?? "").trim() || null,
           application_rate: (item.application_rate ?? "").trim() || null,
           npk: (item.npk ?? "").trim() || null,
-          notes: null,
-        });
+          notes: vendorNote,
+        };
+        if (primaryImagePath) payload.primary_image_path = primaryImagePath;
+        const { error: insertErr } = await insertWithOfflineQueue("supply_profiles", payload);
         if (insertErr) throw insertErr;
         count++;
       }
@@ -99,7 +153,7 @@ export default function ShedReviewImportPage() {
     } finally {
       setSaving(false);
     }
-  }, [user?.id, items, router]);
+  }, [user?.id, items, itemPhotos, router]);
 
   const handleCancel = useCallback(() => {
     clearSupplyReviewData();
@@ -152,6 +206,52 @@ export default function ShedReviewImportPage() {
                 </button>
               </div>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Photo (optional)</label>
+                  {itemPhotos[item.id] ? (
+                    <div className="space-y-2">
+                      <img
+                        src={itemPhotos[item.id].previewUrl}
+                        alt=""
+                        className="w-full rounded-lg object-cover aspect-video max-h-32 bg-neutral-100"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => photoInputRefs.current[item.id]?.click()}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Replace
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeItemPhoto(item.id)}
+                          className="text-sm font-medium text-amber-600 hover:underline min-h-[44px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => photoInputRefs.current[item.id]?.click()}
+                      className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border-2 border-dashed border-black/15 text-black/50 hover:border-emerald/40 hover:text-emerald-600 flex flex-col items-center justify-center gap-1 text-sm font-medium"
+                    >
+                      <span aria-hidden>📷</span>
+                      Add photo
+                    </button>
+                  )}
+                  <input
+                    ref={(el) => { photoInputRefs.current[item.id] = el; }}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={(e) => handleItemPhotoChange(item.id, e)}
+                    aria-label="Add product photo"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-500 mb-1">Product Name *</label>
                   <input

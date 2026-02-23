@@ -36,14 +36,16 @@ export function getSupplyReviewData(): SupplyReviewData | null {
 
 export function setSupplyReviewData(data: SupplyReviewData): void {
   if (typeof window === "undefined") return;
+  const json = JSON.stringify(data);
   try {
-    localStorage.setItem(SUPPLY_REVIEW_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(SUPPLY_REVIEW_STORAGE_KEY, json);
   } catch {
-    try {
-      sessionStorage.setItem(SUPPLY_REVIEW_STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      /* give up */
-    }
+    /* localStorage may be full or disabled */
+  }
+  try {
+    sessionStorage.setItem(SUPPLY_REVIEW_STORAGE_KEY, json);
+  } catch {
+    /* give up */
   }
 }
 
