@@ -146,7 +146,7 @@ export default function ShedReviewImportPage() {
       setSavedCount(count);
       clearSupplyReviewData();
       setTimeout(() => {
-        router.replace("/vault?tab=shed");
+        window.location.href = "/vault?tab=shed";
       }, 600);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
