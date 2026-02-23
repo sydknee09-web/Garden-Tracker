@@ -1555,7 +1555,7 @@ function VaultPageInner() {
       )}
 
       {viewMode === "shed" && (
-        <div className="relative z-10 pt-2 pointer-events-auto [&_a]:pointer-events-auto">
+        <div className="relative z-[60] pt-2 pointer-events-auto">
           <QuickAddSupply
             open={shedQuickAddOpen}
             onClose={() => setShedQuickAddOpen(false)}
