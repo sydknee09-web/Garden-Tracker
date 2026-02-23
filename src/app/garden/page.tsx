@@ -466,6 +466,18 @@ function GardenPageInner() {
             )}
 
             <div className="flex items-center gap-3 mb-2">
+              {effectiveViewMode === "active" && (
+                <button
+                  type="button"
+                  onClick={() => (bulkModeActive ? activeGardenRef.current?.exitBulkMode() : activeGardenRef.current?.enterBulkMode())}
+                  className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium flex items-center gap-2 ${
+                    bulkModeActive ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 bg-white text-black/80 hover:bg-black/5"
+                  }`}
+                  aria-label={bulkModeActive ? "Cancel selection" : "Select items"}
+                >
+                  {bulkModeActive ? "Cancel" : "Select"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
@@ -487,15 +499,6 @@ function GardenPageInner() {
                   aria-label="Clear all filters"
                 >
                   Clear filters
-                </button>
-              )}
-              {effectiveViewMode === "active" && bulkModeActive && (
-                <button
-                  type="button"
-                  onClick={() => activeGardenRef.current?.exitBulkMode()}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
-                >
-                  Cancel
                 </button>
               )}
               {effectiveViewMode === "plants" && selectedPlantProfileIds.size > 0 && (

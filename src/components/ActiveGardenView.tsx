@@ -60,7 +60,7 @@ type GrowingBatch = {
   primary_image_path?: string | null;
 };
 
-export type ActiveGardenViewHandle = { exitBulkMode: () => void };
+export type ActiveGardenViewHandle = { exitBulkMode: () => void; enterBulkMode: () => void };
 
 export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   refetchTrigger: number;
@@ -179,7 +179,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     onBulkModeChange?.(false);
   }, [onBulkSelectionChange, onBulkModeChange]);
 
-  useImperativeHandle(ref, () => ({ exitBulkMode }), [exitBulkMode]);
+  const enterBulkMode = useCallback(() => {
+    setBulkMode(true);
+    setBulkSelected(new Set());
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(true);
+  }, [onBulkSelectionChange, onBulkModeChange]);
+
+  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode }), [exitBulkMode, enterBulkMode]);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
@@ -893,7 +900,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             {sortedBatches.map((batch) => {
               const thumbUrl = getBatchImageUrl(batch);
               return (
-                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border border-black/5 shadow-card ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500" : ""}`}>
+                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
                   <Link
                     href={`/vault/${batch.plant_profile_id}?tab=plantings&from=garden&gardenTab=active`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
@@ -953,14 +960,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           </span>
                         )}
                         {bulkMode && canEditUser(batch.user_id ?? "") && (
-                          <div className="absolute bottom-1 left-1" onClick={(e) => e.stopPropagation()} role="presentation">
-                            <input
-                              type="checkbox"
-                              checked={bulkSelected.has(batch.id)}
-                              onChange={() => toggleBulkSelect(batch.id)}
-                              className="w-4 h-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 bg-white"
-                            />
-                          </div>
+                          <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                            {bulkSelected.has(batch.id) ? (
+                              <span className="w-3 h-3 rounded-full bg-blue-600" />
+                            ) : null}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1017,17 +1021,16 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                 <li
                   key={batch.id}
                   ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
-                  className={`rounded-xl border border-emerald-200/80 bg-white p-4 shadow-sm ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}
+                  className={`rounded-xl border bg-white p-4 shadow-sm transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    {/* Bulk checkbox — only for editable batches */}
+                    {/* Bulk selection bubble — only for editable batches */}
                     {bulkMode && canEditUser(batch.user_id ?? "") && (
-                      <input
-                        type="checkbox"
-                        checked={bulkSelected.has(batch.id)}
-                        onChange={() => toggleBulkSelect(batch.id)}
-                        className="mt-1 w-5 h-5 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
-                      />
+                      <span className="mt-1 shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                        {bulkSelected.has(batch.id) ? (
+                          <span className="w-3 h-3 rounded-full bg-blue-600" />
+                        ) : null}
+                      </span>
                     )}
                     {/* Plant profile thumbnail (Law 7 hierarchy) */}
                     <div className="shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
