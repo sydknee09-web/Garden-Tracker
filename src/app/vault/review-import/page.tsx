@@ -213,7 +213,6 @@ export default function ReviewImportPage() {
   const [heroGuardrailItemId, setHeroGuardrailItemId] = useState<string | null>(null);
   /** Item ids we tried in bulk search but no photo was found (show "No photo found" label) */
   const [noPhotoFoundIds, setNoPhotoFoundIds] = useState<Set<string>>(new Set());
-  const [bulkHeroSearching, setBulkHeroSearching] = useState(false);
   const saveSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
@@ -595,7 +594,6 @@ export default function ReviewImportPage() {
     });
   }, []);
 
-  const itemsMissingHero = items.filter((i) => !hasValidImageUrl(i));
 
   /** For purchase_order: navigate to hero page to find photos for all items (two-step flow like photo import). */
   const handleGoToHeroPhotos = useCallback(() => {
@@ -613,180 +611,6 @@ export default function ReviewImportPage() {
     setPendingPhotoHeroImport({ items: heroItems });
     router.push("/vault/import/photos/hero");
   }, [items, router]);
-
-  const handleFindMissingHeroPhotos = useCallback(async () => {
-    const missing = itemsMissingHero;
-    if (missing.length === 0) return;
-    setBulkHeroSearching(true);
-    setNoPhotoFoundIds(new Set());
-    setHeroLoadingIds((prev) => {
-      const next = new Set(prev);
-      missing.forEach((i) => next.add(i.id));
-      return next;
-    });
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? null;
-    const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) authHeaders.Authorization = `Bearer ${token}`;
-
-    // Build vault profile hero map — skip API when user already has this variety
-    const vaultProfileHeroMap = new Map<string, string>();
-    if (user?.id) {
-      try {
-        const { data: profilesWithHero } = await supabase
-          .from("plant_profiles")
-          .select("id, name, variety_name, hero_image_path, hero_image_url")
-          .eq("user_id", user.id)
-          .is("deleted_at", null);
-        for (const p of profilesWithHero ?? []) {
-          const key = identityKeyFromVariety(p.name ?? "", p.variety_name ?? "");
-          if (!key) continue;
-          let heroUrl: string | null = null;
-          if ((p as { hero_image_path?: string }).hero_image_path?.trim()) {
-            const { data: pub } = supabase.storage.from("journal-photos").getPublicUrl((p as { hero_image_path: string }).hero_image_path.trim());
-            if (pub?.publicUrl) heroUrl = pub.publicUrl;
-          }
-          if (!heroUrl && (p as { hero_image_url?: string }).hero_image_url?.trim().startsWith("http")) {
-            heroUrl = (p as { hero_image_url: string }).hero_image_url.trim();
-          }
-          if (heroUrl && !vaultProfileHeroMap.has(key)) vaultProfileHeroMap.set(key, heroUrl);
-        }
-      } catch (_) {
-        /* non-fatal */
-      }
-    }
-
-    const results = await Promise.all(
-      missing.map(async (item) => {
-        const searchName = (item.originalType ?? item.type ?? "").trim() || "Unknown";
-        const searchVariety = (item.originalVariety ?? item.variety ?? "").trim();
-        const queryUsed = `${searchName} ${searchVariety}`.trim() || "—";
-        const identityKeyBulk = (item.identityKey ?? "").trim();
-        const vaultProfileUrl = identityKeyBulk ? vaultProfileHeroMap.get(identityKeyBulk) : undefined;
-        if (vaultProfileUrl) {
-          persistHeroSearchLog(item, 1, true, 200, queryUsed, vaultProfileUrl);
-          return {
-            id: item.id,
-            url: vaultProfileUrl,
-            isError: false,
-            variety: item.cleanVariety ?? item.variety ?? item.type ?? "",
-          };
-        }
-        let didLog = false;
-        try {
-          const res = await fetch("/api/seed/find-hero-photo", {
-            method: "POST",
-            headers: authHeaders,
-            body: JSON.stringify({
-              name: searchName,
-              variety: searchVariety,
-              vendor: (item.vendor ?? "").trim(),
-              scientific_name: (item.scientific_name ?? "").trim() || undefined,
-              identity_key: (item.identityKey ?? "").trim() || undefined,
-            }),
-          });
-          const data = (await res.json()) as {
-            hero_image_url?: string;
-            image_url?: string;
-            url?: string;
-            error?: string;
-          };
-          let raw = data.hero_image_url ?? data.image_url ?? data.url ?? "";
-          let cleaned = cleanHeroUrl(typeof raw === "string" ? raw : "");
-          let formatted = formatVendorUrl(cleaned);
-          let url = formatted.startsWith("http") ? formatted : undefined;
-          if (res.status === 0 && identityKeyBulk && token && !url) {
-            try {
-              const vaultRes = await fetch("/api/settings/import-logs", { headers: { Authorization: `Bearer ${token}` } });
-              if (vaultRes.ok) {
-                const vaultJson = (await vaultRes.json()) as { logs?: { identity_key_generated?: string; status_code?: number; hero_image_url?: string }[] };
-                const entry = (vaultJson.logs ?? []).find(
-                  (l) => l.identity_key_generated === identityKeyBulk && l.status_code === 200 && typeof l.hero_image_url === "string" && l.hero_image_url.trim().startsWith("http")
-                );
-                if (entry?.hero_image_url) {
-                  formatted = formatVendorUrl(cleanHeroUrl(entry.hero_image_url.trim()));
-                  if (formatted.startsWith("http")) url = formatted;
-                }
-              }
-            } catch (_) {
-              /* non-fatal */
-            }
-          }
-          const isError = !res.ok && !url;
-          persistHeroSearchLog(item, 1, !!url, url ? 200 : res.status, queryUsed, url);
-          didLog = true;
-          return {
-            id: item.id,
-            url,
-            isError,
-            variety: item.cleanVariety ?? item.variety ?? item.type ?? "",
-          };
-        } catch (err) {
-          persistHeroSearchLog(item, 1, false, 0, queryUsed);
-          didLog = true;
-          return {
-            id: item.id,
-            url: undefined,
-            isError: true,
-            variety: "",
-          };
-        } finally {
-          if (!didLog) {
-            persistHeroSearchLog(item, 1, false, 0, queryUsed);
-          }
-        }
-      })
-    );
-
-    const notFound: string[] = [];
-    const successList: { id: string; url: string; variety: string }[] = [];
-
-    results.forEach((r) => {
-      if (r.url) {
-        const cleanedUrl = formatVendorUrl(r.url);
-        successList.push({ id: r.id, url: cleanedUrl, variety: r.variety });
-        setNoPhotoFoundIds((prev) => {
-          const next = new Set(prev);
-          next.delete(r.id);
-          return next;
-        });
-        console.log("SUCCESS:", r.variety, "Cleaned URL:", cleanedUrl);
-      } else if (!r.isError) {
-        notFound.push(r.id);
-      }
-    });
-
-    setItems((prev) => {
-      const next = prev.map((i) => {
-        const s = successList.find((x) => x.id === i.id);
-        if (s?.url) {
-          return {
-            ...i,
-            stock_photo_url: s.url,
-            hero_image_url: s.url,
-            useStockPhotoAsHero: true,
-          };
-        }
-        return i;
-      });
-      // Persist to localStorage immediately so re-renders don't lose the new hero URLs
-      setReviewImportData({ items: next });
-      return next;
-    });
-
-    setNoPhotoFoundIds((prev) => {
-      const next = new Set(prev);
-      notFound.forEach((id) => next.add(id));
-      return next;
-    });
-    setHeroLoadingIds((prev) => {
-      const next = new Set(prev);
-      missing.forEach((i) => next.delete(i.id));
-      return next;
-    });
-    setBulkHeroSearching(false);
-  }, [itemsMissingHero, user?.id]);
 
   const getExistingProfile = useCallback(
     (item: ReviewImportItem): ProfileMatch | null =>
@@ -1304,49 +1128,24 @@ export default function ReviewImportPage() {
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        {importSource === "purchase_order" ? (
-          <>
-            <p className="text-sm text-black/70 mb-2 w-full">
-              Step 2: Find plant photos for each item. We&apos;ll search for images based on your edits above.
-            </p>
-            <button
-              type="button"
-              onClick={handleGoToHeroPhotos}
-              disabled={saving}
-              className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Find Hero Photos
-            </button>
-            <span className="text-sm text-neutral-500">
-              or save without photos below
-            </span>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={handleFindMissingHeroPhotos}
-              disabled={itemsMissingHero.length === 0 || bulkHeroSearching || saving}
-              title={
-                itemsMissingHero.length === 0
-                  ? "All items have a hero image"
-                  : bulkHeroSearching
-                    ? "Searching for photos…"
-                    : `Find hero photos for ${itemsMissingHero.length} item(s)`
-              }
-              className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-blue-500 bg-transparent text-blue-600 font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-500 transition-colors"
-            >
-              {bulkHeroSearching ? "Searching…" : "Find Missing Hero Photos"}
-            </button>
-            {itemsMissingHero.length > 0 && !bulkHeroSearching && (
-              <span className="text-sm text-neutral-500">
-                {itemsMissingHero.length} without image
-              </span>
-            )}
-          </>
-        )}
-      </div>
+      {importSource === "purchase_order" && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <p className="text-sm text-black/70 mb-2 w-full">
+            Step 2: Find plant photos for each item. We&apos;ll search for images based on your edits above.
+          </p>
+          <button
+            type="button"
+            onClick={handleGoToHeroPhotos}
+            disabled={saving}
+            className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Find Hero Photos
+          </button>
+          <span className="text-sm text-neutral-500">
+            or save without photos below
+          </span>
+        </div>
+      )}
 
       <div className="rounded-xl border border-black/10 bg-white -mx-4 md:-mx-8 w-full overflow-hidden">
         <div className="divide-y divide-black/5">
@@ -1489,8 +1288,8 @@ export default function ReviewImportPage() {
                         </p>
                       )}
                       {!hasRealImage && !heroLoading && (
-                        <p className="text-neutral-500 text-xs mt-0.5" title="Edit the Variety name and use Find Missing Hero Photos, or paste an image URL if you have one">
-                          No photo found. Try editing the Variety name or adding a manual URL.
+                        <p className="text-neutral-500 text-xs mt-0.5" title="Edit the Variety name or add a photo manually">
+                          No photo found. Try editing the Variety name or adding a photo below.
                         </p>
                       )}
                       <label className="flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer">
@@ -1549,19 +1348,21 @@ export default function ReviewImportPage() {
                             e.target.value = "";
                           }}
                         />
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex gap-2 mt-2">
                           <button
                             type="button"
                             onClick={() => addPhotoInputRefs.current[item.id]?.click()}
-                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                            className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                           >
+                            <span className="text-base" aria-hidden>📷</span>
                             Take photo
                           </button>
                           <button
                             type="button"
                             onClick={() => addPhotoGalleryRefs.current[item.id]?.click()}
-                            className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline min-h-[44px] min-w-[44px] flex items-center"
+                            className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                           >
+                            <span className="text-base" aria-hidden>🖼</span>
                             From gallery
                           </button>
                         </div>

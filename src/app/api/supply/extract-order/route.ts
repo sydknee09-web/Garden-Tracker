@@ -48,19 +48,20 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `You are analyzing a garden supply order confirmation, cart screenshot, or receipt. Extract ALL individual garden supply line items: fertilizers, pesticides, soil amendments, compost, mulch, plant food, etc.
+    const prompt = `You are analyzing a garden supply order confirmation, order details screen, cart screenshot, or receipt (e.g. from Walmart, Amazon, or garden retailers). Extract ALL individual garden supply line items: fertilizers, pesticides, soil amendments, compost, mulch, plant food, gypsum, diatomaceous earth, etc.
 
 For each item, extract:
 - "name": Product name (e.g. "Fish Emulsion 5-1-1", "Neem Oil", "Compost")
-- "brand": Manufacturer or brand (e.g. "Neptune's Harvest", "Bonide")
+- "brand": Manufacturer or brand (e.g. "Monterey", "Espoma", "Garden Safe")
 - "category": One of "fertilizer", "pesticide", "soil_amendment", "other"
 - "npk": N-P-K ratio if visible (e.g. "5-1-1", "10-10-10", empty string if not found)
 - "application_rate": Dosage if visible (e.g. "1 tbsp per gallon")
 - "usage_instructions": Brief usage notes if visible
 - "quantity": Number of units ordered (default 1 if not visible)
 - "price": Price per item if visible (e.g. "$12.99")
+- "vendor": Per-item vendor if shown (e.g. "Sold and shipped by Esbenshades Garden Center"); otherwise use overall order vendor
 
-Also extract the overall vendor/company name from the order.
+Also extract the overall vendor/company name (e.g. from "Sold and shipped by X" or the store name).
 
 Return ONLY valid JSON in this exact format:
 {
@@ -71,7 +72,8 @@ Return ONLY valid JSON in this exact format:
 }
 
 Important:
-- Include ONLY garden supplies (fertilizers, pesticides, soil amendments, compost, mulch, plant food). Exclude seeds, plants, tools, non-garden items.
+- Include ALL garden supplies (fertilizers, pesticides, soil amendments, compost, mulch, gypsum, plant food, insect killers). Exclude seeds, plants, tools, non-garden items.
+- Product names may be long (e.g. "Monterey Concentrate Nutra Green All Purpose Fertilizer 5-10-5 + Micro - 1 Quart") - include the full name.
 - If you can't determine category, use "other"
 - Use empty string for npk, application_rate, usage_instructions if not found
 - If there are no recognizable supply items, return an empty items array
