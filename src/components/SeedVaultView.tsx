@@ -1512,7 +1512,7 @@ export function SeedVaultView({
                 <button
                   type="button"
                   onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
-                  className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5 border-2 border-emerald-500" : ""}`}
                   {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                 >
                   {batchSelectMode && (
@@ -1577,7 +1577,7 @@ export function SeedVaultView({
               tabIndex={0}
               onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); batchSelectMode ? onToggleVarietySelection?.(seed.id) : goToProfile(seed.id); } }}
-              className={`group border-b border-black/5 hover:bg-gray-50 cursor-pointer transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5" : ""}`}
+              className={`group border-b border-black/5 hover:bg-gray-50 cursor-pointer transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5 ring-2 ring-emerald-500 border-l-4 border-l-emerald-500" : ""}`}
               {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
             >
               {batchSelectMode && (
