@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
 import { setReviewImportData, type ReviewImportItem } from "@/lib/reviewImportStorage";
+import { setSupplyReviewData } from "@/lib/supplyReviewStorage";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
+import type { SupplyOrderLineItem } from "@/app/api/supply/extract-order/route";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -18,11 +20,13 @@ async function resizeImageIfNeeded(file: File, maxLongEdge = 1000, quality = 0.8
 interface PurchaseOrderImportProps {
   open: boolean;
   onClose: () => void;
-  /** When "permanent", imported items become trees/perennials (My Plants). Default "seed". */
+  /** "seed" = plant profiles (vault/review-import). "supply" = supply profiles (shed/review-import). Default "seed". */
+  mode?: "seed" | "supply";
+  /** When "permanent", imported items become trees/perennials (My Plants). Only used when mode="seed". */
   defaultProfileType?: "seed" | "permanent";
 }
 
-export function PurchaseOrderImport({ open, onClose, defaultProfileType = "seed" }: PurchaseOrderImportProps) {
+export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfileType = "seed" }: PurchaseOrderImportProps) {
   const router = useRouter();
   const { session: authSession } = useAuth();
   const [isExtracting, setIsExtracting] = useState(false);
@@ -125,6 +129,42 @@ export function PurchaseOrderImport({ open, onClose, defaultProfileType = "seed"
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (authSession?.access_token) headers.Authorization = `Bearer ${authSession.access_token}`;
+
+      if (mode === "supply") {
+        const res = await fetch("/api/supply/extract-order", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { items: SupplyOrderLineItem[]; vendor: string; error?: string };
+        if (!res.ok || data.error) {
+          setError(data.error || `Failed to process order (${res.status}).`);
+          setIsExtracting(false);
+          return;
+        }
+        if (!data.items?.length) {
+          setError("No supply items found in this image. Try a clearer screenshot of a fertilizer, pesticide, or garden supply order.");
+          setIsExtracting(false);
+          return;
+        }
+        const reviewItems = data.items.map((item) => ({
+          id: crypto.randomUUID(),
+          name: item.name,
+          brand: item.brand,
+          category: item.category as "fertilizer" | "pesticide" | "soil_amendment" | "other",
+          npk: item.npk,
+          application_rate: item.application_rate,
+          usage_instructions: item.usage_instructions,
+          vendor: item.vendor || data.vendor || "",
+          quantity: item.quantity,
+          price: item.price,
+        }));
+        setSupplyReviewData({ items: reviewItems });
+        onClose();
+        router.push("/shed/review-import");
+        return;
+      }
+
       const res = await fetch("/api/seed/extract-order", {
         method: "POST",
         headers,
@@ -217,7 +257,7 @@ export function PurchaseOrderImport({ open, onClose, defaultProfileType = "seed"
 
         <>
             <p className="text-sm text-black/70 mb-4">
-              <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We’ll extract all seed/plant line items from one image.
+              <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We’ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
             </p>
             <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[320px] mb-4 border-2 border-dashed border-black/15 flex items-center justify-center">
               {previewUrl ? (

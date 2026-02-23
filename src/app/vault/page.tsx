@@ -100,14 +100,16 @@ function VaultPageInner() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
 
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
     setQrPrefill(null);
     setBatchAddOpen(false);
     setPurchaseOrderOpen(false);
+    setShedQuickAddOpen(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
@@ -1518,6 +1520,12 @@ function VaultPageInner() {
             open={shedQuickAddOpen}
             onClose={() => setShedQuickAddOpen(false)}
             onSuccess={() => setRefetchTrigger((t) => t + 1)}
+            onOpenPurchaseOrder={() => {
+              skipPopOnNavigateRef.current = true;
+              setShedQuickAddOpen(false);
+              setPurchaseOrderMode("supply");
+              setPurchaseOrderOpen(true);
+            }}
           />
           <ShedView
             embedded
@@ -2094,6 +2102,7 @@ function VaultPageInner() {
         onOpenPurchaseOrder={() => {
           skipPopOnNavigateRef.current = true;
           setQuickAddOpen(false);
+          setPurchaseOrderMode("seed");
           setPurchaseOrderOpen(true);
         }}
       />
@@ -2112,6 +2121,8 @@ function VaultPageInner() {
       <PurchaseOrderImport
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
+        mode={purchaseOrderMode}
+        defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
 
       <QRScannerModal

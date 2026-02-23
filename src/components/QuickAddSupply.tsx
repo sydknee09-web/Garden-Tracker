@@ -18,9 +18,11 @@ interface QuickAddSupplyProps {
   onSuccess: () => void;
   /** When set, modal is in Edit mode. */
   initialData?: SupplyProfile | null;
+  /** Open Purchase Order import (screenshot of cart/order with supplies); parent should close this and open PurchaseOrderImport with mode="supply". */
+  onOpenPurchaseOrder?: () => void;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickAddSupplyProps) {
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder }: QuickAddSupplyProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddSupplyScreen>("choose");
   const [name, setName] = useState("");
@@ -363,6 +365,16 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData }: QuickA
               <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
               Manual Entry
             </button>
+            {onOpenPurchaseOrder && (
+              <button
+                type="button"
+                onClick={() => { onClose(); onOpenPurchaseOrder(); }}
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
+                Purchase Order
+              </button>
+            )}
             <div className="pt-4">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
                 Cancel
