@@ -26,6 +26,7 @@ export default function ShedReviewImportPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<SupplyReviewItem[]>([]);
+  const [originalExtracted, setOriginalExtracted] = useState<Record<string, SupplyReviewItem>>({});
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,9 @@ export default function ShedReviewImportPage() {
     const data = getSupplyReviewData();
     if (data?.items?.length) {
       setItems(data.items);
+      const byId: Record<string, SupplyReviewItem> = {};
+      for (const i of data.items) byId[i.id] = { ...i };
+      setOriginalExtracted(byId);
       return;
     }
     let cancelled = false;
@@ -47,6 +51,9 @@ export default function ShedReviewImportPage() {
         const retry = getSupplyReviewData();
         if (retry?.items?.length) {
           setItems(retry.items);
+          const byId: Record<string, SupplyReviewItem> = {};
+          for (const i of retry.items) byId[i.id] = { ...i };
+          setOriginalExtracted(byId);
         } else if (ms === delays[delays.length - 1]) {
           router.replace("/vault?tab=shed");
         }
@@ -111,10 +118,12 @@ export default function ShedReviewImportPage() {
     let count = 0;
     try {
       for (const item of items) {
-        const nameTrim = (item.name ?? "").trim();
+        const orig = originalExtracted[item.id];
+        const nameTrim = ((item.name ?? "").trim() || (orig?.name ?? "").trim()) || "";
         if (!nameTrim) continue;
-        const category = SUPPLY_CATEGORIES.includes(item.category as (typeof SUPPLY_CATEGORIES)[number])
-          ? item.category
+        const catRaw = (item.category ?? "").trim() || (orig?.category ?? "").trim();
+        const category = SUPPLY_CATEGORIES.includes(catRaw as (typeof SUPPLY_CATEGORIES)[number])
+          ? catRaw
           : "other";
         let primaryImagePath: string | null = null;
         const photo = itemPhotos[item.id];
@@ -126,15 +135,20 @@ export default function ShedReviewImportPage() {
             .upload(path, blob, { contentType: "image/jpeg", upsert: false });
           if (!uploadErr) primaryImagePath = path;
         }
-        const vendorNote = (item.vendor ?? "").trim() ? `Vendor: ${item.vendor}` : null;
+        const vendorVal = (item.vendor ?? "").trim() || (orig?.vendor ?? "").trim();
+        const vendorNote = vendorVal ? `Vendor: ${vendorVal}` : null;
+        const brandVal = (item.brand ?? "").trim() || (orig?.brand ?? "").trim();
+        const usageVal = (item.usage_instructions ?? "").trim() || (orig?.usage_instructions ?? "").trim();
+        const appRateVal = (item.application_rate ?? "").trim() || (orig?.application_rate ?? "").trim();
+        const npkVal = (item.npk ?? "").trim() || (orig?.npk ?? "").trim();
         const payload: Record<string, unknown> = {
           user_id: user.id,
           name: nameTrim,
-          brand: (item.brand ?? "").trim() || null,
+          brand: brandVal || null,
           category,
-          usage_instructions: (item.usage_instructions ?? "").trim() || null,
-          application_rate: (item.application_rate ?? "").trim() || null,
-          npk: (item.npk ?? "").trim() || null,
+          usage_instructions: usageVal || null,
+          application_rate: appRateVal || null,
+          npk: npkVal || null,
           notes: vendorNote,
         };
         if (primaryImagePath) payload.primary_image_path = primaryImagePath;
@@ -153,7 +167,7 @@ export default function ShedReviewImportPage() {
     } finally {
       setSaving(false);
     }
-  }, [user?.id, items, itemPhotos, router]);
+  }, [user?.id, items, itemPhotos, originalExtracted, router]);
 
   const handleCancel = useCallback(() => {
     clearSupplyReviewData();

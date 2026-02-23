@@ -150,6 +150,7 @@ function VaultPageInner() {
   const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [shedFilterOpen, setShedFilterOpen] = useState(false);
+  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("grid");
   const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
   const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
   const [shedSelectionActionsOpen, setShedSelectionActionsOpen] = useState(false);
@@ -310,6 +311,8 @@ function VaultPageInner() {
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
+      const savedShedStyle = sessionStorage.getItem("vault-shed-display-style");
+      if (savedShedStyle === "grid" || savedShedStyle === "list") setShedDisplayStyle(savedShedStyle);
       const savedStatus = sessionStorage.getItem("vault-status-filter");
       // Restore only explicit non-default filters; treat "" and legacy "vault" (In storage) as All
       if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") vaultFilters.setStatus(savedStatus);
@@ -348,6 +351,26 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [gridDisplayStyle]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-shed-display-style", shedDisplayStyle);
+    } catch {
+      /* ignore */
+    }
+  }, [shedDisplayStyle]);
+  // Restore shed display style on mount (runs even when tab=shed in URL, unlike hasRestoredSession)
+  const shedStyleRestoredRef = useRef(false);
+  useEffect(() => {
+    if (shedStyleRestoredRef.current || typeof window === "undefined") return;
+    shedStyleRestoredRef.current = true;
+    try {
+      const saved = sessionStorage.getItem("vault-shed-display-style");
+      if (saved === "grid" || saved === "list") setShedDisplayStyle(saved);
+    } catch {
+      /* ignore */
+    }
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -1077,6 +1100,23 @@ function VaultPageInner() {
                     Select All
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setShedDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
+                  title={shedDisplayStyle === "grid" ? "List view" : "Grid view"}
+                  aria-label={shedDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
+                >
+                  {shedDisplayStyle === "grid" ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
           </>
@@ -1515,7 +1555,7 @@ function VaultPageInner() {
       )}
 
       {viewMode === "shed" && (
-        <div className="relative z-10 pt-2 pointer-events-auto">
+        <div className="relative z-10 pt-2 pointer-events-auto [&_a]:pointer-events-auto">
           <QuickAddSupply
             open={shedQuickAddOpen}
             onClose={() => setShedQuickAddOpen(false)}
@@ -1534,6 +1574,7 @@ function VaultPageInner() {
             scrollContainerRef={scrollContainerRef}
             searchQuery={shedSearchQuery}
             categoryFilter={shedCategoryFilter}
+            displayStyle={shedDisplayStyle}
             batchSelectMode={shedBatchSelectMode}
             selectedIds={selectedSupplyIds}
             onToggleSelection={(id) => {

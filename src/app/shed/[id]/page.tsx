@@ -20,7 +20,7 @@ function formatDisplayDate(value: string): string {
 }
 
 export default function ShedDetailPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -32,6 +32,7 @@ export default function ShedDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const categoryFromUrl = searchParams.get("category");
@@ -160,6 +161,69 @@ export default function ShedDetailPage() {
     }
   }, [user?.id, supply?.id, supply?.name, fetchHistory]);
 
+  const handleFillDetails = useCallback(async () => {
+    if (!user?.id || !supply?.id || !session?.access_token) return;
+    setEnriching(true);
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      };
+      let data: {
+        name?: string;
+        brand?: string;
+        category?: string;
+        npk?: string;
+        application_rate?: string;
+        usage_instructions?: string;
+        source_url?: string;
+        primary_image_path?: string;
+      };
+      if (supply.source_url?.trim()?.startsWith("http")) {
+        const res = await fetch("/api/supply/extract-from-url", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ url: supply.source_url.trim() }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? "Extraction failed");
+        data = json;
+      } else {
+        const res = await fetch("/api/supply/enrich-from-name", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ name: supply.name, brand: supply.brand ?? "" }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? "Enrichment failed");
+        data = json;
+      }
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (!(supply.brand ?? "").trim() && (data.brand ?? "").trim()) updates.brand = data.brand!.trim();
+      if (!(supply.category ?? "").trim() && (data.category ?? "").trim()) updates.category = data.category!.trim();
+      if (!(supply.npk ?? "").trim() && (data.npk ?? "").trim()) updates.npk = data.npk!.trim();
+      if (!(supply.application_rate ?? "").trim() && (data.application_rate ?? "").trim()) updates.application_rate = data.application_rate!.trim();
+      if (!(supply.usage_instructions ?? "").trim() && (data.usage_instructions ?? "").trim()) updates.usage_instructions = data.usage_instructions!.trim();
+      if (!(supply.source_url ?? "").trim() && (data.source_url ?? "").trim()) updates.source_url = data.source_url!.trim();
+      if (!(supply.primary_image_path ?? "").trim() && (data.primary_image_path ?? "").trim()) updates.primary_image_path = data.primary_image_path!.trim();
+      if (Object.keys(updates).length <= 1) {
+        setToastMessage("No new details to add");
+      } else {
+        const { error } = await updateWithOfflineQueue("supply_profiles", updates, { id: supply.id, user_id: user.id });
+        if (error) throw error;
+        hapticSuccess();
+        await fetchSupply();
+        setToastMessage("Product details filled");
+      }
+      setTimeout(() => setToastMessage(null), 2500);
+    } catch (e) {
+      setToastMessage(e instanceof Error ? e.message : "Failed to fill details");
+      setTimeout(() => setToastMessage(null), 2500);
+    } finally {
+      setEnriching(false);
+    }
+  }, [user?.id, supply, session?.access_token, fetchSupply]);
+
   if (loading || !supply) {
     return (
       <div className="p-6">
@@ -221,13 +285,24 @@ export default function ShedDetailPage() {
               )}
             </div>
             {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditOpen(true)}
-                className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5 shrink-0"
-              >
-                Edit
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleFillDetails}
+                  disabled={enriching || !session?.access_token}
+                  title="Fill product details from web"
+                  className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5 disabled:opacity-50"
+                >
+                  {enriching ? "…" : "★ Fill"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="min-w-[44px] min-h-[44px] px-3 rounded-xl border border-black/10 text-sm font-medium hover:bg-black/5"
+                >
+                  Edit
+                </button>
+              </div>
             )}
           </div>
 

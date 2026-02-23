@@ -26,6 +26,7 @@ export function ShedView({
   scrollContainerRef,
   searchQuery: externalSearchQuery,
   categoryFilter: externalCategoryFilter,
+  displayStyle: externalDisplayStyle,
   batchSelectMode = false,
   selectedIds = new Set<string>(),
   onToggleSelection,
@@ -41,6 +42,8 @@ export function ShedView({
   /** When embedded, vault provides search/filter. */
   searchQuery?: string;
   categoryFilter?: string | null;
+  /** "grid" = icon badges, "list" = detailed rows. When embedded, vault provides this. */
+  displayStyle?: "grid" | "list";
   batchSelectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
@@ -55,8 +58,10 @@ export function ShedView({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
+  const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("grid");
   const searchQuery = embedded && externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const categoryFilter = embedded && externalCategoryFilter !== undefined ? externalCategoryFilter : internalCategoryFilter;
+  const displayStyle = embedded && externalDisplayStyle !== undefined ? externalDisplayStyle : internalDisplayStyle;
 
   const isFamilyView = householdViewMode === "family";
 
@@ -215,6 +220,23 @@ export function ShedView({
                 {CATEGORY_LABELS[cat]}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setInternalDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white ml-auto hover:bg-black/5"
+              title={displayStyle === "grid" ? "List view" : "Grid view"}
+              aria-label={displayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
+            >
+              {displayStyle === "grid" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                </svg>
+              )}
+            </button>
           </div>
         </>
       )}
@@ -238,8 +260,79 @@ export function ShedView({
             </button>
           )}
         </div>
+      ) : displayStyle === "list" ? (
+        <ul className="space-y-4 [&_a]:pointer-events-auto" role="list">
+          {filteredSupplies.map((s) => {
+            const npk = parseNpkForDisplay(s.npk);
+            const thumbUrl = s.primary_image_path
+              ? supabase.storage.from("journal-photos").getPublicUrl(s.primary_image_path).data.publicUrl
+              : null;
+            const lastUsed = s.last_used_at
+              ? (() => {
+                  const d = new Date(s.last_used_at);
+                  const now = new Date();
+                  const days = Math.floor((now.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+                  if (days === 0) return "Today";
+                  if (days === 1) return "Yesterday";
+                  if (days < 7) return `${days} days ago`;
+                  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+                  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+                })()
+              : null;
+            const detailHref = embedded
+              ? `/shed/${s.id}${categoryFilter ? `?from=vault&category=${categoryFilter}` : "?from=vault"}`
+              : `/shed/${s.id}${categoryFilter ? `?from=shed&category=${categoryFilter}` : "?from=shed"}`;
+            const isSelected = batchSelectMode && selectedIds.has(s.id);
+            const rowClassName = `flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all min-h-[44px] ${
+              isSelected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
+            }`;
+            const rowInner = (
+              <>
+                <div className="relative shrink-0 w-12 h-12 rounded-lg bg-neutral-100 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                  {thumbUrl ? (
+                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl" aria-hidden>🌱</span>
+                  )}
+                  {isSelected && (
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-neutral-900 truncate">{s.name}</h3>
+                  {s.brand && <p className="text-sm text-neutral-500 truncate">{s.brand}</p>}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-neutral-500">
+                    <span className="inline-block px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium">
+                      {CATEGORY_LABELS[s.category] ?? s.category}
+                    </span>
+                    {npk && <span className="text-emerald-700">N {npk.n}% | P {npk.p}% | K {npk.k}%</span>}
+                    {lastUsed && <span>Last used: {lastUsed}</span>}
+                  </div>
+                </div>
+                {isFamilyView && s.user_id && s.user_id !== user?.id && (
+                  <span className="shrink-0 text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white">FAM</span>
+                )}
+              </>
+            );
+            return (
+              <li key={s.id}>
+                {batchSelectMode && onToggleSelection ? (
+                  <button type="button" onClick={() => onToggleSelection(s.id)} className={`w-full text-left ${rowClassName}`}>
+                    {rowInner}
+                  </button>
+                ) : (
+                  <Link href={detailHref} className={`block ${rowClassName}`}>
+                    {rowInner}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 [&_a]:pointer-events-auto">
           {filteredSupplies.map((s) => {
             const npk = parseNpkForDisplay(s.npk);
             const thumbUrl = s.primary_image_path
