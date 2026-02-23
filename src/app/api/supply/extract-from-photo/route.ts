@@ -30,6 +30,16 @@ Extract all visible information. Return ONLY valid JSON with these exact keys (u
 
 Return ONLY the JSON object, no markdown or explanation.`;
 
+/** Strip brand from start of product name when duplicated (e.g. "Monterey Fish Emulsion" → "Fish Emulsion"). */
+function stripBrandFromName(name: string, brand: string): string {
+  if (!brand?.trim()) return name.trim();
+  const prefix = brand.trim();
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*${escaped}\\s+`, "i");
+  const trimmed = name.trim().replace(re, "").trim();
+  return trimmed || name.trim();
+}
+
 function parseExtractJson(jsonStr: string): SupplyPhotoExtractResult | null {
   let parsed: Record<string, unknown>;
   try {
@@ -46,10 +56,12 @@ function parseExtractJson(jsonStr: string): SupplyPhotoExtractResult | null {
   const validCategory = ["fertilizer", "pesticide", "soil_amendment", "other"].includes(cat)
     ? cat
     : "other";
+  const rawName = getStr("name") || "Imported product";
+  const brand = getStr("brand");
 
   return {
-    name: getStr("name") || "Imported product",
-    brand: getStr("brand"),
+    name: stripBrandFromName(rawName, brand),
+    brand,
     category: validCategory,
     npk: getStr("npk"),
     application_rate: getStr("application_rate"),

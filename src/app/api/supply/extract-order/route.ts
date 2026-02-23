@@ -31,6 +31,23 @@ const GEMINI_KEY =
 
 const VALID_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 
+/** Strip vendor/brand from start of product name when duplicated (e.g. "Monterey Concentrate..." → "Concentrate..."). */
+function stripBrandOrVendorFromName(name: string, brand: string, vendor: string): string {
+  let result = name.trim();
+  const candidates = [brand, vendor].filter((s) => s && s.trim());
+  for (const c of candidates) {
+    const prefix = c.trim();
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`^\\s*${escaped}\\s+`, "i");
+    const trimmed = result.replace(re, "").trim();
+    if (trimmed && trimmed.length < result.length) {
+      result = trimmed;
+      break;
+    }
+  }
+  return result || name;
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
@@ -110,14 +127,18 @@ Important:
       .map((item) => {
         const cat = typeof item.category === "string" ? item.category.toLowerCase().trim() : "";
         const validCat = VALID_CATEGORIES.includes(cat as (typeof VALID_CATEGORIES)[number]) ? cat : "other";
+        const rawName = typeof item.name === "string" ? item.name.trim() : "Imported supply";
+        const brand = typeof item.brand === "string" ? item.brand.trim() : "";
+        const itemVendor = typeof item.vendor === "string" ? item.vendor.trim() : vendor;
+        const name = stripBrandOrVendorFromName(rawName, brand, itemVendor);
         return {
-          name: typeof item.name === "string" ? item.name.trim() : "Imported supply",
-          brand: typeof item.brand === "string" ? item.brand.trim() : "",
+          name,
+          brand,
           category: validCat,
           npk: typeof item.npk === "string" ? item.npk.trim() : "",
           application_rate: typeof item.application_rate === "string" ? item.application_rate.trim() : "",
           usage_instructions: typeof item.usage_instructions === "string" ? item.usage_instructions.trim() : "",
-          vendor: typeof item.vendor === "string" ? item.vendor.trim() : vendor,
+          vendor: itemVendor,
           quantity: typeof item.quantity === "number" ? item.quantity : 1,
           price: typeof item.price === "string" ? item.price : undefined,
         };
