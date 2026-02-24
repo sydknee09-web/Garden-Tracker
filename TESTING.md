@@ -21,6 +21,7 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 | `npm run test:ci` | Run tests once **with coverage** (for CI or local report) |
 | `npm run test:e2e` | Run **E2E tests** (Playwright). Auto-starts dev server, or run `npm run dev` first |
 | `npm run test:e2e:ui` | Run E2E tests with **Playwright UI** |
+| `npm run test:all` | Run unit tests + coverage + E2E (full suite before push) |
 
 ## What’s included
 
@@ -43,7 +44,9 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 - **`src/lib/parseFindHeroPhotoResponse.test.ts`** — Set Profile Photo “Search web” response parsing: valid JSON, invalid JSON / HTML / timeout bodies return friendly errors instead of “Unexpected token … is not valid JSON”
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
 - **`src/app/api/seed/batch-import/route.test.ts`** — Batch import API (auth, validation)
-- **`e2e/home.spec.ts`** — E2E: Home page load, navigation
+- **`e2e/home.spec.ts`** — E2E: Login page load, sign-in prompt
+- **`e2e/public-pages.spec.ts`** — E2E: Login, signup, reset-password pages
+- **`e2e/smoke-authenticated.spec.ts`** — E2E: Vault, Garden, Calendar, etc. (requires `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` in `.env.local`)
 - **`e2e/accessibility.spec.ts`** — E2E: axe accessibility audit (home, login)
 
 ## Coverage
@@ -72,7 +75,12 @@ If you see `lockfileTryAcquireSync is not a function` when running `npm run test
 
 ## CI
 
-Use `npm run test:ci` in your pipeline. It exits with a non-zero code if tests fail. Optionally add coverage thresholds in `vitest.config.mts` under `coverage.lines`, `coverage.functions`, etc., to fail the build when coverage drops below a target.
+GitHub Actions (`.github/workflows/test.yml`) runs on push/PR:
+
+- **Unit tests** — `npm run test:ci` (with coverage)
+- **E2E tests** — Build app, start server, run Playwright (public pages only; authenticated smoke tests need `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` secrets)
+
+To run the full suite locally before pushing: `npm run test:all`
 
 ---
 

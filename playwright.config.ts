@@ -1,10 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+config({ path: ".env.local" });
 
 /**
  * Playwright E2E config for Garden Tracker.
- * Run: npx playwright test
+ * Run: npm run test:e2e
  * Install browsers (first time): npx playwright install
+ *
+ * Authenticated smoke tests (vault, garden, etc.) run only when
+ * E2E_TEST_EMAIL and E2E_TEST_PASSWORD are set (e.g. in .env.local).
  */
+const hasAuthCreds = !!(process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD);
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -20,12 +28,28 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "Mobile Chrome", use: { ...devices["Pixel 5"] } },
+    // Authenticated smoke tests (run only when E2E_TEST_EMAIL + E2E_TEST_PASSWORD are set)
+    ...(hasAuthCreds
+      ? [
+          { name: "setup", testMatch: /auth\.setup\.ts/ },
+          {
+            name: "chromium-authenticated",
+            use: { ...devices["Desktop Chrome"], storageState: ".auth/user.json" },
+            dependencies: ["setup"],
+            testMatch: /smoke-authenticated\.spec\.ts/,
+          },
+        ]
+      : []),
   ],
-  // Starts dev server. If you hit "lockfileTryAcquireSync" on Windows/OneDrive, run `npm run dev` manually first.
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 120000,
-  },
+  // In CI, server is started by the workflow. Locally, start dev server.
+  ...(process.env.CI
+    ? {}
+    : {
+        webServer: {
+          command: "npm run dev",
+          url: "http://localhost:3000",
+          reuseExistingServer: true,
+          timeout: 120000,
+        },
+      }),
 });
