@@ -6,6 +6,10 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -77,6 +81,9 @@ export function MyPlantsView({
   displayStyle = "grid",
   sortBy = "name",
   sortDir = "asc",
+  openBulkLogRequest = false,
+  onBulkLogRequestHandled,
+  onRefetch,
 }: {
   refetchTrigger: number;
   searchQuery?: string;
@@ -116,6 +123,10 @@ export function MyPlantsView({
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "planted_date" | "care_count";
   sortDir?: "asc" | "desc";
+  /** When true, open BatchLogSheet for selected plants (from FAB pencil). */
+  openBulkLogRequest?: boolean;
+  onBulkLogRequestHandled?: () => void;
+  onRefetch?: () => void;
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -125,6 +136,17 @@ export function MyPlantsView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
+  const [batchLogOpen, setBatchLogOpen] = useState(false);
+  const [batchLogBatches, setBatchLogBatches] = useState<BatchLogBatch[]>([]);
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<BatchLogBatch | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [endBatchTarget, setEndBatchTarget] = useState<BatchLogBatch | null>(null);
+  const [endReason, setEndReason] = useState<"harvested" | "plant_died" | "other">("other");
+  const [endNote, setEndNote] = useState("");
+  const [endSaving, setEndSaving] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
+  const [quickToast, setQuickToast] = useState<string | null>(null);
 
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
@@ -255,6 +277,164 @@ export function MyPlantsView({
   }, [user?.id, householdViewMode]);
 
   useEffect(() => { fetchPlants(); }, [fetchPlants, refetchTrigger]);
+
+  const toBatchLogBatch = useCallback((p: PermanentPlanting): BatchLogBatch => ({
+    id: p.id,
+    plant_profile_id: p.plant_profile_id,
+    profile_name: p.profile_name,
+    profile_variety_name: p.profile_variety_name,
+    location: p.location ?? undefined,
+    user_id: p.user_id ?? undefined,
+  }), []);
+
+  useEffect(() => {
+    if (openBulkLogRequest && selectedGrowIds.size > 0) {
+      const selected = plants.filter((p) => selectedGrowIds.has(p.id));
+      setBatchLogBatches(selected.map(toBatchLogBatch));
+      setBatchLogOpen(true);
+      onBulkLogRequestHandled?.();
+    }
+  }, [openBulkLogRequest, selectedGrowIds, plants, toBatchLogBatch, onBulkLogRequestHandled]);
+
+  const formatBatchDisplayName = (name: string, variety: string | null) =>
+    variety?.trim() ? `${name} (${variety})` : name;
+
+  const handleQuickTap = useCallback(async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
+    if (!user?.id) return;
+    try {
+      const weather = await fetchWeatherSnapshot();
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const { error } = await insertWithOfflineQueue("journal_entries", {
+        user_id: user.id,
+        plant_profile_id: batch.plant_profile_id,
+        grow_instance_id: batch.id,
+        note: notes[action],
+        entry_type: "quick",
+        weather_snapshot: weather ?? undefined,
+      });
+      if (error) { setQuickToast("Failed to save — try again"); } else { setQuickToast(`${notes[action]} ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`); }
+      setTimeout(() => setQuickToast(null), 2000);
+    } catch {
+      setQuickToast("Failed to save — try again");
+      setTimeout(() => setQuickToast(null), 2000);
+    }
+  }, [user?.id]);
+
+  const handleBulkQuickTap = useCallback(async (batches: BatchLogBatch[], action: "water" | "fertilize" | "spray") => {
+    if (!user?.id || batches.length === 0) return;
+    try {
+      const weather = await fetchWeatherSnapshot();
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const entries = batches.map((b) => ({
+        user_id: user.id,
+        plant_profile_id: b.plant_profile_id,
+        grow_instance_id: b.id,
+        note: notes[action],
+        entry_type: "quick" as const,
+        weather_snapshot: weather ?? undefined,
+      }));
+      const { error } = await insertManyWithOfflineQueue("journal_entries", entries);
+      if (error) {
+        setQuickToast("Failed to save — try again");
+        setTimeout(() => setQuickToast(null), 2000);
+      } else {
+        setQuickToast(`${notes[action]} (${batches.length} plant${batches.length !== 1 ? "s" : ""})`);
+        setTimeout(() => setQuickToast(null), 2000);
+        onRefetch?.();
+      }
+    } catch {
+      setQuickToast("Failed to save — try again");
+      setTimeout(() => setQuickToast(null), 2000);
+    }
+  }, [user?.id, onRefetch]);
+
+  const handleEndBatch = useCallback(async () => {
+    if (!user?.id || !endBatchTarget) return;
+    setEndSaving(true);
+    const batchId = endBatchTarget.id;
+    const now = new Date().toISOString();
+    const isDead = endReason === "plant_died";
+    const status = isDead ? "dead" : "archived";
+    const batchUserId = endBatchTarget.user_id ?? user.id;
+
+    const { error: updateErr } = await updateWithOfflineQueue("grow_instances", {
+      status,
+      ended_at: now,
+      end_reason: endReason,
+    }, { id: batchId, user_id: batchUserId });
+
+    if (updateErr) {
+      setEndSaving(false);
+      setQuickToast(updateErr.message);
+      setTimeout(() => setQuickToast(null), 3000);
+      return;
+    }
+
+    await softDeleteTasksForGrowInstance(batchId, batchUserId);
+
+    if (endNote.trim() || isDead) {
+      const weather = await fetchWeatherSnapshot();
+      await insertWithOfflineQueue("journal_entries", {
+        user_id: user.id,
+        plant_profile_id: endBatchTarget.plant_profile_id,
+        grow_instance_id: batchId,
+        note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
+        entry_type: isDead ? "death" : "note",
+        weather_snapshot: weather ?? undefined,
+      });
+    }
+
+    setEndSaving(false);
+    setEndBatchTarget(null);
+    setEndReason("other");
+    setEndNote("");
+    setPlants((prev) => prev.filter((p) => p.id !== batchId));
+    onRefetch?.();
+  }, [user?.id, endBatchTarget, endReason, endNote, onRefetch]);
+
+  const handleDeleteBatch = useCallback(async () => {
+    if (!user?.id || !deleteBatchTarget) return;
+    setDeleteSaving(true);
+    const batchId = deleteBatchTarget.id;
+    const now = new Date().toISOString();
+    const batchUserId = deleteBatchTarget.user_id ?? user.id;
+    const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batchId, user_id: batchUserId });
+    if (!error) await softDeleteTasksForGrowInstance(batchId, batchUserId);
+    setDeleteSaving(false);
+    setDeleteBatchTarget(null);
+    if (error) {
+      setQuickToast(error.message);
+      setTimeout(() => setQuickToast(null), 3000);
+      return;
+    }
+    setPlants((prev) => prev.filter((p) => p.id !== batchId));
+    onRefetch?.();
+  }, [user?.id, deleteBatchTarget, onRefetch]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (!user?.id || selectedGrowIds.size === 0) return;
+    setBulkDeleteSaving(true);
+    const now = new Date().toISOString();
+    const selectedBatches = plants.filter((p) => selectedGrowIds.has(p.id));
+    let hadError = false;
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { grow_instance_id: batch.id, user_id: batchUserId });
+      await softDeleteTasksForGrowInstance(batch.id, batchUserId);
+      const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batch.id, user_id: batchUserId });
+      if (error) hadError = true;
+    }
+    setBulkDeleteSaving(false);
+    setBulkDeleteConfirmOpen(false);
+    if (hadError) {
+      setQuickToast("Some deletions failed — try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      setQuickToast(`Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`);
+      setTimeout(() => setQuickToast(null), 2000);
+    }
+    onRefetch?.();
+  }, [user?.id, selectedGrowIds, plants, onRefetch]);
 
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
@@ -471,6 +651,125 @@ export function MyPlantsView({
         </div>
       ) : (
         <>
+          {batchSelectMode && selectedGrowIds.size > 0 && (
+            <div className="flex items-center justify-end gap-3 flex-wrap mb-3">
+              <span className="text-sm text-black/60">Selecting ({selectedGrowIds.size})</span>
+              <button
+                type="button"
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+                aria-label="Delete selected plants"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          )}
+
+          {bulkDeleteConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-delete-title">
+              <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+                <h2 id="bulk-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedGrowIds.size} plant{selectedGrowIds.size !== 1 ? "s" : ""}?</h2>
+                <p className="text-sm text-black/70 mb-4">
+                  All related data (journal entries, tasks) will be removed. If you want to preserve history, use End Crop instead to archive.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setBulkDeleteConfirmOpen(false)}
+                    disabled={bulkDeleteSaving}
+                    className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleteSaving}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
+                  >
+                    {bulkDeleteSaving ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <BatchLogSheet
+            open={batchLogOpen}
+            batches={batchLogBatches}
+            isPermanent={true}
+            onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
+            onSaved={() => { fetchPlants(); onRefetch?.(); }}
+            onLogHarvest={() => {}}
+            onEndBatch={(b) => { setEndBatchTarget(b); setBatchLogOpen(false); setBatchLogBatches([]); }}
+            onDeleteBatch={(b) => { setDeleteBatchTarget(b); setBatchLogOpen(false); setBatchLogBatches([]); }}
+            onQuickCare={(batch, action) => { handleQuickTap(batch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+            onBulkQuickCare={(batches, action) => { handleBulkQuickTap(batches, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+          />
+
+          {deleteBatchTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+              <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Delete Planting</h2>
+                <p className="text-sm text-neutral-600 mb-4">
+                  Permanently remove {formatBatchDisplayName(deleteBatchTarget.profile_name, deleteBatchTarget.profile_variety_name)}? This cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button type="button" onClick={() => setDeleteBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+                  <button type="button" onClick={handleDeleteBatch} disabled={deleteSaving} className="px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
+                    {deleteSaving ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {endBatchTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+              <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">End Planting</h2>
+                <p className="text-sm text-neutral-600 mb-2">
+                  {formatBatchDisplayName(endBatchTarget.profile_name, endBatchTarget.profile_variety_name)}
+                </p>
+                <select
+                  value={endReason}
+                  onChange={(e) => setEndReason(e.target.value as "harvested" | "plant_died" | "other")}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm mb-3 focus:ring-emerald-500"
+                >
+                  <option value="other">Other reason</option>
+                  <option value="harvested">Harvested / removed</option>
+                  <option value="plant_died">Plant died</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Note (optional)"
+                  value={endNote}
+                  onChange={(e) => setEndNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm mb-4 focus:ring-emerald-500"
+                />
+                <div className="flex gap-3 justify-end">
+                  <button type="button" onClick={() => setEndBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
+                  <button type="button" onClick={handleEndBatch} disabled={endSaving} className={`px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50 ${endReason === "plant_died" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}>
+                    {endSaving ? "Saving..." : endReason === "plant_died" ? "Mark as Dead" : "End Batch"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {quickToast && (
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg" role="status" aria-live="polite">
+              {quickToast}
+            </div>
+          )}
+
           {displayStyle === "list" ? (
             <ul className="space-y-4" role="list">
               {sortedPlants.map((plant) => {

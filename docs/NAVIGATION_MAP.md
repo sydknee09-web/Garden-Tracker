@@ -26,17 +26,18 @@
 | **Active Garden** | "Add plant" | Open AddPlantModal (add seasonal/permanent) |
 | **Active Garden** | "Add journal entry" | Enter bulk journal mode (select plants, then log) |
 | **My Plants** | FAB tap | Opens menu: "Add permanent plant", "Add journal entry", Cancel |
+| **My Plants** | FAB tap (when selections exist) | FAB shows pencil icon; tap opens BatchLogSheet (journal, delete, quick care) |
 | **My Plants** | "Add permanent plant" | Open AddPlantModal (permanent type) |
 | **My Plants** | "Add journal entry" | **Approved:** Open quick-add journal modal (inline). Do not navigate to Journal page. |
 
-### My Plants – profile cards
+### My Plants – planting cards
 
 | Action | Behavior |
 |--------|----------|
 | **Short tap** | Navigate to `/vault/[id]?from=garden` |
-| **Long-press (~500ms)** | Enter selection mode; select this profile. Support multi-select. |
+| **Long-press (~500ms)** | Enter selection mode; select this planting. Support multi-select. |
 | **Tap when selected** | Toggle selection |
-| **Selection mode** | Show "Cancel" / "Done" to clear selection |
+| **Selection mode** | Show "Cancel" / "Done" to clear selection. Selecting bar shows "Selecting (N)" and Delete when items are selected. |
 
 ### My Plants – quick-add journal modal
 
@@ -120,6 +121,14 @@
 | **Cancel button** | In the same row as Filter (next to Filter), like Vault. Exits bulk selection mode. |
 | **Selecting (N) + Delete** | Shown in row below when items are selected |
 
+### Garden (My Plants) – bulk selection mode
+
+| Element | Behavior |
+|---------|----------|
+| **Cancel button** | In the same row as Filter (next to Filter), like Vault. Exits bulk selection mode. |
+| **Selecting (N) + Delete** | Shown in row below when items are selected. Delete opens confirmation modal. |
+| **FAB (pencil)** | When items selected, FAB shows pencil; tap opens BatchLogSheet for journal, quick care (water/fertilize/spray), end batch, delete. |
+
 ---
 
 ## Other routes
@@ -150,3 +159,4 @@
 | 2025-02-22 | Garden My Plants: ?profile=xxx URL param pre-filters to that plant when navigating from vault profile (Back to My Plants). Permanent plants only. Clear filters removes profile param. |
 | 2025-02-22 | Garden: Visible "Showing"/"Viewing" chips with Cancel (×) when profile or grow param applied. User can clear filter/view to return to full list. Grow param no longer auto-clears. |
 | 2025-02-22 | Garden: When grow=xxx, Active Garden filters to single batch (visible filter). Empty states for profile/grow filters. Preserve params when switching tabs. Escape clears filter. Loading/not-found chip labels. |
+| 2025-02-22 | My Plants batch selection: FAB shows pencil when items selected; tap opens BatchLogSheet. Selecting bar with Delete. Renamed "profile cards" to "planting cards" (grow_instances). |

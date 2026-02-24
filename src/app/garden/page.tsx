@@ -81,6 +81,7 @@ function GardenPageInner() {
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
   const [bulkModeActive, setBulkModeActive] = useState(false);
   const [openBulkLogForActive, setOpenBulkLogForActive] = useState(false);
+  const [openBulkLogForPlants, setOpenBulkLogForPlants] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
@@ -876,6 +877,13 @@ function GardenPageInner() {
               displayStyle={plantsDisplayStyle}
               sortBy={plantsSortBy}
               sortDir={plantsSortDir}
+              openBulkLogRequest={openBulkLogForPlants}
+              onBulkLogRequestHandled={() => setOpenBulkLogForPlants(false)}
+              onRefetch={() => {
+                setRefetchTrigger((t) => t + 1);
+                setSelectedPlantGrows([]);
+                setPlantsBatchSelectMode(false);
+              }}
             />
           </div>
         )}
@@ -1031,12 +1039,14 @@ function GardenPageInner() {
         </>
       )}
 
-      {!(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && (
+      {!(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && !(effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length === 0) && (
         <button
           type="button"
           onClick={() => {
             if (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) {
               setOpenBulkLogForActive(true);
+            } else if (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0) {
+              setOpenBulkLogForPlants(true);
             } else {
               setFabMenuOpen((o) => !o);
             }
@@ -1046,7 +1056,7 @@ function GardenPageInner() {
           }`}
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
           aria-label={
-            effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0
+            (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
               ? "Log for selected plants"
               : fabMenuOpen
                 ? "Close menu"
@@ -1055,7 +1065,7 @@ function GardenPageInner() {
                   : "Add to garden"
           }
         >
-          {effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0 ? (
+          {(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0) ? (
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
