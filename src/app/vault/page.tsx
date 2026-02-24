@@ -110,6 +110,7 @@ function VaultPageInner() {
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
 
+  const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
   const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
@@ -120,7 +121,6 @@ function VaultPageInner() {
     setShedQuickAddOpen(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
-  const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
   const [batchSelectMode, setBatchSelectMode] = useState(false);
