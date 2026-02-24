@@ -104,7 +104,7 @@ function GardenPageInner() {
   const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
-  const [selectedPlantProfileIds, setSelectedPlantProfileIds] = useState<Set<string>>(new Set());
+  const [selectedPlantGrows, setSelectedPlantGrows] = useState<Array<{ growId: string; profileId: string }>>([]);
   const [plantsBatchSelectMode, setPlantsBatchSelectMode] = useState(false);
   const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
   const [quickAddNote, setQuickAddNote] = useState("");
@@ -337,14 +337,16 @@ function GardenPageInner() {
     setQuickAddSaving(true);
     setQuickAddError(null);
     const weatherSnapshot = await fetchWeatherSnapshot();
-    const idsToInsert = selectedPlantProfileIds.size > 0 ? Array.from(selectedPlantProfileIds) : [null];
+    const toInsert: Array<{ growId: string | null; profileId: string | null }> = selectedPlantGrows.length > 0
+      ? selectedPlantGrows
+      : [{ growId: null, profileId: null }];
     let insertErr: { message: string } | null = null;
     try {
-      for (const profileId of idsToInsert) {
+      for (const { growId, profileId } of toInsert) {
         const { error } = await insertWithOfflineQueue("journal_entries", {
           user_id: user.id,
           plant_profile_id: profileId,
-          grow_instance_id: null,
+          grow_instance_id: growId,
           seed_packet_id: null,
           note: noteTrim,
           entry_type: "note",
@@ -370,10 +372,10 @@ function GardenPageInner() {
       URL.revokeObjectURL(quickAddPhotoPreview);
       setQuickAddPhotoPreview(null);
     }
-    setSelectedPlantProfileIds(new Set());
+    setSelectedPlantGrows([]);
     setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
-  }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantProfileIds]);
+  }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantGrows]);
 
   return (
     <div className="min-h-screen pb-24">
@@ -482,7 +484,7 @@ function GardenPageInner() {
                     } else {
                       if (plantsBatchSelectMode) {
                         setPlantsBatchSelectMode(false);
-                        setSelectedPlantProfileIds(new Set());
+                        setSelectedPlantGrows([]);
                       } else {
                         setPlantsBatchSelectMode(true);
                       }
@@ -864,9 +866,13 @@ function GardenPageInner() {
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
               onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
               batchSelectMode={plantsBatchSelectMode}
-              selectedProfileIds={selectedPlantProfileIds}
-              onToggleProfileSelection={(id) => setSelectedPlantProfileIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
-              onLongPressProfile={(id) => { setPlantsBatchSelectMode(true); setSelectedPlantProfileIds((prev) => new Set(prev).add(id)); }}
+              selectedGrowIds={new Set(selectedPlantGrows.map((g) => g.growId))}
+              onToggleGrowSelection={(growId, profileId) => setSelectedPlantGrows((prev) => {
+                const idx = prev.findIndex((g) => g.growId === growId);
+                if (idx >= 0) return prev.filter((_, i) => i !== idx);
+                return [...prev, { growId, profileId }];
+              })}
+              onLongPressGrow={(growId, profileId) => { setPlantsBatchSelectMode(true); setSelectedPlantGrows((prev) => prev.some((g) => g.growId === growId) ? prev : [...prev, { growId, profileId }]); }}
               displayStyle={plantsDisplayStyle}
               sortBy={plantsSortBy}
               sortDir={plantsSortDir}
@@ -951,8 +957,8 @@ function GardenPageInner() {
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-black/10">
               <h2 className="text-lg font-semibold text-black">Add Journal Entry</h2>
-              {selectedPlantProfileIds.size > 0 && (
-                <p className="text-sm text-black/60 mt-1">{selectedPlantProfileIds.size} plant{selectedPlantProfileIds.size !== 1 ? "s" : ""} selected</p>
+              {selectedPlantGrows.length > 0 && (
+                <p className="text-sm text-black/60 mt-1">{selectedPlantGrows.length} plant{selectedPlantGrows.length !== 1 ? "s" : ""} selected</p>
               )}
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">

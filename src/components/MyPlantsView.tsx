@@ -7,17 +7,18 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 
-type PermanentPlant = {
+/** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
+type PermanentPlanting = {
   id: string;
-  name: string;
-  variety_name: string | null;
+  plant_profile_id: string;
+  sown_date: string;
+  location: string | null;
+  user_id: string | null;
+  profile_name: string;
+  profile_variety_name: string | null;
   primary_image_path: string | null;
   hero_image_url: string | null;
   hero_image_path: string | null;
-  status: string | null;
-  profile_type: string;
-  created_at: string;
-  purchase_date: string | null;
   care_count: number;
   journal_count: number;
   sun?: string | null;
@@ -25,7 +26,6 @@ type PermanentPlant = {
   days_to_germination?: string | null;
   harvest_days?: number | null;
   tags?: string[] | null;
-  user_id?: string | null;
 };
 
 /** Law 7: hero_image_url → hero_image_path → primary_image_path. Memoized outside component. */
@@ -71,9 +71,9 @@ export function MyPlantsView({
   onAddClick,
   onPermanentPlantAdded,
   batchSelectMode = false,
-  selectedProfileIds = new Set<string>(),
-  onToggleProfileSelection,
-  onLongPressProfile,
+  selectedGrowIds = new Set<string>(),
+  onToggleGrowSelection,
+  onLongPressGrow,
   displayStyle = "grid",
   sortBy = "name",
   sortDir = "asc",
@@ -109,9 +109,9 @@ export function MyPlantsView({
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onAddClick?: () => void;
   batchSelectMode?: boolean;
-  selectedProfileIds?: Set<string>;
-  onToggleProfileSelection?: (profileId: string) => void;
-  onLongPressProfile?: (profileId: string) => void;
+  selectedGrowIds?: Set<string>;
+  onToggleGrowSelection?: (growId: string, profileId: string) => void;
+  onLongPressGrow?: (growId: string, profileId: string) => void;
   /** "grid" = small badges (2–3 col), "list" = detailed rows. */
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "planted_date" | "care_count";
@@ -120,7 +120,7 @@ export function MyPlantsView({
   const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode } = useHousehold();
-  const [plants, setPlants] = useState<PermanentPlant[]>([]);
+  const [plants, setPlants] = useState<PermanentPlanting[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,14 +135,14 @@ export function MyPlantsView({
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (profileId: string) => {
+    (growId: string, profileId: string) => {
       const startLongPress = () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
         longPressTimerRef.current = setTimeout(() => {
           longPressTimerRef.current = null;
           longPressFiredRef.current = true;
-          onLongPressProfile?.(profileId);
+          onLongPressGrow?.(growId, profileId);
         }, LONG_PRESS_MS);
       };
       return {
@@ -159,16 +159,16 @@ export function MyPlantsView({
             e?.preventDefault?.();
             return;
           }
-          const inSelectionMode = batchSelectMode || selectedProfileIds.size > 0;
+          const inSelectionMode = batchSelectMode || selectedGrowIds.size > 0;
           if (inSelectionMode) {
-            onToggleProfileSelection?.(profileId);
+            onToggleGrowSelection?.(growId, profileId);
             return;
           }
           router.push(`/vault/${profileId}?from=garden&gardenTab=plants`);
         },
       };
     },
-    [batchSelectMode, onLongPressProfile, onToggleProfileSelection, selectedProfileIds.size, clearLongPressTimer, router]
+    [batchSelectMode, onLongPressGrow, onToggleGrowSelection, selectedGrowIds.size, clearLongPressTimer, router]
   );
 
   const fetchPlants = useCallback(async () => {
@@ -180,52 +180,83 @@ export function MyPlantsView({
     setLoading(true);
 
     try {
-    const isFamilyView = householdViewMode === "family";
+      const isFamilyView = householdViewMode === "family";
 
-    let profileQuery = supabase
-      .from("plant_profiles")
-      .select("id, name, variety_name, primary_image_path, hero_image_url, hero_image_path, status, profile_type, created_at, purchase_date, sun, plant_spacing, days_to_germination, harvest_days, tags, user_id")
-      .eq("profile_type", "permanent")
-      .is("deleted_at", null)
-      .order("name", { ascending: true });
-    if (!isFamilyView) profileQuery = profileQuery.eq("user_id", user.id);
-    const { data: profiles } = await profileQuery;
+      const growSelect = "id, plant_profile_id, sown_date, location, user_id, plant_profiles!inner(profile_type, name, variety_name, primary_image_path, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, tags)";
+      let growQuery = supabase
+        .from("grow_instances")
+        .select(growSelect)
+        .eq("plant_profiles.profile_type", "permanent")
+        .is("deleted_at", null)
+        .order("sown_date", { ascending: false });
+      if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
 
-    if (!profiles || profiles.length === 0) {
-      setPlants([]);
-      return;
-    }
+      const { data: grows, error } = await growQuery;
 
-    const profileIds = profiles.map((p) => p.id);
+      if (error) {
+        setLoadError(error.message);
+        return;
+      }
+      if (!grows || grows.length === 0) {
+        setPlants([]);
+        return;
+      }
 
-    // Count care schedules and journal entries (scoped to owner when not family view)
-    let careQuery = supabase.from("care_schedules").select("plant_profile_id").in("plant_profile_id", profileIds).eq("is_active", true);
-    let journalQuery = supabase.from("journal_entries").select("plant_profile_id").in("plant_profile_id", profileIds).is("deleted_at", null);
-    if (!isFamilyView) {
-      careQuery = careQuery.eq("user_id", user.id);
-      journalQuery = journalQuery.eq("user_id", user.id);
-    }
-    const [careRes, journalRes] = await Promise.all([careQuery, journalQuery]);
+      const growIds = grows.map((g: { id: string }) => g.id);
 
-    const careCounts = new Map<string, number>();
-    (careRes.data ?? []).forEach((c: { plant_profile_id: string | null }) => {
-      if (c.plant_profile_id) careCounts.set(c.plant_profile_id, (careCounts.get(c.plant_profile_id) ?? 0) + 1);
-    });
-    const journalCounts = new Map<string, number>();
-    (journalRes.data ?? []).forEach((j: { plant_profile_id: string | null }) => {
-      if (j.plant_profile_id) journalCounts.set(j.plant_profile_id, (journalCounts.get(j.plant_profile_id) ?? 0) + 1);
-    });
+      let careQuery = supabase.from("care_schedules").select("grow_instance_id").in("grow_instance_id", growIds).eq("is_active", true);
+      let journalQuery = supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).is("deleted_at", null);
+      if (!isFamilyView) {
+        careQuery = careQuery.eq("user_id", user.id);
+        journalQuery = journalQuery.eq("user_id", user.id);
+      }
+      const [careRes, journalRes] = await Promise.all([careQuery, journalQuery]);
 
-    setPlants(profiles.map((p) => ({
-      ...p,
-      profile_type: p.profile_type ?? "permanent",
-      care_count: careCounts.get(p.id) ?? 0,
-      journal_count: journalCounts.get(p.id) ?? 0,
-    })));
+      const careCounts = new Map<string, number>();
+      (careRes.data ?? []).forEach((c: { grow_instance_id: string | null }) => {
+        if (c.grow_instance_id) careCounts.set(c.grow_instance_id, (careCounts.get(c.grow_instance_id) ?? 0) + 1);
+      });
+      const journalCounts = new Map<string, number>();
+      (journalRes.data ?? []).forEach((j: { grow_instance_id: string | null }) => {
+        if (j.grow_instance_id) journalCounts.set(j.grow_instance_id, (journalCounts.get(j.grow_instance_id) ?? 0) + 1);
+      });
+
+      type GrowRow = {
+        id: string;
+        plant_profile_id?: string | null;
+        sown_date: string;
+        location?: string | null;
+        user_id?: string | null;
+        plant_profiles?: { name?: string; variety_name?: string | null; primary_image_path?: string | null; hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null } | null;
+      };
+      const plantings: PermanentPlanting[] = grows.map((g: GrowRow) => {
+        const profile = g.plant_profiles;
+        return {
+          id: g.id,
+          plant_profile_id: g.plant_profile_id ?? "",
+          sown_date: g.sown_date,
+          location: g.location ?? null,
+          user_id: g.user_id ?? null,
+          profile_name: profile?.name ?? "",
+          profile_variety_name: profile?.variety_name ?? null,
+          primary_image_path: profile?.primary_image_path ?? null,
+          hero_image_url: profile?.hero_image_url ?? null,
+          hero_image_path: profile?.hero_image_path ?? null,
+          care_count: careCounts.get(g.id) ?? 0,
+          journal_count: journalCounts.get(g.id) ?? 0,
+          sun: profile?.sun ?? null,
+          plant_spacing: profile?.plant_spacing ?? null,
+          days_to_germination: profile?.days_to_germination ?? null,
+          harvest_days: profile?.harvest_days ?? null,
+          tags: profile?.tags ?? null,
+        };
+      });
+
+      setPlants(plantings);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-    setLoading(false);
+      setLoading(false);
     }
   }, [user?.id, householdViewMode]);
 
@@ -241,7 +272,7 @@ export function MyPlantsView({
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of plants) {
-      const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+      const first = (p.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
       map.set(first, (map.get(first) ?? 0) + 1);
     }
     return Array.from(map.entries())
@@ -257,7 +288,7 @@ export function MyPlantsView({
     const maturityMap = new Map<string, number>();
     const tagSet = new Set<string>();
     for (const p of plants) {
-      const v = (p.variety_name ?? "").trim() || "—";
+      const v = (p.profile_variety_name ?? "").trim() || "—";
       varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
       const sun = (p.sun ?? "").trim();
       if (sun) sunMap.set(sun, (sunMap.get(sun) ?? 0) + 1);
@@ -282,14 +313,14 @@ export function MyPlantsView({
   const filteredPlants = useMemo(() => {
     return plants.filter((p) => {
       if (profileIdFilter) {
-        if (p.id !== profileIdFilter) return false;
+        if (p.plant_profile_id !== profileIdFilter) return false;
       }
       if (categoryFilter) {
-        const first = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
+        const first = (p.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
       }
       if (varietyFilter != null && varietyFilter !== "") {
-        const v = (p.variety_name ?? "").trim();
+        const v = (p.profile_variety_name ?? "").trim();
         if (v !== varietyFilter) return false;
       }
       if (sunFilter != null && sunFilter !== "") {
@@ -319,26 +350,26 @@ export function MyPlantsView({
   const filteredBySearch = useMemo(() => {
     if (!q) return filteredPlants;
     return filteredPlants.filter((p) => {
-      const name = (p.name ?? "").toLowerCase();
-      const variety = (p.variety_name ?? "").toLowerCase();
+      const name = (p.profile_name ?? "").toLowerCase();
+      const variety = (p.profile_variety_name ?? "").toLowerCase();
       return name.includes(q) || variety.includes(q);
     });
   }, [filteredPlants, q]);
 
   const sortedPlants = useMemo(() => {
     const list = [...filteredBySearch];
-    const cmp = (a: PermanentPlant, b: PermanentPlant): number => {
+    const cmp = (a: PermanentPlanting, b: PermanentPlanting): number => {
       switch (sortBy) {
         case "name": {
-          const na = (a.name ?? "").trim().toLowerCase();
-          const nb = (b.name ?? "").trim().toLowerCase();
-          const va = (a.variety_name ?? "").trim().toLowerCase();
-          const vb = (b.variety_name ?? "").trim().toLowerCase();
+          const na = (a.profile_name ?? "").trim().toLowerCase();
+          const nb = (b.profile_name ?? "").trim().toLowerCase();
+          const va = (a.profile_variety_name ?? "").trim().toLowerCase();
+          const vb = (b.profile_variety_name ?? "").trim().toLowerCase();
           return `${na} ${va}`.localeCompare(`${nb} ${vb}`, undefined, { sensitivity: "base" });
         }
         case "planted_date": {
-          const da = new Date(a.purchase_date ?? a.created_at ?? 0).getTime();
-          const db = new Date(b.purchase_date ?? b.created_at ?? 0).getTime();
+          const da = new Date(a.sown_date ?? 0).getTime();
+          const db = new Date(b.sown_date ?? 0).getTime();
           return da - db;
         }
         case "care_count":
@@ -371,7 +402,7 @@ export function MyPlantsView({
     if (!profileIdFilter) return;
     if (filteredBySearch.length === 1) {
       const p = filteredBySearch[0];
-      const name = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+      const name = p.profile_variety_name?.trim() ? `${p.profile_name} (${p.profile_variety_name})` : p.profile_name;
       onProfileFilteredPlantName?.(name ?? "");
     } else {
       onProfileFilteredPlantName?.(null);
@@ -450,8 +481,8 @@ export function MyPlantsView({
             <ul className="space-y-4" role="list">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
-                const handlers = getLongPressHandlers(plant.id);
-                const selected = selectedProfileIds.has(plant.id);
+                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id);
+                const selected = selectedGrowIds.has(plant.id);
                 return (
                   <li key={plant.id}>
                     <div
@@ -478,13 +509,13 @@ export function MyPlantsView({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-neutral-900 truncate">{plant.name}</h3>
-                        {plant.variety_name && <p className="text-sm text-neutral-500 truncate">{plant.variety_name}</p>}
+                        <h3 className="font-semibold text-neutral-900 truncate">{plant.profile_name}</h3>
+                        {plant.profile_variety_name && <p className="text-sm text-neutral-500 truncate">{plant.profile_variety_name}</p>}
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-neutral-500">
-                          {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
+                          {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                           {plant.care_count > 0 && <span>{plant.care_count} care</span>}
                           {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
-                          {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
+                          {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
                         </div>
                       </div>
                       {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
@@ -502,8 +533,8 @@ export function MyPlantsView({
             <div className="grid grid-cols-3 gap-2">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
-                const handlers = getLongPressHandlers(plant.id);
-                const selected = selectedProfileIds.has(plant.id);
+                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id);
+                const selected = selectedGrowIds.has(plant.id);
                 return (
                   <div
                     key={plant.id}
@@ -539,13 +570,13 @@ export function MyPlantsView({
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{plant.name}</h3>
-                      <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${plant.variety_name ? "italic" : ""}`} title={plant.variety_name || undefined}>{plant.variety_name || "—"}</div>
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{plant.profile_name}</h3>
+                      <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${plant.profile_variety_name ? "italic" : ""}`} title={plant.profile_variety_name || undefined}>{plant.profile_variety_name || "—"}</div>
                       <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full text-[9px] text-black/60">
-                        {formatPlantedAgo(plant.purchase_date) && <span>{formatPlantedAgo(plant.purchase_date)}</span>}
+                        {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                         {plant.care_count > 0 && <span>{plant.care_count} care</span>}
                         {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
-                        {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.purchase_date) && <span>No activity</span>}
+                        {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
                       </div>
                     </div>
                   </div>
