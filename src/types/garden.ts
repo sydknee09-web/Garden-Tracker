@@ -32,7 +32,7 @@ export type TaskType =
 export interface Task {
   id: string;
   plant_profile_id?: string | null;
-  plant_variety_id: string | null;
+  plant_variety_id?: string | null; // legacy — column dropped from DB
   category: TaskType;
   due_date: string; // ISO date
   completed_at: string | null;
