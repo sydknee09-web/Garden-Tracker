@@ -8,6 +8,7 @@ import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue 
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
+import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { hapticSuccess } from "@/lib/haptics";
@@ -36,6 +37,8 @@ export default function VaultShedDetailPage() {
 
   const [orderedSupplyIds, setOrderedSupplyIds] = useState<string[]>([]);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
 
   const [supply, setSupply] = useState<SupplyProfile | null>(null);
   const [history, setHistory] = useState<(JournalEntry & { plant_name?: string })[]>([]);
@@ -291,6 +294,63 @@ export default function VaultShedDetailPage() {
     }
   }, [user?.id, supply, session?.access_token, fetchSupply]);
 
+  const handleAddPhoto = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file?.type.startsWith("image/") || !user?.id || !supply?.id) return;
+      setPhotoSaving(true);
+      try {
+        const { blob } = await compressImage(file);
+        const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
+        const { error: uploadErr } = await supabase.storage
+          .from("journal-photos")
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        if (uploadErr) throw uploadErr;
+        const ownerId = supply.user_id ?? user.id;
+        const { error } = await updateWithOfflineQueue(
+          "supply_profiles",
+          { primary_image_path: path, updated_at: new Date().toISOString() },
+          { id: supply.id, user_id: ownerId }
+        );
+        if (error) throw error;
+        hapticSuccess();
+        await fetchSupply();
+        setToastMessage("Photo added");
+        setTimeout(() => setToastMessage(null), 2500);
+      } catch (err) {
+        setToastMessage(err instanceof Error ? err.message : "Failed to add photo");
+        setTimeout(() => setToastMessage(null), 2500);
+      } finally {
+        setPhotoSaving(false);
+      }
+    },
+    [user?.id, supply?.id, fetchSupply]
+  );
+
+  const handleRemovePhoto = useCallback(async () => {
+    if (!user?.id || !supply?.id) return;
+    setPhotoSaving(true);
+    try {
+      const ownerId = supply.user_id ?? user.id;
+      const { error } = await updateWithOfflineQueue(
+        "supply_profiles",
+        { primary_image_path: null, updated_at: new Date().toISOString() },
+        { id: supply.id, user_id: ownerId }
+      );
+      if (error) throw error;
+      hapticSuccess();
+      setSupply((prev) => (prev ? { ...prev, primary_image_path: null } : null));
+      setToastMessage("Photo removed");
+      setTimeout(() => setToastMessage(null), 2500);
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : "Failed to remove photo");
+      setTimeout(() => setToastMessage(null), 2500);
+    } finally {
+      setPhotoSaving(false);
+    }
+  }, [user?.id, supply?.id]);
+
   if (loading || !supply) {
     return (
       <div className="p-6">
@@ -360,9 +420,59 @@ export default function VaultShedDetailPage() {
       )}
 
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
-        {thumbUrl && (
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          aria-label="Add or change product photo"
+          onChange={handleAddPhoto}
+        />
+        {thumbUrl ? (
           <div className="aspect-video bg-neutral-100 relative">
             <img src={thumbUrl} alt="" className="w-full h-full object-contain" />
+            {canEdit && (
+              <div className="absolute bottom-3 right-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoSaving}
+                  className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium disabled:opacity-50"
+                  aria-label="Change photo"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  {photoSaving ? "…" : "Change"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  disabled={photoSaving}
+                  className="px-3 py-1.5 rounded-xl bg-red-500/90 text-white shadow hover:bg-red-600 min-w-[44px] min-h-[44px] flex items-center justify-center text-sm font-medium disabled:opacity-50"
+                  aria-label="Remove photo"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        ) : canEdit ? (
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={photoSaving}
+            className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-emerald-600 transition-colors min-h-[44px] disabled:opacity-50"
+            aria-label="Add photo"
+          >
+            <span className="text-4xl" aria-hidden>📷</span>
+            <span className="text-sm font-medium">{photoSaving ? "Uploading…" : "Add photo"}</span>
+          </button>
+        ) : (
+          <div className="aspect-video bg-neutral-100 flex items-center justify-center">
+            <span className="text-4xl text-neutral-300" aria-hidden>📦</span>
           </div>
         )}
         <div className="p-4">
