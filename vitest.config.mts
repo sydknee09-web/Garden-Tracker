@@ -19,6 +19,12 @@ export default defineConfig({
         "src/test/**",
         "**/node_modules/**",
       ],
+      // Fail CI when coverage drops below threshold. Raise as tests are added.
+      thresholds: {
+        lines: 1.5,
+        functions: 10,
+        branches: 50,
+      },
     },
   },
 });

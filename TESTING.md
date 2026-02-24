@@ -19,6 +19,8 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 | `npm test` | Run tests in **watch mode** (re-runs on file changes) |
 | `npm run test:run` | Run all tests **once** (e.g. before commit) |
 | `npm run test:ci` | Run tests once **with coverage** (for CI or local report) |
+| `npm run test:e2e` | Run **E2E tests** (Playwright). Auto-starts dev server, or run `npm run dev` first |
+| `npm run test:e2e:ui` | Run E2E tests with **Playwright UI** |
 
 ## What’s included
 
@@ -40,6 +42,9 @@ Do not merge or ship code with failing tests. If you’re in a hurry, at minimum
 - **`src/lib/supabaseAuthGetUser.test.ts`** — Supabase `auth.getUser()` response shape (`data: { user }`, not `data: user`); prevents type error in API routes that destructure incorrectly
 - **`src/lib/parseFindHeroPhotoResponse.test.ts`** — Set Profile Photo “Search web” response parsing: valid JSON, invalid JSON / HTML / timeout bodies return friendly errors instead of “Unexpected token … is not valid JSON”
 - **`src/app/settings/page.test.tsx`** — Settings page (with mocked auth/developer context)
+- **`src/app/api/seed/batch-import/route.test.ts`** — Batch import API (auth, validation)
+- **`e2e/home.spec.ts`** — E2E: Home page load, navigation
+- **`e2e/accessibility.spec.ts`** — E2E: axe accessibility audit (home, login)
 
 ## Coverage
 
@@ -50,9 +55,20 @@ Run `npm run test:ci` to generate coverage. Reports:
 
 Coverage includes `src/**/*.{ts,tsx}` and excludes test files, `src/test/`, and type declarations.
 
+**Coverage thresholds** (in `vitest.config.mts`): CI fails if coverage drops below `lines: 1.5`, `functions: 10`, `branches: 50`. Raise these as tests are added.
+
 ## Writing tests
 
 See **[docs/TDD_GUIDE.md](docs/TDD_GUIDE.md)** for how to write tests in this project (TDD cycle, what to test, and examples).
+
+## E2E troubleshooting
+
+If you see `lockfileTryAcquireSync is not a function` when running `npm run test:e2e` (or `npm run dev`), it’s a known Next.js issue on some Windows/OneDrive setups. Try:
+
+1. **Start dev server manually** — Run `npm run dev` in a separate terminal. If it starts, run `npm run test:e2e` in another; Playwright will reuse the server.
+2. **Try webpack** — `npm run dev:webpack` instead of `npm run dev` (may avoid the lockfile error).
+3. **Move project** — Move the repo outside OneDrive or a synced folder.
+4. **Exclude from antivirus** — Add the project folder to Windows Defender exclusions.
 
 ## CI
 
@@ -67,11 +83,11 @@ These are the main missing pieces; add them when you want more safety or documen
 | Gap | Why it matters | Effort |
 |-----|----------------|--------|
 | **Lib utilities with no tests** | Pure logic that’s easy to test and often used in import/cache flows. | Low |
-| **API route tests** | Routes hold a lot of business logic; one request/response test per handler would catch regressions. | Medium (need to mock Supabase + `NextRequest`) |
+| **More API route tests** | batch-import, developer/usage, save-hero-to-cache covered. Add invite, scrape-url, etc. | Medium |
 | **More component tests** | Only Settings page is tested. Small components (e.g. `TagBadges`, `getTagStyle`) are good next targets. | Low–medium |
 | **Shared test helpers** | No shared mocks (e.g. Supabase client, `user`, or fake DB rows). Adding `src/test/helpers.ts` or `mocks/` would reduce duplication once you test API routes or auth-dependent code. | Low to add as you need them |
-| **E2E tests** | No end-to-end tests (Playwright/Cypress). Useful for critical flows (e.g. login → vault → add seed). E2E would especially help **mobile critical paths** (add seed → plant → harvest) if you prioritize mobile. | Higher (new runner, env, selectors) |
-| **Coverage thresholds** | Coverage is reported but doesn’t fail the build. Optional: set `coverage.lines: 80` (or similar) in `vitest.config.mts` to enforce a minimum. | Low |
+| **More E2E flows** | Home, login, accessibility covered. Add vault → add seed, plant → harvest, etc. | Medium |
+| ~~Coverage thresholds~~ ✓ | Coverage is reported but doesn’t fail the build. Optional: set `coverage.lines: 80` (or similar) in `vitest.config.mts` to enforce a minimum. | Low |
 
 ### Recommended next tests (high value, low effort)
 
