@@ -27,16 +27,21 @@ export function getEffectiveInstanceIds(schedule: ScheduleForEffectiveIds): stri
 export async function generateCareTasks(userId: string): Promise<number> {
   try {
     const today = new Date().toISOString().slice(0, 10);
+    const oneYearOut = new Date();
+    oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
+    const futureLimit = oneYearOut.toISOString().slice(0, 10);
     let created = 0;
 
-    // Fetch all active due schedules (both template and non-template)
+    // Fetch all active schedules due within the next year (so they appear on the calendar).
+    // Previously we only fetched next_due_date <= today, which meant future care tasks
+    // showed on Home (from care_schedules) but not on Calendar (which only shows tasks).
     const { data: allSchedules, error: fetchErr } = await supabase
       .from("care_schedules")
       .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template")
       .eq("user_id", userId)
       .eq("is_active", true)
       .is("deleted_at", null)
-      .lte("next_due_date", today);
+      .lte("next_due_date", futureLimit);
 
     if (fetchErr) { console.error("generateCareTasks: fetch schedules failed", fetchErr.message); return 0; }
     if (!allSchedules?.length) return 0;
