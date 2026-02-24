@@ -72,6 +72,8 @@ export interface GrowInstance {
   seeds_sown?: number | null;
   seeds_sprouted?: number | null;
   plant_count?: number | null;
+  /** True = show in My Plants. False/null = show in Active Garden. Set when adding from Add permanent plant flow. */
+  is_permanent_planting?: boolean | null;
 }
 
 // ---------------------------------------------------------------------------

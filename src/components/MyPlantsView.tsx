@@ -182,11 +182,11 @@ export function MyPlantsView({
     try {
       const isFamilyView = householdViewMode === "family";
 
-      const growSelect = "id, plant_profile_id, sown_date, location, user_id, plant_profiles!inner(profile_type, name, variety_name, primary_image_path, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, tags)";
+      const growSelect = "id, plant_profile_id, sown_date, location, user_id, plant_profiles(name, variety_name, primary_image_path, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, tags)";
       let growQuery = supabase
         .from("grow_instances")
         .select(growSelect)
-        .eq("plant_profiles.profile_type", "permanent")
+        .eq("is_permanent_planting", true)
         .is("deleted_at", null)
         .order("sown_date", { ascending: false });
       if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);

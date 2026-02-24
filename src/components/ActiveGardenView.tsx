@@ -237,9 +237,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
     let growQuery = supabase
       .from("grow_instances")
-      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count")
+      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting")
       .is("deleted_at", null)
       .in("status", ["growing", "pending"])
+      .or("is_permanent_planting.is.null,is_permanent_planting.eq.false")
       .order("sown_date", { ascending: false })
       .limit(100);
     if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
@@ -280,10 +281,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     });
 
     const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null; sow_method?: "direct_sow" | "seed_start" | null; seeds_sown?: number | null; seeds_sprouted?: number | null; plant_count?: number | null }[])
-      .filter((r) => {
-        const p = profileMap.get(r.plant_profile_id);
-        return p && (p as { profile_type?: string | null }).profile_type !== "permanent";
-      })
+      .filter((r) => !!profileMap.get(r.plant_profile_id))
       .map((r) => {
         const p = profileMap.get(r.plant_profile_id);
         const note = plantingNoteByGrow.get(r.id);

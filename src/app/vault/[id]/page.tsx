@@ -498,6 +498,7 @@ export default function VaultSeedPage() {
     if (!user?.id || !id) return;
     setAddPlantSaving(true);
     setAddPlantError(null);
+    const isPerm = (profile as { profile_type?: string } | null)?.profile_type === "permanent";
     const { error } = await supabase.from("grow_instances").insert({
       user_id: user.id,
       plant_profile_id: id,
@@ -507,6 +508,7 @@ export default function VaultSeedPage() {
       seed_packet_id: null,
       location: addPlantLocation.trim() || null,
       plant_count: 1,
+      is_permanent_planting: isPerm,
     });
     setAddPlantSaving(false);
     if (error) {
@@ -517,7 +519,7 @@ export default function VaultSeedPage() {
     setAddPlantDate(new Date().toISOString().slice(0, 10));
     setAddPlantLocation("");
     loadProfile();
-  }, [user?.id, id, addPlantDate, addPlantLocation, loadProfile]);
+  }, [user?.id, id, addPlantDate, addPlantLocation, loadProfile, profile]);
 
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);

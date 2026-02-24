@@ -79,14 +79,13 @@ export function AddPlantModal({
     if (!user?.id) return;
     const type = profileType ?? profileTypeFilter;
     // No user_id filter: RLS returns own + household members' profiles (household_profiles_select)
-    // Filter by profile_type: permanent = My Plants (trees, perennials); seed = Active Garden (seasonal).
+    // Seasonal: filter to seed only. Permanent: show full vault so user can link any profile.
     let query = supabase
       .from("plant_profiles")
       .select("id, name, variety_name, profile_type")
       .is("deleted_at", null)
       .order("name", { ascending: true });
     if (type === "seed") query = query.eq("profile_type", "seed");
-    if (type === "permanent") query = query.eq("profile_type", "permanent");
     const { data } = await query;
     const list = (data ?? []) as ProfileOption[];
     setProfiles(list);
@@ -252,6 +251,7 @@ export function AddPlantModal({
             seed_packet_id: null,
             location: location.trim() || null,
             plant_count: plantCountNew,
+            is_permanent_planting: plantType === "permanent",
           })
           .select("id")
           .single();
@@ -371,6 +371,7 @@ export function AddPlantModal({
           seed_packet_id: primaryPacketId,
           location: location.trim() || null,
           plant_count: plantCount,
+          is_permanent_planting: plantType === "permanent",
         }).select("id").single();
         if (growErr || !growRow) {
           setError(growErr?.message ?? "Could not create planting.");
