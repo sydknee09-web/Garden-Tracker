@@ -82,7 +82,11 @@ export function AnnualRoadmapView() {
             {/* Data rows: crop name (sticky) + bar cell spanning 12 cols; zebra + today line in timeline area */}
             {entries.map((crop, rowIndex) => {
               const sow = getSowMonthsForGuide(crop.planting_window);
-              const indices = SOW_KEYS.map((_, i) => i).filter((i) => sow[SOW_KEYS[i]!] === true);
+              const indices: number[] = [];
+              for (let i = 0; i < SOW_KEYS.length; i++) {
+                const key = SOW_KEYS[i];
+                if (key && sow[key] === true) indices.push(i);
+              }
               const first = indices[0];
               const last = indices[indices.length - 1];
               const harvestDays = getGuideHarvestDays(crop.days_to_maturity);

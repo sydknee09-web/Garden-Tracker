@@ -63,7 +63,11 @@ export function getSowingWindowLabel(profile: ProfileForPlantingWindow): string 
   if (zone10b?.planting_window?.trim()) return zone10b.planting_window.trim();
 
   const sow = getSowMonthsForProfile(profile);
-  const indices = SOW_KEYS.map((_, i) => i).filter((i) => sow[SOW_KEYS[i]!] === true);
+  const indices: number[] = [];
+  for (let i = 0; i < SOW_KEYS.length; i++) {
+    const key = SOW_KEYS[i];
+    if (key && sow[key] === true) indices.push(i);
+  }
   if (indices.length === 0) return null;
 
   const runs: number[][] = [];
