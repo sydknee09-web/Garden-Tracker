@@ -2080,6 +2080,16 @@ export default function VaultSeedPage() {
                 <p className="text-neutral-400 text-xs mt-1 mb-4">
                   {isPermanent ? "Add your trees or perennials here." : "Start a new planting from your seed packets."}
                 </p>
+                {isPermanent && canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                    aria-label="Add plant"
+                  >
+                    Add plant
+                  </button>
+                )}
                 {!isPermanent && canEdit && (
                   <Link
                     href={`/vault/plant?ids=${encodeURIComponent(id)}${fromParam === "garden" ? "&from=garden" : ""}`}

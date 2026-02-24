@@ -8,14 +8,14 @@ vi.mock("@/contexts/AuthContext", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
+const selectChain = () => ({ order: vi.fn(() => ({ limit: vi.fn(() => Promise.resolve({ data: [], error: null })) })) });
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          eq: vi.fn(() =>
-            ({ is: vi.fn(() => ({ order: vi.fn(() => ({ limit: vi.fn(() => Promise.resolve({ data: [], error: null })) })) })) })
-          ),
+          eq: vi.fn(() => ({ is: vi.fn(selectChain) })),
+          is: vi.fn(selectChain),
         })),
       })),
       insert: vi.fn(() => ({

@@ -78,10 +78,10 @@ export function AddPlantModal({
   const loadProfiles = useCallback(async (profileType?: "permanent" | "seed") => {
     if (!user?.id) return;
     const type = profileType ?? profileTypeFilter;
+    // No user_id filter: RLS returns own + household members' profiles (household_profiles_select)
     const { data } = await supabase
       .from("plant_profiles")
       .select("id, name, variety_name, profile_type")
-      .eq("user_id", user.id)
       .eq("profile_type", type)
       .is("deleted_at", null)
       .order("name", { ascending: true })
