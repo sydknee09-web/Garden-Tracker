@@ -11,16 +11,32 @@ const SeedVaultView = dynamic(
   { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading…</div> }
 );
 
-import { PacketVaultLazy } from "./PacketVaultLazy";
+const PacketVaultLazy = dynamic(
+  () => import("./PacketVaultLazy").then((m) => ({ default: m.PacketVaultLazy })),
+  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading packets…</div> }
+);
 
 const ShedView = dynamic(
   () => import("@/components/ShedView").then((m) => ({ default: m.ShedView })),
   { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading shed…</div> }
 );
-import { SupplyPicker } from "@/components/SupplyPicker";
-import { QuickAddSeed } from "@/components/QuickAddSeed";
-import { QuickAddSupply } from "@/components/QuickAddSupply";
-import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
+/** Lazy-load modals so vault initial render never pulls zone10b/BatchAddSeed chunk. */
+const SupplyPicker = dynamic(
+  () => import("@/components/SupplyPicker").then((m) => ({ default: m.SupplyPicker })),
+  { ssr: false }
+);
+const QuickAddSeed = dynamic(
+  () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
+  { ssr: false }
+);
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
+const PurchaseOrderImport = dynamic(
+  () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
+  { ssr: false }
+);
 
 const BatchAddSeed = dynamic(
   () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
@@ -137,7 +153,7 @@ function CondensedGridIcon() {
 }
 
 function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
-  if (!searchParams) return "grid";
+  if (!searchParams) return "list";
   const sow = searchParams.get("sow");
   if (sow && /^\d{4}-\d{2}$/.test(sow)) return "grid";
   const tab = searchParams.get("tab");
@@ -2404,6 +2420,7 @@ function VaultPageInner() {
         )}
       </button>
 
+      {quickAddOpen && (
       <QuickAddSeed
         open={quickAddOpen}
         onClose={() => {
@@ -2439,6 +2456,7 @@ function VaultPageInner() {
           setPurchaseOrderOpen(true);
         }}
       />
+      )}
 
       {batchAddOpen && (
         <BatchAddSeed
@@ -2453,12 +2471,14 @@ function VaultPageInner() {
         />
       )}
 
+      {purchaseOrderOpen && (
       <PurchaseOrderImport
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
         mode={purchaseOrderMode}
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
+      )}
 
       {scannerOpen && (
         <QRScannerModal
