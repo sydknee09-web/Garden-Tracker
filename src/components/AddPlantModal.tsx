@@ -79,15 +79,17 @@ export function AddPlantModal({
     if (!user?.id) return;
     const type = profileType ?? profileTypeFilter;
     // No user_id filter: RLS returns own + household members' profiles (household_profiles_select)
-    const { data } = await supabase
+    // Permanent: load whole vault (all profiles). Seasonal: filter to seed only.
+    let query = supabase
       .from("plant_profiles")
       .select("id, name, variety_name, profile_type")
-      .eq("profile_type", type)
       .is("deleted_at", null)
-      .order("name", { ascending: true })
-      .limit(150);
-    setProfiles((data ?? []) as ProfileOption[]);
-    setSelectedProfileId((data ?? []).length > 0 ? (data as ProfileOption[])[0].id : "");
+      .order("name", { ascending: true });
+    if (type === "seed") query = query.eq("profile_type", "seed");
+    const { data } = await query;
+    const list = (data ?? []) as ProfileOption[];
+    setProfiles(list);
+    setSelectedProfileId(list.length > 0 ? list[0].id : "");
   }, [user?.id, profileTypeFilter]);
 
   useEffect(() => {
@@ -537,7 +539,7 @@ export function AddPlantModal({
                         {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
                       </option>
                     ))}
-                    {profiles.length === 0 && <option value="">No {plantType === "permanent" ? "permanent" : "seasonal"} plants yet</option>}
+                    {profiles.length === 0 && <option value="">No {plantType === "permanent" ? "profiles" : "seasonal plants"} in vault yet</option>}
                   </select>
                 </div>
                 {plantType === "seasonal" && selectedProfileId && (
