@@ -2435,6 +2435,21 @@ function VaultPageInner() {
 }
 
 export default function VaultPage() {
+  // Defer vault content until after mount to avoid "ep" before initialization
+  // (usePathname/useSearchParams + heavy imports can trigger init-order issues)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center p-6 text-neutral-600">
+        Loading…
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={<div className="p-6 text-neutral-600">Loading…</div>}>
       <VaultPageInner />
