@@ -17,8 +17,12 @@ import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
-import { QRScannerModal } from "@/components/QRScannerModal";
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
+
+const QRScannerModal = dynamic(
+  () => import("@/components/QRScannerModal").then((m) => ({ default: m.QRScannerModal })),
+  { ssr: false }
+);
 import { supabase } from "@/lib/supabase";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2414,11 +2418,13 @@ function VaultPageInner() {
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
 
-      <QRScannerModal
-        open={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onScan={handleQRScan}
-      />
+      {scannerOpen && (
+        <QRScannerModal
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onScan={handleQRScan}
+        />
+      )}
 
       {saveToastMessage && (
         <div
