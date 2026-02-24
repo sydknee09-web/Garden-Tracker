@@ -1,10 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ActionNowView } from "@/components/schedule/ActionNowView";
-import { MonthlyPulseView } from "@/components/schedule/MonthlyPulseView";
-import { AnnualRoadmapView } from "@/components/schedule/AnnualRoadmapView";
+
+/** Lazy-load schedule views so zone10b/scheduleUtils chunk never loads on vault or home. */
+const ActionNowView = dynamic(
+  () => import("@/components/schedule/ActionNowView").then((m) => ({ default: m.ActionNowView })),
+  { ssr: false, loading: () => <div className="py-8 text-black/50">Loading…</div> }
+);
+const MonthlyPulseView = dynamic(
+  () => import("@/components/schedule/MonthlyPulseView").then((m) => ({ default: m.MonthlyPulseView })),
+  { ssr: false, loading: () => <div className="py-8 text-black/50">Loading…</div> }
+);
+const AnnualRoadmapView = dynamic(
+  () => import("@/components/schedule/AnnualRoadmapView").then((m) => ({ default: m.AnnualRoadmapView })),
+  { ssr: false, loading: () => <div className="py-8 text-black/50">Loading…</div> }
+);
 
 type ScheduleView = "roadmap" | "heatmap" | "action";
 

@@ -10,7 +10,7 @@ const VaultPageContent = dynamic(
     loading: () => (
       <div className="min-h-[50vh] flex items-center justify-center p-6 text-neutral-600">
         Loading…
-      </div>
+        </div>
     ),
   }
 );
