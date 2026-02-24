@@ -206,6 +206,10 @@ export interface PlantProfile {
   plant_description?: string | null;
   /** Detailed growing/seed-starting notes. Shown with description for full grow context. */
   growing_notes?: string | null;
+  /** How to propagate (cuttings, division, layering). For perennials. */
+  propagation_notes?: string | null;
+  /** How to harvest and save seeds. For seed-grown varieties. */
+  seed_saving_notes?: string | null;
   /** Source of description/notes: 'vendor' | 'ai' | 'user' for UI attribution. */
   description_source?: string | null;
   created_at?: string;

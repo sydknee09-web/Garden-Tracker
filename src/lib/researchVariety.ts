@@ -22,6 +22,8 @@ Extract the following and return a single JSON object only (no markdown, no expl
 - water: watering needs e.g. "Moderate", "Low", "Regular", "Drought tolerant". Use empty string if not found.
 - sowing_method: how to sow e.g. "Direct Sow", "Start Indoors / Transplant", "Direct Sow or Transplant". Use empty string if not found.
 - planting_window: when to plant e.g. "Spring: Mar-May", "After last frost", "Fall: Sep-Nov". Use empty string if not found.
+- propagation_notes: how to propagate this plant (cuttings, division, layering, etc.). For perennials and plants that can be multiplied. Use empty string if not applicable or not found.
+- seed_saving_notes: how to harvest and save seeds from this plant (when to harvest, drying, storage). For seed-grown varieties. Use empty string if not applicable or not found.
 
 Use standard units: inches for depth and spacing, days for germination and maturity. Use empty string for any field you cannot find. Return only valid JSON.`;
 
@@ -38,6 +40,8 @@ export type ResearchVarietyResult = {
   water?: string;
   sowing_method?: string;
   planting_window?: string;
+  propagation_notes?: string;
+  seed_saving_notes?: string;
 };
 
 /**
@@ -86,6 +90,8 @@ export async function researchVariety(
       water: getStr("water") || undefined,
       sowing_method: getStr("sowing_method") || undefined,
       planting_window: getStr("planting_window") || undefined,
+      propagation_notes: getStr("propagation_notes") || undefined,
+      seed_saving_notes: getStr("seed_saving_notes") || undefined,
     };
   } catch {
     return null;

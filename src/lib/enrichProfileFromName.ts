@@ -34,6 +34,8 @@ type EnrichFromNameResponse = {
   source_url?: string | null;
   plant_description?: string | null;
   growing_notes?: string | null;
+  propagation_notes?: string | null;
+  seed_saving_notes?: string | null;
 };
 
 function authHeaders(accessToken?: string | null): Record<string, string> {
@@ -82,6 +84,8 @@ export async function enrichProfileFromName(
     if (enrichData.growing_notes != null && !(existingGrowingNotes ?? "").trim()) {
       updates.growing_notes = enrichData.growing_notes;
     }
+    if (enrichData.propagation_notes != null) updates.propagation_notes = enrichData.propagation_notes;
+    if (enrichData.seed_saving_notes != null) updates.seed_saving_notes = enrichData.seed_saving_notes;
 
     if (enrichData.source_url != null) {
       const { data: existing } = await supabase

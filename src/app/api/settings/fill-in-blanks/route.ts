@@ -199,6 +199,8 @@ export async function POST(req: Request) {
                 water?: string;
                 sowing_method?: string;
                 planting_window?: string;
+                propagation_notes?: string;
+                seed_saving_notes?: string;
               };
               const aiDesc = (data.plant_description ?? "").trim();
               const aiNotes = (data.growing_notes ?? "").trim();
@@ -210,7 +212,9 @@ export async function POST(req: Request) {
               const aiWater = (data.water ?? "").trim();
               const aiSowingMethod = (data.sowing_method ?? "").trim();
               const aiPlantingWindow = (data.planting_window ?? "").trim();
-              const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow;
+              const aiPropagation = (data.propagation_notes ?? "").trim();
+              const aiSeedSaving = (data.seed_saving_notes ?? "").trim();
+              const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow || aiPropagation || aiSeedSaving;
               if (hasAiData) {
                 const aiUpdates: Record<string, unknown> = { description_source: "ai" };
                 if (aiDesc) aiUpdates.plant_description = aiDesc;
@@ -223,6 +227,8 @@ export async function POST(req: Request) {
                 if (aiWater) aiUpdates.water = aiWater;
                 if (aiSowingMethod) aiUpdates.sowing_method = aiSowingMethod;
                 if (aiPlantingWindow) aiUpdates.planting_window = aiPlantingWindow;
+                if (aiPropagation) aiUpdates.propagation_notes = aiPropagation;
+                if (aiSeedSaving) aiUpdates.seed_saving_notes = aiSeedSaving;
                 const { error: aiErr } = await supabase.from("plant_profiles").update(aiUpdates).eq("id", p.id).eq("user_id", user.id);
                 if (!aiErr) {
                   if (!didAiUpdate) fromAi++;

@@ -140,6 +140,8 @@ export async function generateCareTasks(userId: string): Promise<number> {
       // Task grow_instance_id: single instance or null (all / multi-plant)
       const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
       const taskTitle = effectiveIds && effectiveIds.length > 1 ? `${s.title} (${effectiveIds.length} plants)` : s.title;
+      // Use today for overdue schedules so the task appears on the calendar (calendar only fetches due_date >= today)
+      const taskDueDate = s.next_due_date < today ? today : s.next_due_date;
 
       const { error } = await supabase.from("tasks").insert({
         user_id: userId,
@@ -147,7 +149,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
         plant_variety_id: s.plant_profile_id,
         grow_instance_id: taskGrowInstanceId,
         category: s.category as "maintenance" | "fertilize" | "prune" | "general",
-        due_date: s.next_due_date,
+        due_date: taskDueDate,
         title: taskTitle,
         care_schedule_id: s.id,
       });

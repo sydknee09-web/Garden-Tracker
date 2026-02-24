@@ -27,6 +27,7 @@ import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
+import { generateCareTasks } from "@/lib/generateCareTasks";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -138,6 +139,7 @@ const STATUS_COLORS: Record<string, string> = {
 // Icons
 // ---------------------------------------------------------------------------
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
+function CameraIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>; }
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
@@ -194,6 +196,7 @@ export default function VaultSeedPage() {
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
     purchaseDate: "", growingNotes: "", status: "",
     companionPlants: "", avoidPlants: "",
+    propagationNotes: "", seedSavingNotes: "",
   });
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
@@ -277,7 +280,7 @@ export default function VaultSeedPage() {
     // Household peers can read each other's profiles via household_profiles_select policy.
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth, propagation_notes, seed_saving_notes")
       .eq("id", id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -977,7 +980,7 @@ export default function VaultSeedPage() {
   // Edit modal
   const openEditModal = useCallback(() => {
     if (!profile) return;
-    const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null };
+    const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null; propagation_notes?: string | null; seed_saving_notes?: string | null };
     const dateForInput = pp.purchase_date?.trim() || pp.created_at;
     const companions = pp.companion_plants ?? [];
     const avoid = pp.avoid_plants ?? [];
@@ -996,6 +999,8 @@ export default function VaultSeedPage() {
       status: profile.status ?? "",
       companionPlants: Array.isArray(companions) ? companions.join(", ") : "",
       avoidPlants: Array.isArray(avoid) ? avoid.join(", ") : "",
+      propagationNotes: pp.propagation_notes ?? "",
+      seedSavingNotes: pp.seed_saving_notes ?? "",
     });
     setShowEditModal(true);
   }, [profile]);
@@ -1026,6 +1031,8 @@ export default function VaultSeedPage() {
         companion_plants: parseCommaList(editForm.companionPlants),
         avoid_plants: parseCommaList(editForm.avoidPlants),
         growing_notes: editForm.growingNotes.trim() || null,
+        propagation_notes: editForm.propagationNotes.trim() || null,
+        seed_saving_notes: editForm.seedSavingNotes.trim() || null,
         ...(editForm.growingNotes.trim() && { description_source: "user" }),
       } : {}),
     };
@@ -1352,6 +1359,18 @@ export default function VaultSeedPage() {
                 <label htmlFor="edit-avoid-plants" className="block text-sm font-medium text-neutral-700 mb-1">Avoid plants</label>
                 <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
               </div>
+              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                <>
+                  <div>
+                    <label htmlFor="edit-propagation" className="block text-sm font-medium text-neutral-700 mb-1">Propagation (optional)</label>
+                    <textarea id="edit-propagation" rows={2} value={editForm.propagationNotes} onChange={(e) => setEditForm((f) => ({ ...f, propagationNotes: e.target.value }))} placeholder="e.g. Cuttings, division, layering" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="How to propagate" />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-seed-saving" className="block text-sm font-medium text-neutral-700 mb-1">Harvest / Save seeds (optional)</label>
+                    <textarea id="edit-seed-saving" rows={2} value={editForm.seedSavingNotes} onChange={(e) => setEditForm((f) => ({ ...f, seedSavingNotes: e.target.value }))} placeholder="e.g. When to harvest, drying, storage" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="How to harvest and save seeds" />
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
@@ -1468,7 +1487,7 @@ export default function VaultSeedPage() {
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
               {canEdit && (
                 <div className="absolute bottom-3 right-3">
-                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-xs font-medium text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center">Change photo</button>
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><CameraIcon /></button>
                 </div>
               )}
             </>
@@ -1534,6 +1553,36 @@ export default function VaultSeedPage() {
                 {isAboutOpen("growingNotes") && (
                   <div className="px-4 pb-4 pt-0">
                     <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Propagation — how to multiply (cuttings, division, etc.) */}
+            {!isLegacy && (profile as PlantProfile)?.propagation_notes?.trim() && (
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Propagation</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("propagation") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).propagation_notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Harvest / Save Seeds — how to collect and store seeds */}
+            {!isLegacy && (profile as PlantProfile)?.seed_saving_notes?.trim() && (
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("seedSaving")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("seedSaving")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Harvest / Save Seeds</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("seedSaving") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("seedSaving") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).seed_saving_notes}</p>
                   </div>
                 )}
               </div>
@@ -1692,7 +1741,7 @@ export default function VaultSeedPage() {
                 {isAboutOpen("careTemplates") && (
                 <div className="px-4 pb-4 pt-0">
                   <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} readOnly={!canEdit} />
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
                 </div>
                 )}
               </div>
@@ -1707,7 +1756,7 @@ export default function VaultSeedPage() {
                 </button>
                 {isAboutOpen("careSchedules") && (
                 <div className="px-4 pb-4 pt-0">
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={loadProfile} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
+                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
                 </div>
                 )}
               </div>
@@ -2031,16 +2080,6 @@ export default function VaultSeedPage() {
                 <p className="text-neutral-400 text-xs mt-1 mb-4">
                   {isPermanent ? "Add your trees or perennials here." : "Start a new planting from your seed packets."}
                 </p>
-                {isPermanent && canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
-                    className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                    aria-label="Add plant"
-                  >
-                    Add your first plant
-                  </button>
-                )}
                 {!isPermanent && canEdit && (
                   <Link
                     href={`/vault/plant?ids=${encodeURIComponent(id)}${fromParam === "garden" ? "&from=garden" : ""}`}

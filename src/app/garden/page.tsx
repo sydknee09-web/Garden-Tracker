@@ -19,6 +19,7 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFilterState } from "@/hooks/useFilterState";
+import { generateCareTasks } from "@/lib/generateCareTasks";
 import type { RefineChips } from "@/types/garden";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
@@ -118,6 +119,10 @@ function GardenPageInner() {
   const [highlightResolved, setHighlightResolved] = useState(false);
 
   const growParam = searchParams.get("grow");
+
+  useEffect(() => {
+    if (user?.id) generateCareTasks(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!profileParam) {

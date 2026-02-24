@@ -59,7 +59,7 @@ export function AddPlantModal({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [plantedDate, setPlantedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<string>("1");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +158,7 @@ export function AddPlantModal({
     setNotes("");
     setPhotoFiles([]);
     setPlantedDate(new Date().toISOString().slice(0, 10));
-    setQuantity(1);
+    setQuantity("1");
     setLocation("");
     setError(null);
     setEnrichmentFailed(false);
@@ -236,7 +236,8 @@ export function AddPlantModal({
         profileId = (insertRow as { id: string }).id;
         setCreatedProfileId(profileId);
 
-        const plantCount = plantType === "permanent" ? Math.max(1, parseInt(String(quantity), 10) || 1) : 1;
+        const parsedQtyNew = quantity.trim() ? parseInt(quantity, 10) : null;
+        const plantCountNew = parsedQtyNew != null && parsedQtyNew >= 0 ? parsedQtyNew : null;
         const { data: growRow, error: growInsertErr } = await supabase
           .from("grow_instances")
           .insert({
@@ -247,7 +248,7 @@ export function AddPlantModal({
             status: "growing",
             seed_packet_id: null,
             location: location.trim() || null,
-            plant_count: plantCount,
+            plant_count: plantCountNew,
           })
           .select("id")
           .single();
@@ -328,7 +329,8 @@ export function AddPlantModal({
       }
 
       if (mode === "existing") {
-        const plantCount = plantType === "permanent" ? Math.max(1, parseInt(String(quantity), 10) || 1) : Math.max(1, parseInt(String(quantity), 10) || 1);
+        const parsedQty = quantity.trim() ? parseInt(quantity, 10) : null;
+        const plantCount = parsedQty != null && parsedQty >= 0 ? parsedQty : null;
         let primaryPacketId: string | null = null;
 
         if (plantType === "seasonal") {
@@ -545,9 +547,18 @@ export function AddPlantModal({
                       <div className="space-y-2">
                         <select
                           value={selectedPacketId}
-                          onChange={(e) => setSelectedPacketId(e.target.value)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setSelectedPacketId(v);
+                            if (v === "") {
+                              setShowAddPacketInline(true);
+                            } else {
+                              setShowAddPacketInline(false);
+                            }
+                          }}
                           className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                         >
+                          <option value="">None — add new packet</option>
                           {packetsForProfile.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.vendor_name?.trim() || "Unnamed"} ({p.qty_status}%)
@@ -716,15 +727,16 @@ export function AddPlantModal({
             </div>
             {(plantType === "permanent" || mode === "existing") && (
               <div>
-                <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
+                <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
                 <input
                   id="add-plant-qty"
                   type="number"
-                  min={1}
+                  min={0}
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="e.g. 1"
                   className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                  aria-label="Number of plants"
+                  aria-label="Number of plants (optional)"
                 />
               </div>
             )}

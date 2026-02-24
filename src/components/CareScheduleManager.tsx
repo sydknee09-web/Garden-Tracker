@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
-import type { CareSchedule, GrowInstance } from "@/types/garden";
+import { useHousehold } from "@/contexts/HouseholdContext";
+import type { CareSchedule, GrowInstance, SupplyProfile } from "@/types/garden";
 
 const CARE_CATEGORIES = ["fertilize", "prune", "water", "spray", "repot", "harvest", "mulch", "other"] as const;
 const RECURRENCE_TYPES = [
@@ -29,12 +30,22 @@ interface Props {
   isPermanent?: boolean;
 }
 
+const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
+  fertilizer: "Fertilizer",
+  pesticide: "Pesticide",
+  soil_amendment: "Soil Amendment",
+  other: "Other",
+};
+
 export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false }: Props) {
+  const { viewMode: householdViewMode } = useHousehold();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [supplies, setSupplies] = useState<SupplyProfile[]>([]);
 
   // Form state
   const [title, setTitle] = useState("");
+  const [supplyProfileId, setSupplyProfileId] = useState<string | null>(null);
   /** For permanent: null = all plants, [id1, id2] = specific plants. Only shown when growInstances.length > 1. */
   const [selectedPlantIds, setSelectedPlantIds] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>("fertilize");
@@ -50,9 +61,23 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setTitle(""); setCategory("fertilize"); setRecurrenceType("interval");
     setIntervalDays("30"); setDayOfMonth("1"); setSelectedMonths([]);
     setNextDueDate(new Date().toISOString().slice(0, 10)); setNotes("");
-    setSelectedPlantIds(new Set());
+    setSelectedPlantIds(new Set()); setSupplyProfileId(null);
     setShowAdd(false); setEditingId(null);
   }, []);
+
+  const isFamilyView = householdViewMode === "family";
+  const fetchSupplies = useCallback(async () => {
+    if (!userId) return;
+    let query = supabase
+      .from("supply_profiles")
+      .select("id, name, brand, category")
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
+    if (!isFamilyView) query = query.eq("user_id", userId);
+    const { data } = await query;
+    setSupplies((data ?? []) as SupplyProfile[]);
+  }, [userId, isFamilyView]);
+  useEffect(() => { fetchSupplies(); }, [fetchSupplies]);
 
   const openEdit = useCallback((s: CareSchedule) => {
     setEditingId(s.id);
@@ -65,6 +90,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setNextDueDate(s.next_due_date ? s.next_due_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setNotes(s.notes ?? "");
     setSelectedPlantIds((s.grow_instance_ids?.length ? new Set(s.grow_instance_ids) : new Set()) as Set<string>);
+    setSupplyProfileId(s.supply_profile_id ?? null);
     setShowAdd(true);
   }, []);
 
@@ -100,6 +126,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         notes: notes.trim() || null,
         is_active: true,
         is_template: isTemplate,
+        supply_profile_id: supplyProfileId || null,
       };
       if (isPermanent && growInstances.length > 1) {
         payload.grow_instance_ids = selectedPlantIds.size > 0 ? [...selectedPlantIds] : null;
@@ -119,7 +146,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     } finally {
       setSaving(false);
     }
-  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, editingId, isPermanent, growInstances.length, selectedPlantIds, resetForm, onChanged]);
+  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, resetForm, onChanged]);
 
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
@@ -204,6 +231,12 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                       Next: {new Date(s.next_due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                     </p>
                   )}
+                  {s.supply_profile_id && (() => {
+                    const supply = supplies.find((sp) => sp.id === s.supply_profile_id);
+                    return supply ? (
+                      <p className="text-xs text-emerald-600 mt-0.5">Product: {supply.brand?.trim() ? `${supply.name} (${supply.brand})` : supply.name}</p>
+                    ) : null;
+                  })()}
                   {s.notes && <p className="text-xs text-neutral-400 mt-1 italic">{s.notes}</p>}
                 </div>
                 {!readOnly && (
@@ -275,6 +308,31 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           <div>
             <label htmlFor="care-next-due" className="block text-xs font-medium text-neutral-600 mb-1">Next due date</label>
             <input id="care-next-due" type="date" value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
+          </div>
+
+          <div>
+            <label htmlFor="care-supply" className="block text-xs font-medium text-neutral-600 mb-1">Product from shed (optional)</label>
+            <select
+              id="care-supply"
+              value={supplyProfileId ?? ""}
+              onChange={(e) => setSupplyProfileId(e.target.value || null)}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm min-h-[44px]"
+              aria-label="Select a product from your shed"
+            >
+              <option value="">None</option>
+              {supplies.map((s) => {
+                const displayName = s.brand?.trim() ? `${s.name} (${s.brand})` : s.name;
+                const catLabel = SUPPLY_CATEGORY_LABELS[s.category] ?? s.category;
+                return (
+                  <option key={s.id} value={s.id}>
+                    {displayName} — {catLabel}
+                  </option>
+                );
+              })}
+            </select>
+            {supplies.length === 0 && (
+              <p className="text-xs text-neutral-500 mt-1">Add products in the Shed to link them here.</p>
+            )}
           </div>
 
           <div>

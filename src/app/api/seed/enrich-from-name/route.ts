@@ -25,6 +25,8 @@ export type EnrichFromNameResponse = {
   source_url?: string | null;
   plant_description?: string | null;
   growing_notes?: string | null;
+  propagation_notes?: string | null;
+  seed_saving_notes?: string | null;
 };
 
 /** Enrich plant profile from name + variety only (no vendor in search). Used for store-bought new profiles. */
@@ -65,6 +67,8 @@ export async function POST(req: Request) {
       source_url: result.source_url?.trim() || null,
       plant_description: result.plant_description?.trim() || null,
       growing_notes: result.growing_notes?.trim() || null,
+      propagation_notes: result.propagation_notes?.trim() || null,
+      seed_saving_notes: result.seed_saving_notes?.trim() || null,
     };
     if (auth?.user?.id) {
       logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });

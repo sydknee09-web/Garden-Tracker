@@ -7,6 +7,7 @@ import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
+import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
@@ -81,6 +82,7 @@ export default function HomePage() {
     let cancelled = false;
 
     async function load() {
+      await generateCareTasks(user!.id);
       const twoWeeksOut = new Date();
       twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
 
