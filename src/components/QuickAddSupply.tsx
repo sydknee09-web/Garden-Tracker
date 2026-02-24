@@ -343,27 +343,27 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a supply.</p>
             <button
               type="button"
-              onClick={() => setScreen("link")}
+              onClick={() => setScreen("form")}
               className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
-              Link Import
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
+              Manual Entry
             </button>
             <button
               type="button"
               onClick={() => setScreen("photo")}
               className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
               Photo Import
             </button>
             <button
               type="button"
-              onClick={() => setScreen("form")}
+              onClick={() => setScreen("link")}
               className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
-              Manual Entry
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
+              Link Import
             </button>
             {onOpenPurchaseOrder && (
               <button
