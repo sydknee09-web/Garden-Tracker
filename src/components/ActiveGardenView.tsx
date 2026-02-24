@@ -248,8 +248,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     if (!growRows?.length) { setGrowing([]); return; }
 
     const profileIds = Array.from(new Set((growRows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id).filter(Boolean)));
-    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path").in("id", profileIds);
-    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }) => [p.id, p]));
+    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path, profile_type").in("id", profileIds);
+    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null; profile_type?: string | null }) => [p.id, p]));
 
     const growIds = (growRows as { id: string }[]).map((r) => r.id);
     const [weatherRes, harvestRes] = await Promise.all([
@@ -280,6 +280,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     });
 
     const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null; sow_method?: "direct_sow" | "seed_start" | null; seeds_sown?: number | null; seeds_sprouted?: number | null; plant_count?: number | null }[])
+      .filter((r) => {
+        const p = profileMap.get(r.plant_profile_id);
+        return p && (p as { profile_type?: string | null }).profile_type !== "permanent";
+      })
       .map((r) => {
         const p = profileMap.get(r.plant_profile_id);
         const note = plantingNoteByGrow.get(r.id);

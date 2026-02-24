@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
@@ -116,7 +116,7 @@ export function ShedView({
     }
   }, [embedded, categoryFromUrl]);
 
-  const filteredSupplies = supplies.filter((s) => {
+  const filteredSupplies = useMemo(() => supplies.filter((s) => {
     const matchCategory = !categoryFilter || s.category === categoryFilter;
     const q = searchQuery.trim().toLowerCase();
     const matchSearch =
@@ -124,7 +124,7 @@ export function ShedView({
       (s.name?.toLowerCase().includes(q) ?? false) ||
       (s.brand?.toLowerCase().includes(q) ?? false);
     return matchCategory && matchSearch;
-  });
+  }), [supplies, categoryFilter, searchQuery]);
 
   useEffect(() => {
     if (embedded && onFilteredIdsChange) {
