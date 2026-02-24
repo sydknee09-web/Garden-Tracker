@@ -1139,6 +1139,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   );
 });
 
+ActiveGardenView.displayName = "ActiveGardenView";
+
 /** Hands/care icon: cupped hands with heart and sprout — for logging care journal entries. */
 function CareHandsIcon() {
   return (

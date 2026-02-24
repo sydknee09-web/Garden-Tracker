@@ -87,8 +87,8 @@ export async function POST(req: Request) {
         continue;
       }
       // global_plant_cache not in generated DB types; cast to allow upsert
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (admin as any).from("global_plant_cache").upsert(
+      const adminClient = admin as { from: (table: string) => { upsert: (data: object, opts: { onConflict: string }) => Promise<{ error: { message?: string } | null }> } };
+      const { error } = await adminClient.from("global_plant_cache").upsert(
         {
           source_url: row.source_url,
           identity_key: row.identity_key,
