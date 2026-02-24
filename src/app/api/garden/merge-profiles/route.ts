@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
     );
   }
 
-  await cascadeTasksAndShoppingForDeletedProfiles(supabase, sourceProfileIds, userId);
+  await cascadeAllForDeletedProfiles(supabase, sourceProfileIds, userId);
 
   return NextResponse.json({
     merged: true,

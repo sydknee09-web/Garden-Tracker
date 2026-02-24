@@ -139,6 +139,8 @@ const STATUS_COLORS: Record<string, string> = {
 // Icons
 // ---------------------------------------------------------------------------
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
+/** Sparkle icon for "Fill blanks" — AI/cache lookup to populate empty fields */
+function SparkleIcon() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>; }
 function CameraIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>; }
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
@@ -191,6 +193,8 @@ export default function VaultSeedPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState(false);
+  const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
+  const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
@@ -1074,6 +1078,28 @@ export default function VaultSeedPage() {
     }
   }, [user?.id, id, profile, profileOwnerId, router]);
 
+  const handleFillBlanks = useCallback(async () => {
+    if (!id || !session?.access_token || fillBlanksRunning) return;
+    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
+    if (isLeg) return;
+    setFillBlanksRunning(true);
+    setFillBlanksError(null);
+    try {
+      const res = await fetch("/api/seed/fill-blanks-for-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ profileId: id, useGemini: true }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Fill failed");
+      await loadProfile();
+    } catch (e) {
+      setFillBlanksError(e instanceof Error ? e.message : "Could not fill blanks");
+    } finally {
+      setFillBlanksRunning(false);
+    }
+  }, [id, session?.access_token, profile, fillBlanksRunning, loadProfile]);
+
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
   const sortedPackets = useMemo(() => {
     return [...packets].sort((a, b) => {
@@ -1466,10 +1492,29 @@ export default function VaultSeedPage() {
           </div>
           {isOwnProfile && (
             <div className="flex items-center gap-1 shrink-0">
+              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                <button
+                  type="button"
+                  onClick={handleFillBlanks}
+                  disabled={fillBlanksRunning}
+                  className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                  aria-label="Fill blank info from cache or AI"
+                  title="Fill blank info"
+                >
+                  <SparkleIcon />
+                </button>
+              )}
               <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
             </div>
           )}
         </div>
+
+        {fillBlanksError && (
+          <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-center justify-between gap-2">
+            <span>{fillBlanksError}</span>
+            <button type="button" onClick={() => setFillBlanksError(null)} className="shrink-0 text-amber-600 hover:text-amber-800" aria-label="Dismiss">×</button>
+          </div>
+        )}
 
         {/* Hero */}
         <div className="mb-4 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
@@ -1550,30 +1595,38 @@ export default function VaultSeedPage() {
             )}
 
             {/* Propagation — how to multiply (cuttings, division, etc.) */}
-            {!isLegacy && (profile as PlantProfile)?.propagation_notes?.trim() && (
+            {!isLegacy && (
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Propagation</h3>
+                  <h3 className="text-sm font-semibold text-neutral-700">How to propagate</h3>
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("propagation") && (
                   <div className="px-4 pb-4 pt-0">
-                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).propagation_notes}</p>
+                    {(profile as PlantProfile)?.propagation_notes?.trim() ? (
+                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).propagation_notes}</p>
+                    ) : (
+                      <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
             {/* Harvest / Save Seeds — how to collect and store seeds */}
-            {!isLegacy && (profile as PlantProfile)?.seed_saving_notes?.trim() && (
+            {!isLegacy && (
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("seedSaving")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("seedSaving")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Harvest / Save Seeds</h3>
+                  <h3 className="text-sm font-semibold text-neutral-700">Harvest / Save seeds</h3>
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("seedSaving") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("seedSaving") && (
                   <div className="px-4 pb-4 pt-0">
-                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).seed_saving_notes}</p>
+                    {(profile as PlantProfile)?.seed_saving_notes?.trim() ? (
+                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).seed_saving_notes}</p>
+                    ) : (
+                      <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
+                    )}
                   </div>
                 )}
               </div>

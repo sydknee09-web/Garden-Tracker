@@ -666,17 +666,6 @@ export function AddPlantModal({
                   />
                   {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">Vendor and nursery are for your records. We use plant + variety only to find details and a photo.</p>}
                 </div>
-                <div>
-                  <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
-                  <textarea
-                    id="add-plant-notes"
-                    rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Where it's planted, age, any notes..."
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
-                  />
-                </div>
               </>
             )}
 
@@ -756,6 +745,20 @@ export function AddPlantModal({
                 className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
+
+            {(mode === "new" || (mode === "existing" && plantType === "permanent")) && (
+              <div>
+                <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
+                <textarea
+                  id="add-plant-notes"
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Where it's planted, age, any notes..."
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                />
+              </div>
+            )}
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>

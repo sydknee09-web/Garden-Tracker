@@ -189,3 +189,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-22 | My Plants FAB menu: removed "Add journal entry" option. Active Garden FAB still offers "Add journal entry" for bulk journal mode. |
 | 2025-02-24 | Seed Vault Packets Refactor: Plant Profiles tab = plant profiles (grid); Seed Vault tab = individual seed packets (one row per packet). Each tab has separate filters (including sow). Tap packet row → `/vault/[plant_profile_id]`. `/vault/packets` redirects to `/vault?tab=list`. |
 | 2025-02-24 | Filter reset: Filters clear when navigating between sections (Vault, Garden, Journal). Exception: profile → garden with plant filter stays. Vault profile Plantings: permanent plant tap → My Plants with profile filter; seasonal active → Active Garden with grow filter. |
+| 2025-02-24 | Developer: API Usage moved to dedicated page `/settings/developer/usage`. Developer page shows link card "View usage →" instead of inline stats. |
