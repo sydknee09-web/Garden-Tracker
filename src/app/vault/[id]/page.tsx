@@ -421,7 +421,7 @@ export default function VaultSeedPage() {
 
       // Plantable now check (from profile.planting_window or zone10b fallback)
       setIsPlantableNow(isPlantableInMonth(profileData as { name: string; planting_window?: string | null }, new Date().getMonth()));
-
+    } else {
       setError("Plant not found.");
       setProfile(null);
     }
