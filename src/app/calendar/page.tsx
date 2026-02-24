@@ -10,7 +10,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
-import { isPlantableInMonth } from "@/lib/plantingWindow";
+import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
@@ -162,7 +162,7 @@ export default function CalendarPage() {
       if (cancelled) return;
       const monthIndex = month.month;
       const matches = (profiles ?? []).filter((p: { name: string; planting_window?: string | null }) =>
-        isPlantableInMonth(p, monthIndex)
+        isPlantableInMonthSimple(p.planting_window, monthIndex)
       ) as { id: string; name: string; variety_name: string | null }[];
       setPlantableProfiles(matches);
     })();
