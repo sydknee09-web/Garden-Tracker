@@ -38,7 +38,26 @@ import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportS
 import { compressImage } from "@/lib/compressImage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useFilterState } from "@/hooks/useFilterState";
-import { isPlantableInMonth, getSowingWindowLabel } from "@/lib/plantingWindow";
+/** Minimal sow-month check without loading zone10b (avoids init error). */
+function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
+  const w = plantingWindow?.trim();
+  if (!w) return true;
+  const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const abbrev = months[monthIndex];
+  if (!abbrev) return false;
+  if (new RegExp(abbrev, "i").test(w)) return true;
+  const rangeMatch = w.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*[-–—]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (rangeMatch) {
+    const start = months.indexOf(rangeMatch[1]!.toLowerCase());
+    const end = months.indexOf(rangeMatch[2]!.toLowerCase());
+    if (start >= 0 && end >= 0) return monthIndex >= Math.min(start, end) && monthIndex <= Math.max(start, end);
+  }
+  return false;
+}
+/** Simple sowing window display (planting_window or empty). */
+function getSowingWindowLabelSimple(p: { planting_window?: string | null }): string | null {
+  return p.planting_window?.trim() || null;
+}
 import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import {
   shouldClearFiltersOnMount,
@@ -1995,8 +2014,8 @@ function VaultPageInner() {
                 <ul className="space-y-2">
                   {scheduleProfiles.map((p) => {
                     const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
-                    const sowNow = isPlantableInMonth(p, new Date().getMonth());
-                    const sowingWindow = getSowingWindowLabel(p);
+                    const sowNow = isPlantableInMonthSimple(p.planting_window, new Date().getMonth());
+                    const sowingWindow = getSowingWindowLabelSimple(p);
                     return (
                       <li key={p.id} className="py-2 px-3 rounded-lg bg-neutral-50 border border-black/5 space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -2112,7 +2131,7 @@ function VaultPageInner() {
                     const harvestLabel = p.harvest_days != null && p.harvest_days > 0
                       ? `Harvest in ~${p.harvest_days} days`
                       : "No maturity set";
-                    const sowingWindow = getSowingWindowLabel(p);
+                    const sowingWindow = getSowingWindowLabelSimple(p);
                     const packetCount = row.packets.length;
                     const effectiveTotal = row.packets.reduce((s, pk) => s + pk.qty_status / 100, 0);
                     const maxPct = packetCount > 0 ? Math.min(100, (effectiveTotal / Math.max(1, packetCount)) * 100) : 0;

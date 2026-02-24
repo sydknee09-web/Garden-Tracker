@@ -17,8 +17,24 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
-import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
+
+/** Minimal sow-month check without loading zone10b_schedule (avoids init error in chunk). */
+function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
+  const w = plantingWindow?.trim();
+  if (!w) return true;
+  const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const abbrev = months[monthIndex];
+  if (!abbrev) return false;
+  if (new RegExp(abbrev, "i").test(w)) return true;
+  const rangeMatch = w.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*[-–—]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (rangeMatch) {
+    const start = months.indexOf(rangeMatch[1]!.toLowerCase());
+    const end = months.indexOf(rangeMatch[2]!.toLowerCase());
+    if (start >= 0 && end >= 0) return monthIndex >= Math.min(start, end) && monthIndex <= Math.max(start, end);
+  }
+  return false;
+}
 import { StarRating } from "@/components/StarRating";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
 import type { PlantProfileDisplay, Volume } from "@/types/vault";
@@ -512,7 +528,7 @@ export function SeedVaultView({
         const n = s.packet_count ?? 0;
         if (packetCountRange(n) !== packetCountFilter) return false;
       }
-      if (plantNowFilter && !isPlantableInMonth(s, sowMonthIndex)) return false;
+      if (plantNowFilter && !isPlantableInMonthSimple(s.planting_window, sowMonthIndex)) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
       if (selectedOwnerFilter && s.owner_user_id !== selectedOwnerFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
@@ -636,7 +652,7 @@ export function SeedVaultView({
   const sowingMonthChips = useMemo(() => {
     const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     return MONTH_NAMES.map((monthName, monthIndex) => {
-      const count = seeds.filter((s) => isPlantableInMonth(s, monthIndex)).length;
+      const count = seeds.filter((s) => isPlantableInMonthSimple(s.planting_window, monthIndex)).length;
       return { month: monthIndex + 1, monthName, count };
     });
   }, [seeds]);
