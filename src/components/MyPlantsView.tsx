@@ -290,9 +290,17 @@ export function MyPlantsView({
   useEffect(() => {
     if (openBulkLogRequest && selectedGrowIds.size > 0) {
       const selected = plants.filter((p) => selectedGrowIds.has(p.id));
-      setBatchLogBatches(selected.map(toBatchLogBatch));
-      setBatchLogOpen(true);
-      onBulkLogRequestHandled?.();
+      if (selected.length > 0) {
+        setBatchLogBatches(selected.map(toBatchLogBatch));
+        setBatchLogOpen(true);
+        onBulkLogRequestHandled?.();
+      } else {
+        onBulkLogRequestHandled?.();
+        if (plants.length === 0) {
+          setQuickToast("Loading plants…");
+          setTimeout(() => setQuickToast(null), 2000);
+        }
+      }
     }
   }, [openBulkLogRequest, selectedGrowIds, plants, toBatchLogBatch, onBulkLogRequestHandled]);
 
