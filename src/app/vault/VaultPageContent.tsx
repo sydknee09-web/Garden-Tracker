@@ -4,8 +4,7 @@ import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import type { StatusFilter, VaultSortBy } from "@/components/SeedVaultView";
-import type { PacketStatusFilter } from "@/types/vault";
+import type { StatusFilter, VaultSortBy, PacketStatusFilter } from "@/types/vault";
 
 const SeedVaultView = dynamic(
   () => import("@/components/SeedVaultView").then((m) => ({ default: m.SeedVaultView })),
@@ -137,9 +136,22 @@ function CondensedGridIcon() {
   );
 }
 
+function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
+  if (!searchParams) return "grid";
+  const sow = searchParams.get("sow");
+  if (sow && /^\d{4}-\d{2}$/.test(sow)) return "grid";
+  const tab = searchParams.get("tab");
+  if (tab === "list" || tab === "table") return "list";
+  if (tab === "shed") return "shed";
+  if (tab === "grid") return "grid";
+  if (tab === "active" || tab === "plants") return "grid";
+  return "grid";
+}
+
 function VaultPageInner() {
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">("grid");
+  const searchParams = useSearchParams();
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
@@ -178,7 +190,6 @@ function VaultPageInner() {
   const [plantModalOpen, setPlantModalOpen] = useState(false);
   const [plantConfirming, setPlantConfirming] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const pathname = usePathname();
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -353,7 +364,7 @@ function VaultPageInner() {
     const status = searchParams.get("status");
     if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
       vaultFilters.setStatus(status);
-      if (status === "vault") setSaveToastMessage("Added to Vault!");
+      if (searchParams.get("added") === "1") setSaveToastMessage("Added to Vault!");
     }
     const sow = searchParams.get("sow");
     if (sow) {

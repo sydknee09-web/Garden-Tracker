@@ -37,7 +37,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 }
 import { StarRating } from "@/components/StarRating";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
-import type { PlantProfileDisplay, Volume } from "@/types/vault";
+import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
 const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
@@ -151,8 +151,8 @@ function getThumbnailUrl(seed: VaultCardItem): string | null {
 
 const HERO_PENDING_TIMEOUT_MS = 30000;
 export type GridSortBy = "name" | "dateAdded";
-/** Sort options from Refine By modal (vault page). When set, overrides internal grid/list sort. */
-export type VaultSortBy = "purchase_date" | "name" | "date_added" | "variety" | "packet_count";
+/** Re-export for consumers that import from SeedVaultView. */
+export type { StatusFilter, VaultSortBy };
 
 const VOLUME_LABELS: Record<string, string> = {
   full: "Full",
@@ -210,7 +210,6 @@ function ExternalLinkIcon() {
   );
 }
 
-export type StatusFilter = "" | "vault" | "active" | "low_inventory" | "archived";
 export type TagFilter = string[];
 
 function SortArrowIcon({ dir }: { dir: "asc" | "desc" | "off" }) {
