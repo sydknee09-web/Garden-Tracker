@@ -25,10 +25,9 @@
 | **Active Garden** | "Add from Vault" | Navigate to `/vault/plant?from=garden` |
 | **Active Garden** | "Add plant" | Open AddPlantModal (add seasonal/permanent) |
 | **Active Garden** | "Add journal entry" | Enter bulk journal mode (select plants, then log) |
-| **My Plants** | FAB tap | Opens menu: "Add permanent plant", "Add journal entry", Cancel |
+| **My Plants** | FAB tap | Opens menu: "Add permanent plant", "Scan purchase order", Cancel |
 | **My Plants** | FAB tap (when selections exist) | FAB shows pencil icon; tap opens BatchLogSheet (journal, delete, quick care) |
 | **My Plants** | "Add permanent plant" | Open AddPlantModal (permanent type) |
-| **My Plants** | "Add journal entry" | **Approved:** Open quick-add journal modal (inline). Do not navigate to Journal page. |
 
 ### My Plants – planting cards
 
@@ -38,17 +37,6 @@
 | **Long-press (~500ms)** | Enter selection mode; select this planting. Support multi-select. |
 | **Tap when selected** | Toggle selection |
 | **Selection mode** | Show "Cancel" / "Done" to clear selection. Selecting bar shows "Selecting (N)" and Delete when items are selected. |
-
-### My Plants – quick-add journal modal
-
-| Aspect | Behavior |
-|--------|----------|
-| **Trigger** | "Add journal entry" from Garden FAB (My Plants view) |
-| **Content** | Note (required), optional photo (Take Photo / Choose from Files) |
-| **Pre-link** | If profiles selected, create one entry per selected plant (same note/photo) |
-| **No selection** | Create one general entry (`plant_profile_id: null`) |
-| **On save** | Close modal, clear selection, stay on Garden, refetch |
-| **On cancel** | Close modal, stay on Garden |
 
 ---
 
@@ -131,12 +119,34 @@
 
 ---
 
+## Vault Tabs (Plant Profiles vs Seed Vault)
+
+| Tab | Content | Filters |
+|-----|---------|---------|
+| **Plant Profiles** | List of plant profiles (aggregated by profile). Grid view. | Profile-level: status, tags, category, variety, vendor, sun, spacing, germination, maturity, packet count, sow (Plant this month). |
+| **Seed Vault** | List of individual seed packets (one row per packet). | Packet-level: status, vendor, sort, search, sow (Plant this month). |
+
+Each tab has its own filters; switching tabs preserves each tab's filters. No cross-tab application.
+
+| Action | Behavior |
+|--------|----------|
+| **Tap packet row** (Seed Vault tab) | Navigate to `/vault/[plant_profile_id]` |
+| **Tap profile card** (Plant Profiles tab) | Navigate to `/vault/[plant_profile_id]` |
+
+### `/vault/packets` (legacy)
+
+| Behavior |
+|----------|
+| Redirects to `/vault?tab=list` for backward compatibility. The Seed Vault tab is now integrated into the main vault page. |
+
+---
+
 ## Other routes
 
 | Route | Purpose |
 |-------|---------|
 | `/` | Home / dashboard |
-| `/vault` | Seed vault |
+| `/vault` | Seed vault (Plant Profiles + Seed Vault tabs) |
 | `/garden` | Garden (Active / My Plants) |
 | `/journal` | Journal list |
 | `/journal/new` | New journal entry (full form) |
@@ -160,3 +170,5 @@
 | 2025-02-22 | Garden: Visible "Showing"/"Viewing" chips with Cancel (×) when profile or grow param applied. User can clear filter/view to return to full list. Grow param no longer auto-clears. |
 | 2025-02-22 | Garden: When grow=xxx, Active Garden filters to single batch (visible filter). Empty states for profile/grow filters. Preserve params when switching tabs. Escape clears filter. Loading/not-found chip labels. |
 | 2025-02-22 | My Plants batch selection: FAB shows pencil when items selected; tap opens BatchLogSheet. Selecting bar with Delete. Renamed "profile cards" to "planting cards" (grow_instances). |
+| 2025-02-22 | My Plants FAB menu: removed "Add journal entry" option. Active Garden FAB still offers "Add journal entry" for bulk journal mode. |
+| 2025-02-24 | Seed Vault Packets Refactor: Plant Profiles tab = plant profiles (grid); Seed Vault tab = individual seed packets (one row per packet). Each tab has separate filters (including sow). Tap packet row → `/vault/[plant_profile_id]`. `/vault/packets` redirects to `/vault?tab=list`. |

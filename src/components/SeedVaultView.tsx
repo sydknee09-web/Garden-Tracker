@@ -1536,6 +1536,9 @@ export function SeedVaultView({
                   <span className="flex-1 min-w-0">
                     <span className="block font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
                     <span className="block text-sm text-neutral-600 truncate">{decodeHtmlEntities(seed.variety)}</span>
+                    {seed.vendor_display?.trim() && (
+                      <span className="block text-xs text-neutral-500 truncate">{seed.vendor_display.trim()}</span>
+                    )}
                   </span>
                   <span className="shrink-0 inline-flex items-center gap-1.5">
                     <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>

@@ -13,6 +13,13 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { hapticSuccess } from "@/lib/haptics";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
 
+const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
+  fertilizer: "Fertilizer",
+  pesticide: "Pesticide",
+  soil_amendment: "Soil Amendment",
+  other: "Other",
+};
+
 function formatDisplayDate(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -207,6 +214,20 @@ export default function VaultShedDetailPage() {
     }
   }, [user?.id, supply?.id, supply?.name, fetchHistory]);
 
+  const handleSaveNotes = useCallback(
+    async (value: string, persist: boolean) => {
+      if (!supply?.id || !user?.id) return;
+      if (persist) {
+        const trimmed = value.trim() || null;
+        setSupply((prev) => (prev ? { ...prev, notes: trimmed ?? undefined } : null));
+        await updateWithOfflineQueue("supply_profiles", { notes: trimmed, updated_at: new Date().toISOString() }, { id: supply.id, user_id: user.id });
+      } else {
+        setSupply((prev) => (prev ? { ...prev, notes: value || undefined } : null));
+      }
+    },
+    [supply?.id, user?.id]
+  );
+
   const handleFillDetails = useCallback(async () => {
     if (!user?.id || !supply?.id || !session?.access_token) return;
     setEnriching(true);
@@ -350,7 +371,7 @@ export default function VaultShedDetailPage() {
               <h1 className="text-xl font-bold text-neutral-900">{supply.name}</h1>
               {supply.brand && <p className="text-neutral-600 text-sm">{supply.brand}</p>}
               <span className="inline-block mt-1 text-xs text-neutral-500 bg-neutral-100 rounded px-2 py-0.5">
-                {supply.category}
+                {SUPPLY_CATEGORY_LABELS[supply.category] ?? supply.category}
               </span>
               {npk && (
                 <span className="ml-2 inline-block text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-0.5">
@@ -392,11 +413,29 @@ export default function VaultShedDetailPage() {
               <p className="text-neutral-700 whitespace-pre-wrap">{supply.usage_instructions}</p>
             </div>
           )}
-          {supply.notes && (
+          {canEdit ? (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-black/80">Notes</h3>
-              <p className="text-neutral-700 whitespace-pre-wrap">{supply.notes}</p>
+              <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
+                Your notes
+              </label>
+              <textarea
+                id="supply-notes"
+                value={supply.notes ?? ""}
+                onChange={(e) => handleSaveNotes(e.target.value, false)}
+                onBlur={(e) => handleSaveNotes(e.target.value, true)}
+                placeholder="Optional notes for this product"
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                aria-label="Your notes"
+              />
             </div>
+          ) : (
+            supply.notes?.trim() && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-black/80 mb-1">Your notes</h3>
+                <p className="text-neutral-700 whitespace-pre-wrap">{supply.notes}</p>
+              </div>
+            )
           )}
           {supply.source_url && (
             <a
