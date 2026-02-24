@@ -1,17 +1,23 @@
-﻿"use client";
+"use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
+import type { StatusFilter, VaultSortBy } from "@/components/SeedVaultView";
 import type { PacketStatusFilter } from "@/types/vault";
 
-const PacketVaultView = dynamic(
-  () => import("@/components/PacketVaultView").then((m) => ({ default: m.PacketVaultView })),
-  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading packetsΓÇª</div> }
+const SeedVaultView = dynamic(
+  () => import("@/components/SeedVaultView").then((m) => ({ default: m.SeedVaultView })),
+  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading…</div> }
 );
-import { ShedView } from "@/components/ShedView";
+
+import { PacketVaultLazy } from "./PacketVaultLazy";
+
+const ShedView = dynamic(
+  () => import("@/components/ShedView").then((m) => ({ default: m.ShedView })),
+  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading shed…</div> }
+);
 import { SupplyPicker } from "@/components/SupplyPicker";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
@@ -1862,7 +1868,7 @@ function VaultPageInner() {
             sortDirection={sortDirection}
           />
           ) : (
-          <PacketVaultView
+          <PacketVaultLazy
             refetchTrigger={refetchTrigger}
             scrollContainerRef={scrollContainerRef}
             searchQuery={packetSearchQuery}

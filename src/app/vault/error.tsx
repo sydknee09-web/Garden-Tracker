@@ -20,6 +20,17 @@ export default function VaultError({
       <p className="text-neutral-600 text-sm mb-4 text-center max-w-md">
         {error.message || "We couldn&apos;t load the Vault."}
       </p>
+      <details className="w-full max-w-md mb-4" open>
+        <summary className="text-sm font-medium text-neutral-700 cursor-pointer py-2">
+          Technical details (for support)
+        </summary>
+        <p className="text-xs text-neutral-500 mb-1">Copy or screenshot and share with support:</p>
+        <pre className="p-3 bg-neutral-100 rounded-lg text-xs text-left overflow-auto max-h-40 border border-neutral-200 whitespace-pre-wrap">
+          {error.name}: {error.message}
+          {error.digest ? `\nDigest: ${error.digest}` : ""}
+          {error.stack ? `\n\n${error.stack}` : "\n(No stack trace available)"}
+        </pre>
+      </details>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"

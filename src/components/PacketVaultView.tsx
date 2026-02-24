@@ -8,8 +8,24 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
+
+/** Minimal sow-month check without loading zone10b_schedule (avoids "ep" init error in chunk). */
+function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
+  const w = plantingWindow?.trim();
+  if (!w) return true;
+  const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const abbrev = months[monthIndex];
+  if (!abbrev) return false;
+  if (new RegExp(abbrev, "i").test(w)) return true;
+  const rangeMatch = w.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*[-–—]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+  if (rangeMatch) {
+    const start = months.indexOf(rangeMatch[1]!.toLowerCase());
+    const end = months.indexOf(rangeMatch[2]!.toLowerCase());
+    if (start >= 0 && end >= 0) return monthIndex >= Math.min(start, end) && monthIndex <= Math.max(start, end);
+  }
+  return false;
+}
 import { StarRating } from "@/components/StarRating";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
@@ -283,8 +299,7 @@ export function PacketVaultView({
         if (v !== vendorFilter) return false;
       }
       if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
-        const profile = { name: pkt.profile_name, planting_window: pkt.planting_window };
-        if (!isPlantableInMonth(profile, sowMonthIndex)) return false;
+        if (!isPlantableInMonthSimple(pkt.planting_window, sowMonthIndex)) return false;
       }
       if (statusFilter === "vault") {
         if (pkt.is_archived || (pkt.qty_status ?? 0) <= 0) return false;
