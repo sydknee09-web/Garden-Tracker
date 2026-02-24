@@ -99,7 +99,7 @@ export type WeatherSnapshotData = {
 
 export interface JournalEntry {
   id: string;
-  plant_variety_id: string | null;
+  plant_variety_id?: string | null; // legacy — column dropped from DB
   plant_profile_id?: string | null;
   grow_instance_id: string | null;
   seed_packet_id?: string | null;
