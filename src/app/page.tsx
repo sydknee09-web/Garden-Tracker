@@ -89,7 +89,7 @@ export default function HomePage() {
       // Batch 1: Fetch all independent data in parallel
       const [settingsRes, tasksRes, listRes, careRes] = await Promise.all([
         supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
-        supabase.from("tasks").select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(20),
+        supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(20),
         supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
         supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(10),
       ]);
@@ -101,31 +101,24 @@ export default function HomePage() {
       const listRows = listRes.data ?? [];
       const careData = careRes.data ?? [];
 
-      // Batch 2: Resolve names — collect all profile/variety IDs and fetch in parallel
+      // Batch 2: Resolve names — collect all profile IDs and fetch
       const profileIds = taskRows.map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter((id): id is string => Boolean(id));
-      const varietyIds = taskRows.map((t: { plant_variety_id?: string | null }) => t.plant_variety_id).filter((id): id is string => Boolean(id));
       const listIds = Array.from(new Set(listRows.map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
       const careProfileIds = careData.length > 0 ? Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id))) : [];
       const allProfileIds = Array.from(new Set([...profileIds, ...listIds, ...careProfileIds]));
 
-      const [profilesRes, varietiesRes] = await Promise.all([
-        allProfileIds.length > 0 ? supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : Promise.resolve({ data: [] }),
-        varietyIds.length > 0 ? supabase.from("plant_varieties").select("id, name").in("id", Array.from(new Set(varietyIds))) : Promise.resolve({ data: [] }),
-      ]);
-
+      const profilesRes = allProfileIds.length > 0 ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : { data: [] };
       const profiles = profilesRes.data ?? [];
-      const varieties = varietiesRes.data ?? [];
       const names: Record<string, string> = {};
       profiles.forEach((p: { id: string; name: string; variety_name: string | null }) => {
         names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
       });
-      varieties.forEach((v: { id: string; name: string }) => { names[v.id] = v.name; });
 
       const listNames: Record<string, { name: string; variety_name: string | null }> = {};
       profiles.forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
 
-      const withNames: TaskWithPlant[] = taskRows.map((t: Task & { plant_profile_id?: string | null; plant_variety_id?: string | null }) => {
-        const linkId = t.plant_profile_id ?? t.plant_variety_id;
+      const withNames: TaskWithPlant[] = taskRows.map((t: Task & { plant_profile_id?: string | null }) => {
+        const linkId = t.plant_profile_id;
         return { ...t, plant_name: linkId ? names[linkId] ?? "Unknown" : undefined };
       });
       if (!cancelled) setPendingTasks(withNames);
@@ -429,7 +422,7 @@ export default function HomePage() {
                 ) : (
                   <ul className="space-y-1">
                     {pendingTasks.map((t) => {
-                      const vaultId = t.plant_profile_id ?? t.plant_variety_id;
+                      const vaultId = t.plant_profile_id;
                       const taskHref = vaultId ? `/vault/${vaultId}` : "/calendar";
                       const isMarking = markingTaskDoneId === t.id;
                       return (

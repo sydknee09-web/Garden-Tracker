@@ -97,6 +97,7 @@ function CondensedGridIcon() {
     </svg>
   );
 }
+
 function VaultPageInner() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">("grid");
@@ -503,13 +504,6 @@ function VaultPageInner() {
         .select("id");
       if (softDeleted && softDeleted.length > 0) {
         profileIdsCascaded.push(id);
-        continue;
-      }
-      const { error: e2 } = await supabase.from("plant_varieties").delete().eq("id", id).eq("user_id", uid);
-      if (e2) {
-        setSaveToastMessage(`Could not delete: ${e2.message}`);
-        failed = true;
-        break;
       }
     }
     if (!failed && profileIdsCascaded.length > 0) {
@@ -720,7 +714,7 @@ function VaultPageInner() {
     return () => { cancelled = true; };
   }, [plantModalOpen, user?.id, selectedVarietyIds]);
 
-  const consumePackets = useCallback(async (profileId: string, toUse: number, packets: SeedPacketRow[]): Promise<boolean> => {
+  const consumePackets = useCallback(async (profileId: string, toUse: number, packets: SeedPacketRow[]) => {
     if (!user?.id || toUse <= 0) return true;
     const now = new Date().toISOString();
     let need = toUse;
@@ -919,17 +913,13 @@ function VaultPageInner() {
 
   const hasActiveFilters = viewMode === "list" ? hasPacketActiveFilters : vaultFilters.hasActiveFilters;
 
-  async function handleQRScan(value: string) {
+  const handleQRScan = useCallback(async (value: string) => {
     const trimmed = value.trim();
     const uuidRegex =
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     const match = trimmed.match(uuidRegex);
     const possibleId = match ? match[0] : trimmed;
-    let { data } = await supabase.from("plant_profiles").select("id").eq("id", possibleId).maybeSingle();
-    if (!data?.id) {
-      const res = await supabase.from("plant_varieties").select("id").eq("id", possibleId).maybeSingle();
-      data = res.data;
-    }
+    const { data } = await supabase.from("plant_profiles").select("id").eq("id", possibleId).maybeSingle();
     if (data?.id) {
       setScannerOpen(false);
       router.push(`/vault/${data.id}`);
@@ -941,7 +931,7 @@ function VaultPageInner() {
       setScannerOpen(false);
       setQuickAddOpen(true);
     }
-  }
+  }, [router]);
 
   return (
     <div className="px-6 pt-0 pb-10">
@@ -1741,6 +1731,8 @@ function VaultPageInner() {
                   )}
                 </>
               )}
+            </>
+          )}
             </div>
             <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
               <button

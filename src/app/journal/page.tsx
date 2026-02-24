@@ -78,7 +78,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
 /** Group entries by same plant + same day so one row per (date, plant). */
 function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
   const dateStr = (e: JournalEntryWithPlant) => e.created_at.slice(0, 10);
-  const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? e.plant_variety_id ?? "__general__";
+  const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? "__general__";
   const key = (e: JournalEntryWithPlant) => `${dateStr(e)}|${plantKey(e)}`;
   const map = new Map<string, JournalEntryWithPlant[]>();
   for (const e of entries) {
@@ -157,9 +157,9 @@ function TimelineIcon() {
 function groupEntriesByPlant(entries: JournalEntryWithPlant[]): { plantName: string; profileId: string | null; entries: JournalEntryWithPlant[] }[] {
   const map = new Map<string, { plantName: string; profileId: string | null; entries: JournalEntryWithPlant[] }>();
   for (const e of entries) {
-    const key = e.plant_profile_id ?? e.plant_variety_id ?? "__general__";
+    const key = e.plant_profile_id ?? "__general__";
     if (!map.has(key)) {
-      map.set(key, { plantName: e.plant_display_name ?? e.plant_name ?? "General", profileId: (e.plant_profile_id ?? e.plant_variety_id) || null, entries: [] });
+      map.set(key, { plantName: e.plant_display_name ?? e.plant_name ?? "General", profileId: e.plant_profile_id || null, entries: [] });
     }
     map.get(key)!.entries.push(e);
   }
@@ -298,7 +298,7 @@ export default function JournalPage() {
       if (!user) return;
       let journalQuery = supabase
         .from("journal_entries")
-        .select("id, plant_profile_id, plant_variety_id, grow_instance_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
+        .select("id, plant_profile_id, grow_instance_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id")
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -314,7 +314,6 @@ export default function JournalPage() {
       }
 
       const profileIds = Array.from(new Set((rows ?? []).map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean)));
-      const varietyIds = Array.from(new Set((rows ?? []).map((r: { plant_variety_id: string | null }) => r.plant_variety_id).filter(Boolean)));
       const names: Record<string, string> = {};
       const displayNames: Record<string, string> = {};
       if (profileIds.length > 0) {
@@ -324,25 +323,18 @@ export default function JournalPage() {
           displayNames[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });
       }
-      if (varietyIds.length > 0) {
-        const { data: varietyRows } = await supabase.from("plant_varieties").select("id, name").in("id", varietyIds);
-        (varietyRows ?? []).forEach((v: { id: string; name: string }) => {
-          if (!names[v.id]) names[v.id] = v.name;
-          if (!displayNames[v.id]) displayNames[v.id] = v.name;
-        });
-      }
 
-      // Exclude orphaned entries: plant_profile or plant_variety was hard-deleted, so we have no name.
+      // Exclude orphaned entries: plant_profile was hard-deleted, so we have no name.
       // Per Law 2, profiles should use soft delete; this handles existing hard-deleted data.
       const withNames = (rows ?? [])
         .map((r: JournalEntry & { plant_profile_id?: string | null }) => {
-          const id = r.plant_profile_id ?? r.plant_variety_id;
+          const id = r.plant_profile_id;
           const plant_name = id ? (names[id] ?? "Unknown") : "General";
           const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
           return { ...r, plant_name, plant_display_name };
         })
         .filter((r: JournalEntryWithPlant) => {
-          const id = r.plant_profile_id ?? r.plant_variety_id;
+          const id = r.plant_profile_id;
           if (!id) return true; // General entries always show
           return (names as Record<string, string>)[id] != null; // hide entries whose profile no longer exists
         });

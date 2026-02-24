@@ -13,7 +13,6 @@ import type { Task } from "@/types/garden";
  *    - Archive packet if qty reaches 0
  *    - Mark profile out_of_stock + add to shopping list if ALL packets archived
  *    - Create harvest task
- * 3. Legacy plant_variety_id: decrement inventory_count, add to shopping_list if 0.
  */
 export async function completeTask(
   task: Task & { plant_name?: string },
@@ -129,31 +128,6 @@ export async function completeTask(
           }
         }
       }
-    }
-    // ---- Legacy plant_variety_id ----
-    else if (
-      (task.category === "sow" || task.category === "start_seed") &&
-      task.plant_variety_id
-    ) {
-      const { data: p } = await supabase
-        .from("plant_varieties")
-        .select("inventory_count")
-        .eq("id", task.plant_variety_id)
-        .single();
-      const current = (p as { inventory_count?: number } | null)?.inventory_count ?? 0;
-      const next = Math.max(0, current - 1);
-      await supabase.from("plant_varieties").update({ inventory_count: next }).eq("id", task.plant_variety_id).eq("user_id", userId);
-      if (next === 0) {
-        await supabase.from("shopping_list").upsert(
-          { user_id: userId, plant_variety_id: task.plant_variety_id },
-          { onConflict: "user_id,plant_variety_id", ignoreDuplicates: true },
-        );
-      }
-    }
-
-    // ---- Transplant status update (legacy) ----
-    if (task.category === "transplant" && task.plant_variety_id) {
-      await supabase.from("plant_varieties").update({ status: "Active on Hillside" }).eq("id", task.plant_variety_id).eq("user_id", userId);
     }
 
     // ---- Advance recurring care schedule so next task generates on time ----

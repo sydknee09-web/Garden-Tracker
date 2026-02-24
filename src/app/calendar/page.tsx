@@ -75,8 +75,6 @@ export default function CalendarPage() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState(() => new Date().toISOString().slice(0, 10));
   const [newTaskCategory, setNewTaskCategory] = useState<TaskType>("maintenance");
-  const [newTaskPlantId, setNewTaskPlantId] = useState<string>("");
-  const [varieties, setVarieties] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [newTaskProfileId, setNewTaskProfileId] = useState<string>("");
   const [newTaskGrowId, setNewTaskGrowId] = useState<string>("");
   const [taskProfiles, setTaskProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
@@ -191,7 +189,7 @@ export default function CalendarPage() {
 
       let tasksQuery = supabase
         .from("tasks")
-        .select("id, plant_profile_id, plant_variety_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
         .is("deleted_at", null)
         .gte("due_date", todayStr)
         .lte("due_date", futureLimit)
@@ -207,13 +205,8 @@ export default function CalendarPage() {
         return;
       }
 
-      const varietyIds = [...new Set((taskRows ?? []).map((t: { plant_variety_id: string | null }) => t.plant_variety_id).filter(Boolean))] as string[];
       const profileIds = [...new Set((taskRows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
-      if (varietyIds.length > 0) {
-        const { data: varieties } = await supabase.from("plant_varieties").select("id, name").in("id", varietyIds);
-        (varieties ?? []).forEach((v: { id: string; name: string }) => { names[v.id] = v.name; });
-      }
       if (profileIds.length > 0) {
         const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds);
         (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
@@ -223,7 +216,7 @@ export default function CalendarPage() {
 
       const withNames = (taskRows ?? []).map((t: Task & { user_id?: string | null }) => ({
         ...t,
-        plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : t.plant_variety_id ? names[t.plant_variety_id] : null) ?? "Unknown",
+        plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : null) ?? "Unknown",
       }));
       setTasks(withNames);
       setLoading(false);
@@ -454,14 +447,6 @@ export default function CalendarPage() {
     if (!user || !newTaskOpen) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("plant_varieties")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id)
-        .eq("status", "Active on Hillside")
-        .order("name");
-      if (!cancelled && data) setVarieties(data);
-
       const { data: profiles } = await supabase
         .from("plant_profiles")
         .select("id, name, variety_name")
@@ -504,7 +489,6 @@ export default function CalendarPage() {
     setNewTaskTitle("");
     setNewTaskDue(new Date().toISOString().slice(0, 10));
     setNewTaskCategory("maintenance");
-    setNewTaskPlantId("");
     setNewTaskProfileId("");
     setNewTaskGrowId("");
     setIsRecurring(false);
@@ -525,7 +509,6 @@ export default function CalendarPage() {
     setNewTaskError(null);
     const savedDue = newTaskDue;
     const savedCategory = newTaskCategory;
-    const savedPlantId = newTaskPlantId;
     const savedProfileId = newTaskProfileId;
     const savedGrowId = newTaskGrowId;
     const savedRecurring = isRecurring;
@@ -566,7 +549,6 @@ export default function CalendarPage() {
       await supabase.from("tasks").insert({
         user_id: user.id,
         plant_profile_id: savedProfileId || null,
-        plant_variety_id: savedPlantId || null,
         grow_instance_id: savedGrowId || null,
         category: savedCategory,
         due_date: savedDue,
@@ -584,15 +566,11 @@ export default function CalendarPage() {
     if (savedProfileId) {
       const p = taskProfiles.find((v) => v.id === savedProfileId);
       displayName = p ? (p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name) : null;
-    } else if (savedPlantId) {
-      const v = varieties.find((v) => v.id === savedPlantId);
-      displayName = v ? (v.variety_name?.trim() ? `${v.name} (${v.variety_name})` : v.name) : null;
     }
 
     const optimisticId = `opt-${Date.now()}`;
     const optimisticTask: Task & { plant_name?: string } = {
       id: optimisticId,
-      plant_variety_id: savedPlantId || null,
       plant_profile_id: savedProfileId || null,
       grow_instance_id: savedGrowId || null,
       category: savedCategory,
@@ -605,7 +583,6 @@ export default function CalendarPage() {
     setTasks((prev) => [...prev, optimisticTask]);
     const { error: err } = await supabase.from("tasks").insert({
       user_id: user.id,
-      plant_variety_id: savedPlantId || null,
       plant_profile_id: savedProfileId || null,
       grow_instance_id: savedGrowId || null,
       category: savedCategory,
@@ -616,7 +593,6 @@ export default function CalendarPage() {
       setTasks((prev) => prev.filter((t) => t.id !== optimisticId));
       setNewTaskOpen(true);
       setNewTaskTitle(titleTrim);
-      setNewTaskPlantId(savedPlantId);
       setNewTaskProfileId(savedProfileId);
       setNewTaskGrowId(savedGrowId);
       setNewTaskDue(savedDue);
@@ -1336,11 +1312,6 @@ export default function CalendarPage() {
                   {taskProfiles.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
-                    </option>
-                  ))}
-                  {taskProfiles.length === 0 && varieties.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
                     </option>
                   ))}
                 </select>

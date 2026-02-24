@@ -422,20 +422,8 @@ export default function VaultSeedPage() {
       // Plantable now check (from profile.planting_window or zone10b fallback)
       setIsPlantableNow(isPlantableInMonth(profileData as { name: string; planting_window?: string | null }, new Date().getMonth()));
 
-      setLoading(false);
-      return;
-    }
-    // Legacy fallback — no user_id filter, RLS handles authorization
-    const { data: legacy, error: e2 } = await supabase.from("plant_varieties")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, source_url, vendor, growing_notes, growing_info_from_source, plant_description")
-      .eq("id", id).maybeSingle();
-    if (e2) { setError(e2.message); setProfile(null); }
-    else if (!legacy) { setError("Plant not found."); setProfile(null); }
-    else {
-      const legacyOwner = ((legacy as { user_id?: string }).user_id) ?? user.id;
-      setIsOwnProfile(legacyOwner === user.id);
-      setProfileOwnerId(legacyOwner);
-      setProfile(legacy as PlantVarietyProfile); setPackets([]); setJournalPhotos([]); setPacketImagesByPacketId(new Map());
+      setError("Plant not found.");
+      setProfile(null);
     }
     setLoading(false);
   }, [id, user?.id]);

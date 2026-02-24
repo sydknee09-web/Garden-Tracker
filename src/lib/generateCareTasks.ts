@@ -151,7 +151,6 @@ export async function generateCareTasks(userId: string): Promise<number> {
       const { error } = await supabase.from("tasks").insert({
         user_id: userId,
         plant_profile_id: s.plant_profile_id,
-        plant_variety_id: s.plant_profile_id,
         grow_instance_id: taskGrowInstanceId,
         category: s.category as "maintenance" | "fertilize" | "prune" | "general",
         due_date: taskDueDate,

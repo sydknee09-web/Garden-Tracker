@@ -21,8 +21,7 @@ import { isPlantableInMonth } from "@/lib/plantingWindow";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
 import { StarRating } from "@/components/StarRating";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
-import { normalizeSeedStockRows } from "@/lib/vault";
-import type { SeedStockDisplay, PlantProfileDisplay, Volume } from "@/types/vault";
+import type { PlantProfileDisplay, Volume } from "@/types/vault";
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
 const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
@@ -854,56 +853,16 @@ export function SeedVaultView({
       const { data: profiles, error: profErr } = await profilesQuery;
 
       if (cancelled) return;
-      if (profErr || !profiles?.length) {
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          setError("You're offline. Your vault will appear when you're back online.");
-          setSeeds([]);
-          setLoading(false);
-          return;
-        }
-        const { data: legacyData, error: e } = await supabase
-          .from("seed_stocks")
-          .select("id, plant_variety_id, volume, created_at, plant_varieties!inner(name, variety_name, inventory_count, status, harvest_days, sun, plant_spacing, days_to_germination, tags, source_url)")
-          .eq("plant_varieties.user_id", user.id)
-          .order("created_at", { ascending: false });
-        if (cancelled) return;
-        if (e) {
-          setError(typeof navigator !== "undefined" && !navigator.onLine
-            ? "You're offline. Your vault will appear when you're back online."
-            : e.message);
-          setSeeds([]);
-          setLoading(false);
-          return;
-        }
-        const rows = normalizeSeedStockRows(legacyData ?? []);
-        const byPv = new Map<string, number>();
-        rows.forEach((s: SeedStockDisplay) => {
-          byPv.set(s.plant_variety_id, (byPv.get(s.plant_variety_id) ?? 0) + 1);
-        });
-        const deduped: VaultCardItem[] = [];
-        const seen = new Set<string>();
-        for (const s of rows) {
-          if (seen.has(s.plant_variety_id)) continue;
-          seen.add(s.plant_variety_id);
-          const rawRow = (legacyData ?? []).find((r: { plant_variety_id: string }) => r.plant_variety_id === s.plant_variety_id) as { plant_varieties?: { sun?: string; plant_spacing?: string; days_to_germination?: string }; created_at?: string } | undefined;
-          const pv = rawRow?.plant_varieties;
-          deduped.push({
-            id: s.plant_variety_id,
-            name: s.name,
-            variety: s.variety,
-            packet_count: byPv.get(s.plant_variety_id) ?? 1,
-            status: s.status,
-            harvest_days: s.harvest_days,
-            sun: pv?.sun ?? undefined,
-            plant_spacing: pv?.plant_spacing ?? undefined,
-            days_to_germination: pv?.days_to_germination ?? undefined,
-            tags: s.tags,
-            volume: s.volume,
-            source_url: s.source_url,
-            created_at: rawRow?.created_at ?? undefined,
-          });
-        }
-        setSeeds(deduped);
+      if (profErr) {
+        setError(typeof navigator !== "undefined" && !navigator.onLine
+          ? "You're offline. Your vault will appear when you're back online."
+          : profErr.message);
+        setSeeds([]);
+        setLoading(false);
+        return;
+      }
+      if (!profiles?.length) {
+        setSeeds([]);
         setLoading(false);
         return;
       }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * When plant profiles are soft-deleted, cascade:
- * - Soft-delete all tasks linked to those profiles (plant_profile_id or plant_variety_id).
+ * - Soft-delete all tasks linked to those profiles (plant_profile_id).
  * - Remove shopping list items for those profiles (hard delete; table has no deleted_at).
  */
 export async function cascadeTasksAndShoppingForDeletedProfiles(
@@ -19,12 +19,6 @@ export async function cascadeTasksAndShoppingForDeletedProfiles(
       .from("tasks")
       .update({ deleted_at: now })
       .in("plant_profile_id", profileIds)
-      .eq("user_id", userId);
-
-    await supabase
-      .from("tasks")
-      .update({ deleted_at: now })
-      .in("plant_variety_id", profileIds)
       .eq("user_id", userId);
 
     await supabase
