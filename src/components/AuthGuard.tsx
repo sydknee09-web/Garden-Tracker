@@ -9,6 +9,14 @@ import { useSync } from "@/contexts/SyncContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import {
+  shouldClearFiltersOnMount,
+  getNavSection,
+  setLastNavSection,
+  clearVaultFilters,
+  clearGardenFilters,
+  clearJournalFilters,
+} from "@/lib/navSectionClear";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 
@@ -97,6 +105,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const topLevelPaths = ["/", "/vault", "/garden", "/shed", "/calendar", "/journal", "/settings", "/shopping-list"];
   const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
+
+  // Clear filters when navigating between sections (runs before children render so useSessionStorage reads cleared values)
+  if (pathname && typeof window !== "undefined") {
+    if (shouldClearFiltersOnMount(pathname)) {
+      const section = getNavSection(pathname);
+      if (section === "vault") clearVaultFilters();
+      else if (section === "garden") clearGardenFilters();
+      else if (section === "journal") clearJournalFilters();
+    }
+    setLastNavSection(getNavSection(pathname));
+  }
 
   useEffect(() => {
     [headerRef.current, mainRef.current].forEach((el) => {

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
 import { PacketVaultView, type PacketStatusFilter } from "@/components/PacketVaultView";
 import { ShedView } from "@/components/ShedView";
@@ -23,7 +23,13 @@ import { compressImage } from "@/lib/compressImage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useFilterState } from "@/hooks/useFilterState";
 import { isPlantableInMonth, getSowingWindowLabel } from "@/lib/plantingWindow";
-import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import {
+  shouldClearFiltersOnMount,
+  clearVaultFilters,
+  getNavSection,
+  setLastNavSection,
+} from "@/lib/navSectionClear";
 
 const SAVE_TOAST_DURATION_MS = 5000;
 
@@ -133,6 +139,7 @@ function VaultPageInner() {
   const [plantConfirming, setPlantConfirming] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -315,6 +322,17 @@ function VaultPageInner() {
     }
   }, [searchParams, vaultFilters.setStatus]);
 
+  // Clear filters when arriving from a different section (must run before restore effects)
+  const hasRestoredSession = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !pathname) return;
+    if (searchParams.get("tab") || searchParams.get("status") || searchParams.get("sow")) return;
+    if (shouldClearFiltersOnMount(pathname)) {
+      clearVaultFilters();
+      hasRestoredSession.current = true;
+    }
+  }, [pathname, searchParams]);
+
   // Restore packet filters from sessionStorage (tab-specific, always restore)
   const packetFiltersRestoredRef = useRef(false);
   useEffect(() => {
@@ -345,7 +363,6 @@ function VaultPageInner() {
   }, []);
 
   // Restore view/filter/search from sessionStorage when no URL params (cross-session continuity)
-  const hasRestoredSession = useRef(false);
   useEffect(() => {
     if (hasRestoredSession.current || typeof window === "undefined") return;
     if (searchParams.get("tab") || searchParams.get("status") || searchParams.get("sow")) return;
@@ -379,6 +396,10 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [searchParams, vaultFilters.setStatus]);
+
+  useEffect(() => {
+    if (pathname) setLastNavSection(getNavSection(pathname));
+  }, [pathname]);
 
   // Persist view mode, status filter, and search to sessionStorage
   useEffect(() => {
@@ -492,7 +513,7 @@ function VaultPageInner() {
       }
     }
     if (!failed && profileIdsCascaded.length > 0) {
-      await cascadeTasksAndShoppingForDeletedProfiles(supabase, profileIdsCascaded, uid);
+      await cascadeAllForDeletedProfiles(supabase, profileIdsCascaded, uid);
     }
     setBatchDeleting(false);
     if (!failed) {
@@ -591,7 +612,7 @@ function VaultPageInner() {
       setMergeInProgress(false);
       return;
     }
-    await cascadeTasksAndShoppingForDeletedProfiles(supabase, sourceIds, user.id);
+    await cascadeAllForDeletedProfiles(supabase, sourceIds, user.id);
     setMergeInProgress(false);
     setMergeModalOpen(false);
     setSelectedVarietyIds(new Set());

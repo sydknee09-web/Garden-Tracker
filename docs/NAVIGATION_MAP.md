@@ -94,6 +94,14 @@
 | `from=garden` | "Back" returns to Garden (My Plants) |
 | `tab=journal` | Open Journal tab |
 
+### Vault profile – Plantings tab
+
+| Plant type | Tap plant card | Destination |
+|------------|-----------------|-------------|
+| **Permanent** (trees, perennials) | All plants | `/garden?tab=plants&profile=[id]` — My Plants with profile filter |
+| **Seasonal** (active) | Active plantings only | `/garden?tab=active&grow=[grow_id]` — Active Garden with grow filter |
+| **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
+
 ### Vault – selection mode
 
 | Element | Behavior |
@@ -141,6 +149,14 @@ Each tab has its own filters; switching tabs preserves each tab's filters. No cr
 
 ---
 
+## Filter reset on page change
+
+When navigating between top-level sections (Vault, Garden, Journal, etc.), filters (search, status, refine-by, view mode) are cleared and reset. Filters do **not** carry over.
+
+**Exception:** When selecting a planting from a profile page and navigating to Garden, the plant filter (`?profile=` or `?grow=` in the URL) stays applied. This is the only case where filters persist across navigation.
+
+---
+
 ## Other routes
 
 | Route | Purpose |
@@ -172,3 +188,4 @@ Each tab has its own filters; switching tabs preserves each tab's filters. No cr
 | 2025-02-22 | My Plants batch selection: FAB shows pencil when items selected; tap opens BatchLogSheet. Selecting bar with Delete. Renamed "profile cards" to "planting cards" (grow_instances). |
 | 2025-02-22 | My Plants FAB menu: removed "Add journal entry" option. Active Garden FAB still offers "Add journal entry" for bulk journal mode. |
 | 2025-02-24 | Seed Vault Packets Refactor: Plant Profiles tab = plant profiles (grid); Seed Vault tab = individual seed packets (one row per packet). Each tab has separate filters (including sow). Tap packet row → `/vault/[plant_profile_id]`. `/vault/packets` redirects to `/vault?tab=list`. |
+| 2025-02-24 | Filter reset: Filters clear when navigating between sections (Vault, Garden, Journal). Exception: profile → garden with plant filter stays. Vault profile Plantings: permanent plant tap → My Plants with profile filter; seasonal active → Active Garden with grow filter. |

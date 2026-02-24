@@ -18,8 +18,8 @@ import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
-import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
@@ -1059,20 +1059,9 @@ export default function VaultSeedPage() {
     const now = new Date().toISOString();
     const ownerId = profileOwnerId || user.id;
     try {
-      // 1. Soft-delete tasks (by plant_profile_id and by grow_instance_id)
-      await cascadeTasksAndShoppingForDeletedProfiles(supabase, [id], ownerId);
-      for (const g of growInstances) {
-        await softDeleteTasksForGrowInstance(g.id, g.user_id ?? ownerId);
-      }
-      // 2. Soft-delete journal entries
-      await supabase.from("journal_entries").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
-      // 3. Soft-delete grow instances
-      await supabase.from("grow_instances").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
-      // 4. Soft-delete seed packets
-      await supabase.from("seed_packets").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
-      // 5. Soft-delete care schedules
-      await supabase.from("care_schedules").update({ deleted_at: now }).eq("plant_profile_id", id).eq("user_id", ownerId);
-      // 6. Soft-delete plant profile
+      // Cascade: tasks, shopping, grow instances, journal entries, seed packets, care schedules
+      await cascadeAllForDeletedProfiles(supabase, [id], ownerId);
+      // Soft-delete plant profile
       const { error: profileErr } = await supabase.from("plant_profiles").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
       if (profileErr) throw profileErr;
       setShowDeleteConfirm(false);
@@ -1083,7 +1072,7 @@ export default function VaultSeedPage() {
     } finally {
       setDeletingProfile(false);
     }
-  }, [user?.id, id, profile, profileOwnerId, growInstances, router]);
+  }, [user?.id, id, profile, profileOwnerId, router]);
 
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
   const sortedPackets = useMemo(() => {
@@ -2166,7 +2155,11 @@ export default function VaultSeedPage() {
                     <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          {isActive ? (
+                          {isPermanent ? (
+                            <Link href={`/garden?tab=plants&profile=${encodeURIComponent(id)}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant in My Plants`}>
+                              {cardContent}
+                            </Link>
+                          ) : isActive ? (
                             <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
                               {cardContent}
                             </Link>
