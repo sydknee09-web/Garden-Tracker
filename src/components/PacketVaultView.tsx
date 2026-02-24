@@ -13,9 +13,9 @@ import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { StarRating } from "@/components/StarRating";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
+import type { PacketStatusFilter } from "@/types/vault";
 
-export type PacketStatusFilter = "" | "vault" | "active" | "low_inventory" | "archived";
-
+export type { PacketStatusFilter };
 export type PacketVaultItem = {
   id: string;
   plant_profile_id: string;

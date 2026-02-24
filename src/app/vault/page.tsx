@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { SeedVaultView, type StatusFilter, type VaultSortBy } from "@/components/SeedVaultView";
-import type { PacketStatusFilter } from "@/components/PacketVaultView";
+import type { PacketStatusFilter } from "@/types/vault";
 
 const PacketVaultView = dynamic(
   () => import("@/components/PacketVaultView").then((m) => ({ default: m.PacketVaultView })),

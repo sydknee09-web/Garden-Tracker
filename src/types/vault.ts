@@ -27,6 +27,9 @@ export type SeedStockDisplay = {
   source_url?: string | null;
 };
 
+/** Packet vault status filter (Seed Vault tab). Shared so vault page doesn't import from PacketVaultView at init. */
+export type PacketStatusFilter = "" | "vault" | "active" | "low_inventory" | "archived";
+
 /** Plant > Packets: one profile with packet count for vault list. */
 export type PlantProfileDisplay = {
   id: string;
