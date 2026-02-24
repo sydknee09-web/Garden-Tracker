@@ -21,8 +21,12 @@ const ShedView = dynamic(
 import { SupplyPicker } from "@/components/SupplyPicker";
 import { QuickAddSeed } from "@/components/QuickAddSeed";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
-import { BatchAddSeed } from "@/components/BatchAddSeed";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
+
+const BatchAddSeed = dynamic(
+  () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
+  { ssr: false }
+);
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 
 const QRScannerModal = dynamic(
@@ -2425,16 +2429,18 @@ function VaultPageInner() {
         }}
       />
 
-      <BatchAddSeed
-        open={batchAddOpen}
-        onClose={() => setBatchAddOpen(false)}
-        onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        onNavigateToHero={() => {
-          skipPopOnNavigateRef.current = true;
-          setBatchAddOpen(false);
-          router.push("/vault/import/photos/hero");
-        }}
-      />
+      {batchAddOpen && (
+        <BatchAddSeed
+          open={batchAddOpen}
+          onClose={() => setBatchAddOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onNavigateToHero={() => {
+            skipPopOnNavigateRef.current = true;
+            setBatchAddOpen(false);
+            router.push("/vault/import/photos/hero");
+          }}
+        />
+      )}
 
       <PurchaseOrderImport
         open={purchaseOrderOpen}
