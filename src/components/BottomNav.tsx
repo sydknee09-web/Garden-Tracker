@@ -94,6 +94,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
+              prefetch={false}
               className={`flex flex-col items-center justify-center min-w-[64px] min-h-[44px] py-2 rounded-xl transition-colors ${
                 isActive ? "text-emerald" : "text-black/50 hover:text-black/80"
               }`}
