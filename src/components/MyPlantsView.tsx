@@ -221,16 +221,10 @@ export function MyPlantsView({
         if (j.grow_instance_id) journalCounts.set(j.grow_instance_id, (journalCounts.get(j.grow_instance_id) ?? 0) + 1);
       });
 
-      type GrowRow = {
-        id: string;
-        plant_profile_id?: string | null;
-        sown_date: string;
-        location?: string | null;
-        user_id?: string | null;
-        plant_profiles?: { name?: string; variety_name?: string | null; primary_image_path?: string | null; hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null } | null;
-      };
-      const plantings: PermanentPlanting[] = grows.map((g: GrowRow) => {
-        const profile = g.plant_profiles;
+      type ProfileShape = { name?: string; variety_name?: string | null; primary_image_path?: string | null; hero_image_url?: string | null; hero_image_path?: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null };
+      const plantings: PermanentPlanting[] = grows.map((g: { id: string; plant_profile_id?: string | null; sown_date: string; location?: string | null; user_id?: string | null; plant_profiles?: ProfileShape | ProfileShape[] | null }) => {
+        const raw = g.plant_profiles;
+        const profile: ProfileShape | null = Array.isArray(raw) ? raw[0] ?? null : raw ?? null;
         return {
           id: g.id,
           plant_profile_id: g.plant_profile_id ?? "",
