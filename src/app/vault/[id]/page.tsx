@@ -10,7 +10,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
-import { isPlantableInMonth } from "@/lib/plantingWindow";
+import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { StarRating } from "@/components/StarRating";
@@ -420,7 +420,7 @@ export default function VaultSeedPage() {
       }
 
       // Plantable now check (from profile.planting_window or zone10b fallback)
-      setIsPlantableNow(isPlantableInMonth(profileData as { name: string; planting_window?: string | null }, new Date().getMonth()));
+      setIsPlantableNow(isPlantableInMonthSimple(profileData?.planting_window, new Date().getMonth()));
     } else {
       setError("Plant not found.");
       setProfile(null);
