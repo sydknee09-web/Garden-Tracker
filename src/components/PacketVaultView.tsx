@@ -43,6 +43,9 @@ export type PacketVaultItem = {
   is_archived: boolean | null;
   packet_rating: number | null;
   primary_image_path: string | null;
+  /** Law 7: plant profile hero (preferred over packet photo) */
+  hero_image_url?: string | null;
+  hero_image_path?: string | null;
   planting_window: string | null;
   owner_user_id: string | null;
   created_at: string | null;
@@ -141,8 +144,16 @@ export function PacketVaultView({
     setImageErrorIds((prev) => (prev.has(packetId) ? prev : new Set(prev).add(packetId)));
   }, []);
 
+  /** Law 7: hero_image_url → hero_image_path → packet primary_image_path → sprout */
   const getThumbUrl = useCallback((pkt: PacketVaultItem): string | null => {
     if (imageErrorIds.has(pkt.id)) return null;
+    const heroUrl = (pkt.hero_image_url ?? "").trim();
+    if (heroUrl && heroUrl.startsWith("http")) {
+      if (heroUrl.includes("supabase.co")) return heroUrl;
+      return `/api/seed/proxy-image?url=${encodeURIComponent(heroUrl)}`;
+    }
+    const heroPath = (pkt.hero_image_path ?? "").trim();
+    if (heroPath) return supabase.storage.from("journal-photos").getPublicUrl(heroPath).data.publicUrl;
     const path = pkt.primary_image_path?.trim();
     if (!path) return null;
     return supabase.storage.from("seed-packets").getPublicUrl(path).data.publicUrl;
@@ -212,7 +223,7 @@ export function PacketVaultView({
       const [profilesRes, growsRes] = await Promise.all([
         supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, planting_window")
+          .select("id, name, variety_name, planting_window, hero_image_url, hero_image_path")
           .in("id", profileIds)
           .is("deleted_at", null),
         growsQuery,
@@ -224,12 +235,14 @@ export function PacketVaultView({
       const activeGrows = growsRes.data ?? [];
       const activeProfileIds = new Set(activeGrows.map((g: { plant_profile_id: string }) => g.plant_profile_id));
 
-      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null }> = {};
-      profiles.forEach((p: { id: string; name: string; variety_name: string | null; planting_window: string | null }) => {
+      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null }> = {};
+      profiles.forEach((p: { id: string; name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null }) => {
         profileMap[p.id] = {
           name: p.name ?? "Unknown",
           variety_name: p.variety_name ?? null,
           planting_window: p.planting_window ?? null,
+          hero_image_url: p.hero_image_url ?? null,
+          hero_image_path: p.hero_image_path ?? null,
         };
       });
 
@@ -259,6 +272,8 @@ export function PacketVaultView({
           is_archived: p.is_archived ?? (p.qty_status <= 0),
           packet_rating: p.packet_rating,
           primary_image_path: p.primary_image_path,
+          hero_image_url: prof.hero_image_url ?? null,
+          hero_image_path: prof.hero_image_path ?? null,
           planting_window: prof.planting_window ?? null,
           owner_user_id: isFamilyView ? p.user_id : null,
           created_at: (p as { created_at?: string }).created_at ?? null,
@@ -533,8 +548,8 @@ export function PacketVaultView({
                       )}
                     </span>
                     <span className="shrink-0 inline-flex items-center gap-1.5">
-                      <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{qtyStatusToLabel(pkt.qty_status)}</span>
-                      {isArchived && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Out</span>}
+                      <span className={`inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium ${isArchived ? "bg-neutral-100 text-neutral-500" : "bg-black/10 text-neutral-700"}`}>{qtyStatusToLabel(pkt.qty_status)}</span>
+                      {isArchived && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>}
                     </span>
                   </button>
                 </li>
