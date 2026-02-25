@@ -161,7 +161,7 @@ function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "lis
   if (tab === "shed") return "shed";
   if (tab === "grid") return "grid";
   if (tab === "active" || tab === "plants") return "grid";
-  return "grid";
+  return "list";
 }
 
 function VaultPageInner() {

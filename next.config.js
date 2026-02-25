@@ -29,6 +29,23 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["@supabase/supabase-js"],
   },
+  webpack: (config, { isServer }) => {
+    // Isolate zone10b_schedule into async-only chunk to fix "Cannot access 'em' before initialization"
+    // when vault loads. The schedule/zone10b has init-order issues when co-bundled.
+    config.optimization.splitChunks = {
+      ...config.optimization.splitChunks,
+      cacheGroups: {
+        ...config.optimization.splitChunks?.cacheGroups,
+        zone10b: {
+          test: /zone10b_schedule|scheduleUtils|plantingWindow\.ts/,
+          name: "zone10b",
+          chunks: "all",
+          enforce: true,
+        },
+      },
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;
