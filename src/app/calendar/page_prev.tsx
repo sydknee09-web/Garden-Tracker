@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
@@ -616,7 +616,7 @@ export default function CalendarPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {inventoryPacketsLoading ? (
-                <p className="text-sm text-black/50">Loading packetsΓÇª</p>
+                <p className="text-sm text-black/50">Loading packets…</p>
               ) : (
                 plantableInventoryPlantType.profiles.map((profile) => {
                   const packets = inventoryPackets.filter((p) => p.plant_profile_id === profile.id);
@@ -978,7 +978,7 @@ export default function CalendarPage() {
                 className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm" />
               <button type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(batchDate)}
                 className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40">
-                {batchSaving ? "SavingΓÇª" : "Apply"}
+                {batchSaving ? "Saving…" : "Apply"}
               </button>
             </div>
           </div>
@@ -999,7 +999,7 @@ export default function CalendarPage() {
               </button>
               <button type="button" disabled={batchSaving} onClick={handleBatchDelete}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
-                {batchSaving ? "DeletingΓÇª" : "Delete"}
+                {batchSaving ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>
@@ -1175,7 +1175,7 @@ export default function CalendarPage() {
                   disabled={savingTask}
                   className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  {savingTask ? "SavingΓÇª" : viewMode === "list" ? "Add Reminder" : "Save Task"}
+                  {savingTask ? "Saving…" : viewMode === "list" ? "Add Reminder" : "Save Task"}
                 </button>
                 <button
                   type="button"

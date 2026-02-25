@@ -1030,10 +1030,10 @@ function VaultPageInner() {
           {pendingHeroCount > 0 && (
             <span
               className="inline-flex items-center gap-1.5 text-xs text-neutral-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-1 shrink-0"
-              title={`Gemini is researching photos for ${pendingHeroCount} new variet${pendingHeroCount === 1 ? "y" : "ies"}ΓÇª`}
+              title={`Gemini is researching photos for ${pendingHeroCount} new variet${pendingHeroCount === 1 ? "y" : "ies"}…`}
             >
               <ShovelIcon className="w-3.5 h-3.5 animate-spin text-amber-600" aria-hidden />
-              <span>AI ResearchingΓÇª</span>
+              <span>AI Researching…</span>
             </span>
           )}
         </div>
@@ -1095,7 +1095,7 @@ function VaultPageInner() {
                   type="search"
                   value={viewMode === "list" ? packetSearchQuery : searchQuery}
                   onChange={(e) => (viewMode === "list" ? setPacketSearchQuery(e.target.value) : setSearchQuery(e.target.value))}
-                  placeholder={viewMode === "list" ? "Search packetsΓÇª" : "Search plantsΓÇª"}
+                  placeholder={viewMode === "list" ? "Search packets…" : "Search plants…"}
                   className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
                   aria-label={viewMode === "list" ? "Search packets" : "Search plants"}
                 />
@@ -1197,7 +1197,7 @@ function VaultPageInner() {
                   type="search"
                   value={shedSearchQuery}
                   onChange={(e) => setShedSearchQuery(e.target.value)}
-                  placeholder="Search suppliesΓÇª"
+                  placeholder="Search supplies…"
                   className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset min-h-[44px]"
                   aria-label="Search supplies"
                 />
@@ -2013,7 +2013,7 @@ function VaultPageInner() {
                 disabled={!mergeMasterId || mergeInProgress}
                 className="px-5 py-2.5 rounded-lg font-semibold shadow-md disabled:opacity-50 border-0 !bg-emerald-600 !text-white hover:!bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
-                {mergeInProgress ? "MergingΓÇª" : "Confirm Merge"}
+                {mergeInProgress ? "Merging…" : "Confirm Merge"}
               </button>
             </div>
           </div>
@@ -2040,7 +2040,7 @@ function VaultPageInner() {
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {scheduleProfiles.length === 0 ? (
-                <p className="text-black/50 text-sm">LoadingΓÇª</p>
+                <p className="text-black/50 text-sm">Loading…</p>
               ) : (
                 <ul className="space-y-2">
                   {scheduleProfiles.map((p) => {
@@ -2074,7 +2074,7 @@ function VaultPageInner() {
                 onClick={handleConfirmSchedule}
                 className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60"
               >
-                {scheduleConfirming ? "CreatingΓÇª" : "Create tasks"}
+                {scheduleConfirming ? "Creating…" : "Create tasks"}
               </button>
             </div>
           </div>
@@ -2153,7 +2153,7 @@ function VaultPageInner() {
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {plantModalRows.length === 0 ? (
-                <p className="text-black/50 text-sm">LoadingΓÇª</p>
+                <p className="text-black/50 text-sm">Loading…</p>
               ) : (
                 <ul className="space-y-3">
                   {plantModalRows.map((row) => {
@@ -2250,7 +2250,7 @@ function VaultPageInner() {
                 onClick={() => handleConfirmPlant()}
                 className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60"
               >
-                {plantConfirming ? "PlantingΓÇª" : "Confirm planting"}
+                {plantConfirming ? "Planting…" : "Confirm planting"}
               </button>
             </div>
           </div>

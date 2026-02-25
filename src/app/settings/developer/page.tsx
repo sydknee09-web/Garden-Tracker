@@ -111,6 +111,12 @@ export default function SettingsDeveloperPage() {
     failed: number;
     message?: string;
   } | null>(null);
+  const [cleanOrphanPacketsRunning, setCleanOrphanPacketsRunning] = useState(false);
+  const [cleanOrphanPacketsResult, setCleanOrphanPacketsResult] = useState<{
+    updated: number;
+    message?: string;
+    error?: string;
+  } | null>(null);
   const loadTrash = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await supabase.from("plant_profiles")
@@ -533,6 +539,38 @@ export default function SettingsDeveloperPage() {
     }
   }, [user?.id, session?.access_token, fixScientificDisplayRunning]);
 
+  const runCleanOrphanPackets = useCallback(async () => {
+    if (!session?.access_token || cleanOrphanPacketsRunning) return;
+    setCleanOrphanPacketsRunning(true);
+    setCleanOrphanPacketsResult(null);
+    try {
+      const res = await fetch("/api/settings/clean-orphan-packets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json()) as { updated?: number; message?: string; error?: string };
+      if (!res.ok) {
+        setCleanOrphanPacketsResult({
+          updated: 0,
+          error: data.error ?? "Request failed",
+        });
+        return;
+      }
+      setCleanOrphanPacketsResult({
+        updated: data.updated ?? 0,
+        message: data.message,
+      });
+    } catch (e) {
+      setCleanOrphanPacketsResult({
+        updated: 0,
+        error: e instanceof Error ? e.message : "Request failed",
+      });
+    } finally {
+      setCleanOrphanPacketsRunning(false);
+    }
+  }, [session?.access_token, cleanOrphanPacketsRunning]);
+
   const runBackfillPlantDescriptions = useCallback(async () => {
     if (!session?.access_token || backfillDescriptionsRunning) return;
     setBackfillDescriptionsRunning(true);
@@ -938,6 +976,34 @@ export default function SettingsDeveloperPage() {
             style={{ backgroundColor: "#059669", color: "#ffffff" }}
           >
             {fixScientificDisplayRunning ? "Running…" : "Fix existing profiles now"}
+          </button>
+        </div>
+      </section>
+      )}
+
+      {matchesSection({ title: "Clean orphan packets", desc: "Soft-delete packets for deleted plants" }) && (
+      <section>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Clean orphan packets</h3>
+          <p className="text-sm text-neutral-500 mb-3">
+            Soft-delete seed packets whose plant profile has been deleted. Fixes packets that still appear as &quot;Unknown&quot; in the Seed Vault.
+          </p>
+          {cleanOrphanPacketsResult && !cleanOrphanPacketsRunning && (
+            <div className="mb-3 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+              <p className="text-sm text-neutral-700">
+                {cleanOrphanPacketsResult.error
+                  ? cleanOrphanPacketsResult.error
+                  : `Updated: ${cleanOrphanPacketsResult.updated}. ${cleanOrphanPacketsResult.message ?? ""}`}
+              </p>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={runCleanOrphanPackets}
+            disabled={cleanOrphanPacketsRunning}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
+          >
+            {cleanOrphanPacketsRunning ? "Running…" : "Clean orphan packets"}
           </button>
         </div>
       </section>

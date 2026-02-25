@@ -233,7 +233,9 @@ export function PacketVaultView({
         };
       });
 
-      const items: PacketVaultItem[] = (packetData ?? []).map((p: {
+      const items: PacketVaultItem[] = (packetData ?? [])
+        .filter((p) => profileMap[p.plant_profile_id])
+        .map((p: {
         id: string;
         plant_profile_id: string;
         user_id: string;
@@ -245,19 +247,19 @@ export function PacketVaultView({
         primary_image_path: string | null;
         created_at?: string;
       }) => {
-        const prof = profileMap[p.plant_profile_id];
+        const prof = profileMap[p.plant_profile_id]!;
         return {
           id: p.id,
           plant_profile_id: p.plant_profile_id,
-          profile_name: prof?.name ?? "Unknown",
-          variety_name: prof?.variety_name ?? null,
+          profile_name: prof.name ?? "Unknown",
+          variety_name: prof.variety_name ?? null,
           vendor_name: p.vendor_name,
           purchase_date: p.purchase_date,
           qty_status: p.qty_status ?? 100,
           is_archived: p.is_archived ?? (p.qty_status <= 0),
           packet_rating: p.packet_rating,
           primary_image_path: p.primary_image_path,
-          planting_window: prof?.planting_window ?? null,
+          planting_window: prof.planting_window ?? null,
           owner_user_id: isFamilyView ? p.user_id : null,
           created_at: (p as { created_at?: string }).created_at ?? null,
           isActive: activeProfileIds.has(p.plant_profile_id),
