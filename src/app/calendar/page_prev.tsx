@@ -529,7 +529,7 @@ export default function CalendarPage() {
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Previous month"
         >
-          ΓåÉ
+          ←
         </button>
         <span className="font-semibold text-black text-base min-w-[140px] text-center">{monthLabel}</span>
         <button
@@ -538,7 +538,7 @@ export default function CalendarPage() {
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Next month"
         >
-          ΓåÆ
+          →
         </button>
       </div>
 
@@ -564,7 +564,7 @@ export default function CalendarPage() {
                     type="button"
                     onClick={() => setPlantableInventoryPlantType({ plantType, profiles })}
                     className="min-h-[44px] px-3 py-2 flex items-center gap-1.5 rounded-xl bg-white border border-emerald-200 text-sm font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
-                    title={`${plantType} ΓÇô view seed inventory`}
+                    title={`${plantType} – view seed inventory`}
                     aria-label={`View seed inventory for ${plantType}`}
                   >
                     <span>{plantType}</span>
@@ -583,7 +583,7 @@ export default function CalendarPage() {
                   title="View plantable in Vault"
                   aria-label="View plantable for this month in Vault"
                 >
-                  Γê₧
+                  →
                 </button>
               </div>
             </div>
@@ -603,7 +603,7 @@ export default function CalendarPage() {
           >
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
               <h2 id="plantable-inventory-title" className="text-lg font-semibold text-black">
-                {plantableInventoryPlantType.plantType} ΓÇô Seed inventory
+                {plantableInventoryPlantType.plantType} – Seed inventory
               </h2>
               <button
                 type="button"
@@ -611,7 +611,7 @@ export default function CalendarPage() {
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
                 aria-label="Close"
               >
-                ├ù
+                ×
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -639,14 +639,14 @@ export default function CalendarPage() {
                         <ul className="space-y-1">
                           {packets.map((pkt, i) => (
                             <li key={i} className="text-sm text-black/70 flex justify-between">
-                              <span>{pkt.vendor_name?.trim() || "ΓÇö"}</span>
+                              <span>{pkt.vendor_name?.trim() || "—"}</span>
                               <span>{pkt.qty_status}%</span>
                             </li>
                           ))}
                         </ul>
                       )}
                       <Link href={`/vault/${profile.id}`} className="text-xs text-emerald-600 hover:underline">
-                        View profile ΓåÆ
+                        View profile →
                       </Link>
                     </div>
                   );
@@ -1162,7 +1162,7 @@ export default function CalendarPage() {
                   ) : (
                     varieties.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name}{v.variety_name ? ` ΓÇö ${v.variety_name}` : ""}
+                        {v.name}{v.variety_name ? ` — ${v.variety_name}` : ""}
                       </option>
                     ))
                   )}
@@ -1239,7 +1239,7 @@ function CalendarTaskRow({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoryLabel = TASK_LABELS[task.category] ?? task.category;
   const plantLabel = (task.plant_name ?? (task.title ?? "").replace(new RegExp(`^${categoryLabel}\\s*`, "i"), "").trim()) || null;
-  const displayLine = plantLabel ? `${categoryLabel} ΓÇô ${plantLabel}` : (task.title ?? categoryLabel);
+  const displayLine = plantLabel ? `${categoryLabel} – ${plantLabel}` : (task.title ?? categoryLabel);
 
   const handlePointerDown = () => {
     if (selectMode) return;

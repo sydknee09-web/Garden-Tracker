@@ -60,7 +60,12 @@ type GrowingBatch = {
   primary_image_path?: string | null;
 };
 
-export type ActiveGardenViewHandle = { exitBulkMode: () => void; enterBulkMode: () => void };
+export type ActiveGardenViewHandle = {
+  exitBulkMode: () => void;
+  enterBulkMode: () => void;
+  openBulkDeleteConfirm: () => void;
+  openBulkEndBatchConfirm: () => void;
+};
 
 export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   refetchTrigger: number;
@@ -96,7 +101,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
   onBulkSelectionChange?: (count: number) => void;
-  /** When true, open BatchLogSheet for selected batches (from FAB pencil when selections exist). */
+  /** When true, open BatchLogSheet for selected batches (from FAB >> menu → Journal). */
   openBulkLogRequest?: boolean;
   onBulkLogRequestHandled?: () => void;
   /** Called when bulk mode changes (true = in bulk mode, false = exited). */
@@ -165,6 +170,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   // Bulk delete confirmation
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
+  // Bulk end batch confirmation
+  const [bulkEndBatchConfirmOpen, setBulkEndBatchConfirmOpen] = useState(false);
+  const [bulkEndBatchSaving, setBulkEndBatchSaving] = useState(false);
 
   // BatchLogSheet (single or bulk)
   const [batchLogOpen, setBatchLogOpen] = useState(false);
@@ -186,7 +194,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     onBulkModeChange?.(true);
   }, [onBulkSelectionChange, onBulkModeChange]);
 
-  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode }), [exitBulkMode, enterBulkMode]);
+  const openBulkDeleteConfirm = useCallback(() => setBulkDeleteConfirmOpen(true), []);
+  const openBulkEndBatchConfirm = useCallback(() => setBulkEndBatchConfirmOpen(true), []);
+
+  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm]);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
@@ -694,6 +705,47 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     load();
   }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
 
+  const handleBulkEndBatch = useCallback(async () => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    setBulkEndBatchSaving(true);
+    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
+    const now = new Date().toISOString();
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      await supabase.from("grow_instances").update({ status: "archived", ended_at: now }).eq("id", batch.id).eq("user_id", batchUserId);
+      await softDeleteTasksForGrowInstance(batch.id, batchUserId);
+      const profileId = batch.plant_profile_id;
+      const { data: activeGrows } = await supabase
+        .from("grow_instances")
+        .select("id")
+        .eq("plant_profile_id", profileId)
+        .eq("user_id", batchUserId)
+        .in("status", ["growing", "pending"])
+        .is("deleted_at", null);
+      if (!activeGrows?.length) {
+        const { data: stockedPackets } = await supabase
+          .from("seed_packets")
+          .select("id")
+          .eq("plant_profile_id", profileId)
+          .eq("user_id", batchUserId)
+          .is("deleted_at", null)
+          .or("is_archived.is.null,is_archived.eq.false")
+          .gt("qty_status", 0);
+        const revertStatus = stockedPackets?.length ? "in_stock" : "out_of_stock";
+        await supabase.from("plant_profiles").update({ status: revertStatus }).eq("id", profileId).eq("user_id", batchUserId);
+      }
+    }
+    setBulkEndBatchSaving(false);
+    setBulkEndBatchConfirmOpen(false);
+    setBulkSelected(new Set());
+    setBulkMode(false);
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+    setQuickToast(`Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`);
+    setTimeout(() => setQuickToast(null), 2000);
+    load();
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }, []);
@@ -810,25 +862,40 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         </div>
       )}
 
-      {/* Bulk mode: Cancel is in parent Filter row (like Vault). Selecting + Delete when items selected. */}
+      {/* Bulk mode: Cancel is in parent Filter row. Selecting bar only; actions via FAB >> menu. */}
       {bulkMode && bulkSelected.size > 0 && (
         <div className="flex items-center justify-end gap-3 flex-wrap mb-3">
           <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
-          <button
-            type="button"
-            onClick={() => setBulkDeleteConfirmOpen(true)}
-            className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
-            aria-label="Delete selected plants"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M3 6h18" />
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-              <line x1="10" y1="11" x2="10" y2="17" />
-              <line x1="14" y1="11" x2="14" y2="17" />
-            </svg>
-            Delete
-          </button>
+        </div>
+      )}
+
+      {/* Bulk end batch confirmation */}
+      {bulkEndBatchConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-end-batch-title">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+            <h2 id="bulk-end-batch-title" className="text-lg font-semibold text-black mb-2">End {bulkSelected.size} planting{bulkSelected.size !== 1 ? "s" : ""}?</h2>
+            <p className="text-sm text-black/70 mb-4">
+              Selected plantings will move to Settings → Archived Plantings. History is preserved.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setBulkEndBatchConfirmOpen(false)}
+                disabled={bulkEndBatchSaving}
+                className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkEndBatch}
+                disabled={bulkEndBatchSaving}
+                className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
+              >
+                {bulkEndBatchSaving ? "Ending…" : "End batch"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1025,7 +1092,19 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                   ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
                   className={`rounded-xl border bg-white p-4 shadow-sm transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div
+                    className={`flex items-start justify-between gap-3 ${bulkMode && canEditUser(batch.user_id ?? "") ? "cursor-pointer" : ""}`}
+                    onClick={
+                      bulkMode && canEditUser(batch.user_id ?? "")
+                        ? (e) => {
+                            if (!(e.target as HTMLElement).closest("a")) {
+                              e.preventDefault();
+                              toggleBulkSelect(batch.id);
+                            }
+                          }
+                        : undefined
+                    }
+                  >
                     {/* Bulk selection bubble — only for editable batches */}
                     {bulkMode && canEditUser(batch.user_id ?? "") && (
                       <span className="mt-1 shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>

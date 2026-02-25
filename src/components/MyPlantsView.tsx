@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -54,37 +54,12 @@ function formatPlantedAgo(dateStr: string | null | undefined): string | null {
   return `Planted ${years} year${years !== 1 ? "s" : ""} ago`;
 }
 
-export function MyPlantsView({
-  refetchTrigger,
-  searchQuery = "",
-  categoryFilter = null,
-  onCategoryChipsLoaded,
-  varietyFilter = null,
-  sunFilter = null,
-  spacingFilter = null,
-  germinationFilter = null,
-  maturityFilter = null,
-  tagFilters = [],
-  profileIdFilter = null,
-  onProfileFilteredPlantName,
-  onProfileFilterEmpty,
-  onClearProfileFilter,
-  onRefineChipsLoaded,
-  onFilteredCountChange,
-  onEmptyStateChange,
-  onAddClick,
-  onPermanentPlantAdded,
-  batchSelectMode = false,
-  selectedGrowIds = new Set<string>(),
-  onToggleGrowSelection,
-  onLongPressGrow,
-  displayStyle = "grid",
-  sortBy = "name",
-  sortDir = "asc",
-  openBulkLogRequest = false,
-  onBulkLogRequestHandled,
-  onRefetch,
-}: {
+export type MyPlantsViewHandle = {
+  openBulkDeleteConfirm: () => void;
+  openBulkEndBatchConfirm: () => void;
+};
+
+export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   refetchTrigger: number;
   searchQuery?: string;
   onPermanentPlantAdded?: () => void;
@@ -123,11 +98,41 @@ export function MyPlantsView({
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "planted_date" | "care_count";
   sortDir?: "asc" | "desc";
-  /** When true, open BatchLogSheet for selected plants (from FAB pencil). */
+  /** When true, open BatchLogSheet for selected plants (from FAB >> menu → Journal). */
   openBulkLogRequest?: boolean;
   onBulkLogRequestHandled?: () => void;
   onRefetch?: () => void;
-}) {
+}>(({
+  refetchTrigger,
+  searchQuery = "",
+  categoryFilter = null,
+  onCategoryChipsLoaded,
+  varietyFilter = null,
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  tagFilters = [],
+  profileIdFilter = null,
+  onProfileFilteredPlantName,
+  onProfileFilterEmpty,
+  onClearProfileFilter,
+  onRefineChipsLoaded,
+  onFilteredCountChange,
+  onEmptyStateChange,
+  onAddClick,
+  onPermanentPlantAdded,
+  batchSelectMode = false,
+  selectedGrowIds = new Set<string>(),
+  onToggleGrowSelection,
+  onLongPressGrow,
+  displayStyle = "grid",
+  sortBy = "name",
+  sortDir = "asc",
+  openBulkLogRequest = false,
+  onBulkLogRequestHandled,
+  onRefetch,
+}, ref) => {
   const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode } = useHousehold();
@@ -146,7 +151,13 @@ export function MyPlantsView({
   const [endSaving, setEndSaving] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
+  const [bulkEndBatchConfirmOpen, setBulkEndBatchConfirmOpen] = useState(false);
+  const [bulkEndBatchSaving, setBulkEndBatchSaving] = useState(false);
   const [quickToast, setQuickToast] = useState<string | null>(null);
+
+  const openBulkDeleteConfirm = useCallback(() => setBulkDeleteConfirmOpen(true), []);
+  const openBulkEndBatchConfirm = useCallback(() => setBulkEndBatchConfirmOpen(true), []);
+  useImperativeHandle(ref, () => ({ openBulkDeleteConfirm, openBulkEndBatchConfirm }), [openBulkDeleteConfirm, openBulkEndBatchConfirm]);
 
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
@@ -444,6 +455,23 @@ export function MyPlantsView({
     onRefetch?.();
   }, [user?.id, selectedGrowIds, plants, onRefetch]);
 
+  const handleBulkEndBatch = useCallback(async () => {
+    if (!user?.id || selectedGrowIds.size === 0) return;
+    setBulkEndBatchSaving(true);
+    const selectedBatches = plants.filter((p) => selectedGrowIds.has(p.id));
+    const now = new Date().toISOString();
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      await updateWithOfflineQueue("grow_instances", { status: "archived", ended_at: now }, { id: batch.id, user_id: batchUserId });
+      await softDeleteTasksForGrowInstance(batch.id, batchUserId);
+    }
+    setBulkEndBatchSaving(false);
+    setBulkEndBatchConfirmOpen(false);
+    setQuickToast(`Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`);
+    setTimeout(() => setQuickToast(null), 2000);
+    onRefetch?.();
+  }, [user?.id, selectedGrowIds, plants, onRefetch]);
+
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
     if (days < 60) return "<60";
@@ -662,21 +690,35 @@ export function MyPlantsView({
           {batchSelectMode && selectedGrowIds.size > 0 && (
             <div className="flex items-center justify-end gap-3 flex-wrap mb-3">
               <span className="text-sm text-black/60">Selecting ({selectedGrowIds.size})</span>
-              <button
-                type="button"
-                onClick={() => setBulkDeleteConfirmOpen(true)}
-                className="min-w-[44px] min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
-                aria-label="Delete selected plants"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
-                Delete
-              </button>
+            </div>
+          )}
+
+          {bulkEndBatchConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-end-batch-title">
+              <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+                <h2 id="bulk-end-batch-title" className="text-lg font-semibold text-black mb-2">End {selectedGrowIds.size} planting{selectedGrowIds.size !== 1 ? "s" : ""}?</h2>
+                <p className="text-sm text-black/70 mb-4">
+                  Selected plantings will move to Settings → Archived Plantings. History is preserved.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setBulkEndBatchConfirmOpen(false)}
+                    disabled={bulkEndBatchSaving}
+                    className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkEndBatch}
+                    disabled={bulkEndBatchSaving}
+                    className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
+                  >
+                    {bulkEndBatchSaving ? "Ending…" : "End batch"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -889,4 +931,5 @@ export function MyPlantsView({
       )}
     </div>
   );
-}
+});
+MyPlantsView.displayName = "MyPlantsView";

@@ -2,7 +2,7 @@
  * Regression tests for My Plants batch selection (mirror Active Garden).
  *
  * Covers:
- *  - Garden page FAB: pencil icon when plants tab has selections
+ *  - Garden page FAB: orange >> icon when plants/active tab has selections; opens selection menu
  *  - MyPlantsView: BatchLogSheet, Selecting bar, bulk delete, handlers
  *  - openBulkLogRequest timing guard: only open when selected plants exist (not while loading)
  */
@@ -16,15 +16,16 @@ const gardenPage = readFileSync(join(ROOT, "src/app/garden/page.tsx"), "utf-8");
 const myPlantsView = readFileSync(join(ROOT, "src/components/MyPlantsView.tsx"), "utf-8");
 
 // ---------------------------------------------------------------------------
-// Garden page — FAB pencil for My Plants selections
+// Garden page — FAB >> for selections (Active Garden + My Plants unified)
 // ---------------------------------------------------------------------------
-describe("Garden page — FAB shows pencil when My Plants has selections", () => {
-  it("FAB click opens BatchLogSheet when plants tab with selections", () => {
+describe("Garden page — FAB shows orange >> when selections exist", () => {
+  it("FAB with selections opens selection menu; Journal opens BatchLogSheet", () => {
     expect(gardenPage).toContain("effectiveViewMode === \"plants\" && plantsBatchSelectMode && selectedPlantGrows.length > 0");
-    expect(gardenPage).toContain("setOpenBulkLogForPlants(true)");
+    expect(gardenPage).toContain("setOpenBulkLogForPlants");
+    expect(gardenPage).toContain("selectionActionsOpen");
   });
 
-  it("FAB icon shows pencil when plants tab has selections", () => {
+  it("FAB icon shows >> when plants or active tab has selections", () => {
     expect(gardenPage).toContain("(effectiveViewMode === \"active\" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === \"plants\" && plantsBatchSelectMode && selectedPlantGrows.length > 0)");
   });
 

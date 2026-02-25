@@ -26,8 +26,15 @@
 | **Active Garden** | "Add plant" | Open AddPlantModal (add seasonal/permanent) |
 | **Active Garden** | "Add journal entry" | Enter bulk journal mode (select plants, then log) |
 | **My Plants** | FAB tap | Opens menu: "Add permanent plant", "Scan purchase order", Cancel |
-| **My Plants** | FAB tap (when selections exist) | FAB shows pencil icon; tap opens BatchLogSheet (journal, delete, quick care) |
+| **Active Garden / My Plants** | FAB tap (when selections exist) | FAB shows orange >> icon; tap opens selection menu: Delete, End batch, Journal |
 | **My Plants** | "Add permanent plant" | Open AddPlantModal (permanent type) |
+
+### Active Garden / My Plants – selection mode
+
+| Action | Behavior |
+|--------|----------|
+| **Selecting bar** | Shows "Selecting (N)" only; actions via FAB >> menu |
+| **FAB >> menu** | Delete (soft delete), End batch (archive), Journal (BatchLogSheet) |
 
 ### My Plants – planting cards
 
@@ -36,7 +43,6 @@
 | **Short tap** | Navigate to `/vault/[id]?from=garden` |
 | **Long-press (~500ms)** | Enter selection mode; select this planting. Support multi-select. |
 | **Tap when selected** | Toggle selection |
-| **Selection mode** | Show "Cancel" / "Done" to clear selection. Selecting bar shows "Selecting (N)" and Delete when items are selected. |
 
 ---
 

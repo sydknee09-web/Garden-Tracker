@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
-import { MyPlantsView } from "@/components/MyPlantsView";
+import { MyPlantsView, type MyPlantsViewHandle } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
 import { AddPlantModal } from "@/components/AddPlantModal";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
@@ -103,6 +103,8 @@ function GardenPageInner() {
   const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
   const quickAddFileRef = useRef<HTMLInputElement>(null);
   const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
+  const myPlantsRef = useRef<MyPlantsViewHandle | null>(null);
+  const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
   const [selectedPlantGrows, setSelectedPlantGrows] = useState<Array<{ growId: string; profileId: string }>>([]);
@@ -844,6 +846,7 @@ function GardenPageInner() {
         {effectiveViewMode === "plants" && (
           <div className="pt-2">
             <MyPlantsView
+              ref={myPlantsRef}
               refetchTrigger={refetchTrigger}
               searchQuery={plantsSearchDebounced}
               onPermanentPlantAdded={handlePermanentPlantAdded}
@@ -1041,25 +1044,95 @@ function GardenPageInner() {
         </>
       )}
 
+      {/* Selection actions menu (when items selected): FAB >> opens this */}
+      {selectionActionsOpen && ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) && (
+        <>
+          <div
+            className="fixed inset-0 z-[99] bg-black/40"
+            aria-hidden
+            onClick={() => setSelectionActionsOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Selection actions"
+            className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
+          >
+            <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
+              <p className="text-sm font-medium text-black/70">
+                {effectiveViewMode === "active" ? bulkSelectedCount : selectedPlantGrows.length} selected
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (effectiveViewMode === "active") activeGardenRef.current?.openBulkDeleteConfirm();
+                  else myPlantsRef.current?.openBulkDeleteConfirm();
+                  setSelectionActionsOpen(false);
+                }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-black/5"
+                aria-label="Delete selected"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                  <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (effectiveViewMode === "active") activeGardenRef.current?.openBulkEndBatchConfirm();
+                  else myPlantsRef.current?.openBulkEndBatchConfirm();
+                  setSelectionActionsOpen(false);
+                }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-amber-700 hover:bg-black/5"
+                aria-label="End batch"
+              >
+                <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>📦</span>
+                End batch
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenBulkLogForActive(effectiveViewMode === "active");
+                  setOpenBulkLogForPlants(effectiveViewMode === "plants");
+                  setSelectionActionsOpen(false);
+                }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
+                aria-label="Journal"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Journal
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {!(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && !(effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length === 0) && (
         <button
           type="button"
           onClick={() => {
-            if (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) {
-              setOpenBulkLogForActive(true);
-            } else if (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0) {
-              setOpenBulkLogForPlants(true);
+            if ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) {
+              setSelectionActionsOpen(true);
             } else {
               setFabMenuOpen((o) => !o);
             }
           }}
           className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-            fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+            (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
+              ? "bg-amber-500 text-white"
+              : fabMenuOpen
+                ? "bg-emerald-700 text-white"
+                : "bg-emerald text-white"
           }`}
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
           aria-label={
             (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
-              ? "Log for selected plants"
+              ? "Selection actions"
               : fabMenuOpen
                 ? "Close menu"
                 : effectiveViewMode === "plants"
@@ -1068,9 +1141,9 @@ function GardenPageInner() {
           }
         >
           {(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0) ? (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
+              <path d="M7 6l4 6-4 6" />
+              <path d="M13 6l4 6-4 6" />
             </svg>
           ) : (
           <svg

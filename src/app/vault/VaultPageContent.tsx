@@ -243,7 +243,7 @@ function VaultPageInner() {
   }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [] });
   const [vaultStatusChips, setVaultStatusChips] = useState<{ value: StatusFilter; label: string; count: number }[]>([]);
 
-  // Packet Vault (Seed Vault tab) ΓÇö separate filters, tab-specific
+  // Packet Vault (Seed Vault tab) — separate filters, tab-specific
   const [packetSearchQuery, setPacketSearchQuery] = useState("");
   const [packetStatusFilter, setPacketStatusFilter] = useState<PacketStatusFilter>("");
   const [packetVendorFilter, setPacketVendorFilter] = useState<string | null>(null);
@@ -373,7 +373,7 @@ function VaultPageInner() {
     } else if (tab === "table") {
       setViewMode("list");
     } else if (tab === "active" || tab === "plants") {
-      // Legacy tab values ΓÇö fall back to Plant Profiles (grid) and refresh
+      // Legacy tab values — fall back to Plant Profiles (grid) and refresh
       setViewMode("grid");
       if (tab === "active") setRefetchTrigger((t) => t + 1);
     }
@@ -522,7 +522,7 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [sortBy, sortDirection]);
-  // Packet vault filters ΓÇö separate persistence
+  // Packet vault filters — separate persistence
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -1021,7 +1021,7 @@ function VaultPageInner() {
             aria-label="Cancel batch and dismiss"
             title="Cancel batch"
           >
-            <span className="text-lg font-medium leading-none" aria-hidden>├ù</span>
+            <span className="text-lg font-medium leading-none" aria-hidden>×</span>
           </button>
         </div>
       )}
@@ -1082,7 +1082,7 @@ function VaultPageInner() {
           </div>
         </div>
 
-        {/* Unified toolbar: search + (Filter | view toggle | Select | batch actions) ΓÇö hidden when vault is empty */}
+        {/* Unified toolbar: search + (Filter | view toggle | Select | batch actions) — hidden when vault is empty */}
         {(viewMode === "grid" || viewMode === "list") && vaultHasSeeds && (
           <>
             <div className="flex gap-2 mb-2">
@@ -1296,7 +1296,7 @@ function VaultPageInner() {
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
                 aria-label="Close"
               >
-                <span className="text-xl leading-none" aria-hidden>├ù</span>
+                <span className="text-xl leading-none" aria-hidden>×</span>
               </button>
             </header>
             <div className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -1362,31 +1362,31 @@ function VaultPageInner() {
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
                   aria-label="Close"
                 >
-                  <span className="text-xl leading-none" aria-hidden>├ù</span>
+                  <span className="text-xl leading-none" aria-hidden>×</span>
                 </button>
               </div>
             </header>
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-              {/* Content for Plant Profiles (grid) vs Seed Vault / Packets (list) ΓÇö separate per tab */}
+              {/* Content for Plant Profiles (grid) vs Seed Vault / Packets (list) — separate per tab */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
                   {viewMode === "list" ? (
-                    /* Packet Vault Refine By ΓÇö Sort, Status, Vendor, Sow */
+                    /* Packet Vault Refine By — Sort, Status, Vendor, Sow */
                     <>
                       <div className="border-b border-black/5">
                         <button type="button" onClick={() => setRefineBySection((s) => (s === "sort" ? null : "sort"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sort"}>
                           <span>Sort</span>
-                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "Γû┤" : "Γû╛"}</span>
+                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▼" : "▸"}</span>
                         </button>
                         {refineBySection === "sort" && (
                           <div className="px-4 pb-3 pt-0 space-y-0.5">
                             {[
                               { sortBy: "date" as const, sortDirection: "desc" as const, label: "Purchase date (newest first)" },
                               { sortBy: "date" as const, sortDirection: "asc" as const, label: "Purchase date (oldest first)" },
-                              { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (AΓÇôZ)" },
-                              { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (ZΓÇôA)" },
-                              { sortBy: "vendor" as const, sortDirection: "asc" as const, label: "Vendor (AΓÇôZ)" },
-                              { sortBy: "vendor" as const, sortDirection: "desc" as const, label: "Vendor (ZΓÇôA)" },
+                              { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (A–Z)" },
+                              { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (Z–A)" },
+                              { sortBy: "vendor" as const, sortDirection: "asc" as const, label: "Vendor (A–Z)" },
+                              { sortBy: "vendor" as const, sortDirection: "desc" as const, label: "Vendor (Z–A)" },
                               { sortBy: "qty" as const, sortDirection: "desc" as const, label: "Quantity (most first)" },
                               { sortBy: "qty" as const, sortDirection: "asc" as const, label: "Quantity (least first)" },
                               { sortBy: "rating" as const, sortDirection: "desc" as const, label: "Rating (highest first)" },
@@ -1404,7 +1404,7 @@ function VaultPageInner() {
                       <div className="border-b border-black/5">
                         <button type="button" onClick={() => setRefineBySection((s) => (s === "vault" ? null : "vault"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "vault"}>
                           <span>Vault Status</span>
-                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "Γû┤" : "Γû╛"}</span>
+                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▼" : "▸"}</span>
                         </button>
                         {refineBySection === "vault" && (
                           <div className="px-4 pb-3 pt-0 space-y-0.5">
@@ -1429,13 +1429,13 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "packetVendor" ? null : "packetVendor"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetVendor"}>
                             <span>Vendor</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "packetVendor" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
                               <button type="button" onClick={() => setPacketVendorFilter(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
                               {packetVendorChips.map(({ value, count }) => (
-                                <button key={value} type="button" onClick={() => setPacketVendorFilter(value === "ΓÇö" ? null : value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                                <button key={value} type="button" onClick={() => setPacketVendorFilter(value === "—" ? null : value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
                               ))}
                             </div>
                           )}
@@ -1444,7 +1444,7 @@ function VaultPageInner() {
                       <div className="border-b border-black/5">
                         <button type="button" onClick={() => setRefineBySection((s) => (s === "packetSow" ? null : "packetSow"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetSow"}>
                           <span>Plant this month</span>
-                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetSow" ? "Γû┤" : "Γû╛"}</span>
+                          <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetSow" ? "▼" : "▸"}</span>
                         </button>
                         {refineBySection === "packetSow" && (
                           <div className="px-4 pb-3 pt-0 space-y-0.5">
@@ -1475,7 +1475,7 @@ function VaultPageInner() {
                       </div>
                     </>
                   ) : (
-                    /* Plant Profiles Refine By ΓÇö existing profile sections */
+                    /* Plant Profiles Refine By — existing profile sections */
                     <>
                   <div className="border-b border-black/5">
                     <button
@@ -1485,19 +1485,19 @@ function VaultPageInner() {
                       aria-expanded={refineBySection === "sort"}
                     >
                       <span>Sort</span>
-                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "Γû┤" : "Γû╛"}</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▼" : "▸"}</span>
                     </button>
                     {refineBySection === "sort" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
                         {[
                           { sortBy: "purchase_date" as const, sortDirection: "desc" as const, label: "Purchase date (newest first)" },
                           { sortBy: "purchase_date" as const, sortDirection: "asc" as const, label: "Purchase date (oldest first)" },
-                          { sortBy: "name" as const, sortDirection: "asc" as const, label: "Name (AΓÇôZ)" },
-                          { sortBy: "name" as const, sortDirection: "desc" as const, label: "Name (ZΓÇôA)" },
+                          { sortBy: "name" as const, sortDirection: "asc" as const, label: "Name (A–Z)" },
+                          { sortBy: "name" as const, sortDirection: "desc" as const, label: "Name (Z–A)" },
                           { sortBy: "date_added" as const, sortDirection: "desc" as const, label: "Date added (newest first)" },
                           { sortBy: "date_added" as const, sortDirection: "asc" as const, label: "Date added (oldest first)" },
-                          { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (AΓÇôZ)" },
-                          { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (ZΓÇôA)" },
+                          { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (A–Z)" },
+                          { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (Z–A)" },
                           { sortBy: "packet_count" as const, sortDirection: "desc" as const, label: "Packet Count (most first)" },
                           { sortBy: "packet_count" as const, sortDirection: "asc" as const, label: "Packet Count (fewest first)" },
                         ].map(({ sortBy: sb, sortDirection: sd, label }) => {
@@ -1524,7 +1524,7 @@ function VaultPageInner() {
                       aria-expanded={refineBySection === "vault"}
                     >
                       <span>Vault Status</span>
-                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "Γû┤" : "Γû╛"}</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▼" : "▸"}</span>
                     </button>
                     {refineBySection === "vault" && (
                       <div className="px-4 pb-3 pt-0 space-y-0.5">
@@ -1559,7 +1559,7 @@ function VaultPageInner() {
                         aria-expanded={refineBySection === "tags"}
                       >
                         <span>Tags</span>
-                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "Γû┤" : "Γû╛"}</span>
+                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
                       </button>
                       {refineBySection === "tags" && (
                         <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
@@ -1596,7 +1596,7 @@ function VaultPageInner() {
                         aria-expanded={refineBySection === "plantType"}
                       >
                         <span>Plant Type</span>
-                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "Γû┤" : "Γû╛"}</span>
+                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▼" : "▸"}</span>
                       </button>
                       {refineBySection === "plantType" && (
                         <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
@@ -1632,7 +1632,7 @@ function VaultPageInner() {
                       aria-expanded={refineBySection === "sowingMonth"}
                     >
                       <span>Sowing Month</span>
-                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sowingMonth" ? "Γû┤" : "Γû╛"}</span>
+                      <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sowingMonth" ? "▼" : "▸"}</span>
                     </button>
                     {refineBySection === "sowingMonth" && (
                       <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
@@ -1678,14 +1678,14 @@ function VaultPageInner() {
                       </div>
                     )}
                   </div>
-                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count ΓÇö Plant Profiles only */}
+                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count — Plant Profiles only */}
                   {viewMode === "grid" && (
                     <>
                       {refineChips.variety.length > 0 && (
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "variety" ? null : "variety"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "variety"}>
                             <span>Variety</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "variety" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
@@ -1701,7 +1701,7 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "vendor" ? null : "vendor"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "vendor"}>
                             <span>Vendor</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vendor" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vendor" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "vendor" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
@@ -1717,7 +1717,7 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
                             <span>Sun</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "sun" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
@@ -1733,7 +1733,7 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
                             <span>Spacing</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "spacing" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
@@ -1749,7 +1749,7 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
                             <span>Germination</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "germination" && (
                             <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
@@ -1765,13 +1765,13 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
                             <span>Maturity</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "maturity" && (
                             <div className="px-4 pb-3 pt-0 space-y-0.5">
                               <button type="button" onClick={() => vaultFilters.setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.maturity === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
                               {refineChips.maturity.map(({ value, count }) => (
-                                <button key={value} type="button" onClick={() => vaultFilters.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60ΓÇô90 days" : "90+ days"} ({count})</button>
+                                <button key={value} type="button" onClick={() => vaultFilters.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value === "<60" ? "<60 days" : value === "60-90" ? "60–90 days" : "90+ days"} ({count})</button>
                               ))}
                             </div>
                           )}
@@ -1781,7 +1781,7 @@ function VaultPageInner() {
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "packetCount" ? null : "packetCount"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "packetCount"}>
                             <span>Packet Count</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetCount" ? "Γû┤" : "Γû╛"}</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetCount" ? "▼" : "▸"}</span>
                           </button>
                           {refineBySection === "packetCount" && (
                             <div className="px-4 pb-3 pt-0 space-y-0.5">
@@ -1955,7 +1955,7 @@ function VaultPageInner() {
                 <legend className="text-sm font-medium text-neutral-700 mb-2">Master profile</legend>
                 <div className="space-y-2">
                   {mergeProfiles.map((p) => {
-                    const label = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} ΓÇö ${decodeHtmlEntities(p.variety_name)}` : decodeHtmlEntities(p.name);
+                    const label = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} — ${decodeHtmlEntities(p.variety_name)}` : decodeHtmlEntities(p.name);
                     const pkts = p.packet_count ?? 0;
                     return (
                       <label key={p.id} className="flex items-center gap-2 cursor-pointer">
@@ -1980,7 +1980,7 @@ function VaultPageInner() {
                     {mergeProfiles
                       .filter((p) => p.id !== mergeMasterId)
                       .map((p) => {
-                        const label = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} ΓÇö ${decodeHtmlEntities(p.variety_name)}` : decodeHtmlEntities(p.name);
+                        const label = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} — ${decodeHtmlEntities(p.variety_name)}` : decodeHtmlEntities(p.name);
                         const pkts = p.packet_count ?? 0;
                         return <li key={p.id}>{label}{pkts > 0 ? ` (${pkts} packet${pkts !== 1 ? "s" : ""})` : ""}</li>;
                       })}
@@ -1990,7 +1990,7 @@ function VaultPageInner() {
                     <strong>
                       {(() => {
                         const m = mergeProfiles.find((x) => x.id === mergeMasterId);
-                        return m?.variety_name?.trim() ? `${decodeHtmlEntities(m.name)} ΓÇö ${decodeHtmlEntities(m.variety_name)}` : decodeHtmlEntities(m?.name ?? "");
+                        return m?.variety_name?.trim() ? `${decodeHtmlEntities(m.name)} — ${decodeHtmlEntities(m.variety_name)}` : decodeHtmlEntities(m?.name ?? "");
                       })()}
                     </strong>
                     . You will have 1 Variety with {mergeProfiles.reduce((s, p) => s + (p.packet_count ?? 0), 0)} Packet{mergeProfiles.reduce((s, p) => s + (p.packet_count ?? 0), 0) !== 1 ? "s" : ""}.
