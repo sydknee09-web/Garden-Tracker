@@ -555,8 +555,8 @@ function GardenPageInner() {
 
         {refineByOpen && (
           <>
-            <button type="button" className="fixed inset-0 z-20 bg-black/20" aria-label="Close" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
-            <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-30 bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[70vh]">
+            <button type="button" className="fixed inset-0 z-50 bg-black/20" aria-label="Close" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
+            <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[51] bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[70vh]">
               <header className="flex items-center justify-between gap-2 p-4 border-b border-black/10">
                 <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
                 <div className="flex items-center gap-1">
