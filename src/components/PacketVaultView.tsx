@@ -547,9 +547,12 @@ export function PacketVaultView({
                         <span className="block text-xs text-neutral-500 truncate">{pkt.vendor_name.trim()}</span>
                       )}
                     </span>
-                    <span className="shrink-0 inline-flex items-center gap-1.5">
-                      <span className={`inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium ${isArchived ? "bg-neutral-100 text-neutral-500" : "bg-black/10 text-neutral-700"}`}>{qtyStatusToLabel(pkt.qty_status)}</span>
-                      {isArchived && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>}
+                    <span className="shrink-0 inline-flex items-center">
+                      {isArchived ? (
+                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-700">{qtyStatusToLabel(pkt.qty_status)}</span>
+                      )}
                     </span>
                   </button>
                 </li>
@@ -601,7 +604,9 @@ export function PacketVaultView({
                     </td>
                     <td className="px-4 py-3 text-neutral-600">{pkt.vendor_name?.trim() || "--"}</td>
                     <td className="px-4 py-3 text-neutral-500">{pkt.purchase_date ? new Date(pkt.purchase_date).toLocaleDateString() : "--"}</td>
-                    <td className={`px-4 py-3 font-medium ${qtyColor}`}>{qtyStatusToLabel(pkt.qty_status)}</td>
+                    <td className={`px-4 py-3 font-medium ${isArchived ? "text-neutral-500" : qtyColor}`}>
+                      {isArchived ? "Out" : qtyStatusToLabel(pkt.qty_status)}
+                    </td>
                     <td className="px-4 py-3">
                       {isArchived ? (
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-500">Archived</span>
