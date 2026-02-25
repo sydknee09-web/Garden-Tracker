@@ -4,7 +4,7 @@
  */
 
 import {
-  ZONE_10B_SCHEDULE,
+  getSchedule,
   getDefaultSowMonthsForZone10b,
   type PlantingData,
   type SowMonths,
@@ -20,7 +20,7 @@ export type GuideCrop = { name: string } & PlantingData;
 
 /** All zone guide entries for the schedule. Sorted by name for stable display. */
 export function getZoneGuideEntries(): GuideCrop[] {
-  return Object.entries(ZONE_10B_SCHEDULE)
+  return Object.entries(getSchedule())
     .map(([name, data]) => ({ name, ...data }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

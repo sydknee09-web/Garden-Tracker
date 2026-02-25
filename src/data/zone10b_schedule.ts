@@ -23,7 +23,11 @@ export interface PlantingData {
     sowing_depth?: string;
   }
   
-  export const ZONE_10B_SCHEDULE: Record<string, PlantingData> = {
+  /** Lazy-init to avoid TDZ when chunk loads before dependencies are ready. */
+  let _scheduleCache: Record<string, PlantingData> | null = null;
+  export function getSchedule(): Record<string, PlantingData> {
+    if (_scheduleCache) return _scheduleCache;
+    _scheduleCache = {
     // --- Warm Season Edibles ---
     "Tomato": {
       sowing_method: "Start Indoors / Transplant",
@@ -560,21 +564,24 @@ export interface PlantingData {
       spacing: "12 inches"
     }
   };
+    return _scheduleCache;
+  }
 
-/** Normalize plant name to match ZONE_10B_SCHEDULE keys (e.g. "tomato" -> "Tomato"). */
+/** Normalize plant name to match schedule keys (e.g. "tomato" -> "Tomato"). */
 export function toScheduleKey(name: string): string {
   return name.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Get schedule entry for a plant name. Tries exact title-case, then first word, then "contains" (e.g. "Celosia Autumn Blaze" or any variety containing "Celosia" → Celosia schedule). */
 export function getZone10bScheduleForPlant(plantName: string): PlantingData | undefined {
+  const schedule = getSchedule();
   const key = toScheduleKey(plantName);
-  if (key && ZONE_10B_SCHEDULE[key]) return ZONE_10B_SCHEDULE[key];
+  if (key && schedule[key]) return schedule[key];
   const firstWord = key?.split(/\s+/)[0]?.trim();
-  if (firstWord && ZONE_10B_SCHEDULE[firstWord]) return ZONE_10B_SCHEDULE[firstWord];
-  const scheduleKeys = Object.keys(ZONE_10B_SCHEDULE).sort((a, b) => b.length - a.length);
+  if (firstWord && schedule[firstWord]) return schedule[firstWord];
+  const scheduleKeys = Object.keys(schedule).sort((a, b) => b.length - a.length);
   for (const k of scheduleKeys) {
-    if (key && key.includes(k)) return ZONE_10B_SCHEDULE[k];
+    if (key && key.includes(k)) return schedule[k];
   }
   return undefined;
 }
