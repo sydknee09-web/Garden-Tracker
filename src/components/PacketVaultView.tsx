@@ -379,6 +379,10 @@ export function PacketVaultView({
       .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
   }, [packets]);
 
+  const showMemberPills = householdViewMode === "family";
+  const householdMembers = useHousehold().householdMembers;
+  const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
+
   const filteredPacketCount = sortedPackets.filter((p) => !selectedOwnerFilter || p.owner_user_id === selectedOwnerFilter).length;
 
   useEffect(() => {
@@ -412,10 +416,6 @@ export function PacketVaultView({
       goToProfile(pkt.plant_profile_id);
     }
   }, [batchSelectMode, onToggleProfileSelection, goToProfile]);
-
-  const showMemberPills = householdViewMode === "family";
-  const householdMembers = useHousehold().householdMembers;
-  const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
 
   if (loading && packets.length === 0) {
     return (
