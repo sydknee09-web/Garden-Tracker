@@ -151,7 +151,8 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
     try {
-      const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false }, { id: scheduleId, user_id: userId });
+      const now = new Date().toISOString();
+      const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false, deleted_at: now }, { id: scheduleId, user_id: userId });
       if (error) { setSaveError("Failed to remove schedule."); return; }
       setSaveError(null);
       onChanged();

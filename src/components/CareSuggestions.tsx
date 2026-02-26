@@ -164,9 +164,6 @@ export function CareSuggestions({
                   <p className="text-xs text-neutral-500 mt-0.5">
                     {getRecurrenceLabel(s)}
                   </p>
-                  {s.notes?.trim() && (
-                    <p className="text-xs text-neutral-600 mt-1">{s.notes}</p>
-                  )}
                 </div>
                 {!readOnly && (
                   <div className="flex gap-1 shrink-0">
@@ -196,6 +193,11 @@ export function CareSuggestions({
                   </div>
                 )}
               </div>
+              {s.notes?.trim() && (
+                <div className="mt-3 pt-3 border-t border-amber-100 -mx-4 px-4">
+                  <p className="text-xs text-neutral-600 break-words">{s.notes}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
