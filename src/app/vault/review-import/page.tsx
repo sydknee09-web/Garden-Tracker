@@ -832,6 +832,10 @@ export default function ReviewImportPage() {
         for (let u = 0; u < urlsToSave.length; u++) {
           const purchaseUrl = urlsToSave[u];
           const isFirst = u === 0;
+          const priceVal = (item.price ?? "").trim();
+          const qtyVal = item.purchase_quantity ?? 1;
+          const orderRef = [priceVal && `Price: ${priceVal}`, qtyVal > 1 && `Qty: ${qtyVal}`].filter(Boolean).join(". ");
+          const userNotesVal = [orderRef, (item.user_notes ?? "").trim()].filter(Boolean).join(" ");
           const { data: packetRow, error: packetErr } = await supabase.from("seed_packets").insert({
             plant_profile_id: profileId,
             user_id: user.id,
@@ -842,7 +846,8 @@ export default function ReviewImportPage() {
             ...(purchaseUrl && { purchase_url: purchaseUrl }),
             ...(tagsToSave.length > 0 && { tags: tagsToSave }),
             ...(vendorSpecs && Object.keys(vendorSpecs).length > 0 && { vendor_specs: vendorSpecs }),
-            ...((item.user_notes ?? "").trim() && { user_notes: item.user_notes!.trim() }),
+            ...(priceVal && { price: priceVal }),
+            ...(userNotesVal && { user_notes: userNotesVal }),
             ...((item.storage_location ?? "").trim() && { storage_location: item.storage_location!.trim() }),
           }).select("id").single();
           if (packetErr) {
@@ -1431,6 +1436,32 @@ export default function ReviewImportPage() {
                       className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
                     </div>
+                    {importSource === "purchase_order" && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-500 mb-0.5">Price</label>
+                          <input
+                            type="text"
+                            value={item.price ?? ""}
+                            onChange={(e) => updateItem(item.id, { price: e.target.value || undefined })}
+                            placeholder="e.g. $3.50"
+                            className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                            aria-label="Price (historical)"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-500 mb-0.5">Qty</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.purchase_quantity ?? 1}
+                            onChange={(e) => updateItem(item.id, { purchase_quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                            className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                            aria-label="Quantity ordered (historical)"
+                          />
+                        </div>
+                      </>
+                    )}
                     <div className="sm:col-span-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">

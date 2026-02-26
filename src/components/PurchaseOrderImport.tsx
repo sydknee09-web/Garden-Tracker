@@ -206,6 +206,8 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         vendor: item.vendor || data.vendor || "",
         tags: [],
         purchaseDate: todayISO(),
+        price: item.price,
+        purchase_quantity: item.quantity,
       }));
 
       setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType });

@@ -64,6 +64,10 @@ export type ReviewImportItem = {
   user_notes?: string;
   /** Optional storage location (e.g. box, drawer); saved to seed_packets.storage_location. */
   storage_location?: string;
+  /** From purchase order: price per item (e.g. "$3.50"); saved to seed_packets.price for historical reference. */
+  price?: string;
+  /** From purchase order: quantity ordered (e.g. 3); saved to user_notes when > 1 for historical reference. */
+  purchase_quantity?: number;
   /** From link import: extract API result; used to know if item was from cache (write to global cache only when not). */
   extractResult?: { cached?: boolean; [key: string]: unknown };
   /** From research/extract: plants that grow well with this variety */
