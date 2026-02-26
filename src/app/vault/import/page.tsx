@@ -1073,6 +1073,8 @@ export default function VaultImportPage() {
           const hd = (r as Record<string, unknown>).harvest_days;
           return typeof hd === "number" ? hd : undefined;
         })(),
+        companion_plants: (r as { companion_plants?: string[] }).companion_plants,
+        avoid_plants: (r as { avoid_plants?: string[] }).avoid_plants,
       });
     }
     // Mark later duplicates in the same batch so UI can show "Merge with existing"

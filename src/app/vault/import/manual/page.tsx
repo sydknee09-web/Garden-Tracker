@@ -66,13 +66,19 @@ export default function ImportManualPage() {
           days_to_germination?: string;
           harvest_days?: number;
           sowing_depth?: string;
+          companion_plants?: string[] | null;
+          avoid_plants?: string[] | null;
         };
+        let companion_plants: string[] | undefined;
+        let avoid_plants: string[] | undefined;
         if (enrichData?.enriched) {
           if (enrichData.sun != null) sun = enrichData.sun;
           if (enrichData.plant_spacing != null) plant_spacing = enrichData.plant_spacing;
           if (enrichData.days_to_germination != null) days_to_germination = enrichData.days_to_germination;
           if (enrichData.harvest_days != null) harvest_days = enrichData.harvest_days;
           if (enrichData.sowing_depth != null) sowing_depth = enrichData.sowing_depth;
+          if (Array.isArray(enrichData.companion_plants) && enrichData.companion_plants.length > 0) companion_plants = enrichData.companion_plants;
+          if (Array.isArray(enrichData.avoid_plants) && enrichData.avoid_plants.length > 0) avoid_plants = enrichData.avoid_plants;
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Enrich failed");
@@ -106,6 +112,8 @@ export default function ImportManualPage() {
           days_to_maturity: harvest_days != null ? String(harvest_days) : undefined,
           harvest_days,
           sowing_depth,
+          companion_plants,
+          avoid_plants,
         };
         setReviewImportData({ items: [reviewItem] });
         router.push("/vault/review-import");

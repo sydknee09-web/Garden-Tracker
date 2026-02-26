@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
+import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 
@@ -51,7 +52,7 @@ export function ShedView({
   onFilteredIdsChange?: (ids: string[]) => void;
 }) {
   const { user } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
   const router = useRouter();
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -261,80 +262,82 @@ export function ShedView({
           )}
         </div>
       ) : displayStyle === "list" ? (
-        <ul className="space-y-4 [&_a]:pointer-events-auto" role="list">
-          {filteredSupplies.map((s) => {
-            const npk = parseNpkForDisplay(s.npk);
-            const thumbUrl = s.primary_image_path
-              ? supabase.storage.from("journal-photos").getPublicUrl(s.primary_image_path).data.publicUrl
-              : null;
-            const lastUsed = s.last_used_at
-              ? (() => {
-                  const d = new Date(s.last_used_at);
-                  const now = new Date();
-                  const days = Math.floor((now.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
-                  if (days === 0) return "Today";
-                  if (days === 1) return "Yesterday";
-                  if (days < 7) return `${days} days ago`;
-                  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-                  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-                })()
-              : null;
-            const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
-            const isSelected = batchSelectMode && selectedIds.has(s.id);
-            const rowClassName = `flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all min-h-[44px] ${
-              isSelected ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
-            }`;
-            const rowInner = (
-              <>
-                <div className="relative shrink-0 w-12 h-12 rounded-lg bg-neutral-100 border border-emerald-100 overflow-hidden flex items-center justify-center">
-                  {thumbUrl ? (
-                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xl" aria-hidden>🌱</span>
-                  )}
-                  {isSelected && (
-                    <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    </span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-neutral-900 truncate">{s.name}</h3>
-                  {s.brand && <p className="text-sm text-neutral-500 truncate">{s.brand}</p>}
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-neutral-500">
-                    <span className="inline-block px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium">
-                      {CATEGORY_LABELS[s.category] ?? s.category}
-                    </span>
-                    {npk && <span className="text-emerald-700">N {npk.n}% | P {npk.p}% | K {npk.k}%</span>}
-                    {lastUsed && <span>Last used: {lastUsed}</span>}
+        <div className="rounded-xl border border-black/10 bg-white overflow-hidden [&_a]:pointer-events-auto">
+          <ul className="divide-y divide-black/5" role="list">
+            {filteredSupplies.map((s) => {
+              const npk = parseNpkForDisplay(s.npk);
+              const thumbUrl = s.primary_image_path
+                ? supabase.storage.from("journal-photos").getPublicUrl(s.primary_image_path).data.publicUrl
+                : null;
+              const lastUsed = s.last_used_at
+                ? (() => {
+                    const d = new Date(s.last_used_at);
+                    const now = new Date();
+                    const days = Math.floor((now.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+                    if (days === 0) return "Today";
+                    if (days === 1) return "Yesterday";
+                    if (days < 7) return `${days} days ago`;
+                    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+                    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+                  })()
+                : null;
+              const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
+              const isSelected = batchSelectMode && selectedIds.has(s.id);
+              const rowClassName = `flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${
+                isSelected ? "bg-emerald-50/80 ring-inset ring-2 ring-emerald-500" : ""
+              }`;
+              const rowInner = (
+                <>
+                  <div className="relative shrink-0 w-10 h-10 rounded-lg bg-neutral-100 overflow-hidden flex items-center justify-center">
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg" aria-hidden>🌱</span>
+                    )}
+                    {isSelected && (
+                      <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      </span>
+                    )}
                   </div>
-                </div>
-                {isFamilyView && s.user_id && s.user_id !== user?.id && (
-                  <span className="shrink-0 text-[8px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500 text-white">FAM</span>
-                )}
-              </>
-            );
-            return (
-              <li key={s.id}>
-                {batchSelectMode && onToggleSelection ? (
-                  <button type="button" onClick={() => onToggleSelection(s.id)} className={`w-full text-left ${rowClassName}`}>
-                    {rowInner}
-                  </button>
-                ) : (
-                  <a
-                    href={detailHref}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = detailHref; }}
-                    className={`block cursor-pointer relative z-[1] ${rowClassName}`}
-                  >
-                    {rowInner}
-                  </a>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-sm text-neutral-900 truncate leading-tight">{s.name}</h3>
+                    {s.brand && <p className="text-xs text-neutral-500 truncate">{s.brand}</p>}
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-neutral-500 leading-tight">
+                      <span className="inline-block px-1 py-0.5 rounded bg-emerald-100/90 text-emerald-800 font-medium">
+                        {CATEGORY_LABELS[s.category] ?? s.category}
+                      </span>
+                      {npk && <span className="text-emerald-700">N {npk.n}% P {npk.p}% K {npk.k}%</span>}
+                      {lastUsed && <span>Last: {lastUsed}</span>}
+                    </div>
+                  </div>
+                  {isFamilyView && s.user_id && (
+                    <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditUser(s.user_id)} size="xs" />
+                  )}
+                </>
+              );
+              return (
+                <li key={s.id}>
+                  {batchSelectMode && onToggleSelection ? (
+                    <button type="button" onClick={() => onToggleSelection(s.id)} className={`w-full ${rowClassName}`}>
+                      {rowInner}
+                    </button>
+                  ) : (
+                    <a
+                      href={detailHref}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = detailHref; }}
+                      className={`block cursor-pointer relative z-[1] ${rowClassName}`}
+                    >
+                      {rowInner}
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 [&_a]:pointer-events-auto">
+        <div className="grid grid-cols-3 gap-2 [&_a]:pointer-events-auto">
           {filteredSupplies.map((s) => {
             const npk = parseNpkForDisplay(s.npk);
             const thumbUrl = s.primary_image_path
@@ -354,7 +357,7 @@ export function ShedView({
               : null;
             const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
-            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[120px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
+            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[100px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
             const cardInner = (
               <>
                 <div className="aspect-square bg-neutral-100 relative flex items-center justify-center">
@@ -376,13 +379,13 @@ export function ShedView({
                       🌱
                     </span>
                   )}
-                  {isFamilyView && s.user_id && s.user_id !== user?.id && (
-                    <span className="absolute top-1 right-1 rounded px-1.5 py-0.5 text-xs font-medium bg-white/90 text-neutral-700">
-                      {getShorthandForUser(s.user_id)}
+                  {isFamilyView && s.user_id && (
+                    <span className="absolute top-1 right-1">
+                      <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditUser(s.user_id)} size="xs" />
                     </span>
                   )}
                 </div>
-                <div className="p-3 flex-1 flex flex-col min-w-0">
+                <div className="p-2 flex-1 flex flex-col min-w-0">
                   <span className="font-medium text-neutral-900 truncate block">{s.name}</span>
                   {s.brand && (
                     <span className="text-xs text-neutral-500 truncate block">{s.brand}</span>

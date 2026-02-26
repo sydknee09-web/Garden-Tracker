@@ -1315,57 +1315,61 @@ export default function ReviewImportPage() {
                           Please find or upload a photo first
                         </p>
                       )}
-                      {/* Add packet photo(s): Take photo or choose from gallery */}
+                      {/* Add packet photo(s): Take photo or choose from gallery (hidden for purchase_order — profile Set Photo is sufficient) */}
                       <div className="mt-2 space-y-1">
-                        <input
-                          ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          aria-hidden
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) await handleAddPacketPhoto(item.id, file);
-                            e.target.value = "";
-                          }}
-                        />
-                        <input
-                          ref={(el) => { addPhotoGalleryRefs.current[item.id] = el; }}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          aria-hidden
-                          onChange={async (e) => {
-                            const files = e.target.files;
-                            if (files) {
-                              for (let i = 0; i < files.length; i++) {
-                                const file = files[i];
-                                if (file?.type?.startsWith("image/")) await handleAddPacketPhoto(item.id, file);
-                              }
-                            }
-                            e.target.value = "";
-                          }}
-                        />
-                        <div className="flex gap-2 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => addPhotoInputRefs.current[item.id]?.click()}
-                            className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                          >
-                            <span className="text-base" aria-hidden>📷</span>
-                            Take photo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => addPhotoGalleryRefs.current[item.id]?.click()}
-                            className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                          >
-                            <span className="text-base" aria-hidden>🖼</span>
-                            From gallery
-                          </button>
-                        </div>
+                        {importSource !== "purchase_order" && (
+                          <>
+                            <input
+                              ref={(el) => { addPhotoInputRefs.current[item.id] = el; }}
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              aria-hidden
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) await handleAddPacketPhoto(item.id, file);
+                                e.target.value = "";
+                              }}
+                            />
+                            <input
+                              ref={(el) => { addPhotoGalleryRefs.current[item.id] = el; }}
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              aria-hidden
+                              onChange={async (e) => {
+                                const files = e.target.files;
+                                if (files) {
+                                  for (let i = 0; i < files.length; i++) {
+                                    const file = files[i];
+                                    if (file?.type?.startsWith("image/")) await handleAddPacketPhoto(item.id, file);
+                                  }
+                                }
+                                e.target.value = "";
+                              }}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => addPhotoInputRefs.current[item.id]?.click()}
+                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                              >
+                                <span className="text-base" aria-hidden>📷</span>
+                                Take photo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => addPhotoGalleryRefs.current[item.id]?.click()}
+                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                              >
+                                <span className="text-base" aria-hidden>🖼</span>
+                                From gallery
+                              </button>
+                            </div>
+                          </>
+                        )}
                         {(item.extraPacketImages?.length ?? 0) > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {(item.extraPacketImages ?? []).map((b64, idx) => {

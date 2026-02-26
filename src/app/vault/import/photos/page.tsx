@@ -246,6 +246,8 @@ export default function ImportPhotosPage() {
         hero_image_url: heroUrl || "/seedling-icon.svg",
         useStockPhotoAsHero: true,
         identityKey: identityKey || undefined,
+        companion_plants: (r as { companion_plants?: string[] }).companion_plants,
+        avoid_plants: (r as { avoid_plants?: string[] }).avoid_plants,
       };
     });
     setReviewImportData({ items: reviewItems });

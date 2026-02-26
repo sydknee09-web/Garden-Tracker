@@ -1259,7 +1259,7 @@ export default function VaultSeedPage() {
                   </div>
                 </div>
               )}
-              {heroUrl && !stockPhotoCurrentFailed && (
+              {heroUrl && !isPlaceholderHeroUrl(heroUrl) && !stockPhotoCurrentFailed && (
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Stock photo (current)</p>
                   <button type="button" onClick={() => { setHeroFromUrl(heroUrl); setShowSetPhotoModal(false); }} className="inline-block w-20 h-20 rounded-lg overflow-hidden border-2 border-emerald-500 bg-neutral-100">

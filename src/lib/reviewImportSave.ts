@@ -33,6 +33,8 @@ export type PlantProfileInsertPayload = {
   plant_description?: string;
   description_source?: string;
   growing_notes?: string;
+  companion_plants?: string[];
+  avoid_plants?: string[];
 };
 
 /**
@@ -87,6 +89,8 @@ export function buildPlantProfileInsertPayload(
       description_source: "vendor",
     }),
     ...((item.growing_notes ?? "").trim() && { growing_notes: item.growing_notes!.trim() }),
+    ...(Array.isArray(item.companion_plants) && item.companion_plants.length > 0 && { companion_plants: item.companion_plants }),
+    ...(Array.isArray(item.avoid_plants) && item.avoid_plants.length > 0 && { avoid_plants: item.avoid_plants }),
   };
 
   return payload;

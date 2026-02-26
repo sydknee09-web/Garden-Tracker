@@ -24,6 +24,8 @@ Extract the following and return a single JSON object only (no markdown, no expl
 - planting_window: when to plant e.g. "Spring: Mar-May", "After last frost", "Fall: Sep-Nov". Use empty string if not found.
 - propagation_notes: how to propagate this plant (cuttings, division, layering, etc.). For perennials and plants that can be multiplied. Use empty string if not applicable or not found.
 - seed_saving_notes: how to harvest and save seeds from this plant (when to harvest, drying, storage). For seed-grown varieties. Use empty string if not applicable or not found.
+- companion_plants: comma-separated list of plants that grow well with this variety (e.g. "Basil, Tomatoes, Carrots"). Use empty string if not found.
+- avoid_plants: comma-separated list of plants to avoid planting nearby (e.g. "Potatoes, Fennel"). Use empty string if not found.
 
 Use standard units: inches for depth and spacing, days for germination and maturity. Use empty string for any field you cannot find. Return only valid JSON.`;
 
@@ -42,6 +44,8 @@ export type ResearchVarietyResult = {
   planting_window?: string;
   propagation_notes?: string;
   seed_saving_notes?: string;
+  companion_plants?: string;
+  avoid_plants?: string;
 };
 
 /**
@@ -92,6 +96,8 @@ export async function researchVariety(
       planting_window: getStr("planting_window") || undefined,
       propagation_notes: getStr("propagation_notes") || undefined,
       seed_saving_notes: getStr("seed_saving_notes") || undefined,
+      companion_plants: getStr("companion_plants") || undefined,
+      avoid_plants: getStr("avoid_plants") || undefined,
     };
   } catch {
     return null;

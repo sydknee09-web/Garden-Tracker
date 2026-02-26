@@ -66,6 +66,10 @@ export type ReviewImportItem = {
   storage_location?: string;
   /** From link import: extract API result; used to know if item was from cache (write to global cache only when not). */
   extractResult?: { cached?: boolean; [key: string]: unknown };
+  /** From research/extract: plants that grow well with this variety */
+  companion_plants?: string[];
+  /** From research/extract: plants to avoid planting nearby */
+  avoid_plants?: string[];
 };
 
 export type ReviewImportSource = "purchase_order" | "link" | "photo";

@@ -6,6 +6,12 @@ import { getSupabaseUser } from "@/app/api/import/auth";
 
 export const maxDuration = 30;
 
+function parseCommaList(s: string | undefined): string[] | null {
+  if (!s?.trim()) return null;
+  const arr = s.split(",").map((x) => x.trim()).filter(Boolean);
+  return arr.length > 0 ? arr : null;
+}
+
 /** Parse "65" or "55-70" to a number (use first number). */
 function parseDaysToMaturity(s: string | undefined): number | null {
   if (!s?.trim()) return null;
@@ -27,6 +33,8 @@ export type EnrichFromNameResponse = {
   growing_notes?: string | null;
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
+  companion_plants?: string[] | null;
+  avoid_plants?: string[] | null;
 };
 
 /** Enrich plant profile from name + variety only (no vendor in search). Used for store-bought new profiles. */
@@ -69,6 +77,8 @@ export async function POST(req: Request) {
       growing_notes: result.growing_notes?.trim() || null,
       propagation_notes: result.propagation_notes?.trim() || null,
       seed_saving_notes: result.seed_saving_notes?.trim() || null,
+      companion_plants: parseCommaList(result.companion_plants),
+      avoid_plants: parseCommaList(result.avoid_plants),
     };
     if (auth?.user?.id) {
       logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });

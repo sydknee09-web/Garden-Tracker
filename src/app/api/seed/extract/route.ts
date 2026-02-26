@@ -153,6 +153,10 @@ export type ExtractResponse = {
   hero_image_url?: string;
   /** From photo extraction research: stock image of actual plant/fruit (not packet) for profile hero */
   stock_photo_url?: string;
+  /** From research: plants that grow well with this variety */
+  companion_plants?: string[];
+  /** From research: plants to avoid planting nearby */
+  avoid_plants?: string[];
 };
 
 const SYSTEM_PROMPT = `You are a botanical inventory expert. Look at the seed packet image and extract text you can clearly see.
@@ -194,6 +198,8 @@ Return a single JSON object only (no markdown, no explanation). Use these exact 
 - stock_photo_url: direct URL (https://) to a high-quality stock image of the actual plant, flower, or fruit for this variety. Use empty string if the page is blocked or no suitable image found.
 - hero_image_url: same as stock_photo_url (use the same URL for profile hero).
 - plant_description: 2-4 factual sentences describing this plant/variety from the page (appearance, use, growing). Use empty string if not found.
+- companion_plants: comma-separated list of plants that grow well with this variety (e.g. "Basil, Tomatoes, Carrots"). Use empty string if not found.
+- avoid_plants: comma-separated list of plants to avoid planting nearby (e.g. "Potatoes, Fennel"). Use empty string if not found.
 
 Use empty string for any field you cannot find. Return only valid JSON.`;
 
@@ -270,6 +276,19 @@ function parseLinkExtractJson(jsonStr: string, url: string): ExtractResponse | n
   const scientific_name = safeStr(parsed, "scientific_name") || undefined;
   const stockPhotoUrl = safeStr(parsed, "stock_photo_url") || safeStr(parsed, "hero_image_url");
 
+  const parseCommaList = (key: string): string[] | undefined => {
+    const v = parsed[key];
+    if (typeof v === "string" && v.trim()) {
+      const arr = v.split(",").map((x) => x.trim()).filter(Boolean);
+      return arr.length > 0 ? arr : undefined;
+    }
+    if (Array.isArray(v)) {
+      const arr = v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean);
+      return arr.length > 0 ? arr : undefined;
+    }
+    return undefined;
+  };
+
   return {
     vendor,
     type: type || "Imported seed",
@@ -285,6 +304,8 @@ function parseLinkExtractJson(jsonStr: string, url: string): ExtractResponse | n
     stock_photo_url: stockPhotoUrl || undefined,
     hero_image_url: stockPhotoUrl || undefined,
     plant_description: safeStr(parsed, "plant_description") || undefined,
+    companion_plants: parseCommaList("companion_plants"),
+    avoid_plants: parseCommaList("avoid_plants"),
   };
 }
 
@@ -593,7 +614,10 @@ export async function POST(req: Request) {
         if (typeForNorm || varietyForResponse) {
           const research = await researchVarietyForExtract(apiKey, typeForNorm, varietyForResponse, vendor);
           if (research) {
-            Object.assign(base, research);
+            const { companion_plants: cpStr, avoid_plants: apStr, ...rest } = research;
+            Object.assign(base, rest);
+            if (cpStr?.trim()) base.companion_plants = cpStr.split(",").map((x) => x.trim()).filter(Boolean);
+            if (apStr?.trim()) base.avoid_plants = apStr.split(",").map((x) => x.trim()).filter(Boolean);
             if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-research" });
           }
         }
