@@ -5,14 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, VendorSpecs } from "@/types/garden";
+import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, CareScheduleSuggestion, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
+import { CareSuggestions } from "@/components/CareSuggestions";
 import { StarRating } from "@/components/StarRating";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
@@ -164,6 +166,7 @@ export default function VaultSeedPage() {
   const [growInstances, setGrowInstances] = useState<(GrowInstance & { journal_count?: number })[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [careSchedules, setCareSchedules] = useState<CareSchedule[]>([]);
+  const [careSuggestions, setCareSuggestions] = useState<CareScheduleSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -255,6 +258,8 @@ export default function VaultSeedPage() {
   const [addPacketUrl, setAddPacketUrl] = useState("");
   const [addPacketSaving, setAddPacketSaving] = useState(false);
   const [addPacketError, setAddPacketError] = useState<string | null>(null);
+  const [addingToList, setAddingToList] = useState(false);
+  const [shoppingListToast, setShoppingListToast] = useState<string | null>(null);
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
@@ -305,18 +310,20 @@ export default function VaultSeedPage() {
       const careQuery = supabase.from("care_schedules")
         .select("*")
         .eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
+        .is("deleted_at", null)
         .order("title", { ascending: true });
       const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
 
-      // Batch 2: Fetch packets, grows, journals, care, journal photos in parallel
+      // Batch 2: Fetch packets, grows, journals, care, suggestions, journal photos in parallel
       // grow_instances: run both queries and merge — primary (no user filter) + explicit user_id
       // to handle RLS/visibility edge cases for permanent plants.
-      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, journalPhotosRes] = await Promise.all([
+      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, suggestionsRes, journalPhotosRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         careQueryFinal,
+        supabase.from("care_schedule_suggestions").select("*").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).order("created_at", { ascending: true }),
         supabase.from("journal_entries").select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false }),
       ]);
 
@@ -397,6 +404,7 @@ export default function VaultSeedPage() {
 
       setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
       setCareSchedules((careRes.data ?? []) as CareSchedule[]);
+      setCareSuggestions((suggestionsRes.data ?? []) as CareScheduleSuggestion[]);
       setJournalPhotos((journalPhotosRes.data ?? []) as JournalPhoto[]);
 
       // Batch 3: packet_images (depends on packetIds)
@@ -752,6 +760,21 @@ export default function VaultSeedPage() {
     const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", owner);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
   }, [user?.id, profileOwnerId]);
+
+  const handleAddToShoppingList = useCallback(async () => {
+    if (!user?.id || !id) return;
+    setAddingToList(true);
+    const { error } = await upsertWithOfflineQueue(
+      "shopping_list",
+      { user_id: user.id, plant_profile_id: id, is_purchased: false },
+      { onConflict: "user_id,plant_profile_id" }
+    );
+    setAddingToList(false);
+    if (!error) {
+      setShoppingListToast("Added to shopping list");
+      setTimeout(() => setShoppingListToast(null), 2500);
+    }
+  }, [user?.id, id]);
 
   const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1458,6 +1481,12 @@ export default function VaultSeedPage() {
           </div>
         )}
 
+        {shoppingListToast && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg" role="status" aria-live="polite">
+            {shoppingListToast}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -1478,23 +1507,39 @@ export default function VaultSeedPage() {
               )}
             </div>
           </div>
-          {isOwnProfile && (
-            <div className="flex items-center gap-1 shrink-0">
-              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
-                <button
-                  type="button"
-                  onClick={handleFillBlanks}
-                  disabled={fillBlanksRunning}
-                  className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                  aria-label="Fill blank info from cache or AI"
-                  title="Fill blank info"
-                >
-                  <SparkleIcon />
-                </button>
-              )}
-              <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
-            </div>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleAddToShoppingList}
+              disabled={addingToList}
+              className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+              aria-label="Add to shopping list"
+              title="Add to shopping list"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            </button>
+            {isOwnProfile && (
+              <>
+                {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                  <button
+                    type="button"
+                    onClick={handleFillBlanks}
+                    disabled={fillBlanksRunning}
+                    className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                    aria-label="Fill blank info from cache or AI"
+                    title="Fill blank info"
+                  >
+                    <SparkleIcon />
+                  </button>
+                )}
+                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
+              </>
+            )}
+          </div>
         </div>
 
         {fillBlanksError && (
@@ -1771,8 +1816,9 @@ export default function VaultSeedPage() {
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careTemplates") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("careTemplates") && (
-                <div className="px-4 pb-4 pt-0">
-                  <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
+                <div className="px-4 pb-4 pt-0 space-y-4">
+                  <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
+                  <p className="text-xs text-neutral-500">Recurring care that auto-copies when you plant this variety.</p>
                   <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
                 </div>
                 )}
@@ -1787,7 +1833,8 @@ export default function VaultSeedPage() {
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careSchedules") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("careSchedules") && (
-                <div className="px-4 pb-4 pt-0">
+                <div className="px-4 pb-4 pt-0 space-y-4">
+                  <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
                   <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
                 </div>
                 )}

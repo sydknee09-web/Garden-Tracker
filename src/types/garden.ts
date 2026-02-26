@@ -289,6 +289,21 @@ export interface UserSettings {
 }
 
 // ---------------------------------------------------------------------------
+// Care Schedule Suggestions (AI-generated, pending approve/reject)
+// ---------------------------------------------------------------------------
+export interface CareScheduleSuggestion {
+  id: string;
+  plant_profile_id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  recurrence_type: string;
+  interval_days?: number | null;
+  notes?: string | null;
+  created_at?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Care Schedules
 // ---------------------------------------------------------------------------
 export type CareRecurrenceType =
