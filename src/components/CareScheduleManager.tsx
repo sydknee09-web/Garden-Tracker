@@ -200,7 +200,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     <div>
       {saveError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{saveError}</p>}
       {schedules.length === 0 && !showAdd ? (
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-8 text-center">
           <span className="text-3xl mb-2 block" aria-hidden>📋</span>
           <p className="text-neutral-500 text-sm">No care schedules yet.</p>
           {readOnly ? null : (
@@ -212,41 +212,47 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 px-4">
             <p className="text-sm text-neutral-500">{schedules.length} schedule{schedules.length !== 1 ? "s" : ""}</p>
             {!readOnly && !showAdd && <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add</button>}
           </div>
           <div className="space-y-2">
             {schedules.map((s) => (
-              <div key={s.id} className="bg-white rounded-xl border border-neutral-200 p-4 flex items-start gap-3">
-                <span className="text-2xl shrink-0" aria-hidden>{getCategoryIcon(s.category ?? "other")}</span>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-neutral-900 text-sm">{s.title}</h4>
-                  <p className="text-xs text-neutral-500 mt-0.5">{getRecurrenceLabel(s)}</p>
-                  {getApplyToLabel(s) && (
-                    <p className="text-xs text-neutral-600 mt-0.5">Applies to: {getApplyToLabel(s)}</p>
+              <div key={s.id} className="bg-white rounded-xl border border-neutral-100 p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl shrink-0" aria-hidden>{getCategoryIcon(s.category ?? "other")}</span>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-neutral-900 text-sm">{s.title}</h4>
+                    <p className="text-xs text-neutral-500 mt-0.5">{getRecurrenceLabel(s)}</p>
+                    {getApplyToLabel(s) && (
+                      <p className="text-xs text-neutral-600 mt-0.5">Applies to: {getApplyToLabel(s)}</p>
+                    )}
+                    {s.next_due_date && (
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        Next: {new Date(s.next_due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    )}
+                    {s.supply_profile_id && (() => {
+                      const supply = supplies.find((sp) => sp.id === s.supply_profile_id);
+                      return supply ? (
+                        <p className="text-xs text-emerald-600 mt-0.5">Product: {supply.brand?.trim() ? `${supply.name} (${supply.brand})` : supply.name}</p>
+                      ) : null;
+                    })()}
+                  </div>
+                  {!readOnly && (
+                    <div className="flex gap-1 shrink-0">
+                      <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50" aria-label="Edit">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                      </button>
+                      <button type="button" onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Delete">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
                   )}
-                  {s.next_due_date && (
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      Next: {new Date(s.next_due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                    </p>
-                  )}
-                  {s.supply_profile_id && (() => {
-                    const supply = supplies.find((sp) => sp.id === s.supply_profile_id);
-                    return supply ? (
-                      <p className="text-xs text-emerald-600 mt-0.5">Product: {supply.brand?.trim() ? `${supply.name} (${supply.brand})` : supply.name}</p>
-                    ) : null;
-                  })()}
-                  {s.notes && <p className="text-xs text-neutral-400 mt-1 italic">{s.notes}</p>}
                 </div>
-                {!readOnly && (
-                  <div className="flex gap-1 shrink-0">
-                    <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50" aria-label="Edit">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                    </button>
-                    <button type="button" onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Delete">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                {s.notes && (
+                  <div className="mt-3 pt-3 border-t border-neutral-100 -mx-4 px-4">
+                    <p className="text-sm text-neutral-600 whitespace-pre-wrap">{s.notes}</p>
                   </div>
                 )}
               </div>
@@ -257,7 +263,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
 
       {/* Add/Edit Form */}
       {showAdd && !readOnly && (
-        <div className="mt-4 bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
+        <div className="mt-4 bg-white rounded-xl border border-emerald-100 shadow-sm p-4 space-y-3">
           <h3 className="text-sm font-semibold text-neutral-900">{editingId ? "Edit Care Schedule" : "New Care Schedule"}</h3>
 
           <div>
