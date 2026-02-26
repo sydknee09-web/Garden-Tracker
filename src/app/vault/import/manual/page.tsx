@@ -51,6 +51,8 @@ export default function ImportManualPage() {
       let days_to_germination: string | undefined;
       let harvest_days: number | undefined;
       let sowing_depth: string | undefined;
+      let companion_plants: string[] | undefined;
+      let avoid_plants: string[] | undefined;
 
       try {
         setPhase("enrich");
@@ -69,8 +71,6 @@ export default function ImportManualPage() {
           companion_plants?: string[] | null;
           avoid_plants?: string[] | null;
         };
-        let companion_plants: string[] | undefined;
-        let avoid_plants: string[] | undefined;
         if (enrichData?.enriched) {
           if (enrichData.sun != null) sun = enrichData.sun;
           if (enrichData.plant_spacing != null) plant_spacing = enrichData.plant_spacing;

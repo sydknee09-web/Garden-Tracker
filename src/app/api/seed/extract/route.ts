@@ -445,7 +445,13 @@ async function researchVarietyForExtract(
   vendor: string
 ): Promise<Partial<ExtractResponse> | null> {
   console.log("[extract] Research variety (Gemini + Search) for", plantType, variety || "(no variety)");
-  return researchVarietyLib(apiKey, plantType, variety, vendor);
+  const research = await researchVarietyLib(apiKey, plantType, variety, vendor);
+  if (!research) return null;
+  const { companion_plants: cpStr, avoid_plants: apStr, ...rest } = research;
+  const out: Partial<ExtractResponse> = { ...rest };
+  if (cpStr?.trim()) out.companion_plants = cpStr.split(",").map((x) => x.trim()).filter(Boolean);
+  if (apStr?.trim()) out.avoid_plants = apStr.split(",").map((x) => x.trim()).filter(Boolean);
+  return out;
 }
 
 export async function POST(req: Request) {
@@ -614,10 +620,7 @@ export async function POST(req: Request) {
         if (typeForNorm || varietyForResponse) {
           const research = await researchVarietyForExtract(apiKey, typeForNorm, varietyForResponse, vendor);
           if (research) {
-            const { companion_plants: cpStr, avoid_plants: apStr, ...rest } = research;
-            Object.assign(base, rest);
-            if (cpStr?.trim()) base.companion_plants = cpStr.split(",").map((x) => x.trim()).filter(Boolean);
-            if (apStr?.trim()) base.avoid_plants = apStr.split(",").map((x) => x.trim()).filter(Boolean);
+            Object.assign(base, research);
             if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-research" });
           }
         }
