@@ -212,7 +212,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-3 px-4">
+          <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-neutral-500">{schedules.length} schedule{schedules.length !== 1 ? "s" : ""}</p>
             {!readOnly && !showAdd && <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add</button>}
           </div>

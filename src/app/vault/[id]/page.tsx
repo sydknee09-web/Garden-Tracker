@@ -1771,8 +1771,8 @@ export default function VaultSeedPage() {
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careTemplates") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("careTemplates") && (
-                <div className="pb-4 pt-0">
-                  <p className="text-xs text-neutral-500 mb-3 px-4">Recurring care that auto-copies when you plant this variety.</p>
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-xs text-neutral-500 mb-3">Recurring care that auto-copies when you plant this variety.</p>
                   <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
                 </div>
                 )}
@@ -1787,7 +1787,7 @@ export default function VaultSeedPage() {
                   <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careSchedules") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
                 </button>
                 {isAboutOpen("careSchedules") && (
-                <div className="pb-4 pt-0">
+                <div className="px-4 pb-4 pt-0">
                   <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
                 </div>
                 )}
