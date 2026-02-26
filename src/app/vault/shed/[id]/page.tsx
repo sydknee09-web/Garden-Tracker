@@ -10,6 +10,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { hapticSuccess } from "@/lib/haptics";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
@@ -37,8 +38,9 @@ export default function VaultShedDetailPage() {
 
   const [orderedSupplyIds, setOrderedSupplyIds] = useState<string[]>([]);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
+  const [showSetPhotoModal, setShowSetPhotoModal] = useState(false);
+  useEscapeKey(showSetPhotoModal, () => setShowSetPhotoModal(false));
 
   const [supply, setSupply] = useState<SupplyProfile | null>(null);
   const [history, setHistory] = useState<(JournalEntry & { plant_name?: string })[]>([]);
@@ -315,6 +317,7 @@ export default function VaultShedDetailPage() {
         );
         if (error) throw error;
         hapticSuccess();
+        setShowSetPhotoModal(false);
         await fetchSupply();
         setToastMessage("Photo added");
         setTimeout(() => setToastMessage(null), 2500);
@@ -340,6 +343,7 @@ export default function VaultShedDetailPage() {
       );
       if (error) throw error;
       hapticSuccess();
+      setShowSetPhotoModal(false);
       setSupply((prev) => (prev ? { ...prev, primary_image_path: null } : null));
       setToastMessage("Photo removed");
       setTimeout(() => setToastMessage(null), 2500);
@@ -381,6 +385,68 @@ export default function VaultShedDetailPage() {
           {toastMessage}
         </div>
       )}
+
+      {showSetPhotoModal && canEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="shed-set-photo-title">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 id="shed-set-photo-title" className="text-lg font-semibold text-neutral-900">Set Product Photo</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">Take a photo or choose from files.</p>
+              </div>
+              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex-shrink-0" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+              {thumbUrl && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Current photo</p>
+                  <div className="relative inline-block w-20 h-20 rounded-lg overflow-hidden border-2 border-neutral-300 bg-neutral-100">
+                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      disabled={photoSaving}
+                      className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 focus:ring-2 focus:ring-red-400 disabled:opacity-50"
+                      aria-label="Remove current photo"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <label htmlFor={photoSaving ? undefined : "shed-photo-camera"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                  Take photo
+                </label>
+                <input
+                  id="shed-photo-camera"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={handleAddPhoto}
+                />
+                <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                  {photoSaving ? "Uploading…" : "Choose from files"}
+                </label>
+                <input
+                  id="shed-photo-gallery"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleAddPhoto}
+                />
+              </div>
+            </div>
+            <div className="flex-shrink-0 p-4 border-t border-neutral-200">
+              <button type="button" onClick={() => setShowSetPhotoModal(false)} className="w-full py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px]">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main content: swipe left/right on mobile to change product */}
       <div
         className="relative touch-pan-y"
@@ -420,23 +486,14 @@ export default function VaultShedDetailPage() {
       )}
 
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          aria-label="Add or change product photo"
-          onChange={handleAddPhoto}
-        />
         {thumbUrl ? (
           <div className="aspect-video bg-neutral-100 relative">
             <img src={thumbUrl} alt="" className="w-full h-full object-contain" />
             {canEdit && (
-              <div className="absolute bottom-3 right-3 flex gap-2">
+              <div className="absolute bottom-3 right-3">
                 <button
                   type="button"
-                  onClick={() => photoInputRef.current?.click()}
+                  onClick={() => setShowSetPhotoModal(true)}
                   disabled={photoSaving}
                   className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium disabled:opacity-50"
                   aria-label="Change photo"
@@ -447,22 +504,13 @@ export default function VaultShedDetailPage() {
                   </svg>
                   {photoSaving ? "…" : "Change"}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  disabled={photoSaving}
-                  className="px-3 py-1.5 rounded-xl bg-red-500/90 text-white shadow hover:bg-red-600 min-w-[44px] min-h-[44px] flex items-center justify-center text-sm font-medium disabled:opacity-50"
-                  aria-label="Remove photo"
-                >
-                  Remove
-                </button>
               </div>
             )}
           </div>
         ) : canEdit ? (
           <button
             type="button"
-            onClick={() => photoInputRef.current?.click()}
+            onClick={() => setShowSetPhotoModal(true)}
             disabled={photoSaving}
             className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-emerald-600 transition-colors min-h-[44px] disabled:opacity-50"
             aria-label="Add photo"
