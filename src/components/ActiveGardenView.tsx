@@ -198,8 +198,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   const openBulkDeleteConfirm = useCallback(() => setBulkDeleteConfirmOpen(true), []);
   const openBulkEndBatchConfirm = useCallback(() => setBulkEndBatchConfirmOpen(true), []);
 
-  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants]);
-
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
   const toBatchLogBatch = (b: GrowingBatch): BatchLogBatch => ({
@@ -728,6 +726,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     }
     load();
   }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+
+  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants]);
 
   const handleBulkEndBatch = useCallback(async () => {
     if (!user?.id || bulkSelected.size === 0) return;
