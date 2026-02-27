@@ -159,7 +159,7 @@ Each tab has its own filters; switching tabs preserves each tab's filters. No cr
 
 When navigating between top-level sections (Vault, Garden, Journal, etc.), filters (search, status, refine-by, view mode) are cleared and reset. Filters do **not** carry over.
 
-**Exception:** When selecting a planting from a profile page and navigating to Garden, the plant filter (`?profile=` or `?grow=` in the URL) stays applied. This is the only case where filters persist across navigation.
+**Exception:** When selecting an active seasonal planting from a profile page and navigating to Active Garden, the grow filter (`?grow=` in the URL) stays applied. Back to My Plants and View plant in My Plants no longer apply a profile filter.
 
 ---
 
@@ -174,6 +174,7 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | **Dashboard empty state** | "Add item" button opens Manual add modal |
 | **Shopping List page empty state** | FAB (plus icon) opens menu: "Add item" |
 | **Shopping List page** | FAB (plus icon) opens menu: "Add item" (Manual add modal), Cancel |
+| **Back** | "← Back" uses browser history — returns to prior page (Home, Vault, Garden, etc.) |
 
 ### Item types and links
 
@@ -227,3 +228,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-24 | Developer: API Usage moved to dedicated page `/settings/developer/usage`. Developer page shows link card "View usage →" instead of inline stats. |
 | 2025-02-26 | Shopping List: Supply items on dashboard + full page; header icon; empty state (Add from Shed, Add from Vault); placeholder checkmark/X icons; Add to shopping list on plant profile. |
 | 2025-02-26 | Shopping List Phase 2: Manual add modal (Add item by name); empty state + Add item button when list has items; dashboard and Shopping List page. |
+| 2025-02-27 | Removed profile filter from Back to My Plants and View plant in My Plants links. Both now navigate to full My Plants list. |

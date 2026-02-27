@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +24,7 @@ type ShoppingItem = {
 };
 
 export default function ShoppingListPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,12 +82,14 @@ export default function ShoppingListPage() {
   return (
     <div className="min-h-screen bg-neutral-50 p-6">
       <div className="mx-auto max-w-2xl">
-        <Link
-          href="/vault"
-          className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6 min-h-[44px] min-w-[44px]"
+          aria-label="Go back"
         >
-          ← Back to Vault
-        </Link>
+          ← Back
+        </button>
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">Shopping List</h1>
         <p className="text-neutral-600 text-sm mb-6">
           Out-of-stock items, supplies, and wishlist placeholders. Mark purchased to archive.
