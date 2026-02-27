@@ -205,3 +205,65 @@ export function CareSuggestions({
     </div>
   );
 }
+
+/** Compact button to trigger AI care suggestions — use next to Add Care Schedule button. */
+export function GetAiSuggestionsButton({
+  profileId,
+  userId,
+  profileName,
+  profileVariety,
+  profileType,
+  onChanged,
+  readOnly = false,
+}: Pick<Props, "profileId" | "userId" | "profileName" | "profileVariety" | "profileType" | "onChanged" | "readOnly">) {
+  const { session } = useAuth();
+  const [generating, setGenerating] = useState(false);
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) h.Authorization = `Bearer ${session.access_token}`;
+    return h;
+  };
+
+  const handleClick = useCallback(async () => {
+    if (!userId || generating || readOnly) return;
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/seed/recommend-care-tasks", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          plant_profile_id: profileId,
+          name: profileName,
+          variety: profileVariety ?? "",
+          profile_type: profileType,
+        }),
+      });
+      const data = (await res.json()) as { suggestions?: unknown[]; error?: string };
+      if (!res.ok) {
+        return;
+      }
+      if (data.error && (!data.suggestions || data.suggestions.length === 0)) {
+        return;
+      }
+      onChanged();
+    } catch {
+      // Silent fail for compact button
+    } finally {
+      setGenerating(false);
+    }
+  }, [profileId, userId, profileName, profileVariety, profileType, generating, onChanged, readOnly, session?.access_token]);
+
+  if (readOnly) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={generating}
+      className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 min-h-[44px] min-w-[44px]"
+    >
+      {generating ? "…" : "✨ AI suggestions"}
+    </button>
+  );
+}

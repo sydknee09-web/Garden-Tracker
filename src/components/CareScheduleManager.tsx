@@ -28,6 +28,8 @@ interface Props {
   growInstances?: GrowInstance[];
   /** When true, this is a permanent plant profile (trees, perennials). */
   isPermanent?: boolean;
+  /** Rendered next to the Add button (e.g. Get AI suggestions). */
+  extraActions?: React.ReactNode;
 }
 
 const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
@@ -37,7 +39,7 @@ const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false, extraActions }: Props) {
   const { viewMode: householdViewMode } = useHousehold();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -207,15 +209,23 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           {readOnly ? null : (
             <>
               <p className="text-neutral-400 text-xs mt-1 mb-4">Add recurring reminders like fertilize, prune, or water.</p>
-              <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">Add Care Schedule</button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px] min-w-[44px]">Add Care Schedule</button>
+                {extraActions}
+              </div>
             </>
           )}
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between gap-2 mb-3">
             <p className="text-sm text-neutral-500">{schedules.length} schedule{schedules.length !== 1 ? "s" : ""}</p>
-            {!readOnly && !showAdd && <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">+ Add</button>}
+            {!readOnly && !showAdd && (
+              <div className="flex items-center gap-2 shrink-0">
+                {extraActions}
+                <button type="button" onClick={() => setShowAdd(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px] min-w-[44px]">+ Add</button>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             {schedules.map((s) => (
