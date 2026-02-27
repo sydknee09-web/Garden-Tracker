@@ -1855,91 +1855,93 @@ function VaultPageInner() {
 
       {(viewMode === "grid" || viewMode === "list") && (
         <div className="relative z-10 pt-2">
-          {viewMode === "grid" && sowParam && /^\d{4}-\d{2}$/.test(sowParam) && (
-            <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-emerald-800">
-                Plant this month ({(() => {
-                  const [, m] = sowParam.split("-").map(Number);
-                  return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
-                })()})
-              </span>
-              <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</Link>
-            </div>
-          )}
-          {viewMode === "list" && packetSowMonth && /^\d{4}-\d{2}$/.test(packetSowMonth) && (
-            <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-emerald-800">
-                Plant this month ({(() => {
-                  const [, m] = packetSowMonth.split("-").map(Number);
-                  return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
-                })()})
-              </span>
-              <button type="button" onClick={() => setPacketSowMonth(null)} className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</button>
-            </div>
-          )}
-          {viewMode === "grid" ? (
-          <SeedVaultView
-            mode="grid"
-            refetchTrigger={refetchTrigger}
-            scrollContainerRef={scrollContainerRef}
-            searchQuery={searchQuery}
-            statusFilter={vaultFilters.filters.status as StatusFilter}
-            tagFilters={vaultFilters.filters.tags}
-            onTagsLoaded={handleTagsLoaded}
-            onOpenScanner={() => setScannerOpen(true)}
-            onAddFirst={() => setQuickAddOpen(true)}
-            batchSelectMode={batchSelectMode}
-            selectedVarietyIds={selectedVarietyIds}
-            onToggleVarietySelection={toggleVarietySelection}
-            onLongPressVariety={handleLongPressVariety}
-            onFilteredIdsChange={setFilteredVarietyIds}
-            onPendingHeroCountChange={setPendingHeroCount}
-            onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
-            availablePlantTypes={availablePlantTypes}
-            onPlantTypeChange={handlePlantTypeChange}
-            plantNowFilter={!!sowParam}
-            sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
-            gridDisplayStyle={viewMode === "grid" ? gridDisplayStyle : undefined}
-            categoryFilter={vaultFilters.filters.category}
-            onCategoryFilterChange={vaultFilters.setCategory}
-            onCategoryChipsLoaded={handleCategoryChipsLoaded}
-            varietyFilter={vaultFilters.filters.variety}
-            vendorFilter={vaultFilters.filters.vendor}
-            sunFilter={vaultFilters.filters.sun}
-            spacingFilter={vaultFilters.filters.spacing}
-            germinationFilter={vaultFilters.filters.germination}
-            maturityFilter={vaultFilters.filters.maturity}
-            packetCountFilter={vaultFilters.filters.packetCount}
-            onRefineChipsLoaded={handleRefineChipsLoaded}
-            onVaultStatusChipsLoaded={handleVaultStatusChipsLoaded}
-            onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
-            hideArchivedProfiles={false}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-          />
-          ) : (
-          <PacketVaultLazy
-            refetchTrigger={refetchTrigger}
-            scrollContainerRef={scrollContainerRef}
-            searchQuery={packetSearchQuery}
-            statusFilter={packetStatusFilter}
-            vendorFilter={packetVendorFilter}
-            sortBy={packetSortBy}
-            sortDirection={packetSortDirection}
-            sowMonth={packetSowMonth}
-            batchSelectMode={batchSelectMode}
-            selectedProfileIds={selectedVarietyIds}
-            onToggleProfileSelection={toggleVarietySelection}
-            onLongPressPacket={handleLongPressVariety}
-            onFilteredIdsChange={setFilteredVarietyIds}
-            onFilteredCountChange={setFilteredPacketCount}
-            onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
-            onOpenScanner={() => setScannerOpen(true)}
-            onAddFirst={() => setQuickAddOpen(true)}
-            onPacketStatusChipsLoaded={setPacketStatusChips}
-            onPacketVendorChipsLoaded={setPacketVendorChips}
-          />
-          )}
+          {/* Both views mounted; visibility toggled for instant tab switching */}
+          <div className={viewMode === "grid" ? "block" : "hidden"} aria-hidden={viewMode !== "grid"}>
+            {sowParam && /^\d{4}-\d{2}$/.test(sowParam) && (
+              <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-emerald-800">
+                  Plant this month ({(() => {
+                    const [, m] = sowParam.split("-").map(Number);
+                    return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
+                  })()})
+                </span>
+                <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</Link>
+              </div>
+            )}
+            <SeedVaultView
+              mode="grid"
+              refetchTrigger={refetchTrigger}
+              scrollContainerRef={scrollContainerRef}
+              searchQuery={searchQuery}
+              statusFilter={vaultFilters.filters.status as StatusFilter}
+              tagFilters={vaultFilters.filters.tags}
+              onTagsLoaded={handleTagsLoaded}
+              onOpenScanner={() => setScannerOpen(true)}
+              onAddFirst={() => setQuickAddOpen(true)}
+              batchSelectMode={batchSelectMode}
+              selectedVarietyIds={selectedVarietyIds}
+              onToggleVarietySelection={toggleVarietySelection}
+              onLongPressVariety={handleLongPressVariety}
+              onFilteredIdsChange={setFilteredVarietyIds}
+              onPendingHeroCountChange={setPendingHeroCount}
+              onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
+              availablePlantTypes={availablePlantTypes}
+              onPlantTypeChange={handlePlantTypeChange}
+              plantNowFilter={!!sowParam}
+              sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
+              gridDisplayStyle={gridDisplayStyle}
+              categoryFilter={vaultFilters.filters.category}
+              onCategoryFilterChange={vaultFilters.setCategory}
+              onCategoryChipsLoaded={handleCategoryChipsLoaded}
+              varietyFilter={vaultFilters.filters.variety}
+              vendorFilter={vaultFilters.filters.vendor}
+              sunFilter={vaultFilters.filters.sun}
+              spacingFilter={vaultFilters.filters.spacing}
+              germinationFilter={vaultFilters.filters.germination}
+              maturityFilter={vaultFilters.filters.maturity}
+              packetCountFilter={vaultFilters.filters.packetCount}
+              onRefineChipsLoaded={handleRefineChipsLoaded}
+              onVaultStatusChipsLoaded={handleVaultStatusChipsLoaded}
+              onSowingMonthChipsLoaded={handleSowingMonthChipsLoaded}
+              hideArchivedProfiles={false}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+            />
+          </div>
+          <div className={viewMode === "list" ? "block" : "hidden"} aria-hidden={viewMode !== "list"}>
+            {packetSowMonth && /^\d{4}-\d{2}$/.test(packetSowMonth) && (
+              <div className="mb-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-emerald-800">
+                  Plant this month ({(() => {
+                    const [, m] = packetSowMonth.split("-").map(Number);
+                    return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
+                  })()})
+                </span>
+                <button type="button" onClick={() => setPacketSowMonth(null)} className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</button>
+              </div>
+            )}
+            <PacketVaultLazy
+              refetchTrigger={refetchTrigger}
+              scrollContainerRef={scrollContainerRef}
+              searchQuery={packetSearchQuery}
+              statusFilter={packetStatusFilter}
+              vendorFilter={packetVendorFilter}
+              sortBy={packetSortBy}
+              sortDirection={packetSortDirection}
+              sowMonth={packetSowMonth}
+              batchSelectMode={batchSelectMode}
+              selectedProfileIds={selectedVarietyIds}
+              onToggleProfileSelection={toggleVarietySelection}
+              onLongPressPacket={handleLongPressVariety}
+              onFilteredIdsChange={setFilteredVarietyIds}
+              onFilteredCountChange={setFilteredPacketCount}
+              onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
+              onOpenScanner={() => setScannerOpen(true)}
+              onAddFirst={() => setQuickAddOpen(true)}
+              onPacketStatusChipsLoaded={setPacketStatusChips}
+              onPacketVendorChipsLoaded={setPacketVendorChips}
+            />
+          </div>
         </div>
       )}
 

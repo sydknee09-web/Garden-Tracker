@@ -28,7 +28,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 }
 import { StarRating } from "@/components/StarRating";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
-import { VaultGridSkeleton } from "@/components/PageSkeleton";
+import { VaultListSkeleton } from "@/components/PageSkeleton";
 import type { PacketStatusFilter } from "@/types/vault";
 
 export type { PacketStatusFilter };
@@ -104,6 +104,7 @@ export function PacketVaultView({
   const [pullRefetch, setPullRefetch] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
+  const [imageLoadedIds, setImageLoadedIds] = useState<Set<string>>(new Set());
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
   const isOnline = useOnlineStatus();
@@ -142,6 +143,10 @@ export function PacketVaultView({
 
   const markThumbError = useCallback((packetId: string) => {
     setImageErrorIds((prev) => (prev.has(packetId) ? prev : new Set(prev).add(packetId)));
+  }, []);
+
+  const markThumbLoaded = useCallback((packetId: string) => {
+    setImageLoadedIds((prev) => (prev.has(packetId) ? prev : new Set(prev).add(packetId)));
   }, []);
 
   /** Law 7: hero_image_url → hero_image_path → packet primary_image_path → sprout */
@@ -437,7 +442,7 @@ export function PacketVaultView({
   if (loading && packets.length === 0) {
     return (
       <div className="relative z-10 pt-2">
-        <VaultGridSkeleton />
+        <VaultListSkeleton />
       </div>
     );
   }
@@ -533,7 +538,7 @@ export function PacketVaultView({
                       {showSeedling ? (
                         <span className="text-lg">🌱</span>
                       ) : (
-                        <img src={thumbUrl!} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => markThumbError(pkt.id)} />
+                        <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(pkt.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(pkt.id)} onError={() => markThumbError(pkt.id)} />
                       )}
                       {ownerBadge && (
                         <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">

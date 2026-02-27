@@ -361,6 +361,7 @@ export function SeedVaultView({
   const setCategoryFilter = onCategoryFilterChange ?? setCategoryFilterInternal;
   const [gridSortBy, setGridSortBy] = useState<GridSortBy>("name");
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
+  const [imageLoadedIds, setImageLoadedIds] = useState<Set<string>>(new Set());
   const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
   const [listColumnWidths, setListColumnWidths] = useState<Record<string, number>>(() => loadListTableState().columnWidths);
   const isOnline = useOnlineStatus();
@@ -440,6 +441,10 @@ export function SeedVaultView({
 
   const markThumbError = useCallback((seedId: string) => {
     setImageErrorIds((prev) => (prev.has(seedId) ? prev : new Set(prev).add(seedId)));
+  }, []);
+
+  const markThumbLoaded = useCallback((seedId: string) => {
+    setImageLoadedIds((prev) => (prev.has(seedId) ? prev : new Set(prev).add(seedId)));
   }, []);
 
   const handleListSort = (col: ListSortColumn) => {
@@ -1077,7 +1082,7 @@ export function SeedVaultView({
   if (loading) {
     return (
       <div className="relative z-10">
-        <VaultGridSkeleton />
+        <VaultGridSkeleton gridDisplayStyle={gridDisplayStyle} />
       </div>
     );
   }
@@ -1200,7 +1205,7 @@ export function SeedVaultView({
                       ) : showSeedling ? (
                         <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-3xl">🌱</div>
                       ) : (
-                        <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
+                        <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                       )}
                       {batchSelectMode && (
                         <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
@@ -1281,7 +1286,7 @@ export function SeedVaultView({
                     ) : showSeedling ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
                     ) : (
-                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center" loading="lazy" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
                     {batchSelectMode && (
                       <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
@@ -1504,7 +1509,7 @@ export function SeedVaultView({
                     ) : showSeedling ? (
                       <span className="text-lg">🌱</span>
                     ) : (
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
@@ -1579,7 +1584,7 @@ export function SeedVaultView({
                     <div className="w-10 h-10 rounded-lg bg-emerald/10 flex items-center justify-center text-lg shrink-0">🌱</div>
                   ) : (
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
-                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover" loading="lazy" onError={() => markThumbError(seed.id)} />
+                      <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     </div>
                   );
                 })()}

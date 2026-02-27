@@ -58,10 +58,31 @@ export function PageSkeletonHome() {
   );
 }
 
-/** Compact grid skeleton for SeedVaultView loading state (no header). */
-export function VaultGridSkeleton() {
+/** List skeleton for PacketVaultView (Seed Vault tab) loading state — matches list row layout. */
+export function VaultListSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
+      <ul className="divide-y divide-black/5" role="list">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <li key={i} className="flex items-center gap-3 px-3 py-3">
+            <div className="w-10 h-10 rounded-lg bg-neutral-200 animate-pulse shrink-0" />
+            <div className="flex-1 space-y-1">
+              <SkeletonBar className="w-3/4 h-4" />
+              <SkeletonBar className="w-1/2 h-3" />
+            </div>
+            <div className="w-12 h-6 rounded bg-neutral-200 animate-pulse shrink-0" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Compact grid skeleton for SeedVaultView loading state (no header). Matches gridDisplayStyle: photo=2-col, condensed=3-col. */
+export function VaultGridSkeleton({ gridDisplayStyle = "condensed" }: { gridDisplayStyle?: "photo" | "condensed" }) {
+  const gridClass = gridDisplayStyle === "photo" ? "grid-cols-2 gap-2" : "grid-cols-2 sm:grid-cols-3 gap-2";
+  return (
+    <div className={`grid ${gridClass}`}>
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
         <div key={i} className="rounded-xl overflow-hidden bg-white border border-black/5 shadow-card">
           <div className="aspect-square bg-neutral-200 animate-pulse" />
