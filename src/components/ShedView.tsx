@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import type { SVGProps } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
@@ -14,24 +13,14 @@ import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 
 /** Bag/sack icon for supplies without a photo. Differentiates from sprout used for plants. Exported for shed detail page. */
-export function ShedSupplyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
+export function ShedSupplyIcon({ className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
   return (
-    <svg
-      viewBox="0 0 48 48"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <img
+      src="/icons/shed-supply-bag.png"
+      alt=""
       className={className}
       {...props}
-    >
-      {/* Bag body: bulbous sack shape */}
-      <path d="M14 16v20c0 2.2 1.8 4 4 4h12c2.2 0 4-1.8 4-4V16" />
-      {/* Top cinched opening with folds */}
-      <path d="M14 16c0-4 4-8 10-8s10 4 10 8" strokeWidth="1.5" opacity="0.8" />
-      <path d="M16 12h16" strokeWidth="1.5" opacity="0.6" />
-    </svg>
+    />
   );
 }
 
