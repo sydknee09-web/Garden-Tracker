@@ -1492,10 +1492,17 @@ function CalendarTaskRow({
             className={
               isSowTask(task.category)
                 ? "min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center"
-                : "text-xs font-medium text-emerald-600 hover:underline px-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                : "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             }
+            aria-label={isSowTask(task.category) ? "Plant" : "Mark complete"}
           >
-            {isSowTask(task.category) ? "Plant" : "Complete"}
+            {isSowTask(task.category) ? (
+              "Plant"
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
           </button>
         </span>
       )}

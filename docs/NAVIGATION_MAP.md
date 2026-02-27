@@ -229,3 +229,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-26 | Shopping List: Supply items on dashboard + full page; header icon; empty state (Add from Shed, Add from Vault); placeholder checkmark/X icons; Add to shopping list on plant profile. |
 | 2025-02-26 | Shopping List Phase 2: Manual add modal (Add item by name); empty state + Add item button when list has items; dashboard and Shopping List page. |
 | 2025-02-27 | Removed profile filter from Back to My Plants and View plant in My Plants links. Both now navigate to full My Plants list. |
+| 2025-02-27 | Plant profile tabs: Added Care tab between About and PKT. Care templates/schedules moved from About into Care tab. Tab order: About, Care, Pkts, Plants, Journal. Counts only on Pkts and Plants; Journal shows no count. |

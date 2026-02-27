@@ -208,8 +208,8 @@ export default function VaultSeedPage() {
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const tabFromUrl = searchParams.get("tab");
   const fromParam = searchParams.get("from");
-  const validTab = ["about", "packets", "plantings", "journal"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "packets" | "plantings" | "journal" : "about";
-  const [activeTab, setActiveTab] = useState<"about" | "packets" | "plantings" | "journal">(validTab);
+  const validTab = ["about", "care", "packets", "plantings", "journal"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "care" | "packets" | "plantings" | "journal" : "about";
+  const [activeTab, setActiveTab] = useState<"about" | "care" | "packets" | "plantings" | "journal">(validTab);
 
   useEffect(() => {
     setActiveTab(validTab);
@@ -1539,12 +1539,12 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Tabs — unified for all profile types: About, Packets, Plantings, Journal. Care is in About. */}
+        {/* Tabs — About, Care, Packets, Plantings, Journal. Counts only on Pkts and Plants. */}
         <div className="flex flex-wrap border-b border-neutral-200 gap-0 mb-4 overflow-visible">
-          {(["about","packets","plantings","journal"] as const).map((tab) => (
+          {(["about","care","packets","plantings","journal"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`flex-1 min-w-0 min-h-[44px] px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
-              {tab === "about" ? "About" : tab === "packets" ? `Pkts (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : `Journal (${journalEntries.length})`}
+              {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Pkts (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
             </button>
           ))}
         </div>
@@ -1770,39 +1770,6 @@ export default function VaultSeedPage() {
               </div>
             )}
 
-            {/* Care Templates (seed profiles -- auto-copy to plantings) */}
-            {!isPermanent && !isLegacy && (
-              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                <button type="button" onClick={() => toggleAboutSection("careTemplates")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("careTemplates")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Care Templates</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careTemplates") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
-                </button>
-                {isAboutOpen("careTemplates") && (
-                <div className="px-4 pb-4 pt-0 space-y-4">
-                  <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
-                  <p className="text-xs text-neutral-500">Recurring care that auto-copies when you plant this variety.</p>
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
-                </div>
-                )}
-              </div>
-            )}
-
-            {/* Care Schedules (permanent profiles -- instance-level) */}
-            {isPermanent && !isLegacy && (
-              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                <button type="button" onClick={() => toggleAboutSection("careSchedules")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("careSchedules")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Care Schedules</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("careSchedules") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
-                </button>
-                {isAboutOpen("careSchedules") && (
-                <div className="px-4 pb-4 pt-0 space-y-4">
-                  <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
-                  <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
-                </div>
-                )}
-              </div>
-            )}
-
             {/* Source URL */}
             {packets.length > 0 && packets[0].purchase_url?.trim() && (
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
@@ -1880,6 +1847,32 @@ export default function VaultSeedPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ============================================================ */}
+        {/* CARE TAB                                                      */}
+        {/* ============================================================ */}
+        {activeTab === "care" && (
+          <div className="space-y-4">
+            {!isLegacy && !isPermanent && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-4">
+                <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
+                <p className="text-xs text-neutral-500">Recurring care that auto-copies when you plant this variety.</p>
+                <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
+              </div>
+            )}
+            {!isLegacy && isPermanent && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-4">
+                <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
+                <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
+              </div>
+            )}
+            {isLegacy && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-6 text-center">
+                <p className="text-neutral-500 text-sm">Care schedules are not available for legacy imports.</p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ============================================================ */}
