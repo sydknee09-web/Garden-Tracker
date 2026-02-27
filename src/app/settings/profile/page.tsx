@@ -7,7 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import type { HouseholdEditGrant, UserSettings } from "@/types/garden";
+import type {
+  HouseholdEditGrant,
+  HouseholdPagePermission,
+  PageAccessLevel,
+  PageKey,
+  UserSettings,
+} from "@/types/garden";
+import { PAGE_LABELS } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 
 const APP_VERSION = "0.1.0";
@@ -63,7 +70,7 @@ function pickUniqueShorthand(
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
   const { tapVersion } = useDeveloperUnlock();
-  const { household, householdMembers, householdLoading, isInHousehold, reloadHousehold, editGrants, memberShorthands } = useHousehold();
+  const { household, householdMembers, householdLoading, isInHousehold, reloadHousehold, editGrants, pagePermissions, memberShorthands } = useHousehold();
   const router = useRouter();
 
   // Garden settings
@@ -101,6 +108,8 @@ export default function SettingsProfilePage() {
   const hasAutoExpanded = useRef(false);
   const [shorthandError, setShorthandError] = useState<string | null>(null);
   const [togglingGrantForUser, setTogglingGrantForUser] = useState<string | null>(null);
+  const [expandedPageAccessFor, setExpandedPageAccessFor] = useState<string | null>(null);
+  const [togglingPagePerm, setTogglingPagePerm] = useState<string | null>(null); // "granteeId:page"
 
   // Auto-expand household section once loaded if in a household
   useEffect(() => {
@@ -531,6 +540,43 @@ export default function SettingsProfilePage() {
     await reloadHousehold();
   }, [user?.id, household, reloadHousehold]);
 
+  const PAGE_KEYS: PageKey[] = ["seed_vault", "plant_vault", "garden", "journal", "shed", "shopping_list"];
+
+  const handleSetPagePermission = useCallback(
+    async (granteeUserId: string, page: PageKey, level: PageAccessLevel | null) => {
+      if (!user?.id || !household) return;
+      const key = `${granteeUserId}:${page}`;
+      setTogglingPagePerm(key);
+      const existing = pagePermissions.find(
+        (p: HouseholdPagePermission) =>
+          p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
+      );
+      if (level === null) {
+        if (existing) {
+          await supabase.from("household_page_permissions").delete().eq("id", existing.id);
+        }
+      } else {
+        if (existing) {
+          await supabase
+            .from("household_page_permissions")
+            .update({ access_level: level })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("household_page_permissions").insert({
+            household_id: household.id,
+            grantor_user_id: user.id,
+            grantee_user_id: granteeUserId,
+            page,
+            access_level: level,
+          });
+        }
+      }
+      setTogglingPagePerm(null);
+      await reloadHousehold();
+    },
+    [user?.id, household, pagePermissions, reloadHousehold],
+  );
+
   const ZONES = ["1a","1b","2a","2b","3a","3b","4a","4b","5a","5b","6a","6b","7a","7b","8a","8b","9a","9b","10a","10b","11a","11b","12a","12b","13a","13b"];
 
   const handleNavClick = useCallback((e: React.MouseEvent, href: string) => {
@@ -916,21 +962,79 @@ export default function SettingsProfilePage() {
                           </div>
                           {/* Edit grant toggle — only shown for other members; I control who can edit MY stuff */}
                           {!isYou && (
-                            <div className="flex items-center justify-between gap-2 pl-1 py-1 rounded-lg bg-neutral-50 px-2">
-                              <span className="text-xs text-neutral-500">Can edit my plants &amp; tasks</span>
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={grantedToThisMember}
-                                disabled={togglingGrantForUser === m.user_id}
-                                onClick={() => handleToggleGrant(m.user_id, grantedToThisMember)}
-                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:opacity-50 ${grantedToThisMember ? "bg-emerald-500" : "bg-neutral-300"}`}
-                              >
-                                <span
-                                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${grantedToThisMember ? "translate-x-4" : "translate-x-0"}`}
-                                />
-                              </button>
-                            </div>
+                            <>
+                              <div className="flex items-center justify-between gap-2 pl-1 py-1 rounded-lg bg-neutral-50 px-2">
+                                <span className="text-xs text-neutral-500">Can edit my plants &amp; tasks</span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={grantedToThisMember}
+                                  disabled={togglingGrantForUser === m.user_id}
+                                  onClick={() => handleToggleGrant(m.user_id, grantedToThisMember)}
+                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 disabled:opacity-50 ${grantedToThisMember ? "bg-emerald-500" : "bg-neutral-300"}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform ${grantedToThisMember ? "translate-x-4" : "translate-x-0"}`}
+                                  />
+                                </button>
+                              </div>
+                              {/* Per-page access — only for owner/admin */}
+                              {isOwner && (
+                                <div className="mt-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedPageAccessFor((prev) => (prev === m.user_id ? null : m.user_id))
+                                    }
+                                    className="text-xs text-neutral-500 hover:text-emerald-600 min-h-[32px] flex items-center gap-1"
+                                  >
+                                    {expandedPageAccessFor === m.user_id ? "−" : "+"} Page access
+                                  </button>
+                                  {expandedPageAccessFor === m.user_id && (
+                                    <div className="mt-2 pl-2 border-l-2 border-neutral-200 space-y-2">
+                                      {grantedToThisMember && (
+                                        <p className="text-[11px] text-amber-700">
+                                          Full edit above. Per-page overrides when you revoke full edit.
+                                        </p>
+                                      )}
+                                      {PAGE_KEYS.map((page) => {
+                                        const perm = pagePermissions.find(
+                                          (p) =>
+                                            p.grantor_user_id === user.id &&
+                                            p.grantee_user_id === m.user_id &&
+                                            p.page === page,
+                                        );
+                                        const currentLevel = perm?.access_level ?? null;
+                                        const key = `${m.user_id}:${page}`;
+                                        const busy = togglingPagePerm === key;
+                                        return (
+                                          <div key={page} className="flex items-center justify-between gap-2">
+                                            <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
+                                            <select
+                                              value={currentLevel ?? "none"}
+                                              disabled={busy}
+                                              onChange={(e) => {
+                                                const v = e.target.value;
+                                                handleSetPagePermission(
+                                                  m.user_id,
+                                                  page,
+                                                  v === "none" ? null : (v as PageAccessLevel),
+                                                );
+                                              }}
+                                              className="text-xs rounded border border-neutral-300 px-2 py-1 min-h-[32px] bg-white disabled:opacity-50"
+                                            >
+                                              <option value="none">—</option>
+                                              <option value="view">View</option>
+                                              <option value="edit">Edit</option>
+                                            </select>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
                         </li>
                       );

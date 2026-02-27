@@ -391,3 +391,27 @@ export interface HouseholdEditGrant {
   grantee_user_id: string;
   created_at: string;
 }
+
+export type PageKey = "seed_vault" | "plant_vault" | "garden" | "journal" | "shed" | "shopping_list";
+
+export type PageAccessLevel = "view" | "edit";
+
+export interface HouseholdPagePermission {
+  id: string;
+  household_id: string;
+  grantor_user_id: string;
+  grantee_user_id: string;
+  page: PageKey;
+  access_level: PageAccessLevel;
+  created_at: string;
+}
+
+/** Human-readable labels for page keys (for Settings UI) */
+export const PAGE_LABELS: Record<PageKey, string> = {
+  seed_vault: "Seed vault",
+  plant_vault: "Plant vault",
+  garden: "My garden & Permanent plants",
+  journal: "Journal",
+  shed: "Shed",
+  shopping_list: "Shopping list",
+};

@@ -251,7 +251,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
 export default function JournalPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const { setSyncing } = useSync();
   const [entries, setEntries] = useState<JournalEntryWithPlant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -583,7 +583,7 @@ export default function JournalPage() {
                       </span>
                     ))}
                     {householdViewMode === "family" && row.owner_user_id && (
-                      <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
+                      <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                     )}
                   </div>
                   {row.note ? (
@@ -663,7 +663,7 @@ export default function JournalPage() {
                             </span>
                           ))}
                           {householdViewMode === "family" && row.owner_user_id && (
-                            <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
+                            <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                           )}
                         </div>
                       </td>
@@ -807,7 +807,7 @@ export default function JournalPage() {
                         </span>
                       ))}
                       {householdViewMode === "family" && row.owner_user_id && (
-                        <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditUser(row.owner_user_id)} size="xs" />
+                        <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                       )}
                     </div>
                     <time dateTime={row.date} className="text-xs text-black/50 shrink-0">

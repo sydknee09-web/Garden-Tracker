@@ -98,9 +98,9 @@ export default function HomePage() {
       // Batch 1: Fetch all independent data in parallel
       const [settingsRes, tasksRes, listRes, careRes] = await Promise.all([
         supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
-        supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(20),
+        supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(5),
         supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
-        supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(10),
+        supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(5),
       ]);
 
       const settings = settingsRes.data as UserSettingsRow | null;
@@ -506,6 +506,7 @@ export default function HomePage() {
                     <Link href="/calendar" className="text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
                   </div>
                 ) : (
+                  <>
                   <ul className="space-y-1">
                     {pendingTasks.map((t) => {
                       const vaultId = t.plant_profile_id;
@@ -532,6 +533,8 @@ export default function HomePage() {
                       );
                     })}
                   </ul>
+                  <Link href="/calendar" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
+                  </>
                 )}
               </div>
             </div>
@@ -561,6 +564,7 @@ export default function HomePage() {
                 );
               })}
             </ul>
+            <Link href="/calendar" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
           </section>
         )}
       </div>

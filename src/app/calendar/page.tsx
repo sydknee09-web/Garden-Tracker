@@ -25,6 +25,8 @@ const TASK_LABELS: Record<string, string> = {
   fertilize: "Fertilize",
   prune: "Prune",
   general: "General",
+  water: "Water",
+  spray: "Spray",
 };
 
 const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
@@ -61,7 +63,7 @@ function getCategoryDotColor(category: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const router = useRouter();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -905,7 +907,7 @@ export default function CalendarPage() {
                       onLongPress={() => handleLongPressTask(t.id)}
                       onToggleSelect={() => toggleTaskSelect(t.id)}
                       ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
-                      canEdit={!t.user_id || canEditUser(t.user_id)}
+                      canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                     />
                   </li>
                 ))}
@@ -956,7 +958,7 @@ export default function CalendarPage() {
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
                               ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
-                              canEdit={!t.user_id || canEditUser(t.user_id)}
+                              canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                             />
                           ))}
                         </div>
@@ -1410,9 +1412,11 @@ function CalendarTaskRow({
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
   const [showDelete, setShowDelete] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const categoryLabel = TASK_LABELS[task.category] ?? task.category;
-  const plantLabel = (task.plant_name ?? (task.title ?? "").replace(new RegExp(`^${categoryLabel}\\s*`, "i"), "").trim()) || null;
-  const displayLine = plantLabel ? `${categoryLabel} – ${plantLabel}` : (task.title ?? categoryLabel);
+  const categoryLabel = TASK_LABELS[task.category] ?? task.category ?? "";
+  const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
+  const plantName = task.plant_name?.trim();
+  const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
+  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${new Date(task.due_date).toLocaleDateString()})`;
 
   const handlePointerDown = () => {
     if (selectMode) return;
@@ -1443,7 +1447,7 @@ function CalendarTaskRow({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      className={`flex flex-wrap items-center gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
+      className={`flex flex-wrap items-start gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
         selectMode && isSelected
           ? "bg-emerald-50 border-emerald-400"
           : task.completed_at
@@ -1465,7 +1469,7 @@ function CalendarTaskRow({
           )}
         </span>
       )}
-      <span className={`font-medium flex-1 min-w-0 truncate ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
+      <span className={`font-medium flex-1 min-w-0 break-words ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
       {ownerBadge && (
         <span className="shrink-0">
           <OwnerBadge shorthand={ownerBadge} canEdit={canEdit} size="xs" />

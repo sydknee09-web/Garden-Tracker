@@ -141,7 +141,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   sortDir = "desc",
 }, ref) => {
   const { user } = useAuth();
-  const { viewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode, getShorthandForUser, canEditPage } = useHousehold();
   const highlightBatchRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
@@ -974,7 +974,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                     href={`/vault/${batch.plant_profile_id}?tab=plantings&from=garden&gardenTab=active`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
                     onClick={(e) => {
-                      if (bulkMode && canEditUser(batch.user_id ?? "")) {
+                      if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
                         e.preventDefault();
                         toggleBulkSelect(batch.id);
                       }
@@ -983,7 +983,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         longPressFiredRef.current = false;
                       }
                     }}
-                    onTouchStart={canEditUser(batch.user_id ?? "") ? () => {
+                    onTouchStart={canEditPage(batch.user_id ?? "", "garden") ? () => {
                       longPressFiredRef.current = false;
                       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                       longPressTimerRef.current = setTimeout(() => {
@@ -994,19 +994,19 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         onBulkModeChange?.(true);
                       }, LONG_PRESS_MS);
                     } : undefined}
-                    onTouchMove={canEditUser(batch.user_id ?? "") ? () => {
+                    onTouchMove={canEditPage(batch.user_id ?? "", "garden") ? () => {
                       if (longPressTimerRef.current) {
                         clearTimeout(longPressTimerRef.current);
                         longPressTimerRef.current = null;
                       }
                     } : undefined}
-                    onTouchEnd={canEditUser(batch.user_id ?? "") ? () => {
+                    onTouchEnd={canEditPage(batch.user_id ?? "", "garden") ? () => {
                       if (longPressTimerRef.current) {
                         clearTimeout(longPressTimerRef.current);
                         longPressTimerRef.current = null;
                       }
                     } : undefined}
-                    onTouchCancel={canEditUser(batch.user_id ?? "") ? () => {
+                    onTouchCancel={canEditPage(batch.user_id ?? "", "garden") ? () => {
                       if (longPressTimerRef.current) {
                         clearTimeout(longPressTimerRef.current);
                         longPressTimerRef.current = null;
@@ -1025,10 +1025,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         )}
                         {viewMode === "family" && batch.user_id && (
                           <span className="absolute top-0.5 right-0.5">
-                            <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
+                            <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                           </span>
                         )}
-                        {bulkMode && canEditUser(batch.user_id ?? "") && (
+                        {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
                           <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                             {bulkSelected.has(batch.id) ? (
                               <span className="w-3 h-3 rounded-full bg-blue-600" />
@@ -1045,7 +1045,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       </p>
                     </div>
                   </Link>
-                  {canEditUser(batch.user_id ?? "") && (
+                  {canEditPage(batch.user_id ?? "", "garden") && (
                     <div className="px-1.5 pb-1 pt-0 border-t border-black/5">
                       <button
                         type="button"
@@ -1093,9 +1093,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                   className={`rounded-xl border bg-white p-4 shadow-sm transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
                 >
                   <div
-                    className={`flex items-start justify-between gap-3 ${bulkMode && canEditUser(batch.user_id ?? "") ? "cursor-pointer" : ""}`}
+                    className={`flex items-start justify-between gap-3 ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}
                     onClick={
-                      bulkMode && canEditUser(batch.user_id ?? "")
+                      bulkMode && canEditPage(batch.user_id ?? "", "garden")
                         ? (e) => {
                             if (!(e.target as HTMLElement).closest("a")) {
                               e.preventDefault();
@@ -1106,7 +1106,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                     }
                   >
                     {/* Bulk selection bubble — only for editable batches */}
-                    {bulkMode && canEditUser(batch.user_id ?? "") && (
+                    {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
                       <span className="mt-1 shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                         {bulkSelected.has(batch.id) ? (
                           <span className="w-3 h-3 rounded-full bg-blue-600" />
@@ -1126,7 +1126,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
                       aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
                       onClick={(e) => {
-                        if (bulkMode && canEditUser(batch.user_id ?? "")) {
+                        if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
                           e.preventDefault();
                           toggleBulkSelect(batch.id);
                         }
@@ -1135,7 +1135,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           longPressFiredRef.current = false;
                         }
                       }}
-                      onTouchStart={canEditUser(batch.user_id ?? "") ? () => {
+                      onTouchStart={canEditPage(batch.user_id ?? "", "garden") ? () => {
                         longPressFiredRef.current = false;
                         if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                         longPressTimerRef.current = setTimeout(() => {
@@ -1146,19 +1146,19 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           onBulkModeChange?.(true);
                         }, LONG_PRESS_MS);
                       } : undefined}
-                      onTouchMove={canEditUser(batch.user_id ?? "") ? () => {
+                      onTouchMove={canEditPage(batch.user_id ?? "", "garden") ? () => {
                         if (longPressTimerRef.current) {
                           clearTimeout(longPressTimerRef.current);
                           longPressTimerRef.current = null;
                         }
                       } : undefined}
-                      onTouchEnd={canEditUser(batch.user_id ?? "") ? () => {
+                      onTouchEnd={canEditPage(batch.user_id ?? "", "garden") ? () => {
                         if (longPressTimerRef.current) {
                           clearTimeout(longPressTimerRef.current);
                           longPressTimerRef.current = null;
                         }
                       } : undefined}
-                      onTouchCancel={canEditUser(batch.user_id ?? "") ? () => {
+                      onTouchCancel={canEditPage(batch.user_id ?? "", "garden") ? () => {
                         if (longPressTimerRef.current) {
                           clearTimeout(longPressTimerRef.current);
                           longPressTimerRef.current = null;
@@ -1171,7 +1171,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
                         {viewMode === "family" && batch.user_id && (
-                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditUser(batch.user_id)} size="xs" />
+                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                         )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
@@ -1189,7 +1189,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         </div>
                       )}
                     </Link>
-                    {canEditUser(batch.user_id ?? "") && (
+                    {canEditPage(batch.user_id ?? "", "garden") && (
                       <div className="relative flex-shrink-0">
                         <button
                           type="button"

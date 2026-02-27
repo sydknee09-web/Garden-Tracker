@@ -52,7 +52,7 @@ export function ShedView({
   onFilteredIdsChange?: (ids: string[]) => void;
 }) {
   const { user } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const router = useRouter();
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -312,7 +312,7 @@ export function ShedView({
                     </div>
                   </div>
                   {isFamilyView && s.user_id && (
-                    <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditUser(s.user_id)} size="xs" />
+                    <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
                   )}
                 </>
               );
@@ -381,7 +381,7 @@ export function ShedView({
                   )}
                   {isFamilyView && s.user_id && (
                     <span className="absolute top-1 right-1">
-                      <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditUser(s.user_id)} size="xs" />
+                      <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
                     </span>
                   )}
                 </div>

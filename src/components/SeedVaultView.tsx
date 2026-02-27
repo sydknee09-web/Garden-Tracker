@@ -342,7 +342,7 @@ export function SeedVaultView({
 }) {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditPage } = useHousehold();
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pullRefetch, setPullRefetch] = useState(0);
@@ -1211,7 +1211,7 @@ export function SeedVaultView({
                       )}
                       {ownerBadge && (
                         <span className="absolute top-1 right-1 z-10 pointer-events-none">
-                          <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditUser(seed.owner_user_id) : true} size="xs" />
+                          <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditPage(seed.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>
                       )}
                     </div>
@@ -1292,7 +1292,7 @@ export function SeedVaultView({
                     )}
                     {ownerBadge && (
                       <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
-                        <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditUser(seed.owner_user_id) : true} size="xs" />
+                        <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditPage(seed.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                       </span>
                     )}
                   </div>

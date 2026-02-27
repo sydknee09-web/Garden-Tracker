@@ -30,7 +30,7 @@ function formatDisplayDate(value: string): string {
 
 export default function VaultShedDetailPage() {
   const { user, session } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function VaultShedDetailPage() {
 
   const categoryFromUrl = searchParams.get("category");
   const backHref = categoryFromUrl ? `/vault?tab=shed&category=${categoryFromUrl}` : "/vault?tab=shed";
-  const canEdit = supply && (supply.user_id === user?.id ? true : canEditUser(supply.user_id));
+  const canEdit = supply && (supply.user_id === user?.id ? true : canEditPage(supply.user_id, "shed"));
 
   const fetchSupply = useCallback(async () => {
     if (!id || !user?.id) return;

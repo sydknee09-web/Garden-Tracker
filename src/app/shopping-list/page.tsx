@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -27,6 +28,9 @@ export default function ShoppingListPage() {
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+
+  useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
 
   const fetchList = useCallback(async () => {
     if (!user?.id) {
@@ -92,16 +96,9 @@ export default function ShoppingListPage() {
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
             <p className="text-neutral-600 mb-2">No items on your shopping list yet.</p>
-            <p className="text-neutral-500 text-sm mb-4">
+            <p className="text-neutral-500 text-sm">
               Add items by name. You can add to Vault or Shed after you purchase.
             </p>
-            <button
-              type="button"
-              onClick={() => setAddItemModalOpen(true)}
-              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
-            >
-              Add item
-            </button>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -182,23 +179,71 @@ export default function ShoppingListPage() {
           </ul>
         )}
 
-        {items.length > 0 && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setAddItemModalOpen(true)}
-              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors"
-            >
-              Add item
-            </button>
-          </div>
-        )}
-
         <AddItemModal
           open={addItemModalOpen}
           onClose={() => setAddItemModalOpen(false)}
           onSuccess={fetchList}
         />
+
+        {fabMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setFabMenuOpen(false)} />
+            <div
+              className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+              style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="shopping-fab-title"
+            >
+              <h2 id="shopping-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add to list</h2>
+              <p className="text-sm text-neutral-500 text-center mb-4">Add an item by name.</p>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFabMenuOpen(false);
+                    setAddItemModalOpen(true);
+                  }}
+                  className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>✏️</span>
+                  Add item
+                </button>
+                <div className="pt-4">
+                  <button type="button" onClick={() => setFabMenuOpen(false)} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setFabMenuOpen((o) => !o)}
+          className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+            fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+          }`}
+          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+          aria-label={fabMenuOpen ? "Close menu" : "Add to list"}
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
+            aria-hidden
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
       </div>
     </div>
   );

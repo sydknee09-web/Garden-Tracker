@@ -3,7 +3,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Household, HouseholdEditGrant, HouseholdMember } from "@/types/garden";
+import type {
+  Household,
+  HouseholdEditGrant,
+  HouseholdMember,
+  HouseholdPagePermission,
+  PageKey,
+} from "@/types/garden";
 
 export type ViewMode = "personal" | "family";
 
@@ -27,6 +33,12 @@ type HouseholdContextType = {
   getShorthandForUser: (userId: string) => string;
   /** Returns true if the current user can edit data owned by ownerUserId */
   canEditUser: (ownerUserId: string) => boolean;
+  /** Page permissions (grants where current user is grantee or grantor) */
+  pagePermissions: HouseholdPagePermission[];
+  /** Returns true if the current user can view this page in family view */
+  canViewPage: (page: PageKey) => boolean;
+  /** Returns true if the current user can edit owner's data on this page */
+  canEditPage: (ownerUserId: string, page: PageKey) => boolean;
 };
 
 const HouseholdContext = createContext<HouseholdContextType | undefined>(undefined);
@@ -38,6 +50,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>([]);
   const [householdLoading, setHouseholdLoading] = useState(false);
   const [editGrants, setEditGrants] = useState<HouseholdEditGrant[]>([]);
+  const [pagePermissions, setPagePermissions] = useState<HouseholdPagePermission[]>([]);
   const [memberShorthands, setMemberShorthands] = useState<Map<string, string>>(new Map());
 
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
@@ -58,6 +71,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       setHousehold(null);
       setHouseholdMembers([]);
       setEditGrants([]);
+      setPagePermissions([]);
       setMemberShorthands(new Map());
       return;
     }
@@ -69,11 +83,20 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (memberRow?.household_id) {
-      const [{ data: hh }, { data: members }, { data: grants }] = await Promise.all([
+      const [
+        { data: hh },
+        { data: members },
+        { data: grants },
+        { data: perms },
+      ] = await Promise.all([
         supabase.from("households").select("*").eq("id", memberRow.household_id).maybeSingle(),
         supabase.from("household_members").select("*").eq("household_id", memberRow.household_id),
         supabase
           .from("household_edit_grants")
+          .select("*")
+          .eq("household_id", memberRow.household_id),
+        supabase
+          .from("household_page_permissions")
           .select("*")
           .eq("household_id", memberRow.household_id),
       ]);
@@ -82,6 +105,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       setHousehold((hh as Household) ?? null);
       setHouseholdMembers(memberList);
       setEditGrants((grants ?? []) as HouseholdEditGrant[]);
+      setPagePermissions((perms ?? []) as HouseholdPagePermission[]);
 
       // Load user_settings shorthands for all members in parallel with the above
       const memberUserIds = memberList.map((m) => m.user_id);
@@ -103,6 +127,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       setHousehold(null);
       setHouseholdMembers([]);
       setEditGrants([]);
+      setPagePermissions([]);
       setMemberShorthands(new Map());
       setViewMode("personal");
     }
@@ -134,6 +159,31 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
     [user?.id, editGrants],
   );
 
+  const canViewPage = useCallback(
+    (page: PageKey): boolean => {
+      if (viewMode === "personal") return true;
+      return isInHousehold;
+    },
+    [viewMode, isInHousehold],
+  );
+
+  const canEditPage = useCallback(
+    (ownerUserId: string, page: PageKey): boolean => {
+      if (!user?.id) return false;
+      if (ownerUserId === user.id) return true;
+      if (editGrants.some((g) => g.grantor_user_id === ownerUserId && g.grantee_user_id === user.id))
+        return true;
+      return pagePermissions.some(
+        (p) =>
+          p.grantor_user_id === ownerUserId &&
+          p.grantee_user_id === user.id &&
+          p.page === page &&
+          p.access_level === "edit",
+      );
+    },
+    [user?.id, editGrants, pagePermissions],
+  );
+
   return (
     <HouseholdContext.Provider
       value={{
@@ -149,6 +199,9 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
         memberShorthands,
         getShorthandForUser,
         canEditUser,
+        pagePermissions,
+        canViewPage,
+        canEditPage,
       }}
     >
       {children}

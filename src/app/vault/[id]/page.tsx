@@ -159,7 +159,7 @@ export default function VaultSeedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
-  const { canEditUser } = useHousehold();
+  const { canEditPage } = useHousehold();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -1129,7 +1129,7 @@ export default function VaultSeedPage() {
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
   // canEdit = true when it's the user's own profile OR they have an edit grant from the owner
-  const canEdit = isOwnProfile || canEditUser(profileOwnerId);
+  const canEdit = isOwnProfile || canEditPage(profileOwnerId, "plant_vault");
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
@@ -1446,9 +1446,8 @@ export default function VaultSeedPage() {
           (() => {
             const gardenTab = searchParams.get("gardenTab");
             const isActive = gardenTab === "active";
-            const plantsHref = isPermanent ? `/garden?tab=plants&profile=${encodeURIComponent(id)}` : "/garden?tab=plants";
             return (
-              <Link href={isActive ? "/garden?tab=active" : plantsHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+              <Link href={isActive ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
                 &larr; Back to {isActive ? "Active Garden" : "My Plants"}
               </Link>
             );
@@ -1458,7 +1457,7 @@ export default function VaultSeedPage() {
         )}
 
         {/* Read-only banner for household members viewing someone else's profile */}
-        {!isOwnProfile && !canEditUser(profileOwnerId) && (
+        {!isOwnProfile && !canEditPage(profileOwnerId, "plant_vault") && (
           <div className="mb-4 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
             Viewing {profile?.name ?? "this"}&apos;s garden — read only
           </div>
@@ -2149,7 +2148,7 @@ export default function VaultSeedPage() {
                   const harvests = giJournals.filter((j) => j.entry_type === "harvest");
                   const statusColor = gi.status === "growing" ? "bg-green-100 text-green-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
                   const isActive = gi.status === "growing" || gi.status === "pending";
-                  const giCanEdit = canEditUser((gi as { user_id?: string }).user_id ?? profileOwnerId);
+                  const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
                   const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
                   const plantLabel = isPermanent ? (gi.location?.trim() || `Plant ${giIdx + 1}`) : null;
                   const cardContent = (
@@ -2207,7 +2206,7 @@ export default function VaultSeedPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {isPermanent ? (
-                            <Link href={`/garden?tab=plants&profile=${encodeURIComponent(id)}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant in My Plants`}>
+                            <Link href="/garden?tab=plants" className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant in My Plants`}>
                               {cardContent}
                             </Link>
                           ) : isActive ? (

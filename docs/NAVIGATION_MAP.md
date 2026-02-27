@@ -104,7 +104,7 @@
 
 | Plant type | Tap plant card | Destination |
 |------------|-----------------|-------------|
-| **Permanent** (trees, perennials) | All plants | `/garden?tab=plants&profile=[id]` — My Plants with profile filter |
+| **Permanent** (trees, perennials) | All plants | `/garden?tab=plants` — My Plants (no filter) |
 | **Seasonal** (active) | Active plantings only | `/garden?tab=active&grow=[grow_id]` — Active Garden with grow filter |
 | **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
 
@@ -172,8 +172,8 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | **Header** | Shopping list icon (cart) between Family/Personal pill and Settings — one tap to `/shopping-list` |
 | **Dashboard** | Shopping list section with "View full list" and "Add item" when items exist |
 | **Dashboard empty state** | "Add item" button opens Manual add modal |
-| **Shopping List page empty state** | "Add item" button opens Manual add modal |
-| **Shopping List page (with items)** | "Add item" button opens Manual add modal |
+| **Shopping List page empty state** | FAB (plus icon) opens menu: "Add item" |
+| **Shopping List page** | FAB (plus icon) opens menu: "Add item" (Manual add modal), Cancel |
 
 ### Item types and links
 

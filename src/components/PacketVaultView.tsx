@@ -98,7 +98,7 @@ export function PacketVaultView({
 }) {
   const router = useRouter();
   const { user } = useAuth();
-  const { viewMode: householdViewMode, getShorthandForUser, canEditUser } = useHousehold();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const [packets, setPackets] = useState<PacketVaultItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pullRefetch, setPullRefetch] = useState(0);
@@ -537,7 +537,7 @@ export function PacketVaultView({
                       )}
                       {ownerBadge && (
                         <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
-                          <OwnerBadge shorthand={ownerBadge} canEdit={pkt.owner_user_id ? canEditUser(pkt.owner_user_id) : true} size="xs" />
+                          <OwnerBadge shorthand={ownerBadge} canEdit={pkt.owner_user_id ? canEditPage(pkt.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>
                       )}
                     </span>
