@@ -283,13 +283,13 @@ export default function SettingsProfilePage() {
 
       {/* ── Identity card ─────────────────────────────────────────────── */}
       <section className="mb-6">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0" style={{ backgroundColor: "#059669" }}>
                 {emailInitial}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-neutral-900 truncate">{user.email}</p>
                 <p className="text-xs text-neutral-400 mt-0.5">Signed in</p>
               </div>
@@ -297,7 +297,7 @@ export default function SettingsProfilePage() {
             <button
               type="button"
               onClick={signOut}
-              className="shrink-0 min-h-[36px] px-3 rounded-lg text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+              className="shrink-0 min-h-[44px] min-w-[44px] px-4 rounded-lg text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors self-start sm:self-auto"
             >
               Sign out
             </button>
