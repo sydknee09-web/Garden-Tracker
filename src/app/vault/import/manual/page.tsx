@@ -147,7 +147,13 @@ export default function ImportManualPage() {
 
   if (phase === "error") {
     return (
-      <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-6">
+      <div
+        className="fixed inset-x-0 flex flex-col items-center justify-center bg-neutral-50 p-6 z-30"
+        style={{
+          top: "calc(2.75rem + env(safe-area-inset-top, 0px))",
+          bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <p className="text-citrus font-medium mb-2">Something went wrong</p>
         <p className="text-sm text-black/60 mb-4">{error}</p>
         <Link
@@ -171,7 +177,13 @@ export default function ImportManualPage() {
   const label = phaseLabels[phase];
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-neutral-50 flex flex-col items-center justify-center p-6">
+    <div
+      className="fixed inset-x-0 flex flex-col items-center justify-center bg-neutral-50 p-6 z-30"
+      style={{
+        top: "calc(2.75rem + env(safe-area-inset-top, 0px))",
+        bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
+      }}
+    >
       <div className="rounded-2xl bg-white shadow-card border border-black/5 p-8 max-w-sm w-full text-center mx-auto">
         <div className="animate-pulse flex justify-center mb-4">
           <div className="w-12 h-12 rounded-full bg-emerald/20" />

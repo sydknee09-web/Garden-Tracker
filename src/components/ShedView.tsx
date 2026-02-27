@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import type { SVGProps } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
@@ -11,6 +12,28 @@ import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
+
+/** Bag/sack icon for supplies without a photo. Differentiates from sprout used for plants. */
+function ShedSupplyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      {/* Bag body: bulbous sack shape */}
+      <path d="M14 16v20c0 2.2 1.8 4 4 4h12c2.2 0 4-1.8 4-4V16" />
+      {/* Top cinched opening with folds */}
+      <path d="M14 16c0-4 4-8 10-8s10 4 10 8" strokeWidth="1.5" opacity="0.8" />
+      <path d="M16 12h16" strokeWidth="1.5" opacity="0.6" />
+    </svg>
+  );
+}
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -246,6 +269,11 @@ export function ShedView({
         <p className="text-neutral-500 py-8">Loading…</p>
       ) : filteredSupplies.length === 0 ? (
         <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
+          {supplies.length === 0 && (
+            <div className="flex justify-center mb-4" aria-hidden>
+              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" />
+            </div>
+          )}
           <p className="text-neutral-600 mb-4">
             {supplies.length === 0
               ? "No supplies yet. Add fertilizers, pesticides, or other products to track usage and instructions."
@@ -292,7 +320,7 @@ export function ShedView({
                     {thumbUrl ? (
                       <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-lg" aria-hidden>🌱</span>
+                      <ShedSupplyIcon className="w-6 h-6 text-neutral-400" aria-hidden />
                     )}
                     {isSelected && (
                       <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
@@ -375,9 +403,7 @@ export function ShedView({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-3xl text-neutral-400" aria-hidden>
-                      🌱
-                    </span>
+                    <ShedSupplyIcon className="w-12 h-12 text-neutral-400" aria-hidden />
                   )}
                   {isFamilyView && s.user_id && (
                     <span className="absolute top-1 right-1">
