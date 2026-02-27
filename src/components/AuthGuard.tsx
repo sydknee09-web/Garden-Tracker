@@ -90,6 +90,16 @@ function ChevronLeftIcon() {
   );
 }
 
+function ShoppingListIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -186,6 +196,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   {viewMode === "family" ? "Family" : "Personal"}
                 </button>
               )}
+              <Link
+                href="/shopping-list"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                aria-label="Shopping list"
+              >
+                <ShoppingListIcon />
+              </Link>
               <Link
                 href="/settings"
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"

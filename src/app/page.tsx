@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { AddItemModal } from "@/components/AddItemModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { completeTask } from "@/lib/completeSowTask";
@@ -14,7 +15,13 @@ import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
 
 type TaskWithPlant = Task & { plant_name?: string };
-type ShoppingItemWithName = ShoppingListItem & { name?: string; variety_name?: string | null };
+type ShoppingItemWithName = ShoppingListItem & {
+  name?: string;
+  variety_name?: string | null;
+  supply_profile_id?: string | null;
+  supply_name?: string;
+  supply_deleted_at?: string | null;
+};
 type UpcomingCare = { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string; plant_name: string };
 
 type WeatherDay = { date: string; high: number; low: number; code: number };
@@ -76,6 +83,8 @@ export default function HomePage() {
       return false;
     }
   });
+  const [addItemModalOpen, setAddItemModalOpen] = useState(false);
+  const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -90,7 +99,7 @@ export default function HomePage() {
       const [settingsRes, tasksRes, listRes, careRes] = await Promise.all([
         supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
         supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(20),
-        supabase.from("shopping_list").select("id, user_id, plant_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
+        supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
         supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(10),
       ]);
 
@@ -103,9 +112,10 @@ export default function HomePage() {
 
       // Batch 2: Resolve names — collect all profile IDs and fetch
       const profileIds = taskRows.map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter((id): id is string => Boolean(id));
-      const listIds = Array.from(new Set(listRows.map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
+      const listPlantIds = Array.from(new Set(listRows.map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
+      const listSupplyIds = Array.from(new Set(listRows.map((r: { supply_profile_id?: string | null }) => r.supply_profile_id).filter(Boolean) as string[]));
       const careProfileIds = careData.length > 0 ? Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id))) : [];
-      const allProfileIds = Array.from(new Set([...profileIds, ...listIds, ...careProfileIds]));
+      const allProfileIds = Array.from(new Set([...profileIds, ...listPlantIds, ...careProfileIds]));
 
       const profilesRes = allProfileIds.length > 0 ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : { data: [] };
       const profiles = profilesRes.data ?? [];
@@ -117,6 +127,13 @@ export default function HomePage() {
       const listNames: Record<string, { name: string; variety_name: string | null }> = {};
       profiles.forEach((x: { id: string; name: string; variety_name: string | null }) => { listNames[x.id] = { name: x.name, variety_name: x.variety_name }; });
 
+      const suppliesRes = listSupplyIds.length > 0 ? await supabase.from("supply_profiles").select("id, name, brand, deleted_at").in("id", listSupplyIds) : { data: [] };
+      const supplies = suppliesRes.data ?? [];
+      const supplyNames: Record<string, { name: string; deleted_at: string | null }> = {};
+      supplies.forEach((s: { id: string; name: string; brand?: string | null; deleted_at?: string | null }) => {
+        supplyNames[s.id] = { name: s.brand?.trim() ? `${s.brand} — ${s.name}` : s.name, deleted_at: s.deleted_at ?? null };
+      });
+
       const withNames: TaskWithPlant[] = taskRows.map((t: Task & { plant_profile_id?: string | null }) => {
         const linkId = t.plant_profile_id;
         return { ...t, plant_name: linkId ? names[linkId] ?? "Unknown" : undefined };
@@ -124,11 +141,23 @@ export default function HomePage() {
       if (!cancelled) setPendingTasks(withNames);
 
       if (!cancelled) setShoppingList(
-        listRows.map((r: { id: string; user_id: string; plant_profile_id: string | null; created_at: string; placeholder_name?: string | null; placeholder_variety?: string | null }) => ({
-          ...r,
-          name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.name ?? "Unknown") : (r.placeholder_name ?? "Wishlist"),
-          variety_name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.variety_name ?? null) : (r.placeholder_variety ?? null),
-        }))
+        listRows.map((r: { id: string; user_id: string; plant_profile_id: string | null; supply_profile_id?: string | null; created_at: string; placeholder_name?: string | null; placeholder_variety?: string | null }) => {
+          if (r.supply_profile_id) {
+            const supply = supplyNames[r.supply_profile_id];
+            return {
+              ...r,
+              name: supply?.name ?? "Unknown supply",
+              variety_name: null,
+              supply_name: supply?.name,
+              supply_deleted_at: supply?.deleted_at ?? null,
+            };
+          }
+          return {
+            ...r,
+            name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.name ?? "Unknown") : (r.placeholder_name ?? "Wishlist"),
+            variety_name: r.plant_profile_id ? (listNames[r.plant_profile_id]?.variety_name ?? null) : (r.placeholder_variety ?? null),
+          };
+        })
       );
 
       if (careData.length > 0 && !cancelled) {
@@ -175,7 +204,7 @@ export default function HomePage() {
 
     load();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, shoppingListRefreshKey]);
 
   const currentTemp = weather?.temp ?? null;
   const heatAlert = currentTemp != null && currentTemp > 90;
@@ -363,8 +392,9 @@ export default function HomePage() {
               </svg>
               <p className="text-xs text-black/50 text-center">Nothing to buy.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-                <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault (out of stock)</Link>
-                <Link href="/vault?open=quickadd" className="text-xs font-medium text-emerald-600 hover:underline">Add a variety I don&apos;t have</Link>
+                <Link href="/vault?tab=shed" className="text-xs font-medium text-emerald-600 hover:underline">Add from Shed</Link>
+                <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault</Link>
+                <button type="button" onClick={() => setAddItemModalOpen(true)} className="text-xs font-medium text-emerald-600 hover:underline">Manual add</button>
               </div>
             </div>
           ) : (
@@ -372,7 +402,41 @@ export default function HomePage() {
               <ul className="space-y-2">
                 {shoppingList.map((item) => {
                   const label = `${item.name}${item.variety_name ? ` (${item.variety_name})` : ""}`;
-                  const isPlaceholder = item.plant_profile_id == null;
+                  const isPlaceholder = item.plant_profile_id == null && item.supply_profile_id == null;
+                  const isSupply = item.supply_profile_id != null;
+                  const supplyLinkDisabled = isSupply && !!item.supply_deleted_at;
+
+                  if (isPlaceholder) {
+                    return (
+                      <li key={item.id} className="flex items-center gap-3 group">
+                        <span className="flex-1 text-sm text-black/90 min-w-0">{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPurchased(item)}
+                          disabled={markingPurchasedId === item.id}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                          aria-label="Mark as purchased"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPurchased(item)}
+                          disabled={markingPurchasedId === item.id}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-50"
+                          aria-label="Remove from list"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </li>
+                    );
+                  }
+
                   return (
                     <li key={item.id} className="flex items-center gap-3 group">
                       <input
@@ -385,8 +449,14 @@ export default function HomePage() {
                         aria-label={`Mark ${label} as purchased`}
                       />
                       <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
-                        {isPlaceholder ? (
-                          <span>{label}</span>
+                        {isSupply ? (
+                          supplyLinkDisabled ? (
+                            <span>{label}</span>
+                          ) : (
+                            <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                              {label}
+                            </Link>
+                          )
                         ) : (
                           <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
                             {label}
@@ -397,12 +467,23 @@ export default function HomePage() {
                   );
                 })}
               </ul>
-              <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline mt-3 inline-block">
-                View full list &rarr;
-              </Link>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
+                <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline">
+                  View full list &rarr;
+                </Link>
+                <button type="button" onClick={() => setAddItemModalOpen(true)} className="text-sm text-emerald-600 font-medium hover:underline">
+                  Add item
+                </button>
+              </div>
             </>
           )}
         </section>
+
+        <AddItemModal
+          open={addItemModalOpen}
+          onClose={() => setAddItemModalOpen(false)}
+          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+        />
 
         {/* ---- Tasks ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">

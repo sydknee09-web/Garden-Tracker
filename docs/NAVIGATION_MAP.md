@@ -163,6 +163,35 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 
 ---
 
+## Shopping List
+
+### Access
+
+| Location | Behavior |
+|----------|----------|
+| **Header** | Shopping list icon (cart) between Family/Personal pill and Settings — one tap to `/shopping-list` |
+| **Dashboard** | Shopping list section with "View full list" and "Add item" when items exist |
+| **Dashboard empty state** | Add from Shed, Add from Vault, Manual add |
+| **Shopping List page empty state** | Add from Shed, Add from Vault, Manual add |
+| **Shopping List page (with items)** | "Add item" button opens Manual add modal |
+
+### Item types and links
+
+| Item type | Dashboard | Shopping List page |
+|-----------|-----------|--------------------|
+| **Plant** (out-of-stock) | Link to `/vault/[id]` | Plain text |
+| **Supply** (running low) | Link to `/vault/shed/[id]` when not deleted; plain text when soft-deleted | Same |
+| **Placeholder** (wishlist) | Checkmark and X icons (both remove from list) | Same |
+
+### Add to shopping list
+
+| Location | Behavior |
+|----------|----------|
+| **Plant profile** (`/vault/[id]`) | Cart icon in header — adds to list |
+| **Shed supply** (`/vault/shed/[id]`) | "Add to Shopping List" button |
+
+---
+
 ## Other routes
 
 | Route | Purpose |
@@ -196,3 +225,5 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-24 | Seed Vault Packets Refactor: Plant Profiles tab = plant profiles (grid); Seed Vault tab = individual seed packets (one row per packet). Each tab has separate filters (including sow). Tap packet row → `/vault/[plant_profile_id]`. `/vault/packets` redirects to `/vault?tab=list`. |
 | 2025-02-24 | Filter reset: Filters clear when navigating between sections (Vault, Garden, Journal). Exception: profile → garden with plant filter stays. Vault profile Plantings: permanent plant tap → My Plants with profile filter; seasonal active → Active Garden with grow filter. |
 | 2025-02-24 | Developer: API Usage moved to dedicated page `/settings/developer/usage`. Developer page shows link card "View usage →" instead of inline stats. |
+| 2025-02-26 | Shopping List: Supply items on dashboard + full page; header icon; empty state (Add from Shed, Add from Vault); placeholder checkmark/X icons; Add to shopping list on plant profile. |
+| 2025-02-26 | Shopping List Phase 2: Manual add modal (Add item by name); empty state + Add item button when list has items; dashboard and Shopping List page. |
