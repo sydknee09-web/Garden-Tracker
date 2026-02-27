@@ -287,21 +287,26 @@ export function AddPlantModal({
           await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
         }
 
-        // Enrichment before seasonal tasks so harvest_days is available for harvest task
-        const { enriched } = await enrichProfileFromName(
-          supabase,
-          profileId,
-          user.id,
-          name,
-          variety.trim(),
-          {
-            vendor: vendor.trim(),
-            skipHero: photoFiles.length > 0,
-            existingGrowingNotes: notes.trim() || null,
-            accessToken: session?.access_token ?? undefined,
-          }
-        );
-        if (!enriched) setEnrichmentFailed(true);
+        // Enrichment before seasonal tasks so harvest_days is available for harvest task.
+        // Non-fatal: profile + grow_instance already saved; treat fetch/network errors as enrichment failed.
+        try {
+          const { enriched } = await enrichProfileFromName(
+            supabase,
+            profileId,
+            user.id,
+            name,
+            variety.trim(),
+            {
+              vendor: vendor.trim(),
+              skipHero: photoFiles.length > 0,
+              existingGrowingNotes: notes.trim() || null,
+              accessToken: session?.access_token ?? undefined,
+            }
+          );
+          if (!enriched) setEnrichmentFailed(true);
+        } catch {
+          setEnrichmentFailed(true);
+        }
 
         if (plantType === "seasonal") {
           await copyCareTemplatesToInstance(profileId, growInstanceIdNew, user.id, plantedDate);
