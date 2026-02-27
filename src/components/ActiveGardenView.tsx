@@ -65,6 +65,7 @@ export type ActiveGardenViewHandle = {
   enterBulkMode: () => void;
   openBulkDeleteConfirm: () => void;
   openBulkEndBatchConfirm: () => void;
+  moveSelectedToPermanentPlants: () => Promise<void>;
 };
 
 export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
@@ -197,7 +198,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   const openBulkDeleteConfirm = useCallback(() => setBulkDeleteConfirmOpen(true), []);
   const openBulkEndBatchConfirm = useCallback(() => setBulkEndBatchConfirmOpen(true), []);
 
-  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm]);
+  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants]);
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
@@ -700,6 +701,29 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       setTimeout(() => setQuickToast(null), 3000);
     } else {
       setQuickToast(`Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`);
+      setTimeout(() => setQuickToast(null), 2000);
+    }
+    load();
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+
+  const moveSelectedToPermanentPlants = useCallback(async () => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
+    let hadError = false;
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: true }, { id: batch.id, user_id: batchUserId });
+      if (error) hadError = true;
+    }
+    setBulkSelected(new Set());
+    setBulkMode(false);
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+    if (hadError) {
+      setQuickToast("Some moves failed — try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      setQuickToast(`Moved ${selectedBatches.length} to My Plants`);
       setTimeout(() => setQuickToast(null), 2000);
     }
     load();

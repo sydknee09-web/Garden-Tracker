@@ -92,8 +92,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   onAddClick?: () => void;
   batchSelectMode?: boolean;
   selectedGrowIds?: Set<string>;
-  onToggleGrowSelection?: (growId: string, profileId: string) => void;
-  onLongPressGrow?: (growId: string, profileId: string) => void;
+  onToggleGrowSelection?: (growId: string, profileId: string, userId?: string | null) => void;
+  onLongPressGrow?: (growId: string, profileId: string, userId?: string | null) => void;
   /** "grid" = small badges (2–3 col), "list" = detailed rows. */
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "planted_date" | "care_count";
@@ -168,14 +168,14 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (growId: string, profileId: string) => {
+    (growId: string, profileId: string, userId?: string | null) => {
       const startLongPress = () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
         longPressTimerRef.current = setTimeout(() => {
           longPressTimerRef.current = null;
           longPressFiredRef.current = true;
-          onLongPressGrow?.(growId, profileId);
+          onLongPressGrow?.(growId, profileId, userId);
         }, LONG_PRESS_MS);
       };
       return {
@@ -194,7 +194,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
           }
           const inSelectionMode = batchSelectMode || selectedGrowIds.size > 0;
           if (inSelectionMode) {
-            onToggleGrowSelection?.(growId, profileId);
+            onToggleGrowSelection?.(growId, profileId, userId);
             return;
           }
           router.push(`/vault/${profileId}?from=garden&gardenTab=plants`);
@@ -824,7 +824,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
             <ul className="space-y-4" role="list">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
-                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id);
+                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id, plant.user_id);
                 const selected = selectedGrowIds.has(plant.id);
                 return (
                   <li key={plant.id}>
@@ -876,7 +876,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
             <div className="grid grid-cols-3 gap-2">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
-                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id);
+                const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id, plant.user_id);
                 const selected = selectedGrowIds.has(plant.id);
                 return (
                   <div

@@ -9,7 +9,7 @@ import { AddPlantModal } from "@/components/AddPlantModal";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
-import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
@@ -83,6 +83,7 @@ function GardenPageInner() {
   const [openBulkLogForActive, setOpenBulkLogForActive] = useState(false);
   const [openBulkLogForPlants, setOpenBulkLogForPlants] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
+  const [moveToActiveGardenToast, setMoveToActiveGardenToast] = useState<string | null>(null);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "list", {
@@ -107,7 +108,7 @@ function GardenPageInner() {
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
   const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
-  const [selectedPlantGrows, setSelectedPlantGrows] = useState<Array<{ growId: string; profileId: string }>>([]);
+  const [selectedPlantGrows, setSelectedPlantGrows] = useState<Array<{ growId: string; profileId: string; userId?: string | null }>>([]);
   const [plantsBatchSelectMode, setPlantsBatchSelectMode] = useState(false);
   const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
   const [quickAddNote, setQuickAddNote] = useState("");
@@ -340,7 +341,7 @@ function GardenPageInner() {
     setQuickAddSaving(true);
     setQuickAddError(null);
     const weatherSnapshot = await fetchWeatherSnapshot();
-    const toInsert: Array<{ growId: string | null; profileId: string | null }> = selectedPlantGrows.length > 0
+    const toInsert: Array<{ growId: string | null; profileId: string | null; userId?: string | null }> = selectedPlantGrows.length > 0
       ? selectedPlantGrows
       : [{ growId: null, profileId: null }];
     let insertErr: { message: string } | null = null;
@@ -379,6 +380,22 @@ function GardenPageInner() {
     setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantGrows]);
+
+  const handleMoveToGrowingGarden = useCallback(async () => {
+    if (!user?.id || selectedPlantGrows.length === 0) return;
+    let hadError = false;
+    for (const { growId, userId } of selectedPlantGrows) {
+      const batchUserId = userId ?? user.id;
+      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: false }, { id: growId, user_id: batchUserId });
+      if (error) hadError = true;
+    }
+    setSelectedPlantGrows([]);
+    setPlantsBatchSelectMode(false);
+    setRefetchTrigger((t) => t + 1);
+    setSelectionActionsOpen(false);
+    setMoveToActiveGardenToast(hadError ? "Some moves failed — try again" : "Moved to Active Garden");
+    setTimeout(() => setMoveToActiveGardenToast(null), hadError ? 3000 : 2000);
+  }, [user?.id, selectedPlantGrows]);
 
   return (
     <div className="min-h-screen pb-24">
@@ -871,12 +888,12 @@ function GardenPageInner() {
               onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
               batchSelectMode={plantsBatchSelectMode}
               selectedGrowIds={new Set(selectedPlantGrows.map((g) => g.growId))}
-              onToggleGrowSelection={(growId, profileId) => setSelectedPlantGrows((prev) => {
+              onToggleGrowSelection={(growId, profileId, userId) => setSelectedPlantGrows((prev) => {
                 const idx = prev.findIndex((g) => g.growId === growId);
                 if (idx >= 0) return prev.filter((_, i) => i !== idx);
-                return [...prev, { growId, profileId }];
+                return [...prev, { growId, profileId, userId }];
               })}
-              onLongPressGrow={(growId, profileId) => { setPlantsBatchSelectMode(true); setSelectedPlantGrows((prev) => prev.some((g) => g.growId === growId) ? prev : [...prev, { growId, profileId }]); }}
+              onLongPressGrow={(growId, profileId, userId) => { setPlantsBatchSelectMode(true); setSelectedPlantGrows((prev) => prev.some((g) => g.growId === growId) ? prev : [...prev, { growId, profileId, userId }]); }}
               displayStyle={plantsDisplayStyle}
               sortBy={plantsSortBy}
               sortDir={plantsSortDir}
@@ -1064,6 +1081,31 @@ function GardenPageInner() {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
+              {effectiveViewMode === "active" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    activeGardenRef.current?.moveSelectedToPermanentPlants();
+                    setSelectionActionsOpen(false);
+                  }}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
+                  aria-label="Move to permanent plants"
+                >
+                  <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>🌳</span>
+                  Move to permanent plants
+                </button>
+              )}
+              {effectiveViewMode === "plants" && (
+                <button
+                  type="button"
+                  onClick={() => handleMoveToGrowingGarden()}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
+                  aria-label="Move to growing garden"
+                >
+                  <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>🌱</span>
+                  Move to growing garden
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1168,6 +1210,11 @@ function GardenPageInner() {
       {addedToMyPlantsToast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
           Added to My Plants
+        </div>
+      )}
+      {moveToActiveGardenToast && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg animate-fade-in ${moveToActiveGardenToast.includes("failed") ? "bg-amber-600" : "bg-emerald-600"}`} role="status" aria-live="polite">
+          {moveToActiveGardenToast}
         </div>
       )}
 
