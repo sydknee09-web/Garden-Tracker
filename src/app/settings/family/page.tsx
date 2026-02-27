@@ -619,58 +619,75 @@ export default function SettingsFamilyPage() {
                               </div>
                             </div>
 
-                            {accessTier === "custom" && (
-                              <div className="pt-2 border-t border-neutral-100">
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <p className="text-[11px] text-neutral-400">Per-page access</p>
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSetAllPages(m.user_id, "view")}
-                                      disabled={settingAllViewForUser === m.user_id || approvingAllForUser === m.user_id}
-                                      className="text-xs font-medium text-neutral-600 hover:text-neutral-800 disabled:opacity-50 min-h-[32px] px-1"
-                                    >
-                                      {settingAllViewForUser === m.user_id ? "..." : "All view"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSetAllPages(m.user_id, "edit")}
-                                      disabled={approvingAllForUser === m.user_id || settingAllViewForUser === m.user_id}
-                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
-                                    >
-                                      {approvingAllForUser === m.user_id ? "..." : "All edit"}
-                                    </button>
-                                  </div>
+                            <div
+                              className={`pt-2 border-t border-neutral-100 ${accessTier !== "custom" ? "opacity-60 pointer-events-none" : ""}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <p className="text-[11px] text-neutral-400">Per-page access</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetAllPages(m.user_id, "view")}
+                                    disabled={
+                                      accessTier !== "custom" ||
+                                      settingAllViewForUser === m.user_id ||
+                                      approvingAllForUser === m.user_id
+                                    }
+                                    className="text-xs font-medium text-neutral-600 hover:text-neutral-800 disabled:opacity-50 min-h-[32px] px-1"
+                                  >
+                                    {settingAllViewForUser === m.user_id ? "..." : "All view"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetAllPages(m.user_id, "edit")}
+                                    disabled={
+                                      accessTier !== "custom" ||
+                                      approvingAllForUser === m.user_id ||
+                                      settingAllViewForUser === m.user_id
+                                    }
+                                    className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
+                                  >
+                                    {approvingAllForUser === m.user_id ? "..." : "All edit"}
+                                  </button>
                                 </div>
-                                <div className="space-y-2">
-                                  {PAGE_KEYS.map((page) => {
-                                    const perm = pagePermissions.find(
-                                      (p) =>
-                                        p.grantor_user_id === user.id &&
-                                        p.grantee_user_id === m.user_id &&
-                                        p.page === page,
-                                    );
-                                    const currentLevel = perm?.access_level ?? "block";
-                                    const key = `${m.user_id}:${page}`;
-                                    const busyPage = togglingPagePerm === key;
-                                    return (
-                                      <div
-                                        key={page}
-                                        className="flex items-center justify-between gap-2 py-1"
-                                      >
-                                        <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
-                                        <div className="flex rounded-lg bg-neutral-100 p-0.5">
-                                          {(["block", "view", "edit"] as const).map((level) => {
-                                            const isActive = currentLevel === level;
-                                            return (
-                                              <button
-                                                key={level}
-                                                type="button"
-                                                onClick={() =>
-                                                  !busyPage && handleSetPagePermission(m.user_id, page, level)
-                                                }
-                                                disabled={busyPage}
-                                                className={`min-h-[32px] min-w-[36px] flex items-center justify-center rounded-md transition-colors disabled:opacity-50 ${isActive ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
+                              </div>
+                              <div className="space-y-2">
+                                {PAGE_KEYS.map((page) => {
+                                  const perm = pagePermissions.find(
+                                    (p) =>
+                                      p.grantor_user_id === user.id &&
+                                      p.grantee_user_id === m.user_id &&
+                                      p.page === page,
+                                  );
+                                  const effectiveLevel: PageAccessLevel =
+                                    accessTier === "view_only"
+                                      ? "view"
+                                      : accessTier === "full"
+                                        ? "edit"
+                                        : (perm?.access_level ?? "block");
+                                  const key = `${m.user_id}:${page}`;
+                                  const busyPage = togglingPagePerm === key;
+                                  const isDisabled = accessTier !== "custom";
+                                  return (
+                                    <div
+                                      key={page}
+                                      className="flex items-center justify-between gap-2 py-1"
+                                    >
+                                      <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
+                                      <div className="flex rounded-lg bg-neutral-100 p-0.5">
+                                        {(["block", "view", "edit"] as const).map((level) => {
+                                          const isActive = effectiveLevel === level;
+                                          return (
+                                            <button
+                                              key={level}
+                                              type="button"
+                                              onClick={() =>
+                                                !busyPage &&
+                                                !isDisabled &&
+                                                handleSetPagePermission(m.user_id, page, level)
+                                              }
+                                              disabled={busyPage || isDisabled}
+                                              className={`min-h-[32px] min-w-[36px] flex items-center justify-center rounded-md transition-colors disabled:opacity-50 ${isActive ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
                                                 title={
                                                   level === "block"
                                                     ? "No access"
@@ -743,7 +760,6 @@ export default function SettingsFamilyPage() {
                                   })}
                                 </div>
                               </div>
-                            )}
                           </div>
                         )}
                       </div>
