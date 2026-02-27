@@ -42,6 +42,8 @@ const PAGE_KEYS: PageKey[] = ["seed_vault", "plant_vault", "garden", "journal", 
 
 type AccessTier = "view_only" | "full" | "custom";
 
+type PendingAccess = { tier: AccessTier; pages?: Partial<Record<PageKey, PageAccessLevel>> };
+
 export default function SettingsFamilyPage() {
   const { user } = useAuth();
   const {
@@ -71,11 +73,9 @@ export default function SettingsFamilyPage() {
   const [kickingMemberId, setKickingMemberId] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [shorthandError, setShorthandError] = useState<string | null>(null);
-  const [togglingPagePerm, setTogglingPagePerm] = useState<string | null>(null);
-  const [approvingAllForUser, setApprovingAllForUser] = useState<string | null>(null);
-  const [settingAllViewForUser, setSettingAllViewForUser] = useState<string | null>(null);
   const [kebabOpenForUser, setKebabOpenForUser] = useState<string | null>(null);
-  const [settingTierForUser, setSettingTierForUser] = useState<string | null>(null);
+  const [pendingAccess, setPendingAccess] = useState<Record<string, PendingAccess>>({});
+  const [savingAccess, setSavingAccess] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -224,76 +224,62 @@ export default function SettingsFamilyPage() {
     await reloadHousehold();
   }, [household, reloadHousehold]);
 
-  const handleSetPagePermission = useCallback(
-    async (granteeUserId: string, page: PageKey, level: PageAccessLevel) => {
-      if (!user?.id || !household) return;
-      const key = `${granteeUserId}:${page}`;
-      setTogglingPagePerm(key);
-      const existing = pagePermissions.find(
-        (p: HouseholdPagePermission) =>
-          p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
-      );
-      if (existing) {
-        await supabase
-          .from("household_page_permissions")
-          .update({ access_level: level })
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("household_page_permissions").insert({
-          household_id: household.id,
-          grantor_user_id: user.id,
-          grantee_user_id: granteeUserId,
-          page,
-          access_level: level,
-        });
-      }
-      setTogglingPagePerm(null);
-      await reloadHousehold();
-    },
-    [user?.id, household, pagePermissions, reloadHousehold],
-  );
-
-  const handleSetAllPages = useCallback(
-    async (granteeUserId: string, level: "view" | "edit") => {
-      if (!user?.id || !household) return;
-      if (level === "edit") setApprovingAllForUser(granteeUserId);
-      else setSettingAllViewForUser(granteeUserId);
-      for (const page of PAGE_KEYS) {
-        const existing = pagePermissions.find(
-          (p: HouseholdPagePermission) =>
-            p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
-        );
-        if (existing) {
-          await supabase
-            .from("household_page_permissions")
-            .update({ access_level: level })
-            .eq("id", existing.id);
-        } else {
-          await supabase.from("household_page_permissions").insert({
-            household_id: household.id,
-            grantor_user_id: user.id,
-            grantee_user_id: granteeUserId,
-            page,
-            access_level: level,
-          });
-        }
-      }
-      setApprovingAllForUser(null);
-      setSettingAllViewForUser(null);
-      await reloadHousehold();
-    },
-    [user?.id, household, pagePermissions, reloadHousehold],
-  );
-
-  const handleSetAccessTier = useCallback(
-    async (granteeUserId: string, tier: AccessTier) => {
-      if (!user?.id || !household) return;
-      setSettingTierForUser(granteeUserId);
+  const setPendingTier = useCallback(
+    (granteeUserId: string, tier: AccessTier) => {
       setKebabOpenForUser(null);
+      setPendingAccess((prev) => {
+        const next = { ...prev };
+        if (tier === "custom") {
+          const current = prev[granteeUserId];
+          const granted = editGrants.some(
+            (g: HouseholdEditGrant) => g.grantor_user_id === user?.id && g.grantee_user_id === granteeUserId,
+          );
+          const currentPages: Partial<Record<PageKey, PageAccessLevel>> = { ...current?.pages };
+          for (const page of PAGE_KEYS) {
+            if (currentPages[page] == null) {
+              if (granted) {
+                currentPages[page] = "edit";
+              } else {
+                const perm = pagePermissions.find(
+                  (p) =>
+                    p.grantor_user_id === user?.id &&
+                    p.grantee_user_id === granteeUserId &&
+                    p.page === page,
+                );
+                currentPages[page] = (perm?.access_level ?? "block") as PageAccessLevel;
+              }
+            }
+          }
+          next[granteeUserId] = { tier, pages: currentPages };
+        } else {
+          next[granteeUserId] = { tier };
+        }
+        return next;
+      });
+    },
+    [editGrants, pagePermissions, user?.id],
+  );
+
+  const setPendingPage = useCallback((granteeUserId: string, page: PageKey, level: PageAccessLevel) => {
+    setPendingAccess((prev) => {
+      const current = prev[granteeUserId];
+      const pages = { ...(current?.pages ?? {}), [page]: level };
+      return { ...prev, [granteeUserId]: { tier: "custom", pages } };
+    });
+  }, []);
+
+  const handleSaveAccess = useCallback(async () => {
+    if (!user?.id || !household) return;
+    const memberIds = Object.keys(pendingAccess);
+    if (memberIds.length === 0) return;
+    setSavingAccess(true);
+    for (const granteeUserId of memberIds) {
+      const pending = pendingAccess[granteeUserId];
+      if (!pending) continue;
       const hasEditGrant = editGrants.some(
         (g: HouseholdEditGrant) => g.grantor_user_id === user.id && g.grantee_user_id === granteeUserId,
       );
-      if (tier === "full") {
+      if (pending.tier === "full") {
         if (!hasEditGrant) {
           await supabase.from("household_edit_grants").insert({
             household_id: household.id,
@@ -309,7 +295,7 @@ export default function SettingsFamilyPage() {
             .eq("grantor_user_id", user.id)
             .eq("grantee_user_id", granteeUserId);
         }
-        if (tier === "view_only") {
+        if (pending.tier === "view_only") {
           for (const page of PAGE_KEYS) {
             const existing = pagePermissions.find(
               (p: HouseholdPagePermission) =>
@@ -330,13 +316,39 @@ export default function SettingsFamilyPage() {
               });
             }
           }
+        } else if (pending.tier === "custom" && pending.pages) {
+          for (const page of PAGE_KEYS) {
+            const level = pending.pages[page] ?? "block";
+            const existing = pagePermissions.find(
+              (p: HouseholdPagePermission) =>
+                p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
+            );
+            if (existing) {
+              await supabase
+                .from("household_page_permissions")
+                .update({ access_level: level })
+                .eq("id", existing.id);
+            } else {
+              await supabase.from("household_page_permissions").insert({
+                household_id: household.id,
+                grantor_user_id: user.id,
+                grantee_user_id: granteeUserId,
+                page,
+                access_level: level,
+              });
+            }
+          }
         }
       }
-      setSettingTierForUser(null);
-      await reloadHousehold();
-    },
-    [user?.id, household, editGrants, pagePermissions, reloadHousehold],
-  );
+    }
+    setPendingAccess({});
+    setSavingAccess(false);
+    await reloadHousehold();
+  }, [user?.id, household, pendingAccess, editGrants, pagePermissions, reloadHousehold]);
+
+  const handleCancelAccess = useCallback(() => {
+    setPendingAccess({});
+  }, []);
 
   const saveShorthand = useCallback(async () => {
     if (!user?.id) return;
@@ -493,7 +505,29 @@ export default function SettingsFamilyPage() {
 
             {/* Members & access — card layout, three-tier access, icon toggles */}
             <div>
-              <p className="text-xs font-semibold text-neutral-500 mb-3">Members & access</p>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-xs font-semibold text-neutral-500">Members & access</p>
+                {Object.keys(pendingAccess).length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelAccess}
+                      disabled={savingAccess}
+                      className="text-xs font-medium text-neutral-600 hover:text-neutral-800 disabled:opacity-50 min-h-[36px] px-2 rounded-lg border border-neutral-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveAccess}
+                      disabled={savingAccess}
+                      className="text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 min-h-[36px] px-3 rounded-lg"
+                    >
+                      {savingAccess ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                )}
+              </div>
               <ul className="space-y-4">
                 {householdMembers.map((m) => {
                   const email = memberEmails[m.user_id] ?? null;
@@ -502,6 +536,7 @@ export default function SettingsFamilyPage() {
                     ? `You${email ? ` (${email})` : ""}`
                     : (email ?? m.user_id.slice(0, 8) + "…");
                   const memberShorthand = memberShorthands.get(m.user_id);
+                  const pending = pendingAccess[m.user_id];
                   const grantedToThisMember = editGrants.some(
                     (g: HouseholdEditGrant) => g.grantor_user_id === user.id && g.grantee_user_id === m.user_id,
                   );
@@ -519,12 +554,8 @@ export default function SettingsFamilyPage() {
                     );
                     return perm && perm.access_level !== "view";
                   });
-                  const accessTier: AccessTier = grantedToThisMember
-                    ? "full"
-                    : hasAllView && !hasAnyCustom
-                      ? "view_only"
-                      : "custom";
-                  const busy = settingTierForUser === m.user_id;
+                  const accessTier: AccessTier = pending?.tier ??
+                    (grantedToThisMember ? "full" : hasAllView && !hasAnyCustom ? "view_only" : "custom");
                   const kebabOpen = kebabOpenForUser === m.user_id;
 
                   return (
@@ -594,24 +625,24 @@ export default function SettingsFamilyPage() {
                               <div className="flex gap-1 p-0.5 rounded-lg bg-neutral-100">
                                 <button
                                   type="button"
-                                  onClick={() => handleSetAccessTier(m.user_id, "view_only")}
-                                  disabled={busy}
+                                  onClick={() => setPendingTier(m.user_id, "view_only")}
+                                  disabled={savingAccess}
                                   className={`flex-1 min-h-[36px] rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${accessTier === "view_only" ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-600 hover:text-neutral-800"}`}
                                 >
                                   View only
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleSetAccessTier(m.user_id, "full")}
-                                  disabled={busy}
+                                  onClick={() => setPendingTier(m.user_id, "full")}
+                                  disabled={savingAccess}
                                   className={`flex-1 min-h-[36px] rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${accessTier === "full" ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-600 hover:text-neutral-800"}`}
                                 >
-                                  Full access
+                                  Edit access
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleSetAccessTier(m.user_id, "custom")}
-                                  disabled={busy}
+                                  onClick={() => setPendingTier(m.user_id, "custom")}
+                                  disabled={savingAccess}
                                   className={`flex-1 min-h-[36px] rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${accessTier === "custom" ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-600 hover:text-neutral-800"}`}
                                 >
                                   Custom
@@ -622,35 +653,7 @@ export default function SettingsFamilyPage() {
                             <div
                               className={`pt-2 border-t border-neutral-100 ${accessTier !== "custom" ? "opacity-60 pointer-events-none" : ""}`}
                             >
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <p className="text-[11px] text-neutral-400">Per-page access</p>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetAllPages(m.user_id, "view")}
-                                    disabled={
-                                      accessTier !== "custom" ||
-                                      settingAllViewForUser === m.user_id ||
-                                      approvingAllForUser === m.user_id
-                                    }
-                                    className="text-xs font-medium text-neutral-600 hover:text-neutral-800 disabled:opacity-50 min-h-[32px] px-1"
-                                  >
-                                    {settingAllViewForUser === m.user_id ? "..." : "All view"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetAllPages(m.user_id, "edit")}
-                                    disabled={
-                                      accessTier !== "custom" ||
-                                      approvingAllForUser === m.user_id ||
-                                      settingAllViewForUser === m.user_id
-                                    }
-                                    className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
-                                  >
-                                    {approvingAllForUser === m.user_id ? "..." : "All edit"}
-                                  </button>
-                                </div>
-                              </div>
+                              <p className="text-[11px] text-neutral-400 mb-2">Per-page access</p>
                               <div className="space-y-2">
                                 {PAGE_KEYS.map((page) => {
                                   const perm = pagePermissions.find(
@@ -664,10 +667,8 @@ export default function SettingsFamilyPage() {
                                       ? "view"
                                       : accessTier === "full"
                                         ? "edit"
-                                        : (perm?.access_level ?? "block");
-                                  const key = `${m.user_id}:${page}`;
-                                  const busyPage = togglingPagePerm === key;
-                                  const isDisabled = accessTier !== "custom";
+                                        : (pending?.pages?.[page] ?? perm?.access_level ?? "block") as PageAccessLevel;
+                                  const isDisabled = accessTier !== "custom" || savingAccess;
                                   return (
                                     <div
                                       key={page}
@@ -682,11 +683,9 @@ export default function SettingsFamilyPage() {
                                               key={level}
                                               type="button"
                                               onClick={() =>
-                                                !busyPage &&
-                                                !isDisabled &&
-                                                handleSetPagePermission(m.user_id, page, level)
+                                                !isDisabled && setPendingPage(m.user_id, page, level)
                                               }
-                                              disabled={busyPage || isDisabled}
+                                              disabled={isDisabled}
                                               className={`min-h-[32px] min-w-[36px] flex items-center justify-center rounded-md transition-colors disabled:opacity-50 ${isActive ? "bg-white text-neutral-800 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
                                                 title={
                                                   level === "block"
