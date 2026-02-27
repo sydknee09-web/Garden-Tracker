@@ -258,8 +258,6 @@ export default function VaultSeedPage() {
   const [addPacketUrl, setAddPacketUrl] = useState("");
   const [addPacketSaving, setAddPacketSaving] = useState(false);
   const [addPacketError, setAddPacketError] = useState<string | null>(null);
-  const [addingToList, setAddingToList] = useState(false);
-  const [shoppingListToast, setShoppingListToast] = useState<string | null>(null);
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
@@ -760,21 +758,6 @@ export default function VaultSeedPage() {
     const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", owner);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
   }, [user?.id, profileOwnerId]);
-
-  const handleAddToShoppingList = useCallback(async () => {
-    if (!user?.id || !id) return;
-    setAddingToList(true);
-    const { error } = await upsertWithOfflineQueue(
-      "shopping_list",
-      { user_id: user.id, plant_profile_id: id, is_purchased: false },
-      { onConflict: "user_id,plant_profile_id" }
-    );
-    setAddingToList(false);
-    if (!error) {
-      setShoppingListToast("Added to shopping list");
-      setTimeout(() => setShoppingListToast(null), 2500);
-    }
-  }, [user?.id, id]);
 
   const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1481,12 +1464,6 @@ export default function VaultSeedPage() {
           </div>
         )}
 
-        {shoppingListToast && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg" role="status" aria-live="polite">
-            {shoppingListToast}
-          </div>
-        )}
-
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -1508,20 +1485,6 @@ export default function VaultSeedPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={handleAddToShoppingList}
-              disabled={addingToList}
-              className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-              aria-label="Add to shopping list"
-              title="Add to shopping list"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </button>
             {isOwnProfile && (
               <>
                 {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (

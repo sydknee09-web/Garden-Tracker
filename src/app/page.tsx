@@ -391,11 +391,13 @@ export default function HomePage() {
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               <p className="text-xs text-black/50 text-center">Nothing to buy.</p>
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-                <Link href="/vault?tab=shed" className="text-xs font-medium text-emerald-600 hover:underline">Add from Shed</Link>
-                <Link href="/vault" className="text-xs font-medium text-emerald-600 hover:underline">Add from Vault</Link>
-                <button type="button" onClick={() => setAddItemModalOpen(true)} className="text-xs font-medium text-emerald-600 hover:underline">Manual add</button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setAddItemModalOpen(true)}
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+              >
+                Add item
+              </button>
             </div>
           ) : (
             <>

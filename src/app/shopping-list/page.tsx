@@ -93,29 +93,15 @@ export default function ShoppingListPage() {
           <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
             <p className="text-neutral-600 mb-2">No items on your shopping list yet.</p>
             <p className="text-neutral-500 text-sm mb-4">
-              Add from Shed (supplies) or Vault (out-of-stock plants).
+              Add items by name. You can add to Vault or Shed after you purchase.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/vault?tab=shed"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
-              >
-                Add from Shed
-              </Link>
-              <Link
-                href="/vault"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-6 py-2.5 rounded-xl border border-black/15 text-neutral-700 font-medium hover:bg-black/5 transition-colors"
-              >
-                Add from Vault
-              </Link>
-              <button
-                type="button"
-                onClick={() => setAddItemModalOpen(true)}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-6 py-2.5 rounded-xl border border-black/15 text-neutral-700 font-medium hover:bg-black/5 transition-colors"
-              >
-                Manual add
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAddItemModalOpen(true)}
+              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
+            >
+              Add item
+            </button>
           </div>
         ) : (
           <ul className="space-y-2">
