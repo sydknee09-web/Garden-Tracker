@@ -14,7 +14,7 @@ import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
-import { CareSuggestions } from "@/components/CareSuggestions";
+import { CareSuggestions, GetAiSuggestionsButton } from "@/components/CareSuggestions";
 import { StarRating } from "@/components/StarRating";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
@@ -435,6 +435,13 @@ export default function VaultSeedPage() {
   }, [id, user?.id]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Auto-redirect to vault when profile not found (e.g. after delete or stale link)
+  useEffect(() => {
+    if (!loading && !profile && id) {
+      router.replace("/vault");
+    }
+  }, [loading, profile, id, router]);
 
   // Plantings tab: quick care, end batch, delete batch
   const handlePlantingsQuickCare = useCallback(async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
@@ -1064,7 +1071,7 @@ export default function VaultSeedPage() {
       if (profileErr) throw profileErr;
       setShowDeleteConfirm(false);
       setShowEditModal(false);
-      router.push("/vault");
+      router.replace("/vault");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete profile");
     } finally {
@@ -1858,13 +1865,30 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-4">
                 <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
                 <p className="text-xs text-neutral-500">Recurring care that auto-copies when you plant this variety.</p>
-                <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} readOnly={!canEdit} />
+                <CareScheduleManager
+                  profileId={id}
+                  userId={user?.id ?? ""}
+                  schedules={careSchedules}
+                  onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }}
+                  readOnly={!canEdit}
+                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={loadProfile} /> : null}
+                />
               </div>
             )}
             {!isLegacy && isPermanent && (
               <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-4">
                 <CareSuggestions profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" suggestions={careSuggestions} hasSchedules={careSchedules.length > 0} onChanged={loadProfile} readOnly={!canEdit} />
-                <CareScheduleManager profileId={id} userId={user?.id ?? ""} schedules={careSchedules} onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }} isTemplate={false} readOnly={!canEdit} growInstances={growInstances} isPermanent={isPermanent} />
+                <CareScheduleManager
+                  profileId={id}
+                  userId={user?.id ?? ""}
+                  schedules={careSchedules}
+                  onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }}
+                  isTemplate={false}
+                  readOnly={!canEdit}
+                  growInstances={growInstances}
+                  isPermanent={isPermanent}
+                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={loadProfile} /> : null}
+                />
               </div>
             )}
             {isLegacy && (

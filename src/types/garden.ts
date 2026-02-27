@@ -394,7 +394,7 @@ export interface HouseholdEditGrant {
 
 export type PageKey = "seed_vault" | "plant_vault" | "garden" | "journal" | "shed" | "shopping_list";
 
-export type PageAccessLevel = "view" | "edit";
+export type PageAccessLevel = "view" | "edit" | "block";
 
 export interface HouseholdPagePermission {
   id: string;

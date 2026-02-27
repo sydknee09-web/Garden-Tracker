@@ -71,6 +71,7 @@ export default function SettingsFamilyPage() {
   const [shorthandError, setShorthandError] = useState<string | null>(null);
   const [togglingGrantForUser, setTogglingGrantForUser] = useState<string | null>(null);
   const [togglingPagePerm, setTogglingPagePerm] = useState<string | null>(null);
+  const [approvingAllForUser, setApprovingAllForUser] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -240,7 +241,7 @@ export default function SettingsFamilyPage() {
   }, [user?.id, household, reloadHousehold]);
 
   const handleSetPagePermission = useCallback(
-    async (granteeUserId: string, page: PageKey, level: PageAccessLevel | null) => {
+    async (granteeUserId: string, page: PageKey, level: PageAccessLevel) => {
       if (!user?.id || !household) return;
       const key = `${granteeUserId}:${page}`;
       setTogglingPagePerm(key);
@@ -248,15 +249,39 @@ export default function SettingsFamilyPage() {
         (p: HouseholdPagePermission) =>
           p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
       );
-      if (level === null) {
-        if (existing) {
-          await supabase.from("household_page_permissions").delete().eq("id", existing.id);
-        }
+      if (existing) {
+        await supabase
+          .from("household_page_permissions")
+          .update({ access_level: level })
+          .eq("id", existing.id);
       } else {
+        await supabase.from("household_page_permissions").insert({
+          household_id: household.id,
+          grantor_user_id: user.id,
+          grantee_user_id: granteeUserId,
+          page,
+          access_level: level,
+        });
+      }
+      setTogglingPagePerm(null);
+      await reloadHousehold();
+    },
+    [user?.id, household, pagePermissions, reloadHousehold],
+  );
+
+  const handleApproveAll = useCallback(
+    async (granteeUserId: string) => {
+      if (!user?.id || !household) return;
+      setApprovingAllForUser(granteeUserId);
+      for (const page of PAGE_KEYS) {
+        const existing = pagePermissions.find(
+          (p: HouseholdPagePermission) =>
+            p.grantor_user_id === user.id && p.grantee_user_id === granteeUserId && p.page === page,
+        );
         if (existing) {
           await supabase
             .from("household_page_permissions")
-            .update({ access_level: level })
+            .update({ access_level: "edit" })
             .eq("id", existing.id);
         } else {
           await supabase.from("household_page_permissions").insert({
@@ -264,11 +289,11 @@ export default function SettingsFamilyPage() {
             grantor_user_id: user.id,
             grantee_user_id: granteeUserId,
             page,
-            access_level: level,
+            access_level: "edit",
           });
         }
       }
-      setTogglingPagePerm(null);
+      setApprovingAllForUser(null);
       await reloadHousehold();
     },
     [user?.id, household, pagePermissions, reloadHousehold],
@@ -486,49 +511,56 @@ export default function SettingsFamilyPage() {
                               />
                             </button>
                           </div>
-                          {isOwner && (
-                            <div className="mt-2 pl-2 border-l-2 border-neutral-200 space-y-2">
+                          <div className="mt-2 pl-2 border-l-2 border-neutral-200 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="text-xs font-medium text-neutral-600">Page access</p>
-                              {grantedToThisMember && (
-                                <p className="text-[11px] text-amber-700">
-                                  Full edit above. Per-page overrides when you revoke full edit.
-                                </p>
-                              )}
-                              {PAGE_KEYS.map((page) => {
-                                const perm = pagePermissions.find(
-                                  (p) =>
-                                    p.grantor_user_id === user.id &&
-                                    p.grantee_user_id === m.user_id &&
-                                    p.page === page,
-                                );
-                                const currentLevel = perm?.access_level ?? null;
-                                const key = `${m.user_id}:${page}`;
-                                const busy = togglingPagePerm === key;
-                                return (
-                                  <div key={page} className="flex items-center justify-between gap-2">
-                                    <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
-                                    <select
-                                      value={currentLevel ?? "none"}
-                                      disabled={busy}
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        handleSetPagePermission(
-                                          m.user_id,
-                                          page,
-                                          v === "none" ? null : (v as PageAccessLevel),
-                                        );
-                                      }}
-                                      className="text-xs rounded border border-neutral-300 px-2 py-1 min-h-[32px] bg-white disabled:opacity-50"
-                                    >
-                                      <option value="none">—</option>
-                                      <option value="view">View</option>
-                                      <option value="edit">Edit</option>
-                                    </select>
-                                  </div>
-                                );
-                              })}
+                              <button
+                                type="button"
+                                onClick={() => handleApproveAll(m.user_id)}
+                                disabled={approvingAllForUser === m.user_id}
+                                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
+                              >
+                                {approvingAllForUser === m.user_id ? "..." : "Approve all"}
+                              </button>
                             </div>
-                          )}
+                            <p className="text-[11px] text-neutral-500">
+                              Full edit above = access to everything. Per-page applies when full edit is off.
+                            </p>
+                            {grantedToThisMember && (
+                              <p className="text-[11px] text-amber-700">
+                                Full edit on. Per-page overrides when you revoke full edit.
+                              </p>
+                            )}
+                            {PAGE_KEYS.map((page) => {
+                              const perm = pagePermissions.find(
+                                (p) =>
+                                  p.grantor_user_id === user.id &&
+                                  p.grantee_user_id === m.user_id &&
+                                  p.page === page,
+                              );
+                              const currentLevel = perm?.access_level ?? "block";
+                              const key = `${m.user_id}:${page}`;
+                              const busy = togglingPagePerm === key;
+                              return (
+                                <div key={page} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
+                                  <select
+                                    value={currentLevel}
+                                    disabled={busy}
+                                    onChange={(e) => {
+                                      const v = e.target.value as PageAccessLevel;
+                                      handleSetPagePermission(m.user_id, page, v);
+                                    }}
+                                    className="text-xs rounded border border-neutral-300 px-2 py-1 min-h-[32px] bg-white disabled:opacity-50"
+                                  >
+                                    <option value="block">Block</option>
+                                    <option value="view">View</option>
+                                    <option value="edit">Edit</option>
+                                  </select>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </>
                       )}
                     </li>
