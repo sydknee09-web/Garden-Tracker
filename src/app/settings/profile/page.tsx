@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import type { UserSettings } from "@/types/garden";
-import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 
 const APP_VERSION = "0.1.0";
 
@@ -50,8 +49,6 @@ export default function SettingsProfilePage() {
   const [exporting, setExporting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
-  const [backfillingPlantingWindows, setBackfillingPlantingWindows] = useState(false);
-  const [backfillToast, setBackfillToast] = useState<string | null>(null);
   const [showAdvancedCoords, setShowAdvancedCoords] = useState(false);
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
   const pendingNavigateRef = useRef<string | null>(null);
@@ -240,39 +237,6 @@ export default function SettingsProfilePage() {
       setExporting(false);
     }
   }, [user?.id, fetchExportData]);
-
-  const handleFillPlantingWindows = useCallback(async () => {
-    if (!user?.id) return;
-    setBackfillingPlantingWindows(true);
-    setBackfillToast(null);
-    try {
-      const { data: profiles } = await supabase
-        .from("plant_profiles")
-        .select("id, name, planting_window")
-        .eq("user_id", user.id)
-        .is("deleted_at", null);
-      const toUpdate = (profiles ?? []).filter(
-        (p: { planting_window?: string | null }) => !(p.planting_window ?? "").trim()
-      );
-      let updated = 0;
-      for (const p of toUpdate) {
-        const firstWord = (p.name ?? "").trim().split(/\s+/)[0]?.trim() || p.name?.trim();
-        const zone10b = getZone10bScheduleForPlant(firstWord ?? "");
-        if (zone10b?.planting_window?.trim()) {
-          await supabase
-            .from("plant_profiles")
-            .update({ planting_window: zone10b.planting_window.trim(), updated_at: new Date().toISOString() })
-            .eq("id", p.id)
-            .eq("user_id", user.id);
-          updated++;
-        }
-      }
-      setBackfillToast(`Updated ${updated} profile${updated !== 1 ? "s" : ""} with planting windows.`);
-      setTimeout(() => setBackfillToast(null), 4000);
-    } finally {
-      setBackfillingPlantingWindows(false);
-    }
-  }, [user?.id]);
 
   const handleCopyExport = useCallback(async () => {
     if (!user?.id) return;
@@ -493,29 +457,7 @@ export default function SettingsProfilePage() {
             <p className="text-sm text-neutral-500 mb-2">Manage tag colors, blocked tags, and AI tagging behavior.</p>
             <span className="text-sm text-emerald-600 font-medium">Manage tags &rarr;</span>
           </Link>
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-800 mb-1">Fill planting windows</h3>
-            <p className="text-sm text-neutral-500 mb-3">For profiles with no planting window, set from {gardenSettings.planting_zone ? `Zone ${gardenSettings.planting_zone}` : "your zone"} defaults by plant name.</p>
-            <button type="button" onClick={handleFillPlantingWindows} disabled={backfillingPlantingWindows} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
-              {backfillingPlantingWindows ? "..." : `Fill from Zone ${gardenSettings.planting_zone ?? "10b"}`}
-            </button>
-            {backfillToast && <p className="text-sm text-emerald-600 mt-2">{backfillToast}</p>}
-          </div>
         </div>
-      </section>
-
-      {/* ── Family ───────────────────────────────────────────────────── */}
-      <section className="mb-8">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Family</h2>
-        <Link
-          href="/settings/family"
-          onClick={(e) => handleNavClick(e, "/settings/family")}
-          className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors"
-        >
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Manage family</h3>
-          <p className="text-sm text-neutral-500 mb-2">Members, approval, view/edit access by page. Use the Personal / Family toggle in the header to see full family.</p>
-          <span className="text-sm text-emerald-600 font-medium">Family settings &rarr;</span>
-        </Link>
       </section>
 
       {/* ── Delete Account (danger zone) ──────────────────────────────── */}
