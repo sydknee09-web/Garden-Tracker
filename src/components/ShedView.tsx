@@ -13,8 +13,8 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 
-/** Bag/sack icon for supplies without a photo. Differentiates from sprout used for plants. */
-function ShedSupplyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
+/** Bag/sack icon for supplies without a photo. Differentiates from sprout used for plants. Exported for shed detail page. */
+export function ShedSupplyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 48 48"

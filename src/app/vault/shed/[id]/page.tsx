@@ -8,6 +8,7 @@ import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue 
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
+import { ShedSupplyIcon } from "@/components/ShedView";
 import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
@@ -495,29 +496,30 @@ export default function VaultShedDetailPage() {
                   type="button"
                   onClick={() => setShowSetPhotoModal(true)}
                   disabled={photoSaving}
-                  className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 text-sm font-medium disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
                   aria-label="Change photo"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                     <circle cx="12" cy="13" r="4" />
                   </svg>
-                  {photoSaving ? "…" : "Change"}
                 </button>
               </div>
             )}
           </div>
         ) : canEdit ? (
-          <button
-            type="button"
-            onClick={() => setShowSetPhotoModal(true)}
-            disabled={photoSaving}
-            className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-emerald-600 transition-colors min-h-[44px] disabled:opacity-50"
-            aria-label="Add photo"
-          >
-            <span className="text-4xl" aria-hidden>📷</span>
-            <span className="text-sm font-medium">{photoSaving ? "Uploading…" : "Add photo"}</span>
-          </button>
+          <div className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-3 p-6 bg-neutral-100 min-h-[44px]">
+            <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
+            <button
+              type="button"
+              onClick={() => setShowSetPhotoModal(true)}
+              disabled={photoSaving}
+              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px] disabled:opacity-50"
+              aria-label="Add photo"
+            >
+              {photoSaving ? "Uploading…" : "Add Photo"}
+            </button>
+          </div>
         ) : (
           <div className="aspect-video bg-neutral-100 flex items-center justify-center">
             <span className="text-4xl text-neutral-300" aria-hidden>📦</span>
