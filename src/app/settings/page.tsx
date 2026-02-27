@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
 const SETTINGS_ITEMS = [
-  { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, household, account" },
+  { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, account" },
+  { href: "/settings/family", label: "Family", subtitle: "Members, approval, view/edit access by page" },
   { href: "/settings/vendors", label: "Vendor Scorecard", subtitle: "Average packet ratings by vendor" },
   { href: "/settings/feedback", label: "Feedback", subtitle: "Your submitted feedback" },
   { href: "/settings/import-catalog", label: "Import Vendor Catalog", subtitle: "Upload a PDF catalog to add to shared plant cache" },
