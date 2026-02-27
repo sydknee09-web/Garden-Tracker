@@ -17,8 +17,26 @@ import {
   clearGardenFilters,
   clearJournalFilters,
 } from "@/lib/navSectionClear";
+import {
+  PageSkeletonHome,
+  PageSkeletonVault,
+  PageSkeletonCalendar,
+  PageSkeletonGarden,
+  PageSkeletonJournal,
+  PageSkeletonSchedule,
+} from "./PageSkeleton";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
+
+function getSkeletonForPath(pathname: string | null) {
+  if (!pathname || pathname === "/") return <PageSkeletonHome />;
+  if (pathname === "/vault" || pathname.startsWith("/vault/")) return <PageSkeletonVault />;
+  if (pathname === "/calendar") return <PageSkeletonCalendar />;
+  if (pathname === "/garden" || pathname.startsWith("/garden/")) return <PageSkeletonGarden />;
+  if (pathname.startsWith("/journal")) return <PageSkeletonJournal />;
+  if (pathname.startsWith("/schedule")) return <PageSkeletonSchedule />;
+  return <PageSkeletonHome />;
+}
 
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "";
@@ -144,10 +162,75 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [loading, user, isAuthPage, router]);
 
   if (loading) {
+    if (isAuthPage) {
+      return (
+        <main className="min-h-screen min-h-[100dvh] flex items-center justify-center text-black/60">
+          Loading…
+        </main>
+      );
+    }
     return (
-      <main className="min-h-screen min-h-[100dvh] flex items-center justify-center text-black/60">
-        Loading…
-      </main>
+      <>
+        <header
+          ref={headerRef}
+          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
+          <div className="flex items-center gap-1 shrink-0">
+            {showHeaderBackButton ? (
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
+                aria-label="Back"
+              >
+                <ChevronLeftIcon />
+              </button>
+            ) : null}
+            <CloudSyncIcon syncing={syncing} offline={!isOnline} />
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
+              aria-label="Send feedback"
+              title="Send feedback"
+            >
+              <FeedbackIcon />
+            </button>
+          </div>
+          <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
+            {getPageTitle(pathname) || "\u00A0"}
+          </h1>
+          <div className="flex items-center shrink-0 gap-1">
+            <Link
+              href="/shopping-list"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60"
+              aria-label="Shopping list"
+            >
+              <ShoppingListIcon />
+            </Link>
+            <Link
+              href="/settings"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </Link>
+          </div>
+        </header>
+        <FeedbackModal
+          open={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+          pageUrl={pathname ?? ""}
+        />
+        <main
+          ref={mainRef}
+          className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]`}
+        >
+          {getSkeletonForPath(pathname)}
+        </main>
+        <BottomNav />
+      </>
     );
   }
   if (!user && !isAuthPage) {
