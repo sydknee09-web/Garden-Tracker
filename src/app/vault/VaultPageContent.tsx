@@ -226,7 +226,7 @@ function VaultPageInner() {
   const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [shedFilterOpen, setShedFilterOpen] = useState(false);
-  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("grid");
+  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("list");
   const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
   const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
   const [shedSelectionActionsOpen, setShedSelectionActionsOpen] = useState(false);

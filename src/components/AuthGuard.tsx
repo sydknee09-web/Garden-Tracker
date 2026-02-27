@@ -115,6 +115,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const topLevelPaths = ["/", "/vault", "/garden", "/shed", "/calendar", "/journal", "/settings", "/shopping-list"];
   const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
+  // Plant profile page has its own "Back to Vault" link; hide redundant header back arrow
+  const isPlantProfilePage = pathname != null && /^\/vault\/[^/]+$/.test(pathname) && !["import", "plant", "shed", "history", "packets", "tags", "review-import"].some((seg) => pathname.startsWith(`/vault/${seg}`));
+  const showHeaderBackButton = isNestedRoute && !isPlantProfilePage;
 
   // Clear filters when navigating between sections (runs before children render so useSessionStorage reads cleared values)
   if (pathname && typeof window !== "undefined") {
@@ -161,7 +164,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
             <div className="flex items-center gap-1 shrink-0">
-              {isNestedRoute ? (
+              {showHeaderBackButton ? (
                 <button
                   type="button"
                   onClick={() => router.back()}

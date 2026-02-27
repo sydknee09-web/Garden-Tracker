@@ -59,7 +59,7 @@ export function ShedView({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
-  const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("grid");
+  const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("list");
   const searchQuery = embedded && externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const categoryFilter = embedded && externalCategoryFilter !== undefined ? externalCategoryFilter : internalCategoryFilter;
   const displayStyle = embedded && externalDisplayStyle !== undefined ? externalDisplayStyle : internalDisplayStyle;
@@ -283,7 +283,7 @@ export function ShedView({
                 : null;
               const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
               const isSelected = batchSelectMode && selectedIds.has(s.id);
-              const rowClassName = `flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${
+              const rowClassName = `flex items-center gap-3 px-3 py-2 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${
                 isSelected ? "bg-emerald-50/80 ring-inset ring-2 ring-emerald-500" : ""
               }`;
               const rowInner = (
@@ -301,14 +301,14 @@ export function ShedView({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-sm text-neutral-900 truncate leading-tight">{s.name}</h3>
-                    {s.brand && <p className="text-xs text-neutral-500 truncate">{s.brand}</p>}
+                    <h3 className="font-semibold text-sm text-neutral-900 leading-tight line-clamp-2 break-words">{s.name}</h3>
+                    {s.brand && <p className="text-xs text-neutral-500 truncate mt-0.5">{s.brand}</p>}
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-neutral-500 leading-tight">
-                      <span className="inline-block px-1 py-0.5 rounded bg-emerald-100/90 text-emerald-800 font-medium">
+                      <span className="inline-block px-1 py-0.5 rounded bg-emerald-100/90 text-emerald-800 font-medium shrink-0">
                         {CATEGORY_LABELS[s.category] ?? s.category}
                       </span>
-                      {npk && <span className="text-emerald-700">N {npk.n}% P {npk.p}% K {npk.k}%</span>}
-                      {lastUsed && <span>Last: {lastUsed}</span>}
+                      {npk && <span className="text-emerald-700 shrink-0">N {npk.n}% P {npk.p}% K {npk.k}%</span>}
+                      {lastUsed && <span className="shrink-0">Last: {lastUsed}</span>}
                     </div>
                   </div>
                   {isFamilyView && s.user_id && (
@@ -357,10 +357,10 @@ export function ShedView({
               : null;
             const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
-            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[100px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
+            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[88px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
             const cardInner = (
               <>
-                <div className="aspect-square bg-neutral-100 relative flex items-center justify-center">
+                <div className="aspect-square bg-neutral-100 relative flex items-center justify-center min-h-0">
                   {batchSelectMode && (
                     <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white" aria-hidden>
                       {isSelected ? (
@@ -375,7 +375,7 @@ export function ShedView({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-4xl text-neutral-400" aria-hidden>
+                    <span className="text-3xl text-neutral-400" aria-hidden>
                       🌱
                     </span>
                   )}
@@ -385,21 +385,17 @@ export function ShedView({
                     </span>
                   )}
                 </div>
-                <div className="p-2 flex-1 flex flex-col min-w-0">
-                  <span className="font-medium text-neutral-900 truncate block">{s.name}</span>
+                <div className="p-1.5 flex-1 flex flex-col min-w-0">
+                  <span className="font-medium text-neutral-900 text-xs leading-tight line-clamp-2 break-words block">{s.name}</span>
                   {s.brand && (
-                    <span className="text-xs text-neutral-500 truncate block">{s.brand}</span>
+                    <span className="text-[11px] text-neutral-500 truncate block">{s.brand}</span>
                   )}
-                  <span className="text-xs text-neutral-500 mt-1">
+                  <span className="text-[11px] text-neutral-500 mt-0.5">
                     {CATEGORY_LABELS[s.category] ?? s.category}
+                    {npk && ` · N ${npk.n}% P ${npk.p}% K ${npk.k}%`}
                   </span>
-                  {npk && (
-                    <span className="text-xs text-emerald-700 mt-0.5">
-                      N {npk.n}% | P {npk.p}% | K {npk.k}%
-                    </span>
-                  )}
                   {lastUsed && (
-                    <span className="text-xs text-neutral-400 mt-0.5">Last used: {lastUsed}</span>
+                    <span className="text-[10px] text-neutral-400 mt-0.5">Last: {lastUsed}</span>
                   )}
                 </div>
               </>
