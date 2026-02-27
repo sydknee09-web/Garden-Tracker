@@ -22,8 +22,6 @@ type ShoppingItemWithName = ShoppingListItem & {
   supply_name?: string;
   supply_deleted_at?: string | null;
 };
-type UpcomingCare = { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string; plant_name: string };
-
 type WeatherDay = { date: string; high: number; low: number; code: number };
 type WeatherData = {
   temp: number;
@@ -73,7 +71,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
-  const [upcomingCare, setUpcomingCare] = useState<UpcomingCare[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
   const [insightDismissed, setInsightDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -92,15 +89,12 @@ export default function HomePage() {
 
     async function load() {
       await generateCareTasks(user!.id);
-      const twoWeeksOut = new Date();
-      twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
 
       // Batch 1: Fetch all independent data in parallel
-      const [settingsRes, tasksRes, listRes, careRes] = await Promise.all([
+      const [settingsRes, tasksRes, listRes] = await Promise.all([
         supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
         supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(5),
-        supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }),
-        supabase.from("care_schedules").select("id, title, category, next_due_date, plant_profile_id").eq("user_id", user!.id).eq("is_active", true).lte("next_due_date", twoWeeksOut.toISOString().slice(0, 10)).order("next_due_date", { ascending: true }).limit(5),
+        supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }).limit(15),
       ]);
 
       const settings = settingsRes.data as UserSettingsRow | null;
@@ -108,14 +102,12 @@ export default function HomePage() {
 
       const taskRows = Array.isArray(tasksRes.data) ? tasksRes.data : [];
       const listRows = listRes.data ?? [];
-      const careData = careRes.data ?? [];
 
       // Batch 2: Resolve names — collect all profile IDs and fetch
       const profileIds = taskRows.map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter((id): id is string => Boolean(id));
       const listPlantIds = Array.from(new Set(listRows.map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean) as string[]));
       const listSupplyIds = Array.from(new Set(listRows.map((r: { supply_profile_id?: string | null }) => r.supply_profile_id).filter(Boolean) as string[]));
-      const careProfileIds = careData.length > 0 ? Array.from(new Set(careData.map((c: { plant_profile_id: string }) => c.plant_profile_id))) : [];
-      const allProfileIds = Array.from(new Set([...profileIds, ...listPlantIds, ...careProfileIds]));
+      const allProfileIds = Array.from(new Set([...profileIds, ...listPlantIds]));
 
       const profilesRes = allProfileIds.length > 0 ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : { data: [] };
       const profiles = profilesRes.data ?? [];
@@ -159,13 +151,6 @@ export default function HomePage() {
           };
         })
       );
-
-      if (careData.length > 0 && !cancelled) {
-        setUpcomingCare(careData.map((c: { id: string; title: string; category: string | null; next_due_date: string | null; plant_profile_id: string }) => ({
-          ...c,
-          plant_name: names[c.plant_profile_id] ?? "Unknown",
-        })));
-      }
 
       // Weather -- use user coords if available (runs after batch 1 for settings)
       try {
@@ -540,33 +525,6 @@ export default function HomePage() {
             </div>
           )}
         </section>
-
-        {/* ---- Plant Care ---- */}
-        {upcomingCare.length > 0 && (
-          <section className="sm:col-span-2 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-            <h2 className="text-lg font-medium text-black mb-2 text-center">Plant Care</h2>
-            <p className="text-xs text-black/50 mb-3">Upcoming care reminders for the next 2 weeks</p>
-            <ul className="space-y-2">
-              {upcomingCare.map((c) => {
-                const isOverdue = c.next_due_date && new Date(c.next_due_date + "T00:00:00") < new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
-                const catIcon = c.category === "fertilize" ? "🌿" : c.category === "prune" ? "✂️" : c.category === "water" ? "💧" : c.category === "spray" ? "🧴" : c.category === "harvest" ? "🧺" : "📋";
-                return (
-                  <li key={c.id} className="flex items-center gap-3">
-                    <span className="text-lg shrink-0" aria-hidden>{catIcon}</span>
-                    <div className="flex-1 min-w-0">
-                      <Link href={`/vault/${c.plant_profile_id}`} className="text-sm text-black/90 hover:text-emerald-600 font-medium truncate block">
-                        {c.title}
-                      </Link>
-                      <p className="text-xs text-black/50">{c.plant_name}{c.next_due_date ? ` -- ${isOverdue ? "Overdue: " : ""}${new Date(c.next_due_date + "T00:00:00").toLocaleDateString()}` : ""}</p>
-                    </div>
-                    {isOverdue && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium shrink-0">Overdue</span>}
-                  </li>
-                );
-              })}
-            </ul>
-            <Link href="/calendar" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
-          </section>
-        )}
       </div>
 
       {/* ---- Planting Calendars (SDSC + Farmers' Almanac) ---- */}

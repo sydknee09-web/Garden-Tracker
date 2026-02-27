@@ -906,6 +906,7 @@ export default function CalendarPage() {
                       isSelected={selectedIds.has(t.id)}
                       onLongPress={() => handleLongPressTask(t.id)}
                       onToggleSelect={() => toggleTaskSelect(t.id)}
+                      onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care`) : undefined}
                       ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                       canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                     />
@@ -957,6 +958,7 @@ export default function CalendarPage() {
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
+                              onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care`) : undefined}
                               ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                               canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                             />
@@ -1393,6 +1395,7 @@ function CalendarTaskRow({
   isSelected = false,
   onLongPress,
   onToggleSelect,
+  onTaskTap,
   ownerBadge,
   canEdit = true,
 }: {
@@ -1404,6 +1407,8 @@ function CalendarTaskRow({
   isSelected?: boolean;
   onLongPress?: () => void;
   onToggleSelect?: () => void;
+  /** When provided, short tap navigates (e.g. to plant profile Care tab) */
+  onTaskTap?: () => void;
   ownerBadge?: string | null;
   /** When false, complete/snooze/delete buttons are hidden */
   canEdit?: boolean;
@@ -1438,11 +1443,13 @@ function CalendarTaskRow({
     setTimeout(() => setShowDelete(false), 3000);
   };
 
+  const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
+
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={selectMode ? () => onToggleSelect?.() : undefined}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
