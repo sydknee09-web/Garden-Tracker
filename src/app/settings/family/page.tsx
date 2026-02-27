@@ -70,7 +70,6 @@ export default function SettingsFamilyPage() {
   const [inviteCopied, setInviteCopied] = useState(false);
   const [shorthandError, setShorthandError] = useState<string | null>(null);
   const [togglingGrantForUser, setTogglingGrantForUser] = useState<string | null>(null);
-  const [expandedPageAccessFor, setExpandedPageAccessFor] = useState<string | null>(null);
   const [togglingPagePerm, setTogglingPagePerm] = useState<string | null>(null);
 
   useEffect(() => {
@@ -488,58 +487,46 @@ export default function SettingsFamilyPage() {
                             </button>
                           </div>
                           {isOwner && (
-                            <div className="mt-1.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedPageAccessFor((prev) => (prev === m.user_id ? null : m.user_id))
-                                }
-                                className="text-xs text-neutral-500 hover:text-emerald-600 min-h-[32px] flex items-center gap-1"
-                              >
-                                {expandedPageAccessFor === m.user_id ? "−" : "+"} Page access (view/edit)
-                              </button>
-                              {expandedPageAccessFor === m.user_id && (
-                                <div className="mt-2 pl-2 border-l-2 border-neutral-200 space-y-2">
-                                  {grantedToThisMember && (
-                                    <p className="text-[11px] text-amber-700">
-                                      Full edit above. Per-page overrides when you revoke full edit.
-                                    </p>
-                                  )}
-                                  {PAGE_KEYS.map((page) => {
-                                    const perm = pagePermissions.find(
-                                      (p) =>
-                                        p.grantor_user_id === user.id &&
-                                        p.grantee_user_id === m.user_id &&
-                                        p.page === page,
-                                    );
-                                    const currentLevel = perm?.access_level ?? null;
-                                    const key = `${m.user_id}:${page}`;
-                                    const busy = togglingPagePerm === key;
-                                    return (
-                                      <div key={page} className="flex items-center justify-between gap-2">
-                                        <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
-                                        <select
-                                          value={currentLevel ?? "none"}
-                                          disabled={busy}
-                                          onChange={(e) => {
-                                            const v = e.target.value;
-                                            handleSetPagePermission(
-                                              m.user_id,
-                                              page,
-                                              v === "none" ? null : (v as PageAccessLevel),
-                                            );
-                                          }}
-                                          className="text-xs rounded border border-neutral-300 px-2 py-1 min-h-[32px] bg-white disabled:opacity-50"
-                                        >
-                                          <option value="none">—</option>
-                                          <option value="view">View</option>
-                                          <option value="edit">Edit</option>
-                                        </select>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                            <div className="mt-2 pl-2 border-l-2 border-neutral-200 space-y-2">
+                              <p className="text-xs font-medium text-neutral-600">Page access</p>
+                              {grantedToThisMember && (
+                                <p className="text-[11px] text-amber-700">
+                                  Full edit above. Per-page overrides when you revoke full edit.
+                                </p>
                               )}
+                              {PAGE_KEYS.map((page) => {
+                                const perm = pagePermissions.find(
+                                  (p) =>
+                                    p.grantor_user_id === user.id &&
+                                    p.grantee_user_id === m.user_id &&
+                                    p.page === page,
+                                );
+                                const currentLevel = perm?.access_level ?? null;
+                                const key = `${m.user_id}:${page}`;
+                                const busy = togglingPagePerm === key;
+                                return (
+                                  <div key={page} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-neutral-600">{PAGE_LABELS[page]}</span>
+                                    <select
+                                      value={currentLevel ?? "none"}
+                                      disabled={busy}
+                                      onChange={(e) => {
+                                        const v = e.target.value;
+                                        handleSetPagePermission(
+                                          m.user_id,
+                                          page,
+                                          v === "none" ? null : (v as PageAccessLevel),
+                                        );
+                                      }}
+                                      className="text-xs rounded border border-neutral-300 px-2 py-1 min-h-[32px] bg-white disabled:opacity-50"
+                                    >
+                                      <option value="none">—</option>
+                                      <option value="view">View</option>
+                                      <option value="edit">Edit</option>
+                                    </select>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </>
