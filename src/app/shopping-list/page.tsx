@@ -9,10 +9,13 @@ import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { AddItemModal } from "@/components/AddItemModal";
+import { OwnerBadge } from "@/components/OwnerBadge";
 
 type ShoppingItem = {
   id: string;
+  user_id: string;
   plant_profile_id: string | null;
   supply_profile_id: string | null;
   placeholder_name: string | null;
@@ -26,6 +29,7 @@ type ShoppingItem = {
 export default function ShoppingListPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -34,18 +38,21 @@ export default function ShoppingListPage() {
 
   useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
 
+  const isFamilyView = householdViewMode === "family";
+
   const fetchList = useCallback(async () => {
     if (!user?.id) {
       setItems([]);
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from("shopping_list")
-      .select("id, plant_profile_id, supply_profile_id, is_purchased, created_at, placeholder_name, placeholder_variety, plant_profiles(name, variety_name), supply_profiles(name, brand, deleted_at)")
-      .eq("user_id", user.id)
+      .select("id, user_id, plant_profile_id, supply_profile_id, is_purchased, created_at, placeholder_name, placeholder_variety, plant_profiles(name, variety_name), supply_profiles(name, brand, deleted_at)")
       .eq("is_purchased", false)
       .order("created_at", { ascending: false });
+    if (!isFamilyView) query = query.eq("user_id", user.id);
+    const { data, error } = await query;
     if (error) {
       setItems([]);
       setLoading(false);
@@ -53,19 +60,19 @@ export default function ShoppingListPage() {
     }
     setItems((data ?? []) as unknown as ShoppingItem[]);
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, householdViewMode]);
 
   useEffect(() => {
     fetchList();
   }, [fetchList]);
 
   const handlePurchased = useCallback(
-    async (id: string) => {
-      const removed = items.find((i) => i.id === id);
+    async (item: ShoppingItem) => {
+      const removed = items.find((i) => i.id === item.id);
       if (!removed) return;
-      setItems((prev) => prev.filter((i) => i.id !== id));
-      setTogglingId(id);
-      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id, user_id: user!.id });
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      setTogglingId(item.id);
+      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: item.user_id });
       setTogglingId(null);
       if (error) {
         hapticError();
@@ -74,7 +81,7 @@ export default function ShoppingListPage() {
         hapticSuccess();
       }
     },
-    [user?.id, items]
+    [items]
   );
 
   usePullToRefresh({ onRefresh: fetchList, disabled: loading });
@@ -119,6 +126,9 @@ export default function ShoppingListPage() {
                     : item.supply_profiles.name
                   : [item.placeholder_name, item.placeholder_variety].filter(Boolean).join(" — ") || "Unknown";
               const supplyLinkDisabled = isSupply && !!item.supply_profiles?.deleted_at;
+              const isOwn = item.user_id === user?.id;
+              const canEdit = canEditPage(item.user_id, "shopping_list");
+              const showOwnerBadge = isFamilyView && !isOwn && item.user_id;
 
               if (isPlaceholder) {
                 return (
@@ -127,10 +137,13 @@ export default function ShoppingListPage() {
                     className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
                   >
                     <span className="flex-1 text-neutral-900">{label}</span>
+                    {showOwnerBadge && (
+                      <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
+                    )}
                     <button
                       type="button"
-                      onClick={() => handlePurchased(item.id)}
-                      disabled={togglingId === item.id}
+                      onClick={() => handlePurchased(item)}
+                      disabled={togglingId === item.id || !canEdit}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
                       aria-label="Mark as purchased"
                     >
@@ -140,8 +153,8 @@ export default function ShoppingListPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handlePurchased(item.id)}
-                      disabled={togglingId === item.id}
+                      onClick={() => handlePurchased(item)}
+                      disabled={togglingId === item.id || !canEdit}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
                       aria-label="Remove from list"
                     >
@@ -163,8 +176,8 @@ export default function ShoppingListPage() {
                     type="checkbox"
                     id={`purchased-${item.id}`}
                     checked={false}
-                    onChange={() => handlePurchased(item.id)}
-                    disabled={togglingId === item.id}
+                    onChange={() => handlePurchased(item)}
+                    disabled={togglingId === item.id || !canEdit}
                     className="min-w-[44px] min-h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
                     aria-label={`Mark ${label} as purchased`}
                   />
@@ -177,6 +190,9 @@ export default function ShoppingListPage() {
                       <span>{label}</span>
                     )}
                   </label>
+                  {showOwnerBadge && (
+                    <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
+                  )}
                 </li>
               );
             })}
