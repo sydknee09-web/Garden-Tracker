@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import type { SVGProps } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
@@ -12,15 +13,39 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 
-/** Bag/sack icon for supplies without a photo. Differentiates from sprout used for plants. Exported for shed detail page. */
-export function ShedSupplyIcon({ className, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+/** Renders product thumb or ShedSupplyIcon on load error. */
+function SupplyThumb({ thumbUrl, imgClassName, iconClassName }: { thumbUrl: string | null; imgClassName?: string; iconClassName?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImg = thumbUrl && !failed;
+  return showImg ? (
+    <img src={thumbUrl} alt="" className={imgClassName} onError={() => setFailed(true)} />
+  ) : (
+    <ShedSupplyIcon className={iconClassName ?? "w-full h-full"} aria-hidden />
+  );
+}
+
+/** Subtly smiling grain bag icon for supplies without a photo. Inline SVG so it always loads. Exported for shed detail page. */
+export function ShedSupplyIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
-    <img
-      src="/icons/shed-supply-bag.png"
-      alt=""
+    <svg
+      viewBox="0 0 48 48"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
+      aria-hidden
       {...props}
-    />
+    >
+      {/* Bag body: rounded grain sack shape */}
+      <path d="M12 18c0-4 5-8 12-8s12 4 12 8v18c0 2.2-1.8 4-4 4H16c-2.2 0-4-1.8-4-4V18z" />
+      {/* Top cinched opening with folds */}
+      <path d="M12 18c0-3 4-6 12-6s12 3 12 6" strokeWidth="1.2" opacity="0.85" />
+      <path d="M18 14h12" strokeWidth="1.2" opacity="0.7" />
+      {/* Subtle smile on the front */}
+      <path d="M16 34q8 4 16 0" strokeWidth="1" opacity="0.6" />
+    </svg>
   );
 }
 
@@ -306,11 +331,7 @@ export function ShedView({
               const rowInner = (
                 <>
                   <div className="relative shrink-0 w-10 h-10 rounded-lg bg-neutral-100 overflow-hidden flex items-center justify-center">
-                    {thumbUrl ? (
-                      <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <ShedSupplyIcon className="w-6 h-6 text-neutral-400" aria-hidden />
-                    )}
+                    <SupplyThumb thumbUrl={thumbUrl} imgClassName="w-full h-full object-cover" iconClassName="w-6 h-6 text-neutral-400" />
                     {isSelected && (
                       <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center" aria-hidden>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -385,15 +406,7 @@ export function ShedView({
                       ) : null}
                     </span>
                   )}
-                  {thumbUrl ? (
-                    <img
-                      src={thumbUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <ShedSupplyIcon className="w-12 h-12 text-neutral-400" aria-hidden />
-                  )}
+                  <SupplyThumb thumbUrl={thumbUrl} imgClassName="w-full h-full object-cover" iconClassName="w-12 h-12 text-neutral-400" />
                   {isFamilyView && s.user_id && (
                     <span className="absolute top-1 right-1">
                       <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />

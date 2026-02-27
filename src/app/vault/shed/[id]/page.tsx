@@ -51,6 +51,7 @@ export default function VaultShedDetailPage() {
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
 
   const categoryFromUrl = searchParams.get("category");
   const backHref = categoryFromUrl ? `/vault?tab=shed&category=${categoryFromUrl}` : "/vault?tab=shed";
@@ -103,6 +104,10 @@ export default function VaultShedDetailPage() {
     }
     setHistory(entries);
   }, [id, user?.id]);
+
+  useEffect(() => {
+    setThumbLoadFailed(false);
+  }, [id]);
 
   useEffect(() => {
     if (!id) {
@@ -377,6 +382,7 @@ export default function VaultShedDetailPage() {
   const thumbUrl = supply.primary_image_path
     ? supabase.storage.from("journal-photos").getPublicUrl(supply.primary_image_path).data.publicUrl
     : null;
+  const showThumb = thumbUrl && !thumbLoadFailed;
   const isOwn = supply.user_id === user?.id;
 
   return (
@@ -487,9 +493,9 @@ export default function VaultShedDetailPage() {
       )}
 
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
-        {thumbUrl ? (
+        {showThumb ? (
           <div className="aspect-video bg-neutral-100 relative">
-            <img src={thumbUrl} alt="" className="w-full h-full object-contain" />
+            <img src={thumbUrl} alt="" className="w-full h-full object-contain" onError={() => setThumbLoadFailed(true)} />
             {canEdit && (
               <div className="absolute bottom-3 right-3">
                 <button
