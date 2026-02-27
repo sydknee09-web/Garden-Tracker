@@ -73,6 +73,7 @@ export default function SettingsFamilyPage() {
   const [shorthandError, setShorthandError] = useState<string | null>(null);
   const [togglingPagePerm, setTogglingPagePerm] = useState<string | null>(null);
   const [approvingAllForUser, setApprovingAllForUser] = useState<string | null>(null);
+  const [settingAllViewForUser, setSettingAllViewForUser] = useState<string | null>(null);
   const [kebabOpenForUser, setKebabOpenForUser] = useState<string | null>(null);
   const [settingTierForUser, setSettingTierForUser] = useState<string | null>(null);
 
@@ -252,10 +253,11 @@ export default function SettingsFamilyPage() {
     [user?.id, household, pagePermissions, reloadHousehold],
   );
 
-  const handleApproveAll = useCallback(
-    async (granteeUserId: string) => {
+  const handleSetAllPages = useCallback(
+    async (granteeUserId: string, level: "view" | "edit") => {
       if (!user?.id || !household) return;
-      setApprovingAllForUser(granteeUserId);
+      if (level === "edit") setApprovingAllForUser(granteeUserId);
+      else setSettingAllViewForUser(granteeUserId);
       for (const page of PAGE_KEYS) {
         const existing = pagePermissions.find(
           (p: HouseholdPagePermission) =>
@@ -264,7 +266,7 @@ export default function SettingsFamilyPage() {
         if (existing) {
           await supabase
             .from("household_page_permissions")
-            .update({ access_level: "edit" })
+            .update({ access_level: level })
             .eq("id", existing.id);
         } else {
           await supabase.from("household_page_permissions").insert({
@@ -272,11 +274,12 @@ export default function SettingsFamilyPage() {
             grantor_user_id: user.id,
             grantee_user_id: granteeUserId,
             page,
-            access_level: "edit",
+            access_level: level,
           });
         }
       }
       setApprovingAllForUser(null);
+      setSettingAllViewForUser(null);
       await reloadHousehold();
     },
     [user?.id, household, pagePermissions, reloadHousehold],
@@ -620,14 +623,24 @@ export default function SettingsFamilyPage() {
                               <div className="pt-2 border-t border-neutral-100">
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                   <p className="text-[11px] text-neutral-400">Per-page access</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApproveAll(m.user_id)}
-                                    disabled={approvingAllForUser === m.user_id}
-                                    className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
-                                  >
-                                    {approvingAllForUser === m.user_id ? "..." : "Approve all"}
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetAllPages(m.user_id, "view")}
+                                      disabled={settingAllViewForUser === m.user_id || approvingAllForUser === m.user_id}
+                                      className="text-xs font-medium text-neutral-600 hover:text-neutral-800 disabled:opacity-50 min-h-[32px] px-1"
+                                    >
+                                      {settingAllViewForUser === m.user_id ? "..." : "All view"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetAllPages(m.user_id, "edit")}
+                                      disabled={approvingAllForUser === m.user_id || settingAllViewForUser === m.user_id}
+                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 min-h-[32px] px-1"
+                                    >
+                                      {approvingAllForUser === m.user_id ? "..." : "All edit"}
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="space-y-2">
                                   {PAGE_KEYS.map((page) => {
