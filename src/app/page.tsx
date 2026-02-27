@@ -68,7 +68,7 @@ export default function HomePage() {
   const [pendingTasks, setPendingTasks] = useState<TaskWithPlant[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItemWithName[]>([]);
   const [weather, setWeather] = useState<WeatherData>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingTasksAndList, setLoadingTasksAndList] = useState(true);
   const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
@@ -84,21 +84,24 @@ export default function HomePage() {
   const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { setLoadingTasksAndList(false); return; }
     let cancelled = false;
 
     async function load() {
-      await generateCareTasks(user!.id);
+      generateCareTasks(user!.id); // Run in background, don't block
 
-      // Batch 1: Fetch all independent data in parallel
-      const [settingsRes, tasksRes, listRes] = await Promise.all([
-        supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle(),
-        supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(5),
-        supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }).limit(15),
-      ]);
-
+      // Fetch settings first (needed for weather URL), then run tasks + list + weather in parallel
+      const settingsRes = await supabase.from("user_settings").select("planting_zone, latitude, longitude, timezone, location_name").eq("user_id", user!.id).maybeSingle();
       const settings = settingsRes.data as UserSettingsRow | null;
       if (!cancelled) setUserSettings(settings);
+
+      const forecastUrl = buildForecastUrl(settings ? { latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone } : null);
+
+      const [tasksRes, listRes, weatherRes] = await Promise.all([
+        supabase.from("tasks").select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title").eq("user_id", user!.id).is("deleted_at", null).is("completed_at", null).order("due_date", { ascending: true }).limit(5),
+        supabase.from("shopping_list").select("id, user_id, plant_profile_id, supply_profile_id, created_at, placeholder_name, placeholder_variety").eq("user_id", user!.id).eq("is_purchased", false).order("created_at", { ascending: false }).limit(15),
+        fetch(forecastUrl).then((r) => r.json()).catch(() => null),
+      ]);
 
       const taskRows = Array.isArray(tasksRes.data) ? tasksRes.data : [];
       const listRows = listRes.data ?? [];
@@ -152,11 +155,11 @@ export default function HomePage() {
         })
       );
 
-      // Weather -- use user coords if available (runs after batch 1 for settings)
+      if (!cancelled) setLoadingTasksAndList(false);
+
+      // Weather (fetched in parallel with tasks/list above)
       try {
-        const forecastUrl = buildForecastUrl(settings ? { latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone } : null);
-        const res = await fetch(forecastUrl);
-        const data = await res.json();
+        const data = weatherRes;
         if (!cancelled && data?.current) {
           const cur = data.current;
           const daily = data.daily;
@@ -183,8 +186,6 @@ export default function HomePage() {
       } catch {
         if (!cancelled) setWeather(null);
       }
-
-      setLoading(false);
     }
 
     load();
@@ -366,7 +367,7 @@ export default function HomePage() {
         {/* ---- Shopping List ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
           <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Shopping list</h2>
-          {loading ? (
+          {loadingTasksAndList ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : shoppingList.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-4">
@@ -476,7 +477,7 @@ export default function HomePage() {
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
           <h2 className="text-base font-bold text-black mb-1 pb-2 border-b border-black/5">At a glance</h2>
           <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
-          {loading ? (
+          {loadingTasksAndList ? (
             <p className="text-black/50 text-sm">Loading...</p>
           ) : (
             <div className="space-y-3">

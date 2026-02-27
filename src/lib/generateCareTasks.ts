@@ -110,6 +110,19 @@ export async function generateCareTasks(userId: string): Promise<number> {
       }
     }
 
+    // Batch fetch existing tasks for all due schedules (avoids N+1 queries)
+    const scheduleIds = dueSchedules.map((s) => (s as { id: string }).id);
+    const { data: existingBySchedule } = await supabase
+      .from("tasks")
+      .select("care_schedule_id")
+      .eq("user_id", userId)
+      .in("care_schedule_id", scheduleIds)
+      .is("completed_at", null)
+      .is("deleted_at", null);
+    const existingScheduleIds = new Set(
+      (existingBySchedule ?? []).map((t: { care_schedule_id: string | null }) => t.care_schedule_id).filter(Boolean) as string[]
+    );
+
     for (const schedule of dueSchedules) {
       const s = schedule as {
         id: string;
@@ -131,16 +144,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
         if (!allValid) continue;
       }
 
-      const { data: existingTasks } = await supabase
-        .from("tasks")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("care_schedule_id", s.id)
-        .is("completed_at", null)
-        .is("deleted_at", null)
-        .limit(1);
-
-      if (existingTasks && existingTasks.length > 0) continue;
+      if (existingScheduleIds.has(s.id)) continue;
 
       // Task grow_instance_id: single instance or null (all / multi-plant)
       const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
