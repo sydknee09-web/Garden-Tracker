@@ -22,9 +22,9 @@ const config: Config = {
           500: "#64748b",
         },
         // Full scale so bg-emerald-600, hover:bg-emerald-700 etc. render (buttons were invisible with only base)
-        // Sprout Green #10b981 for success/planting
+        // Sprout Green #10b981 for success/planting — DEFAULT matches emerald-500 for consistency
         emerald: {
-          DEFAULT: "#50C878",
+          DEFAULT: "#10b981",
           50: "#ecfdf5",
           100: "#d1fae5",
           200: "#a7f3d0",
@@ -38,8 +38,8 @@ const config: Config = {
           950: "#022c22",
         },
         citrus: "#FFD700",
-        // Semantic aliases
-        action: "#50C878",
+        // Semantic aliases (action matches emerald for primary buttons)
+        action: "#10b981",
         alert: "#FFD700",
         surface: "#FFFFFF",
       },
