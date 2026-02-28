@@ -162,7 +162,7 @@ function CondensedGridIcon() {
 }
 
 function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
-  if (!searchParams) return "list";
+  if (!searchParams) return "grid";
   const sow = searchParams.get("sow");
   if (sow && /^\d{4}-\d{2}$/.test(sow)) return "grid";
   const tab = searchParams.get("tab");
@@ -170,7 +170,7 @@ function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "lis
   if (tab === "shed") return "shed";
   if (tab === "grid") return "grid";
   if (tab === "active" || tab === "plants") return "grid";
-  return "list";
+  return "grid";
 }
 
 function VaultPageInner() {
