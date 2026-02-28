@@ -1547,10 +1547,11 @@ export default function VaultSeedPage() {
         </div>
 
         {/* Tabs — About, Care, Packets, Plantings, Journal. Counts only on Packets and Plants. */}
-        <div className="flex flex-wrap border-b border-neutral-200 gap-0 mb-4 overflow-visible">
+        <div className="flex flex-nowrap border-b border-neutral-200 gap-x-0 mb-4 overflow-x-auto overflow-y-visible" style={{ scrollbarWidth: "thin" }}>
           {(["about","care","packets","plantings","journal"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-0 min-h-[44px] px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
+              className={`flex-1 min-w-0 min-h-[44px] px-1 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+              style={{ minWidth: "max(5rem, 20%)" }}>
               {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
             </button>
           ))}

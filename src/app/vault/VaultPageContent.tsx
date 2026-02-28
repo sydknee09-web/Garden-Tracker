@@ -2386,7 +2386,7 @@ function VaultPageInner() {
               ? "bg-emerald-700 text-white"
               : "bg-emerald text-white"
         }`}
-        style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)" }}
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label={
           ((viewMode === "grid" || viewMode === "list") && batchSelectMode) || (viewMode === "shed" && shedBatchSelectMode)
             ? "Selection actions"
