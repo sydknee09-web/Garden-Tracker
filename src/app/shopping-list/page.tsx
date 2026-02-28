@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/lib/supabase";
-import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { updateWithOfflineQueue, deleteWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AddItemModal } from "@/components/AddItemModal";
-import { EditItemModal } from "@/components/EditItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
 
 type ShoppingItem = {
@@ -34,8 +33,9 @@ export default function ShoppingListPage() {
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<ShoppingItem | null>(null);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const isFamilyView = householdViewMode === "family";
 
@@ -64,6 +64,65 @@ export default function ShoppingListPage() {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  const handleRemove = useCallback(
+    async (item: ShoppingItem) => {
+      if (!canEditPage(item.user_id, "shopping_list")) return;
+      const removed = items.find((i) => i.id === item.id);
+      if (!removed) return;
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      const { error } = await deleteWithOfflineQueue("shopping_list", { id: item.id, user_id: item.user_id });
+      if (error) {
+        hapticError();
+        setItems((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
+      } else {
+        hapticSuccess();
+      }
+    },
+    [items, canEditPage]
+  );
+
+  const handleInlineSave = useCallback(
+    async (item: ShoppingItem) => {
+      const trimmed = editingValue.trim();
+      if (!trimmed || !user?.id) {
+        setEditingId(null);
+        return;
+      }
+      const parts = trimmed.split(" — ").map((s) => s.trim());
+      const placeholder_name = parts[0] || trimmed;
+      const placeholder_variety = parts.length > 1 ? parts.slice(1).join(" — ") : null;
+      setEditingId(null);
+      const { error } = await updateWithOfflineQueue(
+        "shopping_list",
+        { placeholder_name, placeholder_variety },
+        { id: item.id, user_id: item.user_id }
+      );
+      if (error) {
+        hapticError();
+        setEditingValue("");
+      } else {
+        hapticSuccess();
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, placeholder_name, placeholder_variety } : i
+          )
+        );
+      }
+    },
+    [editingValue, user?.id]
+  );
+
+  useEffect(() => {
+    if (editingId) {
+      const item = items.find((i) => i.id === editingId);
+      const val = item
+        ? [item.placeholder_name, item.placeholder_variety].filter(Boolean).join(" — ")
+        : "";
+      setEditingValue(val);
+      setTimeout(() => editInputRef.current?.focus(), 50);
+    }
+  }, [editingId, items]);
 
   const handlePurchased = useCallback(
     async (item: ShoppingItem) => {
@@ -129,30 +188,37 @@ export default function ShoppingListPage() {
               const canEdit = canEditPage(item.user_id, "shopping_list");
               const showOwnerBadge = isFamilyView && !isOwn && item.user_id;
 
-              const handlePointerDown = () => {
-                if (!canEdit) return;
-                longPressTimerRef.current = setTimeout(() => {
-                  setEditItem(item);
-                  longPressTimerRef.current = null;
-                }, 500);
-              };
-              const handlePointerUp = () => {
-                if (longPressTimerRef.current) {
-                  clearTimeout(longPressTimerRef.current);
-                  longPressTimerRef.current = null;
-                }
+              const handleDoubleClick = (e: React.MouseEvent) => {
+                if (!canEdit || !isPlaceholder) return;
+                if ((e.target as HTMLElement).closest("button, a, input")) return;
+                setEditingId(item.id);
               };
 
               if (isPlaceholder) {
+                const isEditing = editingId === item.id;
                 return (
                   <li
                     key={item.id}
                     className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
-                    onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
-                    onPointerLeave={handlePointerUp}
+                    onDoubleClick={handleDoubleClick}
                   >
-                    <span className="flex-1 text-neutral-900">{label}</span>
+                    {isEditing ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={() => handleInlineSave(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleInlineSave(item);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="flex-1 min-h-[44px] px-2 rounded-lg border border-emerald-300 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="flex-1 text-neutral-900">{label}</span>
+                    )}
                     {showOwnerBadge && (
                       <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
                     )}
@@ -169,7 +235,7 @@ export default function ShoppingListPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handlePurchased(item)}
+                      onClick={() => handleRemove(item)}
                       disabled={togglingId === item.id || !canEdit}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
                       aria-label="Remove from list"
@@ -187,9 +253,6 @@ export default function ShoppingListPage() {
                 <li
                   key={item.id}
                   className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
-                  onPointerDown={handlePointerDown}
-                  onPointerUp={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
                 >
                   <input
                     type="checkbox"
@@ -201,7 +264,11 @@ export default function ShoppingListPage() {
                     aria-label={`Mark ${label} as purchased`}
                   />
                   <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-neutral-900">
-                    {isSupply && !supplyLinkDisabled ? (
+                    {item.plant_profile_id ? (
+                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
+                        {label}
+                      </Link>
+                    ) : isSupply && !supplyLinkDisabled ? (
                       <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
                         {label}
                       </Link>
@@ -212,6 +279,20 @@ export default function ShoppingListPage() {
                   {showOwnerBadge && (
                     <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
                   )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item)}
+                      disabled={togglingId === item.id}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
+                      aria-label="Remove from list"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
                 </li>
               );
             })}
@@ -221,13 +302,6 @@ export default function ShoppingListPage() {
         <AddItemModal
           open={addItemModalOpen}
           onClose={() => setAddItemModalOpen(false)}
-          onSuccess={fetchList}
-        />
-
-        <EditItemModal
-          item={editItem}
-          canEdit={editItem ? canEditPage(editItem.user_id, "shopping_list") : false}
-          onClose={() => setEditItem(null)}
           onSuccess={fetchList}
         />
 
