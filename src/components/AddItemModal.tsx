@@ -49,9 +49,10 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       }
       hapticSuccess();
       onSuccess();
-      onClose();
+      setName("");
+      setTimeout(() => inputRef.current?.focus(), 50);
     },
-    [name, user?.id, onSuccess, onClose]
+    [name, user?.id, onSuccess]
   );
 
   if (!open) return null;
@@ -72,7 +73,7 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
           Add item
         </h2>
         <p className="text-sm text-neutral-500 mb-4">
-          Add a plant or supply by name. You can add it to Vault or Shed after you purchase.
+          Add plants or supplies by name. Add multiple items, then tap Done when finished.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <label htmlFor="add-item-name" className="sr-only">
@@ -94,13 +95,13 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
               {error}
             </p>
           )}
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end flex-wrap">
             <button
               type="button"
               onClick={onClose}
               className="min-w-[44px] min-h-[44px] px-4 rounded-xl border border-black/15 text-neutral-700 font-medium hover:bg-black/5 disabled:opacity-50"
             >
-              Cancel
+              Done
             </button>
             <button
               type="submit"

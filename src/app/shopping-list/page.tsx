@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { AddItemModal } from "@/components/AddItemModal";
+import { EditItemModal } from "@/components/EditItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
 
 type ShoppingItem = {
@@ -34,9 +34,8 @@ export default function ShoppingListPage() {
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
-  const [fabMenuOpen, setFabMenuOpen] = useState(false);
-
-  useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
+  const [editItem, setEditItem] = useState<ShoppingItem | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isFamilyView = householdViewMode === "family";
 
@@ -130,11 +129,28 @@ export default function ShoppingListPage() {
               const canEdit = canEditPage(item.user_id, "shopping_list");
               const showOwnerBadge = isFamilyView && !isOwn && item.user_id;
 
+              const handlePointerDown = () => {
+                if (!canEdit) return;
+                longPressTimerRef.current = setTimeout(() => {
+                  setEditItem(item);
+                  longPressTimerRef.current = null;
+                }, 500);
+              };
+              const handlePointerUp = () => {
+                if (longPressTimerRef.current) {
+                  clearTimeout(longPressTimerRef.current);
+                  longPressTimerRef.current = null;
+                }
+              };
+
               if (isPlaceholder) {
                 return (
                   <li
                     key={item.id}
                     className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
+                    onPointerDown={handlePointerDown}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
                   >
                     <span className="flex-1 text-neutral-900">{label}</span>
                     {showOwnerBadge && (
@@ -171,6 +187,9 @@ export default function ShoppingListPage() {
                 <li
                   key={item.id}
                   className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
+                  onPointerDown={handlePointerDown}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
                 >
                   <input
                     type="checkbox"
@@ -205,48 +224,19 @@ export default function ShoppingListPage() {
           onSuccess={fetchList}
         />
 
-        {fabMenuOpen && (
-          <>
-            <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setFabMenuOpen(false)} />
-            <div
-              className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
-              style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="shopping-fab-title"
-            >
-              <h2 id="shopping-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add to list</h2>
-              <p className="text-sm text-neutral-500 text-center mb-4">Add an item by name.</p>
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFabMenuOpen(false);
-                    setAddItemModalOpen(true);
-                  }}
-                  className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>✏️</span>
-                  Add item
-                </button>
-                <div className="pt-4">
-                  <button type="button" onClick={() => setFabMenuOpen(false)} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+        <EditItemModal
+          item={editItem}
+          canEdit={editItem ? canEditPage(editItem.user_id, "shopping_list") : false}
+          onClose={() => setEditItem(null)}
+          onSuccess={fetchList}
+        />
 
         <button
           type="button"
-          onClick={() => setFabMenuOpen((o) => !o)}
-          className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-            fabMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
-          }`}
+          onClick={() => setAddItemModalOpen(true)}
+          className="fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all bg-emerald text-white"
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-          aria-label={fabMenuOpen ? "Close menu" : "Add to list"}
+          aria-label="Add to list"
         >
           <svg
             width="24"
@@ -257,7 +247,6 @@ export default function ShoppingListPage() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
             <line x1="12" y1="5" x2="12" y2="19" />

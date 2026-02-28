@@ -22,6 +22,7 @@ export function isNetworkError(err: unknown): boolean {
 export type InsertResult = { data: unknown; error: { message: string } | null };
 export type UpdateResult = { error: { message: string } | null };
 export type UpsertResult = { data: unknown; error: { message: string } | null };
+export type DeleteResult = { error: { message: string } | null };
 
 /**
  * Insert with offline queue. On network failure, enqueues and returns success so UI can update optimistically.
@@ -116,4 +117,28 @@ export async function upsertWithOfflineQueue(
     return { data: null, error: null };
   }
   return { data, error };
+}
+
+/**
+ * Delete with offline queue. filters are applied as .eq(key, value) for each entry.
+ * Use for tables that allow hard delete (e.g. shopping_list). Protected tables use soft delete.
+ */
+export async function deleteWithOfflineQueue(
+  table: string,
+  filters: Record<string, string | number | boolean>,
+): Promise<DeleteResult> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    await enqueueWrite({ table, operation: "delete", payload: {}, filters });
+    return { error: null };
+  }
+  let query = supabase.from(table).delete();
+  for (const [key, value] of Object.entries(filters)) {
+    query = query.eq(key, value);
+  }
+  const { error } = await query;
+  if (error && isNetworkError(error)) {
+    await enqueueWrite({ table, operation: "delete", payload: {}, filters });
+    return { error: null };
+  }
+  return { error };
 }
