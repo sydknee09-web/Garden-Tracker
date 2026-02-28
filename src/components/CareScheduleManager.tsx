@@ -156,6 +156,8 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
       const now = new Date().toISOString();
       const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false, deleted_at: now }, { id: scheduleId, user_id: userId });
       if (error) { setSaveError("Failed to remove schedule."); return; }
+      // Cascade: soft-delete tasks generated from this schedule so they don't appear as ghosts on Calendar
+      await supabase.from("tasks").update({ deleted_at: now }).eq("care_schedule_id", scheduleId).eq("user_id", userId);
       setSaveError(null);
       onChanged();
     } catch {

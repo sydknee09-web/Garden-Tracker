@@ -906,7 +906,7 @@ export default function CalendarPage() {
                       isSelected={selectedIds.has(t.id)}
                       onLongPress={() => handleLongPressTask(t.id)}
                       onToggleSelect={() => toggleTaskSelect(t.id)}
-                      onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care`) : undefined}
+                      onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
                       ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                       canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                     />
@@ -958,7 +958,7 @@ export default function CalendarPage() {
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
-                              onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care`) : undefined}
+                              onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
                               ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                               canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                             />
@@ -1011,8 +1011,8 @@ export default function CalendarPage() {
       {/* Batch reschedule sheet */}
       {batchActionOpen === "reschedule" && (
         <>
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setBatchActionOpen(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
+          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setBatchActionOpen(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
             <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}</h3>
             <div className="grid grid-cols-3 gap-2">
               {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
@@ -1041,8 +1041,8 @@ export default function CalendarPage() {
       {/* Batch delete confirm sheet */}
       {batchActionOpen === "delete" && (
         <>
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setBatchActionOpen(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4">
+          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setBatchActionOpen(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4">
             <h3 className="text-base font-bold text-black">Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?</h3>
             <p className="text-sm text-black/60">This cannot be undone.</p>
             <div className="flex gap-2">
@@ -1115,7 +1115,7 @@ export default function CalendarPage() {
       {/* Non-recurring delete confirm (inline pill) */}
       {deleteConfirmTask && (
         <div
-          className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto rounded-xl bg-white border border-black/10 shadow-lg p-4 flex items-center justify-between gap-3"
+          className="fixed bottom-24 left-4 right-4 z-[60] max-w-md mx-auto rounded-xl bg-white border border-black/10 shadow-lg p-4 flex items-center justify-between gap-3"
           role="dialog"
           aria-live="polite"
           aria-label="Confirm delete"
@@ -1143,8 +1143,8 @@ export default function CalendarPage() {
       {/* Recurring delete action sheet */}
       {deleteRecurringPrompt && (
         <>
-          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setDeleteRecurringPrompt(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
+          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setDeleteRecurringPrompt(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
             <h3 className="text-base font-bold text-black">Delete recurring task</h3>
             <p className="text-sm text-black/60 pb-1">
               &ldquo;{deleteRecurringPrompt.title ?? deleteRecurringPrompt.category}&rdquo; repeats on a schedule. What would you like to delete?

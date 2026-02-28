@@ -98,6 +98,7 @@
 | Query param | Behavior |
 |-------------|----------|
 | `from=garden` | "Back" returns to Garden (My Plants) |
+| `from=calendar` | "Back" returns to Calendar (optionally with `date=YYYY-MM-DD` to preserve context) |
 | `tab=journal` | Open Journal tab |
 
 ### Vault profile – Plantings tab
