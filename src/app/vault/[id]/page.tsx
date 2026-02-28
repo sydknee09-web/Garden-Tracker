@@ -316,7 +316,7 @@ export default function VaultSeedPage() {
       // Batch 2: Fetch packets, grows, journals, care, suggestions, journal photos in parallel
       // grow_instances: run both queries and merge — primary (no user filter) + explicit user_id
       // to handle RLS/visibility edge cases for permanent plants.
-      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, suggestionsRes, journalPhotosRes] = await Promise.all([
+      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, suggestionsRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false }),
@@ -422,7 +422,8 @@ export default function VaultSeedPage() {
       setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
       setCareSchedules((careRes.data ?? []) as CareSchedule[]);
       setCareSuggestions((suggestionsRes.data ?? []) as CareScheduleSuggestion[]);
-      setJournalPhotos(((journalsRes as { data?: unknown[] }).data ?? []).filter((j: { image_file_path?: string | null }) => j.image_file_path) as JournalPhoto[]);
+      const journalRows = (journalsRes as { data?: { image_file_path?: string | null }[] }).data ?? [];
+      setJournalPhotos(journalRows.filter((j) => j.image_file_path) as JournalPhoto[]);
 
       // Batch 3: packet_images (depends on packetIds)
       const packetIds = packetRows.map((p) => p.id);
