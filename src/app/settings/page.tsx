@@ -24,7 +24,7 @@ export default function SettingsPage() {
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto pb-24">
       <Link href="/" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
-        &larr; Back to Garden
+        &larr; Back to Home
       </Link>
       <h1 className="text-xl font-bold text-neutral-900 mb-1">Settings</h1>
       <p className="text-sm text-neutral-500 mb-4">Profile, data, and developer tools.</p>
