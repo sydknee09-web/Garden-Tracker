@@ -1229,9 +1229,6 @@ export function SeedVaultView({
                     </h3>
                     <div className={`text-[11px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                     <div className="mt-auto pt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
-                      {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                        <span className="text-[10px] font-medium text-neutral-500 shrink-0">Out</span>
-                      )}
                       {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                     </div>
                   </div>
@@ -1310,9 +1307,6 @@ export function SeedVaultView({
                   </h3>
                   <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                   <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
-                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && (
-                      <span className="text-[9px] font-medium text-neutral-500 shrink-0">Out</span>
-                    )}
                     {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                   </div>
                 </div>
@@ -1462,7 +1456,6 @@ export function SeedVaultView({
         return (
           <td key="pkts" className="py-2 px-3 align-middle">
             <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
-            {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out of Stock</span>}
           </td>
         );
       case "rating":
@@ -1521,7 +1514,6 @@ export function SeedVaultView({
                   </span>
                   <span className="shrink-0 inline-flex items-center gap-1.5">
                     <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
-                    {(seed.packet_count === 0 || seed.status === "out_of_stock") && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">Out</span>}
                   </span>
                 </button>
               </li>

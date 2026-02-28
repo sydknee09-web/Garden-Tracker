@@ -288,24 +288,33 @@ export function AddPlantModal({
         }
 
         // Enrichment before seasonal tasks so harvest_days is available for harvest task.
-        // Non-fatal: profile + grow_instance already saved; treat fetch/network errors as enrichment failed.
-        try {
-          const { enriched } = await enrichProfileFromName(
-            supabase,
-            profileId,
-            user.id,
-            name,
-            variety.trim(),
-            {
-              vendor: vendor.trim(),
-              skipHero: photoFiles.length > 0,
-              existingGrowingNotes: notes.trim() || null,
-              accessToken: session?.access_token ?? undefined,
-            }
-          );
-          if (!enriched) setEnrichmentFailed(true);
-        } catch {
-          setEnrichmentFailed(true);
+        // For permanent plants: run in background so modal closes immediately (enrichment can hang).
+        // For seasonal: must await so harvest task gets harvest_days.
+        const runEnrichment = async () => {
+          try {
+            const { enriched } = await enrichProfileFromName(
+              supabase,
+              profileId,
+              user.id,
+              name,
+              variety.trim(),
+              {
+                vendor: vendor.trim(),
+                skipHero: photoFiles.length > 0,
+                existingGrowingNotes: notes.trim() || null,
+                accessToken: session?.access_token ?? undefined,
+              }
+            );
+            if (!enriched) setEnrichmentFailed(true);
+          } catch {
+            setEnrichmentFailed(true);
+          }
+        };
+
+        if (plantType === "permanent") {
+          void runEnrichment();
+        } else {
+          await runEnrichment();
         }
 
         if (plantType === "seasonal") {

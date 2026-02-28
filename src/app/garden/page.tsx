@@ -495,6 +495,19 @@ function GardenPageInner() {
             )}
 
             <div className="flex items-center gap-3 mb-2">
+              <button
+                type="button"
+                onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
+                className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
+                aria-label="Filter by plant type"
+              >
+                Filter
+                {(effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0) ? (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
+                    {effectiveViewMode === "active" ? activeFilterCount : plantsFilterCount}
+                  </span>
+                ) : null}
+              </button>
               {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
                 <button
                   type="button"
@@ -520,19 +533,6 @@ function GardenPageInner() {
                   {(effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode) ? "Cancel" : "Select"}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
-                className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2"
-                aria-label="Filter by plant type"
-              >
-                Filter
-                {(effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0) ? (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                    {effectiveViewMode === "active" ? activeFilterCount : plantsFilterCount}
-                  </span>
-                ) : null}
-              </button>
               {((effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0)) && (
                 <button
                   type="button"
