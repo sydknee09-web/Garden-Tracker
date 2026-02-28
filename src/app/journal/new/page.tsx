@@ -48,8 +48,8 @@ export default function JournalNewPage() {
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [note, setNote] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  type PhotoItem = { id: string; file: File; previewUrl: string };
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -112,20 +112,40 @@ export default function JournalNewPage() {
       });
   }, []);
 
-  const previewUrlRef = useRef<string | null>(null);
-  const handleImageSelected = useCallback((f: File | null) => {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
+  const handleImageSelected = useCallback((files: File | File[] | null) => {
+    if (!files) {
+      setPhotos([]);
+      return;
     }
-    setImageFile(f);
-    if (f) {
-      const url = URL.createObjectURL(f);
-      previewUrlRef.current = url;
-      setImagePreviewUrl(url);
-    } else {
-      setImagePreviewUrl(null);
-    }
+    const arr = Array.isArray(files) ? files : [files];
+    setPhotos((prev) => {
+      const next = [...prev];
+      for (const f of arr) {
+        const url = URL.createObjectURL(f);
+        next.push({ id: crypto.randomUUID(), file: f, previewUrl: url });
+      }
+      return next;
+    });
+  }, []);
+
+  const removePhoto = useCallback((id: string) => {
+    setPhotos((prev) => {
+      const item = prev.find((p) => p.id === id);
+      if (item) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }, []);
+
+  const movePhoto = useCallback((id: string, direction: "left" | "right") => {
+    setPhotos((prev) => {
+      const i = prev.findIndex((p) => p.id === id);
+      if (i < 0) return prev;
+      const j = direction === "left" ? i - 1 : i + 1;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   }, []);
 
   const captureFromWebcam = useCallback(() => {
@@ -187,24 +207,8 @@ export default function JournalNewPage() {
     }
 
     const noteTrim = note.trim() || null;
-    let imagePath: string | null = null;
 
-    if (imageFile) {
-      setUploadingPhoto(true);
-      const { blob } = await compressImage(imageFile);
-      const path = `${sessionUserId}/${crypto.randomUUID()}.jpg`;
-      const { error: uploadErr } = await supabase.storage
-        .from("journal-photos")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-      setUploadingPhoto(false);
-      if (uploadErr) {
-        setSubmitError(uploadErr.message);
-        return;
-      }
-      imagePath = path;
-    }
-
-    if (!noteTrim && !imagePath) {
+    if (!noteTrim && photos.length === 0) {
       setSubmitError("Add a note or photo.");
       return;
     }
@@ -213,9 +217,27 @@ export default function JournalNewPage() {
     setSyncing(true);
     const weatherSnapshot = await fetchWeatherSnapshot();
     const profileIds = Array.from(selectedProfileIds);
-    const isMultiPlant = profileIds.length > 1;
     const plantProfileId = profileIds.length === 1 ? profileIds[0] : null;
     try {
+      const uploadedPaths: string[] = [];
+      if (photos.length > 0) {
+        setUploadingPhoto(true);
+        for (const p of photos) {
+          const { blob } = await compressImage(p.file);
+          const path = `${sessionUserId}/${crypto.randomUUID()}.jpg`;
+          const { error: uploadErr } = await supabase.storage
+            .from("journal-photos")
+            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+          if (uploadErr) {
+            setSubmitError(uploadErr.message);
+            setUploadingPhoto(false);
+            return;
+          }
+          uploadedPaths.push(path);
+        }
+        setUploadingPhoto(false);
+      }
+      const firstPath = uploadedPaths[0] ?? null;
       const { data: entry, error: insertErr } = await supabase
         .from("journal_entries")
         .insert({
@@ -225,7 +247,7 @@ export default function JournalNewPage() {
           seed_packet_id: null,
           note: noteTrim,
           entry_type: "note",
-          image_file_path: imagePath,
+          image_file_path: firstPath,
           weather_snapshot: weatherSnapshot ?? undefined,
         } as Record<string, unknown>)
         .select("id")
@@ -244,6 +266,19 @@ export default function JournalNewPage() {
         const { error: jepErr } = await supabase.from("journal_entry_plants").insert(jepRows);
         if (jepErr) {
           setSubmitError(jepErr.message);
+          return;
+        }
+      }
+      if (entryId && uploadedPaths.length > 0) {
+        const photoRows = uploadedPaths.map((path, i) => ({
+          journal_entry_id: entryId,
+          image_file_path: path,
+          sort_order: i,
+          user_id: sessionUserId,
+        }));
+        const { error: photoErr } = await supabase.from("journal_entry_photos").insert(photoRows);
+        if (photoErr) {
+          setSubmitError(photoErr.message);
           return;
         }
       }
@@ -297,15 +332,16 @@ export default function JournalNewPage() {
           accept="image/*"
           className="sr-only"
           aria-label="Choose file"
+          multiple
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleImageSelected(f);
+            const files = e.target.files;
+            if (files?.length) handleImageSelected(Array.from(files));
             e.target.value = "";
           }}
         />
 
         <div>
-          <span className="block text-sm font-medium text-black/80 mb-2">Photo (optional)</span>
+          <span className="block text-sm font-medium text-black/80 mb-2">Photos (optional)</span>
           {webcamActive ? (
             <div className="space-y-2">
               <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
@@ -325,16 +361,24 @@ export default function JournalNewPage() {
                 </button>
               </div>
             </div>
-          ) : imageFile && imagePreviewUrl ? (
-            <div className="space-y-2">
-              <img src={imagePreviewUrl} alt="Preview" className="w-full rounded-xl object-cover h-40 bg-black/5" />
-              <button type="button" onClick={() => handleImageSelected(null)} className="text-sm font-medium text-citrus hover:text-black/80 min-h-[44px]">
-                Remove
-              </button>
-            </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <button
+            <>
+              {photos.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {photos.map((p, idx) => (
+                    <div key={p.id} className="relative group">
+                      <img src={p.previewUrl} alt="" className="w-20 h-20 rounded-lg object-cover bg-black/5" />
+                      <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/40 rounded-lg transition-opacity">
+                        <button type="button" onClick={() => movePhoto(p.id, "left")} disabled={idx === 0} className="min-w-[32px] min-h-[32px] rounded bg-white/90 text-black text-xs font-bold disabled:opacity-40" aria-label="Move left">‹</button>
+                        <button type="button" onClick={() => removePhoto(p.id)} className="min-w-[32px] min-h-[32px] rounded bg-red-500 text-white text-xs font-bold" aria-label="Remove">×</button>
+                        <button type="button" onClick={() => movePhoto(p.id, "right")} disabled={idx === photos.length - 1} className="min-w-[32px] min-h-[32px] rounded bg-white/90 text-black text-xs font-bold disabled:opacity-40" aria-label="Move right">›</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
                 type="button"
                 onClick={() => {
                   if (isMobile) cameraMobileRef.current?.click();
@@ -353,7 +397,8 @@ export default function JournalNewPage() {
                 <UploadIcon />
                 Choose from Files
               </button>
-            </div>
+              </div>
+            </>
           )}
           {webcamError && <p className="text-xs text-citrus mt-1">{webcamError}</p>}
         </div>

@@ -274,7 +274,11 @@ export function BatchLogSheet({
             weather_snapshot: weather ?? undefined,
           }).select("id").single();
           if (!insErr && entry) {
-            await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: b.plant_profile_id, user_id: user.id });
+            const entryId = (entry as { id: string }).id;
+            await supabase.from("journal_entry_plants").insert({ journal_entry_id: entryId, plant_profile_id: b.plant_profile_id, user_id: user.id });
+            if (imagePath) {
+              await supabase.from("journal_entry_photos").insert({ journal_entry_id: entryId, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+            }
           }
         } else {
           const { data: entry, error: insErr } = await supabase.from("journal_entries").insert({
@@ -289,6 +293,9 @@ export function BatchLogSheet({
           if (!insErr && entry) {
             const entryId = (entry as { id: string }).id;
             await supabase.from("journal_entry_plants").insert(batches.map((b) => ({ journal_entry_id: entryId, plant_profile_id: b.plant_profile_id, user_id: user.id })));
+            if (imagePath) {
+              await supabase.from("journal_entry_photos").insert({ journal_entry_id: entryId, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+            }
           }
         }
       }

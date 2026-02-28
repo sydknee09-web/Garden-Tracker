@@ -76,17 +76,19 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
 }
 
 /** One row per journal entry (Section 6: one entry can tag multiple plants). */
-function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_names?: string[] })[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
+function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_names?: string[]; plant_profile_ids?: string[] })[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
   return entries
     .map((e) => {
       const plantNames = (e as JournalEntryWithPlant & { plant_display_names?: string[] }).plant_display_names
         ?? [(e.plant_display_name ?? e.plant_name ?? "General")];
+      const ids = (e as JournalEntryWithPlant & { plant_profile_ids?: string[] }).plant_profile_ids ?? (e.plant_profile_id ? [e.plant_profile_id] : []);
       const action = getActionForGroup([e]);
       return {
         date: e.created_at,
         note: e.note ?? null,
         action,
         plantNames,
+        plant_profile_ids: ids,
         entryIds: [e.id],
         plant_profile_id: e.plant_profile_id ?? null,
         owner_user_id: e.user_id ?? null,
@@ -97,7 +99,7 @@ function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_
 
 /** Insert year/month section headers into table rows for glanceable timeline. */
 function tableRowsWithSections(
-  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[]
+  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[]
 ): ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] {
   const out: ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] = [];
   let lastYM = "";
@@ -308,14 +310,19 @@ export default function JournalPage() {
 
       const entryIds = (rows ?? []).map((r: { id: string }) => r.id);
       const entryToProfileIds: Record<string, string[]> = {};
+      const entryToPhotoPaths: Record<string, string[]> = {};
       if (entryIds.length > 0) {
-        const { data: jepRows } = await supabase
-          .from("journal_entry_plants")
-          .select("journal_entry_id, plant_profile_id")
-          .in("journal_entry_id", entryIds);
-        (jepRows ?? []).forEach((row: { journal_entry_id: string; plant_profile_id: string }) => {
+        const [jepRes, photosRes] = await Promise.all([
+          supabase.from("journal_entry_plants").select("journal_entry_id, plant_profile_id").in("journal_entry_id", entryIds),
+          supabase.from("journal_entry_photos").select("journal_entry_id, image_file_path, sort_order").in("journal_entry_id", entryIds).order("sort_order", { ascending: true }),
+        ]);
+        (jepRes.data ?? []).forEach((row: { journal_entry_id: string; plant_profile_id: string }) => {
           if (!entryToProfileIds[row.journal_entry_id]) entryToProfileIds[row.journal_entry_id] = [];
           entryToProfileIds[row.journal_entry_id].push(row.plant_profile_id);
+        });
+        (photosRes.data ?? []).forEach((row: { journal_entry_id: string; image_file_path: string }) => {
+          if (!entryToPhotoPaths[row.journal_entry_id]) entryToPhotoPaths[row.journal_entry_id] = [];
+          entryToPhotoPaths[row.journal_entry_id].push(row.image_file_path);
         });
       }
 
@@ -342,7 +349,8 @@ export default function JournalPage() {
         const plant_name = plantDisplayNames[0] ?? "General";
         const plant_display_name = plant_name;
         const plant_profile_id = ids[0] ?? r.plant_profile_id ?? null;
-        return { ...r, plant_name, plant_display_name, plant_profile_id, plant_profile_ids: ids, plant_display_names: plantDisplayNames };
+        const photoPaths = entryToPhotoPaths[r.id] ?? (r.image_file_path ? [r.image_file_path] : []);
+        return { ...r, plant_name, plant_display_name, plant_profile_id, plant_profile_ids: ids, plant_display_names: plantDisplayNames, photo_paths: photoPaths };
       });
       const filtered = withNames.filter((r: JournalEntryWithPlant & { plant_profile_ids?: string[] }) => {
         const ids = r.plant_profile_ids ?? (r.plant_profile_id ? [r.plant_profile_id] : []);
@@ -410,9 +418,7 @@ export default function JournalPage() {
             toggleRowSelection(entryIds);
             return;
           }
-          if (plantProfileId) {
-            router.push(`/vault/${plantProfileId}?tab=journal`);
-          }
+          // Navigation to plant profile is via plant pill click only
         },
       };
     },
@@ -588,11 +594,22 @@ export default function JournalPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1 mb-2">
-                    {row.plantNames.map((name) => (
-                      <span key={name} className="inline-block px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium">
-                        {name}
-                      </span>
-                    ))}
+                    {row.plantNames.map((name, i) => {
+                      const profileId = row.plant_profile_ids?.[i] ?? row.plant_profile_id;
+                      const pillClass = "inline-flex items-center justify-center px-2 py-1 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium min-w-[44px] min-h-[44px]";
+                      return profileId ? (
+                        <Link
+                          key={`${name}-${i}`}
+                          href={`/vault/${profileId}?tab=journal`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={pillClass}
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <span key={`${name}-${i}`} className={pillClass}>{name}</span>
+                      );
+                    })}
                     {householdViewMode === "family" && row.owner_user_id && (
                       <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                     )}
@@ -668,11 +685,22 @@ export default function JournalPage() {
                       </td>
                       <td className="py-2.5 pr-3">
                         <div className="flex flex-wrap gap-1">
-                          {row.plantNames.map((name) => (
-                            <span key={name} className="inline-block px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium">
-                              {name}
-                            </span>
-                          ))}
+                          {row.plantNames.map((name, i) => {
+                            const profileId = row.plant_profile_ids?.[i] ?? row.plant_profile_id;
+                            const pillClass = "inline-flex items-center justify-center px-2 py-1 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium min-w-[44px] min-h-[44px]";
+                            return profileId ? (
+                              <Link
+                                key={`${name}-${i}`}
+                                href={`/vault/${profileId}?tab=journal`}
+                                onClick={(e) => e.stopPropagation()}
+                                className={pillClass}
+                              >
+                                {name}
+                              </Link>
+                            ) : (
+                              <span key={`${name}-${i}`} className={pillClass}>{name}</span>
+                            );
+                          })}
                           {householdViewMode === "family" && row.owner_user_id && (
                             <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                           )}
@@ -710,10 +738,18 @@ export default function JournalPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
           {/* Plant gallery: click opens that plant's journal in vault; no blank photo placeholder */}
           {groupEntriesByPlant(entries).map((group) => {
-            const firstWithImage = group.entries.find((e) => e.image_file_path || e.photo_url);
-            const thumbSrc = firstWithImage?.image_file_path
-              ? supabase.storage.from("journal-photos").getPublicUrl(firstWithImage.image_file_path).data.publicUrl
-              : firstWithImage?.photo_url ?? null;
+            const firstWithImage = group.entries.find((e) => {
+              const paths = (e as JournalEntryWithPlant & { photo_paths?: string[] })?.photo_paths ?? [];
+              return paths.length > 0 || e.image_file_path || e.photo_url;
+            });
+            const thumbSrc = firstWithImage
+              ? (() => {
+                  const paths = (firstWithImage as JournalEntryWithPlant & { photo_paths?: string[] })?.photo_paths ?? [];
+                  if (paths.length > 0) return supabase.storage.from("journal-photos").getPublicUrl(paths[0]).data.publicUrl;
+                  if (firstWithImage.image_file_path) return supabase.storage.from("journal-photos").getPublicUrl(firstWithImage.image_file_path).data.publicUrl;
+                  return firstWithImage.photo_url ?? null;
+                })()
+              : null;
             const href = group.profileId ? `/vault/${group.profileId}?tab=journal` : null;
             const card = (
               <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col">
@@ -752,10 +788,16 @@ export default function JournalPage() {
         <div className="max-w-lg mx-auto pb-24">
           {/* Instagram-style feed: one card per (day, plant), photo then note */}
           {groupEntriesForTable(entries).map((row) => {
-            const groupEntries = entries.filter((e) => row.entryIds.includes(e.id));
-            const imageUrls = groupEntries
-              .map((e) => (e.image_file_path ? supabase.storage.from("journal-photos").getPublicUrl(e.image_file_path).data.publicUrl : e.photo_url))
-              .filter((url): url is string => !!url);
+            const entry = entries.find((e) => e.id === row.entryIds[0]);
+            const photoPaths = (entry as JournalEntryWithPlant & { photo_paths?: string[] })?.photo_paths ?? [];
+            const imageUrls =
+              photoPaths.length > 0
+                ? photoPaths.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p).data.publicUrl)
+                : entry?.image_file_path
+                  ? [supabase.storage.from("journal-photos").getPublicUrl(entry.image_file_path).data.publicUrl]
+                  : entry?.photo_url
+                    ? [entry.photo_url]
+                    : [];
             const hasImages = imageUrls.length > 0;
             const rowId = row.entryIds[0];
             const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
@@ -812,11 +854,22 @@ export default function JournalPage() {
                   {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex flex-wrap gap-1.5 items-center">
-                      {row.plantNames.map((name) => (
-                        <span key={name} className="text-xs font-medium text-emerald-700 bg-emerald/10 px-2 py-0.5 rounded-full">
-                          {name}
-                        </span>
-                      ))}
+                      {row.plantNames.map((name, i) => {
+                        const profileId = row.plant_profile_ids?.[i] ?? row.plant_profile_id;
+                        const pillClass = "inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium text-emerald-700 bg-emerald/10 min-w-[44px] min-h-[44px]";
+                        return profileId ? (
+                          <Link
+                            key={`${name}-${i}`}
+                            href={`/vault/${profileId}?tab=journal`}
+                            onClick={(e) => e.stopPropagation()}
+                            className={pillClass}
+                          >
+                            {name}
+                          </Link>
+                        ) : (
+                          <span key={`${name}-${i}`} className={pillClass}>{name}</span>
+                        );
+                      })}
                       {householdViewMode === "family" && row.owner_user_id && (
                         <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                       )}

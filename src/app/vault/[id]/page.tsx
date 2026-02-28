@@ -206,6 +206,7 @@ export default function VaultSeedPage() {
     propagationNotes: "", seedSavingNotes: "",
   });
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
+  const [entryIdToPhotoPaths, setEntryIdToPhotoPaths] = useState<Record<string, string[]>>({});
   const tabFromUrl = searchParams.get("tab");
   const fromParam = searchParams.get("from");
   const validTab = ["about", "care", "packets", "plantings", "journal"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "care" | "packets" | "plantings" | "journal" : "about";
@@ -422,8 +423,42 @@ export default function VaultSeedPage() {
       setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
       setCareSchedules((careRes.data ?? []) as CareSchedule[]);
       setCareSuggestions((suggestionsRes.data ?? []) as CareScheduleSuggestion[]);
-      const journalRows = (journalsRes as { data?: { image_file_path?: string | null }[] }).data ?? [];
-      setJournalPhotos(journalRows.filter((j) => j.image_file_path) as JournalPhoto[]);
+      const journalRows = (journalsRes as { data?: { id: string; image_file_path?: string | null; created_at?: string }[] }).data ?? [];
+      const entryIds = journalRows.map((r) => r.id);
+      const withPhotos = journalRows.filter((j) => j.image_file_path);
+      const photos: JournalPhoto[] = [];
+      if (entryIds.length > 0) {
+        const { data: jepRows } = await supabase
+          .from("journal_entry_photos")
+          .select("id, journal_entry_id, image_file_path, created_at, sort_order")
+          .in("journal_entry_id", entryIds)
+          .order("created_at", { ascending: false });
+        const entryIdsWithJep = new Set((jepRows ?? []).map((r: { journal_entry_id: string }) => r.journal_entry_id));
+        const byEntry: Record<string, { path: string; sort_order: number }[]> = {};
+        for (const row of jepRows ?? []) {
+          const r = row as { id: string; journal_entry_id: string; image_file_path: string; created_at: string; sort_order: number };
+          photos.push({ id: r.id, image_file_path: r.image_file_path, created_at: r.created_at });
+          const arr = byEntry[r.journal_entry_id] ?? [];
+          arr.push({ path: r.image_file_path, sort_order: r.sort_order });
+          byEntry[r.journal_entry_id] = arr;
+        }
+        for (const row of withPhotos) {
+          if (!entryIdsWithJep.has(row.id)) {
+            photos.push({ id: row.id, image_file_path: row.image_file_path!, created_at: row.created_at ?? "" });
+            byEntry[row.id] = [{ path: row.image_file_path!, sort_order: 0 }];
+          }
+        }
+        const pathsByEntry: Record<string, string[]> = {};
+        for (const [eid, list] of Object.entries(byEntry)) {
+          list.sort((a, b) => a.sort_order - b.sort_order);
+          pathsByEntry[eid] = list.map((x) => x.path);
+        }
+        setEntryIdToPhotoPaths(pathsByEntry);
+        photos.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+      } else {
+        setEntryIdToPhotoPaths({});
+      }
+      setJournalPhotos(photos);
 
       // Batch 3: packet_images (depends on packetIds)
       const packetIds = packetRows.map((p) => p.id);
@@ -2340,7 +2375,8 @@ export default function VaultSeedPage() {
             ) : (
               <div className="space-y-3">
                 {journalEntries.map((j) => {
-                  const photoUrl = j.image_file_path ? supabase.storage.from("journal-photos").getPublicUrl(j.image_file_path).data.publicUrl : null;
+                  const paths = entryIdToPhotoPaths[j.id] ?? (j.image_file_path ? [j.image_file_path] : []);
+                  const photoUrls = paths.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p).data.publicUrl);
                   return (
                     <div key={j.id} className="bg-white rounded-xl border border-neutral-200 p-4">
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -2358,9 +2394,13 @@ export default function VaultSeedPage() {
                           Harvested: {j.harvest_weight != null ? `${j.harvest_weight} ${j.harvest_unit || "units"}` : ""}{j.harvest_quantity != null ? `${j.harvest_weight != null ? ", " : ""}${j.harvest_quantity} count` : ""}
                         </p>
                       )}
-                      {photoUrl && (
-                        <div className="w-full max-w-xs rounded-lg overflow-hidden bg-neutral-100 mt-2">
-                          <img src={photoUrl} alt="" className="w-full h-auto object-cover" />
+                      {photoUrls.length > 0 && (
+                        <div className={`mt-2 flex gap-2 overflow-x-auto snap-x snap-mandatory ${photoUrls.length === 1 ? "" : "pb-2"}`} style={{ scrollbarWidth: "thin" }}>
+                          {photoUrls.map((url, i) => (
+                            <div key={i} className={`flex-shrink-0 rounded-lg overflow-hidden bg-neutral-100 snap-center ${photoUrls.length === 1 ? "w-full max-w-xs" : "min-w-[16rem] w-64"}`}>
+                              <img src={url} alt="" className="w-full h-auto object-cover" />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

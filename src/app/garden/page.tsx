@@ -300,7 +300,7 @@ function GardenPageInner() {
     }
     const weatherSnapshot = await fetchWeatherSnapshot();
     const noteTrim = logGrowthNote.trim() || null;
-    const { error: journalErr } = await supabase.from("journal_entries").insert({
+    const { data: journalEntry, error: journalErr } = await supabase.from("journal_entries").insert({
       user_id: user.id,
       plant_profile_id: logGrowthBatch.plant_profile_id,
       grow_instance_id: logGrowthBatch.id,
@@ -308,11 +308,14 @@ function GardenPageInner() {
       entry_type: "growth",
       image_file_path: imagePath,
       weather_snapshot: weatherSnapshot ?? undefined,
-    });
+    }).select("id").single();
     setLogGrowthSaving(false);
     if (journalErr) {
       setLogGrowthError(journalErr.message || "Failed to save. Try again.");
       return;
+    }
+    if (journalEntry && imagePath) {
+      await supabase.from("journal_entry_photos").insert({ journal_entry_id: (journalEntry as { id: string }).id, image_file_path: imagePath, sort_order: 0, user_id: user.id });
     }
     setLogGrowthBatch(null);
     setRefetchTrigger((t) => t + 1);
@@ -345,21 +348,42 @@ function GardenPageInner() {
       ? selectedPlantGrows
       : [{ growId: null, profileId: null }];
     let insertErr: { message: string } | null = null;
+    const hasPhoto = !!imagePath;
     try {
       for (const { growId, profileId } of toInsert) {
-        const { error } = await insertWithOfflineQueue("journal_entries", {
-          user_id: user.id,
-          plant_profile_id: profileId,
-          grow_instance_id: growId,
-          seed_packet_id: null,
-          note: noteTrim,
-          entry_type: "note",
-          image_file_path: imagePath,
-          weather_snapshot: weatherSnapshot ?? undefined,
-        } as Record<string, unknown>);
-        if (error) {
-          insertErr = error;
-          break;
+        if (hasPhoto) {
+          const { data: entry, error } = await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            seed_packet_id: null,
+            note: noteTrim,
+            entry_type: "note",
+            image_file_path: imagePath,
+            weather_snapshot: weatherSnapshot ?? undefined,
+          }).select("id").single();
+          if (error) {
+            insertErr = error;
+            break;
+          }
+          if (entry && imagePath) {
+            await supabase.from("journal_entry_photos").insert({ journal_entry_id: (entry as { id: string }).id, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+          }
+        } else {
+          const { error } = await insertWithOfflineQueue("journal_entries", {
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            seed_packet_id: null,
+            note: noteTrim,
+            entry_type: "note",
+            image_file_path: null,
+            weather_snapshot: weatherSnapshot ?? undefined,
+          } as Record<string, unknown>);
+          if (error) {
+            insertErr = error;
+            break;
+          }
         }
       }
     } finally {
