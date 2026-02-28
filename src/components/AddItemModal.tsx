@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { insertManyWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 interface AddItemModalProps {
@@ -13,34 +13,50 @@ interface AddItemModalProps {
 
 export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
   const { user } = useAuth();
-  const [name, setName] = useState("");
+  const [cells, setCells] = useState<string[]>([""]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const lastInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setName("");
+      setCells([""]);
       setError(null);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => lastInputRef.current?.focus(), 50);
     }
   }, [open]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      const trimmed = name.trim();
-      if (!trimmed || !user?.id) return;
+  const updateCell = useCallback((index: number, value: string) => {
+    setCells((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }, []);
+
+  const addAnotherCell = useCallback(() => {
+    setCells((prev) => [...prev, ""]);
+    setTimeout(() => lastInputRef.current?.focus(), 50);
+  }, []);
+
+  const handleDone = useCallback(
+    async () => {
+      const items = cells.map((c) => c.trim()).filter(Boolean);
+      if (items.length === 0 || !user?.id) {
+        onClose();
+        return;
+      }
       setError(null);
       setSaving(true);
-      const { error: insertError } = await insertWithOfflineQueue("shopping_list", {
+      const rows = items.map((placeholder_name) => ({
         user_id: user.id,
         plant_profile_id: null,
         supply_profile_id: null,
-        placeholder_name: trimmed,
+        placeholder_name,
         placeholder_variety: null,
         is_purchased: false,
-      });
+      }));
+      const { error: insertError } = await insertManyWithOfflineQueue("shopping_list", rows);
       setSaving(false);
       if (insertError) {
         hapticError();
@@ -49,10 +65,9 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       }
       hapticSuccess();
       onSuccess();
-      setName("");
-      setTimeout(() => inputRef.current?.focus(), 50);
+      onClose();
     },
-    [name, user?.id, onSuccess]
+    [cells, user?.id, onSuccess, onClose]
   );
 
   if (!open) return null;
@@ -66,52 +81,53 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-black/10 p-5"
+        className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-black/10 p-5 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="add-item-title" className="text-lg font-semibold text-neutral-900 mb-3">
           Add item
         </h2>
         <p className="text-sm text-neutral-500 mb-4">
-          Add plants or supplies by name. Add multiple items, then tap Done when finished.
+          Add plants or supplies by name.
         </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label htmlFor="add-item-name" className="sr-only">
-            Item name
-          </label>
-          <input
-            ref={inputRef}
-            id="add-item-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Roma tomato, Miracle Gro"
-            className="w-full min-h-[44px] px-4 rounded-xl border border-black/15 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            autoComplete="off"
+        <div className="space-y-3">
+          {cells.map((value, index) => (
+            <input
+              key={index}
+              ref={index === cells.length - 1 ? lastInputRef : null}
+              type="text"
+              value={value}
+              onChange={(e) => updateCell(index, e.target.value)}
+              placeholder="e.g. Roma tomato, Miracle Gro"
+              className="w-full min-h-[44px] px-4 rounded-xl border border-black/15 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              autoComplete="off"
+              disabled={saving}
+              aria-label={`Item ${index + 1}`}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addAnotherCell}
             disabled={saving}
-          />
+            className="w-full min-h-[44px] py-2 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <span aria-hidden>+</span>
+            Add another item
+          </button>
           {error && (
             <p className="text-sm text-red-600" role="alert">
               {error}
             </p>
           )}
-          <div className="flex gap-2 justify-end flex-wrap">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-w-[44px] min-h-[44px] px-4 rounded-xl border border-black/15 text-neutral-700 font-medium hover:bg-black/5 disabled:opacity-50"
-            >
-              Done
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !name.trim()}
-              className="min-w-[44px] min-h-[44px] px-4 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? "Adding…" : "Add"}
-            </button>
-          </div>
-        </form>
+          <button
+            type="button"
+            onClick={handleDone}
+            disabled={saving}
+            className="w-full min-h-[44px] py-2 rounded-xl border border-black/15 text-neutral-700 font-medium hover:bg-black/5 disabled:opacity-50"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );
