@@ -310,7 +310,8 @@ export default function VaultSeedPage() {
         .eq("plant_profile_id", id).eq("user_id", ownerIdFromData)
         .is("deleted_at", null)
         .order("title", { ascending: true });
-      const careQueryFinal = !isPermanentProfile ? careQuery.eq("is_template", true) : careQuery;
+      // Include both templates and instance schedules so users can manage/delete instance schedules from Care tab
+      const careQueryFinal = careQuery;
 
       // Batch 2: Fetch packets, grows, journals, care, suggestions, journal photos in parallel
       // grow_instances: run both queries and merge — primary (no user filter) + explicit user_id
@@ -319,10 +320,28 @@ export default function VaultSeedPage() {
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false }),
-        supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
+        (async () => {
+          const [byProfile, jepRes] = await Promise.all([
+            supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
+            supabase.from("journal_entry_plants").select("journal_entry_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData),
+          ]);
+          const byProfileRows = byProfile.data ?? [];
+          const jepEntryIds = [...new Set((jepRes.data ?? []).map((r: { journal_entry_id: string }) => r.journal_entry_id))];
+          if (jepEntryIds.length === 0) return byProfile;
+          const { data: byJep } = await supabase.from("journal_entries").select("id, plant_profile_id, grow_instance_id, seed_packet_id, note, photo_url, image_file_path, weather_snapshot, entry_type, harvest_weight, harvest_unit, harvest_quantity, created_at, user_id").in("id", jepEntryIds).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false });
+          const seen = new Set(byProfileRows.map((r: { id: string }) => r.id));
+          const merged = [...byProfileRows];
+          for (const r of byJep ?? []) {
+            if (!seen.has((r as { id: string }).id)) {
+              seen.add((r as { id: string }).id);
+              merged.push(r);
+            }
+          }
+          merged.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+          return { data: merged, error: byProfile.error ?? jepRes.error };
+        })(),
         careQueryFinal,
         supabase.from("care_schedule_suggestions").select("*").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).order("created_at", { ascending: true }),
-        supabase.from("journal_entries").select("id, image_file_path, created_at").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).not("image_file_path", "is", null).order("created_at", { ascending: false }),
       ]);
 
       const packetRows = packetsRes.error ? [] : ((packetsRes.data ?? []) as SeedPacket[]);
@@ -403,7 +422,7 @@ export default function VaultSeedPage() {
       setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
       setCareSchedules((careRes.data ?? []) as CareSchedule[]);
       setCareSuggestions((suggestionsRes.data ?? []) as CareScheduleSuggestion[]);
-      setJournalPhotos((journalPhotosRes.data ?? []) as JournalPhoto[]);
+      setJournalPhotos(((journalsRes as { data?: unknown[] }).data ?? []).filter((j: { image_file_path?: string | null }) => j.image_file_path) as JournalPhoto[]);
 
       // Batch 3: packet_images (depends on packetIds)
       const packetIds = packetRows.map((p) => p.id);
@@ -448,14 +467,17 @@ export default function VaultSeedPage() {
     if (!user?.id) return;
     const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
     const weather = await fetchWeatherSnapshot();
-    await supabase.from("journal_entries").insert({
+    const { data: entry } = await supabase.from("journal_entries").insert({
       user_id: user.id,
       plant_profile_id: batch.plant_profile_id,
       grow_instance_id: batch.id,
       note: notes[action],
       entry_type: "quick",
       weather_snapshot: weather ?? undefined,
-    });
+    }).select("id").single();
+    if (entry) {
+      await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: batch.plant_profile_id, user_id: user.id });
+    }
     loadProfile();
   }, [user?.id, loadProfile]);
 
@@ -470,14 +492,17 @@ export default function VaultSeedPage() {
     await softDeleteTasksForGrowInstance(batchId, endBatchTarget.user_id ?? user.id);
     if (endNote.trim() || isDead) {
       const weather = await fetchWeatherSnapshot();
-      await supabase.from("journal_entries").insert({
+      const { data: entry } = await supabase.from("journal_entries").insert({
         user_id: user.id,
         plant_profile_id: endBatchTarget.plant_profile_id,
         grow_instance_id: batchId,
         note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
         entry_type: isDead ? "death" : "note",
         weather_snapshot: weather ?? undefined,
-      });
+      }).select("id").single();
+      if (entry) {
+        await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: endBatchTarget.plant_profile_id, user_id: user.id });
+      }
     }
     setEndSaving(false);
     setEndBatchTarget(null);
@@ -1559,12 +1584,11 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Tabs — About, Care, Packets, Plantings, Journal. Counts only on Packets and Plants. */}
-        <div className="flex flex-nowrap border-b border-neutral-200 gap-x-0 mb-4 overflow-x-auto overflow-y-visible" style={{ scrollbarWidth: "thin" }}>
+        {/* Tabs — About, Care, Packets, Plantings, Journal. Equal spacing between, fit on one line. */}
+        <div className="flex flex-nowrap items-stretch border-b border-neutral-200 gap-x-2 sm:gap-x-3 mb-4">
           {(["about","care","packets","plantings","journal"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-0 min-h-[44px] px-1 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors text-center truncate ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
-              style={{ minWidth: "max(5rem, 20%)" }}>
+              className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
               {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
             </button>
           ))}

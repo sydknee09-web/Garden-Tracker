@@ -85,7 +85,6 @@ export default function CalendarPage() {
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
-  const [deleteConfirmTask, setDeleteConfirmTask] = useState<(Task & { plant_name?: string }) | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
   const [plantableInventoryPlantType, setPlantableInventoryPlantType] = useState<{ plantType: string; profiles: { id: string; name: string; variety_name: string | null }[] } | null>(null);
@@ -100,20 +99,17 @@ export default function CalendarPage() {
   const [batchActionOpen, setBatchActionOpen] = useState<"reschedule" | "delete" | null>(null);
   const [batchDate, setBatchDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [batchSaving, setBatchSaving] = useState(false);
+  /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks) */
+  const [removeScheduleToo, setRemoveScheduleToo] = useState(false);
 
   // Recurring task form state
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringIntervalDays, setRecurringIntervalDays] = useState(30);
   const [recurringEndDate, setRecurringEndDate] = useState("");
 
-  // Delete-recurring action sheet: null=hidden, "prompt"=showing options
-  const [deleteRecurringPrompt, setDeleteRecurringPrompt] = useState<(Task & { plant_name?: string }) | null>(null);
-
   const todayStr = new Date().toISOString().slice(0, 10);
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
-  useModalBackClose(!!deleteConfirmTask, () => setDeleteConfirmTask(null));
-  useModalBackClose(!!deleteRecurringPrompt, () => setDeleteRecurringPrompt(null));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
 
   const plantTypesGrouped = useMemo(() => {
@@ -253,58 +249,6 @@ export default function CalendarPage() {
     }
   }
 
-  function requestDeleteTask(t: Task & { plant_name?: string }) {
-    if ((t as Task & { care_schedule_id?: string | null }).care_schedule_id) {
-      setDeleteRecurringPrompt(t);
-    } else {
-      setDeleteConfirmTask(t);
-    }
-  }
-
-  async function confirmDeleteTask() {
-    if (!user || !deleteConfirmTask) return;
-    const t = deleteConfirmTask;
-    setDeleteConfirmTask(null);
-    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
-    const { error: e } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", taskOwner);
-    if (e) {
-      setError(e.message);
-      hapticError();
-      return;
-    }
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
-
-  /** Delete just this one occurrence of a recurring task. */
-  async function confirmDeleteRecurringOne() {
-    if (!user || !deleteRecurringPrompt) return;
-    const t = deleteRecurringPrompt;
-    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
-    setDeleteRecurringPrompt(null);
-    await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", t.id).eq("user_id", taskOwner);
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
-
-  /** Delete this task AND stop all future recurrences (soft-delete the schedule). */
-  async function confirmDeleteRecurringFuture() {
-    if (!user || !deleteRecurringPrompt) return;
-    const t = deleteRecurringPrompt;
-    const scheduleId = (t as Task & { care_schedule_id?: string | null }).care_schedule_id;
-    const taskOwner = (t as Task & { user_id?: string | null }).user_id ?? user.id;
-    setDeleteRecurringPrompt(null);
-    const now = new Date().toISOString();
-    await Promise.all([
-      supabase.from("tasks").update({ deleted_at: now }).eq("id", t.id).eq("user_id", taskOwner),
-      scheduleId
-        ? supabase.from("care_schedules").update({ is_active: false, deleted_at: now }).eq("id", scheduleId).eq("user_id", taskOwner)
-        : Promise.resolve(),
-    ]);
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
-
   async function handleSnooze(t: Task & { plant_name?: string; user_id?: string | null }, newDueDate: string) {
     if (!user || t.completed_at) return;
     const taskOwner = t.user_id ?? user.id;
@@ -400,31 +344,66 @@ export default function CalendarPage() {
     if (!user) return;
     setBatchSaving(true);
     const ids = Array.from(selectedIds);
-    await Promise.all(ids.map((id) =>
-      supabase.from("tasks").update({ due_date: newDate }).eq("id", id).eq("user_id", user.id)
-    ));
+    await Promise.all(ids.map((id) => {
+      const task = tasks.find((t) => t.id === id);
+      const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+      return supabase.from("tasks").update({ due_date: newDate }).eq("id", id).eq("user_id", ownerId);
+    }));
     setBatchSaving(false);
     hapticSuccess();
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
     setRefetch((r) => r + 1);
-  }, [user, selectedIds]);
+  }, [user, selectedIds, tasks]);
 
   const handleBatchDelete = useCallback(async () => {
     if (!user) return;
     setBatchSaving(true);
+    const now = new Date().toISOString();
     const ids = Array.from(selectedIds);
-    await Promise.all(ids.map((id) =>
-      supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", id).eq("user_id", user.id)
-    ));
+    const selectedTasks = ids.map((id) => tasks.find((t) => t.id === id)).filter(Boolean) as (Task & { user_id?: string | null; care_schedule_id?: string | null })[];
+    const careScheduleIds = removeScheduleToo
+      ? [...new Set(selectedTasks.map((t) => t.care_schedule_id).filter(Boolean))] as string[]
+      : [];
+
+    if (careScheduleIds.length > 0) {
+      for (const scheduleId of careScheduleIds) {
+        const taskWithSchedule = selectedTasks.find((t) => t.care_schedule_id === scheduleId);
+        const ownerId = taskWithSchedule?.user_id ?? user.id;
+        await supabase
+          .from("care_schedules")
+          .update({ is_active: false, deleted_at: now })
+          .eq("id", scheduleId)
+          .eq("user_id", ownerId);
+        await supabase
+          .from("tasks")
+          .update({ deleted_at: now })
+          .eq("care_schedule_id", scheduleId)
+          .eq("user_id", ownerId);
+      }
+      const idsFromSchedules = new Set(selectedTasks.filter((t) => t.care_schedule_id && careScheduleIds.includes(t.care_schedule_id)).map((t) => t.id));
+      const remainingIds = ids.filter((id) => !idsFromSchedules.has(id));
+      await Promise.all(remainingIds.map((id) => {
+        const task = tasks.find((t) => t.id === id);
+        const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+        return supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
+      }));
+    } else {
+      await Promise.all(ids.map((id) => {
+        const task = tasks.find((t) => t.id === id);
+        const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+        return supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
+      }));
+    }
     setBatchSaving(false);
     hapticSuccess();
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
+    setRemoveScheduleToo(false);
     setRefetch((r) => r + 1);
-  }, [user, selectedIds]);
+  }, [user, selectedIds, tasks, removeScheduleToo]);
 
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();
@@ -901,7 +880,6 @@ export default function CalendarPage() {
                       task={t}
                       onComplete={() => handleComplete(t)}
                       onSnooze={(newDue) => handleSnooze(t, newDue)}
-                      onDeleteRequest={() => requestDeleteTask(t)}
                       selectMode={selectMode}
                       isSelected={selectedIds.has(t.id)}
                       onLongPress={() => handleLongPressTask(t.id)}
@@ -953,7 +931,6 @@ export default function CalendarPage() {
                               task={t}
                               onComplete={() => handleComplete(t)}
                               onSnooze={(newDue) => handleSnooze(t, newDue)}
-                              onDeleteRequest={() => requestDeleteTask(t)}
                               selectMode={selectMode}
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
@@ -1011,8 +988,8 @@ export default function CalendarPage() {
       {/* Batch reschedule sheet */}
       {batchActionOpen === "reschedule" && (
         <>
-          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setBatchActionOpen(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
+          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => setBatchActionOpen(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
             <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}</h3>
             <div className="grid grid-cols-3 gap-2">
               {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
@@ -1038,15 +1015,40 @@ export default function CalendarPage() {
         </>
       )}
 
-      {/* Batch delete confirm sheet */}
+      {/* Batch delete confirm sheet — single unified delete confirmation */}
       {batchActionOpen === "delete" && (
         <>
-          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setBatchActionOpen(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4">
-            <h3 className="text-base font-bold text-black">Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?</h3>
-            <p className="text-sm text-black/60">This cannot be undone.</p>
+          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }} aria-hidden />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+            style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
+            role="dialog"
+            aria-labelledby="delete-dialog-title"
+            aria-describedby="delete-dialog-desc"
+          >
+            <h3 id="delete-dialog-title" className="text-base font-bold text-black">
+              Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?
+            </h3>
+            <p id="delete-dialog-desc" className="text-sm text-black/60">This cannot be undone.</p>
+            {Array.from(selectedIds).some((id) => {
+              const t = tasks.find((x) => x.id === id) as { care_schedule_id?: string | null } | undefined;
+              return t?.care_schedule_id != null;
+            }) && (
+              <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={removeScheduleToo}
+                  onChange={(e) => setRemoveScheduleToo(e.target.checked)}
+                  className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                  aria-describedby="remove-schedule-desc"
+                />
+                <span id="remove-schedule-desc" className="text-sm text-black/80">
+                  Also remove recurring schedule (stop future tasks)
+                </span>
+              </label>
+            )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setBatchActionOpen(null)}
+              <button type="button" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }}
                 className="flex-1 py-3 rounded-xl border border-black/10 text-sm font-medium min-h-[44px]">
                 Cancel
               </button>
@@ -1111,76 +1113,6 @@ export default function CalendarPage() {
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       </button>
-
-      {/* Non-recurring delete confirm (inline pill) */}
-      {deleteConfirmTask && (
-        <div
-          className="fixed bottom-24 left-4 right-4 z-[60] max-w-md mx-auto rounded-xl bg-white border border-black/10 shadow-lg p-4 flex items-center justify-between gap-3"
-          role="dialog"
-          aria-live="polite"
-          aria-label="Confirm delete"
-        >
-          <p className="text-sm font-medium text-black/80">Delete this task?</p>
-          <div className="flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setDeleteConfirmTask(null)}
-              className="min-w-[44px] min-h-[44px] px-4 rounded-lg border border-black/15 text-sm font-medium text-black/80"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmDeleteTask}
-              className="min-w-[44px] min-h-[44px] px-4 rounded-lg bg-citrus text-white text-sm font-medium"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Recurring delete action sheet */}
-      {deleteRecurringPrompt && (
-        <>
-          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setDeleteRecurringPrompt(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3">
-            <h3 className="text-base font-bold text-black">Delete recurring task</h3>
-            <p className="text-sm text-black/60 pb-1">
-              &ldquo;{deleteRecurringPrompt.title ?? deleteRecurringPrompt.category}&rdquo; repeats on a schedule. What would you like to delete?
-            </p>
-            <button
-              type="button"
-              onClick={confirmDeleteRecurringOne}
-              className="w-full min-h-[44px] flex items-center gap-3 px-4 py-3 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/[0.02] text-left"
-            >
-              <span className="text-base" aria-hidden>✕</span>
-              <div>
-                <p className="font-semibold text-black">Just this task</p>
-                <p className="text-xs text-black/50">Skips this occurrence. Future tasks still generate.</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={confirmDeleteRecurringFuture}
-              className="w-full min-h-[44px] flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm font-medium text-red-700 hover:bg-red-100 text-left"
-            >
-              <span className="text-base" aria-hidden>🗑</span>
-              <div>
-                <p className="font-semibold">This and all future tasks</p>
-                <p className="text-xs text-red-500/80">Stops the recurring schedule. Past completed tasks are kept.</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleteRecurringPrompt(null)}
-              className="w-full min-h-[44px] py-3 rounded-xl border border-black/10 text-sm font-medium text-black/60"
-            >
-              Cancel
-            </button>
-          </div>
-        </>
-      )}
 
       {newTaskOpen && (
         <>
@@ -1365,17 +1297,6 @@ export default function CalendarPage() {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
-
 function SnoozeIcon({ className }: { className?: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -1390,7 +1311,6 @@ function CalendarTaskRow({
   task,
   onComplete,
   onSnooze,
-  onDeleteRequest,
   selectMode = false,
   isSelected = false,
   onLongPress,
@@ -1402,7 +1322,6 @@ function CalendarTaskRow({
   task: Task & { plant_name?: string };
   onComplete: () => void;
   onSnooze: (newDueDate: string) => void;
-  onDeleteRequest: () => void;
   selectMode?: boolean;
   isSelected?: boolean;
   onLongPress?: () => void;
@@ -1415,7 +1334,6 @@ function CalendarTaskRow({
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
-  const [showDelete, setShowDelete] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoryLabel = TASK_LABELS[task.category] ?? task.category ?? "";
   const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
@@ -1437,12 +1355,6 @@ function CalendarTaskRow({
     }
   };
 
-  const handleDoubleClick = () => {
-    if (selectMode) return;
-    setShowDelete(true);
-    setTimeout(() => setShowDelete(false), 3000);
-  };
-
   const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
 
   return (
@@ -1450,7 +1362,6 @@ function CalendarTaskRow({
       role="button"
       tabIndex={0}
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
@@ -1512,16 +1423,6 @@ function CalendarTaskRow({
             )}
           </button>
         </span>
-      )}
-      {showDelete && !selectMode && canEdit && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onDeleteRequest(); setShowDelete(false); }}
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 shrink-0"
-          aria-label="Delete task"
-        >
-          <TrashIcon />
-        </button>
       )}
       {snoozeOpen && !selectMode && (
         <>

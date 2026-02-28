@@ -94,11 +94,11 @@ describe("Batch select — handlers are implemented", () => {
 
   it("handleBatchDelete does NOT hard-delete rows", () => {
     // Ensure the batch delete uses .update() not .delete() for soft-delete compliance.
-    // We detect this by confirming deleted_at is set alongside batch delete logic.
     const batchDeleteIdx = src.indexOf("handleBatchDelete");
-    const deletedAtIdx   = src.indexOf("deleted_at: new Date");
-    expect(batchDeleteIdx).toBeGreaterThan(-1);
-    expect(deletedAtIdx).toBeGreaterThan(-1);
+    const handlerSection = src.slice(batchDeleteIdx, batchDeleteIdx + 2500);
+    expect(handlerSection).toContain("deleted_at");
+    expect(handlerSection).toContain(".update(");
+    expect(handlerSection).not.toMatch(/\.from\s*\(\s*["']tasks["']\s*\)\s*\.\s*delete\s*\(/);
   });
 });
 

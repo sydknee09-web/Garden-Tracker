@@ -4,7 +4,6 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { insertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -213,32 +212,44 @@ export default function JournalNewPage() {
     setSaving(true);
     setSyncing(true);
     const weatherSnapshot = await fetchWeatherSnapshot();
-    const idsToInsert = selectedProfileIds.size > 0 ? Array.from(selectedProfileIds) : [null];
-    let insertErr: { message: string } | null = null;
+    const profileIds = Array.from(selectedProfileIds);
+    const isMultiPlant = profileIds.length > 1;
+    const plantProfileId = profileIds.length === 1 ? profileIds[0] : null;
     try {
-      for (const profileId of idsToInsert) {
-        const { error } = await insertWithOfflineQueue("journal_entries", {
+      const { data: entry, error: insertErr } = await supabase
+        .from("journal_entries")
+        .insert({
           user_id: sessionUserId,
-          plant_profile_id: profileId,
+          plant_profile_id: plantProfileId,
           grow_instance_id: null,
           seed_packet_id: null,
           note: noteTrim,
           entry_type: "note",
           image_file_path: imagePath,
           weather_snapshot: weatherSnapshot ?? undefined,
-        } as Record<string, unknown>);
-        if (error) {
-          insertErr = error;
-          break;
+        } as Record<string, unknown>)
+        .select("id")
+        .single();
+      if (insertErr) {
+        setSubmitError(insertErr.message);
+        return;
+      }
+      const entryId = (entry as { id: string })?.id;
+      if (entryId && profileIds.length > 0) {
+        const jepRows = profileIds.map((pid) => ({
+          journal_entry_id: entryId,
+          plant_profile_id: pid,
+          user_id: sessionUserId,
+        }));
+        const { error: jepErr } = await supabase.from("journal_entry_plants").insert(jepRows);
+        if (jepErr) {
+          setSubmitError(jepErr.message);
+          return;
         }
       }
     } finally {
       setSyncing(false);
       setSaving(false);
-    }
-    if (insertErr) {
-      setSubmitError(insertErr.message);
-      return;
     }
     router.push(fromGarden ? "/garden" : "/journal");
   }
@@ -402,7 +413,7 @@ export default function JournalNewPage() {
               </div>
               {selectedProfileIds.size > 0 && (
                 <p className="text-xs text-black/50 mt-1">
-                  {selectedProfileIds.size} plant{selectedProfileIds.size !== 1 ? "s" : ""} selected — one entry per plant will be created.
+                  {selectedProfileIds.size} plant{selectedProfileIds.size !== 1 ? "s" : ""} selected — one entry will tag all plants.
                 </p>
               )}
             </>

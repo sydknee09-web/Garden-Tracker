@@ -110,6 +110,31 @@ export async function generateCareTasks(userId: string): Promise<number> {
       }
     }
 
+    // Clean up orphan tasks: schedules whose grow_instance is archived/dead but tasks still exist
+    const orphanScheduleIds: string[] = [];
+    for (const schedule of dueSchedules) {
+      const s = schedule as {
+        id: string;
+        plant_profile_id: string | null;
+        grow_instance_id: string | null;
+        grow_instance_ids?: string[] | null;
+      };
+      const effectiveIds = getEffectiveInstanceIds(s);
+      if (effectiveIds?.length && s.plant_profile_id) {
+        const valid = validInstanceIdsByProfile.get(s.plant_profile_id);
+        const allValid = effectiveIds.every((id) => valid?.has(id));
+        if (!allValid) orphanScheduleIds.push(s.id);
+      }
+    }
+    if (orphanScheduleIds.length > 0) {
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .in("care_schedule_id", orphanScheduleIds)
+        .is("deleted_at", null);
+    }
+
     // Batch fetch existing tasks for all due schedules (avoids N+1 queries)
     const scheduleIds = dueSchedules.map((s) => (s as { id: string }).id);
     const { data: existingBySchedule } = await supabase

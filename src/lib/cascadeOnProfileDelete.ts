@@ -77,6 +77,12 @@ export async function cascadeAllForDeletedProfiles(
       .eq("user_id", userId);
 
     await supabase
+      .from("journal_entry_plants")
+      .delete()
+      .in("plant_profile_id", profileIds)
+      .eq("user_id", userId);
+
+    await supabase
       .from("seed_packets")
       .update({ deleted_at: now })
       .in("plant_profile_id", profileIds)

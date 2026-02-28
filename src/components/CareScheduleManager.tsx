@@ -127,7 +127,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         next_due_date: nextDueDate || null,
         notes: notes.trim() || null,
         is_active: true,
-        is_template: isTemplate,
+        is_template: editingId ? ((schedules.find((s) => s.id === editingId) as { is_template?: boolean })?.is_template ?? isTemplate) : isTemplate,
         supply_profile_id: supplyProfileId || null,
       };
       if (isPermanent && growInstances.length > 1) {
@@ -148,22 +148,24 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     } finally {
       setSaving(false);
     }
-  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, resetForm, onChanged]);
+  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, schedules, isTemplate, resetForm, onChanged]);
 
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
+    const schedule = schedules.find((s) => s.id === scheduleId);
+    const ownerId = (schedule as { user_id?: string })?.user_id ?? userId;
     try {
       const now = new Date().toISOString();
-      const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false, deleted_at: now }, { id: scheduleId, user_id: userId });
+      const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false, deleted_at: now }, { id: scheduleId, user_id: ownerId });
       if (error) { setSaveError("Failed to remove schedule."); return; }
       // Cascade: soft-delete tasks generated from this schedule so they don't appear as ghosts on Calendar
-      await supabase.from("tasks").update({ deleted_at: now }).eq("care_schedule_id", scheduleId).eq("user_id", userId);
+      await supabase.from("tasks").update({ deleted_at: now }).eq("care_schedule_id", scheduleId).eq("user_id", ownerId);
       setSaveError(null);
       onChanged();
     } catch {
       setSaveError("Something went wrong. Try again.");
     }
-  }, [userId, onChanged]);
+  }, [userId, schedules, onChanged]);
 
   const toggleMonth = useCallback((month: number) => {
     setSelectedMonths((prev) => prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort((a, b) => a - b));

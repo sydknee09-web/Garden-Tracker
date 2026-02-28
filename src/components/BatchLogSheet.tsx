@@ -262,16 +262,35 @@ export function BatchLogSheet({
       }
       const noteTrim = note.trim() || null;
       if (noteTrim || imagePath) {
-        const entries = batches.map((b) => ({
-          user_id: user.id,
-          plant_profile_id: b.plant_profile_id,
-          grow_instance_id: b.id,
-          note: noteTrim ?? "Growth update",
-          entry_type: "growth" as const,
-          image_file_path: imagePath,
-          weather_snapshot: weather ?? undefined,
-        }));
-        await supabase.from("journal_entries").insert(entries);
+        if (batches.length === 1) {
+          const b = batches[0];
+          const { data: entry, error: insErr } = await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: b.plant_profile_id,
+            grow_instance_id: b.id,
+            note: noteTrim ?? "Growth update",
+            entry_type: "growth" as const,
+            image_file_path: imagePath,
+            weather_snapshot: weather ?? undefined,
+          }).select("id").single();
+          if (!insErr && entry) {
+            await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: b.plant_profile_id, user_id: user.id });
+          }
+        } else {
+          const { data: entry, error: insErr } = await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: null,
+            grow_instance_id: null,
+            note: noteTrim ?? "Growth update",
+            entry_type: "growth" as const,
+            image_file_path: imagePath,
+            weather_snapshot: weather ?? undefined,
+          }).select("id").single();
+          if (!insErr && entry) {
+            const entryId = (entry as { id: string }).id;
+            await supabase.from("journal_entry_plants").insert(batches.map((b) => ({ journal_entry_id: entryId, plant_profile_id: b.plant_profile_id, user_id: user.id })));
+          }
+        }
       }
 
       onSaved();

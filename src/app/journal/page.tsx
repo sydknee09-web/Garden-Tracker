@@ -75,31 +75,24 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
   return getActionFromNote(first.note, first.entry_type);
 }
 
-/** Group entries by same plant + same day so one row per (date, plant). */
-function groupEntriesForTable(entries: JournalEntryWithPlant[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
-  const dateStr = (e: JournalEntryWithPlant) => e.created_at.slice(0, 10);
-  const plantKey = (e: JournalEntryWithPlant) => e.plant_profile_id ?? "__general__";
-  const key = (e: JournalEntryWithPlant) => `${dateStr(e)}|${plantKey(e)}`;
-  const map = new Map<string, JournalEntryWithPlant[]>();
-  for (const e of entries) {
-    const k = key(e);
-    if (!map.has(k)) map.set(k, []);
-    map.get(k)!.push(e);
-  }
-  const rows = Array.from(map.values()).map((group) => {
-    group.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    const first = group[0];
-    const plantNames = Array.from(new Set(group.map((e) => (e as JournalEntryWithPlant).plant_display_name ?? e.plant_name ?? "General")));
-    const notes = group.map((e) => e.note);
-    const note = combineNotes(notes);
-    const action = getActionForGroup(group);
-    const entryIds = group.map((e) => e.id);
-    const plant_profile_id = first.plant_profile_id ?? null;
-    const owner_user_id = first.user_id ?? null;
-    return { date: first.created_at, note: note || null, action, plantNames, entryIds, plant_profile_id, owner_user_id };
-  });
-  rows.sort((a, b) => b.date.localeCompare(a.date));
-  return rows;
+/** One row per journal entry (Section 6: one entry can tag multiple plants). */
+function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_names?: string[] })[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
+  return entries
+    .map((e) => {
+      const plantNames = (e as JournalEntryWithPlant & { plant_display_names?: string[] }).plant_display_names
+        ?? [(e.plant_display_name ?? e.plant_name ?? "General")];
+      const action = getActionForGroup([e]);
+      return {
+        date: e.created_at,
+        note: e.note ?? null,
+        action,
+        plantNames,
+        entryIds: [e.id],
+        plant_profile_id: e.plant_profile_id ?? null,
+        owner_user_id: e.user_id ?? null,
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /** Insert year/month section headers into table rows for glanceable timeline. */
@@ -313,32 +306,50 @@ export default function JournalPage() {
         return;
       }
 
-      const profileIds = Array.from(new Set((rows ?? []).map((r: { plant_profile_id: string | null }) => r.plant_profile_id).filter(Boolean)));
+      const entryIds = (rows ?? []).map((r: { id: string }) => r.id);
+      const entryToProfileIds: Record<string, string[]> = {};
+      if (entryIds.length > 0) {
+        const { data: jepRows } = await supabase
+          .from("journal_entry_plants")
+          .select("journal_entry_id, plant_profile_id")
+          .in("journal_entry_id", entryIds);
+        (jepRows ?? []).forEach((row: { journal_entry_id: string; plant_profile_id: string }) => {
+          if (!entryToProfileIds[row.journal_entry_id]) entryToProfileIds[row.journal_entry_id] = [];
+          entryToProfileIds[row.journal_entry_id].push(row.plant_profile_id);
+        });
+      }
+
+      const profileIds = new Set<string>();
+      (rows ?? []).forEach((r: { plant_profile_id: string | null }) => {
+        if (r.plant_profile_id) profileIds.add(r.plant_profile_id);
+      });
+      Object.values(entryToProfileIds).flat().forEach((id) => profileIds.add(id));
       const names: Record<string, string> = {};
       const displayNames: Record<string, string> = {};
-      if (profileIds.length > 0) {
-        const { data: profileRows } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds).is("deleted_at", null);
+      if (profileIds.size > 0) {
+        const { data: profileRows } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", Array.from(profileIds)).is("deleted_at", null);
         (profileRows ?? []).forEach((p: { id: string; name: string; variety_name?: string | null }) => {
           names[p.id] = p.name;
           displayNames[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });
       }
 
-      // Exclude orphaned entries: plant_profile was hard-deleted, so we have no name.
-      // Per Law 2, profiles should use soft delete; this handles existing hard-deleted data.
-      const withNames = (rows ?? [])
-        .map((r: JournalEntry & { plant_profile_id?: string | null }) => {
-          const id = r.plant_profile_id;
-          const plant_name = id ? (names[id] ?? "Unknown") : "General";
-          const plant_display_name = id ? (displayNames[id] ?? plant_name) : "General";
-          return { ...r, plant_name, plant_display_name };
-        })
-        .filter((r: JournalEntryWithPlant) => {
-          const id = r.plant_profile_id;
-          if (!id) return true; // General entries always show
-          return (names as Record<string, string>)[id] != null; // hide entries whose profile no longer exists
-        });
-      setEntries(withNames);
+      const withNames = (rows ?? []).map((r: JournalEntry & { plant_profile_id?: string | null }) => {
+        const jepIds = entryToProfileIds[r.id] ?? [];
+        const ids = jepIds.length > 0 ? jepIds : (r.plant_profile_id ? [r.plant_profile_id] : []);
+        const plantNames = ids.map((id) => names[id] ?? "Unknown").filter((n) => n !== "Unknown" || ids.length === 0);
+        const plantDisplayNames = ids.map((id) => displayNames[id] ?? names[id] ?? "General");
+        const plant_name = plantDisplayNames[0] ?? "General";
+        const plant_display_name = plant_name;
+        const plant_profile_id = ids[0] ?? r.plant_profile_id ?? null;
+        return { ...r, plant_name, plant_display_name, plant_profile_id, plant_profile_ids: ids, plant_display_names: plantDisplayNames };
+      });
+      const filtered = withNames.filter((r: JournalEntryWithPlant & { plant_profile_ids?: string[] }) => {
+        const ids = r.plant_profile_ids ?? (r.plant_profile_id ? [r.plant_profile_id] : []);
+        if (ids.length === 0) return true;
+        return ids.some((id) => (names as Record<string, string>)[id] != null);
+      });
+      setEntries(filtered);
       setLoading(false);
     }
 
