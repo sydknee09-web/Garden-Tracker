@@ -1128,12 +1128,18 @@ export function SeedVaultView({
 
   if (filteredSeeds.length === 0) {
     const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || categoryFilter !== null);
+    const emptyFilteredMessage = mode === "grid"
+      ? "No plant profiles match your search or filters. Try changing filters or search."
+      : "No seeds match your search or filters. Try changing filters or search.";
+    const emptyVaultMessage = mode === "grid"
+      ? "No plant profiles yet. Add your first variety to get started."
+      : "No seeds yet. Add your first packet to get started.";
     return (
       <div className="rounded-card-lg bg-white p-6 shadow-card border border-black/5 text-center max-w-md mx-auto">
         <p className="text-slate-600 mb-4">
           {hasFilters
-            ? "No seeds match your search or filters. Try changing filters or search."
-            : "No seeds yet. Add your first packet to get started."}
+            ? emptyFilteredMessage
+            : emptyVaultMessage}
         </p>
         {!hasFilters && onAddFirst && (
           <button
@@ -1141,7 +1147,7 @@ export function SeedVaultView({
             onClick={onAddFirst}
             className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
           >
-            Add your first packet
+            {mode === "grid" ? "Add your first plant" : "Add your first packet"}
           </button>
         )}
       </div>
