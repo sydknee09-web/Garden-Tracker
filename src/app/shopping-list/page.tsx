@@ -87,7 +87,7 @@ export default function ShoppingListPage() {
   usePullToRefresh({ onRefresh: fetchList, disabled: loading });
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6">
+    <div className="min-h-screen bg-paper px-6 pt-2 pb-6">
       <div className="mx-auto max-w-2xl">
         <button
           type="button"
