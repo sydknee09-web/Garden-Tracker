@@ -376,7 +376,7 @@ export default function HomePage() {
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
-              <p className="text-xs text-black/50 text-center">Nothing to buy.</p>
+              <p className="text-xs text-black/50 text-center">No items on your shopping list yet.</p>
               <button
                 type="button"
                 onClick={() => setAddItemModalOpen(true)}

@@ -158,9 +158,9 @@ export default function ImportManualPage() {
         <p className="text-sm text-black/60 mb-4">{error}</p>
         <Link
           href="/vault"
-          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald text-white font-medium"
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald text-white font-medium inline-flex items-center gap-2"
         >
-          Back to Vault
+          ← Back to Vault
         </Link>
       </div>
     );

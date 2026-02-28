@@ -451,9 +451,9 @@ export default function ImportPhotosPage() {
             </button>
             <Link
               href="/vault"
-              className="text-center text-sm text-neutral-500 hover:text-neutral-700"
+              className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
             >
-              Back to Vault
+              ← Back to Vault
             </Link>
           </div>
         )}

@@ -22,6 +22,6 @@ describe("Settings page", () => {
     expect(await screen.findByRole("heading", { name: /settings/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /profile/i })).toHaveAttribute("href", "/settings/profile");
     expect(screen.getByRole("link", { name: /developer/i })).toHaveAttribute("href", "/settings/developer");
-    expect(screen.getByRole("link", { name: /back to garden/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
   });
 });

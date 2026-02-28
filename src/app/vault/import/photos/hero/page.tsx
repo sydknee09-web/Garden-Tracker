@@ -173,9 +173,9 @@ export default function HeroImportPage() {
         </p>
         <Link
           href="/vault"
-          className="text-emerald-600 font-medium hover:underline min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="text-emerald-600 font-medium hover:underline min-h-[44px] min-w-[44px] flex items-center justify-center gap-2"
         >
-          Back to Vault
+          ← Back to Vault
         </Link>
       </div>
     );
@@ -334,9 +334,9 @@ export default function HeroImportPage() {
             </button>
             <Link
               href="/vault"
-              className="text-center text-sm text-neutral-500 hover:text-neutral-700"
+              className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
             >
-              Back to Vault
+              ← Back to Vault
             </Link>
           </div>
         )}

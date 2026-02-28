@@ -1008,7 +1008,7 @@ export default function CalendarPage() {
 
       {harvestCelebration && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
-          <span aria-hidden>≡ƒî┐</span>
+          <span aria-hidden>🌿</span>
           <span>Harvest logged! {harvestCelebration}</span>
         </div>
       )}
@@ -1022,8 +1022,8 @@ export default function CalendarPage() {
         >
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="relative w-16 h-16 flex items-center justify-center">
-              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>≡ƒî░</span>
-              <span className="text-5xl seedling-celebration-sprout" aria-hidden>≡ƒî▒</span>
+              <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
+              <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
             </div>
             <p className="text-white font-semibold text-lg">Planted!</p>
             <p className="text-white/90 text-sm">{plantingCelebration}</p>
