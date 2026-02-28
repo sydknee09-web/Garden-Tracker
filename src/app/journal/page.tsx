@@ -473,8 +473,8 @@ export default function JournalPage() {
   return (
     <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
       <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
-        <div className="flex justify-end">
-          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="tablist" aria-label="Journal view">
+        <div className="flex mb-3" role="tablist" aria-label="Journal view">
+          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
             <button
               type="button"
               role="tab"
