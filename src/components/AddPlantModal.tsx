@@ -92,16 +92,22 @@ export function AddPlantModal({
     setSelectedProfileId(list.length > 0 ? list[0].id : "");
   }, [user?.id, profileTypeFilter]);
 
+  const prevOpenRef = useRef(false);
   useEffect(() => {
     if (open && user?.id) {
+      const justOpened = !prevOpenRef.current;
+      prevOpenRef.current = true;
       if (addToExistingProfile && profileIdProp) {
         setPlantType("permanent");
         setMode("existing");
         setSelectedProfileId(profileIdProp);
-      } else {
+      } else if (justOpened) {
+        // Only set initial plant type when modal first opens; don't reset when user toggles
         setPlantType(defaultPlantType);
         loadProfiles(defaultPlantType === "seasonal" ? "seed" : "permanent");
       }
+    } else {
+      prevOpenRef.current = false;
     }
   }, [open, user?.id, defaultPlantType, loadProfiles, addToExistingProfile, profileIdProp]);
 
@@ -504,14 +510,20 @@ export function AddPlantModal({
               <div className="flex gap-2 mt-3">
                 <button
                   type="button"
-                  onClick={() => setPlantType("permanent")}
+                  onClick={() => {
+                    setPlantType("permanent");
+                    loadProfiles("permanent");
+                  }}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
                 >
                   Permanent
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPlantType("seasonal")}
+                  onClick={() => {
+                    setPlantType("seasonal");
+                    loadProfiles("seed");
+                  }}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
                 >
                   Seasonal

@@ -1837,17 +1837,6 @@ function VaultPageInner() {
 
       {viewMode === "shed" && (
         <div className="relative z-10 pt-2 pointer-events-auto">
-          <QuickAddSupply
-            open={shedQuickAddOpen}
-            onClose={() => setShedQuickAddOpen(false)}
-            onSuccess={() => setRefetchTrigger((t) => t + 1)}
-            onOpenPurchaseOrder={() => {
-              skipPopOnNavigateRef.current = true;
-              setShedQuickAddOpen(false);
-              setPurchaseOrderMode("supply");
-              setPurchaseOrderOpen(true);
-            }}
-          />
           <ShedView
             embedded
             refetchTrigger={refetchTrigger}
@@ -2533,6 +2522,18 @@ function VaultPageInner() {
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
       )}
+
+      <QuickAddSupply
+        open={shedQuickAddOpen}
+        onClose={() => setShedQuickAddOpen(false)}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        onOpenPurchaseOrder={() => {
+          skipPopOnNavigateRef.current = true;
+          setShedQuickAddOpen(false);
+          setPurchaseOrderMode("supply");
+          setPurchaseOrderOpen(true);
+        }}
+      />
 
       {showAddPlantModal && (
         <AddPlantModal

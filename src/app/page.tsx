@@ -1,12 +1,40 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { AddItemModal } from "@/components/AddItemModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+
+const UniversalAddMenu = dynamic(
+  () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
+  { ssr: false }
+);
+const QuickAddSeed = dynamic(
+  () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
+  { ssr: false }
+);
+const BatchAddSeed = dynamic(
+  () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
+  { ssr: false }
+);
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
+const AddPlantModal = dynamic(
+  () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
+  { ssr: false }
+);
+const PurchaseOrderImport = dynamic(
+  () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
+  { ssr: false }
+);
 import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -83,6 +111,19 @@ export default function HomePage() {
   });
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
   const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
+  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
+  const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
+  const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
+  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
+  const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const skipPopOnNavigateRef = useRef(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEscapeKey(universalAddMenuOpen, () => setUniversalAddMenuOpen(false));
 
   useEffect(() => {
     if (!user) { setLoadingTasksAndList(false); return; }
@@ -577,6 +618,146 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* FAB: Universal Add Menu */}
+      <button
+        type="button"
+        onClick={() => setUniversalAddMenuOpen((o) => !o)}
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+          universalAddMenuOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+        }`}
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        aria-label={universalAddMenuOpen ? "Close add menu" : "Add"}
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform duration-200 ${universalAddMenuOpen ? "rotate-45" : "rotate-0"}`}
+          aria-hidden
+        >
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+
+      {universalAddMenuOpen && (
+        <UniversalAddMenu
+          open={universalAddMenuOpen}
+          onClose={() => setUniversalAddMenuOpen(false)}
+          pathname={pathname ?? "/"}
+          onAddSeed={() => {
+            setUniversalAddMenuOpen(false);
+            setQuickAddSeedOpen(true);
+          }}
+          onAddPlantManual={(defaultType) => {
+            setUniversalAddMenuOpen(false);
+            setAddPlantDefaultType(defaultType);
+            setShowAddPlantModal(true);
+          }}
+          onAddPlantFromVault={() => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/vault/plant?from=home");
+          }}
+          onAddToShed={() => {
+            setUniversalAddMenuOpen(false);
+            setShedQuickAddOpen(true);
+          }}
+          onAddTask={() => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/calendar?openTask=1");
+          }}
+          onAddJournal={(_mode) => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/journal/new");
+          }}
+        />
+      )}
+
+      {quickAddSeedOpen && (
+        <QuickAddSeed
+          open={quickAddSeedOpen}
+          onClose={() => setQuickAddSeedOpen(false)}
+          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onOpenBatch={() => {
+            setQuickAddSeedOpen(false);
+            setBatchAddSeedOpen(true);
+          }}
+          onOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import?embed=1");
+          }}
+          onStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import/manual");
+          }}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
+
+      {batchAddSeedOpen && (
+        <BatchAddSeed
+          open={batchAddSeedOpen}
+          onClose={() => setBatchAddSeedOpen(false)}
+          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onNavigateToHero={() => {
+            skipPopOnNavigateRef.current = true;
+            setBatchAddSeedOpen(false);
+            router.push("/vault/import/photos/hero");
+          }}
+        />
+      )}
+
+      {shedQuickAddOpen && (
+        <QuickAddSupply
+          open={shedQuickAddOpen}
+          onClose={() => setShedQuickAddOpen(false)}
+          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setShedQuickAddOpen(false);
+            setPurchaseOrderMode("supply");
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
+
+      {purchaseOrderOpen && (
+        <PurchaseOrderImport
+          open={purchaseOrderOpen}
+          onClose={() => setPurchaseOrderOpen(false)}
+          mode={purchaseOrderMode}
+          defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        />
+      )}
+
+      {showAddPlantModal && (
+        <AddPlantModal
+          open={showAddPlantModal}
+          onClose={() => setShowAddPlantModal(false)}
+          defaultPlantType={addPlantDefaultType}
+          stayInGarden={false}
+          onSuccess={() => {
+            setShowAddPlantModal(false);
+            setShoppingListRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
