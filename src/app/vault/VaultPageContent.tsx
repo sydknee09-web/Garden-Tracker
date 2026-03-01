@@ -2446,6 +2446,11 @@ function VaultPageInner() {
             setUniversalAddMenuOpen(false);
             router.push("/vault/plant?from=vault");
           }}
+          onAddPlantPurchaseOrder={() => {
+            setUniversalAddMenuOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
             setShedQuickAddOpen(true);
@@ -2455,7 +2460,7 @@ function VaultPageInner() {
             setUniversalAddMenuOpen(false);
             router.push("/calendar?openTask=1");
           }}
-          onAddJournal={(_mode) => {
+          onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
@@ -2469,6 +2474,11 @@ function VaultPageInner() {
         onClose={() => {
           setQuickAddOpen(false);
           setQrPrefill(null);
+        }}
+        onBackToMenu={() => {
+          setQuickAddOpen(false);
+          setQrPrefill(null);
+          setUniversalAddMenuOpen(true);
         }}
         onSuccess={(opts) => {
           setRefetchTrigger((t) => t + 1);

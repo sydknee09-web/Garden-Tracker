@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -305,13 +304,6 @@ export default function ImportPhotosPage() {
   return (
     <div className="min-h-screen bg-neutral-50 p-6 pb-24">
       <div className="mx-auto max-w-2xl">
-        <Link
-          href="/vault"
-          className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
-        >
-          ← Back to Vault
-        </Link>
-
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">Photo Import</h1>
         <p className="text-neutral-600 text-sm mb-6">
           Processing your photos. Each image is scanned for seed details, then we find a hero photo for the profile.
@@ -449,12 +441,6 @@ export default function ImportPhotosPage() {
             >
               Continue to Import Review
             </button>
-            <Link
-              href="/vault"
-              className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
-            >
-              ← Back to Vault
-            </Link>
           </div>
         )}
       </div>

@@ -43,6 +43,8 @@ interface QuickAddSeedProps {
   onOpenPurchaseOrder?: () => void;
   /** When manual add has no matching profile; parent should navigate to /vault/import/manual */
   onStartManualImport?: () => void;
+  /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
+  onBackToMenu?: () => void;
 }
 
 function applyPrefillToForm(
@@ -58,7 +60,7 @@ function applyPrefillToForm(
   if (prefill.vendor) setters.setVendor(prefill.vendor);
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
@@ -335,19 +337,28 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         aria-modal="true"
       >
         <div className="flex items-center gap-2 mb-4">
-          {screen === "manual" && (
+          {screen === "manual" ? (
             <button
               type="button"
               onClick={goBack}
-              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1"
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Back to choose method"
             >
               <BackIcon />
             </button>
-          )}
+          ) : onBackToMenu ? (
+            <button
+              type="button"
+              onClick={onBackToMenu}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to add menu"
+            >
+              <BackIcon />
+            </button>
+          ) : null}
           <h2
             id="quick-add-title"
-            className={`text-xl font-bold text-neutral-900 ${screen === "choose" ? "flex-1 text-center" : ""}`}
+            className="text-xl font-bold text-neutral-900 flex-1 text-center"
           >
             {modalTitle}
           </h2>

@@ -27,7 +27,7 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 | **Add plant** | Screen 2: Manual Entry \| Start Seeds |
 | **Add to shed** | Opens QuickAddSupply (Manual / Photo / Link / Purchase Order) |
 | **Add task** | Opens task form (Calendar) or navigates to `/calendar?openTask=1` |
-| **Add journal** | Screen 2: Snapshot \| Quick note \| Detailed → all navigate to `/journal/new` |
+| **Add journal** | Navigate to `/journal/new` |
 
 ### Add plant – Screen 2
 
@@ -81,9 +81,7 @@ When in selection mode (Vault batch select, Garden batch select, Journal entries
 
 | Flow | Trigger | Destination |
 |------|---------|-------------|
-| **Snapshot** | Add journal → Snapshot | Navigate to `/journal/new` |
-| **Quick note** | Add journal → Quick note | Navigate to `/journal/new` |
-| **Detailed log** | Add journal → Detailed log | Navigate to `/journal/new` |
+| **Add journal** | FAB → Add journal | Navigate to `/journal/new` |
 
 ### Journal – entry cards
 
@@ -283,3 +281,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-28 | Universal Add Menu: Vault, Garden, Journal, Calendar FABs all open same menu (Add Seed Packet, Add plant, Add to shed, Add task, Add journal). Add plant has Manual Entry \| Start Seeds. Selection mode unchanged (FAB opens selection menu). Removed Garden "Add journal entry" bulk mode; Add journal → Detailed navigates to /journal/new. Label revisions: "Add seed" → "Add Seed Packet"; "From Vault" → "Start Seeds". |
 | 2025-02-28 | Home: Added plus FAB with Universal Add Menu (same options as Vault, Garden, Journal, Calendar). |
 | 2025-02-28 | Add Plant modal: Standardized fields — Link to existing has Notes + Photos; Create new has Vendor/Nursery, no Qty. Removed Add plant button from vault profile Plantings tab. |
+| 2025-02-28 | Add journal: Removed Snapshot/Quick note/Detailed sub-screen; FAB → Add journal now navigates directly to `/journal/new`. |

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState, Suspense } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -456,9 +455,6 @@ function VaultPlantPageInner() {
   return (
     <div className="px-6 pt-8 pb-40 max-w-2xl mx-auto">
       <div className="text-center mb-4">
-        <Link href={fromGarden ? "/garden?tab=active" : "/vault"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
-          ← {fromGarden ? "Back to Garden" : "Back to Vault"}
-        </Link>
         <h1 className="text-xl font-semibold text-black mb-1">Planting</h1>
         <p className="text-sm text-black/60 mb-3">
           Set how much of each packet to use. Sliders 0–100%. Confirm to create journal entries and harvest tasks.

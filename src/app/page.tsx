@@ -665,6 +665,11 @@ export default function HomePage() {
             setUniversalAddMenuOpen(false);
             router.push("/vault/plant?from=home");
           }}
+          onAddPlantPurchaseOrder={() => {
+            setUniversalAddMenuOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
             setShedQuickAddOpen(true);
@@ -674,7 +679,7 @@ export default function HomePage() {
             setUniversalAddMenuOpen(false);
             router.push("/calendar?openTask=1");
           }}
-          onAddJournal={(_mode) => {
+          onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
@@ -686,6 +691,10 @@ export default function HomePage() {
         <QuickAddSeed
           open={quickAddSeedOpen}
           onClose={() => setQuickAddSeedOpen(false)}
+          onBackToMenu={() => {
+            setQuickAddSeedOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);

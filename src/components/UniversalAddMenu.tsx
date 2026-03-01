@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-export type UniversalAddMenuScreen = "main" | "add-plant" | "add-journal";
+export type UniversalAddMenuScreen = "main" | "add-plant";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -17,12 +17,14 @@ export interface UniversalAddMenuProps {
   onAddPlantManual: (defaultType: "permanent" | "seasonal") => void;
   /** Navigate to /vault/plant with from param */
   onAddPlantFromVault: () => void;
+  /** Open Purchase Order import (screenshot of cart/order with seeds); adds to vault */
+  onAddPlantPurchaseOrder?: () => void;
   /** Open QuickAddSupply (has its own chooser) */
   onAddToShed: () => void;
   /** Open task form (navigate to calendar or open modal) */
   onAddTask: () => void;
-  /** Add journal: mode determines flow */
-  onAddJournal: (mode: "snapshot" | "quick" | "detailed") => void;
+  /** Navigate to add journal entry */
+  onAddJournal: () => void;
 }
 
 function SeedIcon() {
@@ -66,6 +68,7 @@ export function UniversalAddMenu({
   onAddSeed,
   onAddPlantManual,
   onAddPlantFromVault,
+  onAddPlantPurchaseOrder,
   onAddToShed,
   onAddTask,
   onAddJournal,
@@ -151,7 +154,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => setScreen("add-journal")}
+                onClick={() => { onClose(); onAddJournal(); }}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0"><JournalIcon /></span>
@@ -193,47 +196,16 @@ export function UniversalAddMenu({
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
                 Start Seeds
               </button>
-            </div>
-            <div className="pt-4">
-              <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">Cancel</button>
-            </div>
-          </>
-        )}
-
-        {screen === "add-journal" && (
-          <>
-            <div className="flex items-center gap-2 mb-4">
-              <button type="button" onClick={() => setScreen("main")} className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1" aria-label="Back">
-                <BackIcon />
-              </button>
-              <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
-            </div>
-            <p className="text-sm text-neutral-500 text-center mb-4">How do you want to log?</p>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => { onClose(); onAddJournal("snapshot"); }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
-                Snapshot
-              </button>
-              <button
-                type="button"
-                onClick={() => { onClose(); onAddJournal("quick"); }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
-                Quick note
-              </button>
-              <button
-                type="button"
-                onClick={() => { onClose(); onAddJournal("detailed"); }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📋</span>
-                Detailed log
-              </button>
+              {onAddPlantPurchaseOrder && (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
+                  className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
+                  Scan Purchase Order
+                </button>
+              )}
             </div>
             <div className="pt-4">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">Cancel</button>

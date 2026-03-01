@@ -302,15 +302,7 @@ export default function JournalNewPage() {
 
   return (
     <div className="px-6 pb-8 max-w-lg mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Link
-          href={fromGarden ? "/garden" : "/journal"}
-          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl border border-black/10 text-black/80 font-medium"
-        >
-          ←
-        </Link>
-        <h1 className="text-xl font-semibold text-black">Add Journal Entry</h1>
-      </div>
+      <h1 className="text-xl font-semibold text-black mb-6">Add Journal Entry</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <input

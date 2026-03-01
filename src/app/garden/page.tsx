@@ -1085,6 +1085,11 @@ function GardenPageInner() {
             setFabMenuOpen(false);
             router.push("/vault/plant?from=garden");
           }}
+          onAddPlantPurchaseOrder={() => {
+            setFabMenuOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
           onAddToShed={() => {
             setFabMenuOpen(false);
             setShedQuickAddOpen(true);
@@ -1094,7 +1099,7 @@ function GardenPageInner() {
             setFabMenuOpen(false);
             router.push("/calendar?openTask=1");
           }}
-          onAddJournal={(_mode) => {
+          onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setFabMenuOpen(false);
             router.push("/journal/new");
@@ -1106,6 +1111,10 @@ function GardenPageInner() {
         <QuickAddSeed
           open={quickAddSeedOpen}
           onClose={() => setQuickAddSeedOpen(false)}
+          onBackToMenu={() => {
+            setQuickAddSeedOpen(false);
+            setFabMenuOpen(true);
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);

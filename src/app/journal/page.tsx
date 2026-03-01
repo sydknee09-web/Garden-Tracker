@@ -1029,6 +1029,11 @@ export default function JournalPage() {
             setUniversalAddMenuOpen(false);
             router.push("/vault/plant?from=journal");
           }}
+          onAddPlantPurchaseOrder={() => {
+            setUniversalAddMenuOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
             setShedQuickAddOpen(true);
@@ -1038,7 +1043,7 @@ export default function JournalPage() {
             setUniversalAddMenuOpen(false);
             router.push("/calendar?openTask=1");
           }}
-          onAddJournal={(_mode) => {
+          onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
@@ -1050,6 +1055,10 @@ export default function JournalPage() {
         <QuickAddSeed
           open={quickAddSeedOpen}
           onClose={() => setQuickAddSeedOpen(false)}
+          onBackToMenu={() => {
+            setQuickAddSeedOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);

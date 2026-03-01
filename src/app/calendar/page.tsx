@@ -1206,6 +1206,11 @@ export default function CalendarPage() {
             setUniversalAddMenuOpen(false);
             router.push("/vault/plant?from=calendar");
           }}
+          onAddPlantPurchaseOrder={() => {
+            setUniversalAddMenuOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
             setShedQuickAddOpen(true);
@@ -1215,7 +1220,7 @@ export default function CalendarPage() {
             resetNewTaskForm();
             setNewTaskOpen(true);
           }}
-          onAddJournal={(_mode) => {
+          onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
@@ -1227,6 +1232,10 @@ export default function CalendarPage() {
         <QuickAddSeed
           open={quickAddSeedOpen}
           onClose={() => setQuickAddSeedOpen(false)}
+          onBackToMenu={() => {
+            setQuickAddSeedOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onSuccess={() => setRefetch((r) => r + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
