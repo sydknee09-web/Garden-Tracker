@@ -112,7 +112,7 @@ export function UniversalAddMenu({
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0"><SeedIcon /></span>
                 <div>
-                  <div>Add seed</div>
+                  <div>Add Seed Packet</div>
                   <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
                 </div>
               </button>
@@ -191,7 +191,7 @@ export function UniversalAddMenu({
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
-                From Vault
+                Start Seeds
               </button>
             </div>
             <div className="pt-4">

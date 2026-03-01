@@ -23,8 +23,8 @@ All main pages (Vault, Garden, Journal, Calendar) use the same **Universal Add M
 
 | Option | Screen 2 / Behavior |
 |--------|---------------------|
-| **Add seed** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
-| **Add plant** | Screen 2: Manual Entry \| From Vault |
+| **Add Seed Packet** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
+| **Add plant** | Screen 2: Manual Entry \| Start Seeds |
 | **Add to shed** | Opens QuickAddSupply (Manual / Photo / Link / Purchase Order) |
 | **Add task** | Opens task form (Calendar) or navigates to `/calendar?openTask=1` |
 | **Add journal** | Screen 2: Snapshot \| Quick note \| Detailed → all navigate to `/journal/new` |
@@ -34,7 +34,7 @@ All main pages (Vault, Garden, Journal, Calendar) use the same **Universal Add M
 | Option | Behavior |
 |--------|----------|
 | **Manual Entry** | Open AddPlantModal (default type from context: seasonal on Active Garden, permanent on My Plants) |
-| **From Vault** | Navigate to `/vault/plant?from=garden` (or from=calendar, from=vault, from=journal) |
+| **Start Seeds** | Navigate to `/vault/plant?from=garden` (or from=calendar, from=vault, from=journal) |
 
 ### Selection mode
 
@@ -278,4 +278,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-27 | Removed profile filter from Back to My Plants and View plant in My Plants links. Both now navigate to full My Plants list. |
 | 2025-02-27 | Plant profile tabs: Added Care tab between About and PKT. Care templates/schedules moved from About into Care tab. Tab order: About, Care, Pkts, Plants, Journal. Counts only on Pkts and Plants; Journal shows no count. |
 | 2025-02-28 | Journal entry cards: Only plant pill tap navigates to plant profile. Card body short tap no longer navigates. |
-| 2025-02-28 | Universal Add Menu: Vault, Garden, Journal, Calendar FABs all open same menu (Add seed, Add plant, Add to shed, Add task, Add journal). Add plant has Manual Entry \| From Vault. Selection mode unchanged (FAB opens selection menu). Removed Garden "Add journal entry" bulk mode; Add journal → Detailed navigates to /journal/new. |
+| 2025-02-28 | Universal Add Menu: Vault, Garden, Journal, Calendar FABs all open same menu (Add Seed Packet, Add plant, Add to shed, Add task, Add journal). Add plant has Manual Entry \| Start Seeds. Selection mode unchanged (FAB opens selection menu). Removed Garden "Add journal entry" bulk mode; Add journal → Detailed navigates to /journal/new. Label revisions: "Add seed" → "Add Seed Packet"; "From Vault" → "Start Seeds". |
