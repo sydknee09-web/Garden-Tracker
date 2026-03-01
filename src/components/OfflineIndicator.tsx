@@ -11,13 +11,17 @@ export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [replaying, setReplaying] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
     if (typeof window === "undefined") return;
     setIsOnline(navigator.onLine);
 
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setDismissed(false); // Reset so it shows again next time offline
+    };
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
@@ -85,16 +89,27 @@ export function OfflineIndicator() {
     return () => clearInterval(interval);
   }, []);
 
-  // Only show toast when offline; rely on header cloud icon for syncing/synced status
-  if (isOnline) return null;
+  // Only show toast when offline and not dismissed; rely on header cloud icon for syncing/synced status
+  if (isOnline || dismissed) return null;
 
   return (
     <div
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-amber-600 text-white text-center max-w-[min(20rem,calc(100vw-2rem))]"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2.5 pl-4 pr-12 rounded-xl shadow-lg text-sm font-medium bg-amber-600 text-white text-center max-w-[min(20rem,calc(100vw-2rem))] flex items-center justify-center gap-2 relative"
       role="status"
       aria-live="polite"
     >
-      Offline — will sync when reconnected
+      <span>Offline — will sync when reconnected</span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-amber-500 min-w-[44px] min-h-[44px] flex items-center justify-center"
+        aria-label="Dismiss offline message"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
     </div>
   );
 }
