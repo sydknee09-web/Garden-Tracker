@@ -121,10 +121,10 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         title: title.trim(),
         category,
         recurrence_type: recurrenceType,
-        interval_days: recurrenceType === "interval" ? parseInt(intervalDays) || 30 : null,
-        day_of_month: recurrenceType === "monthly" ? Math.min(parseInt(dayOfMonth) || 1, 28) : null,
+        interval_days: (recurrenceType === "interval" || recurrenceType === "one_off") ? parseInt(intervalDays) || 30 : null,
+        day_of_month: (recurrenceType === "monthly" || recurrenceType === "yearly") ? Math.min(parseInt(dayOfMonth) || 1, 28) : null,
         months: recurrenceType === "yearly" ? selectedMonths : null,
-        next_due_date: nextDueDate || null,
+        next_due_date: recurrenceType === "one_off" ? null : (nextDueDate || null),
         notes: notes.trim() || null,
         is_active: true,
         is_template: editingId ? ((schedules.find((s) => s.id === editingId) as { is_template?: boolean })?.is_template ?? isTemplate) : isTemplate,
@@ -187,7 +187,8 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
   const getRecurrenceLabel = (s: CareSchedule) => {
     if (s.recurrence_type === "interval") return `Every ${s.interval_days} days`;
     if (s.recurrence_type === "monthly") return `Monthly (day ${s.day_of_month})`;
-    if (s.recurrence_type === "yearly") return `Yearly: ${(s.months ?? []).map((m) => MONTHS[m - 1]?.slice(0, 3)).join(", ")}`;
+    if (s.recurrence_type === "yearly") return `Yearly: ${(s.months ?? []).map((m) => MONTHS[m - 1]?.slice(0, 3)).join(", ")} (day ${s.day_of_month ?? 1})`;
+    if (s.recurrence_type === "one_off" && s.interval_days) return `${s.interval_days} days after planting`;
     return "One-time";
   };
 
@@ -315,21 +316,36 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
             </div>
           )}
 
-          {recurrenceType === "yearly" && (
+          {recurrenceType === "one_off" && (
             <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Months</label>
-              <div className="flex flex-wrap gap-1.5">
-                {MONTHS.map((m, i) => (
-                  <button key={m} type="button" onClick={() => toggleMonth(i + 1)} className={`px-2 py-1 rounded text-xs font-medium ${selectedMonths.includes(i + 1) ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-neutral-100 text-neutral-600 border border-neutral-200"}`}>{m.slice(0, 3)}</button>
-                ))}
-              </div>
+              <label htmlFor="care-days-after" className="block text-xs font-medium text-neutral-600 mb-1">Days after planting</label>
+              <input id="care-days-after" type="number" min="1" value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
             </div>
           )}
 
-          <div>
-            <label htmlFor="care-next-due" className="block text-xs font-medium text-neutral-600 mb-1">Next due date</label>
-            <input id="care-next-due" type="date" value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
-          </div>
+          {recurrenceType === "yearly" && (
+            <>
+              <div>
+                <label htmlFor="care-day-yearly" className="block text-xs font-medium text-neutral-600 mb-1">Day of month</label>
+                <input id="care-day-yearly" type="number" min="1" max="28" value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-1">Months</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MONTHS.map((m, i) => (
+                    <button key={m} type="button" onClick={() => toggleMonth(i + 1)} className={`px-2 py-1 rounded text-xs font-medium ${selectedMonths.includes(i + 1) ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-neutral-100 text-neutral-600 border border-neutral-200"}`}>{m.slice(0, 3)}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {recurrenceType !== "one_off" && (
+            <div>
+              <label htmlFor="care-next-due" className="block text-xs font-medium text-neutral-600 mb-1">Next due date</label>
+              <input id="care-next-due" type="date" value={nextDueDate} onChange={(e) => setNextDueDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm" />
+            </div>
+          )}
 
           <div>
             <label htmlFor="care-supply" className="block text-xs font-medium text-neutral-600 mb-1">Product from shed (optional)</label>

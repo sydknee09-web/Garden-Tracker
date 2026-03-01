@@ -535,9 +535,9 @@ export function PacketVaultView({
                         </span>
                       </span>
                     )}
-                    <span className="shrink-0 relative w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
+                    <span className="shrink-0 relative w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center">
                       {showSeedling ? (
-                        <PlantPlaceholderIcon size="sm" />
+                        <PlantPlaceholderIcon size="lg" className="object-contain" />
                       ) : (
                         <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(pkt.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(pkt.id)} onError={() => markThumbError(pkt.id)} />
                       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -14,6 +14,7 @@ import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
+import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -167,6 +168,21 @@ export default function CalendarPage() {
     return () => { cancelled = true; };
   }, [user?.id, month.month]);
 
+  // Show cached data before paint when navigating back (avoids loading flash)
+  useLayoutEffect(() => {
+    if (!user) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+    const cached = getCachedTasks(user.id, householdViewMode ?? "personal");
+    if (cached) {
+      setTasks(cached as (Task & { plant_name?: string; user_id?: string | null })[]);
+      setLoading(false);
+      setError(null);
+    }
+  }, [user?.id, householdViewMode]);
+
   useEffect(() => {
     if (!user) {
       setTasks([]);
@@ -174,11 +190,14 @@ export default function CalendarPage() {
       return;
     }
     const userId = user.id;
+    const viewMode = householdViewMode ?? "personal";
     let cancelled = false;
 
     async function fetchTasks() {
       // Generate any newly-due care tasks before fetching
       await generateCareTasks(userId);
+
+      if (cancelled) return;
 
       // Fetch all upcoming tasks (from today, up to 1 year out)
       const oneYearOut = new Date();
@@ -192,7 +211,7 @@ export default function CalendarPage() {
         .gte("due_date", todayStr)
         .lte("due_date", futureLimit)
         .order("due_date");
-      if (householdViewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
+      if (viewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
       const { data: taskRows, error: e } = await tasksQuery;
 
       if (cancelled) return;
@@ -217,6 +236,7 @@ export default function CalendarPage() {
         plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : null) ?? "Unknown",
       }));
       setTasks(withNames);
+      setCachedTasks(userId, viewMode, withNames);
       setLoading(false);
     }
 

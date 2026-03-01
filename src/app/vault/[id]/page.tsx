@@ -1969,6 +1969,35 @@ export default function VaultSeedPage() {
                 />
               </div>
             )}
+            {!isLegacy && (
+              <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                <button type="button" onClick={() => toggleAboutSection("historicalTasks")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("historicalTasks")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Historical tasks</h3>
+                  <span className="text-neutral-500 text-sm">{standaloneTasks.length > 0 ? `(${standaloneTasks.length})` : ""}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("historicalTasks") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                </button>
+                {isAboutOpen("historicalTasks") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <p className="text-xs text-neutral-500 mb-3">Tasks you added from the calendar (not from a schedule). Review these if you want to add a recurring task.</p>
+                    {standaloneTasks.length === 0 ? (
+                      <p className="text-sm text-neutral-500">None Available.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {standaloneTasks.map((t) => (
+                          <li key={t.id} className="flex items-center justify-between gap-2 py-2 border-b border-neutral-100 last:border-b-0">
+                            <span className="font-medium text-neutral-800 text-sm">{(t.title ?? t.category).trim() || t.category}</span>
+                            <span className="text-xs text-neutral-500 shrink-0">
+                              {new Date(t.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                              {t.completed_at ? " · Done" : " · Upcoming"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {isLegacy && (
               <div className="bg-white rounded-xl border border-neutral-200 p-6 text-center">
                 <p className="text-neutral-500 text-sm">Care schedules are not available for legacy imports.</p>

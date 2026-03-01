@@ -127,11 +127,13 @@ export async function generateCareTasks(userId: string): Promise<number> {
       }
     }
     if (orphanScheduleIds.length > 0) {
+      // Only clean up pending tasks; preserve completed tasks for care history
       await supabase
         .from("tasks")
         .update({ deleted_at: new Date().toISOString() })
         .eq("user_id", userId)
         .in("care_schedule_id", orphanScheduleIds)
+        .is("completed_at", null)
         .is("deleted_at", null);
     }
 
@@ -310,7 +312,20 @@ export async function copyCareTemplatesToInstance(
         const sow = new Date(sowDate);
         const dom = Math.min(tmpl.day_of_month, 28);
         nextDue = new Date(sow.getFullYear(), sow.getMonth() + 1, dom).toISOString().slice(0, 10);
+      } else if (tmpl.recurrence_type === "one_off" && tmpl.interval_days != null && tmpl.interval_days > 0) {
+        const first = new Date(new Date(sowDate).getTime() + tmpl.interval_days * 86400000);
+        nextDue = first.toISOString().slice(0, 10);
+      } else if (tmpl.recurrence_type === "yearly" && tmpl.months?.length) {
+        const sow = new Date(sowDate);
+        const sowMonth = sow.getMonth() + 1;
+        const dom = Math.min(tmpl.day_of_month ?? 1, 28);
+        const futureMonths = tmpl.months.filter((m) => m >= sowMonth);
+        const nextMonth = futureMonths.length > 0 ? futureMonths[0]! : tmpl.months[0]!;
+        const nextYear = futureMonths.length > 0 ? sow.getFullYear() : sow.getFullYear() + 1;
+        nextDue = new Date(nextYear, nextMonth - 1, dom).toISOString().slice(0, 10);
       }
+
+      if (tmpl.recurrence_type === "one_off" && !nextDue) continue;
 
       await supabase.from("care_schedules").insert({
         plant_profile_id: profileId,

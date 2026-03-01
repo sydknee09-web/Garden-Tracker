@@ -1210,7 +1210,7 @@ export function SeedVaultView({
                           <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
                         </div>
                       ) : showSeedling ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="lg" className="object-contain" /></div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="xl" className="object-contain" /></div>
                       ) : (
                         <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                       )}
@@ -1288,7 +1288,7 @@ export function SeedVaultView({
                         <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
                       </div>
                     ) : showSeedling ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="md" className="object-contain" /></div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="lg" className="object-contain" /></div>
                     ) : (
                       <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
@@ -1507,7 +1507,7 @@ export function SeedVaultView({
                     {showResearching ? (
                       <span className="text-[9px] font-medium text-neutral-500">🔍</span>
                     ) : showSeedling ? (
-                      <PlantPlaceholderIcon size="sm" className="object-contain" />
+                      <PlantPlaceholderIcon size="md" className="object-contain" />
                     ) : (
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
@@ -1580,9 +1580,9 @@ export function SeedVaultView({
                       <span className="text-[9px] font-medium text-neutral-500 z-10">🔍</span>
                     </div>
                   ) : showSeedling ? (
-                    <div className="w-10 h-10 rounded-lg bg-emerald/10 flex items-center justify-center shrink-0"><PlantPlaceholderIcon size="sm" /></div>
+                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shrink-0"><PlantPlaceholderIcon size="lg" className="object-contain" /></div>
                   ) : (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white shrink-0 flex items-center justify-center">
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     </div>
                   );

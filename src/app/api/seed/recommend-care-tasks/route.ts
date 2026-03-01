@@ -14,7 +14,7 @@ For each task return JSON with:
 - title: short label (e.g. "Fertilize with balanced fertilizer")
 - category: one of fertilize, prune, mulch, spray, repot, harvest, other
 - recurrence_type: "interval" | "monthly" | "yearly" | "one_off"
-- interval_days: number for interval (e.g. 30 for monthly), null for others
+- interval_days: number for interval (e.g. 30 for monthly) or one_off (days after planting, e.g. 30), null for monthly/yearly
 - notes: 1-2 sentence tip, easy to understand
 
 Return ONLY valid JSON in this format:
@@ -141,6 +141,10 @@ export async function POST(req: Request) {
       if (recurrence_type === "interval" && typeof obj.interval_days === "number" && obj.interval_days > 0) {
         interval_days = Math.min(365, Math.round(obj.interval_days));
       } else if (recurrence_type === "interval") {
+        interval_days = 30;
+      } else if (recurrence_type === "one_off" && typeof obj.interval_days === "number" && obj.interval_days > 0) {
+        interval_days = Math.min(365, Math.round(obj.interval_days));
+      } else if (recurrence_type === "one_off") {
         interval_days = 30;
       }
       const notes = typeof obj.notes === "string" && obj.notes.trim() ? obj.notes.trim() : null;

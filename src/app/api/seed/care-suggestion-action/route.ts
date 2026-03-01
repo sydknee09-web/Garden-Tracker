@@ -43,11 +43,13 @@ export async function POST(req: Request) {
 
     // approve: insert into care_schedules, then delete suggestion
     const today = new Date().toISOString().slice(0, 10);
-    let nextDue = today;
+    let nextDue: string | null = today;
     if (suggestion.recurrence_type === "interval" && suggestion.interval_days != null && suggestion.interval_days > 0) {
       const d = new Date();
       d.setDate(d.getDate() + suggestion.interval_days);
       nextDue = d.toISOString().slice(0, 10);
+    } else if (suggestion.recurrence_type === "one_off") {
+      nextDue = null;
     }
 
     const { error: insertErr } = await auth.supabase.from("care_schedules").insert({
