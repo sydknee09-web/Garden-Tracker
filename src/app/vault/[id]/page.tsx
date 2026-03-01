@@ -189,11 +189,6 @@ export default function VaultSeedPage() {
   const [editGrowPlantCount, setEditGrowPlantCount] = useState(1);
   const [editGrowSownDate, setEditGrowSownDate] = useState("");
   const [editGrowSaving, setEditGrowSaving] = useState(false);
-  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
-  const [addPlantDate, setAddPlantDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [addPlantLocation, setAddPlantLocation] = useState("");
-  const [addPlantSaving, setAddPlantSaving] = useState(false);
-  const [addPlantError, setAddPlantError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -264,7 +259,6 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
-  useModalBackClose(showAddPlantModal, () => { setShowAddPlantModal(false); setAddPlantError(null); });
   useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
   useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
@@ -564,33 +558,6 @@ export default function VaultSeedPage() {
     loadProfile();
   }, [user?.id, deleteBatchTarget, loadProfile]);
 
-  const handleAddPlant = useCallback(async () => {
-    if (!user?.id || !id) return;
-    setAddPlantSaving(true);
-    setAddPlantError(null);
-    const isPerm = (profile as { profile_type?: string } | null)?.profile_type === "permanent";
-    const { error } = await supabase.from("grow_instances").insert({
-      user_id: user.id,
-      plant_profile_id: id,
-      sown_date: addPlantDate,
-      expected_harvest_date: null,
-      status: "growing",
-      seed_packet_id: null,
-      location: addPlantLocation.trim() || null,
-      plant_count: 1,
-      is_permanent_planting: isPerm,
-    });
-    setAddPlantSaving(false);
-    if (error) {
-      setAddPlantError("Failed to add plant. Try again.");
-      return;
-    }
-    setShowAddPlantModal(false);
-    setAddPlantDate(new Date().toISOString().slice(0, 10));
-    setAddPlantLocation("");
-    loadProfile();
-  }, [user?.id, id, addPlantDate, addPlantLocation, loadProfile, profile]);
-
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);
     setEditGrowLocation(gi.location ?? "");
@@ -714,7 +681,7 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || showAddPlantModal || !!editGrowTarget;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || !!editGrowTarget;
   const handleSwipeStart = useCallback((e: React.TouchEvent) => {
     swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
   }, []);
@@ -2242,28 +2209,9 @@ export default function VaultSeedPage() {
             {growInstances.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">{isPermanent ? "No plants yet." : "No plantings yet."}</p>
-                <p className="text-neutral-400 text-xs mt-1 mb-4">
-                  {isPermanent ? "Add your trees or perennials here." : "Start a new planting from your seed packets."}
+                <p className="text-neutral-400 text-xs mt-1">
+                  {isPermanent ? "Add your trees or perennials via the FAB from Home or Vault." : "Start a new planting via the FAB from Home or Vault."}
                 </p>
-                {isPermanent && canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                    aria-label="Add plant"
-                  >
-                    Add plant
-                  </button>
-                )}
-                {!isPermanent && canEdit && (
-                  <Link
-                    href={`/vault/plant?ids=${encodeURIComponent(id)}${fromParam === "garden" ? "&from=garden" : ""}`}
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                    aria-label="Add planting"
-                  >
-                    Add planting
-                  </Link>
-                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -2368,28 +2316,6 @@ export default function VaultSeedPage() {
                     </div>
                   );
                 })}
-                {canEdit && (
-                  <div className="pt-4 flex justify-center">
-                    {isPermanent ? (
-                      <button
-                        type="button"
-                        onClick={() => { setAddPlantError(null); setShowAddPlantModal(true); }}
-                        className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        aria-label="Add plant"
-                      >
-                        + Add plant
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/vault/plant?ids=${encodeURIComponent(id)}`}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        aria-label="Add planting"
-                      >
-                        + Add plant
-                      </Link>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </>
@@ -2545,45 +2471,6 @@ export default function VaultSeedPage() {
               <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
               <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Plant modal (permanent profiles) */}
-      {showAddPlantModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
-            <h2 id="add-plant-title" className="text-lg font-bold text-neutral-900 mb-4">Add plant</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddPlant(); }} className="space-y-4">
-              <div>
-                <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
-                <input
-                  id="add-plant-date"
-                  type="date"
-                  value={addPlantDate}
-                  onChange={(e) => setAddPlantDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Date planted"
-                />
-              </div>
-              <div>
-                <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
-                <input
-                  id="add-plant-location"
-                  type="text"
-                  value={addPlantLocation}
-                  onChange={(e) => setAddPlantLocation(e.target.value)}
-                  placeholder="e.g. North fence, Backyard"
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Location"
-                />
-              </div>
-              {addPlantError && <p className="text-sm text-red-600" role="alert">{addPlantError}</p>}
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => { setShowAddPlantModal(false); setAddPlantError(null); }} disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={addPlantSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPlantSaving ? "Adding…" : "Add plant"}</button>
-              </div>
-            </form>
           </div>
         </div>
       )}

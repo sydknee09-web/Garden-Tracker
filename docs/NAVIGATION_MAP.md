@@ -143,6 +143,8 @@ When in selection mode (Vault batch select, Garden batch select, Journal entries
 | **Seasonal** (active) | Active plantings only | `/garden?tab=active&grow=[grow_id]` — Active Garden with grow filter |
 | **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
 
+Add plant / Add planting: Removed from profile page. Users add plants via the Universal Add Menu (FAB) from Home, Vault, Garden, Journal, or Calendar.
+
 ### Vault – selection mode
 
 | Element | Behavior |
@@ -280,3 +282,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-28 | Journal entry cards: Only plant pill tap navigates to plant profile. Card body short tap no longer navigates. |
 | 2025-02-28 | Universal Add Menu: Vault, Garden, Journal, Calendar FABs all open same menu (Add Seed Packet, Add plant, Add to shed, Add task, Add journal). Add plant has Manual Entry \| Start Seeds. Selection mode unchanged (FAB opens selection menu). Removed Garden "Add journal entry" bulk mode; Add journal → Detailed navigates to /journal/new. Label revisions: "Add seed" → "Add Seed Packet"; "From Vault" → "Start Seeds". |
 | 2025-02-28 | Home: Added plus FAB with Universal Add Menu (same options as Vault, Garden, Journal, Calendar). |
+| 2025-02-28 | Add Plant modal: Standardized fields — Link to existing has Notes + Photos; Create new has Vendor/Nursery, no Qty. Removed Add plant button from vault profile Plantings tab. |

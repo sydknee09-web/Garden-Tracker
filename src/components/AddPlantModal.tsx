@@ -244,8 +244,6 @@ export function AddPlantModal({
         profileId = (insertRow as { id: string }).id;
         setCreatedProfileId(profileId);
 
-        const parsedQtyNew = quantity.trim() ? parseInt(quantity, 10) : null;
-        const plantCountNew = parsedQtyNew != null && parsedQtyNew >= 0 ? parsedQtyNew : null;
         const { data: growRow, error: growInsertErr } = await supabase
           .from("grow_instances")
           .insert({
@@ -256,7 +254,7 @@ export function AddPlantModal({
             status: "growing",
             seed_packet_id: null,
             location: location.trim() || null,
-            plant_count: plantCountNew,
+            plant_count: null,
             is_permanent_planting: plantType === "permanent",
           })
           .select("id")
@@ -417,7 +415,7 @@ export function AddPlantModal({
           displayName = profile?.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile?.name ?? "Planted";
         }
 
-        if (plantType === "permanent" && photoFiles.length > 0) {
+        if (photoFiles.length > 0) {
           let heroPath: string | null = null;
           for (let i = 0; i < photoFiles.length; i++) {
             const file = photoFiles[i];
@@ -428,12 +426,15 @@ export function AddPlantModal({
               .upload(path, blob, { contentType: "image/jpeg", upsert: false });
             if (uploadErr) continue;
             if (i === 0) heroPath = path;
+            const plantingNote = i === 0 && displayName
+              ? (notes.trim() ? `Planted ${displayName}. ${notes.trim()}` : `Planted ${displayName}`)
+              : null;
             await supabase.from("journal_entries").insert({
               user_id: user.id,
               plant_profile_id: profileId,
               grow_instance_id: growId,
               seed_packet_id: null,
-              note: i === 0 ? `Planted ${displayName}` : null,
+              note: plantingNote,
               entry_type: i === 0 ? "planting" : "growth",
               image_file_path: path,
               weather_snapshot: i === 0 ? weather ?? undefined : undefined,
@@ -443,11 +444,12 @@ export function AddPlantModal({
             await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
           }
         } else {
+          const plantingNote = notes.trim() ? `Planted ${displayName}. ${notes.trim()}` : `Planted ${displayName}`;
           await supabase.from("journal_entries").insert({
             user_id: user.id,
             plant_profile_id: profileId,
             grow_instance_id: growId,
-            note: `Planted ${displayName}`,
+            note: plantingNote,
             entry_type: "planting",
             weather_snapshot: weather ?? undefined,
           });
@@ -695,9 +697,8 @@ export function AddPlantModal({
               </>
             )}
 
-            {(mode === "new" || (mode === "existing" && plantType === "permanent")) && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -731,9 +732,8 @@ export function AddPlantModal({
                     +
                   </button>
                 </div>
-                <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
-              </div>
-            )}
+              <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
+            </div>
 
             <div>
               <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date" : "Date planted"}</label>
@@ -745,7 +745,7 @@ export function AddPlantModal({
                 className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
-            {(plantType === "permanent" || mode === "existing") && (
+            {mode === "existing" && (
               <div>
                 <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
                 <input
@@ -772,19 +772,17 @@ export function AddPlantModal({
               />
             </div>
 
-            {(mode === "new" || (mode === "existing" && plantType === "permanent")) && (
-              <div>
-                <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
-                <textarea
-                  id="add-plant-notes"
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Where it's planted, age, any notes..."
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
-                />
-              </div>
-            )}
+            <div>
+              <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
+              <textarea
+                id="add-plant-notes"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Where it's planted, age, any notes..."
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+              />
+            </div>
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>
