@@ -36,6 +36,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
   return false;
 }
 import { StarRating } from "@/components/StarRating";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 
@@ -1209,7 +1210,7 @@ export function SeedVaultView({
                           <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
                         </div>
                       ) : showSeedling ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-3xl">🌱</div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="lg" /></div>
                       ) : (
                         <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                       )}
@@ -1287,7 +1288,7 @@ export function SeedVaultView({
                         <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
                       </div>
                     ) : showSeedling ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                     ) : (
                       <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
@@ -1506,7 +1507,7 @@ export function SeedVaultView({
                     {showResearching ? (
                       <span className="text-[9px] font-medium text-neutral-500">🔍</span>
                     ) : showSeedling ? (
-                      <span className="text-lg">🌱</span>
+                      <PlantPlaceholderIcon size="sm" />
                     ) : (
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
@@ -1579,7 +1580,7 @@ export function SeedVaultView({
                       <span className="text-[9px] font-medium text-neutral-500 z-10">🔍</span>
                     </div>
                   ) : showSeedling ? (
-                    <div className="w-10 h-10 rounded-lg bg-emerald/10 flex items-center justify-center text-lg shrink-0">🌱</div>
+                    <div className="w-10 h-10 rounded-lg bg-emerald/10 flex items-center justify-center shrink-0"><PlantPlaceholderIcon size="sm" /></div>
                   ) : (
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />

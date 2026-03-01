@@ -13,6 +13,7 @@ import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 type TaskWithPlant = Task & { plant_name?: string };
 type ShoppingItemWithName = ShoppingListItem & {
@@ -249,7 +250,7 @@ export default function HomePage() {
       {/* ---- Insight Banner (dismissible, compact) ---- */}
       {weather && sowingOk && !heatAlert && !insightDismissed && (
         <div className="mb-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 shadow-card-soft flex items-center gap-2">
-          <span className="text-lg shrink-0" aria-hidden>🌱</span>
+          <span className="shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
             <p className="text-sm font-semibold text-white truncate">Great weather for sowing!</p>

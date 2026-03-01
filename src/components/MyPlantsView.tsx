@@ -10,6 +10,7 @@ import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQu
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -848,7 +849,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                         {imgUrl ? (
                           <Image src={imgUrl} alt="" width={48} height={48} className="w-full h-full object-cover group-hover:scale-105 transition-transform" unoptimized />
                         ) : (
-                          <span className="text-xl" aria-hidden>🌱</span>
+                          <PlantPlaceholderIcon size="md" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -900,7 +901,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                         {imgUrl ? (
                           <Image src={imgUrl} alt="" fill className="object-cover object-center group-hover:scale-105 transition-transform" sizes="120px" unoptimized />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                         )}
                         <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
                           Perennial

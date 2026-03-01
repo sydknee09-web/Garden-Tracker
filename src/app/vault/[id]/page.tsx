@@ -30,6 +30,7 @@ import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 import { generateCareTasks } from "@/lib/generateCareTasks";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1606,12 +1607,12 @@ export default function VaultSeedPage() {
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative">
               <div className="absolute inset-0 bg-neutral-200/80 animate-pulse" aria-hidden />
-              <span className="text-5xl text-neutral-400 opacity-80 z-10" aria-hidden>🌱</span>
+              <PlantPlaceholderIcon size="xl" className="opacity-80 z-10" />
               <p className="z-10 text-sm text-neutral-600 font-medium">Finding a photo...</p>
             </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
-              <span className="text-5xl text-neutral-300" aria-hidden>🌱</span>
+              <PlantPlaceholderIcon size="xl" className="opacity-70" />
               {canEdit && (
                 <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}

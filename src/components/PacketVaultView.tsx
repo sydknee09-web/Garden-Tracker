@@ -9,6 +9,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 /** Minimal sow-month check without loading zone10b_schedule (avoids "ep" init error in chunk). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
@@ -536,7 +537,7 @@ export function PacketVaultView({
                     )}
                     <span className="shrink-0 relative w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
                       {showSeedling ? (
-                        <span className="text-lg">🌱</span>
+                        <PlantPlaceholderIcon size="sm" />
                       ) : (
                         <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(pkt.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(pkt.id)} onError={() => markThumbError(pkt.id)} />
                       )}

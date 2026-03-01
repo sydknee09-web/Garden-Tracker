@@ -25,6 +25,7 @@ import {
   PageSkeletonJournal,
   PageSkeletonSchedule,
 } from "./PageSkeleton";
+import { LoadingScreen } from "./LoadingScreen";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
 
@@ -128,8 +129,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isOnline = useOnlineStatus();
   const { isInHousehold, viewMode, setViewMode } = useHousehold();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [skipped, setSkipped] = useState(false);
+  const [minDisplayPending, setMinDisplayPending] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+
+  // When loading becomes false, optionally show loading screen for 1.2s (Skip bypasses)
+  useEffect(() => {
+    if (loading) {
+      setSkipped(false);
+      setMinDisplayPending(false);
+    } else {
+      setMinDisplayPending(true);
+      const t = setTimeout(() => setMinDisplayPending(false), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [loading]);
 
   const topLevelPaths = ["/", "/vault", "/garden", "/shed", "/calendar", "/journal", "/settings", "/shopping-list"];
   const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
@@ -163,76 +178,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, isAuthPage, router]);
 
-  if (loading) {
-    if (isAuthPage) {
-      return (
-        <main className="min-h-screen min-h-[100dvh] flex items-center justify-center text-black/60">
-          Loading…
-        </main>
-      );
-    }
+  const showLoadingScreen = loading || (minDisplayPending && !skipped);
+  if (showLoadingScreen) {
     return (
-      <>
-        <header
-          ref={headerRef}
-          className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-        >
-          <div className="flex items-center gap-1 shrink-0">
-            {showHeaderBackButton ? (
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
-                aria-label="Back"
-              >
-                <ChevronLeftIcon />
-              </button>
-            ) : null}
-            <CloudSyncIcon syncing={syncing} offline={!isOnline} />
-            <button
-              type="button"
-              onClick={() => setFeedbackOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
-              aria-label="Send feedback"
-              title="Send feedback"
-            >
-              <FeedbackIcon />
-            </button>
-          </div>
-          <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
-            {getPageTitle(pathname) || "\u00A0"}
-          </h1>
-          <div className="flex items-center shrink-0 gap-1">
-            <Link
-              href="/shopping-list"
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60"
-              aria-label="Shopping list"
-            >
-              <ShoppingListIcon />
-            </Link>
-            <Link
-              href="/settings"
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60"
-              aria-label="Settings"
-            >
-              <SettingsIcon />
-            </Link>
-          </div>
-        </header>
-        <FeedbackModal
-          open={feedbackOpen}
-          onClose={() => setFeedbackOpen(false)}
-          pageUrl={pathname ?? ""}
-        />
-        <main
-          ref={mainRef}
-          className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]`}
-        >
-          {getSkeletonForPath(pathname)}
-        </main>
-        <BottomNav />
-      </>
+      <LoadingScreen
+        onSkip={() => {
+          setSkipped(true);
+          setMinDisplayPending(false);
+        }}
+      />
     );
   }
   if (!user && !isAuthPage) {

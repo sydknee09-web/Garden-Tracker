@@ -12,6 +12,7 @@ import {
 } from "@/lib/reviewImportStorage";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 type HeroStatus = "pending" | "processing" | "success" | "error";
 
@@ -271,7 +272,7 @@ export default function HeroImportPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-2xl text-neutral-400" aria-hidden>🌱</span>
+                      <PlantPlaceholderIcon size="md" className="opacity-60" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

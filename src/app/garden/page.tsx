@@ -21,6 +21,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFilterState } from "@/hooks/useFilterState";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import type { RefineChips } from "@/types/garden";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
 
@@ -1060,7 +1061,7 @@ function GardenPageInner() {
                 </button>
               )}
               <button type="button" onClick={() => { setAddPlantDefaultType(effectiveViewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌱</span>
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0"><PlantPlaceholderIcon size="md" /></span>
                 {effectiveViewMode === "plants" ? "Add permanent plant" : "Add plant"}
               </button>
               {effectiveViewMode === "active" && (
@@ -1126,7 +1127,7 @@ function GardenPageInner() {
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
                   aria-label="Move to growing garden"
                 >
-                  <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>🌱</span>
+                  <span className="w-5 h-5 shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
                   Move to growing garden
                 </button>
               )}

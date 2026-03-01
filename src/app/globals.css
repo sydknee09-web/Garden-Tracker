@@ -170,4 +170,18 @@ input, select, textarea {
   .animate-shutter-flash {
     animation: shutter-flash 0.1s ease-out forwards;
   }
+  /* Loading screen: app icon fades in and out */
+  @keyframes loading-fade {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  .animate-loading-fade {
+    animation: loading-fade 2s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-loading-fade {
+      animation: none;
+      opacity: 1;
+    }
+  }
 }

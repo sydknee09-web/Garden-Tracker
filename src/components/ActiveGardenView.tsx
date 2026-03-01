@@ -10,6 +10,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import type { WeatherSnapshotData } from "@/types/garden";
 
 const LONG_PRESS_MS = 500;
@@ -1042,7 +1043,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         {thumbUrl ? (
                           <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-xl">🌱</div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                         )}
                         {batch.planting_method_badge && (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
@@ -1142,7 +1143,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       {thumbUrl ? (
                         <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-xl" aria-hidden>🌱</span>
+                        <PlantPlaceholderIcon size="md" />
                       )}
                     </div>
                     <Link
