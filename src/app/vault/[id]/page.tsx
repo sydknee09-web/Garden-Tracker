@@ -167,6 +167,7 @@ export default function VaultSeedPage() {
   const [growInstances, setGrowInstances] = useState<(GrowInstance & { journal_count?: number })[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [careSchedules, setCareSchedules] = useState<CareSchedule[]>([]);
+  const [standaloneTasks, setStandaloneTasks] = useState<{ id: string; title: string | null; category: string; due_date: string; completed_at: string | null; grow_instance_id: string | null }[]>([]);
   const [careSuggestions, setCareSuggestions] = useState<CareScheduleSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -318,7 +319,7 @@ export default function VaultSeedPage() {
       // Batch 2: Fetch packets, grows, journals, care, suggestions, journal photos in parallel
       // grow_instances: run both queries and merge — primary (no user filter) + explicit user_id
       // to handle RLS/visibility edge cases for permanent plants.
-      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, suggestionsRes] = await Promise.all([
+      const [packetsRes, growsRes, growsByUserRes, journalsRes, careRes, suggestionsRes, tasksRes] = await Promise.all([
         supabase.from("seed_packets").select(SEED_PACKET_PROFILE_SELECT).eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("deleted_at", null).order("created_at", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).is("deleted_at", null).order("sown_date", { ascending: false }),
         supabase.from("grow_instances").select("*").eq("plant_profile_id", id).eq("user_id", user.id).is("deleted_at", null).order("sown_date", { ascending: false }),
@@ -344,6 +345,7 @@ export default function VaultSeedPage() {
         })(),
         careQueryFinal,
         supabase.from("care_schedule_suggestions").select("*").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).order("created_at", { ascending: true }),
+        supabase.from("tasks").select("id, title, category, due_date, completed_at, grow_instance_id").eq("plant_profile_id", id).eq("user_id", ownerIdFromData).is("care_schedule_id", null).is("deleted_at", null).order("due_date", { ascending: false }).limit(20),
       ]);
 
       const packetRows = packetsRes.error ? [] : ((packetsRes.data ?? []) as SeedPacket[]);
@@ -424,6 +426,7 @@ export default function VaultSeedPage() {
       setJournalEntries((journalsRes.data ?? []) as JournalEntry[]);
       setCareSchedules((careRes.data ?? []) as CareSchedule[]);
       setCareSuggestions((suggestionsRes.data ?? []) as CareScheduleSuggestion[]);
+      setStandaloneTasks((tasksRes.data ?? []) as { id: string; title: string | null; category: string; due_date: string; completed_at: string | null; grow_instance_id: string | null }[]);
       const journalRows = (journalsRes as { data?: { id: string; image_file_path?: string | null; created_at?: string }[] }).data ?? [];
       const entryIds = journalRows.map((r) => r.id);
       const withPhotos = journalRows.filter((j) => j.image_file_path);
@@ -1594,7 +1597,7 @@ export default function VaultSeedPage() {
         )}
 
         {/* Hero */}
-        <div className="mb-4 rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
+        <div className="mb-4 rounded-2xl overflow-hidden bg-white border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
           {heroImageUrl ? (
             <>
               <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
@@ -1605,14 +1608,14 @@ export default function VaultSeedPage() {
               )}
             </>
           ) : showHeroResearching ? (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative">
-              <div className="absolute inset-0 bg-neutral-200/80 animate-pulse" aria-hidden />
-              <PlantPlaceholderIcon size="xl" className="opacity-80 z-10" />
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative bg-white">
+              <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
+              <PlantPlaceholderIcon size="2xl" className="opacity-80 z-10 object-contain" />
               <p className="z-10 text-sm text-neutral-600 font-medium">Finding a photo...</p>
             </div>
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
-              <PlantPlaceholderIcon size="xl" className="opacity-70" />
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 bg-white">
+              <PlantPlaceholderIcon size="2xl" className="opacity-90 object-contain" />
               {canEdit && (
                 <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}

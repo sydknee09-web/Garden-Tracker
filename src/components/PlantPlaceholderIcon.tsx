@@ -5,6 +5,7 @@ const SIZE_MAP = {
   md: 24,
   lg: 40,
   xl: 48,
+  "2xl": 80,
 } as const;
 
 type Size = keyof typeof SIZE_MAP;

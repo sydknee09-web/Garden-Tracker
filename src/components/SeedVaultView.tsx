@@ -1204,13 +1204,13 @@ export function SeedVaultView({
                 <>
                   {/* Frame: 8px padding so photo doesn’t go edge-to-edge; consistent bg for placeholder and image */}
                   <div className="p-1 shrink-0">
-                    <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                    <div className="relative w-full aspect-square bg-white overflow-hidden rounded-md">
                       {showResearching ? (
                         <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                           <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
                         </div>
                       ) : showSeedling ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="lg" /></div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="lg" className="object-contain" /></div>
                       ) : (
                         <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                       )}
@@ -1282,13 +1282,13 @@ export function SeedVaultView({
             const condensedContent = (
               <>
                 <div className="px-1.5 pt-1.5 shrink-0">
-                  <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                  <div className="relative w-full aspect-square bg-white overflow-hidden rounded-md">
                     {showResearching ? (
                       <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center">
                         <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
                       </div>
                     ) : showSeedling ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-white"><PlantPlaceholderIcon size="md" className="object-contain" /></div>
                     ) : (
                       <img src={thumbUrl!} alt="" className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
@@ -1503,11 +1503,11 @@ export function SeedVaultView({
                       </span>
                     </span>
                   )}
-                  <span className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
+                  <span className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center">
                     {showResearching ? (
                       <span className="text-[9px] font-medium text-neutral-500">🔍</span>
                     ) : showSeedling ? (
-                      <PlantPlaceholderIcon size="sm" />
+                      <PlantPlaceholderIcon size="sm" className="object-contain" />
                     ) : (
                       <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(seed.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
                     )}
