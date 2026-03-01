@@ -15,19 +15,41 @@
 
 ---
 
+## Universal Add Menu
+
+All main pages (Vault, Garden, Journal, Calendar) use the same **Universal Add Menu** when the FAB is tapped (when not in selection mode).
+
+### Screen 1: What to add
+
+| Option | Screen 2 / Behavior |
+|--------|---------------------|
+| **Add seed** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
+| **Add plant** | Screen 2: Manual Entry \| From Vault |
+| **Add to shed** | Opens QuickAddSupply (Manual / Photo / Link / Purchase Order) |
+| **Add task** | Opens task form (Calendar) or navigates to `/calendar?openTask=1` |
+| **Add journal** | Screen 2: Snapshot \| Quick note \| Detailed → all navigate to `/journal/new` |
+
+### Add plant – Screen 2
+
+| Option | Behavior |
+|--------|----------|
+| **Manual Entry** | Open AddPlantModal (default type from context: seasonal on Active Garden, permanent on My Plants) |
+| **From Vault** | Navigate to `/vault/plant?from=garden` (or from=calendar, from=vault, from=journal) |
+
+### Selection mode
+
+When in selection mode (Vault batch select, Garden batch select, Journal entries selected), FAB opens the **selection actions menu**, not the Universal Add Menu.
+
+---
+
 ## Garden
 
 ### Garden FAB (floating action button)
 
 | View | Action | Destination / Behavior |
 |------|--------|-------------------------|
-| **Active Garden** | FAB tap | Opens menu: "Add from Vault", "Add plant", "Add journal entry", Cancel |
-| **Active Garden** | "Add from Vault" | Navigate to `/vault/plant?from=garden` |
-| **Active Garden** | "Add plant" | Open AddPlantModal (add seasonal/permanent) |
-| **Active Garden** | "Add journal entry" | Enter bulk journal mode (select plants, then log) |
-| **My Plants** | FAB tap | Opens menu: "Add permanent plant", "Scan purchase order", Cancel |
+| **Active Garden / My Plants** | FAB tap (no selection) | Opens Universal Add Menu |
 | **Active Garden / My Plants** | FAB tap (when selections exist) | FAB shows orange >> icon; tap opens selection menu: Delete, End batch, Journal |
-| **My Plants** | "Add permanent plant" | Open AddPlantModal (permanent type) |
 
 ### Active Garden / My Plants – selection mode
 
@@ -52,16 +74,16 @@
 
 | Action | Destination / Behavior |
 |--------|-------------------------|
-| **FAB tap (no selection)** | **Current:** Opens "Quick log" modal with Snapshot / Quick Note / Detailed Log. **Planned:** Navigate directly to `/journal/new` |
+| **FAB tap (no selection)** | Opens Universal Add Menu |
 | **FAB tap (entries selected)** | Opens selection actions (e.g., bulk delete) |
 
-### Journal – add entry flows
+### Journal – add entry flows (via Universal Add Menu → Add journal)
 
 | Flow | Trigger | Destination |
 |------|---------|-------------|
-| **Snapshot** | Quick log → "Snapshot — take a photo" | Inline modal (camera) |
-| **Quick Note** | Quick log → "Quick Note — text only" | Inline modal (text) |
-| **Detailed Log** | Quick log → "Detailed Log — link plant, packet, sowing" | Navigate to `/journal/new` |
+| **Snapshot** | Add journal → Snapshot | Navigate to `/journal/new` |
+| **Quick note** | Add journal → Quick note | Navigate to `/journal/new` |
+| **Detailed log** | Add journal → Detailed log | Navigate to `/journal/new` |
 
 ### Journal – entry cards
 
@@ -87,11 +109,22 @@
 
 ## Vault
 
+### Vault FAB
+
+| View | Action | Destination / Behavior |
+|------|--------|-------------------------|
+| **Plant Profiles / Seed Vault / Shed** | FAB tap (no selection) | Opens Universal Add Menu |
+| **Plant Profiles / Seed Vault** | FAB tap (batch select, items selected) | Opens selection actions |
+| **Shed** | FAB tap (batch select, items selected) | Opens selection actions |
+
 ### Vault → Plant (`/vault/plant`)
 
 | Query param | Behavior |
 |-------------|----------|
 | `from=garden` | "Back" returns to Garden; add-plant flow optimized for garden context |
+| `from=calendar` | "Back" returns to Calendar |
+| `from=vault` | "Back" returns to Vault |
+| `from=journal` | "Back" returns to Journal |
 | `ids=...` | Pre-select packets for batch plant |
 
 ### Vault profile (`/vault/[id]`)
@@ -195,6 +228,18 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 
 ---
 
+## Calendar
+
+### Calendar FAB
+
+| Action | Destination / Behavior |
+|--------|-------------------------|
+| **FAB tap** | Opens Universal Add Menu |
+| **Add task** (from menu) | Opens New Task form inline |
+| **?openTask=1** | Navigate to `/calendar?openTask=1` auto-opens New Task form |
+
+---
+
 ## Other routes
 
 | Route | Purpose |
@@ -233,3 +278,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-27 | Removed profile filter from Back to My Plants and View plant in My Plants links. Both now navigate to full My Plants list. |
 | 2025-02-27 | Plant profile tabs: Added Care tab between About and PKT. Care templates/schedules moved from About into Care tab. Tab order: About, Care, Pkts, Plants, Journal. Counts only on Pkts and Plants; Journal shows no count. |
 | 2025-02-28 | Journal entry cards: Only plant pill tap navigates to plant profile. Card body short tap no longer navigates. |
+| 2025-02-28 | Universal Add Menu: Vault, Garden, Journal, Calendar FABs all open same menu (Add seed, Add plant, Add to shed, Add task, Add journal). Add plant has Manual Entry \| From Vault. Selection mode unchanged (FAB opens selection menu). Removed Garden "Add journal entry" bulk mode; Add journal → Detailed navigates to /journal/new. |

@@ -42,6 +42,14 @@ const BatchAddSeed = dynamic(
   () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
   { ssr: false }
 );
+const UniversalAddMenu = dynamic(
+  () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
+  { ssr: false }
+);
+const AddPlantModal = dynamic(
+  () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
+  { ssr: false }
+);
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 
 const QRScannerModal = dynamic(
@@ -179,6 +187,9 @@ function VaultPageInner() {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
+  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -187,7 +198,7 @@ function VaultPageInner() {
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || universalAddMenuOpen || showAddPlantModal;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
@@ -195,6 +206,8 @@ function VaultPageInner() {
     setBatchAddOpen(false);
     setPurchaseOrderOpen(false);
     setShedQuickAddOpen(false);
+    setUniversalAddMenuOpen(false);
+    setShowAddPlantModal(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -1886,7 +1899,7 @@ function VaultPageInner() {
               tagFilters={vaultFilters.filters.tags}
               onTagsLoaded={handleTagsLoaded}
               onOpenScanner={() => setScannerOpen(true)}
-              onAddFirst={() => setQuickAddOpen(true)}
+              onAddFirst={() => setUniversalAddMenuOpen(true)}
               batchSelectMode={batchSelectMode}
               selectedVarietyIds={selectedVarietyIds}
               onToggleVarietySelection={toggleVarietySelection}
@@ -1946,7 +1959,7 @@ function VaultPageInner() {
               onFilteredCountChange={setFilteredPacketCount}
               onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
               onOpenScanner={() => setScannerOpen(true)}
-              onAddFirst={() => setQuickAddOpen(true)}
+              onAddFirst={() => setUniversalAddMenuOpen(true)}
               onPacketStatusChipsLoaded={setPacketStatusChips}
               onPacketVendorChipsLoaded={setPacketVendorChips}
             />
@@ -2377,21 +2390,17 @@ function VaultPageInner() {
             setSelectionActionsOpen(true);
           } else if (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0) {
             setShedSelectionActionsOpen(true);
-          } else if (viewMode === "shed") {
-            if (shedQuickAddOpen) setShedQuickAddOpen(false);
-            else setShedQuickAddOpen(true);
-          } else if (quickAddOpen) {
-            setQuickAddOpen(false);
-            setQrPrefill(null);
+          } else if (universalAddMenuOpen) {
+            setUniversalAddMenuOpen(false);
           } else {
-            setQuickAddOpen(true);
+            setUniversalAddMenuOpen(true);
           }
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
           ((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) ||
           (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0)
             ? "bg-amber-500 text-white"
-            : quickAddOpen || shedQuickAddOpen
+            : universalAddMenuOpen
               ? "bg-emerald-700 text-white"
               : "bg-emerald text-white"
         }`}
@@ -2399,11 +2408,9 @@ function VaultPageInner() {
         aria-label={
           ((viewMode === "grid" || viewMode === "list") && batchSelectMode) || (viewMode === "shed" && shedBatchSelectMode)
             ? "Selection actions"
-            : quickAddOpen || shedQuickAddOpen
+            : universalAddMenuOpen
               ? "Close add menu"
-              : viewMode === "shed"
-                ? "Add shed product"
-                : "Add seed"
+              : "Add"
         }
       >
         {((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) ||
@@ -2425,11 +2432,47 @@ function VaultPageInner() {
             className={`transition-transform duration-200 ${quickAddOpen || shedQuickAddOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
         )}
       </button>
+
+      {universalAddMenuOpen && (
+        <UniversalAddMenu
+          open={universalAddMenuOpen}
+          onClose={() => setUniversalAddMenuOpen(false)}
+          pathname={pathname ?? "/vault"}
+          onAddSeed={() => {
+            setUniversalAddMenuOpen(false);
+            setQuickAddOpen(true);
+          }}
+          onAddPlantManual={(defaultType) => {
+            setUniversalAddMenuOpen(false);
+            setAddPlantDefaultType(defaultType);
+            setShowAddPlantModal(true);
+          }}
+          onAddPlantFromVault={() => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/vault/plant?from=vault");
+          }}
+          onAddToShed={() => {
+            setUniversalAddMenuOpen(false);
+            setShedQuickAddOpen(true);
+          }}
+          onAddTask={() => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/calendar?openTask=1");
+          }}
+          onAddJournal={(_mode) => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/journal/new");
+          }}
+        />
+      )}
 
       {quickAddOpen && (
       <QuickAddSeed
@@ -2489,6 +2532,16 @@ function VaultPageInner() {
         mode={purchaseOrderMode}
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
+      )}
+
+      {showAddPlantModal && (
+        <AddPlantModal
+          open={showAddPlantModal}
+          onClose={() => setShowAddPlantModal(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          defaultPlantType={addPlantDefaultType}
+          stayInGarden={false}
+        />
       )}
 
       {scannerOpen && (

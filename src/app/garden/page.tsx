@@ -1,12 +1,30 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
 import { MyPlantsView, type MyPlantsViewHandle } from "@/components/MyPlantsView";
 import { HarvestModal } from "@/components/HarvestModal";
+import dynamic from "next/dynamic";
 import { AddPlantModal } from "@/components/AddPlantModal";
 import { PurchaseOrderImport } from "@/components/PurchaseOrderImport";
+
+const UniversalAddMenu = dynamic(
+  () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
+  { ssr: false }
+);
+const QuickAddSeed = dynamic(
+  () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
+  { ssr: false }
+);
+const BatchAddSeed = dynamic(
+  () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
+  { ssr: false }
+);
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -28,6 +46,7 @@ type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: 
 function GardenPageInner() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useSessionStorage<"active" | "plants">("garden-view-mode", "active", {
     serialize: (v) => v,
@@ -118,6 +137,11 @@ function GardenPageInner() {
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
+  const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
+  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const skipPopOnNavigateRef = useRef(false);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
   const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
   const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);
@@ -1042,48 +1066,95 @@ function GardenPageInner() {
       )}
 
       {fabMenuOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setFabMenuOpen(false)} />
-          <div
-            className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
-            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="garden-fab-title"
-          >
-            <h2 id="garden-fab-title" className="text-xl font-bold text-center text-neutral-900 mb-1">{effectiveViewMode === "plants" ? "Add permanent plant" : "Add to garden"}</h2>
-            <p className="text-sm text-neutral-500 text-center mb-4">{effectiveViewMode === "plants" ? "Add trees, perennials, and other long-lived plants." : "What would you like to add?"}</p>
-            <div className="space-y-3">
-              {effectiveViewMode === "active" && (
-                <button type="button" onClick={() => { router.push("/vault/plant?from=garden"); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌿</span>
-                  Add from Vault
-                </button>
-              )}
-              <button type="button" onClick={() => { setAddPlantDefaultType(effectiveViewMode === "plants" ? "permanent" : "seasonal"); setShowAddPlantModal(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0"><PlantPlaceholderIcon size="md" /></span>
-                {effectiveViewMode === "plants" ? "Add permanent plant" : "Add plant"}
-              </button>
-              {effectiveViewMode === "active" && (
-                <button type="button" onClick={() => { setOpenBulkJournalForActive(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📖</span>
-                  Add journal entry
-                </button>
-              )}
-              {effectiveViewMode === "plants" && (
-                <button type="button" onClick={() => { setPurchaseOrderOpen(true); setFabMenuOpen(false); }} className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]">
-                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
-                  Scan purchase order
-                </button>
-              )}
-              <div className="pt-4">
-                <button type="button" onClick={() => setFabMenuOpen(false)} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
+        <UniversalAddMenu
+          open={fabMenuOpen}
+          onClose={() => setFabMenuOpen(false)}
+          pathname={pathname ?? "/garden"}
+          gardenTab={effectiveViewMode}
+          onAddSeed={() => {
+            setFabMenuOpen(false);
+            setQuickAddSeedOpen(true);
+          }}
+          onAddPlantManual={(defaultType) => {
+            setFabMenuOpen(false);
+            setAddPlantDefaultType(defaultType);
+            setShowAddPlantModal(true);
+          }}
+          onAddPlantFromVault={() => {
+            skipPopOnNavigateRef.current = true;
+            setFabMenuOpen(false);
+            router.push("/vault/plant?from=garden");
+          }}
+          onAddToShed={() => {
+            setFabMenuOpen(false);
+            setShedQuickAddOpen(true);
+          }}
+          onAddTask={() => {
+            skipPopOnNavigateRef.current = true;
+            setFabMenuOpen(false);
+            router.push("/calendar?openTask=1");
+          }}
+          onAddJournal={(_mode) => {
+            skipPopOnNavigateRef.current = true;
+            setFabMenuOpen(false);
+            router.push("/journal/new");
+          }}
+        />
+      )}
+
+      {quickAddSeedOpen && (
+        <QuickAddSeed
+          open={quickAddSeedOpen}
+          onClose={() => setQuickAddSeedOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onOpenBatch={() => {
+            setQuickAddSeedOpen(false);
+            setBatchAddSeedOpen(true);
+          }}
+          onOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import?embed=1");
+          }}
+          onStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import/manual");
+          }}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
+
+      {batchAddSeedOpen && (
+        <BatchAddSeed
+          open={batchAddSeedOpen}
+          onClose={() => setBatchAddSeedOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onNavigateToHero={() => {
+            skipPopOnNavigateRef.current = true;
+            setBatchAddSeedOpen(false);
+            router.push("/vault/import/photos/hero");
+          }}
+        />
+      )}
+
+      {shedQuickAddOpen && (
+        <QuickAddSupply
+          open={shedQuickAddOpen}
+          onClose={() => setShedQuickAddOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setShedQuickAddOpen(false);
+            setPurchaseOrderMode("supply");
+            setPurchaseOrderOpen(true);
+          }}
+        />
       )}
 
       {/* Selection actions menu (when items selected): FAB >> opens this */}
@@ -1247,7 +1318,8 @@ function GardenPageInner() {
       <PurchaseOrderImport
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
-        defaultProfileType="permanent"
+        mode={purchaseOrderMode}
+        defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
       />
     </div>
   );

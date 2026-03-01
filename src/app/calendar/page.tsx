@@ -1,8 +1,34 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+
+const UniversalAddMenu = dynamic(
+  () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
+  { ssr: false }
+);
+const QuickAddSeed = dynamic(
+  () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
+  { ssr: false }
+);
+const BatchAddSeed = dynamic(
+  () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
+  { ssr: false }
+);
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
+const AddPlantModal = dynamic(
+  () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
+  { ssr: false }
+);
+const PurchaseOrderImport = dynamic(
+  () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
+  { ssr: false }
+);
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -66,6 +92,8 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +103,15 @@ export default function CalendarPage() {
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
+  const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
+  const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
+  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
+  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
+  const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const skipPopOnNavigateRef = useRef(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState(() => new Date().toISOString().slice(0, 10));
   const [newTaskCategory, setNewTaskCategory] = useState<TaskType>("maintenance");
@@ -112,6 +149,17 @@ export default function CalendarPage() {
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
+
+  // Auto-open task form when navigating with ?openTask=1
+  const openTaskHandledRef = useRef(false);
+  useEffect(() => {
+    if (openTaskHandledRef.current) return;
+    if (searchParams.get("openTask") === "1") {
+      openTaskHandledRef.current = true;
+      setNewTaskOpen(true);
+      window.history.replaceState(null, "", "/calendar");
+    }
+  }, [searchParams]);
 
   const plantTypesGrouped = useMemo(() => {
     const byType = new Map<string, { id: string; name: string; variety_name: string | null }[]>();
@@ -1109,13 +1157,18 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => {
-          resetNewTaskForm();
-          setNewTaskOpen(true);
+          if (universalAddMenuOpen) {
+            setUniversalAddMenuOpen(false);
+          } else if (newTaskOpen) {
+            setNewTaskOpen(false);
+          } else {
+            setUniversalAddMenuOpen(true);
+          }
         }}
-        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${universalAddMenuOpen || newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={newTaskOpen ? "Close" : "New task"}
-        aria-expanded={newTaskOpen}
+        aria-label={universalAddMenuOpen || newTaskOpen ? "Close" : "Add"}
+        aria-expanded={universalAddMenuOpen || newTaskOpen}
       >
         <svg
           width="24"
@@ -1126,13 +1179,123 @@ export default function CalendarPage() {
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`transition-transform duration-200 ${newTaskOpen ? "rotate-45" : "rotate-0"}`}
+          className={`transition-transform duration-200 ${universalAddMenuOpen || newTaskOpen ? "rotate-45" : "rotate-0"}`}
           aria-hidden
         >
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       </button>
+
+      {universalAddMenuOpen && (
+        <UniversalAddMenu
+          open={universalAddMenuOpen}
+          onClose={() => setUniversalAddMenuOpen(false)}
+          pathname={pathname ?? "/calendar"}
+          onAddSeed={() => {
+            setUniversalAddMenuOpen(false);
+            setQuickAddSeedOpen(true);
+          }}
+          onAddPlantManual={(defaultType) => {
+            setUniversalAddMenuOpen(false);
+            setAddPlantDefaultType(defaultType);
+            setShowAddPlantModal(true);
+          }}
+          onAddPlantFromVault={() => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/vault/plant?from=calendar");
+          }}
+          onAddToShed={() => {
+            setUniversalAddMenuOpen(false);
+            setShedQuickAddOpen(true);
+          }}
+          onAddTask={() => {
+            setUniversalAddMenuOpen(false);
+            resetNewTaskForm();
+            setNewTaskOpen(true);
+          }}
+          onAddJournal={(_mode) => {
+            skipPopOnNavigateRef.current = true;
+            setUniversalAddMenuOpen(false);
+            router.push("/journal/new");
+          }}
+        />
+      )}
+
+      {quickAddSeedOpen && (
+        <QuickAddSeed
+          open={quickAddSeedOpen}
+          onClose={() => setQuickAddSeedOpen(false)}
+          onSuccess={() => setRefetch((r) => r + 1)}
+          onOpenBatch={() => {
+            setQuickAddSeedOpen(false);
+            setBatchAddSeedOpen(true);
+          }}
+          onOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import?embed=1");
+          }}
+          onStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            router.push("/vault/import/manual");
+          }}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setQuickAddSeedOpen(false);
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
+
+      {batchAddSeedOpen && (
+        <BatchAddSeed
+          open={batchAddSeedOpen}
+          onClose={() => setBatchAddSeedOpen(false)}
+          onSuccess={() => setRefetch((r) => r + 1)}
+          onNavigateToHero={() => {
+            skipPopOnNavigateRef.current = true;
+            setBatchAddSeedOpen(false);
+            router.push("/vault/import/photos/hero");
+          }}
+        />
+      )}
+
+      {shedQuickAddOpen && (
+        <QuickAddSupply
+          open={shedQuickAddOpen}
+          onClose={() => setShedQuickAddOpen(false)}
+          onSuccess={() => setRefetch((r) => r + 1)}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            setShedQuickAddOpen(false);
+            setPurchaseOrderMode("supply");
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
+
+      {showAddPlantModal && (
+        <AddPlantModal
+          open={showAddPlantModal}
+          onClose={() => setShowAddPlantModal(false)}
+          onSuccess={() => setRefetch((r) => r + 1)}
+          defaultPlantType={addPlantDefaultType}
+          stayInGarden={false}
+        />
+      )}
+
+      {purchaseOrderOpen && (
+        <PurchaseOrderImport
+          open={purchaseOrderOpen}
+          onClose={() => setPurchaseOrderOpen(false)}
+          mode={purchaseOrderMode}
+          defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        />
+      )}
 
       {newTaskOpen && (
         <>
