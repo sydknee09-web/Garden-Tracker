@@ -1115,6 +1115,9 @@ export default function ReviewImportPage() {
           />
         </div>
       )}
+      <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
+        ← Back to Vault
+      </Link>
       <h1 className="text-xl font-semibold text-black mb-1">
         {importSource === "purchase_order" ? "Step 1: Import Review" : "Import Review"}
       </h1>

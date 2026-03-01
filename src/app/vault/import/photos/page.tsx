@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -441,6 +442,12 @@ export default function ImportPhotosPage() {
             >
               Continue to Import Review
             </button>
+            <Link
+              href="/vault"
+              className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
+            >
+              ← Back to Vault
+            </Link>
           </div>
         )}
       </div>

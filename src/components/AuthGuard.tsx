@@ -146,13 +146,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading]);
 
-  const topLevelPaths = ["/", "/vault", "/garden", "/shed", "/calendar", "/journal", "/settings", "/shopping-list"];
-  const isNestedRoute = pathname != null && pathname.length > 1 && !topLevelPaths.includes(pathname) && !pathname.startsWith("/settings");
-  // Plant profile page has its own "Back to Vault" link; hide redundant header back arrow
-  const isPlantProfilePage = pathname != null && /^\/vault\/[^/]+$/.test(pathname) && !["import", "plant", "shed", "history", "packets", "tags", "review-import"].some((seg) => pathname.startsWith(`/vault/${seg}`));
-  // Manual import is a transitional loading page; Cancel link is the exit, back button would interrupt flow
-  const isManualImportPage = pathname === "/vault/import/manual";
-  const showHeaderBackButton = isNestedRoute && !isPlantProfilePage && !isManualImportPage;
+  // Pages use their own page-level back links (e.g. "← Back to Vault"); no header back button
+  const showHeaderBackButton = false;
 
   // Clear filters when navigating between sections (runs before children render so useSessionStorage reads cleared values)
   if (pathname && typeof window !== "undefined") {

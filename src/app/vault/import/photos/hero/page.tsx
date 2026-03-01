@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -171,6 +172,12 @@ export default function HeroImportPage() {
         <p className="text-neutral-600 text-center">
           No import data found. If you just clicked &quot;Load plant profile pictures&quot;, try again with fewer photos.
         </p>
+        <Link
+          href="/vault"
+          className="text-emerald-600 font-medium hover:underline min-h-[44px] min-w-[44px] flex items-center justify-center gap-2"
+        >
+          ← Back to Vault
+        </Link>
       </div>
     );
   }
@@ -186,6 +193,13 @@ export default function HeroImportPage() {
   return (
     <div className="min-h-screen bg-neutral-50 p-6 pb-24">
       <div className="mx-auto max-w-2xl">
+        <Link
+          href="/vault"
+          className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
+        >
+          ← Back to Vault
+        </Link>
+
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">Find Hero Photos</h1>
         <p className="text-neutral-600 text-sm mb-6">
           Finding a plant photo for each entry. You can stop early and review what we have so far.
@@ -319,6 +333,12 @@ export default function HeroImportPage() {
             >
               Continue to Import Review
             </button>
+            <Link
+              href="/vault"
+              className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
+            >
+              ← Back to Vault
+            </Link>
           </div>
         )}
       </div>
