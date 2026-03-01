@@ -282,3 +282,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-28 | Home: Added plus FAB with Universal Add Menu (same options as Vault, Garden, Journal, Calendar). |
 | 2025-02-28 | Add Plant modal: Standardized fields — Link to existing has Notes + Photos; Create new has Vendor/Nursery, no Qty. Removed Add plant button from vault profile Plantings tab. |
 | 2025-02-28 | Add journal: Removed Snapshot/Quick note/Detailed sub-screen; FAB → Add journal now navigates directly to `/journal/new`. |
+| 2025-02-28 | Create flow standardization: Required/optional labels, canonical field order, Source URL + Notes in QuickAddSeed manual, Photos after identity fields. See docs/CREATE_FLOW_CONVENTIONS.md. |

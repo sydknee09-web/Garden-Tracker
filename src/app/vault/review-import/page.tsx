@@ -1415,8 +1415,8 @@ export default function ReviewImportPage() {
                         value={item.vendor}
                         onChange={(v) => updateItem(item.id, { vendor: v })}
                         suggestions={vendorSuggestions}
-                        placeholder="Vendor"
-                        aria-label="Vendor"
+                        placeholder="Vendor (optional)"
+                        aria-label="Vendor (optional)"
                         className={`w-full min-w-0 rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       />
                       {mergedSourceCount > 0 && (
@@ -1431,8 +1431,8 @@ export default function ReviewImportPage() {
                       value={item.type}
                       onChange={(v) => updateItem(item.id, { type: v })}
                       suggestions={plantSuggestions}
-                      placeholder="Plant type"
-                      aria-label="Plant type"
+                      placeholder="Plant type (optional)"
+                      aria-label="Plant type (optional)"
                       className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
                     </div>
@@ -1469,8 +1469,8 @@ export default function ReviewImportPage() {
                           value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
                           suggestions={varietySuggestionsByPlant[item.type ?? ""] ?? []}
-                          placeholder="Variety"
-                          aria-label="Variety"
+                          placeholder="Variety (optional)"
+                          aria-label="Variety (optional)"
                           className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         />
                         {item.linkNotFound && (
@@ -1539,11 +1539,11 @@ export default function ReviewImportPage() {
                       value={item.purchaseDate || todayISO()}
                       onChange={(e) => updateItem(item.id, { purchaseDate: e.target.value })}
                       className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
-                      aria-label="Purchase date"
+                      aria-label="Purchase date (optional)"
                     />
                     </div>
                     <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Packet notes</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Packet notes (optional)</label>
                     <textarea
                       value={item.user_notes ?? ""}
                       onChange={(e) => updateItem(item.id, { user_notes: e.target.value })}
@@ -1554,7 +1554,7 @@ export default function ReviewImportPage() {
                     />
                     </div>
                     <div>
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location (optional)</label>
                     <input
                       type="text"
                       value={item.storage_location ?? ""}

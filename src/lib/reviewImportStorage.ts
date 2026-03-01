@@ -237,6 +237,7 @@ export type PendingManualAdd = {
   volume: string;
   tagsToSave?: string[];
   sourceUrlToSave?: string;
+  notesToSave?: string;
 };
 
 export function getPendingManualAdd(): PendingManualAdd | null {

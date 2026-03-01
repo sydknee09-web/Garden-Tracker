@@ -488,6 +488,37 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             />
           </div>
           <div>
+            <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
+              Brand (optional)
+            </label>
+            <input
+              id="supply-brand"
+              type="text"
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="e.g. Neptune's Harvest"
+              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+              aria-label="Brand"
+            />
+          </div>
+          <div>
+            <label htmlFor="supply-category" className="block text-sm font-medium text-black/80 mb-1">
+              Category *
+            </label>
+            <select
+              id="supply-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+              aria-label="Category"
+            >
+              <option value="fertilizer">Fertilizer</option>
+              <option value="pesticide">Pesticide</option>
+              <option value="soil_amendment">Soil Amendment</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
             <span className="block text-sm font-medium text-black/80 mb-1">Photo (optional)</span>
             {photoPreviewUrl || (existingImageUrl && !photoRemoved) ? (
               <div className="space-y-2">
@@ -516,39 +547,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             )}
           </div>
           <div>
-            <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
-              Brand
-            </label>
-            <input
-              id="supply-brand"
-              type="text"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="e.g. Neptune's Harvest"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Brand"
-            />
-          </div>
-          <div>
-            <label htmlFor="supply-category" className="block text-sm font-medium text-black/80 mb-1">
-              Category
-            </label>
-            <select
-              id="supply-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Category"
-            >
-              <option value="fertilizer">Fertilizer</option>
-              <option value="pesticide">Pesticide</option>
-              <option value="soil_amendment">Soil Amendment</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
             <label htmlFor="supply-npk" className="block text-sm font-medium text-black/80 mb-1">
-              NPK (e.g. 5-1-1)
+              NPK (e.g. 5-1-1) (optional)
             </label>
             <input
               id="supply-npk"
@@ -562,7 +562,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
           </div>
           <div>
             <label htmlFor="supply-rate" className="block text-sm font-medium text-black/80 mb-1">
-              Application Rate
+              Application Rate (optional)
             </label>
             <input
               id="supply-rate"
@@ -576,7 +576,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
           </div>
           <div>
             <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
-              Usage Instructions
+              Usage Instructions (optional)
             </label>
             <textarea
               id="supply-instructions"
@@ -590,7 +590,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
           </div>
           <div>
             <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
-              Notes
+              Notes (optional)
             </label>
             <textarea
               id="supply-notes"

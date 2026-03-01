@@ -407,6 +407,7 @@ export default function JournalNewPage() {
           <label htmlFor="journal-note-new" className="block text-sm font-medium text-black/80 mb-1">
             Note
           </label>
+          <p className="text-xs text-black/50 mb-1">Add a note or photo (at least one required).</p>
           <textarea
             id="journal-note-new"
             value={note}

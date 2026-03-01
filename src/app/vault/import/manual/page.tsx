@@ -101,6 +101,7 @@ export default function ImportManualPage() {
           tags: pending.tagsToSave ?? [],
           purchaseDate: todayISO(),
           source_url: pending.sourceUrlToSave?.trim(),
+          user_notes: pending.notesToSave?.trim() || undefined,
           hero_image_url: hero_image_url || undefined,
           stock_photo_url: hero_image_url || undefined,
           useStockPhotoAsHero: !!hero_image_url,

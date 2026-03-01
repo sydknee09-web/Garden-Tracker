@@ -1322,7 +1322,7 @@ export default function CalendarPage() {
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
                 <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
-                  Title
+                  Title *
                 </label>
                 <input
                   id="task-title"
@@ -1335,7 +1335,7 @@ export default function CalendarPage() {
               </div>
               <div>
                 <label htmlFor="task-due" className="block text-sm font-medium text-black/80 mb-1">
-                  Due date
+                  Due date *
                 </label>
                 <input
                   id="task-due"
@@ -1347,7 +1347,7 @@ export default function CalendarPage() {
               </div>
               <div>
                 <label htmlFor="task-category" className="block text-sm font-medium text-black/80 mb-1">
-                  Category
+                  Category *
                 </label>
                 <select
                   id="task-category"

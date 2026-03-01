@@ -72,6 +72,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [error, setError] = useState<string | null>(null);
   const [tagsToSave, setTagsToSave] = useState<string[]>([]);
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
+  const [notesToSave, setNotesToSave] = useState<string>("");
   const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
@@ -99,6 +100,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       setError(null);
       setTagsToSave([]);
       setSourceUrlToSave("");
+      setNotesToSave("");
     }
   }, [open, initialPrefill]);
 
@@ -265,6 +267,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
     );
 
+    const notesVal = notesToSave.trim() || null;
     if (match) {
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: match.id,
@@ -274,6 +277,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         purchase_date: new Date().toISOString().slice(0, 10),
         qty_status: qtyStatus,
         ...(packetTags.length > 0 && { tags: packetTags }),
+        ...(notesVal && { user_notes: notesVal }),
       });
       if (packetErr) {
         setSubmitting(false);
@@ -291,6 +295,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         setVolume("full");
         setTagsToSave([]);
         setSourceUrlToSave("");
+        setNotesToSave("");
         setAddedToVault(false);
         onSuccess();
         onClose();
@@ -306,6 +311,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       volume: volumeForDb,
       tagsToSave: tagsToSave.length > 0 ? tagsToSave : undefined,
       sourceUrlToSave: sourceUrlVal ?? undefined,
+      notesToSave: notesToSave.trim() || undefined,
     });
     setSubmitting(false);
     setPlantName("");
@@ -314,6 +320,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     setVolume("full");
     setTagsToSave([]);
     setSourceUrlToSave("");
+    setNotesToSave("");
     onClose();
     onStartManualImport?.();
   }
@@ -430,7 +437,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="quick-add-name" className="block text-sm font-medium text-black/80 mb-1">
-                Plant Name
+                Plant Name *
               </label>
               <Combobox
                 id="quick-add-name"
@@ -444,7 +451,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
             </div>
             <div>
               <label htmlFor="quick-add-variety" className="block text-sm font-medium text-black/80 mb-1">
-                Variety / Cultivar
+                Variety / Cultivar (optional)
               </label>
               <Combobox
                 id="quick-add-variety"
@@ -458,7 +465,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
             </div>
             <div>
               <label htmlFor="quick-add-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                Vendor
+                Vendor (optional)
               </label>
               <Combobox
                 id="quick-add-vendor"
@@ -471,7 +478,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               />
             </div>
             <div>
-              <span className="block text-sm font-medium text-black/80 mb-2">Volume</span>
+              <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
               <div className="flex gap-2 flex-wrap">
                 {VOLUMES.map((v) => (
                   <button
@@ -488,6 +495,34 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   </button>
                 ))}
               </div>
+            </div>
+            <div>
+              <label htmlFor="quick-add-source-url" className="block text-sm font-medium text-black/80 mb-1">
+                Source URL (optional)
+              </label>
+              <input
+                id="quick-add-source-url"
+                type="url"
+                value={sourceUrlToSave}
+                onChange={(e) => setSourceUrlToSave(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Product or vendor URL"
+              />
+            </div>
+            <div>
+              <label htmlFor="quick-add-notes" className="block text-sm font-medium text-black/80 mb-1">
+                Notes (optional)
+              </label>
+              <textarea
+                id="quick-add-notes"
+                value={notesToSave}
+                onChange={(e) => setNotesToSave(e.target.value)}
+                placeholder="e.g. From seed swap, organic"
+                rows={2}
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] resize-none"
+                aria-label="Packet notes"
+              />
             </div>
             {error && (
               <p className="text-sm text-citrus font-medium">{error}</p>

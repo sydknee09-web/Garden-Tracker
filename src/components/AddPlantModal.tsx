@@ -557,7 +557,7 @@ export function AddPlantModal({
               <div className="space-y-4">
                 <div>
                   <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">
-                    {plantType === "permanent" ? "Plant profile" : "Variety"}
+                    {plantType === "permanent" ? "Plant profile *" : "Variety *"}
                   </label>
                   <select
                     id="add-plant-profile"
@@ -575,7 +575,7 @@ export function AddPlantModal({
                 </div>
                 {plantType === "seasonal" && selectedProfileId && (
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Seed packet</label>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Seed packet (optional)</label>
                     {packetsForProfile.length > 0 ? (
                       <div className="space-y-2">
                         <select
@@ -659,7 +659,7 @@ export function AddPlantModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="add-plant-variety" className="block text-sm font-medium text-neutral-700 mb-1">Variety</label>
+                  <label htmlFor="add-plant-variety" className="block text-sm font-medium text-neutral-700 mb-1">Variety (optional)</label>
                   <input
                     id="add-plant-variety"
                     type="text"
@@ -671,7 +671,7 @@ export function AddPlantModal({
                 </div>
                 {plantType === "seasonal" && (
                   <div>
-                    <label htmlFor="add-plant-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor</label>
+                    <label htmlFor="add-plant-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor (optional)</label>
                     <input
                       id="add-plant-vendor"
                       type="text"
@@ -683,7 +683,7 @@ export function AddPlantModal({
                   </div>
                 )}
                 <div>
-                  <label htmlFor="add-plant-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Nursery</label>
+                  <label htmlFor="add-plant-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Nursery (optional)</label>
                   <input
                     id="add-plant-nursery"
                     type="text"
@@ -696,6 +696,43 @@ export function AddPlantModal({
                 </div>
               </>
             )}
+
+            <div>
+              <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
+              <input
+                id="add-plant-date"
+                type="date"
+                value={plantedDate}
+                onChange={(e) => setPlantedDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
+            {mode === "existing" && (
+              <div>
+                <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
+                <input
+                  id="add-plant-qty"
+                  type="number"
+                  min={0}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="e.g. 1"
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                  aria-label="Number of plants (optional)"
+                />
+              </div>
+            )}
+            <div>
+              <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
+              <input
+                id="add-plant-location"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Bed 2, Patio"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
@@ -733,43 +770,6 @@ export function AddPlantModal({
                   </button>
                 </div>
               <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
-            </div>
-
-            <div>
-              <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date" : "Date planted"}</label>
-              <input
-                id="add-plant-date"
-                type="date"
-                value={plantedDate}
-                onChange={(e) => setPlantedDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-            {mode === "existing" && (
-              <div>
-                <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
-                <input
-                  id="add-plant-qty"
-                  type="number"
-                  min={0}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="e.g. 1"
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                  aria-label="Number of plants (optional)"
-                />
-              </div>
-            )}
-            <div>
-              <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
-              <input
-                id="add-plant-location"
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Bed 2, Patio"
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-              />
             </div>
 
             <div>
