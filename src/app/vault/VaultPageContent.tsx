@@ -46,6 +46,10 @@ const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
   { ssr: false }
 );
+const NewTaskModal = dynamic(
+  () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
+  { ssr: false }
+);
 const AddPlantModal = dynamic(
   () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
   { ssr: false }
@@ -196,9 +200,10 @@ function VaultPageInner() {
   const [batchAddOpen, setBatchAddOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || universalAddMenuOpen || showAddPlantModal;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
@@ -208,6 +213,7 @@ function VaultPageInner() {
     setShedQuickAddOpen(false);
     setUniversalAddMenuOpen(false);
     setShowAddPlantModal(false);
+    setNewTaskModalOpen(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -218,6 +224,7 @@ function VaultPageInner() {
   const [filteredPacketCount, setFilteredPacketCount] = useState(0);
   const [vaultHasSeeds, setVaultHasSeeds] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
   const [pendingHeroCount, setPendingHeroCount] = useState(0);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeMasterId, setMergeMasterId] = useState<string | null>(null);
@@ -2290,7 +2297,7 @@ function VaultPageInner() {
             <div className="flex-1 overflow-y-auto py-2">
               <button
                 type="button"
-                onClick={() => { handleBatchDelete(); setSelectionActionsOpen(false); }}
+                onClick={() => { setBatchDeleteConfirmOpen(true); setSelectionActionsOpen(false); }}
                 disabled={selectedVarietyIds.size === 0 || batchDeleting}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
                 aria-label="Delete selected"
@@ -2370,6 +2377,42 @@ function VaultPageInner() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Batch delete plant profiles confirmation */}
+      {batchDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="alertdialog" aria-modal="true" aria-labelledby="batch-delete-title">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+            <h2 id="batch-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedVarietyIds.size} plant profile{selectedVarietyIds.size !== 1 ? "s" : ""}?</h2>
+            <p className="text-sm text-black/70 mb-4">
+              This will remove the selected profiles and all associated data: seed packets, growing instances, journal entries, and care schedules. This cannot be undone.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              If you want to keep varieties for reference, consider archiving seed packets instead of deleting.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setBatchDeleteConfirmOpen(false)}
+                disabled={batchDeleting}
+                className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleBatchDelete();
+                  setBatchDeleteConfirmOpen(false);
+                }}
+                disabled={batchDeleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50 min-h-[44px]"
+              >
+                {batchDeleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <button
@@ -2456,15 +2499,21 @@ function VaultPageInner() {
             setShedQuickAddOpen(true);
           }}
           onAddTask={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/calendar?openTask=1");
+            setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
           }}
+        />
+      )}
+
+      {newTaskModalOpen && (
+        <NewTaskModal
+          open={newTaskModalOpen}
+          onClose={() => setNewTaskModalOpen(false)}
         />
       )}
 

@@ -1442,6 +1442,9 @@ export default function VaultSeedPage() {
             <p className="text-sm text-neutral-600 mb-4">
               This will remove this plant profile and all associated data: seed packets, growing instances, journal entries, and care schedules. This cannot be undone.
             </p>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              If you want to keep the variety for reference, consider archiving seed packets instead of deleting.
+            </p>
             {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
             <div className="flex gap-3">
               <button type="button" onClick={() => { setShowDeleteConfirm(false); setError(null); }} disabled={deletingProfile} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
