@@ -6,6 +6,7 @@ import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWi
 import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -463,7 +464,9 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         )}
 
         {(isEdit || screen === "form") && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="relative">
+          <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
+          <form onSubmit={handleSubmit} className="space-y-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -634,6 +637,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             </button>
           </div>
         </form>
+        </div>
         )}
       </div>
     </>

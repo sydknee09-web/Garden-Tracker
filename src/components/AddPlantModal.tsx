@@ -12,6 +12,7 @@ import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
 type PacketOption = { id: string; vendor_name: string | null; qty_status: number; is_archived?: boolean };
@@ -200,6 +201,7 @@ export function AddPlantModal({
     if (!user?.id) return;
     setError(null);
     setSubmitting(true);
+    await new Promise((r) => setTimeout(r, 0)); // Yield so overlay can render before heavy work
 
     try {
       let profileId: string;
@@ -533,7 +535,8 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative">
+            <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
             {!addToExistingProfile && (
               <div className="flex gap-2">
                 <button

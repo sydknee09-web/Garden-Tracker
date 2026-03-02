@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 
@@ -312,7 +313,9 @@ export default function JournalNewPage() {
         <h1 className="text-xl font-semibold text-black">Add Journal Entry</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="relative">
+        <SubmitLoadingOverlay show={saving || uploadingPhoto} message="Saving…" />
+        <form onSubmit={handleSubmit} className="space-y-5">
         <input
           ref={cameraMobileRef}
           type="file"
@@ -485,6 +488,7 @@ export default function JournalNewPage() {
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }

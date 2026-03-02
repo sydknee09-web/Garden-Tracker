@@ -238,6 +238,7 @@ export type PendingManualAdd = {
   tagsToSave?: string[];
   sourceUrlToSave?: string;
   notesToSave?: string;
+  priceToSave?: string;
 };
 
 export function getPendingManualAdd(): PendingManualAdd | null {

@@ -5,12 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import {
-  getPendingManualAdd,
-  clearPendingManualAdd,
-  setReviewImportData,
-  type ReviewImportItem,
-} from "@/lib/reviewImportStorage";
+import { getPendingManualAdd, clearPendingManualAdd, type ReviewImportItem } from "@/lib/reviewImportStorage";
+import { saveManualImportItem } from "@/lib/reviewImportSave";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
@@ -46,6 +42,7 @@ export default function ImportManualPage() {
     const variety = coreVariety || pending.varietyCultivar.trim() || "";
 
     const run = async () => {
+      if (!user?.id) return;
       let sun: string | undefined;
       let plant_spacing: string | undefined;
       let days_to_germination: string | undefined;
@@ -86,7 +83,7 @@ export default function ImportManualPage() {
         return;
       }
 
-      const proceedToReview = (hero_image_url: string | undefined) => {
+      const proceedToSave = async (hero_image_url: string | undefined) => {
         if (proceededRef.current) return;
         proceededRef.current = true;
         setPhase("done");
@@ -102,6 +99,7 @@ export default function ImportManualPage() {
           purchaseDate: todayISO(),
           source_url: pending.sourceUrlToSave?.trim(),
           user_notes: pending.notesToSave?.trim() || undefined,
+          price: pending.priceToSave?.trim() || undefined,
           hero_image_url: hero_image_url || undefined,
           stock_photo_url: hero_image_url || undefined,
           useStockPhotoAsHero: !!hero_image_url,
@@ -116,12 +114,19 @@ export default function ImportManualPage() {
           companion_plants,
           avoid_plants,
         };
-        setReviewImportData({ items: [reviewItem] });
-        router.push("/vault/review-import");
+        try {
+          const profileId = await saveManualImportItem(reviewItem, user!.id, {
+            ensureStorage: () => fetch("/api/seed/ensure-storage-bucket", { method: "POST" }),
+          });
+          router.push(`/vault/${profileId}`);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Save failed");
+          setPhase("error");
+        }
       };
 
       setPhase("hero");
-      skipHeroRef.current = () => proceedToReview(undefined);
+      skipHeroRef.current = () => proceedToSave(undefined);
 
       fetch("/api/seed/find-hero-photo", {
         method: "POST",
@@ -135,11 +140,11 @@ export default function ImportManualPage() {
         .then((r) => r.json())
         .then((heroData: { hero_image_url?: string; error?: string }) => {
           if (proceededRef.current) return;
-          proceedToReview(heroData.hero_image_url?.trim());
+          proceedToSave(heroData.hero_image_url?.trim());
         })
         .catch(() => {
           if (proceededRef.current) return;
-          proceedToReview(undefined);
+          proceedToSave(undefined);
         });
     };
 
@@ -172,7 +177,7 @@ export default function ImportManualPage() {
     enrich: "Enriching plant details…",
     hero: "Finding hero photo…",
     schedule: "Preparing schedule…",
-    done: "Redirecting to review…",
+    done: "Saving…",
     error: "",
   };
   const label = phaseLabels[phase];

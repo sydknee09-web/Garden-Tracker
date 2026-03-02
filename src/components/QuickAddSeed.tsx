@@ -13,6 +13,7 @@ import { setPendingManualAdd } from "@/lib/reviewImportStorage";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { hapticSuccess } from "@/lib/haptics";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -68,12 +69,16 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [vendor, setVendor] = useState("");
   const [volume, setVolume] = useState<Volume>("full");
   const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string>("Adding to vault…");
   const [addedToVault, setAddedToVault] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagsToSave, setTagsToSave] = useState<string[]>([]);
   const [sourceUrlToSave, setSourceUrlToSave] = useState<string>("");
   const [notesToSave, setNotesToSave] = useState<string>("");
-  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
+  const [priceToSave, setPriceToSave] = useState<string>("");
+  const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null; profile_type?: string }[]>([]);
+  const [manualMode, setManualMode] = useState<"new" | "link">("new");
+  const [selectedProfileIdForLink, setSelectedProfileIdForLink] = useState<string>("");
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
@@ -101,6 +106,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       setTagsToSave([]);
       setSourceUrlToSave("");
       setNotesToSave("");
+      setPriceToSave("");
+      setManualMode("new");
+      setSelectedProfileIdForLink("");
     }
   }, [open, initialPrefill]);
 
@@ -108,11 +116,13 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     if (!open || !user?.id) return;
     supabase
       .from("plant_profiles")
-      .select("id, name, variety_name")
+      .select("id, name, variety_name, profile_type")
       .eq("user_id", user.id)
       .is("deleted_at", null)
-      .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null }[]));
+      .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null; profile_type?: string }[]));
   }, [open, user?.id]);
+
+  const seedProfiles = profiles.filter((p) => (p.profile_type ?? "seed") === "seed");
 
   // Plant suggestions from global_plant_cache (standardized, excludes bad rows)
   useEffect(() => {
@@ -163,6 +173,63 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     setScreen("choose");
   }
 
+  /** Link to existing: insert packet directly under selected profile. */
+  async function handleLinkToExisting(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!selectedProfileIdForLink?.trim()) {
+      setError("Select a variety.");
+      return;
+    }
+    if (!user?.id) {
+      setError("You must be signed in to add a seed.");
+      return;
+    }
+    setSubmitMessage("Adding to vault…");
+    setSubmitting(true);
+    const userId = user.id;
+    const vendorVal = vendor.trim() ? (toCanonicalDisplay(vendor.trim()) || vendor.trim()) : null;
+    const sourceUrlVal = sourceUrlToSave.trim() || null;
+    const volumeForDb = (typeof volume === "string" ? volume.toLowerCase() : "full") as Volume;
+    const volToQty: Record<string, number> = { full: 100, partial: 50, low: 25, empty: 0 };
+    const qtyStatus = volToQty[volumeForDb] ?? 100;
+    const notesVal = notesToSave.trim() || null;
+    const priceVal = priceToSave.trim() || null;
+    const { error: packetErr } = await supabase.from("seed_packets").insert({
+      plant_profile_id: selectedProfileIdForLink,
+      user_id: userId,
+      vendor_name: vendorVal,
+      purchase_url: sourceUrlVal,
+      purchase_date: new Date().toISOString().slice(0, 10),
+      qty_status: qtyStatus,
+      ...(notesVal && { user_notes: notesVal }),
+      ...(priceVal && { price: priceVal }),
+    });
+    if (packetErr) {
+      setError(packetErr.message);
+      setSubmitting(false);
+      return;
+    }
+    await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", selectedProfileIdForLink).eq("user_id", userId);
+    setSubmitting(false);
+    hapticSuccess();
+    setAddedToVault(true);
+    setTimeout(() => {
+      setPlantName("");
+      setVarietyCultivar("");
+      setVendor("");
+      setVolume("full");
+      setTagsToSave([]);
+      setSourceUrlToSave("");
+      setNotesToSave("");
+      setPriceToSave("");
+      setSelectedProfileIdForLink("");
+      setAddedToVault(false);
+      onSuccess();
+      onClose();
+    }, 1500);
+  }
+
   /** Save profile to vault without a packet (reference/wishlist). Shows in vault as out of stock. */
   async function handleSaveForLater(e: React.FormEvent) {
     e.preventDefault();
@@ -176,6 +243,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       setError("You must be signed in to save for later.");
       return;
     }
+    setSubmitMessage("Saving…");
     setSubmitting(true);
     const userId = user.id;
     const { coreVariety } = parseVarietyWithModifiers(varietyCultivar);
@@ -184,7 +252,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     const nameNorm = normalizeForMatch(name);
     const varietyNorm = normalizeForMatch(varietyName);
 
-    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null);
+    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null).eq("profile_type", "seed");
     const match = (profilesWithNames ?? []).find(
       (p: { name: string; variety_name: string | null }) =>
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
@@ -248,6 +316,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       return;
     }
     const userId = user.id;
+    setSubmitMessage("Adding to vault…");
     setSubmitting(true);
 
     const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(varietyCultivar);
@@ -261,13 +330,14 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
     const volToQty: Record<string, number> = { full: 100, partial: 50, low: 25, empty: 0 };
     const qtyStatus = volToQty[volumeForDb] ?? 100;
 
-    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null);
+    const { data: profilesWithNames } = await supabase.from("plant_profiles").select("id, name, variety_name").eq("user_id", userId).is("deleted_at", null).eq("profile_type", "seed");
     const match = (profilesWithNames ?? []).find(
       (p: { name: string; variety_name: string | null }) =>
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
     );
 
     const notesVal = notesToSave.trim() || null;
+    const priceVal = priceToSave.trim() || null;
     if (match) {
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: match.id,
@@ -278,6 +348,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         qty_status: qtyStatus,
         ...(packetTags.length > 0 && { tags: packetTags }),
         ...(notesVal && { user_notes: notesVal }),
+        ...(priceVal && { price: priceVal }),
       });
       if (packetErr) {
         setSubmitting(false);
@@ -296,6 +367,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         setTagsToSave([]);
         setSourceUrlToSave("");
         setNotesToSave("");
+        setPriceToSave("");
         setAddedToVault(false);
         onSuccess();
         onClose();
@@ -303,7 +375,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       return;
     }
 
-    // No match: send to loading page → review (do not create profile/packet here)
+    // No match: send to loading page → manual import (enrich + hero → save directly)
     setPendingManualAdd({
       plantName: name.trim(),
       varietyCultivar: varietyCultivar.trim(),
@@ -312,6 +384,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       tagsToSave: tagsToSave.length > 0 ? tagsToSave : undefined,
       sourceUrlToSave: sourceUrlVal ?? undefined,
       notesToSave: notesToSave.trim() || undefined,
+      priceToSave: priceToSave.trim() || undefined,
     });
     setSubmitting(false);
     setPlantName("");
@@ -434,7 +507,149 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         )}
 
         {screen === "manual" && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <SubmitLoadingOverlay show={submitting} message={submitMessage} />
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setManualMode("link")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${manualMode === "link" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+              >
+                Link to existing
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualMode("new")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${manualMode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+              >
+                Add new
+              </button>
+            </div>
+            {manualMode === "link" ? (
+              <form onSubmit={handleLinkToExisting} className="space-y-4">
+                {seedProfiles.length === 0 ? (
+                  <p className="text-sm text-neutral-600">No varieties in vault. Add new instead.</p>
+                ) : (
+                  <>
+                    <div>
+                      <label htmlFor="quick-add-link-profile" className="block text-sm font-medium text-black/80 mb-1">
+                        Variety *
+                      </label>
+                      <select
+                        id="quick-add-link-profile"
+                        value={selectedProfileIdForLink}
+                        onChange={(e) => setSelectedProfileIdForLink(e.target.value)}
+                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                        aria-label="Select variety"
+                      >
+                        <option value="">Select a variety</option>
+                        {seedProfiles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
+                        Vendor (optional)
+                      </label>
+                      <Combobox
+                        id="quick-add-link-vendor"
+                        value={vendor}
+                        onChange={setVendor}
+                        suggestions={vendorSuggestions}
+                        placeholder="e.g. Burpee"
+                        aria-label="Vendor"
+                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
+                      <div className="flex gap-2 flex-wrap">
+                        {VOLUMES.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setVolume(v)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              volume === v ? "bg-emerald text-white" : "bg-black/5 text-black/70 hover:bg-black/10"
+                            }`}
+                          >
+                            {VOLUME_LABELS[v]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="quick-add-link-source-url" className="block text-sm font-medium text-black/80 mb-1">
+                        Source URL (optional)
+                      </label>
+                      <input
+                        id="quick-add-link-source-url"
+                        type="url"
+                        value={sourceUrlToSave}
+                        onChange={(e) => setSourceUrlToSave(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                        aria-label="Product or vendor URL"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="quick-add-link-price" className="block text-sm font-medium text-black/80 mb-1">
+                        Price (optional)
+                      </label>
+                      <input
+                        id="quick-add-link-price"
+                        type="text"
+                        value={priceToSave}
+                        onChange={(e) => setPriceToSave(e.target.value)}
+                        placeholder="e.g. $3.50"
+                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                        aria-label="Price (optional)"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="quick-add-link-notes" className="block text-sm font-medium text-black/80 mb-1">
+                        Notes (optional)
+                      </label>
+                      <textarea
+                        id="quick-add-link-notes"
+                        value={notesToSave}
+                        onChange={(e) => setNotesToSave(e.target.value)}
+                        placeholder="e.g. From seed swap, organic"
+                        rows={2}
+                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] resize-none"
+                        aria-label="Packet notes"
+                      />
+                    </div>
+                  </>
+                )}
+                {error && <p className="text-sm text-citrus font-medium">{error}</p>}
+                <div className="flex gap-2 pt-2">
+                  <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || addedToVault || seedProfiles.length === 0}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {addedToVault ? (
+                      <>
+                        <CheckmarkIcon className="w-5 h-5" />
+                        Added!
+                      </>
+                    ) : submitting ? (
+                      "Adding…"
+                    ) : (
+                      "Add to Vault"
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="quick-add-name" className="block text-sm font-medium text-black/80 mb-1">
                 Plant Name *
@@ -511,6 +726,20 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               />
             </div>
             <div>
+              <label htmlFor="quick-add-price" className="block text-sm font-medium text-black/80 mb-1">
+                Price (optional)
+              </label>
+              <input
+                id="quick-add-price"
+                type="text"
+                value={priceToSave}
+                onChange={(e) => setPriceToSave(e.target.value)}
+                placeholder="e.g. $3.50"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Price (optional)"
+              />
+            </div>
+            <div>
               <label htmlFor="quick-add-notes" className="block text-sm font-medium text-black/80 mb-1">
                 Notes (optional)
               </label>
@@ -567,6 +796,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
               </div>
             </div>
           </form>
+            )}
+          </div>
         )}
       </div>
     </>

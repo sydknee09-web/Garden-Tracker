@@ -44,6 +44,12 @@ When collecting plant, seed, or supply data, use this order:
 
 ---
 
+## Submit Loading
+
+All add/create modals and forms must show a loading overlay when submitting. Use `SubmitLoadingOverlay` with an appropriate message (e.g. "Adding plant…", "Adding to vault…", "Saving…"). Disable the submit button and show "Adding…" / "Saving…" on the button as secondary feedback. This gives immediate, unmistakable feedback during slow operations (enrichment, hero search, photo upload) and prevents double-submit.
+
+---
+
 ## When to Show
 
 - **Source URL:** Seed packets, supply profiles. Law 8: always save vendor link when importing from URL.

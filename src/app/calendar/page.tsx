@@ -41,6 +41,7 @@ import type { Task, TaskType } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -1316,10 +1317,12 @@ export default function CalendarPage() {
             aria-modal="true"
             aria-labelledby="new-task-title"
           >
-            <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-              New Task
-            </h2>
-            <form onSubmit={handleCreateTask} className="space-y-4">
+            <div className="relative">
+              <SubmitLoadingOverlay show={savingTask} message="Saving task…" />
+              <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
+                New Task
+              </h2>
+              <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
                 <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
                   Title *
@@ -1482,6 +1485,7 @@ export default function CalendarPage() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </>
       )}
