@@ -283,10 +283,13 @@ export default function CalendarPage() {
       }
 
       const withNames = (rows: unknown[]) =>
-        (rows ?? []).map((t: Task & { user_id?: string | null }) => ({
-          ...t,
-          plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : null) ?? "Unknown",
-        }));
+        (rows ?? []).map((t) => {
+          const task = t as Task & { user_id?: string | null };
+          return {
+            ...task,
+            plant_name: (task.plant_profile_id ? names[task.plant_profile_id] : null) ?? "Unknown",
+          };
+        });
 
       setOverdueTasks(withNames(overdueRows ?? []));
       const upcoming = withNames(taskRows ?? []);

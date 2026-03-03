@@ -154,7 +154,10 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
   const removePhoto = useCallback((item: PhotoItem) => {
     setPhotos((prev) => {
       if (item.type === "new") URL.revokeObjectURL(item.previewUrl);
-      return prev.filter((p) => (p.type === "existing" ? p.path !== item.path : p.id !== item.id));
+      return prev.filter((p) => {
+        if (item.type === "existing") return p.type !== "existing" || p.path !== item.path;
+        return p.type !== "new" || p.id !== item.id;
+      });
     });
   }, []);
 

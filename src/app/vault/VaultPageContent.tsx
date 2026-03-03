@@ -321,7 +321,7 @@ function VaultPageInner() {
     const status = typeof loaded.status === "string" ? (loaded.status as PacketStatusFilter) : "";
     const vendor = typeof loaded.vendor === "string" ? loaded.vendor : loaded.vendor === null ? null : null;
     const sowMonth = typeof loaded.sowMonth === "string" && /^\d{4}-\d{2}$/.test(loaded.sowMonth) ? loaded.sowMonth : null;
-    const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy : "date";
+    const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy as "date" | "variety" | "vendor" | "qty" | "rating" : "date";
     const sortDirection = loaded.sortDirection === "asc" || loaded.sortDirection === "desc" ? loaded.sortDirection : "desc";
     setPacketStatusFilter(status);
     setPacketVendorFilter(vendor);
