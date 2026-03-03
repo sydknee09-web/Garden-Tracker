@@ -463,16 +463,11 @@ export default function JournalPage() {
           if (selectedEntryIds.length > 0) {
             e?.preventDefault?.();
             toggleRowSelection(entryIds);
-            return;
-          }
-          if (ownerUserId && canEditPage(ownerUserId, "journal") && entryIds.length > 0) {
-            e?.preventDefault?.();
-            setEditEntryId(entryIds[0]);
           }
         },
       };
     },
-    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length, canEditPage]
+    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length]
   );
 
   function requestBulkDelete(ids: string[]) {
@@ -951,53 +946,6 @@ export default function JournalPage() {
         );
       })()}
 
-      {selectedEntryIds.length > 0 && !deleteConfirmEntryIds && (
-        <div
-          className="fixed left-4 right-4 z-30 flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-white border border-black/10 shadow-lg max-w-md mx-auto"
-          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}
-          role="status"
-          aria-label={`${selectedEntryIds.length} selected`}
-        >
-          <span className="text-sm font-medium text-black/80">{selectedEntryIds.length} selected</span>
-          <div className="flex items-center gap-2">
-            {selectedEntryIds.length === 1 && (() => {
-              const entry = entries.find((e) => e.id === selectedEntryIds[0]);
-              if (entry?.plant_profile_id) {
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedEntryIds([]);
-                      router.push(`/vault/${entry.plant_profile_id}?tab=journal`);
-                    }}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald/10"
-                    aria-label="Edit selected entry"
-                  >
-                    <PencilEditIcon />
-                  </button>
-                );
-              }
-              return null;
-            })()}
-            <button
-              type="button"
-              onClick={() => requestBulkDelete(selectedEntryIds)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-citrus hover:bg-citrus/10"
-              aria-label="Delete selected"
-            >
-              <TrashIcon />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedEntryIds([])}
-              className="min-w-[44px] min-h-[44px] px-3 rounded-lg border border-black/10 text-sm font-medium text-black/80"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       <button
         type="button"
         onClick={() => {
@@ -1213,8 +1161,10 @@ export default function JournalPage() {
                 onClick={() => {
                   setSelectionActionsOpen(false);
                   const firstId = selectedEntryIds[0];
-                  const entry = entries.find((e) => e.id === firstId);
-                  if (entry?.plant_profile_id) router.push(`/vault/${entry.plant_profile_id}?tab=journal`);
+                  if (firstId) {
+                    setSelectedEntryIds([]);
+                    setEditEntryId(firstId);
+                  }
                 }}
                 disabled={selectedEntryIds.length !== 1}
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
