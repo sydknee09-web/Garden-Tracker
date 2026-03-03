@@ -1919,7 +1919,7 @@ export default function VaultSeedPage() {
                   schedules={careSchedules}
                   onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }}
                   readOnly={!canEdit}
-                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={loadProfile} /> : null}
+                  extraActions={canEdit && (careSchedules.length > 0 || careSuggestions.length > 0) ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={loadProfile} /> : null}
                 />
               </div>
             )}
@@ -1935,7 +1935,7 @@ export default function VaultSeedPage() {
                   readOnly={!canEdit}
                   growInstances={growInstances}
                   isPermanent={isPermanent}
-                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={loadProfile} /> : null}
+                  extraActions={canEdit && (careSchedules.length > 0 || careSuggestions.length > 0) ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={loadProfile} /> : null}
                 />
               </div>
             )}

@@ -29,6 +29,10 @@ const PurchaseOrderImport = dynamic(
   () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
   { ssr: false }
 );
+const NewTaskModal = dynamic(
+  () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
+  { ssr: false }
+);
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -37,11 +41,10 @@ import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
-import type { Task, TaskType } from "@/types/garden";
+import type { Task } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
-import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -56,13 +59,6 @@ const TASK_LABELS: Record<string, string> = {
   water: "Water",
   spray: "Spray",
 };
-
-const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
-  { value: "maintenance", label: "Maintenance" },
-  { value: "fertilize", label: "Fertilize" },
-  { value: "prune", label: "Prune" },
-  { value: "general", label: "General" },
-];
 
 const SOW_CATEGORIES = ["sow", "start_seed", "direct_sow", "transplant"];
 
@@ -96,6 +92,7 @@ export default function CalendarPage() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetch, setRefetch] = useState(0);
@@ -113,15 +110,6 @@ export default function CalendarPage() {
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const skipPopOnNavigateRef = useRef(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDue, setNewTaskDue] = useState(() => new Date().toISOString().slice(0, 10));
-  const [newTaskCategory, setNewTaskCategory] = useState<TaskType>("maintenance");
-  const [newTaskProfileId, setNewTaskProfileId] = useState<string>("");
-  const [newTaskGrowId, setNewTaskGrowId] = useState<string>("");
-  const [taskProfiles, setTaskProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
-  const [taskGrowInstances, setTaskGrowInstances] = useState<{ id: string; sown_date: string; location: string | null; status: string }[]>([]);
-  const [savingTask, setSavingTask] = useState(false);
-  const [newTaskError, setNewTaskError] = useState<string | null>(null);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
@@ -140,11 +128,6 @@ export default function CalendarPage() {
   const [batchSaving, setBatchSaving] = useState(false);
   /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks) */
   const [removeScheduleToo, setRemoveScheduleToo] = useState(false);
-
-  // Recurring task form state
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringIntervalDays, setRecurringIntervalDays] = useState(30);
-  const [recurringEndDate, setRecurringEndDate] = useState("");
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -221,12 +204,14 @@ export default function CalendarPage() {
   useLayoutEffect(() => {
     if (!user) {
       setTasks([]);
+      setOverdueTasks([]);
       setLoading(false);
       return;
     }
     const cached = getCachedTasks(user.id, householdViewMode ?? "personal");
     if (cached) {
       setTasks(cached as (Task & { plant_name?: string; user_id?: string | null })[]);
+      setOverdueTasks([]); // Overdue will load on fetch
       setLoading(false);
       setError(null);
     }
@@ -248,6 +233,17 @@ export default function CalendarPage() {
 
       if (cancelled) return;
 
+      // Fetch overdue tasks (due_date < today, completed_at = null)
+      let overdueQuery = supabase
+        .from("tasks")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .lt("due_date", todayStr)
+        .order("due_date", { ascending: true });
+      if (viewMode !== "family") overdueQuery = overdueQuery.eq("user_id", userId);
+      const { data: overdueRows } = await overdueQuery;
+
       // Fetch all upcoming tasks (from today, up to 1 year out)
       const oneYearOut = new Date();
       oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
@@ -267,25 +263,35 @@ export default function CalendarPage() {
       if (e) {
         setError(e.message);
         setTasks([]);
+        setOverdueTasks([]);
         setLoading(false);
         return;
       }
 
-      const profileIds = [...new Set((taskRows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
+      const allProfileIds = [
+        ...new Set([
+          ...(taskRows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean),
+          ...(overdueRows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean),
+        ]),
+      ] as string[];
       const names: Record<string, string> = {};
-      if (profileIds.length > 0) {
-        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", profileIds);
+      if (allProfileIds.length > 0) {
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
         (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
           names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });
       }
 
-      const withNames = (taskRows ?? []).map((t: Task & { user_id?: string | null }) => ({
-        ...t,
-        plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : null) ?? "Unknown",
-      }));
-      setTasks(withNames);
-      setCachedTasks(userId, viewMode, withNames);
+      const withNames = (rows: unknown[]) =>
+        (rows ?? []).map((t: Task & { user_id?: string | null }) => ({
+          ...t,
+          plant_name: (t.plant_profile_id ? names[t.plant_profile_id] : null) ?? "Unknown",
+        }));
+
+      setOverdueTasks(withNames(overdueRows ?? []));
+      const upcoming = withNames(taskRows ?? []);
+      setTasks(upcoming);
+      setCachedTasks(userId, viewMode, upcoming);
       setLoading(false);
     }
 
@@ -374,11 +380,14 @@ export default function CalendarPage() {
       expandedInitRef.current = false;
       lastMonthKey.current = monthKey;
     }
-    if (expandedInitRef.current || tasks.length === 0) return;
+    if (expandedInitRef.current || (tasks.length === 0 && overdueTasks.length === 0)) return;
     expandedInitRef.current = true;
+    const next = new Set<string>();
+    if (overdueTasks.length > 0) next.add("overdue");
     const todayTasks = tasks.filter((t) => t.due_date === todayStr);
-    setExpandedDateGroups(todayTasks.length > 0 ? new Set([todayStr]) : new Set());
-  }, [tasks, todayStr, month.year, month.month]);
+    if (todayTasks.length > 0) next.add(todayStr);
+    setExpandedDateGroups(next);
+  }, [tasks, overdueTasks, todayStr, month.year, month.month]);
 
   const toggleDateGroup = useCallback((date: string) => {
     setExpandedDateGroups((prev) => {
@@ -492,168 +501,6 @@ export default function CalendarPage() {
     }
   }
   const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
-
-  useEffect(() => {
-    if (!user || !newTaskOpen) return;
-    let cancelled = false;
-    (async () => {
-      const { data: profiles } = await supabase
-        .from("plant_profiles")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .order("name");
-      if (!cancelled && profiles) setTaskProfiles(profiles as { id: string; name: string; variety_name: string | null }[]);
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id, newTaskOpen]);
-
-  // Load active grow instances whenever a profile is selected in the new task form
-  useEffect(() => {
-    if (!user || !newTaskProfileId) {
-      setTaskGrowInstances([]);
-      setNewTaskGrowId("");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("grow_instances")
-        .select("id, sown_date, location, status")
-        .eq("plant_profile_id", newTaskProfileId)
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .in("status", ["growing", "pending"])
-        .order("sown_date", { ascending: false });
-      if (!cancelled) {
-        setTaskGrowInstances((data ?? []) as { id: string; sown_date: string; location: string | null; status: string }[]);
-        // Auto-select the most recent active grow instance
-        if (data && data.length === 1) setNewTaskGrowId(data[0].id);
-        else setNewTaskGrowId("");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id, newTaskProfileId]);
-
-  function resetNewTaskForm() {
-    setNewTaskTitle("");
-    setNewTaskDue(new Date().toISOString().slice(0, 10));
-    setNewTaskCategory("maintenance");
-    setNewTaskProfileId("");
-    setNewTaskGrowId("");
-    setIsRecurring(false);
-    setRecurringIntervalDays(30);
-    setRecurringEndDate("");
-    setNewTaskError(null);
-  }
-
-  async function handleCreateTask(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-    const titleTrim = newTaskTitle.trim();
-    if (!titleTrim) {
-      setNewTaskError("Title is required.");
-      hapticError();
-      return;
-    }
-    setNewTaskError(null);
-    const savedDue = newTaskDue;
-    const savedCategory = newTaskCategory;
-    const savedProfileId = newTaskProfileId;
-    const savedGrowId = newTaskGrowId;
-    const savedRecurring = isRecurring;
-    const savedIntervalDays = recurringIntervalDays;
-    const savedEndDate = recurringEndDate.trim() || null;
-
-    setNewTaskOpen(false);
-    resetNewTaskForm();
-
-    if (savedRecurring) {
-      // --- Recurring path: create a care_schedule, then the first task ---
-      const { data: scheduleRow, error: schedErr } = await supabase
-        .from("care_schedules")
-        .insert({
-          user_id: user.id,
-          plant_profile_id: savedProfileId || null,
-          grow_instance_id: savedGrowId || null,
-          title: titleTrim,
-          category: savedCategory,
-          recurrence_type: "interval",
-          interval_days: savedIntervalDays,
-          next_due_date: savedDue,
-          end_date: savedEndDate,
-          is_active: true,
-          is_template: false,
-        })
-        .select("id")
-        .single();
-
-      if (schedErr || !scheduleRow) {
-        setNewTaskError(schedErr?.message ?? "Failed to create recurring schedule.");
-        setNewTaskOpen(true);
-        hapticError();
-        return;
-      }
-
-      // Create the first task occurrence immediately so it shows on the calendar
-      await supabase.from("tasks").insert({
-        user_id: user.id,
-        plant_profile_id: savedProfileId || null,
-        grow_instance_id: savedGrowId || null,
-        category: savedCategory,
-        due_date: savedDue,
-        title: titleTrim,
-        care_schedule_id: scheduleRow.id,
-      });
-
-      hapticSuccess();
-      setRefetch((r) => r + 1);
-      return;
-    }
-
-    // --- One-off path (existing behaviour with optimistic update) ---
-    let displayName: string | null = null;
-    if (savedProfileId) {
-      const p = taskProfiles.find((v) => v.id === savedProfileId);
-      displayName = p ? (p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name) : null;
-    }
-
-    const optimisticId = `opt-${Date.now()}`;
-    const optimisticTask: Task & { plant_name?: string } = {
-      id: optimisticId,
-      plant_profile_id: savedProfileId || null,
-      grow_instance_id: savedGrowId || null,
-      category: savedCategory,
-      due_date: savedDue,
-      completed_at: null,
-      created_at: new Date().toISOString(),
-      title: titleTrim,
-      plant_name: displayName ?? "Unknown",
-    };
-    setTasks((prev) => [...prev, optimisticTask]);
-    const { error: err } = await supabase.from("tasks").insert({
-      user_id: user.id,
-      plant_profile_id: savedProfileId || null,
-      grow_instance_id: savedGrowId || null,
-      category: savedCategory,
-      due_date: savedDue,
-      title: titleTrim,
-    });
-    if (err) {
-      setTasks((prev) => prev.filter((t) => t.id !== optimisticId));
-      setNewTaskOpen(true);
-      setNewTaskTitle(titleTrim);
-      setNewTaskProfileId(savedProfileId);
-      setNewTaskGrowId(savedGrowId);
-      setNewTaskDue(savedDue);
-      setNewTaskCategory(savedCategory);
-      setNewTaskError(err.message);
-      hapticError();
-      return;
-    }
-    hapticSuccess();
-    setRefetch((r) => r + 1);
-  }
 
   return (
     <div className="px-6 pt-2 pb-6">
@@ -924,7 +771,7 @@ export default function CalendarPage() {
               </button>
             )}
           </div>
-          {tasks.length === 0 ? (
+          {tasks.length === 0 && overdueTasks.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-black/60 text-sm font-medium">
                 No upcoming tasks scheduled.
@@ -963,6 +810,40 @@ export default function CalendarPage() {
             )
           ) : (
             <ul className="divide-y divide-black/5">
+              {overdueTasks.length > 0 && (
+                <li className="border-b border-black/5">
+                  <button
+                    type="button"
+                    onClick={() => toggleDateGroup("overdue")}
+                    className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors bg-amber-50/50"
+                    aria-expanded={expandedDateGroups.has("overdue")}
+                  >
+                    <span className="text-sm font-medium text-amber-800">
+                      Overdue ({overdueTasks.length} task{overdueTasks.length !== 1 ? "s" : ""})
+                    </span>
+                    <span className="text-amber-700 text-sm shrink-0">{expandedDateGroups.has("overdue") ? "Hide" : "Show"}</span>
+                  </button>
+                  {expandedDateGroups.has("overdue") && (
+                    <div className="px-4 pb-4 space-y-2 bg-amber-50/30">
+                      {overdueTasks.map((t) => (
+                        <CalendarTaskRow
+                          key={t.id}
+                          task={t}
+                          onComplete={() => handleComplete(t)}
+                          onSnooze={(newDue) => handleSnooze(t, newDue)}
+                          selectMode={selectMode}
+                          isSelected={selectedIds.has(t.id)}
+                          onLongPress={() => handleLongPressTask(t.id)}
+                          onToggleSelect={() => toggleTaskSelect(t.id)}
+                          onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                          ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                          canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </li>
+              )}
               {Object.entries(byDate)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([date, dayTasks]) => {
@@ -1218,7 +1099,6 @@ export default function CalendarPage() {
           }}
           onAddTask={() => {
             setUniversalAddMenuOpen(false);
-            resetNewTaskForm();
             setNewTaskOpen(true);
           }}
           onAddJournal={() => {
@@ -1308,186 +1188,11 @@ export default function CalendarPage() {
       )}
 
       {newTaskOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setNewTaskOpen(false)} />
-          <div
-            className="fixed left-4 right-4 bottom-20 z-50 max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto"
-            style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-task-title"
-          >
-            <div className="relative">
-              <SubmitLoadingOverlay show={savingTask} message="Saving task…" />
-              <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-                New Task
-              </h2>
-              <form onSubmit={handleCreateTask} className="space-y-4">
-              <div>
-                <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
-                  Title *
-                </label>
-                <input
-                  id="task-title"
-                  type="text"
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="e.g. Water Hillside"
-                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                />
-              </div>
-              <div>
-                <label htmlFor="task-due" className="block text-sm font-medium text-black/80 mb-1">
-                  Due date *
-                </label>
-                <input
-                  id="task-due"
-                  type="date"
-                  value={newTaskDue}
-                  onChange={(e) => setNewTaskDue(e.target.value)}
-                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                />
-              </div>
-              <div>
-                <label htmlFor="task-category" className="block text-sm font-medium text-black/80 mb-1">
-                  Category *
-                </label>
-                <select
-                  id="task-category"
-                  value={newTaskCategory}
-                  onChange={(e) => setNewTaskCategory(e.target.value as TaskType)}
-                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                >
-                  {QUICK_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Recurring toggle */}
-              <button
-                type="button"
-                onClick={() => setIsRecurring((r) => !r)}
-                className={`w-full min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                  isRecurring
-                    ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-                    : "bg-white border-black/10 text-black/70 hover:bg-black/[0.02]"
-                }`}
-              >
-                <span className="text-sm font-medium">Recurring</span>
-                <span
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    isRecurring ? "bg-emerald-500" : "bg-black/20"
-                  }`}
-                  aria-hidden
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                      isRecurring ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </span>
-              </button>
-
-              {isRecurring && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="recurring-interval" className="text-sm font-medium text-black/80 shrink-0">
-                      Repeat every
-                    </label>
-                    <input
-                      id="recurring-interval"
-                      type="number"
-                      min={1}
-                      max={365}
-                      value={recurringIntervalDays}
-                      onChange={(e) => setRecurringIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                    />
-                    <span className="text-sm text-black/60">days</span>
-                  </div>
-                  <div>
-                    <label htmlFor="recurring-end" className="block text-sm font-medium text-black/80 mb-1">
-                      End date <span className="text-black/40 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="recurring-end"
-                      type="date"
-                      value={recurringEndDate}
-                      onChange={(e) => setRecurringEndDate(e.target.value)}
-                      className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                    />
-                  </div>
-                  {newTaskProfileId && (
-                    <p className="text-xs text-emerald-700 flex items-start gap-1.5">
-                      <span aria-hidden>🔗</span>
-                      <span>This will also appear in the linked plant&apos;s Care schedule.</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
-                  Link to plant (optional)
-                </label>
-                <select
-                  id="task-profile"
-                  value={newTaskProfileId}
-                  onChange={(e) => { setNewTaskProfileId(e.target.value); setNewTaskGrowId(""); }}
-                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                >
-                  <option value="">None</option>
-                  {taskProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {taskGrowInstances.length > 0 && (
-                <div>
-                  <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
-                    Active planting (optional)
-                  </label>
-                  <select
-                    id="task-grow"
-                    value={newTaskGrowId}
-                    onChange={(e) => setNewTaskGrowId(e.target.value)}
-                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                  >
-                    <option value="">Any / not specific</option>
-                    {taskGrowInstances.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        Sown {g.sown_date}{g.location ? ` · ${g.location}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {newTaskError && <p className="text-sm text-citrus font-medium">{newTaskError}</p>}
-              <div className="space-y-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={savingTask}
-                  className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-                >
-                  {savingTask ? "Saving…" : isRecurring ? "Save Recurring Task" : "Save Task"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewTaskOpen(false)}
-                  className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-            </div>
-          </div>
-        </>
+        <NewTaskModal
+          open={newTaskOpen}
+          onClose={() => setNewTaskOpen(false)}
+          onSuccess={() => setRefetch((r) => r + 1)}
+        />
       )}
     </div>
   );

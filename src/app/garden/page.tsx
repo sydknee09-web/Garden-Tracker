@@ -25,6 +25,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const NewTaskModal = dynamic(
+  () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
+  { ssr: false }
+);
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -37,6 +41,7 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFilterState } from "@/hooks/useFilterState";
+import { FILTER_DEFAULT_KEYS } from "@/lib/filterDefaults";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import type { RefineChips } from "@/types/garden";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
@@ -74,11 +79,16 @@ function GardenPageInner() {
     setRefineByOpen(false);
     setRefineBySection(null);
   }, []);
-  const activeFilters = useFilterState({ schema: "garden", onClear: closeRefinePanel });
+  const activeFilters = useFilterState({
+    schema: "garden",
+    onClear: closeRefinePanel,
+    storageKey: FILTER_DEFAULT_KEYS.gardenActive,
+  });
   const plantsFilters = useFilterState({
     schema: "garden",
     onClear: closeRefinePanel,
     isFilterActive: () => !!profileParam,
+    storageKey: FILTER_DEFAULT_KEYS.gardenPlants,
   });
   const [activeSortBy, setActiveSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-active-sort", "sown_date", {
     serialize: (v) => v,
@@ -141,6 +151,7 @@ function GardenPageInner() {
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
   const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
@@ -860,7 +871,32 @@ function GardenPageInner() {
                   );
                 })()}
               </div>
-              <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
+              <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
+                {(() => {
+                  const f = effectiveViewMode === "active" ? activeFilters : plantsFilters;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={f.saveAsDefault}
+                        className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                        aria-label="Save current filters as default"
+                      >
+                        Save as default
+                      </button>
+                      {f.hasDefault && (
+                        <button
+                          type="button"
+                          onClick={f.clearDefault}
+                          className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
+                          aria-label="Clear saved default filters"
+                        >
+                          Clear default
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
@@ -1095,15 +1131,21 @@ function GardenPageInner() {
             setShedQuickAddOpen(true);
           }}
           onAddTask={() => {
-            skipPopOnNavigateRef.current = true;
             setFabMenuOpen(false);
-            router.push("/calendar?openTask=1");
+            setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setFabMenuOpen(false);
             router.push("/journal/new");
           }}
+        />
+      )}
+
+      {newTaskModalOpen && (
+        <NewTaskModal
+          open={newTaskModalOpen}
+          onClose={() => setNewTaskModalOpen(false)}
         />
       )}
 

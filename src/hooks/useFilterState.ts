@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
+import {
+  loadFilterDefault,
+  saveFilterDefault,
+  clearFilterDefault,
+  hasFilterDefault,
+} from "@/lib/filterDefaults";
 
 /** Common filter values shared by Garden and Vault. */
 export type GardenFilterValues = {
@@ -66,12 +72,40 @@ function hasActiveVaultFilters(f: VaultFilterValues): boolean {
   return countActiveVaultFilters(f) > 0;
 }
 
+function normalizeGardenLoaded(raw: unknown): GardenFilterValues | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  return {
+    category: typeof o.category === "string" ? o.category : null,
+    variety: typeof o.variety === "string" ? o.variety : null,
+    sun: typeof o.sun === "string" ? o.sun : null,
+    spacing: typeof o.spacing === "string" ? o.spacing : null,
+    germination: typeof o.germination === "string" ? o.germination : null,
+    maturity: typeof o.maturity === "string" ? o.maturity : null,
+    tags: Array.isArray(o.tags) ? o.tags.filter((t): t is string => typeof t === "string") : [],
+  };
+}
+
+function normalizeVaultLoaded(raw: unknown): VaultFilterValues | null {
+  const garden = normalizeGardenLoaded(raw);
+  if (!garden) return null;
+  const o = raw as Record<string, unknown>;
+  return {
+    ...garden,
+    status: typeof o.status === "string" ? o.status : "",
+    vendor: typeof o.vendor === "string" ? o.vendor : null,
+    packetCount: typeof o.packetCount === "string" ? o.packetCount : null,
+  };
+}
+
 export type UseFilterStateOptions<T extends FilterSchema> = {
   schema: T;
   /** Called after clearing filters (e.g. router.replace to clear URL params). */
   onClear?: () => void;
   /** Additional check for hasActiveFilters (e.g. sowParam from URL). */
   isFilterActive?: () => boolean;
+  /** localStorage key for save/restore default (e.g. "garden-active"). */
+  storageKey?: string;
 };
 
 export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
@@ -88,6 +122,9 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
+      saveAsDefault: () => void;
+      clearDefault: () => void;
+      hasDefault: boolean;
     }
   : {
       filters: VaultFilterValues;
@@ -105,22 +142,51 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
+      saveAsDefault: () => void;
+      clearDefault: () => void;
+      hasDefault: boolean;
     };
 
 export function useFilterState<T extends FilterSchema>(
   options: UseFilterStateOptions<T>
 ): UseFilterStateReturn<T> {
-  const { schema, onClear, isFilterActive } = options;
+  const { schema, onClear, isFilterActive, storageKey } = options;
   const empty = schema === "garden" ? EMPTY_GARDEN : EMPTY_VAULT;
 
-  const [filters, setFilters] = useState<GardenFilterValues | VaultFilterValues>(() =>
-    schema === "garden" ? { ...EMPTY_GARDEN } : { ...EMPTY_VAULT }
+  const [filters, setFilters] = useState<GardenFilterValues | VaultFilterValues>(() => {
+    if (storageKey) {
+      const loaded = loadFilterDefault<unknown>(storageKey);
+      const normalized =
+        schema === "garden"
+          ? normalizeGardenLoaded(loaded)
+          : normalizeVaultLoaded(loaded);
+      if (normalized) return normalized;
+    }
+    return schema === "garden" ? { ...EMPTY_GARDEN } : { ...EMPTY_VAULT };
+  });
+
+  const [defaultSaved, setDefaultSaved] = useState(() =>
+    storageKey ? hasFilterDefault(storageKey) : false
   );
 
   const clearAllFilters = useCallback(() => {
     setFilters({ ...empty } as GardenFilterValues & VaultFilterValues);
     onClear?.();
   }, [empty, onClear]);
+
+  const saveAsDefault = useCallback(() => {
+    if (storageKey) {
+      saveFilterDefault(storageKey, filters);
+      setDefaultSaved(true);
+    }
+  }, [storageKey, filters]);
+
+  const clearDefault = useCallback(() => {
+    if (storageKey) {
+      clearFilterDefault(storageKey);
+      setDefaultSaved(false);
+    }
+  }, [storageKey]);
 
   const toggleTagFilter = useCallback((tag: string) => {
     setFilters((prev) => ({
@@ -174,6 +240,8 @@ export function useFilterState<T extends FilterSchema>(
     : countActiveVaultFilters(filters as VaultFilterValues);
   const filterCount = baseCount + (isFilterActive?.() ? 1 : 0);
 
+  const hasDefault = storageKey ? defaultSaved : false;
+
   return {
     filters: filters as T extends "garden" ? GardenFilterValues : VaultFilterValues,
     setCategory,
@@ -188,5 +256,8 @@ export function useFilterState<T extends FilterSchema>(
     clearAllFilters,
     hasActiveFilters,
     filterCount,
+    saveAsDefault,
+    clearDefault,
+    hasDefault,
   } as UseFilterStateReturn<T>;
 }

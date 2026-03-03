@@ -26,7 +26,7 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 | **Add Seed Packet** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
 | **Add plant** | Screen 2: Manual Entry \| Start Seeds |
 | **Add to shed** | Opens QuickAddSupply (Manual / Photo / Link / Purchase Order) |
-| **Add task** | Opens task form (Calendar) or navigates to `/calendar?openTask=1` |
+| **Add task** | Opens New Task modal on current page (no navigation). Calendar also supports `?openTask=1` URL param. |
 | **Add journal** | Navigate to `/journal/new` |
 
 ### Add plant – Screen 2
@@ -88,7 +88,7 @@ When in selection mode (Vault batch select, Garden batch select, Journal entries
 | Action | Behavior |
 |--------|----------|
 | **Plant pill tap** | Navigate to `/vault/[plant_profile_id]?tab=journal` (each pill links to its plant profile) |
-| **Short tap** (card body) | No navigation |
+| **Short tap** (card body, when not selecting) | Opens Edit Journal modal (note, photos; plants editable except for planting entries) |
 | **Long-press (~500ms)** | Enter selection mode; select this entry |
 | **Tap when selected** | Toggle selection |
 
@@ -283,3 +283,6 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-02-28 | Add Plant modal: Standardized fields — Link to existing has Notes + Photos; Create new has Vendor/Nursery, no Qty. Removed Add plant button from vault profile Plantings tab. |
 | 2025-02-28 | Add journal: Removed Snapshot/Quick note/Detailed sub-screen; FAB → Add journal now navigates directly to `/journal/new`. |
 | 2025-02-28 | Create flow standardization: Required/optional labels, canonical field order, Source URL + Notes in QuickAddSeed manual, Photos after identity fields. See docs/CREATE_FLOW_CONVENTIONS.md. |
+| 2025-03-02 | Calendar: Added Overdue section at top showing tasks with due_date < today and completed_at = null. Collapsible, amber styling. |
+| 2025-03-02 | Home: Planting calendars (zone charts, SDSC, Farmers' Almanac) moved to /resources. Planting Schedule section stays on home with link to Resources. Settings: Added Resources link. |
+| 2025-03-02 | Journal: Short tap on entry (when not selecting) opens Edit Journal modal. Editable: note, photos; plants editable except for planting entries (read-only). Respects canEditPage for household view. |

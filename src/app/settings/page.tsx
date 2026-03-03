@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
 const SETTINGS_ITEMS = [
+  { href: "/resources", label: "Resources", subtitle: "Planting calendars, zone charts, frost dates" },
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, account" },
   { href: "/settings/family", label: "Family", subtitle: "Members, approval, view/edit access by page" },
   { href: "/settings/vendors", label: "Vendor Scorecard", subtitle: "Average packet ratings by vendor" },

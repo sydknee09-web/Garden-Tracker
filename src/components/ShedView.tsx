@@ -13,12 +13,15 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 
-/** Renders product thumb or ShedSupplyIcon on load error. */
+/** Renders product thumb, or shed-sack.png for items without photos, or ShedSupplyIcon on load error. */
+const SHED_FALLBACK_IMAGE = "/shed-sack.png";
+
 function SupplyThumb({ thumbUrl, imgClassName, iconClassName }: { thumbUrl: string | null; imgClassName?: string; iconClassName?: string }) {
   const [failed, setFailed] = useState(false);
-  const showImg = thumbUrl && !failed;
+  const imgSrc = thumbUrl || SHED_FALLBACK_IMAGE;
+  const showImg = imgSrc && !failed;
   return showImg ? (
-    <img src={thumbUrl} alt="" className={imgClassName} onError={() => setFailed(true)} />
+    <img src={imgSrc} alt="" className={imgClassName} onError={() => setFailed(true)} />
   ) : (
     <ShedSupplyIcon className={iconClassName ?? "w-full h-full"} aria-hidden />
   );

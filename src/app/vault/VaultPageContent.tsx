@@ -69,6 +69,13 @@ import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportS
 import { compressImage } from "@/lib/compressImage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useFilterState } from "@/hooks/useFilterState";
+import {
+  loadFilterDefault,
+  saveFilterDefault,
+  clearFilterDefault,
+  hasFilterDefault,
+  FILTER_DEFAULT_KEYS,
+} from "@/lib/filterDefaults";
 /** Minimal sow-month check without loading zone10b (avoids init error). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
   const w = plantingWindow?.trim();
@@ -251,7 +258,12 @@ function VaultPageInner() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [shedSearchQuery, setShedSearchQuery] = useState("");
-  const [shedCategoryFilter, setShedCategoryFilter] = useState<string | null>(null);
+  const [shedCategoryFilter, setShedCategoryFilter] = useState<string | null>(() => {
+    const loaded = loadFilterDefault<string>(FILTER_DEFAULT_KEYS.vaultShed);
+    if (typeof loaded === "string" && ["fertilizer", "pesticide", "soil_amendment", "other"].includes(loaded)) return loaded;
+    return null;
+  });
+  const [shedHasDefault, setShedHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultShed));
   const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [shedFilterOpen, setShedFilterOpen] = useState(false);
@@ -273,12 +285,14 @@ function VaultPageInner() {
   const [vaultStatusChips, setVaultStatusChips] = useState<{ value: StatusFilter; label: string; count: number }[]>([]);
 
   // Packet Vault (Seed Vault tab) — separate filters, tab-specific
+  type PacketFilterDefault = { status: string; vendor: string | null; sowMonth: string | null; sortBy: string; sortDirection: string };
   const [packetSearchQuery, setPacketSearchQuery] = useState("");
   const [packetStatusFilter, setPacketStatusFilter] = useState<PacketStatusFilter>("");
   const [packetVendorFilter, setPacketVendorFilter] = useState<string | null>(null);
   const [packetSortBy, setPacketSortBy] = useState<"date" | "variety" | "vendor" | "qty" | "rating">("date");
   const [packetSortDirection, setPacketSortDirection] = useState<"asc" | "desc">("desc");
   const [packetSowMonth, setPacketSowMonth] = useState<string | null>(null);
+  const [packetHasDefault, setPacketHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets));
   const [packetStatusChips, setPacketStatusChips] = useState<{ value: PacketStatusFilter; label: string; count: number }[]>([]);
   const [packetVendorChips, setPacketVendorChips] = useState<{ value: string; count: number }[]>([]);
 
@@ -295,9 +309,26 @@ function VaultPageInner() {
       if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace("/vault", { scroll: false });
     }, [sowParam, router]),
     isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
+    storageKey: FILTER_DEFAULT_KEYS.vaultProfiles,
   });
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
+
+  // Load packet filter defaults on mount
+  useEffect(() => {
+    const loaded = loadFilterDefault<PacketFilterDefault>(FILTER_DEFAULT_KEYS.vaultPackets);
+    if (!loaded || typeof loaded !== "object") return;
+    const status = typeof loaded.status === "string" ? (loaded.status as PacketStatusFilter) : "";
+    const vendor = typeof loaded.vendor === "string" ? loaded.vendor : loaded.vendor === null ? null : null;
+    const sowMonth = typeof loaded.sowMonth === "string" && /^\d{4}-\d{2}$/.test(loaded.sowMonth) ? loaded.sowMonth : null;
+    const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy : "date";
+    const sortDirection = loaded.sortDirection === "asc" || loaded.sortDirection === "desc" ? loaded.sortDirection : "desc";
+    setPacketStatusFilter(status);
+    setPacketVendorFilter(vendor);
+    setPacketSowMonth(sowMonth);
+    setPacketSortBy(sortBy);
+    setPacketSortDirection(sortDirection);
+  }, []);
 
   const shedCategoryFromUrl = searchParams.get("category");
   useEffect(() => {
@@ -1353,6 +1384,34 @@ function VaultPageInner() {
                 );
               })}
             </div>
+            <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveFilterDefault(FILTER_DEFAULT_KEYS.vaultShed, shedCategoryFilter);
+                    setShedHasDefault(true);
+                  }}
+                  className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                  aria-label="Save current filter as default"
+                >
+                  Save as default
+                </button>
+                {shedHasDefault && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearFilterDefault(FILTER_DEFAULT_KEYS.vaultShed);
+                      setShedHasDefault(false);
+                    }}
+                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
+                    aria-label="Clear saved default filter"
+                  >
+                    Clear default
+                  </button>
+                )}
+              </div>
+            </footer>
           </div>
         </>
       )}
@@ -1829,7 +1888,62 @@ function VaultPageInner() {
             </>
           )}
             </div>
-            <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3">
+            <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
+              {viewMode === "grid" ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={vaultFilters.saveAsDefault}
+                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                    aria-label="Save current filters as default"
+                  >
+                    Save as default
+                  </button>
+                  {vaultFilters.hasDefault && (
+                    <button
+                      type="button"
+                      onClick={vaultFilters.clearDefault}
+                      className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
+                      aria-label="Clear saved default filters"
+                    >
+                      Clear default
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets, {
+                        status: packetStatusFilter,
+                        vendor: packetVendorFilter,
+                        sowMonth: packetSowMonth,
+                        sortBy: packetSortBy,
+                        sortDirection: packetSortDirection,
+                      });
+                      setPacketHasDefault(true);
+                    }}
+                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                    aria-label="Save current filters as default"
+                  >
+                    Save as default
+                  </button>
+                  {packetHasDefault && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets);
+                        setPacketHasDefault(false);
+                      }}
+                      className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
+                      aria-label="Clear saved default filters"
+                    >
+                      Clear default
+                    </button>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}

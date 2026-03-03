@@ -9,6 +9,10 @@ const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
   { ssr: false }
 );
+const NewTaskModal = dynamic(
+  () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
+  { ssr: false }
+);
 const QuickAddSeed = dynamic(
   () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
   { ssr: false }
@@ -27,6 +31,10 @@ const AddPlantModal = dynamic(
 );
 const PurchaseOrderImport = dynamic(
   () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
+  { ssr: false }
+);
+const EditJournalModal = dynamic(
+  () => import("@/components/EditJournalModal").then((m) => ({ default: m.EditJournalModal })),
   { ssr: false }
 );
 import Image from "next/image";
@@ -295,6 +303,7 @@ export default function JournalPage() {
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
+  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
@@ -302,6 +311,7 @@ export default function JournalPage() {
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [editEntryId, setEditEntryId] = useState<string | null>(null);
   const skipPopOnNavigateRef = useRef(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
@@ -426,7 +436,7 @@ export default function JournalPage() {
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (entryIds: string[], plantProfileId?: string | null) => {
+    (entryIds: string[], plantProfileId?: string | null, ownerUserId?: string | null) => {
       const startLongPress = () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
@@ -455,11 +465,14 @@ export default function JournalPage() {
             toggleRowSelection(entryIds);
             return;
           }
-          // Navigation to plant profile is via plant pill click only
+          if (ownerUserId && canEditPage(ownerUserId, "journal") && entryIds.length > 0) {
+            e?.preventDefault?.();
+            setEditEntryId(entryIds[0]);
+          }
         },
       };
     },
-    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length, router]
+    [clearLongPressTimer, toggleRowSelection, selectedEntryIds.length, canEditPage]
   );
 
   function requestBulkDelete(ids: string[]) {
@@ -609,7 +622,7 @@ export default function JournalPage() {
               const row = item.row;
               const rowId = row.entryIds[0];
               const isExpanded = expandedNoteId === rowId;
-              const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
+              const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id, row.owner_user_id);
               const selected = isRowSelected(row.entryIds);
               return (
                 <article
@@ -699,7 +712,7 @@ export default function JournalPage() {
                   const row = item.row;
                   const rowId = row.entryIds[0];
                   const isExpanded = expandedNoteId === rowId;
-                  const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
+                  const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id, row.owner_user_id);
                   const selected = isRowSelected(row.entryIds);
                   return (
                     <tr
@@ -837,7 +850,7 @@ export default function JournalPage() {
                     : [];
             const hasImages = imageUrls.length > 0;
             const rowId = row.entryIds[0];
-            const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id);
+            const lp = getLongPressHandlers(row.entryIds, row.plant_profile_id, row.owner_user_id);
             const selected = isRowSelected(row.entryIds);
             return (
               <article
@@ -922,6 +935,22 @@ export default function JournalPage() {
         </div>
       )}
 
+      {editEntryId && (() => {
+        const entry = entries.find((e) => e.id === editEntryId) as (JournalEntryWithPlant & { photo_paths?: string[]; plant_profile_ids?: string[]; plant_display_names?: string[] }) | undefined;
+        if (!entry) return null;
+        return (
+          <EditJournalModal
+            entry={entry}
+            onClose={() => setEditEntryId(null)}
+            onSaved={() => {
+              setRefetchTrigger((t) => t + 1);
+              setEditEntryId(null);
+            }}
+            canEdit={canEditPage(entry.user_id ?? "", "journal")}
+          />
+        );
+      })()}
+
       {selectedEntryIds.length > 0 && !deleteConfirmEntryIds && (
         <div
           className="fixed left-4 right-4 z-30 flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-white border border-black/10 shadow-lg max-w-md mx-auto"
@@ -987,10 +1016,9 @@ export default function JournalPage() {
         aria-label={selectedEntryIds.length > 0 ? "Actions for selected" : universalAddMenuOpen ? "Close add menu" : "Add"}
       >
         {selectedEntryIds.length > 0 ? (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="12" cy="6" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="12" cy="18" r="1.5" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
+            <path d="M7 6l4 6-4 6" />
+            <path d="M13 6l4 6-4 6" />
           </svg>
         ) : (
           <svg
@@ -1039,15 +1067,21 @@ export default function JournalPage() {
             setShedQuickAddOpen(true);
           }}
           onAddTask={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/calendar?openTask=1");
+            setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
             skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
             router.push("/journal/new");
           }}
+        />
+      )}
+
+      {newTaskModalOpen && (
+        <NewTaskModal
+          open={newTaskModalOpen}
+          onClose={() => setNewTaskModalOpen(false)}
         />
       )}
 

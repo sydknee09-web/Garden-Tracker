@@ -52,6 +52,7 @@ export default function VaultShedDetailPage() {
   const [enriching, setEnriching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
+  const [shedSackFallbackFailed, setShedSackFallbackFailed] = useState(false);
 
   const categoryFromUrl = searchParams.get("category");
   const backHref = categoryFromUrl ? `/vault?tab=shed&category=${categoryFromUrl}` : "/vault?tab=shed";
@@ -122,6 +123,10 @@ export default function VaultShedDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [id, fetchSupply, fetchHistory]);
+
+  useEffect(() => {
+    setShedSackFallbackFailed(false);
+  }, [id]);
 
   // Fetch ordered supply IDs for swipe prev/next (updated_at desc, same as ShedView)
   useEffect(() => {
@@ -515,7 +520,11 @@ export default function VaultShedDetailPage() {
           </div>
         ) : canEdit ? (
           <div className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-3 p-6 bg-neutral-100 min-h-[44px]">
-            <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
+            {!shedSackFallbackFailed ? (
+              <img src="/shed-sack.png" alt="" className="w-24 h-24 object-contain" onError={() => setShedSackFallbackFailed(true)} />
+            ) : (
+              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
+            )}
             <button
               type="button"
               onClick={() => setShowSetPhotoModal(true)}
@@ -528,7 +537,11 @@ export default function VaultShedDetailPage() {
           </div>
         ) : (
           <div className="aspect-video bg-neutral-100 flex items-center justify-center">
-            <span className="text-4xl text-neutral-300" aria-hidden>📦</span>
+            {!shedSackFallbackFailed ? (
+              <img src="/shed-sack.png" alt="" className="w-full h-full object-contain" onError={() => setShedSackFallbackFailed(true)} />
+            ) : (
+              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" aria-hidden />
+            )}
           </div>
         )}
         <div className="p-4">

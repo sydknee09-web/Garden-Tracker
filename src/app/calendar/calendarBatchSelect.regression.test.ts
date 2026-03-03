@@ -20,21 +20,22 @@ import { join } from "path";
 
 const ROOT = process.cwd();
 const src = readFileSync(join(ROOT, "src/app/calendar/page.tsx"), "utf-8");
+const newTaskModalSrc = readFileSync(join(ROOT, "src/components/NewTaskModal.tsx"), "utf-8");
 
 // ---------------------------------------------------------------------------
-// Fix A — Submit button label
+// Fix A — Submit button label (now in NewTaskModal)
 // ---------------------------------------------------------------------------
 describe("Calendar submit button label consistency", () => {
   it("Submit button shows 'Save Task' for standard tasks", () => {
-    expect(src).toContain('"Save Task"');
+    expect(newTaskModalSrc).toContain('"Save Task"');
   });
 
   it("Submit button shows 'Save Recurring Task' for recurring tasks", () => {
-    expect(src).toContain('"Save Recurring Task"');
+    expect(newTaskModalSrc).toContain('"Save Recurring Task"');
   });
 
   it("Label is driven by an isRecurring conditional, not hardcoded", () => {
-    expect(src).toContain('isRecurring ? "Save Recurring Task" : "Save Task"');
+    expect(newTaskModalSrc).toContain('isRecurring ? "Save Recurring Task" : "Save Task"');
   });
 });
 
@@ -134,22 +135,22 @@ describe("Batch select — CalendarTaskRow component interface", () => {
 
   it("All CalendarTaskRow call sites pass selectMode", () => {
     const count = (src.match(/selectMode=\{selectMode\}/g) ?? []).length;
-    expect(count).toBe(2);
+    expect(count).toBe(3); // Overdue section + selectedDate view + date groups
   });
 
   it("All CalendarTaskRow call sites pass isSelected", () => {
     const count = (src.match(/isSelected=\{selectedIds\.has/g) ?? []).length;
-    expect(count).toBe(2);
+    expect(count).toBe(3);
   });
 
   it("All CalendarTaskRow call sites wire onLongPress to handleLongPressTask", () => {
     const count = (src.match(/onLongPress=\{/g) ?? []).length;
-    expect(count).toBe(2);
+    expect(count).toBe(3);
   });
 
   it("All CalendarTaskRow call sites wire onToggleSelect to toggleTaskSelect", () => {
     const count = (src.match(/onToggleSelect=\{/g) ?? []).length;
-    expect(count).toBe(2);
+    expect(count).toBe(3);
   });
 });
 
