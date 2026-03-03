@@ -3,8 +3,12 @@ import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser } from "@/app/api/import/auth";
 import { logApiError } from "@/lib/apiErrorLog";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { identityKeyFromVariety } from "@/lib/identityKey";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const maxDuration = 30;
+
+const CACHE_TTL_DAYS = 180;
 
 const CARE_PROMPT = `Using Google Search Grounding, find reliable gardening care information for this plant.
 
@@ -76,6 +80,58 @@ export async function POST(req: Request) {
 
     if (!profile) {
       return NextResponse.json({ error: "Profile not found or access denied" }, { status: 404 });
+    }
+
+    const identityKey = identityKeyFromVariety(name, variety);
+    const cacheCutoff = new Date();
+    cacheCutoff.setDate(cacheCutoff.getDate() - CACHE_TTL_DAYS);
+    const cacheCutoffIso = cacheCutoff.toISOString();
+
+    if (identityKey) {
+      const { data: cacheRow } = await auth.supabase
+        .from("care_recommendations_cache")
+        .select("id, tasks, created_at")
+        .eq("identity_key", identityKey)
+        .eq("profile_type", profileType)
+        .gte("created_at", cacheCutoffIso)
+        .maybeSingle();
+
+      if (cacheRow?.tasks && Array.isArray(cacheRow.tasks) && (cacheRow.tasks as CareSuggestionPayload[]).length > 0) {
+        const cachedTasks = cacheRow.tasks as CareSuggestionPayload[];
+        const inserts = cachedTasks.map((t) => ({
+          plant_profile_id: profileId,
+          user_id: auth.user.id,
+          title: t.title,
+          category: t.category,
+          recurrence_type: t.recurrence_type,
+          interval_days: t.interval_days,
+          notes: t.notes,
+        }));
+
+        const { data: inserted, error: insertErr } = await auth.supabase
+          .from("care_schedule_suggestions")
+          .insert(inserts)
+          .select("id, title, category, recurrence_type, interval_days, notes");
+
+        if (insertErr) {
+          logApiError("recommend-care-tasks-cache-insert", insertErr);
+          return NextResponse.json(
+            { suggestions: [], error: insertErr.message } satisfies RecommendCareTasksResponse,
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json({
+          suggestions: (inserted ?? []).map((r) => ({
+            id: r.id,
+            title: r.title,
+            category: r.category,
+            recurrence_type: r.recurrence_type,
+            interval_days: r.interval_days,
+            notes: r.notes,
+          })),
+        } satisfies RecommendCareTasksResponse & { suggestions: Array<CareSuggestionPayload & { id: string }> });
+      }
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
@@ -180,6 +236,25 @@ export async function POST(req: Request) {
         { suggestions: [], error: insertErr.message } satisfies RecommendCareTasksResponse,
         { status: 500 }
       );
+    }
+
+    if (identityKey && validTasks.length > 0) {
+      const admin = getSupabaseAdmin();
+      if (admin) {
+        const { error: upsertErr } = await admin
+          .from("care_recommendations_cache")
+          .upsert(
+            {
+              identity_key: identityKey,
+              profile_type: profileType,
+              tasks: validTasks,
+            },
+            { onConflict: "identity_key,profile_type" }
+          );
+        if (upsertErr) {
+          logApiError("recommend-care-tasks-cache-upsert", upsertErr);
+        }
+      }
     }
 
     logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "recommend-care-tasks" });
