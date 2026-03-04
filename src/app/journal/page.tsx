@@ -328,6 +328,12 @@ export default function JournalPage() {
     try { sessionStorage.setItem("journal-view-mode", viewMode); } catch { /* ignore */ }
   }, [viewMode]);
 
+  // Sync URL to view so back button restores the same view (mobile)
+  useEffect(() => {
+    if (viewFromUrl === viewMode) return;
+    router.replace(`/journal?view=${viewMode}`, { scroll: false });
+  }, [viewMode, viewFromUrl, router]);
+
   useEffect(() => {
     if (!user) {
       setEntries([]);
@@ -541,7 +547,10 @@ export default function JournalPage() {
               type="button"
               role="tab"
               aria-selected={viewMode === "table"}
-              onClick={() => setViewMode("table")}
+              onClick={() => {
+                setViewMode("table");
+                router.replace("/journal?view=table", { scroll: false });
+              }}
               className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "table" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Table view"
               aria-label="Table view"
@@ -552,7 +561,10 @@ export default function JournalPage() {
               type="button"
               role="tab"
               aria-selected={viewMode === "grid"}
-              onClick={() => setViewMode("grid")}
+              onClick={() => {
+                setViewMode("grid");
+                router.replace("/journal?view=grid", { scroll: false });
+              }}
               className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "grid" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Gallery view"
               aria-label="Gallery view"
@@ -563,7 +575,10 @@ export default function JournalPage() {
               type="button"
               role="tab"
               aria-selected={viewMode === "timeline"}
-              onClick={() => setViewMode("timeline")}
+              onClick={() => {
+                setViewMode("timeline");
+                router.replace("/journal?view=timeline", { scroll: false });
+              }}
               className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "timeline" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Timeline view"
               aria-label="Timeline view"

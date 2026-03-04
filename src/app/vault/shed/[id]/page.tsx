@@ -499,7 +499,7 @@ export default function VaultShedDetailPage() {
 
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
         {showThumb ? (
-          <div className="aspect-video bg-neutral-100 relative">
+          <div className="aspect-video bg-white relative">
             <img src={thumbUrl} alt="" className="w-full h-full object-contain" onError={() => setThumbLoadFailed(true)} />
             {canEdit && (
               <div className="absolute bottom-3 right-3">
@@ -519,7 +519,7 @@ export default function VaultShedDetailPage() {
             )}
           </div>
         ) : canEdit ? (
-          <div className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-3 p-6 bg-neutral-100 min-h-[44px]">
+          <div className="w-full aspect-video py-8 rounded-none border-0 border-b border-black/10 flex flex-col items-center justify-center gap-3 p-6 bg-white min-h-[44px]">
             {!shedSackFallbackFailed ? (
               <img src="/shed-sack.png" alt="" className="w-24 h-24 object-contain" onError={() => setShedSackFallbackFailed(true)} />
             ) : (
@@ -536,7 +536,7 @@ export default function VaultShedDetailPage() {
             </button>
           </div>
         ) : (
-          <div className="aspect-video bg-neutral-100 flex items-center justify-center">
+          <div className="aspect-video bg-white flex items-center justify-center">
             {!shedSackFallbackFailed ? (
               <img src="/shed-sack.png" alt="" className="w-full h-full object-contain" onError={() => setShedSackFallbackFailed(true)} />
             ) : (
