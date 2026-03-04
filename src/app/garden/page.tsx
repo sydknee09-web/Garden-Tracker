@@ -106,6 +106,28 @@ function GardenPageInner() {
     serialize: (v) => v,
     deserialize: (s) => (s === "asc" || s === "desc" ? s : "asc"),
   });
+  const activeSortRef = useRef(false);
+  const plantsSortRef = useRef(false);
+  useEffect(() => {
+    const ls = activeFilters.loadedSort;
+    if (ls && !activeSortRef.current) {
+      activeSortRef.current = true;
+      if (["name", "sown_date", "harvest_date"].includes(ls.sortBy)) {
+        setActiveSortBy(ls.sortBy as "name" | "sown_date" | "harvest_date");
+        setActiveSortDir(ls.sortDir);
+      }
+    }
+  }, [activeFilters.loadedSort, setActiveSortBy, setActiveSortDir]);
+  useEffect(() => {
+    const ls = plantsFilters.loadedSort;
+    if (ls && !plantsSortRef.current) {
+      plantsSortRef.current = true;
+      if (["name", "planted_date", "care_count"].includes(ls.sortBy)) {
+        setPlantsSortBy(ls.sortBy as "name" | "planted_date" | "care_count");
+        setPlantsSortDir(ls.sortDir);
+      }
+    }
+  }, [plantsFilters.loadedSort, setPlantsSortBy, setPlantsSortDir]);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
@@ -635,7 +657,7 @@ function GardenPageInner() {
         {refineByOpen && (
           <>
             <button type="button" className="fixed inset-0 z-50 bg-black/20" aria-label="Close" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} />
-            <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[51] bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[70vh]">
+            <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[51] bg-white rounded-2xl shadow-lg border border-black/10 flex flex-col max-h-[85vh] min-h-0">
               <header className="flex items-center justify-between gap-2 p-4 border-b border-black/10">
                 <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
                 <div className="flex items-center gap-1">
@@ -654,7 +676,7 @@ function GardenPageInner() {
                   </button>
                 </div>
               </header>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 <div className="border-b border-black/5">
                   <button
                     type="button"
@@ -874,24 +896,29 @@ function GardenPageInner() {
               <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
                 {(() => {
                   const f = effectiveViewMode === "active" ? activeFilters : plantsFilters;
+                  const sortBy = effectiveViewMode === "active" ? activeSortBy : plantsSortBy;
+                  const sortDir = effectiveViewMode === "active" ? activeSortDir : plantsSortDir;
+                  const handleSaveDefault = () => f.saveAsDefault({ sortBy, sortDir });
                   return (
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={f.saveAsDefault}
-                        className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                        aria-label="Save current filters as default"
-                      >
-                        Save as default
-                      </button>
+                      {!f.hasDefault && (
+                        <button
+                          type="button"
+                          onClick={handleSaveDefault}
+                          className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                          aria-label="Save current filters and sort as default"
+                        >
+                          Save Default
+                        </button>
+                      )}
                       {f.hasDefault && (
                         <button
                           type="button"
                           onClick={f.clearDefault}
                           className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                          aria-label="Clear saved default filters"
+                          aria-label="Remove saved default filters"
                         >
-                          Clear default
+                          Remove Default
                         </button>
                       )}
                     </div>

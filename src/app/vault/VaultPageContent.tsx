@@ -509,20 +509,26 @@ function VaultPageInner() {
       if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") vaultFilters.setStatus(savedStatus);
       const savedSearch = sessionStorage.getItem("vault-search");
       if (typeof savedSearch === "string") setSearchQuery(savedSearch);
-      const savedSort = sessionStorage.getItem("vault-sort");
-      if (savedSort) {
-        try {
-          const { sortBy: sb, sortDirection: sd } = JSON.parse(savedSort) as { sortBy?: string; sortDirection?: "asc" | "desc" };
-          if (sb === "purchase_date" || sb === "name" || sb === "date_added" || sb === "variety" || sb === "packet_count") setSortBy(sb);
-          if (sd === "asc" || sd === "desc") setSortDirection(sd);
-        } catch {
-          /* ignore */
+      const loadedSort = vaultFilters.loadedSort;
+      if (loadedSort && ["purchase_date", "name", "date_added", "variety", "packet_count"].includes(loadedSort.sortBy)) {
+        setSortBy(loadedSort.sortBy as VaultSortBy);
+        setSortDirection(loadedSort.sortDir);
+      } else {
+        const savedSort = sessionStorage.getItem("vault-sort");
+        if (savedSort) {
+          try {
+            const { sortBy: sb, sortDirection: sd } = JSON.parse(savedSort) as { sortBy?: string; sortDirection?: "asc" | "desc" };
+            if (sb === "purchase_date" || sb === "name" || sb === "date_added" || sb === "variety" || sb === "packet_count") setSortBy(sb);
+            if (sd === "asc" || sd === "desc") setSortDirection(sd);
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch {
       /* ignore */
     }
-  }, [searchParams, vaultFilters.setStatus]);
+  }, [searchParams, vaultFilters.setStatus, vaultFilters.loadedSort]);
 
   useEffect(() => {
     if (pathname) setLastNavSection(getNavSection(pathname));
@@ -1386,17 +1392,19 @@ function VaultPageInner() {
             </div>
             <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    saveFilterDefault(FILTER_DEFAULT_KEYS.vaultShed, shedCategoryFilter);
-                    setShedHasDefault(true);
-                  }}
-                  className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                  aria-label="Save current filter as default"
-                >
-                  Save as default
-                </button>
+                {!shedHasDefault && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveFilterDefault(FILTER_DEFAULT_KEYS.vaultShed, shedCategoryFilter);
+                      setShedHasDefault(true);
+                    }}
+                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                    aria-label="Save current filter as default"
+                  >
+                    Save Default
+                  </button>
+                )}
                 {shedHasDefault && (
                   <button
                     type="button"
@@ -1405,9 +1413,9 @@ function VaultPageInner() {
                       setShedHasDefault(false);
                     }}
                     className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                    aria-label="Clear saved default filter"
+                    aria-label="Remove saved default filter"
                   >
-                    Clear default
+                    Remove Default
                   </button>
                 )}
               </div>
@@ -1454,7 +1462,7 @@ function VaultPageInner() {
                 </button>
               </div>
             </header>
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+            <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
               {/* Content for Plant Profiles (grid) vs Seed Vault / Packets (list) — separate per tab */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
@@ -1891,44 +1899,48 @@ function VaultPageInner() {
             <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
               {viewMode === "grid" ? (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={vaultFilters.saveAsDefault}
-                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                    aria-label="Save current filters as default"
-                  >
-                    Save as default
-                  </button>
+                  {!vaultFilters.hasDefault && (
+                    <button
+                      type="button"
+                      onClick={() => vaultFilters.saveAsDefault({ sortBy, sortDirection })}
+                      className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                      aria-label="Save current filters and sort as default"
+                    >
+                      Save Default
+                    </button>
+                  )}
                   {vaultFilters.hasDefault && (
                     <button
                       type="button"
                       onClick={vaultFilters.clearDefault}
                       className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                      aria-label="Clear saved default filters"
+                      aria-label="Remove saved default filters"
                     >
-                      Clear default
+                      Remove Default
                     </button>
                   )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      saveFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets, {
-                        status: packetStatusFilter,
-                        vendor: packetVendorFilter,
-                        sowMonth: packetSowMonth,
-                        sortBy: packetSortBy,
-                        sortDirection: packetSortDirection,
-                      });
-                      setPacketHasDefault(true);
-                    }}
-                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                    aria-label="Save current filters as default"
-                  >
-                    Save as default
-                  </button>
+                  {!packetHasDefault && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        saveFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets, {
+                          status: packetStatusFilter,
+                          vendor: packetVendorFilter,
+                          sowMonth: packetSowMonth,
+                          sortBy: packetSortBy,
+                          sortDirection: packetSortDirection,
+                        });
+                        setPacketHasDefault(true);
+                      }}
+                      className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                      aria-label="Save current filters and sort as default"
+                    >
+                      Save Default
+                    </button>
+                  )}
                   {packetHasDefault && (
                     <button
                       type="button"
@@ -1937,9 +1949,9 @@ function VaultPageInner() {
                         setPacketHasDefault(false);
                       }}
                       className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                      aria-label="Clear saved default filters"
+                      aria-label="Remove saved default filters"
                     >
-                      Clear default
+                      Remove Default
                     </button>
                   )}
                 </div>

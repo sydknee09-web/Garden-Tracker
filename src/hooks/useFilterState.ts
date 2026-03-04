@@ -98,6 +98,15 @@ function normalizeVaultLoaded(raw: unknown): VaultFilterValues | null {
   };
 }
 
+function extractSortFromLoaded(raw: unknown): { sortBy: string; sortDir: "asc" | "desc" } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const sortBy = typeof o.sortBy === "string" ? o.sortBy : null;
+  const sortDir = o.sortDir === "asc" || o.sortDir === "desc" ? o.sortDir : o.sortDirection === "asc" || o.sortDirection === "desc" ? o.sortDirection : null;
+  if (sortBy && sortDir) return { sortBy, sortDir };
+  return null;
+}
+
 export type UseFilterStateOptions<T extends FilterSchema> = {
   schema: T;
   /** Called after clearing filters (e.g. router.replace to clear URL params). */
@@ -122,9 +131,10 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
-      saveAsDefault: () => void;
+      saveAsDefault: (extended?: { sortBy?: string; sortDir?: "asc" | "desc" }) => void;
       clearDefault: () => void;
       hasDefault: boolean;
+      loadedSort: { sortBy: string; sortDir: "asc" | "desc" } | null;
     }
   : {
       filters: VaultFilterValues;
@@ -142,9 +152,10 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
-      saveAsDefault: () => void;
+      saveAsDefault: (extended?: { sortBy?: string; sortDirection?: "asc" | "desc" }) => void;
       clearDefault: () => void;
       hasDefault: boolean;
+      loadedSort: { sortBy: string; sortDir: "asc" | "desc" } | null;
     };
 
 export function useFilterState<T extends FilterSchema>(
@@ -174,9 +185,9 @@ export function useFilterState<T extends FilterSchema>(
     onClear?.();
   }, [empty, onClear]);
 
-  const saveAsDefault = useCallback(() => {
+  const saveAsDefault = useCallback((extended?: { sortBy?: string; sortDir?: "asc" | "desc" }) => {
     if (storageKey) {
-      saveFilterDefault(storageKey, filters);
+      saveFilterDefault(storageKey, { ...filters, ...extended });
       setDefaultSaved(true);
     }
   }, [storageKey, filters]);
@@ -242,6 +253,10 @@ export function useFilterState<T extends FilterSchema>(
 
   const hasDefault = storageKey ? defaultSaved : false;
 
+  const [loadedSort] = useState<{ sortBy: string; sortDir: "asc" | "desc" } | null>(() =>
+    storageKey && (schema === "garden" || schema === "vault") ? extractSortFromLoaded(loadFilterDefault(storageKey)) : null
+  );
+
   return {
     filters: filters as T extends "garden" ? GardenFilterValues : VaultFilterValues,
     setCategory,
@@ -259,5 +274,6 @@ export function useFilterState<T extends FilterSchema>(
     saveAsDefault,
     clearDefault,
     hasDefault,
+    ...(schema === "garden" || schema === "vault" ? { loadedSort: loadedSort ?? null } : {}),
   } as UseFilterStateReturn<T>;
 }
