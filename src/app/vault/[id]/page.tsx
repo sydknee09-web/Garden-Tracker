@@ -1547,10 +1547,14 @@ export default function VaultSeedPage() {
                     onClick={handleFillBlanks}
                     disabled={fillBlanksRunning}
                     className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                    aria-label="Fill blank info from cache or AI"
-                    title="Fill blank info"
+                    aria-label={fillBlanksRunning ? "Filling blanks…" : "Fill blank info from cache or AI"}
+                    title={fillBlanksRunning ? "Filling blanks…" : "Fill blank info"}
                   >
-                    <SparkleIcon />
+                    {fillBlanksRunning ? (
+                      <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                    ) : (
+                      <SparkleIcon />
+                    )}
                   </button>
                 )}
                 <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
