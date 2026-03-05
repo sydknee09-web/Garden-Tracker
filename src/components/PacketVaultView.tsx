@@ -426,8 +426,9 @@ export function PacketVaultView({
   }, [packetVendorChips, onPacketVendorChipsLoaded]);
 
   useEffect(() => {
-    onEmptyStateChange?.(sortedPackets.length === 0 && !loading);
-  }, [sortedPackets.length, loading, onEmptyStateChange]);
+    // Use packets.length (unfiltered), not sortedPackets.length — toolbar must stay visible when search/filters return 0 so user can clear
+    onEmptyStateChange?.(packets.length === 0 && !loading);
+  }, [packets.length, loading, onEmptyStateChange]);
 
   const goToProfile = useCallback((profileId: string) => {
     router.push(`/vault/${profileId}`);

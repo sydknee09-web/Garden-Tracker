@@ -535,8 +535,8 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 relative">
-            <div className="absolute inset-0 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 min-h-0 relative flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             {!addToExistingProfile && (
               <div className="flex gap-2">
                 <button
