@@ -155,6 +155,7 @@ function GardenPageInner() {
   const [logGrowthError, setLogGrowthError] = useState<string | null>(null);
   const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
   const quickAddFileRef = useRef<HTMLInputElement>(null);
+  const quickAddGalleryRef = useRef<HTMLInputElement>(null);
   const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
   const myPlantsRef = useRef<MyPlantsViewHandle | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -1116,13 +1117,17 @@ function GardenPageInner() {
               <div>
                 <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional)</label>
                 <input ref={quickAddFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setQuickAddPhoto(f); setQuickAddPhotoPreview(URL.createObjectURL(f)); } e.target.value = ""; }} />
+                <input ref={quickAddGalleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setQuickAddPhoto(f); setQuickAddPhotoPreview(URL.createObjectURL(f)); } e.target.value = ""; }} />
                 {quickAddPhotoPreview ? (
                   <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
                     <img src={quickAddPhotoPreview} alt="" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => { setQuickAddPhoto(null); if (quickAddPhotoPreview) URL.revokeObjectURL(quickAddPhotoPreview); setQuickAddPhotoPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => quickAddFileRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Take photo or choose from files</button>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => quickAddFileRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take photo</button>
+                    <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From gallery</button>
+                  </div>
                 )}
               </div>
               {quickAddError && <p className="text-sm text-red-600" role="alert">{quickAddError}</p>}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -27,6 +27,8 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoGalleryRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,10 +124,23 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
           {/* Photo */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Victory Photo</label>
-            <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="text-sm" />
-            {photoPreview && (
-              <div className="mt-2 w-full max-w-[200px] rounded-lg overflow-hidden bg-neutral-100">
-                <img src={photoPreview} alt="Preview" className="w-full h-auto object-cover" />
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="sr-only" aria-label="Take harvest photo" />
+            <input ref={photoGalleryRef} type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" aria-label="Choose harvest photo from gallery" />
+            {photoPreview ? (
+              <div className="space-y-2">
+                <div className="w-full max-w-[200px] rounded-lg overflow-hidden bg-neutral-100">
+                  <img src={photoPreview} alt="Preview" className="w-full h-auto object-cover" />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => photoInputRef.current?.click()} className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]">Replace (camera)</button>
+                  <button type="button" onClick={() => photoGalleryRef.current?.click()} className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]">Replace (gallery)</button>
+                  <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); }} className="text-sm font-medium text-neutral-500 hover:underline min-h-[44px]">Remove</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button type="button" onClick={() => photoInputRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Take photo</button>
+                <button type="button" onClick={() => photoGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">From gallery</button>
               </div>
             )}
           </div>

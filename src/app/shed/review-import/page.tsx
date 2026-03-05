@@ -32,6 +32,7 @@ export default function ShedReviewImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [itemPhotos, setItemPhotos] = useState<Record<string, { file: File; previewUrl: string }>>({});
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const photoGalleryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     const data = getSupplyReviewData();
@@ -235,7 +236,14 @@ export default function ShedReviewImportPage() {
                           onClick={() => photoInputRefs.current[item.id]?.click()}
                           className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
                         >
-                          Replace
+                          Replace (camera)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => photoGalleryInputRefs.current[item.id]?.click()}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Replace (gallery)
                         </button>
                         <button
                           type="button"
@@ -247,14 +255,22 @@ export default function ShedReviewImportPage() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => photoInputRefs.current[item.id]?.click()}
-                      className="min-w-[44px] min-h-[44px] w-full py-4 rounded-lg border-2 border-dashed border-black/15 text-black/50 hover:border-emerald/40 hover:text-emerald-600 flex flex-col items-center justify-center gap-1 text-sm font-medium"
-                    >
-                      <span aria-hidden>📷</span>
-                      Add photo
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => photoInputRefs.current[item.id]?.click()}
+                        className="flex-1 min-h-[44px] py-3 rounded-lg border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
+                      >
+                        Take photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => photoGalleryInputRefs.current[item.id]?.click()}
+                        className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
+                      >
+                        From gallery
+                      </button>
+                    </div>
                   )}
                   <input
                     ref={(el) => { photoInputRefs.current[item.id] = el; }}
@@ -263,7 +279,15 @@ export default function ShedReviewImportPage() {
                     capture="environment"
                     className="sr-only"
                     onChange={(e) => handleItemPhotoChange(item.id, e)}
-                    aria-label="Add product photo"
+                    aria-label="Take product photo"
+                  />
+                  <input
+                    ref={(el) => { photoGalleryInputRefs.current[item.id] = el; }}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => handleItemPhotoChange(item.id, e)}
+                    aria-label="Choose product photo from gallery"
                   />
                 </div>
                 <div>

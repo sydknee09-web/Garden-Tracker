@@ -535,8 +535,8 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 relative flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative">
+            <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
             {!addToExistingProfile && (
               <div className="flex gap-2">
                 <button
@@ -788,8 +788,6 @@ export function AddPlantModal({
             </div>
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-            </div>
-            <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
           </div>
           <div className="flex-shrink-0 p-4 border-t border-neutral-200 flex gap-3 justify-end">
             <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">

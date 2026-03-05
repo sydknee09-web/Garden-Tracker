@@ -49,7 +49,9 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const photoExtractInputRef = useRef<HTMLInputElement>(null);
+  const photoExtractGalleryInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!initialData?.id;
   const storedImagePath = importedImagePath ?? initialData?.primary_image_path?.trim();
@@ -424,13 +426,22 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             </div>
             <div className="flex gap-2">
               {!photoExtractPreview ? (
-                <button
-                  type="button"
-                  onClick={() => photoExtractInputRef.current?.click()}
-                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
-                >
-                  Take or choose photo
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => photoExtractInputRef.current?.click()}
+                    className="flex-1 py-3 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
+                  >
+                    Take photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => photoExtractGalleryInputRef.current?.click()}
+                    className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                  >
+                    From gallery
+                  </button>
+                </>
               ) : (
                 <>
                   <button type="button" onClick={() => photoExtractInputRef.current?.click()} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
@@ -454,7 +465,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               capture="environment"
               className="sr-only"
               onChange={handlePhotoExtractFileChange}
-              aria-label="Product photo"
+              aria-label="Take product photo"
+            />
+            <input
+              ref={photoExtractGalleryInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handlePhotoExtractFileChange}
+              aria-label="Choose product photo from gallery"
             />
             <button type="button" onClick={() => setScreen("choose")} className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
               Back
@@ -473,7 +492,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
             accept="image/*"
             capture="environment"
             className="sr-only"
-            aria-label="Add product photo"
+            aria-label="Take product photo"
+            onChange={handlePhotoChange}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            aria-label="Choose product photo from gallery"
             onChange={handlePhotoChange}
           />
           <div>
@@ -539,14 +566,22 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border-2 border-dashed border-black/15 text-black/50 hover:border-emerald/40 hover:text-emerald-600 flex flex-col items-center justify-center gap-1 text-sm font-medium"
-              >
-                <span aria-hidden>📷</span>
-                Take or choose photo
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
+                >
+                  Take photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
+                >
+                  From gallery
+                </button>
+              </div>
             )}
           </div>
           <div>
