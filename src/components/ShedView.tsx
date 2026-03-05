@@ -12,6 +12,7 @@ import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
+import { NoMatchCard } from "@/components/NoMatchCard";
 
 /** Renders product thumb, or shed-sack.png for items without photos, or ShedSupplyIcon on load error. */
 const SHED_FALLBACK_IMAGE = "/shed-sack.png";
@@ -285,18 +286,12 @@ export function ShedView({
       {loading ? (
         <p className="text-neutral-500 py-8">Loading…</p>
       ) : filteredSupplies.length === 0 ? (
-        <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
-          {supplies.length === 0 && (
+        supplies.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
             <div className="flex justify-center mb-4" aria-hidden>
               <ShedSupplyIcon className="w-16 h-16 text-neutral-300" />
             </div>
-          )}
-          <p className="text-neutral-600 mb-4">
-            {supplies.length === 0
-              ? "No supplies yet. Add fertilizers, pesticides, or other products to track usage and instructions."
-              : "No supplies match your filters."}
-          </p>
-          {supplies.length === 0 && (
+            <p className="text-black/70 font-medium mb-4">No supplies yet. Add fertilizers, pesticides, or other products to track usage and instructions.</p>
             <button
               type="button"
               onClick={() => setQuickAddOpen(true)}
@@ -304,8 +299,10 @@ export function ShedView({
             >
               Add your first supply
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <NoMatchCard message="No supplies match your search or filters." />
+        )
       ) : displayStyle === "list" ? (
         <div className="rounded-xl border border-black/10 bg-white overflow-hidden [&_a]:pointer-events-auto">
           <ul className="divide-y divide-black/5" role="list">

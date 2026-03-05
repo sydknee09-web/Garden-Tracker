@@ -11,6 +11,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { NoMatchCard } from "@/components/NoMatchCard";
 import type { WeatherSnapshotData } from "@/types/garden";
 
 const LONG_PRESS_MS = 500;
@@ -957,24 +958,28 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       {/* Growing batches */}
       <section>
         {filteredBySearch.length === 0 && filteredPending.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-            <div className="flex justify-center mb-4" aria-hidden>
-              <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-300" aria-hidden>
-                <rect x="6" y="36" width="52" height="22" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                <path d="M10 36V26c0-2 2-4 4-4h36c2 0 4 2 4 4v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                <path d="M18 50v-2M32 50v-2M46 50v-2" stroke="#78716c" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-                <path d="M28 18c0-2 2-4 4-4s4 2 4 4-2 4-4 4-4-2-4-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
-              </svg>
+          growing.length === 0 && pending.length === 0 ? (
+            <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+              <div className="flex justify-center mb-4" aria-hidden>
+                <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-300" aria-hidden>
+                  <rect x="6" y="36" width="52" height="22" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M10 36V26c0-2 2-4 4-4h36c2 0 4 2 4 4v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  <path d="M18 50v-2M32 50v-2M46 50v-2" stroke="#78716c" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                  <path d="M28 18c0-2 2-4 4-4s4 2 4 4-2 4-4 4-4-2-4-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
+                </svg>
+              </div>
+              <p className="text-black/70 font-medium mb-2">Your garden is ready for its first seeds.</p>
+              <p className="text-sm text-black/50 mb-6">You haven&apos;t planted anything yet.</p>
+              <Link
+                href="/vault"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+              >
+                Go to Seed Vault
+              </Link>
             </div>
-            <p className="text-black/70 font-medium mb-2">Your garden is ready for its first seeds.</p>
-            <p className="text-sm text-black/50 mb-6">You haven&apos;t planted anything yet.</p>
-            <Link
-              href="/vault"
-              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
-            >
-              Go to Seed Vault
-            </Link>
-          </div>
+          ) : (
+            <NoMatchCard message="No plantings match your search or filters." />
+          )
         ) : highlightGrowId && displayBatches.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
             <p className="text-black/70 font-medium mb-2">Planting not found</p>

@@ -273,6 +273,12 @@ function GardenPageInner() {
     if (profileParam) router.replace("/garden?tab=plants");
   }, [plantsFilters.clearAllFilters, profileParam, router]);
 
+  const clearPlantsSearchAndFilters = useCallback(() => {
+    setPlantsSearchQuery("");
+    plantsFilters.clearAllFilters();
+    if (profileParam) router.replace("/garden?tab=plants");
+  }, [plantsFilters.clearAllFilters, profileParam, router]);
+
   const clearGrowView = useCallback(() => {
     if (growParam) router.replace("/garden?tab=active");
   }, [growParam, router]);
@@ -987,6 +993,7 @@ function GardenPageInner() {
               }}
               onProfileFilterEmpty={() => setProfileFilterEmpty(true)}
               onClearProfileFilter={clearProfileFilter}
+              onClearFilters={clearPlantsSearchAndFilters}
               onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
               varietyFilter={plantsFilters.filters.variety}
               sunFilter={plantsFilters.filters.sun}

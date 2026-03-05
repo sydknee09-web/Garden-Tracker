@@ -11,6 +11,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { NoMatchCard } from "@/components/NoMatchCard";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -80,6 +81,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   onProfileFilterEmpty?: () => void;
   /** Called by parent to clear profile filter; used for empty-state Clear button when filter returns 0 results. */
   onClearProfileFilter?: () => void;
+  /** Called to clear search + filters when no match (e.g. from Filter panel). Parent clears search query and filter state. */
+  onClearFilters?: () => void;
   onRefineChipsLoaded?: (chips: {
     variety: { value: string; count: number }[];
     sun: { value: string; count: number }[];
@@ -118,6 +121,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   onProfileFilteredPlantName,
   onProfileFilterEmpty,
   onClearProfileFilter,
+  onClearFilters,
   onRefineChipsLoaded,
   onFilteredCountChange,
   onEmptyStateChange,
@@ -674,18 +678,12 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
             Add a Perennial
           </button>
         </div>
-      ) : profileIdFilter && sortedPlants.length === 0 ? (
-        <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-          <p className="text-black/70 font-medium mb-2">No plants match this filter</p>
-          <p className="text-sm text-black/50 mb-6">This plant may have been removed or doesn&apos;t appear in My Plants.</p>
-          <button
-            type="button"
-            onClick={onClearProfileFilter}
-            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
-          >
-            Clear filter
-          </button>
-        </div>
+      ) : sortedPlants.length === 0 ? (
+        <NoMatchCard
+          message="No plants match your search or filters."
+          actionLabel={profileIdFilter ? "Clear filter" : onClearFilters ? "Clear filters" : undefined}
+          onAction={profileIdFilter ? onClearProfileFilter : onClearFilters}
+        />
       ) : (
         <>
           {batchSelectMode && selectedGrowIds.size > 0 && (
