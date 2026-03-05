@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
+import { BatchAddSupply } from "@/components/BatchAddSupply";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
@@ -98,6 +99,7 @@ export function ShedView({
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
   const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("list");
@@ -455,7 +457,22 @@ export function ShedView({
         open={quickAddOpen}
         onClose={() => setQuickAddOpen(false)}
         onSuccess={handleAddSuccess}
+        onOpenBatchPhotoImport={() => {
+          setQuickAddOpen(false);
+          setBatchAddSupplyOpen(true);
+        }}
       />
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => {
+            handleAddSuccess();
+            setBatchAddSupplyOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

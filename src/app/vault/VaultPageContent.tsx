@@ -33,6 +33,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const BatchAddSupply = dynamic(
+  () => import("@/components/BatchAddSupply").then((m) => ({ default: m.BatchAddSupply })),
+  { ssr: false }
+);
 const PurchaseOrderImport = dynamic(
   () => import("@/components/PurchaseOrderImport").then((m) => ({ default: m.PurchaseOrderImport })),
   { ssr: false }
@@ -198,6 +202,7 @@ function VaultPageInner() {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
@@ -210,7 +215,7 @@ function VaultPageInner() {
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || batchAddSupplyOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
@@ -218,6 +223,7 @@ function VaultPageInner() {
     setBatchAddOpen(false);
     setPurchaseOrderOpen(false);
     setShedQuickAddOpen(false);
+    setBatchAddSupplyOpen(false);
     setUniversalAddMenuOpen(false);
     setShowAddPlantModal(false);
     setNewTaskModalOpen(false);
@@ -2718,7 +2724,20 @@ function VaultPageInner() {
           setPurchaseOrderMode("supply");
           setPurchaseOrderOpen(true);
         }}
+        onOpenBatchPhotoImport={() => {
+          skipPopOnNavigateRef.current = true;
+          setShedQuickAddOpen(false);
+          setBatchAddSupplyOpen(true);
+        }}
       />
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        />
+      )}
 
       {showAddPlantModal && (
         <AddPlantModal

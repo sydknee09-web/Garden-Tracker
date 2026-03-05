@@ -135,6 +135,8 @@ export default function ShedReviewImportPage() {
             .from("journal-photos")
             .upload(path, blob, { contentType: "image/jpeg", upsert: false });
           if (!uploadErr) primaryImagePath = path;
+        } else if (item.primary_image_path) {
+          primaryImagePath = item.primary_image_path;
         }
         const vendorVal = (item.vendor ?? "").trim() || (orig?.vendor ?? "").trim();
         const vendorNote = vendorVal ? `Vendor: ${vendorVal}` : null;
@@ -248,6 +250,40 @@ export default function ShedReviewImportPage() {
                         <button
                           type="button"
                           onClick={() => removeItemPhoto(item.id)}
+                          className="text-sm font-medium text-amber-600 hover:underline min-h-[44px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : item.primary_image_path ? (
+                    <div className="space-y-2">
+                      <img
+                        src={supabase.storage.from("journal-photos").getPublicUrl(item.primary_image_path).data.publicUrl}
+                        alt=""
+                        className="w-full rounded-lg object-cover aspect-video max-h-32 bg-neutral-100"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => photoInputRefs.current[item.id]?.click()}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Replace (camera)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => photoGalleryInputRefs.current[item.id]?.click()}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Replace (gallery)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeItemPhoto(item.id);
+                            updateItem(item.id, { primary_image_path: undefined });
+                          }}
                           className="text-sm font-medium text-amber-600 hover:underline min-h-[44px]"
                         >
                           Remove

@@ -15,6 +15,8 @@ export type SupplyReviewItem = {
   vendor: string;
   quantity: number;
   price?: string;
+  /** Storage path for product photo (e.g. from batch photo extraction). */
+  primary_image_path?: string;
 };
 
 export type SupplyReviewData = {

@@ -25,6 +25,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const BatchAddSupply = dynamic(
+  () => import("@/components/BatchAddSupply").then((m) => ({ default: m.BatchAddSupply })),
+  { ssr: false }
+);
 const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
@@ -174,6 +178,7 @@ function GardenPageInner() {
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
@@ -1244,6 +1249,19 @@ function GardenPageInner() {
             setPurchaseOrderMode("supply");
             setPurchaseOrderOpen(true);
           }}
+          onOpenBatchPhotoImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setShedQuickAddOpen(false);
+            setBatchAddSupplyOpen(true);
+          }}
+        />
+      )}
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
       )}
 

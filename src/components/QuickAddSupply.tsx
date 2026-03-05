@@ -21,9 +21,11 @@ interface QuickAddSupplyProps {
   initialData?: SupplyProfile | null;
   /** Open Purchase Order import (screenshot of cart/order with supplies); parent should close this and open PurchaseOrderImport with mode="supply". */
   onOpenPurchaseOrder?: () => void;
+  /** Open batch photo import (multiple photos, extract each, review all); parent should close this and open BatchAddSupply. */
+  onOpenBatchPhotoImport?: () => void;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder }: QuickAddSupplyProps) {
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder, onOpenBatchPhotoImport }: QuickAddSupplyProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddSupplyScreen>("choose");
   const [name, setName] = useState("");
@@ -358,8 +360,18 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
-              Photo Import
+              Photo Import (single)
             </button>
+            {onOpenBatchPhotoImport && (
+              <button
+                type="button"
+                onClick={() => { onClose(); onOpenBatchPhotoImport(); }}
+                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              >
+                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
+                Import from Photos (batch)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setScreen("link")}

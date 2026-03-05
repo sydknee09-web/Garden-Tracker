@@ -25,7 +25,7 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 |--------|---------------------|
 | **Add Seed Packet** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
 | **Add plant** | Screen 2: Manual Entry \| Start Seeds |
-| **Add to shed** | Opens QuickAddSupply (Manual / Photo / Link / Purchase Order) |
+| **Add to shed** | Opens QuickAddSupply (Manual / Photo Import single / Import from Photos batch / Link / Purchase Order) |
 | **Add task** | Opens New Task modal on current page (no navigation). Calendar also supports `?openTask=1` URL param. |
 | **Add journal** | Navigate to `/journal/new` |
 
@@ -286,3 +286,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-02 | Calendar: Added Overdue section at top showing tasks with due_date < today and completed_at = null. Collapsible, amber styling. |
 | 2025-03-02 | Home: Planting calendars (zone charts, SDSC, Farmers' Almanac) moved to /resources. Planting Schedule section stays on home with link to Resources. Settings: Added Resources link. |
 | 2025-03-02 | Journal: Short tap on entry (when not selecting) opens Edit Journal modal. Editable: note, photos; plants editable except for planting entries (read-only). Respects canEditPage for household view. |
+| 2025-03-03 | Add to shed: Added "Import from Photos (batch)" option. User can add multiple photos, extract each via AI, then review all at /shed/review-import before saving. Single-photo import retained. SupplyReviewItem extended with primary_image_path for batch-extracted photos. |

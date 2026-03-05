@@ -27,6 +27,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const BatchAddSupply = dynamic(
+  () => import("@/components/BatchAddSupply").then((m) => ({ default: m.BatchAddSupply })),
+  { ssr: false }
+);
 const AddPlantModal = dynamic(
   () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
   { ssr: false }
@@ -109,6 +113,7 @@ export default function HomePage() {
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
+  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
@@ -700,6 +705,19 @@ export default function HomePage() {
             setPurchaseOrderMode("supply");
             setPurchaseOrderOpen(true);
           }}
+          onOpenBatchPhotoImport={() => {
+            skipPopOnNavigateRef.current = true;
+            setShedQuickAddOpen(false);
+            setBatchAddSupplyOpen(true);
+          }}
+        />
+      )}
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
         />
       )}
 
