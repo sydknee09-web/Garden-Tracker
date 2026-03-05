@@ -97,8 +97,11 @@ export function UniversalAddMenu({
     <>
       <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={onClose} />
       <div
-        className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
-        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        className="fixed left-4 right-4 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        style={{
+          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"

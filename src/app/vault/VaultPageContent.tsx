@@ -1413,9 +1413,9 @@ function VaultPageInner() {
                       setShedHasDefault(false);
                     }}
                     className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                    aria-label="Remove saved default filter"
+                    aria-label="Reset saved default filter"
                   >
-                    Remove Default
+                    Reset Default
                   </button>
                 )}
               </div>
@@ -1914,9 +1914,9 @@ function VaultPageInner() {
                       type="button"
                       onClick={vaultFilters.clearDefault}
                       className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                      aria-label="Remove saved default filters"
+                      aria-label="Reset saved default filters"
                     >
-                      Remove Default
+                      Reset Default
                     </button>
                   )}
                 </div>
@@ -1949,9 +1949,9 @@ function VaultPageInner() {
                         setPacketHasDefault(false);
                       }}
                       className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                      aria-label="Remove saved default filters"
+                      aria-label="Reset saved default filters"
                     >
-                      Remove Default
+                      Reset Default
                     </button>
                   )}
                 </div>

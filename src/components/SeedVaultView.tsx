@@ -38,6 +38,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 import { StarRating } from "@/components/StarRating";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
+import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
@@ -1129,20 +1130,19 @@ export function SeedVaultView({
 
   if (filteredSeeds.length === 0) {
     const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || categoryFilter !== null);
-    const emptyFilteredMessage = mode === "grid"
-      ? "No plant profiles match your search or filters. Try changing filters or search."
-      : "No seeds match your search or filters. Try changing filters or search.";
+    if (hasFilters) {
+      const message = mode === "grid"
+        ? "No plant profiles match your search or filters."
+        : "No packets match your search or filters.";
+      return <NoMatchCard message={message} />;
+    }
     const emptyVaultMessage = mode === "grid"
       ? "No plant profiles yet. Add your first variety to get started."
       : "No seeds yet. Add your first packet to get started.";
     return (
-      <div className="rounded-card-lg bg-white p-6 shadow-card border border-black/5 text-center max-w-md mx-auto">
-        <p className="text-slate-600 mb-4">
-          {hasFilters
-            ? emptyFilteredMessage
-            : emptyVaultMessage}
-        </p>
-        {!hasFilters && onAddFirst && (
+      <div className="rounded-2xl bg-white p-8 shadow-card border border-black/10 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+        <p className="text-black/70 font-medium mb-4">{emptyVaultMessage}</p>
+        {onAddFirst && (
           <button
             type="button"
             onClick={onAddFirst}

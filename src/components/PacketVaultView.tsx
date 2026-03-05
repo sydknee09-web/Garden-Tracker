@@ -30,6 +30,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 import { StarRating } from "@/components/StarRating";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { VaultListSkeleton } from "@/components/PageSkeleton";
+import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PacketStatusFilter } from "@/types/vault";
 
 export type { PacketStatusFilter };
@@ -458,14 +459,13 @@ export function PacketVaultView({
 
   if (sortedPackets.length === 0) {
     const hasFilters = !!(q || statusFilter || vendorFilter || (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)));
+    if (hasFilters) {
+      return <NoMatchCard message="No packets match your search or filters." />;
+    }
     return (
-      <div className="rounded-card-lg bg-white p-6 shadow-card border border-black/5 text-center max-w-md mx-auto">
-        <p className="text-slate-600 mb-4">
-          {hasFilters
-            ? "No packets match your search or filters. Try changing filters or search."
-            : "No packets yet. Add your first packet to get started."}
-        </p>
-        {!hasFilters && onAddFirst && (
+      <div className="rounded-2xl bg-white p-8 shadow-card border border-black/10 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+        <p className="text-black/70 font-medium mb-4">No packets yet. Add your first packet to get started.</p>
+        {onAddFirst && (
           <button
             type="button"
             onClick={onAddFirst}
