@@ -137,18 +137,6 @@ export default function JournalNewPage() {
     });
   }, []);
 
-  const movePhoto = useCallback((id: string, direction: "left" | "right") => {
-    setPhotos((prev) => {
-      const i = prev.findIndex((p) => p.id === id);
-      if (i < 0) return prev;
-      const j = direction === "left" ? i - 1 : i + 1;
-      if (j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
-  }, []);
-
   const captureFromWebcam = useCallback(() => {
     const video = videoRef.current;
     if (!video || !streamRef.current) return;
@@ -368,14 +356,17 @@ export default function JournalNewPage() {
             <>
               {photos.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {photos.map((p, idx) => (
-                    <div key={p.id} className="relative group">
-                      <img src={p.previewUrl} alt="" className="w-20 h-20 rounded-lg object-cover bg-black/5" />
-                      <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/40 rounded-lg transition-opacity">
-                        <button type="button" onClick={() => movePhoto(p.id, "left")} disabled={idx === 0} className="min-w-[32px] min-h-[32px] rounded bg-white/90 text-black text-xs font-bold disabled:opacity-40" aria-label="Move left">‹</button>
-                        <button type="button" onClick={() => removePhoto(p.id)} className="min-w-[32px] min-h-[32px] rounded bg-red-500 text-white text-xs font-bold" aria-label="Remove">×</button>
-                        <button type="button" onClick={() => movePhoto(p.id, "right")} disabled={idx === photos.length - 1} className="min-w-[32px] min-h-[32px] rounded bg-white/90 text-black text-xs font-bold disabled:opacity-40" aria-label="Move right">›</button>
-                      </div>
+                  {photos.map((p) => (
+                    <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5 flex-shrink-0">
+                      <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(p.id)}
+                        className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold hover:bg-red-600"
+                        aria-label="Remove photo"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>

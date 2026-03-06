@@ -11,7 +11,7 @@ import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 
-type QuickAddSupplyScreen = "choose" | "link" | "photo" | "form";
+type QuickAddSupplyScreen = "choose" | "link" | "form";
 
 interface QuickAddSupplyProps {
   open: boolean;
@@ -43,17 +43,11 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [photoExtractFile, setPhotoExtractFile] = useState<File | null>(null);
-  const [photoExtractPreview, setPhotoExtractPreview] = useState<string | null>(null);
-  const [photoExtracting, setPhotoExtracting] = useState(false);
-  const [photoExtractError, setPhotoExtractError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const photoExtractInputRef = useRef<HTMLInputElement>(null);
-  const photoExtractGalleryInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!initialData?.id;
   const storedImagePath = importedImagePath ?? initialData?.primary_image_path?.trim();
@@ -72,12 +66,6 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       setImportedImagePath(null);
       setImportUrl("");
       setImportError(null);
-      setPhotoExtractFile(null);
-      setPhotoExtractPreview((prev) => {
-        if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setPhotoExtractError(null);
       if (initialData) {
         setName(initialData.name ?? "");
         setBrand(initialData.brand ?? "");
@@ -166,72 +154,6 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       setImporting(false);
     }
   }, [importUrl, session?.access_token]);
-
-  const handlePhotoExtractFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f?.type.startsWith("image/")) return;
-    setPhotoExtractPreview((prev) => {
-      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(f);
-    });
-    setPhotoExtractFile(f);
-    setPhotoExtractError(null);
-  }, []);
-
-  const handleExtractFromPhoto = useCallback(async () => {
-    if (!photoExtractFile || !session?.access_token) return;
-    setPhotoExtracting(true);
-    setPhotoExtractError(null);
-    try {
-      const { blob } = await compressImage(photoExtractFile);
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
-          else reject(new Error("Read failed"));
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      });
-      const res = await fetch("/api/supply/extract-from-photo", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ imageBase64: base64, mimeType: "image/jpeg" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPhotoExtractError((data.error as string) ?? "Extraction failed");
-        return;
-      }
-      setName((data.name as string) ?? "");
-      setBrand((data.brand as string) ?? "");
-      setCategory(
-        SUPPLY_CATEGORIES.includes((data.category as string)?.toLowerCase() as (typeof SUPPLY_CATEGORIES)[number])
-          ? (data.category as string).toLowerCase()
-          : "other"
-      );
-      setUsageInstructions((data.usage_instructions as string) ?? "");
-      setApplicationRate((data.application_rate as string) ?? "");
-      setNpk((data.npk as string) ?? "");
-      if (data.primary_image_path) setImportedImagePath(data.primary_image_path as string);
-      setPhotoRemoved(false);
-      setPhotoExtractFile(null);
-      setPhotoExtractPreview((prev) => {
-        if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setScreen("form");
-    } catch (err) {
-      setPhotoExtractError(err instanceof Error ? err.message : "Extraction failed");
-    } finally {
-      setPhotoExtracting(false);
-    }
-  }, [photoExtractFile, session?.access_token]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -340,7 +262,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         aria-modal="true"
       >
         <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 mb-4">
-          {isEdit ? "Edit Supply" : screen === "choose" ? "Add Supply" : screen === "link" ? "Import from Link" : screen === "photo" ? "Import from Photo" : "Add Supply"}
+          {isEdit ? "Edit Supply" : screen === "choose" ? "Add Supply" : screen === "link" ? "Import from Link" : "Add Supply"}
         </h2>
 
         {!isEdit && screen === "choose" && (
@@ -354,14 +276,6 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
               Manual Entry
             </button>
-            <button
-              type="button"
-              onClick={() => setScreen("photo")}
-              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-            >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
-              Photo Import (single)
-            </button>
             {onOpenBatchPhotoImport && (
               <button
                 type="button"
@@ -369,7 +283,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
-                Import from Photos (batch)
+                Photo Import
               </button>
             )}
             <button
@@ -423,74 +337,6 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               </button>
             </div>
             {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
-          </div>
-        )}
-
-        {!isEdit && screen === "photo" && (
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Take or upload a photo of the product label. We&apos;ll extract the name, brand, and usage instructions.</p>
-            <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[280px] border-2 border-dashed border-black/15 flex items-center justify-center">
-              {photoExtractPreview ? (
-                <img src={photoExtractPreview} alt="Product" className="max-w-full max-h-[260px] object-contain" />
-              ) : (
-                <span className="text-4xl text-neutral-400" aria-hidden>📷</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {!photoExtractPreview ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => photoExtractInputRef.current?.click()}
-                    className="flex-1 py-3 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
-                  >
-                    Take photo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => photoExtractGalleryInputRef.current?.click()}
-                    className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
-                  >
-                    From gallery
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button type="button" onClick={() => photoExtractInputRef.current?.click()} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
-                    Replace
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExtractFromPhoto}
-                    disabled={photoExtracting}
-                    className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
-                  >
-                    {photoExtracting ? "Extracting…" : "Extract"}
-                  </button>
-                </>
-              )}
-            </div>
-            <input
-              ref={photoExtractInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="sr-only"
-              onChange={handlePhotoExtractFileChange}
-              aria-label="Take product photo"
-            />
-            <input
-              ref={photoExtractGalleryInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={handlePhotoExtractFileChange}
-              aria-label="Choose product photo from gallery"
-            />
-            <button type="button" onClick={() => setScreen("choose")} className="w-full py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
-              Back
-            </button>
-            {photoExtractError && <p className="text-sm text-red-600" role="alert">{photoExtractError}</p>}
           </div>
         )}
 
