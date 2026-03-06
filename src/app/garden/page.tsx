@@ -295,8 +295,10 @@ function GardenPageInner() {
   const openLogGrowth = useCallback((batch: GrowingBatchForLog) => {
     setLogGrowthBatch(batch);
     setLogGrowthNote("");
-    setLogGrowthFile(null);
-    setLogGrowthPreview(null);
+    setLogGrowthPhotos((prev) => {
+      prev.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
+      return [];
+    });
     setLogGrowthError(null);
   }, []);
 
