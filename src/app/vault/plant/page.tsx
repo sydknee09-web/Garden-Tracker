@@ -202,6 +202,11 @@ function VaultPlantPageInner() {
       });
       const withPackets = profiles
         .map((p) => ({ profile: p as Profile, packets: byProfile.get(p.id) ?? [] })) as ProfileWithPackets[];
+      withPackets.sort((a, b) => {
+        const dnA = a.profile.variety_name?.trim() ? `${a.profile.name} (${a.profile.variety_name})` : a.profile.name;
+        const dnB = b.profile.variety_name?.trim() ? `${b.profile.name} (${b.profile.variety_name})` : b.profile.name;
+        return dnA.localeCompare(dnB, undefined, { sensitivity: "base" });
+      });
       if (!cancelled) setAvailableProfilesForPicker(withPackets);
     })();
     return () => { cancelled = true; };
@@ -237,11 +242,19 @@ function VaultPlantPageInner() {
           break;
         }
         profile = newProfile as Profile;
-        await enrichProfileFromName(supabase, profile.id, user.id, name, variety_name ?? "", {
-          vendor: (newPacketVendorByProfileId[row.rowId] ?? "").trim(),
-          skipHero: false,
-          accessToken: session?.access_token ?? undefined,
-        });
+        const enrichTimeout = 15000;
+        try {
+          await Promise.race([
+            enrichProfileFromName(supabase, profile.id, user.id, name, variety_name ?? "", {
+              vendor: (newPacketVendorByProfileId[row.rowId] ?? "").trim(),
+              skipHero: true,
+              accessToken: session?.access_token ?? undefined,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("enrich_timeout")), enrichTimeout)),
+          ]);
+        } catch {
+          // Timeout or error: continue with basic profile so planting completes
+        }
         const { data: profileAfter } = await supabase
           .from("plant_profiles")
           .select("harvest_days")
@@ -364,7 +377,12 @@ function VaultPlantPageInner() {
         }
       }
 
-      const note = plantNotes.trim();
+      const displayName = profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name;
+      const noteParts: string[] = [`Sowed ${displayName}`];
+      if (plantLocation.trim()) noteParts.push(`in ${plantLocation.trim()}`);
+      if (sowMethod) noteParts.push(sowMethod === "seed_start" ? "via seed start" : "via direct sow");
+      const noteBase = noteParts.join(" ");
+      const note = plantNotes.trim() ? `${noteBase}. ${plantNotes.trim()}` : noteBase;
       await supabase.from("journal_entries").insert({
         user_id: user.id,
         plant_profile_id: profile.id,
@@ -390,7 +408,6 @@ function VaultPlantPageInner() {
       await copyCareTemplatesToInstance(profile.id, growRow.id, user.id, today);
 
       const nowIso = new Date().toISOString();
-      const displayName = profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name;
       await supabase.from("tasks").insert({
         user_id: user.id,
         plant_profile_id: profile.id,
@@ -455,10 +472,10 @@ function VaultPlantPageInner() {
 
   return (
     <div className="px-6 pt-8 pb-40 max-w-2xl mx-auto">
+      <Link href={fromGarden ? "/garden?tab=active" : "/vault"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
+        ← {fromGarden ? "Back to Garden" : "Back to Vault"}
+      </Link>
       <div className="text-center mb-4">
-        <Link href={fromGarden ? "/garden?tab=active" : "/vault"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-2">
-          ← {fromGarden ? "Back to Garden" : "Back to Vault"}
-        </Link>
         <h1 className="text-xl font-semibold text-black mb-1">Planting</h1>
         <p className="text-sm text-black/60 mb-3">
           Set how much of each packet to use. Sliders 0–100%. Confirm to create journal entries and harvest tasks.
@@ -527,17 +544,9 @@ function VaultPlantPageInner() {
             className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm text-black"
           />
         </div>
-        <div className="w-full">
-          <SupplyPicker
-            selectedIds={selectedSupplyIds}
-            onChange={setSelectedSupplyIds}
-            label="Supplies used (optional)"
-            placeholder="e.g. seed starter, fertilizer at sowing"
-          />
-        </div>
       </div>
 
-      <div className="flex flex-col divide-y divide-black/8" role="list" aria-label="Planting varieties">
+      <div className="flex flex-col divide-y divide-black/8 mb-4" role="list" aria-label="Planting varieties">
         {rows.map((row) => {
           if ("isNew" in row) {
             return (
@@ -744,6 +753,15 @@ function VaultPlantPageInner() {
         </div>
       </div>
 
+      <div className="w-full mb-4">
+        <SupplyPicker
+          selectedIds={selectedSupplyIds}
+          onChange={setSelectedSupplyIds}
+          label="Supplies used (optional)"
+          placeholder="e.g. seed starter, fertilizer at sowing"
+        />
+      </div>
+
       {addSeedOpen && (
         <>
           <div className="fixed inset-0 z-[110] bg-black/40" aria-hidden onClick={() => { setAddSeedOpen(false); setAddSeedSearch(""); }} />
@@ -757,10 +775,11 @@ function VaultPlantPageInner() {
                 type="text"
                 value={addSeedSearch}
                 onChange={(e) => setAddSeedSearch(e.target.value)}
-                placeholder="Search existing or type new variety"
-                className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm mb-3"
-                aria-label="Search seeds or type new variety"
+                placeholder="e.g. Tomato (Brandywine) or Tomato"
+                className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm mb-1"
+                aria-label="Search seeds or type plant name and variety"
               />
+              <p className="text-xs text-black/50 mb-3">Use Plant (Variety) for full details.</p>
               <div className="space-y-1 max-h-[280px] overflow-y-auto">
                 {addSeedSearch.trim() && (
                   <button

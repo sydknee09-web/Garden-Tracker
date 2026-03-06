@@ -1322,7 +1322,10 @@ function GardenPageInner() {
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
                   aria-label="Move to permanent plants"
                 >
-                  <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>🌳</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                  <path d="M12 22v-4" />
+                  <path d="M12 18a4 4 0 0 0 4-4 4 4 0 0 0-8 0 4 4 0 0 0 4 4Z" />
+                </svg>
                   Move to permanent plants
                 </button>
               )}
@@ -1362,7 +1365,11 @@ function GardenPageInner() {
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-amber-700 hover:bg-black/5"
                 aria-label="End batch"
               >
-                <span className="w-5 h-5 shrink-0 text-lg leading-none" aria-hidden>📦</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                  <path d="M12 22V12" />
+                  <path d="M12 12 2 7l10 5 10-5-10-5Z" />
+                  <path d="M2 17 10 12 20 17" />
+                </svg>
                 End batch
               </button>
               <button

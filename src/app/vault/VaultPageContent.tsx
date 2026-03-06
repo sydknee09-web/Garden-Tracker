@@ -900,7 +900,6 @@ function VaultPageInner() {
     if (!user?.id || plantModalRows.length === 0) return;
     setPlantConfirming(true);
     const sownDate = plantDate;
-    const noteText = plantNotes.trim() ? `Planted. ${plantNotes.trim()}` : "Planted";
     const nowIso = new Date().toISOString();
     const weatherSnapshot = await fetchWeatherSnapshot();
     let errMsg: string | null = null;
@@ -941,6 +940,12 @@ function VaultPageInner() {
         errMsg = growErr?.message ?? "Could not create planting record.";
         break;
       }
+
+      const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
+      const noteParts: string[] = [`Sowed ${displayName}`];
+      if (plantSowMethod) noteParts.push(plantSowMethod === "seed_start" ? "via seed start" : "via direct sow");
+      const noteBase = noteParts.join(" ");
+      const noteText = plantNotes.trim() ? `${noteBase}. ${plantNotes.trim()}` : noteBase;
 
       const { error: journalErr } = await supabase.from("journal_entries").insert({
         user_id: user.id,

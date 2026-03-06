@@ -172,6 +172,7 @@ export default function VaultSeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   const [vendorDetailsOpen, setVendorDetailsOpen] = useState(false);
   const [openPacketDetails, setOpenPacketDetails] = useState<Set<string>>(new Set());
@@ -641,6 +642,10 @@ export default function VaultSeedPage() {
   const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError && !isPlaceholderResolved;
   const heroImageUrl = hasHeroImage ? resolvedHeroUrl : null;
   const showHeroResearching = !heroImageUrl && (findingStockPhoto || heroPending);
+
+  useEffect(() => {
+    setHeroImageLoaded(false);
+  }, [heroImageUrl]);
 
   // Quick stats
   const packetCount = packets.length;
@@ -1574,8 +1579,17 @@ export default function VaultSeedPage() {
         <div className="mb-4 rounded-2xl overflow-hidden bg-white border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
           {heroImageUrl ? (
             <>
-              <img src={heroImageUrl} alt="" className="w-full h-full object-cover" onError={() => setImageError(true)} />
-              {canEdit && (
+              <img
+                src={heroImageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onLoad={() => setHeroImageLoaded(true)}
+                onError={() => setImageError(true)}
+              />
+              {!heroImageLoaded && (
+                <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
+              )}
+              {canEdit && heroImageLoaded && (
                 <div className="absolute bottom-3 right-3">
                   <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><CameraIcon /></button>
                 </div>
