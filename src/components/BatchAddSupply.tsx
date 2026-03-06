@@ -11,9 +11,9 @@ const MAX_PHOTOS = 15;
 
 interface PendingPhoto {
   id: string;
-  file: File;
+  file: File | null;
   previewUrl: string;
-  status: "pending" | "extracting" | "done" | "error";
+  status: "pending" | "loading" | "extracting" | "done" | "error";
   error?: string;
 }
 
@@ -30,6 +30,8 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
   const [step, setStep] = useState<"capture" | "extracting">("capture");
   const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [streamActive, setStreamActive] = useState(false);
+  const [shutterActive, setShutterActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +47,7 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
       setQueue([]);
       setStep("capture");
       setError(null);
+      setStreamActive(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
@@ -72,8 +75,12 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
         }
         streamRef.current = stream;
         videoRef.current.srcObject = stream;
+        setStreamActive(true);
       })
-      .catch(() => setError("Camera access denied."));
+      .catch(() => {
+        setError("Camera access denied.");
+        setStreamActive(false);
+      });
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -108,9 +115,50 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
     });
   }, []);
 
+  const captureFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !streamRef.current || video.readyState < 2) return;
+
+    setShutterActive(true);
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
+    setTimeout(() => setShutterActive(false), 100);
+
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+
+    const placeholderId = crypto.randomUUID();
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setQueue((prev) => [
+      ...prev,
+      { id: placeholderId, file: null, previewUrl: dataUrl, status: "loading" },
+    ]);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `supply-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setQueue((prev) =>
+          prev.map((i) =>
+            i.id === placeholderId
+              ? { ...i, file, previewUrl: URL.createObjectURL(file), status: "pending" as const }
+              : i
+          )
+        );
+      },
+      "image/jpeg",
+      0.85
+    );
+  }, []);
+
   const extractOne = useCallback(
-    async (item: PendingPhoto): Promise<SupplyReviewItem | null> => {
-      if (!authSession?.access_token) return null;
+    async (item: PendingPhoto & { file: File }): Promise<SupplyReviewItem | null> => {
+      if (!authSession?.access_token || !item.file) return null;
       setQueue((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, status: "extracting" as const } : i))
       );
@@ -178,7 +226,9 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
   );
 
   const handleExtractAll = useCallback(async () => {
-    const toExtract = queue.filter((i) => i.status === "pending");
+    const toExtract = queue.filter(
+      (i): i is PendingPhoto & { file: File } => i.status === "pending" && i.file != null
+    );
     if (toExtract.length === 0) return;
     setStep("extracting");
     setError(null);
@@ -204,6 +254,8 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
     onClose();
     router.push("/shed/review-import");
   }, [queue, extractOne, onSuccess, onClose, router]);
+
+  const readyCount = queue.filter((i) => i.status === "pending" && i.file != null).length;
 
   const handleClose = useCallback(() => {
     queue.forEach((i) => {
@@ -281,24 +333,40 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
             <p className="text-sm text-black/70 mb-3">
               Take or upload photos of product labels (fertilizer, pesticide, soil amendment). Up to {MAX_PHOTOS} photos per batch.
             </p>
-            <div className="relative rounded-xl overflow-hidden bg-black/10 aspect-[4/3] mb-3">
+            <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] aspect-[4/3] mb-3 border-2 border-dashed border-black/15 flex items-center justify-center">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className={`absolute inset-0 w-full h-full object-cover ${streamActive ? "" : "opacity-0"}`}
               />
+              {streamActive && shutterActive && (
+                <div className="absolute inset-0 bg-white animate-shutter-flash" aria-hidden />
+              )}
+              {!streamActive && (
+                <span className="text-4xl text-neutral-400 relative z-10" aria-hidden>📷</span>
+              )}
               <canvas ref={canvasRef} className="hidden" />
             </div>
             <div className="flex gap-2 mb-2">
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
-              >
-                Take photo
-              </button>
+              {streamActive ? (
+                <button
+                  type="button"
+                  onClick={captureFrame}
+                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                >
+                  Capture
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                >
+                  Take photo
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => galleryInputRef.current?.click()}
@@ -352,29 +420,44 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
                       key={item.id}
                       className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-neutral-100 border border-black/10 relative snap-center"
                     >
-                      <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeFromQueue(item.id)}
-                        className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold hover:bg-red-600"
-                        aria-label="Remove photo"
-                      >
-                        ×
-                      </button>
+                      {item.status === "loading" ? (
+                        <>
+                          <img src={item.previewUrl} alt="" className="w-full h-full object-cover scale-110 blur-sm" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <div className="w-6 h-6 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
+                      )}
+                      {item.status !== "loading" && (
+                        <button
+                          type="button"
+                          onClick={() => removeFromQueue(item.id)}
+                          className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold hover:bg-red-600"
+                          aria-label="Remove photo"
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
                 <button
                   type="button"
                   onClick={handleExtractAll}
-                  disabled={queue.length === 0}
+                  disabled={readyCount === 0}
                   className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
                 >
-                  Extract & Review ({queue.length} photo{queue.length !== 1 ? "s" : ""})
+                  Extract & Review ({readyCount} photo{readyCount !== 1 ? "s" : ""})
                 </button>
               </>
             )}
-            {error && <p className="text-sm text-red-600 mt-2" role="alert">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 mt-2" role="alert">
+                {error.includes("Camera") ? "Camera unavailable. Use Take photo or From gallery." : error}
+              </p>
+            )}
           </>
         )}
       </div>
