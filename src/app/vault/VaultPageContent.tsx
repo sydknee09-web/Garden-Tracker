@@ -273,6 +273,8 @@ function VaultPageInner() {
   const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [shedFilterOpen, setShedFilterOpen] = useState(false);
+  const [shedSortBy, setShedSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("updated_at");
+  const [shedSortDir, setShedSortDir] = useState<"asc" | "desc">("desc");
   const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("list");
   const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
   const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
@@ -566,7 +568,15 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [shedDisplayStyle]);
-  // Restore shed display style on mount (runs even when tab=shed in URL, unlike hasRestoredSession)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-shed-sort", JSON.stringify({ sortBy: shedSortBy, sortDir: shedSortDir }));
+    } catch {
+      /* ignore */
+    }
+  }, [shedSortBy, shedSortDir]);
+  // Restore shed display style and sort on mount (runs even when tab=shed in URL, unlike hasRestoredSession)
   const shedStyleRestoredRef = useRef(false);
   useEffect(() => {
     if (shedStyleRestoredRef.current || typeof window === "undefined") return;
@@ -574,6 +584,14 @@ function VaultPageInner() {
     try {
       const saved = sessionStorage.getItem("vault-shed-display-style");
       if (saved === "grid" || saved === "list") setShedDisplayStyle(saved);
+      const sortRaw = sessionStorage.getItem("vault-shed-sort");
+      if (sortRaw) {
+        const parsed = JSON.parse(sortRaw) as { sortBy?: string; sortDir?: string };
+        if (["name", "updated_at", "last_used", "category"].includes(parsed.sortBy ?? "")) {
+          setShedSortBy(parsed.sortBy as "name" | "updated_at" | "last_used" | "category");
+        }
+        if (parsed.sortDir === "asc" || parsed.sortDir === "desc") setShedSortDir(parsed.sortDir);
+      }
     } catch {
       /* ignore */
     }
@@ -1361,7 +1379,7 @@ function VaultPageInner() {
             onClick={(e) => e.stopPropagation()}
           >
             <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
-              <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter by category</h2>
+              <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter & Sort</h2>
               <button
                 type="button"
                 onClick={() => setShedFilterOpen(false)}
@@ -1371,30 +1389,77 @@ function VaultPageInner() {
                 <span className="text-xl leading-none" aria-hidden>×</span>
               </button>
             </header>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {[
-                { value: null, label: "All" },
-                { value: "fertilizer", label: "Fertilizer" },
-                { value: "pesticide", label: "Pesticide" },
-                { value: "soil_amendment", label: "Soil Amendment" },
-                { value: "other", label: "Other" },
-              ].map(({ value, label }) => {
-                const selected = shedCategoryFilter === value;
-                return (
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <div>
+                <h3 className="text-sm font-medium text-black/70 mb-2">Filter by category</h3>
+                <div className="space-y-1">
+                  {[
+                    { value: null, label: "All" },
+                    { value: "fertilizer", label: "Fertilizer" },
+                    { value: "pesticide", label: "Pesticide" },
+                    { value: "soil_amendment", label: "Soil Amendment" },
+                    { value: "other", label: "Other" },
+                  ].map(({ value, label }) => {
+                    const selected = shedCategoryFilter === value;
+                    return (
+                      <button
+                        key={value ?? "all"}
+                        type="button"
+                        onClick={() => {
+                          setShedCategoryFilter(value);
+                          router.replace(value ? `/vault?tab=shed&category=${value}` : "/vault?tab=shed", { scroll: false });
+                          setShedFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-black/70 mb-2">Sort by</h3>
+                <div className="space-y-1">
+                  {[
+                    { value: "updated_at" as const, label: "Date added" },
+                    { value: "name" as const, label: "Name" },
+                    { value: "last_used" as const, label: "Last used" },
+                    { value: "category" as const, label: "Category" },
+                  ].map(({ value, label }) => {
+                    const selected = shedSortBy === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setShedSortBy(value);
+                          setShedFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2 mt-2">
                   <button
-                    key={value ?? "all"}
                     type="button"
-                    onClick={() => {
-                      setShedCategoryFilter(value);
-                      router.replace(value ? `/vault?tab=shed&category=${value}` : "/vault?tab=shed", { scroll: false });
-                      setShedFilterOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                    onClick={() => setShedSortDir("asc")}
+                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium ${shedSortDir === "asc" ? "bg-emerald/10 text-emerald-800" : "text-black/60 hover:bg-black/5"}`}
                   >
-                    {label}
+                    A → Z
                   </button>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={() => setShedSortDir("desc")}
+                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium ${shedSortDir === "desc" ? "bg-emerald/10 text-emerald-800" : "text-black/60 hover:bg-black/5"}`}
+                  >
+                    Z → A
+                  </button>
+                </div>
+              </div>
             </div>
             <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
@@ -1983,6 +2048,8 @@ function VaultPageInner() {
             scrollContainerRef={scrollContainerRef}
             searchQuery={shedSearchQuery}
             categoryFilter={shedCategoryFilter}
+            sortBy={shedSortBy}
+            sortDir={shedSortDir}
             displayStyle={shedDisplayStyle}
             batchSelectMode={shedBatchSelectMode}
             selectedIds={selectedSupplyIds}

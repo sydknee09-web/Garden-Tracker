@@ -70,6 +70,8 @@ export function ShedView({
   searchQuery: externalSearchQuery,
   categoryFilter: externalCategoryFilter,
   displayStyle: externalDisplayStyle,
+  sortBy: externalSortBy,
+  sortDir: externalSortDir,
   batchSelectMode = false,
   selectedIds = new Set<string>(),
   onToggleSelection,
@@ -87,6 +89,10 @@ export function ShedView({
   categoryFilter?: string | null;
   /** "grid" = icon badges, "list" = detailed rows. When embedded, vault provides this. */
   displayStyle?: "grid" | "list";
+  /** Sort column. When embedded, vault provides this. */
+  sortBy?: "name" | "updated_at" | "last_used" | "category";
+  /** Sort direction. When embedded, vault provides this. */
+  sortDir?: "asc" | "desc";
   batchSelectMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelection?: (id: string) => void;
@@ -103,9 +109,13 @@ export function ShedView({
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
   const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("list");
+  const [internalSortBy, setInternalSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("updated_at");
+  const [internalSortDir, setInternalSortDir] = useState<"asc" | "desc">("desc");
   const searchQuery = embedded && externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const categoryFilter = embedded && externalCategoryFilter !== undefined ? externalCategoryFilter : internalCategoryFilter;
   const displayStyle = embedded && externalDisplayStyle !== undefined ? externalDisplayStyle : internalDisplayStyle;
+  const sortBy = embedded && externalSortBy !== undefined ? externalSortBy : internalSortBy;
+  const sortDir = embedded && externalSortDir !== undefined ? externalSortDir : internalSortDir;
 
   const isFamilyView = householdViewMode === "family";
 
@@ -160,15 +170,33 @@ export function ShedView({
     }
   }, [embedded, categoryFromUrl]);
 
-  const filteredSupplies = useMemo(() => supplies.filter((s) => {
-    const matchCategory = !categoryFilter || s.category === categoryFilter;
-    const q = searchQuery.trim().toLowerCase();
-    const matchSearch =
-      !q ||
-      (s.name?.toLowerCase().includes(q) ?? false) ||
-      (s.brand?.toLowerCase().includes(q) ?? false);
-    return matchCategory && matchSearch;
-  }), [supplies, categoryFilter, searchQuery]);
+  const filteredSupplies = useMemo(() => {
+    const filtered = supplies.filter((s) => {
+      const matchCategory = !categoryFilter || s.category === categoryFilter;
+      const q = searchQuery.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        (s.name?.toLowerCase().includes(q) ?? false) ||
+        (s.brand?.toLowerCase().includes(q) ?? false);
+      return matchCategory && matchSearch;
+    });
+    const strMult = sortDir === "asc" ? 1 : -1;
+    const dateMult = sortDir === "desc" ? 1 : -1; // desc = newest first
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "name") return strMult * ((a.name ?? "").localeCompare(b.name ?? "", undefined, { sensitivity: "base" }));
+      if (sortBy === "category") return strMult * ((a.category ?? "").localeCompare(b.category ?? "", undefined, { sensitivity: "base" }));
+      if (sortBy === "updated_at") return dateMult * ((b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+      if (sortBy === "last_used") {
+        const aVal = a.last_used_at ?? "";
+        const bVal = b.last_used_at ?? "";
+        if (!aVal && !bVal) return 0;
+        if (!aVal) return 1;
+        if (!bVal) return -1;
+        return dateMult * bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+  }, [supplies, categoryFilter, searchQuery, sortBy, sortDir]);
 
   useEffect(() => {
     if (embedded && onFilteredIdsChange) {
