@@ -17,6 +17,9 @@ interface Props {
 }
 
 const UNITS = ["lbs", "oz", "kg", "g", "count", "bunches", "heads", "ears"];
+const MAX_JOURNAL_PHOTOS = 10;
+
+type PhotoItem = { id: string; file: File; previewUrl: string };
 
 export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId, displayName }: Props) {
   const { user } = useAuth();
@@ -24,22 +27,29 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
   const [unit, setUnit] = useState("lbs");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [saving, setSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoGalleryRef = useRef<HTMLInputElement>(null);
 
-  const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
-      const reader = new FileReader();
-      reader.onload = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
+    if (file && photos.length < MAX_JOURNAL_PHOTOS) {
+      setPhotos((prev) => [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]);
     }
     e.target.value = "";
-  }, []);
+  }, [photos.length]);
+
+  const handleGalleryPhotos = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files?.length) {
+      const toAdd = Array.from(files)
+        .filter((f) => f.type.startsWith("image/"))
+        .slice(0, MAX_JOURNAL_PHOTOS - photos.length);
+      setPhotos((prev) => [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]);
+    }
+    e.target.value = "";
+  }, [photos.length]);
 
   useEscapeKey(open, onClose);
 
@@ -47,19 +57,20 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
     if (!user?.id) return;
     setSaving(true);
     try {
-      let imagePath: string | null = null;
-      if (photo) {
-        const { blob } = await compressImage(photo);
-        const path = `${user.id}/harvest-${growInstanceId}-${Date.now()}.jpg`;
-        const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: true });
-        if (!uploadErr) imagePath = path;
+      const uploadedPaths: string[] = [];
+      for (const p of photos) {
+        const { blob } = await compressImage(p.file);
+        const path = `${user.id}/harvest-${growInstanceId}-${Date.now()}-${crypto.randomUUID()}.jpg`;
+        const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        if (!uploadErr) uploadedPaths.push(path);
       }
+      const firstPath = uploadedPaths[0] ?? null;
 
       const weather = await fetchWeatherSnapshot();
       const weightNum = weight.trim() ? parseFloat(weight) : null;
       const qtyNum = quantity.trim() ? parseFloat(quantity) : null;
 
-      const { error } = await supabase.from("journal_entries").insert({
+      const { data: entry, error } = await supabase.from("journal_entries").insert({
         user_id: user.id,
         plant_profile_id: profileId,
         grow_instance_id: growInstanceId,
@@ -68,13 +79,24 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
         harvest_weight: weightNum,
         harvest_unit: unit,
         harvest_quantity: qtyNum,
-        image_file_path: imagePath,
+        image_file_path: firstPath,
         weather_snapshot: weather ?? undefined,
-      });
+      }).select("id").single();
 
-      if (error) { console.error("HarvestModal save error", error.message); }
+      if (error) {
+        console.error("HarvestModal save error", error.message);
+        setSaving(false);
+        return;
+      }
 
-      setWeight(""); setUnit("lbs"); setQuantity(""); setNote(""); setPhoto(null); setPhotoPreview(null);
+      if (entry && uploadedPaths.length > 0) {
+        const entryId = (entry as { id: string }).id;
+        await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: entryId, image_file_path: path, sort_order: i, user_id: user.id })));
+      }
+
+      setWeight(""); setUnit("lbs"); setQuantity(""); setNote("");
+      photos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
+      setPhotos([]);
       onSaved();
       onClose();
     } catch (err) {
@@ -82,7 +104,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
     } finally {
       setSaving(false);
     }
-  }, [user?.id, weight, unit, quantity, note, photo, profileId, growInstanceId, displayName, onSaved, onClose]);
+  }, [user?.id, weight, unit, quantity, note, photos, profileId, growInstanceId, displayName, onSaved, onClose]);
 
   if (!open) return null;
 
@@ -123,19 +145,25 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
 
           {/* Photo */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Victory Photo</label>
-            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="sr-only" aria-label="Take harvest photo" />
-            <input ref={photoGalleryRef} type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" aria-label="Choose harvest photo from gallery" />
-            {photoPreview ? (
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Victory Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="sr-only" aria-label="Take harvest photo" />
+            <input ref={photoGalleryRef} type="file" accept="image/*" multiple onChange={handleGalleryPhotos} className="sr-only" aria-label="Choose harvest photos from gallery" />
+            {photos.length > 0 ? (
               <div className="space-y-2">
-                <div className="w-full max-w-[200px] rounded-lg overflow-hidden bg-neutral-100">
-                  <img src={photoPreview} alt="Preview" className="w-full h-auto object-cover" />
+                <div className="flex flex-wrap gap-2">
+                  {photos.map((p) => (
+                    <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-neutral-100">
+                      <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => setPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); })} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">×</button>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => photoInputRef.current?.click()} className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]">Replace (camera)</button>
-                  <button type="button" onClick={() => photoGalleryRef.current?.click()} className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]">Replace (gallery)</button>
-                  <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); }} className="text-sm font-medium text-neutral-500 hover:underline min-h-[44px]">Remove</button>
-                </div>
+                {photos.length < MAX_JOURNAL_PHOTOS && (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => photoInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium">Take photo</button>
+                    <button type="button" onClick={() => photoGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald-600 text-white text-sm font-medium">From gallery</button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex gap-2">

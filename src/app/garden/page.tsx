@@ -151,13 +151,14 @@ function GardenPageInner() {
     deserialize: (s) => (s === "grid" || s === "list" ? s : "grid"),
   });
 
+  const MAX_JOURNAL_PHOTOS = 10;
   const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
   const [logGrowthNote, setLogGrowthNote] = useState("");
-  const [logGrowthFile, setLogGrowthFile] = useState<File | null>(null);
-  const [logGrowthPreview, setLogGrowthPreview] = useState<string | null>(null);
+  const [logGrowthPhotos, setLogGrowthPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [logGrowthSaving, setLogGrowthSaving] = useState(false);
   const [logGrowthError, setLogGrowthError] = useState<string | null>(null);
   const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
+  const galleryInputLogGrowthRef = useRef<HTMLInputElement>(null);
   const quickAddFileRef = useRef<HTMLInputElement>(null);
   const quickAddGalleryRef = useRef<HTMLInputElement>(null);
   const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
@@ -169,8 +170,7 @@ function GardenPageInner() {
   const [plantsBatchSelectMode, setPlantsBatchSelectMode] = useState(false);
   const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
   const [quickAddNote, setQuickAddNote] = useState("");
-  const [quickAddPhoto, setQuickAddPhoto] = useState<File | null>(null);
-  const [quickAddPhotoPreview, setQuickAddPhotoPreview] = useState<string | null>(null);
+  const [quickAddPhotos, setQuickAddPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
@@ -356,9 +356,9 @@ function GardenPageInner() {
     if (!user?.id || !logGrowthBatch) return;
     setLogGrowthSaving(true);
     setLogGrowthError(null);
-    let imagePath: string | null = null;
-    if (logGrowthFile) {
-      const { blob } = await compressImage(logGrowthFile);
+    const uploadedPaths: string[] = [];
+    for (const p of logGrowthPhotos) {
+      const { blob } = await compressImage(p.file);
       const path = `${user.id}/${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (upErr) {
@@ -366,8 +366,9 @@ function GardenPageInner() {
         setLogGrowthSaving(false);
         return;
       }
-      imagePath = path;
+      uploadedPaths.push(path);
     }
+    const firstPath = uploadedPaths[0] ?? null;
     const weatherSnapshot = await fetchWeatherSnapshot();
     const noteTrim = logGrowthNote.trim() || null;
     const { data: journalEntry, error: journalErr } = await supabase.from("journal_entries").insert({
@@ -376,7 +377,7 @@ function GardenPageInner() {
       grow_instance_id: logGrowthBatch.id,
       note: noteTrim,
       entry_type: "growth",
-      image_file_path: imagePath,
+      image_file_path: firstPath,
       weather_snapshot: weatherSnapshot ?? undefined,
     }).select("id").single();
     setLogGrowthSaving(false);
@@ -384,20 +385,23 @@ function GardenPageInner() {
       setLogGrowthError(journalErr.message || "Failed to save. Try again.");
       return;
     }
-    if (journalEntry && imagePath) {
-      await supabase.from("journal_entry_photos").insert({ journal_entry_id: (journalEntry as { id: string }).id, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+    if (journalEntry && uploadedPaths.length > 0) {
+      const entryId = (journalEntry as { id: string }).id;
+      await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: entryId, image_file_path: path, sort_order: i, user_id: user.id })));
     }
     setLogGrowthBatch(null);
+    setLogGrowthPhotos([]);
+    logGrowthPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
     setRefetchTrigger((t) => t + 1);
-  }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthFile]);
+  }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthPhotos]);
 
   const handleQuickAddSubmit = useCallback(async () => {
     if (!user?.id) return;
     const noteTrim = quickAddNote.trim() || null;
-    let imagePath: string | null = null;
-    if (quickAddPhoto) {
+    const uploadedPaths: string[] = [];
+    for (const p of quickAddPhotos) {
       setQuickAddSaving(true);
-      const { blob } = await compressImage(quickAddPhoto);
+      const { blob } = await compressImage(p.file);
       const path = `${user.id}/${crypto.randomUUID()}.jpg`;
       const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
       if (upErr) {
@@ -405,9 +409,10 @@ function GardenPageInner() {
         setQuickAddSaving(false);
         return;
       }
-      imagePath = path;
+      uploadedPaths.push(path);
     }
-    if (!noteTrim && !imagePath) {
+    const firstPath = uploadedPaths[0] ?? null;
+    if (!noteTrim && uploadedPaths.length === 0) {
       setQuickAddError("Add a note or photo.");
       return;
     }
@@ -418,7 +423,7 @@ function GardenPageInner() {
       ? selectedPlantGrows
       : [{ growId: null, profileId: null }];
     let insertErr: { message: string } | null = null;
-    const hasPhoto = !!imagePath;
+    const hasPhoto = uploadedPaths.length > 0;
     try {
       for (const { growId, profileId } of toInsert) {
         if (hasPhoto) {
@@ -429,15 +434,15 @@ function GardenPageInner() {
             seed_packet_id: null,
             note: noteTrim,
             entry_type: "note",
-            image_file_path: imagePath,
+            image_file_path: firstPath,
             weather_snapshot: weatherSnapshot ?? undefined,
           }).select("id").single();
           if (error) {
             insertErr = error;
             break;
           }
-          if (entry && imagePath) {
-            await supabase.from("journal_entry_photos").insert({ journal_entry_id: (entry as { id: string }).id, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+          if (entry && uploadedPaths.length > 0) {
+            await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: (entry as { id: string }).id, image_file_path: path, sort_order: i, user_id: user.id })));
           }
         } else {
           const { error } = await insertWithOfflineQueue("journal_entries", {
@@ -465,15 +470,12 @@ function GardenPageInner() {
     }
     setQuickAddJournalOpen(false);
     setQuickAddNote("");
-    setQuickAddPhoto(null);
-    if (quickAddPhotoPreview) {
-      URL.revokeObjectURL(quickAddPhotoPreview);
-      setQuickAddPhotoPreview(null);
-    }
+    quickAddPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
+    setQuickAddPhotos([]);
     setSelectedPlantGrows([]);
     setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
-  }, [user?.id, quickAddNote, quickAddPhoto, quickAddPhotoPreview, selectedPlantGrows]);
+  }, [user?.id, quickAddNote, quickAddPhotos, selectedPlantGrows]);
 
   const handleMoveToGrowingGarden = useCallback(async () => {
     if (!user?.id || selectedPlantGrows.length === 0) return;
@@ -1043,28 +1045,31 @@ function GardenPageInner() {
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional)</label>
-                <input
-                  ref={fileInputLogGrowthRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setLogGrowthFile(f);
-                      setLogGrowthPreview(URL.createObjectURL(f));
-                    }
-                    e.target.value = "";
-                  }}
-                />
-                {logGrowthPreview ? (
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                    <img src={logGrowthPreview} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => { setLogGrowthFile(null); setLogGrowthPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
+                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
+                <input ref={fileInputLogGrowthRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && logGrowthPhotos.length < MAX_JOURNAL_PHOTOS) { setLogGrowthPhotos((prev) => [...prev, { id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }]); } e.target.value = ""; }} />
+                <input ref={galleryInputLogGrowthRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const files = e.target.files; if (files?.length) { const toAdd = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, MAX_JOURNAL_PHOTOS - logGrowthPhotos.length); setLogGrowthPhotos((prev) => [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]); } e.target.value = ""; }} />
+                {logGrowthPhotos.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {logGrowthPhotos.map((p) => (
+                        <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
+                          <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => { setLogGrowthPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); }); }} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">×</button>
+                        </div>
+                      ))}
+                    </div>
+                    {logGrowthPhotos.length < MAX_JOURNAL_PHOTOS && (
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="min-w-[44px] min-h-[44px] w-full py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm">Choose photo or take one</button>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take photo</button>
+                    <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium">From gallery</button>
+                  </div>
                 )}
               </div>
               <div>
@@ -1074,7 +1079,7 @@ function GardenPageInner() {
               {logGrowthError && <p className="text-sm text-red-600" role="alert">{logGrowthError}</p>}
             </div>
             <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
-              <button type="button" onClick={() => { setLogGrowthBatch(null); setLogGrowthError(null); if (logGrowthPreview) URL.revokeObjectURL(logGrowthPreview); setLogGrowthPreview(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+              <button type="button" onClick={() => { setLogGrowthBatch(null); setLogGrowthError(null); logGrowthPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); }); setLogGrowthPhotos([]); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
               <button type="button" disabled={logGrowthSaving} onClick={handleLogGrowthSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{logGrowthSaving ? "Saving…" : "Save"}</button>
             </div>
           </div>
@@ -1120,13 +1125,25 @@ function GardenPageInner() {
                 <textarea value={quickAddNote} onChange={(e) => setQuickAddNote(e.target.value)} placeholder="What did you notice?" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional)</label>
-                <input ref={quickAddFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setQuickAddPhoto(f); setQuickAddPhotoPreview(URL.createObjectURL(f)); } e.target.value = ""; }} />
-                <input ref={quickAddGalleryRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setQuickAddPhoto(f); setQuickAddPhotoPreview(URL.createObjectURL(f)); } e.target.value = ""; }} />
-                {quickAddPhotoPreview ? (
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                    <img src={quickAddPhotoPreview} alt="" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => { setQuickAddPhoto(null); if (quickAddPhotoPreview) URL.revokeObjectURL(quickAddPhotoPreview); setQuickAddPhotoPreview(null); }} className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs">Remove</button>
+                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
+                <input ref={quickAddFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && quickAddPhotos.length < MAX_JOURNAL_PHOTOS) { setQuickAddPhotos((prev) => [...prev, { id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }]); } e.target.value = ""; }} />
+                <input ref={quickAddGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const files = e.target.files; if (files?.length) { setQuickAddPhotos((prev) => { const toAdd = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, MAX_JOURNAL_PHOTOS - prev.length); return [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]; }); } e.target.value = ""; }} />
+                {quickAddPhotos.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {quickAddPhotos.map((p) => (
+                        <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
+                          <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => { setQuickAddPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); }); }} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">×</button>
+                        </div>
+                      ))}
+                    </div>
+                    {quickAddPhotos.length < MAX_JOURNAL_PHOTOS && (
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => quickAddFileRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex gap-2">
@@ -1138,7 +1155,7 @@ function GardenPageInner() {
               {quickAddError && <p className="text-sm text-red-600" role="alert">{quickAddError}</p>}
             </div>
             <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
-              <button type="button" onClick={() => { setQuickAddJournalOpen(false); setQuickAddNote(""); setQuickAddPhoto(null); if (quickAddPhotoPreview) { URL.revokeObjectURL(quickAddPhotoPreview); setQuickAddPhotoPreview(null); } setQuickAddError(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+              <button type="button" onClick={() => { setQuickAddJournalOpen(false); setQuickAddNote(""); quickAddPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); }); setQuickAddPhotos([]); setQuickAddError(null); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
               <button type="button" disabled={quickAddSaving} onClick={handleQuickAddSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{quickAddSaving ? "Saving…" : "Save"}</button>
             </div>
           </div>

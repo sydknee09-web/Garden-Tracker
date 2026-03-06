@@ -45,6 +45,9 @@ interface BatchLogSheetProps {
 }
 
 const CARE_NOTES: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+const MAX_JOURNAL_PHOTOS = 10;
+
+type PhotoItem = { id: string; file: File; previewUrl: string };
 
 function formatLastAction(iso: string | null): string {
   if (!iso) return "Last: Never";
@@ -76,8 +79,7 @@ export function BatchLogSheet({
   const [plantCount, setPlantCount] = useState("");
   const [transplantLocation, setTransplantLocation] = useState("");
   const [note, setNote] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [careNote, setCareNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [growthMilestonesOpen, setGrowthMilestonesOpen] = useState(false);
@@ -99,8 +101,10 @@ export function BatchLogSheet({
       setPlantCount("");
       setTransplantLocation("");
       setNote("");
-      setPhoto(null);
-      setPhotoPreview(null);
+      setPhotos((prev) => {
+        prev.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
+        return [];
+      });
       setCareNote("");
       setGrowthMilestonesOpen(false);
       setLastWater(null);
@@ -253,15 +257,16 @@ export function BatchLogSheet({
       }
 
       // Note / Photo journal entry — single batch or all batches in bulk
-      let imagePath: string | null = null;
-      if (photo) {
-        const { blob } = await compressImage(photo);
+      const uploadedPaths: string[] = [];
+      for (const p of photos) {
+        const { blob } = await compressImage(p.file);
         const path = `${user.id}/${crypto.randomUUID()}.jpg`;
         const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
-        if (!upErr) imagePath = path;
+        if (!upErr) uploadedPaths.push(path);
       }
+      const firstPath = uploadedPaths[0] ?? null;
       const noteTrim = note.trim() || null;
-      if (noteTrim || imagePath) {
+      if (noteTrim || firstPath) {
         if (batches.length === 1) {
           const b = batches[0];
           const { data: entry, error: insErr } = await supabase.from("journal_entries").insert({
@@ -270,14 +275,14 @@ export function BatchLogSheet({
             grow_instance_id: b.id,
             note: noteTrim ?? "Growth update",
             entry_type: "growth" as const,
-            image_file_path: imagePath,
+            image_file_path: firstPath,
             weather_snapshot: weather ?? undefined,
           }).select("id").single();
           if (!insErr && entry) {
             const entryId = (entry as { id: string }).id;
             await supabase.from("journal_entry_plants").insert({ journal_entry_id: entryId, plant_profile_id: b.plant_profile_id, user_id: user.id });
-            if (imagePath) {
-              await supabase.from("journal_entry_photos").insert({ journal_entry_id: entryId, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+            if (uploadedPaths.length > 0) {
+              await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: entryId, image_file_path: path, sort_order: i, user_id: user.id })));
             }
           }
         } else {
@@ -287,14 +292,14 @@ export function BatchLogSheet({
             grow_instance_id: null,
             note: noteTrim ?? "Growth update",
             entry_type: "growth" as const,
-            image_file_path: imagePath,
+            image_file_path: firstPath,
             weather_snapshot: weather ?? undefined,
           }).select("id").single();
           if (!insErr && entry) {
             const entryId = (entry as { id: string }).id;
             await supabase.from("journal_entry_plants").insert(batches.map((b) => ({ journal_entry_id: entryId, plant_profile_id: b.plant_profile_id, user_id: user.id })));
-            if (imagePath) {
-              await supabase.from("journal_entry_photos").insert({ journal_entry_id: entryId, image_file_path: imagePath, sort_order: 0, user_id: user.id });
+            if (uploadedPaths.length > 0) {
+              await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: entryId, image_file_path: path, sort_order: i, user_id: user.id })));
             }
           }
         }
@@ -317,30 +322,38 @@ export function BatchLogSheet({
     transplantLocation,
     careNote,
     note,
-    photo,
+    photos,
     onSaved,
     onClose,
   ]);
 
-  const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
-      const reader = new FileReader();
-      reader.onload = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
+    if (file && photos.length < MAX_JOURNAL_PHOTOS) {
+      setPhotos((prev) => [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]);
     }
     e.target.value = "";
-  }, []);
+  }, [photos.length]);
+
+  const handleGalleryPhotos = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files?.length) {
+      const toAdd = Array.from(files)
+        .filter((f) => f.type.startsWith("image/"))
+        .slice(0, MAX_JOURNAL_PHOTOS - photos.length);
+      setPhotos((prev) => [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]);
+    }
+    e.target.value = "";
+  }, [photos.length]);
 
   const hasContentToSave = isBulk
-    ? (selectedActions.has("note") && note.trim()) || (selectedActions.has("photo") && photo)
+    ? (selectedActions.has("note") && note.trim()) || (selectedActions.has("photo") && photos.length > 0)
     : (selectedActions.has("germination") && seedsSprouted.trim()) ||
       (selectedActions.has("plant_count") && plantCount.trim()) ||
       (selectedActions.has("transplant") && (plantCount.trim() || transplantLocation.trim())) ||
       (selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) ||
       note.trim() ||
-      !!photo;
+      photos.length > 0;
 
   if (!open) return null;
 
@@ -379,8 +392,8 @@ export function BatchLogSheet({
 
         <div className="flex-1 overflow-y-auto p-4 pt-6 space-y-6">
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} aria-hidden />
-          <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} aria-hidden />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
+          <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
           {/* Primary actions — Water, Fertilize, Spray */}
           <div className="flex gap-2">
             <button
@@ -571,19 +584,41 @@ export function BatchLogSheet({
                   />
                 </div>
                 <div>
-                  {photoPreview ? (
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                      <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPhoto(null);
-                          setPhotoPreview(null);
-                        }}
-                        className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs"
-                      >
-                        Remove
-                      </button>
+                  <label className="block text-xs font-medium text-black/60 mb-1">Photo (max {MAX_JOURNAL_PHOTOS})</label>
+                  {photos.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {photos.map((p) => (
+                          <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
+                            <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); })}
+                              className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {photos.length < MAX_JOURNAL_PHOTOS && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium"
+                          >
+                            Take photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium"
+                          >
+                            From gallery
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -647,19 +682,41 @@ export function BatchLogSheet({
                 </button>
                 {selectedActions.has("photo") && (
                   <div className="mt-2">
-                    {photoPreview ? (
-                      <div className="relative aspect-video rounded-lg overflow-hidden bg-black/5">
-                        <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPhoto(null);
-                            setPhotoPreview(null);
-                          }}
-                          className="absolute top-2 right-2 py-1 px-2 rounded bg-black/60 text-white text-xs"
-                        >
-                          Remove
-                        </button>
+                    <label className="block text-xs font-medium text-black/60 mb-1">Photo (max {MAX_JOURNAL_PHOTOS})</label>
+                    {photos.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {photos.map((p) => (
+                            <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
+                              <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => setPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); })}
+                                className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        {photos.length < MAX_JOURNAL_PHOTOS && (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => cameraInputRef.current?.click()}
+                              className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium"
+                            >
+                              Take photo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => galleryInputRef.current?.click()}
+                              className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium"
+                            >
+                              From gallery
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex gap-2">
