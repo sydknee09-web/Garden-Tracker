@@ -972,7 +972,6 @@ function VaultPageInner() {
         });
       }
 
-      const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
       await supabase.from("tasks").insert({
         user_id: user.id,
         plant_profile_id: p.id,
