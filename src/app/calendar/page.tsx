@@ -1167,6 +1167,10 @@ export default function CalendarPage() {
           open={shedQuickAddOpen}
           onClose={() => setShedQuickAddOpen(false)}
           onSuccess={() => setRefetch((r) => r + 1)}
+          onBackToMenu={() => {
+            setShedQuickAddOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             setShedQuickAddOpen(false);
@@ -1212,6 +1216,10 @@ export default function CalendarPage() {
         <NewTaskModal
           open={newTaskOpen}
           onClose={() => setNewTaskOpen(false)}
+          onBackToMenu={() => {
+            setNewTaskOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onSuccess={() => setRefetch((r) => r + 1)}
         />
       )}

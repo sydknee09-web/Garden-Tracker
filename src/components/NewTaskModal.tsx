@@ -22,9 +22,11 @@ export interface NewTaskModalProps {
   onSuccess?: () => void;
   /** Optional initial due date (YYYY-MM-DD) */
   initialDueDate?: string;
+  /** When provided, show back arrow to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
+  onBackToMenu?: () => void;
 }
 
-export function NewTaskModal({ open, onClose, onSuccess, initialDueDate }: NewTaskModalProps) {
+export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackToMenu }: NewTaskModalProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [due, setDue] = useState(() => new Date().toISOString().slice(0, 10));
@@ -206,9 +208,23 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate }: NewTa
       >
         <div className="relative">
           <SubmitLoadingOverlay show={saving} message="Saving task…" />
-          <h2 id="new-task-title" className="text-xl font-bold text-center text-neutral-900 mb-4">
-            New Task
-          </h2>
+          <div className="flex items-center gap-2 mb-4">
+            {onBackToMenu ? (
+              <button
+                type="button"
+                onClick={onBackToMenu}
+                className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Back to add menu"
+              >
+                <BackIcon />
+              </button>
+            ) : (
+              <div className="w-11 shrink-0" aria-hidden />
+            )}
+            <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+              New Task
+            </h2>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
@@ -371,5 +387,13 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate }: NewTa
         </div>
       </div>
     </>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
   );
 }

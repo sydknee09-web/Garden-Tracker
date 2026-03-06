@@ -1050,6 +1050,10 @@ export default function JournalPage() {
         <NewTaskModal
           open={newTaskModalOpen}
           onClose={() => setNewTaskModalOpen(false)}
+          onBackToMenu={() => {
+            setNewTaskModalOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
         />
       )}
 
@@ -1103,6 +1107,10 @@ export default function JournalPage() {
           open={shedQuickAddOpen}
           onClose={() => setShedQuickAddOpen(false)}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onBackToMenu={() => {
+            setShedQuickAddOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             setShedQuickAddOpen(false);

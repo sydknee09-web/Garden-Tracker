@@ -23,9 +23,11 @@ interface QuickAddSupplyProps {
   onOpenPurchaseOrder?: () => void;
   /** Open batch photo import (multiple photos, extract each, review all); parent should close this and open BatchAddSupply. */
   onOpenBatchPhotoImport?: () => void;
+  /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
+  onBackToMenu?: () => void;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder, onOpenBatchPhotoImport }: QuickAddSupplyProps) {
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddSupplyScreen>("choose");
   const [name, setName] = useState("");
@@ -261,9 +263,32 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         aria-labelledby="quick-add-supply-title"
         aria-modal="true"
       >
-        <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 mb-4">
-          {isEdit ? "Edit Supply" : screen === "choose" ? "Add Supply" : screen === "link" ? "Import from Link" : "Add Supply"}
-        </h2>
+        <div className="flex items-center gap-2 mb-4">
+          {!isEdit && screen === "choose" && onBackToMenu ? (
+            <button
+              type="button"
+              onClick={onBackToMenu}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to add menu"
+            >
+              <BackIcon />
+            </button>
+          ) : !isEdit && screen === "link" ? (
+            <button
+              type="button"
+              onClick={() => setScreen("choose")}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to choose method"
+            >
+              <BackIcon />
+            </button>
+          ) : (
+            <div className="w-11 shrink-0" aria-hidden />
+          )}
+          <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+            {isEdit ? "Edit Supply" : screen === "choose" ? "Add Supply" : screen === "link" ? "Import from Link" : "Add Supply"}
+          </h2>
+        </div>
 
         {!isEdit && screen === "choose" && (
           <div className="space-y-3">
@@ -534,5 +559,13 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         )}
       </div>
     </>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
   );
 }

@@ -645,6 +645,10 @@ export default function HomePage() {
         <NewTaskModal
           open={newTaskModalOpen}
           onClose={() => setNewTaskModalOpen(false)}
+          onBackToMenu={() => {
+            setNewTaskModalOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
         />
       )}
@@ -699,6 +703,10 @@ export default function HomePage() {
           open={shedQuickAddOpen}
           onClose={() => setShedQuickAddOpen(false)}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onBackToMenu={() => {
+            setShedQuickAddOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             setShedQuickAddOpen(false);

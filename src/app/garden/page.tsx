@@ -1207,6 +1207,10 @@ function GardenPageInner() {
         <NewTaskModal
           open={newTaskModalOpen}
           onClose={() => setNewTaskModalOpen(false)}
+          onBackToMenu={() => {
+            setNewTaskModalOpen(false);
+            setFabMenuOpen(true);
+          }}
         />
       )}
 
@@ -1260,6 +1264,10 @@ function GardenPageInner() {
           open={shedQuickAddOpen}
           onClose={() => setShedQuickAddOpen(false)}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onBackToMenu={() => {
+            setShedQuickAddOpen(false);
+            setFabMenuOpen(true);
+          }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             setShedQuickAddOpen(false);

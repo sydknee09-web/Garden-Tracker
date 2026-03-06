@@ -2646,6 +2646,10 @@ function VaultPageInner() {
         <NewTaskModal
           open={newTaskModalOpen}
           onClose={() => setNewTaskModalOpen(false)}
+          onBackToMenu={() => {
+            setNewTaskModalOpen(false);
+            setUniversalAddMenuOpen(true);
+          }}
         />
       )}
 
@@ -2718,6 +2722,10 @@ function VaultPageInner() {
         open={shedQuickAddOpen}
         onClose={() => setShedQuickAddOpen(false)}
         onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        onBackToMenu={() => {
+          setShedQuickAddOpen(false);
+          setUniversalAddMenuOpen(true);
+        }}
         onOpenPurchaseOrder={() => {
           skipPopOnNavigateRef.current = true;
           setShedQuickAddOpen(false);
