@@ -1,4 +1,4 @@
-const CACHE_NAME = 'seed-vault-v3';
+const CACHE_NAME = 'seed-vault-v4';
 const PRECACHE_URLS = [
   '/',
   '/vault',

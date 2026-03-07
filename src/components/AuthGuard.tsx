@@ -129,19 +129,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isOnline = useOnlineStatus();
   const { isInHousehold, viewMode, setViewMode } = useHousehold();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [skipped, setSkipped] = useState(false);
   const [minDisplayPending, setMinDisplayPending] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const hasCompletedInitialLoadRef = useRef(false);
 
-  // When loading becomes false, optionally show loading screen for 1.2s (Skip bypasses)
+  // When loading becomes false, show loading screen for 1.2s (initial load only)
   useEffect(() => {
     if (loading) {
-      setSkipped(false);
       setMinDisplayPending(false);
     } else {
       setMinDisplayPending(true);
-      const t = setTimeout(() => setMinDisplayPending(false), 1200);
+      const t = setTimeout(() => {
+        setMinDisplayPending(false);
+        hasCompletedInitialLoadRef.current = true;
+      }, 1200);
       return () => clearTimeout(t);
     }
   }, [loading]);
@@ -173,17 +175,81 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, isAuthPage, router]);
 
-  const showLoadingScreen = loading || (minDisplayPending && !skipped);
+  const showLoadingScreen = loading || minDisplayPending;
   if (showLoadingScreen) {
-    return (
-      <LoadingScreen
-        onSkip={() => {
-          setSkipped(true);
-          setMinDisplayPending(false);
-        }}
-      />
-    );
+    // Only show branded LoadingScreen on initial app open; use skeleton during navigation
+    if (hasCompletedInitialLoadRef.current) {
+      return (
+        <>
+          {!isAuthPage && (
+            <>
+              <header
+                ref={headerRef}
+                className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
+                style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+              >
+                <div className="flex items-center gap-1 shrink-0">
+                  <CloudSyncIcon syncing={syncing} offline={!isOnline} />
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(true)}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
+                    aria-label="Send feedback"
+                    title="Send feedback"
+                  >
+                    <FeedbackIcon />
+                  </button>
+                </div>
+                <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
+                  {getPageTitle(pathname) || "\u00A0"}
+                </h1>
+                <div className="flex items-center shrink-0 gap-1">
+                  {isInHousehold && (
+                    <button
+                      type="button"
+                      onClick={() => setViewMode(viewMode === "personal" ? "family" : "personal")}
+                      className="flex items-center justify-center gap-1 w-[76px] rounded-full border border-black/15 bg-white/70 px-3 h-7 text-xs font-medium text-black/70 hover:text-black hover:border-black/30 transition-colors"
+                      aria-label={`Switch to ${viewMode === "personal" ? "family" : "personal"} view`}
+                    >
+                      {viewMode === "family" ? "Family" : "Personal"}
+                    </button>
+                  )}
+                  <Link
+                    href="/shopping-list"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                    aria-label="Shopping list"
+                  >
+                    <ShoppingListIcon />
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                    aria-label="Settings"
+                  >
+                    <SettingsIcon />
+                  </Link>
+                </div>
+              </header>
+              <FeedbackModal
+                open={feedbackOpen}
+                onClose={() => setFeedbackOpen(false)}
+                pageUrl={pathname ?? ""}
+              />
+            </>
+          )}
+          <main
+            ref={mainRef}
+            className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))]" : ""}`}
+          >
+            {getSkeletonForPath(pathname)}
+          </main>
+          {!isAuthPage && <BottomNav />}
+        </>
+      );
+    }
+    return <LoadingScreen />;
   }
+  hasCompletedInitialLoadRef.current = true;
   if (!user && !isAuthPage) {
     return null;
   }
