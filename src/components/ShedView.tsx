@@ -23,7 +23,7 @@ function SupplyThumb({ thumbUrl, imgClassName, iconClassName }: { thumbUrl: stri
   const imgSrc = thumbUrl || SHED_FALLBACK_IMAGE;
   const showImg = imgSrc && !failed;
   return showImg ? (
-    <img src={imgSrc} alt="" className={imgClassName} onError={() => setFailed(true)} />
+    <img src={imgSrc} alt="" className={imgClassName} loading="lazy" onError={() => setFailed(true)} />
   ) : (
     <ShedSupplyIcon className={iconClassName ?? "w-full h-full"} aria-hidden />
   );

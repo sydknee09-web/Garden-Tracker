@@ -115,7 +115,7 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
                       onChange={() => togglePacket(pkt.id, pkt.qty_status)}
                       className="w-5 h-5 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
                     />
-                    {imgUrl && <div className="w-10 h-10 rounded overflow-hidden bg-neutral-100 shrink-0"><img src={imgUrl} alt="" className="w-full h-full object-cover" /></div>}
+                    {imgUrl && <div className="w-10 h-10 rounded overflow-hidden bg-neutral-100 shrink-0"><img src={imgUrl} alt="" className="w-full h-full object-cover" loading="lazy" /></div>}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-neutral-800 truncate">{pkt.vendor_name?.trim() || "Unknown Vendor"} {year ? `(${year})` : ""}</p>
                       <p className="text-xs text-neutral-500">{qtyStatusToLabel(pkt.qty_status)} remaining</p>

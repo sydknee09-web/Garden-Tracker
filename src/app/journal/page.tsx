@@ -899,6 +899,7 @@ export default function JournalPage() {
                               fill
                               className="object-cover"
                               sizes="(max-width: 512px) 100vw, 512px"
+                              loading={i === 0 ? "eager" : "lazy"}
                               unoptimized={url.startsWith("data:") || !url.includes("supabase.co")}
                             />
                           </div>

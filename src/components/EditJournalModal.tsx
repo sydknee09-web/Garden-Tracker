@@ -423,7 +423,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                       <div className="flex flex-wrap gap-2 mb-2">
                         {photos.map((p, idx) => (
                           <div key={p.type === "existing" ? p.path : p.id} className="relative group">
-                            <img src={p.previewUrl} alt="" className="w-20 h-20 rounded-lg object-cover bg-black/5" />
+                            <img src={p.previewUrl} alt="" className="w-20 h-20 rounded-lg object-cover bg-black/5" loading="lazy" />
                             {canEdit && (
                               <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/40 rounded-lg transition-opacity">
                                 <button type="button" onClick={() => movePhoto(p, "left")} disabled={idx === 0} className="min-w-[32px] min-h-[32px] rounded bg-white/90 text-black text-xs font-bold disabled:opacity-40" aria-label="Move left">‹</button>

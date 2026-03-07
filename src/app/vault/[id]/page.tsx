@@ -1324,7 +1324,7 @@ export default function VaultSeedPage() {
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Packet photos</p>
                   <div className="grid grid-cols-3 gap-2">
                     {packets.filter((p) => p.primary_image_path?.trim()).map((pkt) => { const src = supabase.storage.from("seed-packets").getPublicUrl(pkt.primary_image_path!).data.publicUrl; return (
-                      <button key={pkt.id} type="button" onClick={() => setHeroFromPacket(pkt.primary_image_path!)} disabled={heroUploading} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 disabled:opacity-50"><img src={src} alt="" className="w-full h-full object-cover" /></button>
+                      <button key={pkt.id} type="button" onClick={() => setHeroFromPacket(pkt.primary_image_path!)} disabled={heroUploading} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 disabled:opacity-50"><img src={src} alt="" className="w-full h-full object-cover" loading="lazy" /></button>
                     ); })}
                   </div>
                 </div>
@@ -1333,7 +1333,7 @@ export default function VaultSeedPage() {
                 <div><p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Growth Gallery</p>
                   <div className="grid grid-cols-3 gap-2">
                     {journalPhotos.map((photo) => { const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl; return (
-                      <button key={photo.id} type="button" onClick={() => setHeroFromJournal(photo)} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500"><img src={src} alt="" className="w-full h-full object-cover" /></button>
+                      <button key={photo.id} type="button" onClick={() => setHeroFromJournal(photo)} className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500"><img src={src} alt="" className="w-full h-full object-cover" loading="lazy" /></button>
                     ); })}
                   </div>
                 </div>
@@ -1870,7 +1870,7 @@ export default function VaultSeedPage() {
                   <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
                     {journalPhotos.map((photo) => {
                       const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
-                      return <div key={photo.id} className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center"><Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} /></div>;
+                      return <div key={photo.id} className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center"><Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" loading="lazy" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} /></div>;
                     })}
                   </div>
                 </div>

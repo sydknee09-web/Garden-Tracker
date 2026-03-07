@@ -19,9 +19,9 @@ export interface CompressedImage {
  */
 export async function compressImage(
   file: File,
-  maxLongEdge = 1200,
+  maxLongEdge = 1000,
   quality = 0.85,
-  maxSizeKB = 800,
+  maxSizeKB = 500,
 ): Promise<CompressedImage> {
   // Non-images pass through unchanged
   if (!file.type.startsWith("image/")) {

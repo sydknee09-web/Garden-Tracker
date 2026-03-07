@@ -26,7 +26,8 @@
     "generate-pwa-icons": "tsx scripts/generate-pwa-icons.ts",
     "import-pdf-catalog": "tsx scripts/import-pdf-catalog.ts",
     "backfill-plant-descriptions": "tsx scripts/backfill-plant-descriptions.ts",
-    "backfill-cache": "tsx scripts/backfill-global-cache.ts"
+    "backfill-cache": "tsx scripts/backfill-global-cache.ts",
+    "recompress-storage-images": "tsx scripts/recompress-storage-images.ts"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",

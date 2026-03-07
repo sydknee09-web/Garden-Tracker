@@ -415,7 +415,7 @@ export default function VaultShedDetailPage() {
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-2">Current photo</p>
                   <div className="relative inline-block w-20 h-20 rounded-lg overflow-hidden border-2 border-neutral-300 bg-neutral-100">
-                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={thumbUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                     <button
                       type="button"
                       onClick={handleRemovePhoto}
@@ -500,7 +500,7 @@ export default function VaultShedDetailPage() {
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-6">
         {showThumb ? (
           <div className="aspect-video bg-white relative">
-            <img src={thumbUrl} alt="" className="w-full h-full object-contain" onError={() => setThumbLoadFailed(true)} />
+            <img src={thumbUrl} alt="" className="w-full h-full object-contain" loading="lazy" onError={() => setThumbLoadFailed(true)} />
             {canEdit && (
               <div className="absolute bottom-3 right-3">
                 <button
