@@ -97,6 +97,7 @@ export default function CalendarPage() {
   const pathname = usePathname();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetch, setRefetch] = useState(0);
@@ -210,6 +211,7 @@ export default function CalendarPage() {
     if (!user) {
       setTasks([]);
       setOverdueTasks([]);
+      setCompletedTasks([]);
       setLoading(false);
       return;
     }
@@ -308,6 +310,54 @@ export default function CalendarPage() {
       cancelled = true;
     };
   }, [user?.id, refetch, householdViewMode]);
+
+  // Fetch completed tasks (date-aware: last 50 when no date, or for selected date)
+  useEffect(() => {
+    if (!user?.id) {
+      setCompletedTasks([]);
+      return;
+    }
+    const viewMode = householdViewMode ?? "personal";
+    let cancelled = false;
+    async function fetchCompleted() {
+      let query = supabase
+        .from("tasks")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .is("deleted_at", null)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false });
+      if (viewMode !== "family") query = query.eq("user_id", user!.id);
+      if (selectedDate) {
+        const startOfDay = `${selectedDate}T00:00:00.000Z`;
+        const nextDay = new Date(selectedDate + "T12:00:00");
+        nextDay.setDate(nextDay.getDate() + 1);
+        const endOfDay = nextDay.toISOString().slice(0, 19) + "Z";
+        query = query.gte("completed_at", startOfDay).lt("completed_at", endOfDay);
+      } else {
+        query = query.limit(50);
+      }
+      const { data: rows } = await query;
+      if (cancelled) return;
+      const allProfileIds = [...new Set((rows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
+      const names: Record<string, string> = {};
+      if (allProfileIds.length > 0) {
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
+        (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
+          names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+        });
+      }
+      const withNames = (rows ?? []).map((t) => {
+        const task = t as Task & { user_id?: string | null };
+        return { ...task, plant_name: (task.plant_profile_id ? names[task.plant_profile_id] : null) ?? "Unknown" };
+      });
+      setCompletedTasks(withNames);
+      if (withNames.length > 0) {
+        setExpandedDateGroups((prev) => new Set([...prev, "completed"]));
+      }
+    }
+    fetchCompleted();
+    return () => { cancelled = true; };
+  }, [user?.id, refetch, householdViewMode, selectedDate]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -779,7 +829,7 @@ export default function CalendarPage() {
               </button>
             )}
           </div>
-          {tasks.length === 0 && overdueTasks.length === 0 ? (
+          {tasks.length === 0 && overdueTasks.length === 0 && completedTasks.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-black/60 text-sm font-medium">
                 No upcoming tasks scheduled.
@@ -789,33 +839,72 @@ export default function CalendarPage() {
               </p>
             </div>
           ) : selectedDate ? (
-            (byDate[selectedDate] ?? []).length === 0 ? (
-              <div className="p-6 text-center">
-                <p className="text-black/50 text-sm">
-                  No tasks on {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric" })}.
-                </p>
-                <p className="text-xs text-black/40 mt-1">Tap another date to see its tasks.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-black/5">
-                {(byDate[selectedDate] ?? []).map((t) => (
-                  <li key={t.id} className="p-4">
-                    <CalendarTaskRow
-                      task={t}
-                      onComplete={() => handleComplete(t)}
-                      onSnooze={(newDue) => handleSnooze(t, newDue)}
-                      selectMode={selectMode}
-                      isSelected={selectedIds.has(t.id)}
-                      onLongPress={() => handleLongPressTask(t.id)}
-                      onToggleSelect={() => toggleTaskSelect(t.id)}
-                      onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
-                      ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
-                      canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )
+            (() => {
+              const upcomingForDate = byDate[selectedDate] ?? [];
+              const completedForDate = completedTasks;
+              const hasAny = upcomingForDate.length > 0 || completedForDate.length > 0;
+              if (!hasAny) {
+                return (
+                  <div className="p-6 text-center">
+                    <p className="text-black/50 text-sm">
+                      No tasks on {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric" })}.
+                    </p>
+                    <p className="text-xs text-black/40 mt-1">Tap another date to see its tasks.</p>
+                  </div>
+                );
+              }
+              return (
+                <ul className="divide-y divide-black/5">
+                  {upcomingForDate.map((t) => (
+                    <li key={t.id} className="p-4">
+                      <CalendarTaskRow
+                        task={t}
+                        onComplete={() => handleComplete(t)}
+                        onSnooze={(newDue) => handleSnooze(t, newDue)}
+                        selectMode={selectMode}
+                        isSelected={selectedIds.has(t.id)}
+                        onLongPress={() => handleLongPressTask(t.id)}
+                        onToggleSelect={() => toggleTaskSelect(t.id)}
+                        onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                        ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                        canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
+                      />
+                    </li>
+                  ))}
+                  {completedForDate.length > 0 && (
+                    <li className="border-t border-black/5">
+                      <button
+                        type="button"
+                        onClick={() => toggleDateGroup("completed")}
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors bg-slate-50/50"
+                        aria-expanded={expandedDateGroups.has("completed")}
+                      >
+                        <span className="text-sm font-medium text-slate-700">
+                          Completed ({completedForDate.length} task{completedForDate.length !== 1 ? "s" : ""})
+                        </span>
+                        <span className="text-slate-600 text-sm shrink-0">{expandedDateGroups.has("completed") ? "Hide" : "Show"}</span>
+                      </button>
+                      {expandedDateGroups.has("completed") && (
+                        <div className="px-4 pb-4 space-y-2 bg-slate-50/30">
+                          {completedForDate.map((t) => (
+                            <CalendarTaskRow
+                              key={t.id}
+                              task={t}
+                              onComplete={() => {}}
+                              onSnooze={() => {}}
+                              selectMode={false}
+                              onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                              ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                              canEdit={false}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  )}
+                </ul>
+              );
+            })()
           ) : (
             <ul className="divide-y divide-black/5">
               {overdueTasks.length > 0 && (
@@ -903,6 +992,37 @@ export default function CalendarPage() {
                     </li>
                   );
                 })}
+              {completedTasks.length > 0 && (
+                <li className="border-b border-black/5 last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => toggleDateGroup("completed")}
+                    className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors bg-slate-50/50"
+                    aria-expanded={expandedDateGroups.has("completed")}
+                  >
+                    <span className="text-sm font-medium text-slate-700">
+                      Completed ({completedTasks.length} task{completedTasks.length !== 1 ? "s" : ""})
+                    </span>
+                    <span className="text-slate-600 text-sm shrink-0">{expandedDateGroups.has("completed") ? "Hide" : "Show"}</span>
+                  </button>
+                  {expandedDateGroups.has("completed") && (
+                    <div className="px-4 pb-4 space-y-2 bg-slate-50/30">
+                      {completedTasks.map((t) => (
+                        <CalendarTaskRow
+                          key={t.id}
+                          task={t}
+                          onComplete={() => {}}
+                          onSnooze={() => {}}
+                          selectMode={false}
+                          onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                          ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                          canEdit={false}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </li>
+              )}
             </ul>
           )}
         </div>

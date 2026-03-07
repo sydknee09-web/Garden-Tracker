@@ -230,6 +230,14 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 
 ## Calendar
 
+### Task list (Overdue, Upcoming, Completed)
+
+| Section | Content |
+|---------|---------|
+| **Overdue** | Tasks past due, not done. Collapsible. |
+| **Upcoming** | Tasks from today onward, grouped by date. Collapsible. |
+| **Completed** | Recently completed tasks. Collapsible. Hidden when empty. When no date selected: last 50. When a date is selected (prior or today): completed tasks for that date. |
+
 ### Calendar FAB
 
 | Action | Destination / Behavior |
@@ -287,3 +295,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-02 | Home: Planting calendars (zone charts, SDSC, Farmers' Almanac) moved to /resources. Planting Schedule section stays on home with link to Resources. Settings: Added Resources link. |
 | 2025-03-02 | Journal: Short tap on entry (when not selecting) opens Edit Journal modal. Editable: note, photos; plants editable except for planting entries (read-only). Respects canEditPage for household view. |
 | 2025-03-03 | Add to shed: Added "Import from Photos (batch)" option. User can add multiple photos, extract each via AI, then review all at /shed/review-import before saving. Single-photo import retained. SupplyReviewItem extended with primary_image_path for batch-extracted photos. |
+| 2025-03-05 | Calendar: Added Completed section (collapsible). Shows last 50 when no date selected; shows completed for selected date when viewing prior or today. All tasks redate to today on completion. |

@@ -25,17 +25,9 @@ export async function completeTask(
   try {
     const now = new Date().toISOString();
     const today = new Date().toISOString().slice(0, 10);
-    const isSowTask =
-      task.category === "sow" ||
-      task.category === "start_seed" ||
-      task.category === "direct_sow";
 
-    // Mark task as completed
-    if (isSowTask) {
-      await supabase.from("tasks").update({ due_date: today, completed_at: now }).eq("id", task.id).eq("user_id", userId);
-    } else {
-      await supabase.from("tasks").update({ completed_at: now }).eq("id", task.id).eq("user_id", userId);
-    }
+    // Mark task as completed; redate to today so completed tasks appear under correct date in history
+    await supabase.from("tasks").update({ due_date: today, completed_at: now }).eq("id", task.id).eq("user_id", userId);
 
     // ---- Sow task for plant_profiles (new schema) ----
     if (
