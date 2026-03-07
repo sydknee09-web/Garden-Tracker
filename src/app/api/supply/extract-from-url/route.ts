@@ -128,6 +128,7 @@ async function fetchAndUploadImage(
     .upload(path, compressed, {
       contentType: "image/jpeg",
       upsert: false,
+      cacheControl: "31536000",
     });
 
   return error ? null : path;

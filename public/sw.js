@@ -1,4 +1,4 @@
-const CACHE_NAME = 'seed-vault-v2';
+const CACHE_NAME = 'seed-vault-v3';
 const PRECACHE_URLS = [
   '/',
   '/vault',
@@ -35,7 +35,29 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET
   if (event.request.method !== 'GET') return;
 
-  // Skip Supabase API calls (always go to network)
+  // Supabase Storage images: stale-while-revalidate (cache for repeat loads, reduce egress)
+  if ((url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) &&
+      url.pathname.includes('/storage/v1/object/public/')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          const fetchAndCache = () =>
+            fetch(event.request).then((response) => {
+              if (response.ok) cache.put(event.request, response.clone());
+              return response;
+            });
+          if (cached) {
+            fetchAndCache().catch(() => {});
+            return cached;
+          }
+          return fetchAndCache();
+        })
+      )
+    );
+    return;
+  }
+
+  // Skip other Supabase calls (API, auth - always go to network)
   if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) return;
 
   // Skip external API calls

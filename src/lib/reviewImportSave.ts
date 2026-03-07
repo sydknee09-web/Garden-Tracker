@@ -181,6 +181,7 @@ export async function saveManualImportItem(
         const storagePath = `${userId}/hero-cache/${sanitizedKey}.jpg`;
         const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, compressedBlob, {
           contentType: "image/jpeg",
+          cacheControl: "31536000",
           upsert: true,
         });
         if (!uploadErr) {

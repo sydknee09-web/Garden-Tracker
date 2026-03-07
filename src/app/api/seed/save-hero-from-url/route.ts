@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 
     const { error: uploadError } = await admin.storage
       .from("journal-photos")
-      .upload(path, blob, { contentType: type, upsert: false });
+      .upload(path, blob, { contentType: type, upsert: false, cacheControl: "31536000" });
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });

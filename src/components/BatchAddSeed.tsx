@@ -573,6 +573,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
         const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
           contentType: "image/jpeg",
           upsert: false,
+          cacheControl: "31536000",
         });
         if (uploadErr) {
           setError(uploadErr.message);

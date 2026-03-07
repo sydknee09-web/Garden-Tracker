@@ -166,6 +166,7 @@ export async function POST(request: Request) {
                 .upload(path, compressed, {
                   contentType: "image/jpeg",
                   upsert: false,
+                  cacheControl: "31536000",
                 });
               if (!uploadErr) primaryImagePath = path;
             }

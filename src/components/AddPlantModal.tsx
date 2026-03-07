@@ -276,7 +276,7 @@ export function AddPlantModal({
           const path = `${user.id}/plant-${profileId}-${crypto.randomUUID().slice(0, 8)}.jpg`;
           const { error: uploadErr } = await supabase.storage
             .from("journal-photos")
-            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
           if (uploadErr) continue;
           if (i === 0) heroPath = path;
           await supabase.from("journal_entries").insert({
@@ -425,7 +425,7 @@ export function AddPlantModal({
             const path = `${user.id}/plant-${profileId}-${crypto.randomUUID().slice(0, 8)}.jpg`;
             const { error: uploadErr } = await supabase.storage
               .from("journal-photos")
-              .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+              .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
             if (uploadErr) continue;
             if (i === 0) heroPath = path;
             const plantingNote = i === 0 && displayName

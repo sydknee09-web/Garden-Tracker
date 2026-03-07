@@ -362,7 +362,7 @@ function GardenPageInner() {
     for (const p of logGrowthPhotos) {
       const { blob } = await compressImage(p.file);
       const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
       if (upErr) {
         setLogGrowthError(upErr.message || "Failed to upload photo. Try again.");
         setLogGrowthSaving(false);
@@ -405,7 +405,7 @@ function GardenPageInner() {
       setQuickAddSaving(true);
       const { blob } = await compressImage(p.file);
       const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
       if (upErr) {
         setQuickAddError(upErr.message || "Failed to upload photo.");
         setQuickAddSaving(false);

@@ -132,7 +132,7 @@ export async function POST(req: Request) {
         const path = `${user.id}/supply-from-photo-${crypto.randomUUID().slice(0, 8)}.jpg`;
         const { error } = await admin.storage
           .from("journal-photos")
-          .upload(path, compressed, { contentType: "image/jpeg", upsert: false });
+          .upload(path, compressed, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
         if (!error) parsed.primary_image_path = path;
       } catch {
         // Non-fatal; continue without stored image

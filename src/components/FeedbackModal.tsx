@@ -90,7 +90,7 @@ export function FeedbackModal({
         const path = `${currentUser.id}/feedback-${crypto.randomUUID()}.jpg`;
         const { error: uploadErr } = await supabase.storage
           .from("journal-photos")
-          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
         if (uploadErr) throw uploadErr;
         screenshotPath = path;
       }

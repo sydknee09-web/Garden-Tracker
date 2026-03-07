@@ -261,7 +261,7 @@ export function BatchLogSheet({
       for (const p of photos) {
         const { blob } = await compressImage(p.file);
         const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-        const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
         if (!upErr) uploadedPaths.push(path);
       }
       const firstPath = uploadedPaths[0] ?? null;

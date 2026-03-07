@@ -318,7 +318,7 @@ export default function VaultShedDetailPage() {
         const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
         const { error: uploadErr } = await supabase.storage
           .from("journal-photos")
-          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+          .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
         if (uploadErr) throw uploadErr;
         const ownerId = supply.user_id ?? user.id;
         const { error } = await updateWithOfflineQueue(

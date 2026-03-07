@@ -463,7 +463,7 @@ export default function VaultImportPage() {
                   const file = new File([rawBlob], "packet.jpg", { type: rawBlob.type });
                   const { blob } = await compressImage(file);
                   const path = `${uid}/${crypto.randomUUID()}.jpg`;
-                  const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+                  const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
                   if (!uploadErr) uploadedImagePath = path;
                 }
               }

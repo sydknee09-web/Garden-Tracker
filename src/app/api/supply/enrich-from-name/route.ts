@@ -104,7 +104,7 @@ async function fetchAndUploadImage(imageUrl: string, userId: string): Promise<st
   const path = `${userId}/supply-enrich-${crypto.randomUUID().slice(0, 8)}.jpg`;
   const { error } = await admin.storage
     .from("journal-photos")
-    .upload(path, compressed, { contentType: "image/jpeg", upsert: false });
+    .upload(path, compressed, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
 
   return error ? null : path;
 }

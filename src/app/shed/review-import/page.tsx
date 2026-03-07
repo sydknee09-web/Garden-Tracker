@@ -133,7 +133,7 @@ export default function ShedReviewImportPage() {
           const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
           const { error: uploadErr } = await supabase.storage
             .from("journal-photos")
-            .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+            .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
           if (!uploadErr) primaryImagePath = path;
         } else if (item.primary_image_path) {
           primaryImagePath = item.primary_image_path;

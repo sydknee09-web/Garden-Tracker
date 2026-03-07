@@ -719,6 +719,7 @@ export default function ReviewImportPage() {
         const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
           contentType: "image/jpeg",
           upsert: false,
+          cacheControl: "31536000",
         });
         if (uploadErr) {
           setError(uploadErr.message);
@@ -867,6 +868,7 @@ export default function ReviewImportPage() {
             const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(extraPath, blob, {
               contentType: "image/jpeg",
               upsert: false,
+              cacheControl: "31536000",
             });
             if (!uploadErr) {
               await supabase.from("packet_images").insert({
@@ -913,6 +915,7 @@ export default function ReviewImportPage() {
                 const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, blob, {
                   contentType: blob.type || "image/jpeg",
                   upsert: true,
+                  cacheControl: "31536000",
                 });
                 if (!uploadErr) {
                   heroStoragePath = storagePath;
@@ -946,6 +949,7 @@ export default function ReviewImportPage() {
                 const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, compressedBlob, {
                   contentType: "image/jpeg",
                   upsert: true,
+                  cacheControl: "31536000",
                 });
                 if (!uploadErr) {
                   heroStoragePath = storagePath;

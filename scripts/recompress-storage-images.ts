@@ -189,6 +189,7 @@ async function main() {
           .upload(filePath, outBuf, {
             contentType: "image/jpeg",
             upsert: true,
+            cacheControl: "31536000",
           });
 
         if (upErr) {

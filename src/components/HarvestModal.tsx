@@ -61,7 +61,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       for (const p of photos) {
         const { blob } = await compressImage(p.file);
         const path = `${user.id}/harvest-${growInstanceId}-${Date.now()}-${crypto.randomUUID()}.jpg`;
-        const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
         if (!uploadErr) uploadedPaths.push(path);
       }
       const firstPath = uploadedPaths[0] ?? null;
