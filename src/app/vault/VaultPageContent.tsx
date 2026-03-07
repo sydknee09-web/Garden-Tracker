@@ -58,6 +58,10 @@ const AddPlantModal = dynamic(
   () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
   { ssr: false }
 );
+const EditPacketModal = dynamic(
+  () => import("@/components/EditPacketModal").then((m) => ({ default: m.EditPacketModal })),
+  { ssr: false }
+);
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 
 const QRScannerModal = dynamic(
@@ -101,6 +105,7 @@ function getSowingWindowLabelSimple(p: { planting_window?: string | null }): str
   return p.planting_window?.trim() || null;
 }
 import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { cascadeForDeletedPackets } from "@/lib/cascadeOnPacketDelete";
 import {
   shouldClearFiltersOnMount,
   clearVaultFilters,
@@ -138,6 +143,14 @@ function CalendarIcon({ className }: { className?: string }) {
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
       <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }
@@ -233,11 +246,16 @@ function VaultPageInner() {
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
   const [batchSelectMode, setBatchSelectMode] = useState(false);
   const [selectedVarietyIds, setSelectedVarietyIds] = useState<Set<string>>(new Set());
+  const [selectedPacketIds, setSelectedPacketIds] = useState<Set<string>>(new Set());
   const [filteredVarietyIds, setFilteredVarietyIds] = useState<string[]>([]);
+  const [filteredPacketIds, setFilteredPacketIds] = useState<string[]>([]);
   const [filteredPacketCount, setFilteredPacketCount] = useState(0);
   const [vaultHasSeeds, setVaultHasSeeds] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
+  const [batchPacketDeleteConfirmOpen, setBatchPacketDeleteConfirmOpen] = useState(false);
+  const [editPacketModalOpen, setEditPacketModalOpen] = useState(false);
+  const [editPacketId, setEditPacketId] = useState<string | null>(null);
   const [pendingHeroCount, setPendingHeroCount] = useState(0);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeMasterId, setMergeMasterId] = useState<string | null>(null);
@@ -635,9 +653,23 @@ function VaultPageInner() {
     });
   }, []);
 
+  const togglePacketSelection = useCallback((packetId: string) => {
+    setSelectedPacketIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(packetId)) next.delete(packetId);
+      else next.add(packetId);
+      return next;
+    });
+  }, []);
+
   const handleLongPressVariety = useCallback((plantVarietyId: string) => {
     setBatchSelectMode(true);
     setSelectedVarietyIds((prev) => new Set([...prev, plantVarietyId]));
+  }, []);
+
+  const handleLongPressPacket = useCallback((packetId: string) => {
+    setBatchSelectMode(true);
+    setSelectedPacketIds((prev) => new Set([...prev, packetId]));
   }, []);
 
   const handleBatchDelete = useCallback(async () => {
@@ -675,6 +707,32 @@ function VaultPageInner() {
     }
   }, [user?.id, selectedVarietyIds]);
 
+  const handleBatchDeletePackets = useCallback(
+    async (deleteGrowInstances: boolean) => {
+      if (selectedPacketIds.size === 0) return;
+      const uid = user?.id;
+      if (!uid) {
+        setSaveToastMessage("You must be signed in to delete.");
+        return;
+      }
+      setBatchDeleting(true);
+      try {
+        await cascadeForDeletedPackets(supabase, Array.from(selectedPacketIds), uid, { deleteGrowInstances });
+        const count = selectedPacketIds.size;
+        setSelectedPacketIds(new Set());
+        setBatchSelectMode(false);
+        setBatchPacketDeleteConfirmOpen(false);
+        setRefetchTrigger((t) => t + 1);
+        setSaveToastMessage(`${count} packet${count === 1 ? "" : "s"} removed.`);
+      } catch (err) {
+        setSaveToastMessage(err instanceof Error ? err.message : "Could not delete packets.");
+      } finally {
+        setBatchDeleting(false);
+      }
+    },
+    [user?.id, selectedPacketIds]
+  );
+
   const handleShedBatchDelete = useCallback(async () => {
     if (selectedSupplyIds.size === 0) return;
     const uid = user?.id;
@@ -703,8 +761,12 @@ function VaultPageInner() {
   }, [user?.id, selectedSupplyIds]);
 
   const handleSelectAll = useCallback(() => {
-    setSelectedVarietyIds(new Set(filteredVarietyIds));
-  }, [filteredVarietyIds]);
+    if (viewMode === "list") {
+      setSelectedPacketIds(new Set(filteredPacketIds));
+    } else {
+      setSelectedVarietyIds(new Set(filteredVarietyIds));
+    }
+  }, [viewMode, filteredVarietyIds, filteredPacketIds]);
 
   const openMergeModal = useCallback(async () => {
     if (selectedVarietyIds.size < 2 || !user?.id) return;
@@ -1138,7 +1200,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "grid"}
-              onClick={() => { setViewMode("grid"); router.replace("/vault?tab=grid", { scroll: false }); }}
+              onClick={() => { setViewMode("grid"); setSelectedVarietyIds(new Set()); setSelectedPacketIds(new Set()); router.replace("/vault?tab=grid", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "grid"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -1151,7 +1213,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "list"}
-              onClick={() => { setViewMode("list"); router.replace("/vault?tab=list", { scroll: false }); }}
+              onClick={() => { setViewMode("list"); setSelectedVarietyIds(new Set()); setSelectedPacketIds(new Set()); router.replace("/vault?tab=list", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "list"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -1164,7 +1226,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "shed"}
-              onClick={() => { setViewMode("shed"); router.replace("/vault?tab=shed", { scroll: false }); }}
+              onClick={() => { setViewMode("shed"); setSelectedVarietyIds(new Set()); setSelectedPacketIds(new Set()); router.replace("/vault?tab=shed", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "shed"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -1242,6 +1304,7 @@ function VaultPageInner() {
                     if (batchSelectMode) {
                       setBatchSelectMode(false);
                       setSelectedVarietyIds(new Set());
+                      setSelectedPacketIds(new Set());
                       setSelectionActionsOpen(false);
                     } else {
                       setBatchSelectMode(true);
@@ -2151,10 +2214,10 @@ function VaultPageInner() {
               sortDirection={packetSortDirection}
               sowMonth={packetSowMonth}
               batchSelectMode={batchSelectMode}
-              selectedProfileIds={selectedVarietyIds}
-              onToggleProfileSelection={toggleVarietySelection}
-              onLongPressPacket={handleLongPressVariety}
-              onFilteredIdsChange={setFilteredVarietyIds}
+              selectedPacketIds={selectedPacketIds}
+              onTogglePacketSelection={togglePacketSelection}
+              onLongPressPacket={handleLongPressPacket}
+              onFilteredPacketIdsChange={setFilteredPacketIds}
               onFilteredCountChange={setFilteredPacketCount}
               onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
               onOpenScanner={() => setScannerOpen(true)}
@@ -2480,7 +2543,7 @@ function VaultPageInner() {
         </div>
       )}
 
-      {/* Selection actions menu (when plants selected): plus opens this instead of quick add */}
+      {/* Selection actions menu (when plants/packets selected): plus opens this instead of quick add */}
       {selectionActionsOpen && (viewMode === "grid" || viewMode === "list") && batchSelectMode && (
         <>
           <div
@@ -2495,59 +2558,92 @@ function VaultPageInner() {
             className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
           >
             <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
-              <p className="text-sm font-medium text-black/70">{selectedVarietyIds.size} selected</p>
+              <p className="text-sm font-medium text-black/70">
+                {viewMode === "list" ? selectedPacketIds.size : selectedVarietyIds.size} selected
+              </p>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
-              <button
-                type="button"
-                onClick={() => { setBatchDeleteConfirmOpen(true); setSelectionActionsOpen(false); }}
-                disabled={selectedVarietyIds.size === 0 || batchDeleting}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
-                aria-label="Delete selected"
-              >
-                <Trash2Icon className="w-5 h-5 shrink-0" />
-                Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => { goToPlantPage(); setSelectionActionsOpen(false); }}
-                disabled={selectedVarietyIds.size === 0}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
-                aria-label="Plant selected"
-              >
-                <ShovelIcon className="w-5 h-5 shrink-0" />
-                Plant
-              </button>
-              <button
-                type="button"
-                onClick={() => { handleAddToShoppingList(); setSelectionActionsOpen(false); }}
-                disabled={selectedVarietyIds.size === 0 || addingToShoppingList}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
-                aria-label="Add to shopping list"
-              >
-                <ShoppingListIcon className="w-5 h-5 shrink-0" />
-                Shopping list
-              </button>
-              <button
-                type="button"
-                onClick={() => { openScheduleModal(); setSelectionActionsOpen(false); }}
-                disabled={selectedVarietyIds.size === 0}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
-                aria-label="Schedule sowing"
-              >
-                <CalendarIcon className="w-5 h-5 shrink-0" />
-                Plan
-              </button>
-              <button
-                type="button"
-                onClick={() => { openMergeModal(); setSelectionActionsOpen(false); }}
-                disabled={selectedVarietyIds.size < 2}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
-                aria-label="Merge selected"
-              >
-                <MergeIcon className="w-5 h-5 shrink-0" />
-                Merge
-              </button>
+              {viewMode === "list" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setBatchPacketDeleteConfirmOpen(true); setSelectionActionsOpen(false); }}
+                    disabled={selectedPacketIds.size === 0 || batchDeleting}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Delete selected"
+                  >
+                    <Trash2Icon className="w-5 h-5 shrink-0" />
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = Array.from(selectedPacketIds)[0];
+                      if (first) { setEditPacketId(first); setEditPacketModalOpen(true); }
+                      setSelectionActionsOpen(false);
+                    }}
+                    disabled={selectedPacketIds.size !== 1}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Edit selected packet"
+                  >
+                    <PencilIcon className="w-5 h-5 shrink-0" />
+                    Edit
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setBatchDeleteConfirmOpen(true); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size === 0 || batchDeleting}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Delete selected"
+                  >
+                    <Trash2Icon className="w-5 h-5 shrink-0" />
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { goToPlantPage(); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size === 0}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Plant selected"
+                  >
+                    <ShovelIcon className="w-5 h-5 shrink-0" />
+                    Plant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { handleAddToShoppingList(); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size === 0 || addingToShoppingList}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Add to shopping list"
+                  >
+                    <ShoppingListIcon className="w-5 h-5 shrink-0" />
+                    Shopping list
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { openScheduleModal(); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size === 0}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Schedule sowing"
+                  >
+                    <CalendarIcon className="w-5 h-5 shrink-0" />
+                    Plan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { openMergeModal(); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size < 2}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Merge selected"
+                  >
+                    <MergeIcon className="w-5 h-5 shrink-0" />
+                    Merge
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -2580,6 +2676,46 @@ function VaultPageInner() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Batch delete packets confirmation (two options) */}
+      {batchPacketDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="alertdialog" aria-modal="true" aria-labelledby="batch-packet-delete-title">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+            <h2 id="batch-packet-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedPacketIds.size} seed packet{selectedPacketIds.size !== 1 ? "s" : ""}?</h2>
+            <p className="text-sm text-black/70 mb-3">Choose how to handle related data:</p>
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => handleBatchDeletePackets(false)}
+                disabled={batchDeleting}
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50 text-left"
+              >
+                <span className="block font-medium">Delete packet only</span>
+                <span className="block text-xs text-black/60 mt-0.5">Removes packets and journal entries. Plantings kept; packet link cleared.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBatchDeletePackets(true)}
+                disabled={batchDeleting}
+                className="w-full px-4 py-2.5 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 min-h-[44px] disabled:opacity-50 text-left"
+              >
+                <span className="block font-medium">Delete packet and all related</span>
+                <span className="block text-xs text-red-600/80 mt-0.5">Removes packets, journal entries, and plantings started from these packets.</span>
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setBatchPacketDeleteConfirmOpen(false)}
+                disabled={batchDeleting}
+                className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Batch delete plant profiles confirmation */}
@@ -2618,10 +2754,19 @@ function VaultPageInner() {
         </div>
       )}
 
+      {editPacketModalOpen && editPacketId && (
+        <EditPacketModal
+          packetId={editPacketId}
+          onClose={() => { setEditPacketModalOpen(false); setEditPacketId(null); setSelectedPacketIds(new Set()); setBatchSelectMode(false); }}
+          onSaved={() => { setRefetchTrigger((t) => t + 1); setSelectedPacketIds(new Set()); setBatchSelectMode(false); }}
+        />
+      )}
+
       <button
         type="button"
         onClick={() => {
-          if ((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) {
+          const hasSelection = viewMode === "list" ? selectedPacketIds.size > 0 : selectedVarietyIds.size > 0;
+          if ((viewMode === "grid" || viewMode === "list") && batchSelectMode && hasSelection) {
             setSelectionActionsOpen(true);
           } else if (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0) {
             setShedSelectionActionsOpen(true);
@@ -2632,7 +2777,7 @@ function VaultPageInner() {
           }
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-          ((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) ||
+          ((viewMode === "grid" && batchSelectMode && selectedVarietyIds.size > 0) || (viewMode === "list" && batchSelectMode && selectedPacketIds.size > 0)) ||
           (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0)
             ? "bg-amber-500 text-white"
             : universalAddMenuOpen
@@ -2648,7 +2793,7 @@ function VaultPageInner() {
               : "Add"
         }
       >
-        {((viewMode === "grid" || viewMode === "list") && batchSelectMode && selectedVarietyIds.size > 0) ||
+        {((viewMode === "grid" && batchSelectMode && selectedVarietyIds.size > 0) || (viewMode === "list" && batchSelectMode && selectedPacketIds.size > 0)) ||
         (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0) ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
             <path d="M7 6l4 6-4 6" />

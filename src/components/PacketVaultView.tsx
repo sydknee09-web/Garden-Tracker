@@ -66,10 +66,10 @@ export function PacketVaultView({
   sortDirection = "desc",
   sowMonth = null,
   batchSelectMode = false,
-  selectedProfileIds,
-  onToggleProfileSelection,
+  selectedPacketIds,
+  onTogglePacketSelection,
   onLongPressPacket,
-  onFilteredIdsChange,
+  onFilteredPacketIdsChange,
   onFilteredCountChange,
   onEmptyStateChange,
   onOpenScanner,
@@ -86,10 +86,10 @@ export function PacketVaultView({
   sortDirection?: "asc" | "desc";
   sowMonth?: string | null;
   batchSelectMode?: boolean;
-  selectedProfileIds?: Set<string>;
-  onToggleProfileSelection?: (profileId: string) => void;
-  onLongPressPacket?: (profileId: string) => void;
-  onFilteredIdsChange?: (profileIds: string[]) => void;
+  selectedPacketIds?: Set<string>;
+  onTogglePacketSelection?: (packetId: string) => void;
+  onLongPressPacket?: (packetId: string) => void;
+  onFilteredPacketIdsChange?: (packetIds: string[]) => void;
   onFilteredCountChange?: (count: number) => void;
   onEmptyStateChange?: (isEmpty: boolean) => void;
   onOpenScanner?: () => void;
@@ -119,14 +119,14 @@ export function PacketVaultView({
   }, []);
 
   const getLongPressHandlers = useCallback(
-    (profileId: string) => ({
+    (pkt: PacketVaultItem) => ({
       onTouchStart: () => {
         longPressFiredRef.current = false;
         clearLongPressTimer();
         longPressTimerRef.current = setTimeout(() => {
           longPressTimerRef.current = null;
           longPressFiredRef.current = true;
-          onLongPressPacket?.(profileId);
+          onLongPressPacket?.(pkt.id);
         }, LONG_PRESS_MS);
       },
       onTouchMove: clearLongPressTimer,
@@ -137,7 +137,7 @@ export function PacketVaultView({
           longPressFiredRef.current = false;
           return;
         }
-        router.push(`/vault/${profileId}`);
+        router.push(`/vault/${pkt.plant_profile_id}`);
       },
     }),
     [onLongPressPacket, clearLongPressTimer, router]
@@ -366,12 +366,14 @@ export function PacketVaultView({
       const da = a.purchase_date ? new Date(a.purchase_date).getTime() : (a.created_at ? new Date(a.created_at).getTime() : 0);
       const db = b.purchase_date ? new Date(b.purchase_date).getTime() : (b.created_at ? new Date(b.created_at).getTime() : 0);
       return mult * (da - db);
-      return mult * (da - db);
     });
     return list;
   }, [filteredPackets, sortBy, sortDirection]);
 
-  const filteredProfileIds = useMemo(() => [...new Set(sortedPackets.map((p) => p.plant_profile_id))], [sortedPackets]);
+  const filteredPacketIds = useMemo(
+    () => sortedPackets.filter((p) => !selectedOwnerFilter || p.owner_user_id === selectedOwnerFilter).map((p) => p.id),
+    [sortedPackets, selectedOwnerFilter]
+  );
 
   const packetStatusChips = useMemo(() => {
     const statuses: { value: PacketStatusFilter; label: string }[] = [
@@ -410,8 +412,8 @@ export function PacketVaultView({
   const filteredPacketCount = sortedPackets.filter((p) => !selectedOwnerFilter || p.owner_user_id === selectedOwnerFilter).length;
 
   useEffect(() => {
-    onFilteredIdsChange?.(filteredProfileIds);
-  }, [filteredProfileIds, onFilteredIdsChange]);
+    onFilteredPacketIdsChange?.(filteredPacketIds);
+  }, [filteredPacketIds, onFilteredPacketIdsChange]);
 
   useEffect(() => {
     onFilteredCountChange?.(filteredPacketCount);
@@ -435,12 +437,12 @@ export function PacketVaultView({
   }, [router]);
 
   const handleRowClick = useCallback((pkt: PacketVaultItem) => {
-    if (batchSelectMode && onToggleProfileSelection) {
-      onToggleProfileSelection(pkt.plant_profile_id);
+    if (batchSelectMode && onTogglePacketSelection) {
+      onTogglePacketSelection(pkt.id);
     } else {
       goToProfile(pkt.plant_profile_id);
     }
-  }, [batchSelectMode, onToggleProfileSelection, goToProfile]);
+  }, [batchSelectMode, onTogglePacketSelection, goToProfile]);
 
   if (loading && packets.length === 0) {
     return (
@@ -513,19 +515,19 @@ export function PacketVaultView({
           {sortedPackets
             .filter((pkt) => !selectedOwnerFilter || pkt.owner_user_id === selectedOwnerFilter)
             .map((pkt) => {
-              const lp = onLongPressPacket ? getLongPressHandlers(pkt.plant_profile_id) : null;
+              const lp = onLongPressPacket ? getLongPressHandlers(pkt) : null;
               const thumbUrl = getThumbUrl(pkt);
               const showSeedling = !thumbUrl || imageErrorIds.has(pkt.id);
               const varietyDisplay = pkt.variety_name?.trim() ? ` (${pkt.variety_name})` : "";
               const ownerBadge = pkt.owner_user_id ? getShorthandForUser(pkt.owner_user_id) : null;
-              const isSelected = selectedProfileIds?.has(pkt.plant_profile_id);
+              const isSelected = selectedPacketIds?.has(pkt.id);
               const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
 
               return (
                 <li key={pkt.id}>
                   <button
                     type="button"
-                    onClick={() => batchSelectMode ? onToggleProfileSelection?.(pkt.plant_profile_id) : (lp ? lp.handleClick() : goToProfile(pkt.plant_profile_id))}
+                    onClick={() => batchSelectMode ? onTogglePacketSelection?.(pkt.id) : (lp ? lp.handleClick() : goToProfile(pkt.plant_profile_id))}
                     className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && isSelected ? "bg-emerald/5 border-2 border-emerald-500" : ""}`}
                     {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                   >
@@ -588,7 +590,7 @@ export function PacketVaultView({
                 const qtyColor = pkt.qty_status > 50 ? "text-emerald-600" : pkt.qty_status > 20 ? "text-amber-600" : "text-red-600";
                 const varietyDisplay = pkt.variety_name?.trim() ? ` (${pkt.variety_name})` : "";
                 const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
-                const isSelected = selectedProfileIds?.has(pkt.plant_profile_id);
+                const isSelected = selectedPacketIds?.has(pkt.id);
 
                 return (
                   <tr
