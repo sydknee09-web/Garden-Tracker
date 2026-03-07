@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { reassignAndMergeProfiles } from "@/lib/mergeProfiles";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -126,61 +126,19 @@ export async function POST(request: Request) {
     );
   }
 
-  let packetsMoved = 0;
-  let journalMoved = 0;
-
-  const { data: updatedPackets, error: packetsUpdateError } = await supabase
-    .from("seed_packets")
-    .update({ plant_profile_id: targetProfileId })
-    .in("plant_profile_id", sourceProfileIds)
-    .eq("user_id", userId)
-    .select("id");
-
-  if (packetsUpdateError) {
+  try {
+    await reassignAndMergeProfiles(supabase, targetProfileId, sourceProfileIds, userId);
+  } catch (err) {
     return NextResponse.json(
-      { error: `Failed to move seed packets: ${packetsUpdateError.message}` },
+      { error: err instanceof Error ? err.message : "Merge failed." },
       { status: 500 }
     );
   }
-  packetsMoved = updatedPackets?.length ?? 0;
-
-  const { data: updatedJournal, error: journalUpdateError } = await supabase
-    .from("journal_entries")
-    .update({ plant_profile_id: targetProfileId })
-    .in("plant_profile_id", sourceProfileIds)
-    .eq("user_id", userId)
-    .select("id");
-
-  if (journalUpdateError) {
-    return NextResponse.json(
-      { error: `Failed to move journal entries: ${journalUpdateError.message}` },
-      { status: 500 }
-    );
-  }
-  journalMoved = updatedJournal?.length ?? 0;
-
-  const now = new Date().toISOString();
-  const { error: deleteError } = await supabase
-    .from("plant_profiles")
-    .update({ deleted_at: now })
-    .in("id", sourceProfileIds)
-    .eq("user_id", userId);
-
-  if (deleteError) {
-    return NextResponse.json(
-      { error: `Merge completed but failed to delete source profiles: ${deleteError.message}` },
-      { status: 500 }
-    );
-  }
-
-  await cascadeAllForDeletedProfiles(supabase, sourceProfileIds, userId);
 
   return NextResponse.json({
     merged: true,
     targetProfileId,
     sourceProfileIds,
-    packetsMoved,
-    journalMoved,
     profilesDeleted: sourceProfileIds.length,
   });
 }

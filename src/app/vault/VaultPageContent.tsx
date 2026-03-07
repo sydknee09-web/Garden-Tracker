@@ -105,6 +105,7 @@ function getSowingWindowLabelSimple(p: { planting_window?: string | null }): str
   return p.planting_window?.trim() || null;
 }
 import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
+import { reassignAndMergeProfiles } from "@/lib/mergeProfiles";
 import { cascadeForDeletedPackets } from "@/lib/cascadeOnPacketDelete";
 import {
   shouldClearFiltersOnMount,
@@ -803,34 +804,18 @@ function VaultPageInner() {
     const sourceIds = mergeProfiles.filter((p) => p.id !== mergeMasterId).map((p) => p.id);
     if (sourceIds.length === 0) return;
     setMergeInProgress(true);
-    const { error: updateErr } = await supabase
-      .from("seed_packets")
-      .update({ plant_profile_id: mergeMasterId })
-      .in("plant_profile_id", sourceIds)
-      .eq("user_id", user.id);
-    if (updateErr) {
-      setSaveToastMessage(`Could not move packets: ${updateErr.message}`);
+    try {
+      await reassignAndMergeProfiles(supabase, mergeMasterId, sourceIds, user.id);
       setMergeInProgress(false);
-      return;
-    }
-    const now = new Date().toISOString();
-    const { error: deleteErr } = await supabase
-      .from("plant_profiles")
-      .update({ deleted_at: now })
-      .in("id", sourceIds)
-      .eq("user_id", user.id);
-    if (deleteErr) {
-      setSaveToastMessage(`Could not remove source profiles: ${deleteErr.message}`);
+      setMergeModalOpen(false);
+      setSelectedVarietyIds(new Set());
+      setBatchSelectMode(false);
+      setRefetchTrigger((t) => t + 1);
+      setSaveToastMessage("Profiles merged successfully.");
+    } catch (err) {
+      setSaveToastMessage(err instanceof Error ? err.message : "Could not merge profiles.");
       setMergeInProgress(false);
-      return;
     }
-    await cascadeAllForDeletedProfiles(supabase, sourceIds, user.id);
-    setMergeInProgress(false);
-    setMergeModalOpen(false);
-    setSelectedVarietyIds(new Set());
-    setBatchSelectMode(false);
-    setRefetchTrigger((t) => t + 1);
-    setSaveToastMessage("Profiles merged successfully.");
   }, [user?.id, mergeMasterId, mergeProfiles]);
 
   const openScheduleModal = useCallback(() => {
@@ -2631,16 +2616,6 @@ function VaultPageInner() {
                   >
                     <CalendarIcon className="w-5 h-5 shrink-0" />
                     Plan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { openMergeModal(); setSelectionActionsOpen(false); }}
-                    disabled={selectedVarietyIds.size < 2}
-                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
-                    aria-label="Merge selected"
-                  >
-                    <MergeIcon className="w-5 h-5 shrink-0" />
-                    Merge
                   </button>
                 </>
               )}
