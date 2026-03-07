@@ -107,6 +107,7 @@ export function PacketVaultView({
   const [error, setError] = useState<string | null>(null);
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [imageLoadedIds, setImageLoadedIds] = useState<Set<string>>(new Set());
+  const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
   const isOnline = useOnlineStatus();
@@ -407,7 +408,6 @@ export function PacketVaultView({
 
   const showMemberPills = householdViewMode === "family";
   const householdMembers = useHousehold().householdMembers;
-  const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
 
   const filteredPacketCount = sortedPackets.filter((p) => !selectedOwnerFilter || p.owner_user_id === selectedOwnerFilter).length;
 
