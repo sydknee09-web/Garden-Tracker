@@ -97,7 +97,8 @@ export default function CalendarPage() {
   const pathname = usePathname();
   const [tasks, setTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
+  const [completedTasksForMonth, setCompletedTasksForMonth] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
+  const [completedTasksForSelectedDay, setCompletedTasksForSelectedDay] = useState<(Task & { plant_name?: string; user_id?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refetch, setRefetch] = useState(0);
@@ -211,7 +212,8 @@ export default function CalendarPage() {
     if (!user) {
       setTasks([]);
       setOverdueTasks([]);
-      setCompletedTasks([]);
+      setCompletedTasksForMonth([]);
+      setCompletedTasksForSelectedDay([]);
       setLoading(false);
       return;
     }
@@ -311,34 +313,27 @@ export default function CalendarPage() {
     };
   }, [user?.id, refetch, householdViewMode]);
 
-  // Fetch completed tasks: for selected date (by completed_at), else for displayed month (by due_date)
+  // Fetch completed tasks for displayed month (by due_date) — used for calendar dots
   useEffect(() => {
     if (!user?.id) {
-      setCompletedTasks([]);
+      setCompletedTasksForMonth([]);
       return;
     }
     const viewMode = householdViewMode ?? "personal";
     let cancelled = false;
-    async function fetchCompleted() {
+    const firstDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(month.year, month.month + 1, 0).getDate();
+    const lastDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    (async () => {
       let query = supabase
         .from("tasks")
         .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
         .is("deleted_at", null)
         .not("completed_at", "is", null)
+        .gte("due_date", firstDayOfMonth)
+        .lte("due_date", lastDayOfMonth)
         .order("completed_at", { ascending: false });
       if (viewMode !== "family") query = query.eq("user_id", user!.id);
-      if (selectedDate) {
-        const startOfDay = `${selectedDate}T00:00:00.000Z`;
-        const nextDay = new Date(selectedDate + "T12:00:00");
-        nextDay.setDate(nextDay.getDate() + 1);
-        const endOfDay = nextDay.toISOString().slice(0, 19) + "Z";
-        query = query.gte("completed_at", startOfDay).lt("completed_at", endOfDay);
-      } else {
-        const firstDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-01`;
-        const lastDay = new Date(month.year, month.month + 1, 0).getDate();
-        const lastDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-        query = query.gte("due_date", firstDayOfMonth).lte("due_date", lastDayOfMonth);
-      }
       const { data: rows } = await query;
       if (cancelled) return;
       const allProfileIds = [...new Set((rows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
@@ -353,11 +348,51 @@ export default function CalendarPage() {
         const task = t as Task & { user_id?: string | null };
         return { ...task, plant_name: (task.plant_profile_id ? names[task.plant_profile_id] : null) ?? "Unknown" };
       });
-      setCompletedTasks(withNames);
-    }
-    fetchCompleted();
+      setCompletedTasksForMonth(withNames);
+    })();
     return () => { cancelled = true; };
-  }, [user?.id, refetch, householdViewMode, selectedDate, month.year, month.month]);
+  }, [user?.id, refetch, householdViewMode, month.year, month.month]);
+
+  // Fetch completed tasks for selected day (by completed_at) — used for list when date selected
+  useEffect(() => {
+    if (!user?.id || !selectedDate) {
+      setCompletedTasksForSelectedDay([]);
+      return;
+    }
+    const viewMode = householdViewMode ?? "personal";
+    let cancelled = false;
+    const startOfDay = `${selectedDate}T00:00:00.000Z`;
+    const nextDay = new Date(selectedDate + "T12:00:00");
+    nextDay.setDate(nextDay.getDate() + 1);
+    const endOfDay = nextDay.toISOString().slice(0, 19) + "Z";
+    (async () => {
+      let query = supabase
+        .from("tasks")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .is("deleted_at", null)
+        .not("completed_at", "is", null)
+        .gte("completed_at", startOfDay)
+        .lt("completed_at", endOfDay)
+        .order("completed_at", { ascending: false });
+      if (viewMode !== "family") query = query.eq("user_id", user!.id);
+      const { data: rows } = await query;
+      if (cancelled) return;
+      const allProfileIds = [...new Set((rows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
+      const names: Record<string, string> = {};
+      if (allProfileIds.length > 0) {
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
+        (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
+          names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
+        });
+      }
+      const withNames = (rows ?? []).map((t) => {
+        const task = t as Task & { user_id?: string | null };
+        return { ...task, plant_name: (task.plant_profile_id ? names[task.plant_profile_id] : null) ?? "Unknown" };
+      });
+      setCompletedTasksForSelectedDay(withNames);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, refetch, householdViewMode, selectedDate]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -432,13 +467,13 @@ export default function CalendarPage() {
 
   const completedByDate = useMemo(() => {
     const out: Record<string, (Task & { plant_name?: string; user_id?: string | null })[]> = {};
-    completedTasks.forEach((t) => {
+    completedTasksForMonth.forEach((t) => {
       const d = t.due_date;
       if (!out[d]) out[d] = [];
       out[d].push(t);
     });
     return out;
-  }, [completedTasks]);
+  }, [completedTasksForMonth]);
 
   const firstDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-01`;
   const lastDayNum = new Date(month.year, month.month + 1, 0).getDate();
@@ -821,7 +856,7 @@ export default function CalendarPage() {
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => setSelectedDate(cell.dateStr!)}
+                  onClick={() => setSelectedDate(cell.dateStr === selectedDate ? null : cell.dateStr!)}
                   className={`${baseClass} hover:bg-black/[0.02] cursor-pointer`}
                 >
                   {cellContent}
@@ -873,7 +908,7 @@ export default function CalendarPage() {
           ) : selectedDate ? (
             (() => {
               const upcomingForDate = byDate[selectedDate] ?? [];
-              const completedForDate = completedTasks;
+              const completedForDate = completedTasksForSelectedDay;
               const hasAny = upcomingForDate.length > 0 || completedForDate.length > 0;
               if (!hasAny) {
                 return (

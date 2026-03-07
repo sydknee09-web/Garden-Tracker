@@ -737,7 +737,7 @@ export default function CalendarPage() {
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => setSelectedDate(cell.dateStr!)}
+                  onClick={() => setSelectedDate(cell.dateStr === selectedDate ? null : cell.dateStr!)}
                   className={`${baseClass} hover:bg-black/[0.02] cursor-pointer`}
                 >
                   {cellContent}
