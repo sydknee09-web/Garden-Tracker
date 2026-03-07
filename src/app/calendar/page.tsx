@@ -193,13 +193,13 @@ export default function CalendarPage() {
     (async () => {
       const { data: profiles } = await supabase
         .from("plant_profiles")
-        .select("id, name, variety_name, planting_window")
+        .select("id, name, variety_name, planting_window, status")
         .eq("user_id", user.id)
         .is("deleted_at", null);
       if (cancelled) return;
       const monthIndex = month.month;
-      const matches = (profiles ?? []).filter((p: { name: string; planting_window?: string | null }) =>
-        isPlantableInMonthSimple(p.planting_window, monthIndex)
+      const matches = (profiles ?? []).filter((p: { name: string; planting_window?: string | null; status?: string | null }) =>
+        isPlantableInMonthSimple(p.planting_window, monthIndex) && p.status !== "out_of_stock" && p.status !== "archived"
       ) as { id: string; name: string; variety_name: string | null }[];
       setPlantableProfiles(matches);
     })();
