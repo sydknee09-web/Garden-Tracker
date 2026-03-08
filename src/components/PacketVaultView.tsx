@@ -32,6 +32,7 @@ import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { VaultListSkeleton } from "@/components/PageSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PacketStatusFilter } from "@/types/vault";
+import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
 
 export type { PacketStatusFilter };
 export type PacketVaultItem = {
@@ -53,6 +54,12 @@ export type PacketVaultItem = {
   created_at: string | null;
   /** Derived: profile has active grow in garden */
   isActive: boolean;
+  /** From plant_profiles for filtering */
+  tags?: string[] | null;
+  sun?: string | null;
+  plant_spacing?: string | null;
+  days_to_germination?: string | null;
+  harvest_days?: number | null;
 };
 
 const LONG_PRESS_MS = 500;
@@ -77,6 +84,15 @@ export function PacketVaultView({
   scrollContainerRef,
   onPacketStatusChipsLoaded,
   onPacketVendorChipsLoaded,
+  tagFilters = [],
+  seedTypeFilters = [],
+  sunFilter = null,
+  spacingFilter = null,
+  germinationFilter = null,
+  maturityFilter = null,
+  onPacketTagsLoaded,
+  onPacketSeedTypeChipsLoaded,
+  onPacketRefineChipsLoaded,
 }: {
   refetchTrigger?: number;
   searchQuery?: string;
@@ -97,6 +113,15 @@ export function PacketVaultView({
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
   onPacketStatusChipsLoaded?: (chips: { value: PacketStatusFilter; label: string; count: number }[]) => void;
   onPacketVendorChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  tagFilters?: string[];
+  seedTypeFilters?: string[];
+  sunFilter?: string | null;
+  spacingFilter?: string | null;
+  germinationFilter?: string | null;
+  maturityFilter?: string | null;
+  onPacketTagsLoaded?: (tags: string[]) => void;
+  onPacketSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  onPacketRefineChipsLoaded?: (chips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }) => void;
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -175,6 +200,13 @@ export function PacketVaultView({
     return new Date().getMonth();
   }, [sowMonth]);
 
+  const maturityRange = (days: number | null | undefined): string => {
+    if (days == null || !Number.isFinite(days)) return "";
+    if (days < 60) return "<60";
+    if (days <= 90) return "60-90";
+    return "90+";
+  };
+
   useEffect(() => {
     if (!user?.id) {
       setLoading(false);
@@ -231,7 +263,7 @@ export function PacketVaultView({
       const [profilesRes, growsRes] = await Promise.all([
         supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, planting_window, hero_image_url, hero_image_path")
+          .select("id, name, variety_name, planting_window, hero_image_url, hero_image_path, tags, sun, plant_spacing, days_to_germination, harvest_days")
           .in("id", profileIds)
           .is("deleted_at", null),
         growsQuery,
@@ -243,14 +275,20 @@ export function PacketVaultView({
       const activeGrows = growsRes.data ?? [];
       const activeProfileIds = new Set(activeGrows.map((g: { plant_profile_id: string }) => g.plant_profile_id));
 
-      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null }> = {};
-      profiles.forEach((p: { id: string; name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null }) => {
+      type ProfileRow = { id: string; name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null };
+      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }> = {};
+      profiles.forEach((p: ProfileRow) => {
         profileMap[p.id] = {
           name: p.name ?? "Unknown",
           variety_name: p.variety_name ?? null,
           planting_window: p.planting_window ?? null,
           hero_image_url: p.hero_image_url ?? null,
           hero_image_path: p.hero_image_path ?? null,
+          tags: p.tags ?? null,
+          sun: p.sun ?? null,
+          plant_spacing: p.plant_spacing ?? null,
+          days_to_germination: p.days_to_germination ?? null,
+          harvest_days: p.harvest_days ?? null,
         };
       });
 
@@ -286,6 +324,11 @@ export function PacketVaultView({
           owner_user_id: isFamilyView ? p.user_id : null,
           created_at: (p as { created_at?: string }).created_at ?? null,
           isActive: activeProfileIds.has(p.plant_profile_id),
+          tags: prof.tags ?? null,
+          sun: prof.sun ?? null,
+          plant_spacing: prof.plant_spacing ?? null,
+          days_to_germination: prof.days_to_germination ?? null,
+          harvest_days: prof.harvest_days ?? null,
         };
       });
 
@@ -326,6 +369,33 @@ export function PacketVaultView({
       if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
         if (!isPlantableInMonthSimple(pkt.planting_window, sowMonthIndex)) return false;
       }
+      if (tagFilters.length > 0) {
+        const packetTagFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
+        if (packetTagFilters.length > 0) {
+          const seedTags = pkt.tags ?? [];
+          if (!packetTagFilters.some((t) => seedTags.includes(t))) return false;
+        }
+      }
+      if (seedTypeFilters.length > 0) {
+        const effective = getEffectiveSeedTypes(pkt.tags, pkt.profile_name);
+        if (!seedTypeFilters.some((t) => effective.includes(t))) return false;
+      }
+      if (sunFilter != null && sunFilter !== "") {
+        const sun = (pkt.sun ?? "").trim();
+        if (sun !== sunFilter) return false;
+      }
+      if (spacingFilter != null && spacingFilter !== "") {
+        const sp = (pkt.plant_spacing ?? "").trim();
+        if (sp !== spacingFilter) return false;
+      }
+      if (germinationFilter != null && germinationFilter !== "") {
+        const g = (pkt.days_to_germination ?? "").trim();
+        if (g !== germinationFilter) return false;
+      }
+      if (maturityFilter != null && maturityFilter !== "") {
+        const m = maturityRange(pkt.harvest_days ?? null);
+        if (m !== maturityFilter) return false;
+      }
       if (statusFilter === "vault") {
         if (pkt.is_archived || (pkt.qty_status ?? 0) <= 0) return false;
         if (pkt.isActive) return false;
@@ -342,7 +412,7 @@ export function PacketVaultView({
       }
       return true;
     });
-  }, [packets, q, vendorFilter, sowMonth, sowMonthIndex, statusFilter]);
+  }, [packets, q, vendorFilter, sowMonth, sowMonthIndex, statusFilter, tagFilters, seedTypeFilters, sunFilter, spacingFilter, germinationFilter, maturityFilter]);
 
   const sortedPackets = useMemo(() => {
     const list = [...filteredPackets];
@@ -406,6 +476,46 @@ export function PacketVaultView({
       .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
   }, [packets]);
 
+  const packetTags = useMemo(() => {
+    const all = new Set<string>();
+    packets.forEach((p) => (p.tags ?? []).forEach((t) => all.add(t)));
+    return Array.from(all).sort();
+  }, [packets]);
+
+  const packetSeedTypeChips = useMemo(() => {
+    const map = new Map<string, number>();
+    packets.forEach((p) => {
+      const types = getEffectiveSeedTypes(p.tags, p.profile_name);
+      types.forEach((t) => map.set(t, (map.get(t) ?? 0) + 1));
+    });
+    return SEED_TYPE_TAGS.filter((t) => (map.get(t) ?? 0) > 0)
+      .map((value) => ({ value, count: map.get(value) ?? 0 }))
+      .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
+  }, [packets]);
+
+  const packetRefineChips = useMemo(() => {
+    const sunMap = new Map<string, number>();
+    const spacingMap = new Map<string, number>();
+    const germinationMap = new Map<string, number>();
+    const maturityMap = new Map<string, number>();
+    packets.forEach((p) => {
+      const sun = (p.sun ?? "").trim() || "—";
+      if (sun) sunMap.set(sun, (sunMap.get(sun) ?? 0) + 1);
+      const sp = (p.plant_spacing ?? "").trim() || "—";
+      if (sp) spacingMap.set(sp, (spacingMap.get(sp) ?? 0) + 1);
+      const g = (p.days_to_germination ?? "").trim() || "—";
+      if (g) germinationMap.set(g, (germinationMap.get(g) ?? 0) + 1);
+      const m = maturityRange(p.harvest_days ?? null);
+      if (m) maturityMap.set(m, (maturityMap.get(m) ?? 0) + 1);
+    });
+    return {
+      sun: Array.from(sunMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      spacing: Array.from(spacingMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
+      maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
+    };
+  }, [packets]);
+
   const showMemberPills = householdViewMode === "family";
   const householdMembers = useHousehold().householdMembers;
 
@@ -426,6 +536,18 @@ export function PacketVaultView({
   useEffect(() => {
     onPacketVendorChipsLoaded?.(packetVendorChips);
   }, [packetVendorChips, onPacketVendorChipsLoaded]);
+
+  useEffect(() => {
+    onPacketTagsLoaded?.(packetTags);
+  }, [packetTags, onPacketTagsLoaded]);
+
+  useEffect(() => {
+    onPacketSeedTypeChipsLoaded?.(packetSeedTypeChips);
+  }, [packetSeedTypeChips, onPacketSeedTypeChipsLoaded]);
+
+  useEffect(() => {
+    onPacketRefineChipsLoaded?.(packetRefineChips);
+  }, [packetRefineChips, onPacketRefineChipsLoaded]);
 
   useEffect(() => {
     // Use packets.length (unfiltered), not sortedPackets.length — toolbar must stay visible when search/filters return 0 so user can clear
@@ -461,7 +583,7 @@ export function PacketVaultView({
   }
 
   if (sortedPackets.length === 0) {
-    const hasFilters = !!(q || statusFilter || vendorFilter || (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)));
+    const hasFilters = !!(q || statusFilter || vendorFilter || (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) || tagFilters.length > 0 || seedTypeFilters.length > 0 || sunFilter || spacingFilter || germinationFilter || maturityFilter);
     if (hasFilters) {
       return <NoMatchCard message="No packets match your search or filters." />;
     }

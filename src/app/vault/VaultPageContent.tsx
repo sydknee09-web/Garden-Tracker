@@ -324,14 +324,11 @@ function VaultPageInner() {
   const [packetHasDefault, setPacketHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets));
   const [packetStatusChips, setPacketStatusChips] = useState<{ value: PacketStatusFilter; label: string; count: number }[]>([]);
   const [packetVendorChips, setPacketVendorChips] = useState<{ value: string; count: number }[]>([]);
+  const [packetAvailableTags, setPacketAvailableTags] = useState<string[]>([]);
+  const [packetSeedTypeChips, setPacketSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
+  const [packetRefineChips, setPacketRefineChips] = useState<{ sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }>({ sun: [], spacing: [], germination: [], maturity: [] });
 
   const sowParam = searchParams.get("sow");
-  const hasPacketActiveFilters = packetStatusFilter !== "" || packetVendorFilter !== null || (packetSowMonth != null && /^\d{4}-\d{2}$/.test(packetSowMonth));
-  const clearPacketFilters = useCallback(() => {
-    setPacketStatusFilter("");
-    setPacketVendorFilter(null);
-    setPacketSowMonth(null);
-  }, []);
   const vaultFilters = useFilterState({
     schema: "vault",
     onClear: useCallback(() => {
@@ -340,6 +337,22 @@ function VaultPageInner() {
     isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
     storageKey: FILTER_DEFAULT_KEYS.vaultProfiles,
   });
+
+  const hasPacketActiveFilters =
+    packetStatusFilter !== "" ||
+    packetVendorFilter !== null ||
+    (packetSowMonth != null && /^\d{4}-\d{2}$/.test(packetSowMonth)) ||
+    vaultFilters.filters.tags.length > 0 ||
+    vaultFilters.filters.seedTypes.length > 0 ||
+    vaultFilters.filters.sun != null ||
+    vaultFilters.filters.spacing != null ||
+    vaultFilters.filters.germination != null ||
+    vaultFilters.filters.maturity != null;
+  const clearPacketFilters = useCallback(() => {
+    setPacketStatusFilter("");
+    setPacketVendorFilter(null);
+    setPacketSowMonth(null);
+  }, []);
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
 
@@ -398,6 +411,16 @@ function VaultPageInner() {
     setAvailableTags(tags);
     vaultFilters.setTags((prev) => prev.filter((t) => tags.includes(t)));
   }, [vaultFilters.setTags]);
+  const handlePacketTagsLoaded = useCallback((tags: string[]) => {
+    setPacketAvailableTags(tags);
+    vaultFilters.setTags((prev) => prev.filter((t) => tags.includes(t)));
+  }, [vaultFilters.setTags]);
+  const handlePacketSeedTypeChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
+    setPacketSeedTypeChips(chips);
+  }, []);
+  const handlePacketRefineChipsLoaded = useCallback((chips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }) => {
+    setPacketRefineChips(chips);
+  }, []);
 
   useEffect(() => {
     const el = stickyHeaderRef.current;
@@ -1121,12 +1144,18 @@ function VaultPageInner() {
   const clearAllFilters = useCallback(() => {
     if (viewMode === "list") {
       clearPacketFilters();
+      vaultFilters.setTags([]);
+      vaultFilters.setSeedTypes([]);
+      vaultFilters.setSun(null);
+      vaultFilters.setSpacing(null);
+      vaultFilters.setGermination(null);
+      vaultFilters.setMaturity(null);
     } else {
       vaultFilters.clearAllFilters();
     }
     setRefineByOpen(false);
     setRefineBySection(null);
-  }, [viewMode, vaultFilters.clearAllFilters, clearPacketFilters]);
+  }, [viewMode, vaultFilters.clearAllFilters, vaultFilters.setTags, vaultFilters.setSeedTypes, vaultFilters.setSun, vaultFilters.setSpacing, vaultFilters.setGermination, vaultFilters.setMaturity, clearPacketFilters]);
 
   const hasActiveFilters = viewMode === "list" ? hasPacketActiveFilters : vaultFilters.hasActiveFilters;
 
@@ -1700,6 +1729,116 @@ function VaultPageInner() {
                           </div>
                         )}
                       </div>
+                      {packetAvailableTags.filter((t) => !isSeedTypeTag(t)).length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "tags" ? null : "tags"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "tags"}>
+                            <span>Tags</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
+                          </button>
+                          {refineBySection === "tags" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              {packetAvailableTags.filter((t) => !isSeedTypeTag(t)).map((tag) => {
+                                const checked = vaultFilters.filters.tags.includes(tag);
+                                return (
+                                  <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                                    <input type="checkbox" checked={checked} onChange={() => vaultFilters.toggleTagFilter(tag)} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label={`Filter by ${tag}`} />
+                                    <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>{tag}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {packetSeedTypeChips.length > 0 && (
+                        <div className="border-b border-black/5">
+                          <button type="button" onClick={() => setRefineBySection((s) => (s === "seedType" ? null : "seedType"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "seedType"}>
+                            <span>Seed Type</span>
+                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "seedType" ? "▼" : "▸"}</span>
+                          </button>
+                          {refineBySection === "seedType" && (
+                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                              {packetSeedTypeChips.map(({ value, count }) => {
+                                const checked = vaultFilters.filters.seedTypes.includes(value);
+                                return (
+                                  <label key={value} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]">
+                                    <input type="checkbox" checked={checked} onChange={() => vaultFilters.toggleSeedTypeFilter(value)} className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500" aria-label={`Filter by ${value}`} />
+                                    <span className="text-sm text-black/80">{value} ({count})</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {(packetRefineChips.sun.length > 0 || packetRefineChips.spacing.length > 0 || packetRefineChips.germination.length > 0 || packetRefineChips.maturity.length > 0) && (
+                        <>
+                          {packetRefineChips.sun.length > 0 && (
+                            <div className="border-b border-black/5">
+                              <button type="button" onClick={() => setRefineBySection((s) => (s === "sun" ? null : "sun"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "sun"}>
+                                <span>Sun</span>
+                                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sun" ? "▼" : "▸"}</span>
+                              </button>
+                              {refineBySection === "sun" && (
+                                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                                  <button type="button" onClick={() => vaultFilters.setSun(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!vaultFilters.filters.sun ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                                  {packetRefineChips.sun.map(({ value, count }) => (
+                                    <button key={value} type="button" onClick={() => vaultFilters.setSun(value === "—" ? null : value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate min-h-[44px] ${vaultFilters.filters.sun === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {packetRefineChips.spacing.length > 0 && (
+                            <div className="border-b border-black/5">
+                              <button type="button" onClick={() => setRefineBySection((s) => (s === "spacing" ? null : "spacing"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "spacing"}>
+                                <span>Spacing</span>
+                                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "spacing" ? "▼" : "▸"}</span>
+                              </button>
+                              {refineBySection === "spacing" && (
+                                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                                  <button type="button" onClick={() => vaultFilters.setSpacing(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!vaultFilters.filters.spacing ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                                  {packetRefineChips.spacing.map(({ value, count }) => (
+                                    <button key={value} type="button" onClick={() => vaultFilters.setSpacing(value === "—" ? null : value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate min-h-[44px] ${vaultFilters.filters.spacing === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {packetRefineChips.germination.length > 0 && (
+                            <div className="border-b border-black/5">
+                              <button type="button" onClick={() => setRefineBySection((s) => (s === "germination" ? null : "germination"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "germination"}>
+                                <span>Germination</span>
+                                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "germination" ? "▼" : "▸"}</span>
+                              </button>
+                              {refineBySection === "germination" && (
+                                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
+                                  <button type="button" onClick={() => vaultFilters.setGermination(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!vaultFilters.filters.germination ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                                  {packetRefineChips.germination.map(({ value, count }) => (
+                                    <button key={value} type="button" onClick={() => vaultFilters.setGermination(value === "—" ? null : value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate min-h-[44px] ${vaultFilters.filters.germination === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {packetRefineChips.maturity.length > 0 && (
+                            <div className="border-b border-black/5">
+                              <button type="button" onClick={() => setRefineBySection((s) => (s === "maturity" ? null : "maturity"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "maturity"}>
+                                <span>Maturity</span>
+                                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "maturity" ? "▼" : "▸"}</span>
+                              </button>
+                              {refineBySection === "maturity" && (
+                                <div className="px-4 pb-3 pt-0 space-y-0.5">
+                                  <button type="button" onClick={() => vaultFilters.setMaturity(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!vaultFilters.filters.maturity ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
+                                  {packetRefineChips.maturity.map(({ value, count }) => (
+                                    <button key={value} type="button" onClick={() => vaultFilters.setMaturity(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.maturity === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} days ({count})</button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </>
                   ) : (
                     /* Plant Profiles Refine By — existing profile sections */
@@ -2199,6 +2338,15 @@ function VaultPageInner() {
               onAddFirst={() => setUniversalAddMenuOpen(true)}
               onPacketStatusChipsLoaded={setPacketStatusChips}
               onPacketVendorChipsLoaded={setPacketVendorChips}
+              tagFilters={vaultFilters.filters.tags}
+              seedTypeFilters={vaultFilters.filters.seedTypes}
+              sunFilter={vaultFilters.filters.sun}
+              spacingFilter={vaultFilters.filters.spacing}
+              germinationFilter={vaultFilters.filters.germination}
+              maturityFilter={vaultFilters.filters.maturity}
+              onPacketTagsLoaded={handlePacketTagsLoaded}
+              onPacketSeedTypeChipsLoaded={handlePacketSeedTypeChipsLoaded}
+              onPacketRefineChipsLoaded={handlePacketRefineChipsLoaded}
             />
           </div>
         </div>

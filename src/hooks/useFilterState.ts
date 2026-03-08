@@ -154,6 +154,7 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       setPacketCount: (v: string | null) => void;
       toggleTagFilter: (tag: string) => void;
       toggleSeedTypeFilter: (seedType: string) => void;
+      setSeedTypes: (v: string[] | ((prev: string[]) => string[])) => void;
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
@@ -222,6 +223,15 @@ export function useFilterState<T extends FilterSchema>(
     });
   }, [schema]);
 
+  const setSeedTypes = useCallback((v: string[] | ((prev: string[]) => string[])) => {
+    setFilters((prev) => {
+      if (schema !== "vault") return prev;
+      const vault = prev as VaultFilterValues;
+      const next = typeof v === "function" ? v(vault.seedTypes) : v;
+      return { ...prev, seedTypes: next };
+    });
+  }, [schema]);
+
   const setCategory = useCallback((v: string | null) => {
     setFilters((prev) => ({ ...prev, category: v }));
   }, []);
@@ -282,7 +292,7 @@ export function useFilterState<T extends FilterSchema>(
     setGermination,
     setMaturity,
     setTags,
-    ...(schema === "vault" ? { setStatus, setVendor, setPacketCount, toggleSeedTypeFilter } : {}),
+    ...(schema === "vault" ? { setStatus, setVendor, setPacketCount, toggleSeedTypeFilter, setSeedTypes } : {}),
     toggleTagFilter,
     clearAllFilters,
     hasActiveFilters,
