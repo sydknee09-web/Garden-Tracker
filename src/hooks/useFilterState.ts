@@ -19,11 +19,13 @@ export type GardenFilterValues = {
   tags: string[];
 };
 
-/** Vault extends Garden with status, vendor, packetCount. */
+/** Vault extends Garden with status, vendor, packetCount, seedTypes. */
 export type VaultFilterValues = GardenFilterValues & {
   status: string;
   vendor: string | null;
   packetCount: string | null;
+  /** Seed type categories (Vegetable, Herb, Flower, etc.) — separate from tags (F1, Heirloom, etc.). */
+  seedTypes: string[];
 };
 
 export type FilterSchema = "garden" | "vault";
@@ -43,6 +45,7 @@ const EMPTY_VAULT: VaultFilterValues = {
   status: "",
   vendor: null,
   packetCount: null,
+  seedTypes: [],
 };
 
 function countActiveGardenFilters(f: GardenFilterValues): number {
@@ -60,7 +63,7 @@ function countActiveGardenFilters(f: GardenFilterValues): number {
 function countActiveVaultFilters(f: VaultFilterValues): number {
   return (
     countActiveGardenFilters(f) +
-    [f.status !== "", f.vendor !== null, f.packetCount !== null].filter(Boolean).length
+    [f.status !== "", f.vendor !== null, f.packetCount !== null, f.seedTypes.length > 0].filter(Boolean).length
   );
 }
 
@@ -95,6 +98,7 @@ function normalizeVaultLoaded(raw: unknown): VaultFilterValues | null {
     status: typeof o.status === "string" ? o.status : "",
     vendor: typeof o.vendor === "string" ? o.vendor : null,
     packetCount: typeof o.packetCount === "string" ? o.packetCount : null,
+    seedTypes: Array.isArray(o.seedTypes) ? o.seedTypes.filter((t): t is string => typeof t === "string") : [],
   };
 }
 
@@ -149,6 +153,7 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       setVendor: (v: string | null) => void;
       setPacketCount: (v: string | null) => void;
       toggleTagFilter: (tag: string) => void;
+      toggleSeedTypeFilter: (seedType: string) => void;
       clearAllFilters: () => void;
       hasActiveFilters: boolean;
       filterCount: number;
@@ -205,6 +210,17 @@ export function useFilterState<T extends FilterSchema>(
       tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
     }));
   }, []);
+
+  const toggleSeedTypeFilter = useCallback((seedType: string) => {
+    setFilters((prev) => {
+      if (schema !== "vault") return prev;
+      const vault = prev as VaultFilterValues;
+      const next = vault.seedTypes.includes(seedType)
+        ? vault.seedTypes.filter((t) => t !== seedType)
+        : [...vault.seedTypes, seedType];
+      return { ...prev, seedTypes: next };
+    });
+  }, [schema]);
 
   const setCategory = useCallback((v: string | null) => {
     setFilters((prev) => ({ ...prev, category: v }));
@@ -266,7 +282,7 @@ export function useFilterState<T extends FilterSchema>(
     setGermination,
     setMaturity,
     setTags,
-    ...(schema === "vault" ? { setStatus, setVendor, setPacketCount } : {}),
+    ...(schema === "vault" ? { setStatus, setVendor, setPacketCount, toggleSeedTypeFilter } : {}),
     toggleTagFilter,
     clearAllFilters,
     hasActiveFilters,

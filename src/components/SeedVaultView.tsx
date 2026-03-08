@@ -247,6 +247,7 @@ export function SeedVaultView({
   searchQuery = "",
   statusFilter = "",
   tagFilters = [],
+  seedTypeFilters = [],
   onOpenScanner,
   onAddFirst,
   onTagsLoaded,
@@ -285,7 +286,10 @@ export function SeedVaultView({
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
   searchQuery?: string;
   statusFilter?: StatusFilter;
+  /** Tags that characterize the plant (F1, Heirloom, Heat Lover, etc.) — excludes seed types. */
   tagFilters?: TagFilter;
+  /** Seed type categories (Vegetable, Herb, Flower, etc.) — separate from tags. */
+  seedTypeFilters?: string[];
   onOpenScanner?: () => void;
   /** When vault is empty, optional callback for "Add your first packet" CTA. */
   onAddFirst?: () => void;
@@ -545,16 +549,19 @@ export function SeedVaultView({
         if (st !== "out_of_stock" && st !== "archived") return false;
       }
       if (tagFilters.length > 0) {
-        const seedTags = s.tags ?? [];
-        const effectiveTags = getEffectiveSeedTypes(seedTags, s.name);
-        const seedTypeFilters = tagFilters.filter((t) => isSeedTypeTag(t));
-        const otherFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
-        if (seedTypeFilters.length > 0 && !seedTypeFilters.some((t) => effectiveTags.includes(t))) return false;
-        if (otherFilters.length > 0 && !otherFilters.some((t) => seedTags.includes(t))) return false;
+        const packetTagFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
+        if (packetTagFilters.length > 0) {
+          const seedTags = s.tags ?? [];
+          if (!packetTagFilters.some((t) => seedTags.includes(t))) return false;
+        }
+      }
+      if (seedTypeFilters.length > 0) {
+        const effective = getEffectiveSeedTypes(s.tags, s.name);
+        if (!seedTypeFilters.some((t) => effective.includes(t))) return false;
       }
       return true;
     });
-  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
   const seedTypeChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -1123,7 +1130,7 @@ export function SeedVaultView({
   }
 
   if (filteredSeeds.length === 0) {
-    const hasFilters = !!(q || statusFilter || tagFilters.length > 0);
+    const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || seedTypeFilters.length > 0);
     if (hasFilters) {
       const message = mode === "grid"
         ? "No plant profiles match your search or filters."

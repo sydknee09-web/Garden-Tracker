@@ -85,6 +85,7 @@ import {
   FILTER_DEFAULT_KEYS,
 } from "@/lib/filterDefaults";
 import { runSeedTypeBackfill } from "@/lib/backfillSeedTypes";
+import { isSeedTypeTag } from "@/constants/seedTypes";
 /** Minimal sow-month check without loading zone10b (avoids init error). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
   const w = plantingWindow?.trim();
@@ -279,7 +280,7 @@ function VaultPageInner() {
   const [hasPendingReview, setHasPendingReview] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "seedType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | "packetVendor" | "packetSow" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "seedType" | "sowingMonth" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | "packetVendor" | "packetSow" | null>(null);
   const [sortBy, setSortBy] = useState<VaultSortBy>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -1268,7 +1269,6 @@ function VaultPageInner() {
                         : [
                             vaultFilters.filters.status !== "",
                             vaultFilters.filters.tags.length > 0,
-                            vaultFilters.filters.variety !== null,
                             vaultFilters.filters.vendor !== null,
                             vaultFilters.filters.sun !== null,
                             vaultFilters.filters.spacing !== null,
@@ -1777,7 +1777,7 @@ function VaultPageInner() {
                       </div>
                     )}
                   </div>
-                  {availableTags.length > 0 && (
+                  {availableTags.filter((t) => !isSeedTypeTag(t)).length > 0 && (
                     <div className="border-b border-black/5">
                       <button
                         type="button"
@@ -1790,7 +1790,7 @@ function VaultPageInner() {
                       </button>
                       {refineBySection === "tags" && (
                         <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                          {availableTags.map((tag) => {
+                          {availableTags.filter((t) => !isSeedTypeTag(t)).map((tag) => {
                             const checked = vaultFilters.filters.tags.includes(tag);
                             return (
                               <label
@@ -1828,7 +1828,7 @@ function VaultPageInner() {
                       {refineBySection === "seedType" && (
                         <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
                           {seedTypeChips.map(({ value, count }) => {
-                            const checked = vaultFilters.filters.tags.includes(value);
+                            const checked = vaultFilters.filters.seedTypes.includes(value);
                             return (
                               <label
                                 key={value}
@@ -1837,7 +1837,7 @@ function VaultPageInner() {
                                 <input
                                   type="checkbox"
                                   checked={checked}
-                                  onChange={() => vaultFilters.toggleTagFilter(value)}
+                                  onChange={() => vaultFilters.toggleSeedTypeFilter(value)}
                                   className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
                                   aria-label={`Filter by ${value}`}
                                 />
@@ -1905,25 +1905,9 @@ function VaultPageInner() {
                       </div>
                     )}
                   </div>
-                  {/* Variety, Vendor, Sun, Spacing, Germination, Maturity, Packet count — Plant Profiles only */}
+                  {/* Vendor, Sun, Spacing, Germination, Maturity, Packet count — Plant Profiles only */}
                   {viewMode === "grid" && (
                     <>
-                      {refineChips.variety.length > 0 && (
-                        <div className="border-b border-black/5">
-                          <button type="button" onClick={() => setRefineBySection((s) => (s === "variety" ? null : "variety"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "variety"}>
-                            <span>Variety</span>
-                            <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "variety" ? "▼" : "▸"}</span>
-                          </button>
-                          {refineBySection === "variety" && (
-                            <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto overscroll-behavior-contain space-y-0.5">
-                              <button type="button" onClick={() => vaultFilters.setVariety(null)} className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.variety === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>All</button>
-                              {refineChips.variety.map(({ value, count }) => (
-                                <button key={value} type="button" onClick={() => vaultFilters.setVariety(value)} className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${vaultFilters.filters.variety === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}>{value} ({count})</button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
                       {refineChips.vendor.length > 0 && (
                         <div className="border-b border-black/5">
                           <button type="button" onClick={() => setRefineBySection((s) => (s === "vendor" ? null : "vendor"))} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]" aria-expanded={refineBySection === "vendor"}>
@@ -2152,6 +2136,7 @@ function VaultPageInner() {
               searchQuery={searchQuery}
               statusFilter={vaultFilters.filters.status as StatusFilter}
               tagFilters={vaultFilters.filters.tags}
+              seedTypeFilters={vaultFilters.filters.seedTypes}
               onTagsLoaded={handleTagsLoaded}
               onOpenScanner={() => setScannerOpen(true)}
               onAddFirst={() => setUniversalAddMenuOpen(true)}
@@ -2168,7 +2153,6 @@ function VaultPageInner() {
               sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
               gridDisplayStyle={gridDisplayStyle}
               onSeedTypeChipsLoaded={handleSeedTypeChipsLoaded}
-              varietyFilter={vaultFilters.filters.variety}
               vendorFilter={vaultFilters.filters.vendor}
               sunFilter={vaultFilters.filters.sun}
               spacingFilter={vaultFilters.filters.spacing}
