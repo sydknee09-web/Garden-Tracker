@@ -122,7 +122,7 @@ const PLANT_NAME_TO_SEED_TYPE: Record<string, SeedTypeTag[]> = {
   sweet: ["Flower"], // Sweet pea - conflicts with sweet potato; we use first word
   larkspur: ["Flower", "Cutting Flower"],
   hollyhock: ["Flower"],
-  coneflower: ["Flower", "Pollinator"],
+  coneflower: ["Flower"],
   aster: ["Flower"],
   phlox: ["Flower"],
   bee: ["Flower"], // Bee balm
