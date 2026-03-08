@@ -52,7 +52,9 @@ describe("buildPlantProfileInsertPayload", () => {
     );
     expect(payload.name).toBe("Tomato");
     expect(payload.variety_name).toBe("Cherokee Purple");
-    expect(payload.tags).toEqual(["Heirloom"]);
+    // Merges item.tags, packetTags (F1, Heirloom), and inferred seed types (Vegetable, Edible for Tomato)
+    expect(payload.tags).toEqual(expect.arrayContaining(["Heirloom", "F1", "Vegetable", "Edible"]));
+    expect(payload.tags).toHaveLength(4);
   });
 
   it("falls back to Unknown when type is empty", () => {

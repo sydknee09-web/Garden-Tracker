@@ -1,10 +1,11 @@
 /**
  * Build base insert payload for plant_profiles from name + variety only.
- * Matches link-import shape: tags (modifier + 11 functional), coreVariety, profile_type.
+ * Matches link-import shape: tags (modifier + 11 functional + seed type), coreVariety, profile_type.
  * Callers merge in flow-specific fields (purchase_date, growing_notes, etc.).
  */
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { getTagsFromText } from "@/lib/parseSeedFromImportUrl";
+import { inferSeedTypesFromPlantName } from "@/constants/seedTypes";
 
 export type BuildProfileInsertFromNameOptions = {
   /** DB value: "seed" or "permanent". Caller maps UI "seasonal" -> "seed". */
@@ -43,8 +44,9 @@ export function buildProfileInsertFromName(
 
   const combinedText = [nameTrim, varietyTrim].filter(Boolean).join(" ");
   const functionalTags = getTagsFromText(combinedText);
+  const seedTypeTags = inferSeedTypesFromPlantName(nameTrim);
 
-  const allTags = [...new Set([...modifierTags, ...functionalTags])];
+  const allTags = [...new Set([...modifierTags, ...functionalTags, ...seedTypeTags])];
   let tagsFiltered = allTags;
   if (blockedTags?.size) {
     tagsFiltered = allTags.filter((t) => {

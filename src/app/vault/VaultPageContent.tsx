@@ -84,6 +84,7 @@ import {
   hasFilterDefault,
   FILTER_DEFAULT_KEYS,
 } from "@/lib/filterDefaults";
+import { runSeedTypeBackfill } from "@/lib/backfillSeedTypes";
 /** Minimal sow-month check without loading zone10b (avoids init error). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
   const w = plantingWindow?.trim();
@@ -278,7 +279,7 @@ function VaultPageInner() {
   const [hasPendingReview, setHasPendingReview] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
-  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "plantType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | "packetVendor" | "packetSow" | null>(null);
+  const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "tags" | "seedType" | "sowingMonth" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "packetCount" | "packetVendor" | "packetSow" | null>(null);
   const [sortBy, setSortBy] = useState<VaultSortBy>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -298,7 +299,7 @@ function VaultPageInner() {
   const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
   const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
   const [shedSelectionActionsOpen, setShedSelectionActionsOpen] = useState(false);
-  const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [seedTypeChips, setSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
   const [refineChips, setRefineChips] = useState<{
     variety: { value: string; count: number }[];
@@ -341,6 +342,14 @@ function VaultPageInner() {
 
   useEffect(() => { setHasPendingReview(hasPendingReviewData()); }, [refetchTrigger]);
 
+  // One-time backfill: add inferred seed type tags to existing profiles
+  useEffect(() => {
+    if (!user?.id || viewMode !== "grid") return;
+    runSeedTypeBackfill(user.id).then((didUpdate) => {
+      if (didUpdate) setRefetchTrigger((t) => t + 1);
+    });
+  }, [user?.id, viewMode]);
+
   // Load packet filter defaults on mount
   useEffect(() => {
     const loaded = loadFilterDefault<PacketFilterDefault>(FILTER_DEFAULT_KEYS.vaultPackets);
@@ -367,8 +376,8 @@ function VaultPageInner() {
   const handleVaultStatusChipsLoaded = useCallback((chips: { value: StatusFilter; label: string; count: number }[]) => {
     setVaultStatusChips(chips);
   }, []);
-  const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setCategoryChips(chips);
+  const handleSeedTypeChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
+    setSeedTypeChips(chips);
   }, []);
   const handleSowingMonthChipsLoaded = useCallback((chips: { month: number; monthName: string; count: number }[]) => {
     setSowingMonthChips(chips);
@@ -1259,7 +1268,6 @@ function VaultPageInner() {
                         : [
                             vaultFilters.filters.status !== "",
                             vaultFilters.filters.tags.length > 0,
-                            vaultFilters.filters.category !== null,
                             vaultFilters.filters.variety !== null,
                             vaultFilters.filters.vendor !== null,
                             vaultFilters.filters.sun !== null,
@@ -1806,37 +1814,37 @@ function VaultPageInner() {
                       )}
                     </div>
                   )}
-                  {categoryChips.length > 0 && (
+                  {seedTypeChips.length > 0 && (
                     <div className="border-b border-black/5">
                       <button
                         type="button"
-                        onClick={() => setRefineBySection((s) => (s === "plantType" ? null : "plantType"))}
+                        onClick={() => setRefineBySection((s) => (s === "seedType" ? null : "seedType"))}
                         className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
-                        aria-expanded={refineBySection === "plantType"}
+                        aria-expanded={refineBySection === "seedType"}
                       >
-                        <span>Plant Type</span>
-                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "plantType" ? "▼" : "▸"}</span>
+                        <span>Seed Type</span>
+                        <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "seedType" ? "▼" : "▸"}</span>
                       </button>
-                      {refineBySection === "plantType" && (
+                      {refineBySection === "seedType" && (
                         <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
-                          <button
-                            type="button"
-                            onClick={() => vaultFilters.setCategory(null)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm ${vaultFilters.filters.category === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                          >
-                            All
-                          </button>
-                          {categoryChips.map(({ type, count }) => {
-                            const selected = vaultFilters.filters.category === type;
+                          {seedTypeChips.map(({ value, count }) => {
+                            const checked = vaultFilters.filters.tags.includes(value);
                             return (
-                              <button
-                                key={type}
-                                type="button"
-                                onClick={() => vaultFilters.setCategory(type)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                              <label
+                                key={value}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
                               >
-                                {type} ({count})
-                              </button>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => vaultFilters.toggleTagFilter(value)}
+                                  className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                                  aria-label={`Filter by ${value}`}
+                                />
+                                <span className="text-sm text-black/80">
+                                  {value} ({count})
+                                </span>
+                              </label>
                             );
                           })}
                         </div>
@@ -2159,9 +2167,7 @@ function VaultPageInner() {
               plantNowFilter={!!sowParam}
               sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
               gridDisplayStyle={gridDisplayStyle}
-              categoryFilter={vaultFilters.filters.category}
-              onCategoryFilterChange={vaultFilters.setCategory}
-              onCategoryChipsLoaded={handleCategoryChipsLoaded}
+              onSeedTypeChipsLoaded={handleSeedTypeChipsLoaded}
               varietyFilter={vaultFilters.filters.variety}
               vendorFilter={vaultFilters.filters.vendor}
               sunFilter={vaultFilters.filters.sun}
@@ -2616,6 +2622,16 @@ function VaultPageInner() {
                   >
                     <CalendarIcon className="w-5 h-5 shrink-0" />
                     Plan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { openMergeModal(); setSelectionActionsOpen(false); }}
+                    disabled={selectedVarietyIds.size < 2}
+                    className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                    aria-label="Merge selected"
+                  >
+                    <MergeIcon className="w-5 h-5 shrink-0" />
+                    Merge
                   </button>
                 </>
               )}

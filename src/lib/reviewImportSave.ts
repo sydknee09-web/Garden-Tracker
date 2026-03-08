@@ -5,6 +5,7 @@
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
+import { getSeedTypesFromTags, inferSeedTypesFromPlantName } from "@/constants/seedTypes";
 import { supabase } from "@/lib/supabase";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import { compressImage } from "@/lib/compressImage";
@@ -73,6 +74,11 @@ export function buildPlantProfileInsertPayload(
   const heroUrlForNew =
     item.useStockPhotoAsHero !== false && rawHeroNew ? rawHeroNew : "/seedling-icon.svg";
 
+  const existingTags = item.tags ?? [];
+  const existingSeedTypes = getSeedTypesFromTags(existingTags);
+  const inferredSeedTypes = existingSeedTypes.length > 0 ? [] : inferSeedTypesFromPlantName(name);
+  const allTags = [...new Set([...existingTags, ...(packetTags ?? []), ...inferredSeedTypes])];
+
   const payload: PlantProfileInsertPayload = {
     user_id: userId,
     name,
@@ -80,7 +86,7 @@ export function buildPlantProfileInsertPayload(
     primary_image_path: null,
     hero_image_url: heroUrlForNew,
     profile_type: profileType,
-    tags: item.tags?.length ? item.tags : undefined,
+    tags: allTags.length > 0 ? allTags : undefined,
     ...(researchSun && { sun: researchSun }),
     ...(researchSpacing && { plant_spacing: researchSpacing }),
     ...(researchGerm && { days_to_germination: researchGerm }),

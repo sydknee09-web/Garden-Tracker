@@ -40,6 +40,7 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { VaultGridSkeleton } from "@/components/PageSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
+import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
 
 /** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
 const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
@@ -261,9 +262,7 @@ export function SeedVaultView({
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth = null,
   gridDisplayStyle = "condensed" as const,
-  categoryFilter: categoryFilterProp,
-  onCategoryFilterChange,
-  onCategoryChipsLoaded,
+  onSeedTypeChipsLoaded,
   varietyFilter = null,
   vendorFilter = null,
   sunFilter = null,
@@ -309,11 +308,8 @@ export function SeedVaultView({
   sowMonth?: string | null;
   /** When mode is "grid", "photo" = image-dominant 2-col cards, "condensed" = compact 3-col. */
   gridDisplayStyle?: "photo" | "condensed";
-  /** Controlled plant-type filter (first word of name); when set, Refine By panel can drive this. */
-  categoryFilter?: string | null;
-  onCategoryFilterChange?: (value: string | null) => void;
-  /** Called when category chips (plant types with counts) are computed, for Refine By panel. */
-  onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  /** Called when seed type chips (Vegetable, Herb, Flower, etc. with counts) are computed, for Refine By panel. */
+  onSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
   varietyFilter?: string | null;
   vendorFilter?: string | null;
@@ -358,9 +354,6 @@ export function SeedVaultView({
   const [plantFilterOpen, setPlantFilterOpen] = useState(false);
   const [plantFilterSearch, setPlantFilterSearch] = useState("");
   const plantFilterRef = useRef<HTMLDivElement>(null);
-  const [categoryFilterInternal, setCategoryFilterInternal] = useState<string | null>(null);
-  const categoryFilter = categoryFilterProp !== undefined ? categoryFilterProp : categoryFilterInternal;
-  const setCategoryFilter = onCategoryFilterChange ?? setCategoryFilterInternal;
   const [gridSortBy, setGridSortBy] = useState<GridSortBy>("name");
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [imageLoadedIds, setImageLoadedIds] = useState<Set<string>>(new Set());
@@ -502,10 +495,6 @@ export function SeedVaultView({
   const filteredSeeds = useMemo(() => {
     return seeds.filter((s) => {
       if (hideArchivedProfiles && statusFilter !== "archived" && (s.packet_count ?? 0) <= 0) return false;
-      if (categoryFilter !== null) {
-        const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
-        if (first !== categoryFilter) return false;
-      }
       if (varietyFilter != null && varietyFilter !== "") {
         const v = (s.variety ?? "").trim();
         if (v !== varietyFilter) return false;
@@ -557,22 +546,27 @@ export function SeedVaultView({
       }
       if (tagFilters.length > 0) {
         const seedTags = s.tags ?? [];
-        if (!tagFilters.some((t) => seedTags.includes(t))) return false;
+        const effectiveTags = getEffectiveSeedTypes(seedTags, s.name);
+        const seedTypeFilters = tagFilters.filter((t) => isSeedTypeTag(t));
+        const otherFilters = tagFilters.filter((t) => !isSeedTypeTag(t));
+        if (seedTypeFilters.length > 0 && !seedTypeFilters.some((t) => effectiveTags.includes(t))) return false;
+        if (otherFilters.length > 0 && !otherFilters.some((t) => seedTags.includes(t))) return false;
       }
       return true;
     });
-  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, categoryFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
-  const categoryChips = useMemo(() => {
+  const seedTypeChips = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of seeds) {
-      const first = (s.name ?? "").trim().split(/\s+/)[0]?.trim();
-      const type = first || "Other";
-      map.set(type, (map.get(type) ?? 0) + 1);
+      const types = getEffectiveSeedTypes(s.tags, s.name);
+      for (const t of types) {
+        map.set(t, (map.get(t) ?? 0) + 1);
+      }
     }
-    return Array.from(map.entries())
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
+    return SEED_TYPE_TAGS.filter((t) => (map.get(t) ?? 0) > 0)
+      .map((value) => ({ value, count: map.get(value) ?? 0 }))
+      .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
   }, [seeds]);
 
   const refineChips = useMemo(() => {
@@ -1047,8 +1041,8 @@ export function SeedVaultView({
   }, [filteredIds, onFilteredIdsChange]);
 
   useEffect(() => {
-    onCategoryChipsLoaded?.(categoryChips);
-  }, [categoryChips, onCategoryChipsLoaded]);
+    onSeedTypeChipsLoaded?.(seedTypeChips);
+  }, [seedTypeChips, onSeedTypeChipsLoaded]);
 
   useEffect(() => {
     onRefineChipsLoaded?.(refineChips);
@@ -1129,7 +1123,7 @@ export function SeedVaultView({
   }
 
   if (filteredSeeds.length === 0) {
-    const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || categoryFilter !== null);
+    const hasFilters = !!(q || statusFilter || tagFilters.length > 0);
     if (hasFilters) {
       const message = mode === "grid"
         ? "No plant profiles match your search or filters."
