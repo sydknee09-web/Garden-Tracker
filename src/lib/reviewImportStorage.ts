@@ -74,6 +74,8 @@ export type ReviewImportItem = {
   companion_plants?: string[];
   /** From research/extract: plants to avoid planting nearby */
   avoid_plants?: string[];
+  /** Where you bought the plant (e.g. Home Depot). For addPlantMode. */
+  nursery?: string;
 };
 
 export type ReviewImportSource = "purchase_order" | "link" | "photo";
@@ -84,6 +86,8 @@ export type ReviewImportData = {
   source?: ReviewImportSource;
   /** When "permanent", new profiles are created as trees/perennials (My Plants). Default "seed". */
   defaultProfileType?: "seed" | "permanent";
+  /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Scan Purchase Order or Photo Import. */
+  addPlantMode?: boolean;
 };
 
 export function getReviewImportData(): ReviewImportData | null {
@@ -162,6 +166,8 @@ export type PendingPhotoImportItem = {
 
 export type PendingPhotoImportData = {
   items: PendingPhotoImportItem[];
+  /** When true, create grow_instance only (no seed_packet). Passed through to review-import. */
+  addPlantMode?: boolean;
 };
 
 export function getPendingPhotoImport(): PendingPhotoImportData | null {
@@ -203,6 +209,10 @@ export type PendingPhotoHeroItem = {
 
 export type PendingPhotoHeroData = {
   items: PendingPhotoHeroItem[];
+  /** When true, create grow_instance only (no seed_packet). Preserved from review-import. */
+  addPlantMode?: boolean;
+  /** When "permanent", new profiles are trees/perennials. Preserved from review-import. */
+  defaultProfileType?: "seed" | "permanent";
 };
 
 export function getPendingPhotoHeroImport(): PendingPhotoHeroData | null {

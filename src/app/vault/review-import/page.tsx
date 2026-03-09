@@ -22,6 +22,7 @@ import { identityKeyFromVariety } from "@/lib/identityKey";
 import { compressImage } from "@/lib/compressImage";
 import { decodeHtmlEntities, stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
+import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
@@ -202,6 +203,7 @@ export default function ReviewImportPage() {
   const [items, setItems] = useState<ReviewImportItem[]>([]);
   const [importSource, setImportSource] = useState<ReviewImportSource | undefined>(undefined);
   const [defaultProfileType, setDefaultProfileType] = useState<"seed" | "permanent">("seed");
+  const [addPlantMode, setAddPlantMode] = useState(false);
   const [profiles, setProfiles] = useState<ProfileMatch[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingPhase, setSavingPhase] = useState("Saving\u2026");
@@ -252,6 +254,7 @@ export default function ReviewImportPage() {
     const apply = (data: ReviewImportData) => {
       setImportSource(data.source);
       setDefaultProfileType(data.defaultProfileType === "permanent" ? "permanent" : "seed");
+      setAddPlantMode(!!data.addPlantMode);
       setItems(
         data.items.map((i) => ({
           ...i,
@@ -597,7 +600,7 @@ export default function ReviewImportPage() {
 
   /** For purchase_order: navigate to hero page to find photos for all items (two-step flow like photo import). */
   const handleGoToHeroPhotos = useCallback(() => {
-    setReviewImportData({ items });
+    setReviewImportData({ items, source: importSource, defaultProfileType, addPlantMode });
     const heroItems = items.map((i) => ({
       id: i.id,
       imageBase64: i.imageBase64 ?? "",
@@ -608,9 +611,9 @@ export default function ReviewImportPage() {
       tags: i.tags ?? [],
       purchaseDate: i.purchaseDate ?? todayISO(),
     }));
-    setPendingPhotoHeroImport({ items: heroItems });
+    setPendingPhotoHeroImport({ items: heroItems, addPlantMode, defaultProfileType });
     router.push("/vault/import/photos/hero");
-  }, [items, router]);
+  }, [items, router, addPlantMode, importSource, defaultProfileType]);
 
   const getExistingProfile = useCallback(
     (item: ReviewImportItem): ProfileMatch | null =>
@@ -671,8 +674,8 @@ export default function ReviewImportPage() {
   );
 
   useEffect(() => {
-    if (items.length) setReviewImportData({ items, source: importSource, defaultProfileType });
-  }, [items, importSource, defaultProfileType]);
+    if (items.length) setReviewImportData({ items, source: importSource, defaultProfileType, addPlantMode });
+  }, [items, importSource, defaultProfileType, addPlantMode]);
 
   useEffect(() => {
     return () => {
@@ -711,20 +714,36 @@ export default function ReviewImportPage() {
       const varietyName = (item.variety ?? "").trim() || null;
       const isLinkImport = !(item.imageBase64?.trim());
       let path: string | null = null;
+      let journalPhotoPath: string | null = null;
       if (!isLinkImport) {
-        path = `${user.id}/${crypto.randomUUID()}.jpg`;
+        const storagePath = `${user.id}/${crypto.randomUUID()}.jpg`;
         const rawBlob = base64ToBlob(item.imageBase64!, "image/jpeg");
         const file = new File([rawBlob], item.fileName || "packet.jpg", { type: "image/jpeg" });
         const { blob } = await compressImage(file);
-        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
-          contentType: "image/jpeg",
-          upsert: false,
-          cacheControl: "31536000",
-        });
-        if (uploadErr) {
-          setError(uploadErr.message);
-          setSaving(false);
-          return;
+        if (addPlantMode) {
+          const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(storagePath, blob, {
+            contentType: "image/jpeg",
+            upsert: false,
+            cacheControl: "31536000",
+          });
+          if (uploadErr) {
+            setError(uploadErr.message);
+            setSaving(false);
+            return;
+          }
+          journalPhotoPath = storagePath;
+        } else {
+          const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(storagePath, blob, {
+            contentType: "image/jpeg",
+            upsert: false,
+            cacheControl: "31536000",
+          });
+          if (uploadErr) {
+            setError(uploadErr.message);
+            setSaving(false);
+            return;
+          }
+          path = storagePath;
         }
       }
 
@@ -807,21 +826,71 @@ export default function ReviewImportPage() {
             }
           : undefined;
       let firstPacketId: string | null = null;
-      if (defaultProfileType === "permanent") {
-        // Permanent plants: create grow_instance (no seed_packet). Both new and matched profiles get a grow.
-        const { error: growErr } = await supabase.from("grow_instances").insert({
+      const createGrowOnly = addPlantMode || defaultProfileType === "permanent";
+      if (createGrowOnly) {
+        // addPlantMode or permanent: create grow_instance (no seed_packet).
+        const plantCount = item.purchase_quantity ?? 1;
+        const { data: growRow, error: growErr } = await supabase.from("grow_instances").insert({
           user_id: user.id,
           plant_profile_id: profileId,
           sown_date: purchaseDate,
           expected_harvest_date: null,
           status: "growing",
           seed_packet_id: null,
-          plant_count: 1,
-        });
+          plant_count: plantCount,
+          is_permanent_planting: defaultProfileType === "permanent",
+          ...(addPlantMode && (item.price ?? "").trim() && { purchase_price: (item.price ?? "").trim() }),
+          ...(addPlantMode && { purchase_quantity: plantCount }),
+        }).select("id").single();
         if (growErr) {
           setError(growErr.message);
           setSaving(false);
           return;
+        }
+        const growId = (growRow as { id: string })?.id;
+        if (addPlantMode && growId) {
+          const displayName = varietyName ? `${name} (${varietyName})` : name;
+          const noteParts: string[] = [`Planted ${displayName}`];
+          if ((item.user_notes ?? "").trim()) noteParts.push((item.user_notes ?? "").trim());
+          const note = noteParts.join(". ");
+          await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            seed_packet_id: null,
+            note: note || null,
+            entry_type: "planting",
+            ...(journalPhotoPath && { image_file_path: journalPhotoPath }),
+          });
+          if (journalPhotoPath && item.useStockPhotoAsHero !== false) {
+            await supabase.from("plant_profiles").update({ hero_image_path: journalPhotoPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
+          }
+          if (defaultProfileType === "seed") {
+            await copyCareTemplatesToInstance(profileId, growId, user.id, purchaseDate);
+            const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
+            const hDays = (pRow as { harvest_days?: number | null })?.harvest_days;
+            const expHarvest = hDays != null && hDays > 0 ? new Date(new Date(purchaseDate).getTime() + hDays * 86400000).toISOString().slice(0, 10) : null;
+            await supabase.from("tasks").insert({
+              user_id: user.id,
+              plant_profile_id: profileId,
+              grow_instance_id: growId,
+              category: "sow",
+              due_date: purchaseDate,
+              completed_at: new Date().toISOString(),
+              title: `Sow ${displayName}`,
+            });
+            if (expHarvest) {
+              await supabase.from("tasks").insert({
+                user_id: user.id,
+                plant_profile_id: profileId,
+                grow_instance_id: growId,
+                category: "harvest",
+                due_date: expHarvest,
+                title: `Harvest ${displayName}`,
+              });
+              await supabase.from("grow_instances").update({ expected_harvest_date: expHarvest }).eq("id", growId).eq("user_id", user.id);
+            }
+          }
         }
       } else {
         const allUrls = [
@@ -1073,10 +1142,11 @@ export default function ReviewImportPage() {
     setSaveSuccess(true);
     const t = setTimeout(() => {
       clearReviewImportData();
-      router.replace(defaultProfileType === "permanent" ? "/garden?tab=plants" : "/vault?status=vault&added=1");
+      const goToGarden = addPlantMode || defaultProfileType === "permanent";
+      router.replace(goToGarden ? "/garden?tab=plants" : "/vault?status=vault&added=1");
     }, 1500);
     saveSuccessTimeoutRef.current = t;
-  }, [user?.id, items, router, defaultProfileType]);
+  }, [user?.id, items, router, defaultProfileType, addPlantMode]);
 
   if (!user) return null;
   if (items.length === 0) {
@@ -1135,6 +1205,25 @@ export default function ReviewImportPage() {
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" role="alert">
           {error}
         </p>
+      )}
+
+      {addPlantMode && importSource === "purchase_order" && (
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setDefaultProfileType("permanent")}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border min-h-[44px] ${defaultProfileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+          >
+            Permanent
+          </button>
+          <button
+            type="button"
+            onClick={() => setDefaultProfileType("seed")}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border min-h-[44px] ${defaultProfileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+          >
+            Seasonal
+          </button>
+        </div>
       )}
 
       {importSource === "purchase_order" && (
@@ -1414,12 +1503,13 @@ export default function ReviewImportPage() {
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                     <div className="sm:col-span-2 lg:col-span-1">
+                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Vendor</label>}
                     <div className="inline-flex items-center gap-1.5 flex-wrap w-full">
                       <Combobox
                         value={item.vendor}
                         onChange={(v) => updateItem(item.id, { vendor: v })}
                         suggestions={vendorSuggestions}
-                        placeholder="Vendor (optional)"
+                        placeholder={addPlantMode && importSource === "purchase_order" ? "Vendor" : "Vendor (optional)"}
                         aria-label="Vendor (optional)"
                         className={`w-full min-w-0 rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       />
@@ -1431,11 +1521,12 @@ export default function ReviewImportPage() {
                     </div>
                     </div>
                     <div>
+                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Plant name</label>}
                     <Combobox
                       value={item.type}
                       onChange={(v) => updateItem(item.id, { type: v })}
                       suggestions={plantSuggestions}
-                      placeholder="Plant type (optional)"
+                      placeholder={addPlantMode && importSource === "purchase_order" ? "Plant name" : "Plant type (optional)"}
                       aria-label="Plant type (optional)"
                       className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
@@ -1468,12 +1559,13 @@ export default function ReviewImportPage() {
                     )}
                     <div className="sm:col-span-2">
                     <div className="space-y-1">
+                      {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Variety</label>}
                       <div className="flex items-center gap-2 flex-wrap">
                         <Combobox
                           value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
                           suggestions={varietySuggestionsByPlant[item.type ?? ""] ?? []}
-                          placeholder="Variety (optional)"
+                          placeholder={addPlantMode && importSource === "purchase_order" ? "Variety" : "Variety (optional)"}
                           aria-label="Variety (optional)"
                           className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         />
@@ -1501,7 +1593,7 @@ export default function ReviewImportPage() {
                               : "this variety";
                             return (
                               <span className="text-xs text-emerald-800/90 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                Packet will be added under <strong>{label}</strong>
+                                {(addPlantMode && importSource === "purchase_order") ? "Plant will be added under" : "Packet will be added under"} <strong>{label}</strong>
                                 {profile && (
                                   <Link
                                     href={`/vault/${profile.id}`}
@@ -1538,6 +1630,7 @@ export default function ReviewImportPage() {
                     </div>
                   </div>
                     <div>
+                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Purchase date</label>}
                     <input
                       type="date"
                       value={item.purchaseDate || todayISO()}
@@ -1546,17 +1639,31 @@ export default function ReviewImportPage() {
                       aria-label="Purchase date (optional)"
                     />
                     </div>
+                    {addPlantMode && importSource === "purchase_order" && (
+                      <div>
+                        <label className="block text-xs font-medium text-neutral-500 mb-0.5">Nursery</label>
+                        <input
+                          type="text"
+                          value={item.nursery ?? ""}
+                          onChange={(e) => updateItem(item.id, { nursery: e.target.value })}
+                          placeholder="e.g. Home Depot, local nursery"
+                          className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
+                          aria-label="Nursery"
+                        />
+                      </div>
+                    )}
                     <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Packet notes (optional)</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">{(addPlantMode && importSource === "purchase_order") ? "Plant notes (optional)" : "Packet notes (optional)"}</label>
                     <textarea
                       value={item.user_notes ?? ""}
                       onChange={(e) => updateItem(item.id, { user_notes: e.target.value })}
                       placeholder="Optional"
                       rows={2}
                       className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
-                      aria-label="Packet notes"
+                      aria-label={(addPlantMode && importSource === "purchase_order") ? "Plant notes" : "Packet notes"}
                     />
                     </div>
+                    {!(addPlantMode && importSource === "purchase_order") && (
                     <div>
                     <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location (optional)</label>
                     <input
@@ -1568,6 +1675,7 @@ export default function ReviewImportPage() {
                       aria-label="Storage location"
                     />
                     </div>
+                    )}
                     <div className="sm:col-span-2 lg:col-span-4 text-sm text-black/70">
                     {item.sowing_depth ?? item.spacing ?? item.sun_requirement ?? item.days_to_germination ?? item.days_to_maturity ? (
                       <div className="space-y-1">

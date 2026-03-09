@@ -118,6 +118,8 @@ export default function HomePage() {
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
+  const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const router = useRouter();
@@ -623,7 +625,13 @@ export default function HomePage() {
           onAddPlantPurchaseOrder={() => {
             setUniversalAddMenuOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
+          }}
+          onAddPlantPhotoImport={() => {
+            setUniversalAddMenuOpen(false);
+            setBatchAddPlantMode(true);
+            setBatchAddSeedOpen(true);
           }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
@@ -664,6 +672,7 @@ export default function HomePage() {
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
+            setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
           onOpenLinkImport={() => {
@@ -680,6 +689,7 @@ export default function HomePage() {
             skipPopOnNavigateRef.current = true;
             setQuickAddSeedOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
             setPurchaseOrderOpen(true);
           }}
         />
@@ -695,6 +705,7 @@ export default function HomePage() {
             setBatchAddSeedOpen(false);
             router.push("/vault/import/photos/hero");
           }}
+          addPlantMode={batchAddPlantMode}
         />
       )}
 
@@ -735,6 +746,7 @@ export default function HomePage() {
           onClose={() => setPurchaseOrderOpen(false)}
           mode={purchaseOrderMode}
           defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+          addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
         />
       )}
 

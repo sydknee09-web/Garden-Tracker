@@ -24,9 +24,11 @@ interface PurchaseOrderImportProps {
   mode?: "seed" | "supply";
   /** When "permanent", imported items become trees/perennials (My Plants). Only used when mode="seed". */
   defaultProfileType?: "seed" | "permanent";
+  /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Scan Purchase Order. */
+  addPlantMode?: boolean;
 }
 
-export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfileType = "seed" }: PurchaseOrderImportProps) {
+export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfileType = "seed", addPlantMode = false }: PurchaseOrderImportProps) {
   const router = useRouter();
   const { session: authSession } = useAuth();
   const [isExtracting, setIsExtracting] = useState(false);
@@ -210,7 +212,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         purchase_quantity: item.quantity,
       }));
 
-      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType });
+      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType, addPlantMode });
       onClose();
       window.location.href = "/vault/review-import";
     } catch (e) {

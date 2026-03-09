@@ -40,6 +40,7 @@ export default function ImportPhotosPage() {
   const processingRef = useRef(false);
   const stopRequestedRef = useRef(false);
   const vaultProfilesRef = useRef<VaultProfile[] | null>(null);
+  const addPlantModeRef = useRef(false);
 
   const updateItem = useCallback((id: string, updates: Partial<PhotoItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -51,6 +52,7 @@ export default function ImportPhotosPage() {
       router.replace("/vault");
       return;
     }
+    addPlantModeRef.current = !!pending.addPlantMode;
     clearPendingPhotoImport();
     setItems(
       pending.items.map((p) => ({
@@ -250,7 +252,7 @@ export default function ImportPhotosPage() {
         avoid_plants: (r as { avoid_plants?: string[] }).avoid_plants,
       };
     });
-    setReviewImportData({ items: reviewItems });
+    setReviewImportData({ items: reviewItems, source: "photo", addPlantMode: addPlantModeRef.current });
     router.push("/vault/review-import");
   }, [router]);
 

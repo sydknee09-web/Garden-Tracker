@@ -56,6 +56,7 @@ export function AddPlantModal({
   const [variety, setVariety] = useState("");
   const [vendor, setVendor] = useState("");
   const [nursery, setNursery] = useState("");
+  const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
@@ -164,6 +165,7 @@ export function AddPlantModal({
     setVariety("");
     setVendor("");
     setNursery("");
+    setPrice("");
     setNotes("");
     setPhotoFiles([]);
     setPlantedDate(new Date().toISOString().slice(0, 10));
@@ -246,6 +248,7 @@ export function AddPlantModal({
         profileId = (insertRow as { id: string }).id;
         setCreatedProfileId(profileId);
 
+        const plantCountNum = quantity.trim() ? parseInt(quantity, 10) : null;
         const { data: growRow, error: growInsertErr } = await supabase
           .from("grow_instances")
           .insert({
@@ -256,8 +259,10 @@ export function AddPlantModal({
             status: "growing",
             seed_packet_id: null,
             location: location.trim() || null,
-            plant_count: null,
+            plant_count: plantCountNum ?? 1,
             is_permanent_planting: plantType === "permanent",
+            ...(price.trim() && { purchase_price: price.trim() }),
+            ...(plantCountNum != null && { purchase_quantity: plantCountNum }),
           })
           .select("id")
           .single();
@@ -360,20 +365,8 @@ export function AddPlantModal({
         if (plantType === "seasonal") {
           if (packetsForProfile.length > 0 && selectedPacketId) {
             primaryPacketId = selectedPacketId;
-          } else if (packetsForProfile.length === 0) {
-            const { data: newPkt, error: pktErr } = await supabase
-              .from("seed_packets")
-              .insert({ user_id: user.id, plant_profile_id: profileId, qty_status: 100, vendor_name: null })
-              .select("id")
-              .single();
-            if (pktErr || !newPkt) {
-              setError(pktErr?.message ?? "Could not create seed packet.");
-              setSubmitting(false);
-              return;
-            }
-            primaryPacketId = (newPkt as { id: string }).id;
-            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", primaryPacketId).eq("user_id", user.id);
           }
+          // When no packets exist: create grow with seed_packet_id: null (no packet created, per plan)
         }
 
         const { data: profileRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
@@ -392,6 +385,8 @@ export function AddPlantModal({
           location: location.trim() || null,
           plant_count: plantCount,
           is_permanent_planting: plantType === "permanent",
+          ...(price.trim() && { purchase_price: price.trim() }),
+          ...(plantCount != null && { purchase_quantity: plantCount }),
         }).select("id").single();
         if (growErr || !growRow) {
           setError(growErr?.message ?? "Could not create planting.");
@@ -697,6 +692,31 @@ export function AddPlantModal({
                   />
                   {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">Vendor and nursery are for your records. We use plant + variety only to find details and a photo.</p>}
                 </div>
+                <div>
+                  <label htmlFor="add-plant-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                  <input
+                    id="add-plant-price"
+                    type="text"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="e.g. $12.99"
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Price paid for plant"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="add-plant-qty-new" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
+                  <input
+                    id="add-plant-qty-new"
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="e.g. 1"
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Number of plants (optional)"
+                  />
+                </div>
               </>
             )}
 
@@ -711,19 +731,33 @@ export function AddPlantModal({
               />
             </div>
             {mode === "existing" && (
-              <div>
-                <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
-                <input
-                  id="add-plant-qty"
-                  type="number"
-                  min={0}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="e.g. 1"
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                  aria-label="Number of plants (optional)"
-                />
-              </div>
+              <>
+                <div>
+                  <label htmlFor="add-plant-price-existing" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                  <input
+                    id="add-plant-price-existing"
+                    type="text"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="e.g. $12.99"
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Price paid for plant"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
+                  <input
+                    id="add-plant-qty"
+                    type="number"
+                    min={0}
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="e.g. 1"
+                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Number of plants (optional)"
+                  />
+                </div>
+              </>
             )}
             <div>
               <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>

@@ -175,6 +175,8 @@ function GardenPageInner() {
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
+  const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
@@ -1187,7 +1189,13 @@ function GardenPageInner() {
           onAddPlantPurchaseOrder={() => {
             setFabMenuOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
+          }}
+          onAddPlantPhotoImport={() => {
+            setFabMenuOpen(false);
+            setBatchAddPlantMode(true);
+            setBatchAddSeedOpen(true);
           }}
           onAddToShed={() => {
             setFabMenuOpen(false);
@@ -1227,6 +1235,7 @@ function GardenPageInner() {
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
+            setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
           onOpenLinkImport={() => {
@@ -1243,6 +1252,7 @@ function GardenPageInner() {
             skipPopOnNavigateRef.current = true;
             setQuickAddSeedOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
             setPurchaseOrderOpen(true);
           }}
         />
@@ -1258,6 +1268,7 @@ function GardenPageInner() {
             setBatchAddSeedOpen(false);
             router.push("/vault/import/photos/hero");
           }}
+          addPlantMode={batchAddPlantMode}
         />
       )}
 
@@ -1462,6 +1473,7 @@ function GardenPageInner() {
         onClose={() => setPurchaseOrderOpen(false)}
         mode={purchaseOrderMode}
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
     </div>
   );

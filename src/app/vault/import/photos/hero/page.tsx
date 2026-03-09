@@ -31,6 +31,8 @@ export default function HeroImportPage() {
   const [noData, setNoData] = useState(false);
   const stopRequestedRef = useRef(false);
   const processingRef = useRef(false);
+  const addPlantModeRef = useRef(false);
+  const defaultProfileTypeRef = useRef<"seed" | "permanent">("seed");
 
   const updateItem = useCallback((id: string, updates: Partial<HeroItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -43,6 +45,7 @@ export default function HeroImportPage() {
       setNoData(true);
       return;
     }
+    addPlantModeRef.current = !!pending.addPlantMode;
     setItems(
       pending.items.map((p) => ({
         ...p,
@@ -136,7 +139,7 @@ export default function HeroImportPage() {
       };
     });
     if (reviewItems.length > 0) {
-      setReviewImportData({ items: reviewItems });
+      setReviewImportData({ items: reviewItems, source: "purchase_order", addPlantMode: addPlantModeRef.current, defaultProfileType: defaultProfileTypeRef.current });
       clearPendingPhotoHeroImport();
       router.push("/vault/review-import");
     }

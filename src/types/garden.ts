@@ -74,6 +74,10 @@ export interface GrowInstance {
   plant_count?: number | null;
   /** True = show in My Plants. False/null = show in Active Garden. Set when adding from Add permanent plant flow. */
   is_permanent_planting?: boolean | null;
+  /** What you paid for the plant (e.g. $12.99). Separate from seed packet price. */
+  purchase_price?: string | null;
+  /** Number of plants purchased. May equal initial plant_count. */
+  purchase_quantity?: number | null;
 }
 
 // ---------------------------------------------------------------------------

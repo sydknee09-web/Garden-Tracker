@@ -116,6 +116,8 @@ export default function CalendarPage() {
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
+  const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
@@ -1267,7 +1269,13 @@ export default function CalendarPage() {
           onAddPlantPurchaseOrder={() => {
             setUniversalAddMenuOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
+          }}
+          onAddPlantPhotoImport={() => {
+            setUniversalAddMenuOpen(false);
+            setBatchAddPlantMode(true);
+            setBatchAddSeedOpen(true);
           }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
@@ -1296,6 +1304,7 @@ export default function CalendarPage() {
           onSuccess={() => setRefetch((r) => r + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
+            setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
           onOpenLinkImport={() => {
@@ -1312,6 +1321,7 @@ export default function CalendarPage() {
             skipPopOnNavigateRef.current = true;
             setQuickAddSeedOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
             setPurchaseOrderOpen(true);
           }}
         />
@@ -1327,6 +1337,7 @@ export default function CalendarPage() {
             setBatchAddSeedOpen(false);
             router.push("/vault/import/photos/hero");
           }}
+          addPlantMode={batchAddPlantMode}
         />
       )}
 
@@ -1377,6 +1388,7 @@ export default function CalendarPage() {
           onClose={() => setPurchaseOrderOpen(false)}
           mode={purchaseOrderMode}
           defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+          addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
         />
       )}
 

@@ -315,6 +315,8 @@ export default function JournalPage() {
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
+  const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [editEntryId, setEditEntryId] = useState<string | null>(null);
   const skipPopOnNavigateRef = useRef(false);
@@ -1029,7 +1031,13 @@ export default function JournalPage() {
           onAddPlantPurchaseOrder={() => {
             setUniversalAddMenuOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
+          }}
+          onAddPlantPhotoImport={() => {
+            setUniversalAddMenuOpen(false);
+            setBatchAddPlantMode(true);
+            setBatchAddSeedOpen(true);
           }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
@@ -1069,6 +1077,7 @@ export default function JournalPage() {
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
+            setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
           onOpenLinkImport={() => {
@@ -1085,6 +1094,7 @@ export default function JournalPage() {
             skipPopOnNavigateRef.current = true;
             setQuickAddSeedOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
             setPurchaseOrderOpen(true);
           }}
         />
@@ -1100,6 +1110,7 @@ export default function JournalPage() {
             setBatchAddSeedOpen(false);
             router.push("/vault/import/photos/hero");
           }}
+          addPlantMode={batchAddPlantMode}
         />
       )}
 
@@ -1150,6 +1161,7 @@ export default function JournalPage() {
           onClose={() => setPurchaseOrderOpen(false)}
           mode={purchaseOrderMode}
           defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+          addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
         />
       )}
 

@@ -228,6 +228,8 @@ function VaultPageInner() {
   const [batchAddOpen, setBatchAddOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
+  const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
+  const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
@@ -2963,7 +2965,13 @@ function VaultPageInner() {
           onAddPlantPurchaseOrder={() => {
             setUniversalAddMenuOpen(false);
             setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
+          }}
+          onAddPlantPhotoImport={() => {
+            setUniversalAddMenuOpen(false);
+            setBatchAddPlantMode(true);
+            setBatchAddOpen(true);
           }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
@@ -3014,6 +3022,7 @@ function VaultPageInner() {
         initialPrefill={qrPrefill}
         onOpenBatch={() => {
           setQuickAddOpen(false);
+          setBatchAddPlantMode(false);
           setBatchAddOpen(true);
         }}
         onOpenLinkImport={() => {
@@ -3030,6 +3039,7 @@ function VaultPageInner() {
           skipPopOnNavigateRef.current = true;
           setQuickAddOpen(false);
           setPurchaseOrderMode("seed");
+          setPurchaseOrderAddPlantMode(false);
           setPurchaseOrderOpen(true);
         }}
       />
@@ -3045,6 +3055,7 @@ function VaultPageInner() {
             setBatchAddOpen(false);
             router.push("/vault/import/photos/hero");
           }}
+          addPlantMode={batchAddPlantMode}
         />
       )}
 
@@ -3054,6 +3065,7 @@ function VaultPageInner() {
         onClose={() => setPurchaseOrderOpen(false)}
         mode={purchaseOrderMode}
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
       )}
 

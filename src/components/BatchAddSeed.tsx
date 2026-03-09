@@ -66,9 +66,11 @@ interface BatchAddSeedProps {
   onSuccess: () => void;
   /** When provided, called instead of onClose + router.push so parent can skip history.back() (e.g. useModalBackClose). */
   onNavigateToHero?: () => void;
+  /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Photo Import. */
+  addPlantMode?: boolean;
 }
 
-export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: BatchAddSeedProps) {
+export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPlantMode = false }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
@@ -336,7 +338,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
         pendingItems.push({ id: crypto.randomUUID(), fileName, imageBase64: base64 });
       }
       setBatchProgress(null);
-      setPendingPhotoImport({ items: pendingItems });
+      setPendingPhotoImport({ items: pendingItems, addPlantMode });
       onClose();
       router.push("/vault/import/photos");
     } catch (e) {
@@ -403,7 +405,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero }: Bat
         purchaseDate: todayISO(),
       }));
 
-      setReviewImportData({ items: reviewItems });
+      setReviewImportData({ items: reviewItems, addPlantMode });
       onClose();
       router.push("/vault/review-import");
     } catch (e) {

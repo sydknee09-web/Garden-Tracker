@@ -19,6 +19,8 @@ export interface UniversalAddMenuProps {
   onAddPlantFromVault: () => void;
   /** Open Purchase Order import (screenshot of cart/order with seeds); adds to vault */
   onAddPlantPurchaseOrder?: () => void;
+  /** Open Photo Import (multi-photo, extract plant tags); same flow as Add seed packet Photo Import */
+  onAddPlantPhotoImport?: () => void;
   /** Open QuickAddSupply (has its own chooser) */
   onAddToShed: () => void;
   /** Open task form (navigate to calendar or open modal) */
@@ -69,6 +71,7 @@ export function UniversalAddMenu({
   onAddPlantManual,
   onAddPlantFromVault,
   onAddPlantPurchaseOrder,
+  onAddPlantPhotoImport,
   onAddToShed,
   onAddTask,
   onAddJournal,
@@ -95,12 +98,11 @@ export function UniversalAddMenu({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
       <div
-        className="fixed left-4 right-4 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
         style={{
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-          bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))",
         }}
         role="dialog"
         aria-modal="true"
@@ -207,6 +209,16 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
                   Scan Purchase Order
+                </button>
+              )}
+              {onAddPlantPhotoImport && (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); onAddPlantPhotoImport(); }}
+                  className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📸</span>
+                  Photo Import
                 </button>
               )}
             </div>
