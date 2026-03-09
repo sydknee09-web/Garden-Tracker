@@ -36,6 +36,16 @@ export default function ShoppingListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+  const LONG_PRESS_MS = 500;
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   const isFamilyView = householdViewMode === "family";
 
@@ -188,10 +198,26 @@ export default function ShoppingListPage() {
               const canEdit = canEditPage(item.user_id, "shopping_list");
               const showOwnerBadge = isFamilyView && !isOwn && item.user_id;
 
-              const handleDoubleClick = (e: React.MouseEvent) => {
+              const startLongPress = (e: React.TouchEvent | React.MouseEvent) => {
                 if (!canEdit || !isPlaceholder) return;
                 if ((e.target as HTMLElement).closest("button, a, input")) return;
-                setEditingId(item.id);
+                longPressFiredRef.current = false;
+                clearLongPressTimer();
+                longPressTimerRef.current = setTimeout(() => {
+                  longPressTimerRef.current = null;
+                  longPressFiredRef.current = true;
+                  setEditingId(item.id);
+                }, LONG_PRESS_MS);
+              };
+              const cancelLongPress = () => {
+                clearLongPressTimer();
+              };
+              const handleRowClick = (e: React.MouseEvent) => {
+                if (longPressFiredRef.current) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  longPressFiredRef.current = false;
+                }
               };
 
               if (isPlaceholder) {
@@ -200,7 +226,14 @@ export default function ShoppingListPage() {
                   <li
                     key={item.id}
                     className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
-                    onDoubleClick={handleDoubleClick}
+                    onTouchStart={startLongPress}
+                    onTouchMove={cancelLongPress}
+                    onTouchEnd={cancelLongPress}
+                    onTouchCancel={cancelLongPress}
+                    onMouseDown={startLongPress}
+                    onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
+                    onClick={handleRowClick}
                   >
                     {isEditing ? (
                       <input
@@ -217,7 +250,7 @@ export default function ShoppingListPage() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
-                      <span className="flex-1 text-neutral-900">{label}</span>
+                      <span className="flex-1 text-neutral-900" title="Hold to edit">{label}</span>
                     )}
                     {showOwnerBadge && (
                       <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
