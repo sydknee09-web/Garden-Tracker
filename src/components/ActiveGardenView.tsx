@@ -864,8 +864,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
         onSaved={() => { load(); }}
         onLogHarvest={(b) => { onLogHarvest(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onEndBatch={(b) => { setEndBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onDeleteBatch={(b) => { setDeleteBatchTarget(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onQuickCare={(batch, action) => { handleQuickTap(batch as GrowingBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onBulkQuickCare={(batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}
       />
@@ -1076,7 +1074,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                     </div>
                   </Link>
                   {canEditPage(batch.user_id ?? "", "garden") && (
-                    <div className="px-1.5 pb-1 pt-0 border-t border-black/5">
+                    <div className="px-1.5 pb-1 pt-0 border-t border-black/5 flex gap-1">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1084,10 +1082,26 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           setBatchLogBatches([toBatchLogBatch(batch)]);
                           setBatchLogOpen(true);
                         }}
-                        className="min-w-[44px] min-h-[36px] w-full flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                        aria-label="Log care or journal entry"
+                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                        aria-label="Add journal entry"
                       >
                         <CareHandsIcon />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEndBatchTarget(batch); }}
+                        className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md border border-black/10 bg-white text-amber-600 hover:bg-amber-50"
+                        aria-label="End batch"
+                      >
+                        <ArchiveIcon />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setDeleteBatchTarget(batch); }}
+                        className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md border border-black/10 bg-white text-red-600 hover:bg-red-50"
+                        aria-label="Delete batch"
+                      >
+                        <TrashIcon />
                       </button>
                     </div>
                   )}
@@ -1220,7 +1234,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       )}
                     </Link>
                     {canEditPage(batch.user_id ?? "", "garden") && (
-                      <div className="relative flex-shrink-0">
+                      <div className="relative flex-shrink-0 flex items-center gap-1">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1230,9 +1244,33 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                             setBatchLogOpen(true);
                           }}
                           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                          aria-label="Log care or journal entry"
+                          aria-label="Add journal entry"
                         >
                           <CareHandsIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setEndBatchTarget(batch);
+                          }}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-amber-600 hover:bg-amber-50"
+                          aria-label="End batch"
+                        >
+                          <ArchiveIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setDeleteBatchTarget(batch);
+                          }}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-red-600 hover:bg-red-50"
+                          aria-label="Delete batch"
+                        >
+                          <TrashIcon />
                         </button>
                       </div>
                     )}

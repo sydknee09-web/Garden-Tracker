@@ -20,7 +20,6 @@ export type BatchLogBatch = {
 };
 
 type ActionId =
-  | "water"
   | "fertilize"
   | "spray"
   | "germination"
@@ -36,8 +35,6 @@ interface BatchLogSheetProps {
   onClose: () => void;
   onSaved: () => void;
   onLogHarvest: (batch: BatchLogBatch) => void;
-  onEndBatch: (batch: BatchLogBatch) => void;
-  onDeleteBatch: (batch: BatchLogBatch) => void;
   onQuickCare: (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => void;
   onBulkQuickCare?: (batches: BatchLogBatch[], action: "water" | "fertilize" | "spray", note?: string) => void;
   /** When true, hide seed-specific actions (e.g. Log germination) for permanent plants. */
@@ -64,8 +61,6 @@ export function BatchLogSheet({
   onClose,
   onSaved,
   onLogHarvest,
-  onEndBatch,
-  onDeleteBatch,
   onQuickCare,
   onBulkQuickCare,
   isPermanent = false,
@@ -73,7 +68,6 @@ export function BatchLogSheet({
   const { user } = useAuth();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const endBatchLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedActions, setSelectedActions] = useState<Set<ActionId>>(new Set());
   const [seedsSprouted, setSeedsSprouted] = useState("");
   const [plantCount, setPlantCount] = useState("");
@@ -83,7 +77,6 @@ export function BatchLogSheet({
   const [careNote, setCareNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [growthMilestonesOpen, setGrowthMilestonesOpen] = useState(false);
-  const [lastWater, setLastWater] = useState<string | null>(null);
   const [lastFertilize, setLastFertilize] = useState<string | null>(null);
   const [lastSpray, setLastSpray] = useState<string | null>(null);
   const [bulkCareNote, setBulkCareNote] = useState("");
@@ -107,7 +100,6 @@ export function BatchLogSheet({
       });
       setCareNote("");
       setGrowthMilestonesOpen(false);
-      setLastWater(null);
       setLastFertilize(null);
       setLastSpray(null);
       setBulkCareNote("");
@@ -129,17 +121,14 @@ export function BatchLogSheet({
         .limit(20);
       if (cancelled || !data) return;
       const n = (note: string | null) => (note ?? "").toLowerCase();
-      let w: string | null = null;
       let f: string | null = null;
       let s: string | null = null;
       for (const row of data as { note: string | null; created_at: string }[]) {
         const noteStr = n(row.note);
-        if (!w && noteStr.includes("watered")) w = row.created_at;
         if (!f && noteStr.includes("fertilized")) f = row.created_at;
         if (!s && noteStr.includes("sprayed")) s = row.created_at;
       }
       if (!cancelled) {
-        setLastWater(w);
         setLastFertilize(f);
         setLastSpray(s);
       }
@@ -175,35 +164,6 @@ export function BatchLogSheet({
       onClose();
     }
   }, [firstBatch, onLogHarvest, onClose]);
-
-  const handleEndBatch = useCallback(() => {
-    if (firstBatch) {
-      onEndBatch(firstBatch);
-      onClose();
-    }
-  }, [firstBatch, onEndBatch, onClose]);
-
-  const END_BATCH_LONG_PRESS_MS = 500;
-  const startEndBatchLongPress = useCallback(() => {
-    if (endBatchLongPressRef.current) return;
-    endBatchLongPressRef.current = setTimeout(() => {
-      endBatchLongPressRef.current = null;
-      handleEndBatch();
-    }, END_BATCH_LONG_PRESS_MS);
-  }, [handleEndBatch]);
-  const cancelEndBatchLongPress = useCallback(() => {
-    if (endBatchLongPressRef.current) {
-      clearTimeout(endBatchLongPressRef.current);
-      endBatchLongPressRef.current = null;
-    }
-  }, []);
-
-  const handleDeleteBatch = useCallback(() => {
-    if (firstBatch) {
-      onDeleteBatch(firstBatch);
-      onClose();
-    }
-  }, [firstBatch, onDeleteBatch, onClose]);
 
   const handleSave = useCallback(async () => {
     if (!user?.id) return;
@@ -242,9 +202,9 @@ export function BatchLogSheet({
         }
       }
 
-      // Water / Fertilize / Spray with optional note
-      if (selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) {
-        const action = selectedActions.has("water") ? "water" : selectedActions.has("fertilize") ? "fertilize" : "spray";
+      // Fertilize / Spray with optional note
+      if (selectedActions.has("fertilize") || selectedActions.has("spray")) {
+        const action = selectedActions.has("fertilize") ? "fertilize" : "spray";
         const noteText = careNote.trim() || CARE_NOTES[action];
         await supabase.from("journal_entries").insert({
           user_id: user.id,
@@ -351,7 +311,7 @@ export function BatchLogSheet({
     : (selectedActions.has("germination") && seedsSprouted.trim()) ||
       (selectedActions.has("plant_count") && plantCount.trim()) ||
       (selectedActions.has("transplant") && (plantCount.trim() || transplantLocation.trim())) ||
-      (selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) ||
+      (selectedActions.has("fertilize") || selectedActions.has("spray")) ||
       note.trim() ||
       photos.length > 0;
 
@@ -394,16 +354,8 @@ export function BatchLogSheet({
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
           <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
-          {/* Primary actions — Water, Fertilize, Spray */}
+          {/* Primary actions — Fertilize, Spray */}
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => (isBulk ? handleQuickCareTap("water") : toggleAction("water"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium py-2"
-            >
-              <span className="flex items-center gap-1.5"><span>💧</span> Water</span>
-              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastWater)}</span>}
-            </button>
             <button
               type="button"
               onClick={() => (isBulk ? handleQuickCareTap("fertilize") : toggleAction("fertilize"))}
@@ -424,7 +376,7 @@ export function BatchLogSheet({
 
           {isBulk && (
             <div>
-              <label className="block text-xs font-medium text-black/60 mb-1">Optional note (for Water/Fertilize/Spray)</label>
+              <label className="block text-xs font-medium text-black/60 mb-1">Optional note (for Fertilize/Spray)</label>
               <input
                 type="text"
                 value={bulkCareNote}
@@ -548,8 +500,8 @@ export function BatchLogSheet({
                 </div>
               )}
 
-              {/* Care note (when water/fertilize/spray selected) */}
-              {(selectedActions.has("water") || selectedActions.has("fertilize") || selectedActions.has("spray")) && (
+              {/* Care note (when fertilize/spray selected) */}
+              {(selectedActions.has("fertilize") || selectedActions.has("spray")) && (
                 <div>
                   <label className="block text-xs font-medium text-black/60 mb-1">Optional note</label>
                   <input
@@ -741,32 +693,6 @@ export function BatchLogSheet({
               </div>
             </div>
           )}
-
-          {/* Administrative — End batch (long-press), Delete — single only */}
-          {!isBulk && firstBatch && (
-            <div className="pt-6 mt-6 border-t border-black/10 space-y-2">
-              <button
-                type="button"
-                onTouchStart={startEndBatchLongPress}
-                onTouchEnd={cancelEndBatchLongPress}
-                onTouchCancel={cancelEndBatchLongPress}
-                onMouseDown={startEndBatchLongPress}
-                onMouseUp={cancelEndBatchLongPress}
-                onMouseLeave={cancelEndBatchLongPress}
-                className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border border-red-200/60 text-red-600 hover:bg-red-50 text-sm font-medium"
-              >
-                <span>📦</span> End batch <span className="text-xs text-black/50">(hold to confirm)</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteBatch}
-                className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-sm font-medium"
-              >
-                <span>🗑</span> Delete
-              </button>
-            </div>
-          )}
-        </div>
 
         {/* Save button — when we have content to save */}
         {hasContentToSave && (

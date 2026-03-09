@@ -2373,11 +2373,10 @@ export default function VaultSeedPage() {
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
                               className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                              aria-label="Log care or journal entry"
+                              aria-label="Add journal entry"
                             >
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" /><path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
-                                <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><path d="M8 7h8" /><path d="M8 11h8" />
                               </svg>
                             </button>
                           </div>
@@ -2541,6 +2540,52 @@ export default function VaultSeedPage() {
               <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
               <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
             </div>
+            <div className="pt-4 mt-4 border-t border-neutral-200 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editGrowTarget) return;
+                  const b: BatchLogBatch = {
+                    id: editGrowTarget.id,
+                    plant_profile_id: editGrowTarget.plant_profile_id ?? id,
+                    profile_name: profile?.name ?? "",
+                    profile_variety_name: profile?.variety_name ?? null,
+                    seeds_sown: (editGrowTarget as GrowInstance).seeds_sown ?? null,
+                    seeds_sprouted: (editGrowTarget as GrowInstance).seeds_sprouted ?? null,
+                    plant_count: (editGrowTarget as GrowInstance).plant_count ?? null,
+                    location: editGrowTarget.location ?? null,
+                    user_id: (editGrowTarget as { user_id?: string }).user_id ?? null,
+                  };
+                  setEndBatchTarget(b);
+                  setEditGrowTarget(null);
+                }}
+                className="w-full min-h-[44px] py-2.5 rounded-lg border border-amber-200/80 text-amber-700 font-medium hover:bg-amber-50"
+              >
+                End batch
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editGrowTarget) return;
+                  const b: BatchLogBatch = {
+                    id: editGrowTarget.id,
+                    plant_profile_id: editGrowTarget.plant_profile_id ?? id,
+                    profile_name: profile?.name ?? "",
+                    profile_variety_name: profile?.variety_name ?? null,
+                    seeds_sown: (editGrowTarget as GrowInstance).seeds_sown ?? null,
+                    seeds_sprouted: (editGrowTarget as GrowInstance).seeds_sprouted ?? null,
+                    plant_count: (editGrowTarget as GrowInstance).plant_count ?? null,
+                    location: editGrowTarget.location ?? null,
+                    user_id: (editGrowTarget as { user_id?: string }).user_id ?? null,
+                  };
+                  setDeleteBatchTarget(b);
+                  setEditGrowTarget(null);
+                }}
+                className="w-full min-h-[44px] py-2.5 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50"
+              >
+                Delete batch
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2557,8 +2602,6 @@ export default function VaultSeedPage() {
           setBatchLogOpen(false);
           setBatchLogTarget(null);
         }}
-        onEndBatch={(b) => { setEndBatchTarget(b); setBatchLogOpen(false); setBatchLogTarget(null); }}
-        onDeleteBatch={(b) => { setDeleteBatchTarget(b); setBatchLogOpen(false); setBatchLogTarget(null); }}
         onQuickCare={handlePlantingsQuickCare}
       />
 
