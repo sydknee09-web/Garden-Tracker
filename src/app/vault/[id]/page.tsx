@@ -2372,12 +2372,10 @@ export default function VaultSeedPage() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
-                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 text-xl"
                               aria-label="Add journal entry"
                             >
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><path d="M8 7h8" /><path d="M8 11h8" />
-                              </svg>
+                              <span aria-hidden>📖</span>
                             </button>
                           </div>
                         )}
@@ -2536,11 +2534,8 @@ export default function VaultSeedPage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
-              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
-            </div>
             <div className="pt-4 mt-4 border-t border-neutral-200 space-y-2">
+              <p className="text-xs font-medium text-neutral-500 mb-1">Or</p>
               <button
                 type="button"
                 onClick={() => {
@@ -2585,6 +2580,10 @@ export default function VaultSeedPage() {
               >
                 Delete batch
               </button>
+            </div>
+            <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
+              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
             </div>
           </div>
         </div>
