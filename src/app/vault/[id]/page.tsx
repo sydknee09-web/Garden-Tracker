@@ -31,6 +31,7 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -148,6 +149,7 @@ function CameraIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" f
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
 function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
+function CartIcon() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>; }
 
 type ProfileData = PlantProfile | PlantVarietyProfile;
 
@@ -196,6 +198,7 @@ export default function VaultSeedPage() {
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
@@ -805,6 +808,24 @@ export default function VaultSeedPage() {
     const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", owner);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
   }, [user?.id, profileOwnerId]);
+
+  const handleAddToShoppingList = useCallback(async () => {
+    if (!user?.id || !id) return;
+    const { error } = await upsertWithOfflineQueue(
+      "shopping_list",
+      { user_id: user.id, plant_profile_id: id, is_purchased: false },
+      { onConflict: "user_id,plant_profile_id" }
+    );
+    if (error) {
+      hapticError();
+      setToastMessage("Failed to add to shopping list");
+      setTimeout(() => setToastMessage(null), 2500);
+      return;
+    }
+    hapticSuccess();
+    setToastMessage("Added to shopping list");
+    setTimeout(() => setToastMessage(null), 2500);
+  }, [user?.id, id]);
 
   const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1523,6 +1544,12 @@ export default function VaultSeedPage() {
           </div>
         )}
 
+        {toastMessage && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
+            {toastMessage}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
@@ -1544,6 +1571,17 @@ export default function VaultSeedPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {canEditPage(user?.id ?? "", "shopping_list") && (
+              <button
+                type="button"
+                onClick={handleAddToShoppingList}
+                className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Add to shopping list"
+                title="Add to shopping list"
+              >
+                <CartIcon />
+              </button>
+            )}
             {isOwnProfile && (
               <>
                 {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
@@ -1868,9 +1906,20 @@ export default function VaultSeedPage() {
                 {isAboutOpen("growthGallery") && (
                 <div className="px-4 pb-4 pt-0">
                   <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
-                    {journalPhotos.map((photo) => {
+                    {journalPhotos.map((photo, idx) => {
                       const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
-                      return <div key={photo.id} className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center"><Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" loading="lazy" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} /></div>;
+                      const galleryUrls = journalPhotos.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p.image_file_path).data.publicUrl);
+                      return (
+                        <button
+                          key={photo.id}
+                          type="button"
+                          onClick={() => setImageLightbox({ urls: galleryUrls, index: idx })}
+                          className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center cursor-pointer hover:ring-2 hover:ring-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+                          aria-label="View photo larger"
+                        >
+                          <Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" loading="lazy" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} />
+                        </button>
+                      );
                     })}
                   </div>
                 </div>
