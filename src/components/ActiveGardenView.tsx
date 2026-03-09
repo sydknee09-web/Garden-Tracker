@@ -1087,22 +1087,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       >
                         <CareHandsIcon />
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setEndBatchTarget(batch); }}
-                        className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md border border-black/10 bg-white text-amber-600 hover:bg-amber-50"
-                        aria-label="End batch"
-                      >
-                        <ArchiveIcon />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setDeleteBatchTarget(batch); }}
-                        className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md border border-black/10 bg-white text-red-600 hover:bg-red-50"
-                        aria-label="Delete batch"
-                      >
-                        <TrashIcon />
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1248,30 +1232,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         >
                           <CareHandsIcon />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setEndBatchTarget(batch);
-                          }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-amber-600 hover:bg-amber-50"
-                          aria-label="End batch"
-                        >
-                          <ArchiveIcon />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setDeleteBatchTarget(batch);
-                          }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-red-600 hover:bg-red-50"
-                          aria-label="Delete batch"
-                        >
-                          <TrashIcon />
-                        </button>
                       </div>
                     )}
                   </div>
@@ -1304,5 +1264,3 @@ function CareHandsIcon() {
 }
 function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
 function BasketIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.5 10H6.5L5 8z" /><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path d="M4 10h16" /></svg>; }
-function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>; }
-function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }

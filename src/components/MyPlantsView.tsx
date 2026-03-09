@@ -874,22 +874,6 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                           >
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><path d="M8 7h8" /><path d="M8 11h8" /></svg>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setEndBatchTarget(toBatchLogBatch(plant))}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-amber-600 hover:bg-amber-50"
-                            aria-label="End batch"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" /></svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteBatchTarget(toBatchLogBatch(plant))}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-red-600 hover:bg-red-50"
-                            aria-label="Delete batch"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
-                          </button>
                         </div>
                       )}
                     </div>
