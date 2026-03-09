@@ -287,16 +287,7 @@ export default function ShoppingListPage() {
                   key={item.id}
                   className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
                 >
-                  <input
-                    type="checkbox"
-                    id={`purchased-${item.id}`}
-                    checked={false}
-                    onChange={() => handlePurchased(item)}
-                    disabled={togglingId === item.id || !canEdit}
-                    className="min-w-[44px] min-h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
-                    aria-label={`Mark ${label} as purchased`}
-                  />
-                  <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-neutral-900">
+                  <span className="flex-1 min-w-0 text-neutral-900">
                     {item.plant_profile_id ? (
                       <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
                         {label}
@@ -308,24 +299,33 @@ export default function ShoppingListPage() {
                     ) : (
                       <span>{label}</span>
                     )}
-                  </label>
+                  </span>
                   {showOwnerBadge && (
                     <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
                   )}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(item)}
-                      disabled={togglingId === item.id}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
-                      aria-label="Remove from list"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handlePurchased(item)}
+                    disabled={togglingId === item.id || !canEdit}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                    aria-label="Mark as purchased"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(item)}
+                    disabled={togglingId === item.id || !canEdit}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
+                    aria-label="Remove from list"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
                 </li>
               );
             })}
