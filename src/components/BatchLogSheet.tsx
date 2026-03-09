@@ -315,11 +315,13 @@ export function BatchLogSheet({
       note.trim() ||
       photos.length > 0;
 
-  if (!open) return null;
+  const displayName = !firstBatch
+    ? ""
+    : firstBatch.profile_variety_name?.trim()
+      ? `${firstBatch.profile_name} (${firstBatch.profile_variety_name})`
+      : firstBatch.profile_name;
 
-  const displayName = firstBatch
-    ? (firstBatch.profile_variety_name?.trim() ? `${firstBatch.profile_name} (${firstBatch.profile_variety_name})` : firstBatch.profile_name)
-    : "";
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-20 sm:pb-4 sm:items-center sm:p-4 bg-black/40" aria-modal="true" role="dialog">
@@ -694,6 +696,7 @@ export function BatchLogSheet({
             </div>
           )}
 
+        </div>
         {/* Save button — when we have content to save */}
         {hasContentToSave && (
           <footer className="p-4 border-t border-black/10 shrink-0">
