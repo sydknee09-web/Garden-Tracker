@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getPendingPhotoHeroImport,
   clearPendingPhotoHeroImport,
+  getReviewImportData,
   setReviewImportData,
   type PendingPhotoHeroItem,
 } from "@/lib/reviewImportStorage";
@@ -121,9 +122,23 @@ export default function HeroImportPage() {
   const handleStopAndReview = useCallback(() => {
     stopRequestedRef.current = true;
     setProcessing(false);
-    const completed = items.filter((i) => i.status === "success" || i.status === "error" || i.status === "processing");
-    const reviewItems: ReviewImportItem[] = completed.map((i) => {
+    // Include ALL items so review page shows every plant; pending ones get placeholder hero.
+    // Merge with stored review data so we preserve price, user_notes, storage_location, etc.
+    const stored = getReviewImportData();
+    const storedById = new Map<string, ReviewImportItem>();
+    if (stored?.items) for (const it of stored.items) storedById.set(it.id, it);
+
+    const reviewItems: ReviewImportItem[] = items.map((i) => {
       const heroUrl = i.hero_image_url?.trim();
+      const storedItem = storedById.get(i.id);
+      if (storedItem) {
+        return {
+          ...storedItem,
+          hero_image_url: heroUrl || "/seedling-icon.svg",
+          useStockPhotoAsHero: !!heroUrl,
+        };
+      }
+      // Fallback when no stored item (e.g. stale/cleared storage)
       return {
         id: crypto.randomUUID(),
         imageBase64: i.imageBase64,
@@ -212,7 +227,15 @@ export default function HeroImportPage() {
           <span>
             {completed} of {total} processed · {progressPercent}%
           </span>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={handleStopAndReview}
+              className="text-emerald-600 hover:text-emerald-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center"
+              aria-label="Skip hero photos and go to review"
+            >
+              Skip to review
+            </button>
             {processing ? (
               <button
                 type="button"

@@ -1229,7 +1229,7 @@ export default function ReviewImportPage() {
       {importSource === "purchase_order" && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <p className="text-sm text-black/70 mb-2 w-full">
-            Step 2: Find plant photos for each item. We&apos;ll search for images based on your edits above.
+            Step 2: Find plant photos for each item (optional). We&apos;ll search for images based on your edits above.
           </p>
           <button
             type="button"
@@ -1239,9 +1239,14 @@ export default function ReviewImportPage() {
           >
             Find Hero Photos
           </button>
-          <span className="text-sm text-neutral-500">
-            or save without photos below
-          </span>
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={saving || saveSuccess || items.length === 0}
+            className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-neutral-300 bg-white text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Save without hero photos
+          </button>
         </div>
       )}
 
