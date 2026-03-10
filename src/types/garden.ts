@@ -78,6 +78,8 @@ export interface GrowInstance {
   purchase_price?: string | null;
   /** Number of plants purchased. May equal initial plant_count. */
   purchase_quantity?: number | null;
+  /** Store or nursery where this planting was purchased (e.g. Home Depot, Briggs Tree Nursery). */
+  vendor?: string | null;
 }
 
 // ---------------------------------------------------------------------------

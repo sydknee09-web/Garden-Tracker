@@ -40,6 +40,10 @@ const config: Config = {
         citrus: "#FFD700",
         // Refined Architectural Luxury — Add/Save primary actions
         "emerald-luxury": "#50C878",
+        // Gus Teal — secondary actions (Cancel, secondary tabs)
+        "teal-gus": "#2A9D8F",
+        // Warm cream — modal backgrounds (cozy refresh)
+        cream: "#FCF9F2",
         // Semantic aliases (action matches emerald for primary buttons)
         action: "#10b981",
         alert: "#FFD700",

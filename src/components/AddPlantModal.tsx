@@ -54,8 +54,7 @@ export function AddPlantModal({
   const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [plantName, setPlantName] = useState("");
   const [variety, setVariety] = useState("");
-  const [vendor, setVendor] = useState("");
-  const [nursery, setNursery] = useState("");
+  const [vendorNursery, setVendorNursery] = useState("");
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -163,8 +162,7 @@ export function AddPlantModal({
     setAddPacketVendor("");
     setPlantName("");
     setVariety("");
-    setVendor("");
-    setNursery("");
+    setVendorNursery("");
     setPrice("");
     setNotes("");
     setPhotoFiles([]);
@@ -232,8 +230,8 @@ export function AddPlantModal({
           ...basePayload,
           growing_notes: notes.trim() || null,
           purchase_date: plantedDate || null,
-          purchase_vendor: plantType === "seasonal" ? (vendor.trim() || null) : null,
-          purchase_nursery: nursery.trim() || null,
+          purchase_vendor: plantType === "seasonal" ? (vendorNursery.trim() || null) : null,
+          purchase_nursery: vendorNursery.trim() || null,
         };
         const { data: insertRow, error: insertErr } = await supabase
           .from("plant_profiles")
@@ -261,6 +259,7 @@ export function AddPlantModal({
             location: location.trim() || null,
             plant_count: plantCountNum ?? 1,
             is_permanent_planting: plantType === "permanent",
+            ...(vendorNursery.trim() && { vendor: vendorNursery.trim() }),
             ...(price.trim() && { purchase_price: price.trim() }),
             ...(plantCountNum != null && { purchase_quantity: plantCountNum }),
           })
@@ -310,7 +309,7 @@ export function AddPlantModal({
               name,
               variety.trim(),
               {
-                vendor: vendor.trim(),
+                vendor: vendorNursery.trim(),
                 skipHero: photoFiles.length > 0,
                 existingGrowingNotes: notes.trim() || null,
                 accessToken: session?.access_token ?? undefined,
@@ -385,6 +384,7 @@ export function AddPlantModal({
           location: location.trim() || null,
           plant_count: plantCount,
           is_permanent_planting: plantType === "permanent",
+          ...(vendorNursery.trim() && { vendor: vendorNursery.trim() }),
           ...(price.trim() && { purchase_price: price.trim() }),
           ...(plantCount != null && { purchase_quantity: plantCount }),
         }).select("id").single();
@@ -501,7 +501,7 @@ export function AddPlantModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-        <div ref={modalRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
+        <div ref={modalRef} className="bg-cream rounded-3xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
             <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
@@ -513,7 +513,7 @@ export function AddPlantModal({
                     setPlantType("permanent");
                     loadProfiles("permanent");
                   }}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
                 >
                   Permanent
                 </button>
@@ -523,7 +523,7 @@ export function AddPlantModal({
                     setPlantType("seasonal");
                     loadProfiles("seed");
                   }}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
                 >
                   Seasonal
                 </button>
@@ -537,14 +537,14 @@ export function AddPlantModal({
                 <button
                   type="button"
                   onClick={() => setMode("existing")}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${mode === "existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
                 >
                   Link to existing
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode("new")}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${mode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${mode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
                 >
                   Create new
                 </button>
@@ -561,7 +561,7 @@ export function AddPlantModal({
                     id="add-plant-profile"
                     value={selectedProfileId}
                     onChange={(e) => setSelectedProfileId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                   >
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -587,7 +587,7 @@ export function AddPlantModal({
                               setShowAddPacketInline(false);
                             }
                           }}
-                          className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                          className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                         >
                           <option value="">None — add new packet</option>
                           {packetsForProfile.map((p) => (
@@ -601,16 +601,16 @@ export function AddPlantModal({
                             + Add packet
                           </button>
                         ) : (
-                          <div className="p-3 rounded-lg border border-neutral-200 bg-neutral-50 space-y-2">
+                          <div className="p-3 rounded-3xl border border-neutral-200 bg-neutral-50 space-y-2">
                             <input
                               type="text"
                               value={addPacketVendor}
                               onChange={(e) => setAddPacketVendor(e.target.value)}
                               placeholder="Vendor (optional)"
-                              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm"
+                              className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-sm"
                             />
                             <div className="flex gap-2">
-                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-neutral-600">Cancel</button>
+                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-teal-gus hover:underline">Cancel</button>
                               <button type="button" onClick={handleAddPacketInline} disabled={addPacketSaving} className="text-sm font-medium text-emerald-600">{addPacketSaving ? "Adding…" : "Add"}</button>
                             </div>
                           </div>
@@ -620,20 +620,20 @@ export function AddPlantModal({
                       <div className="space-y-2">
                         <p className="text-sm text-neutral-500">No packets. Add one to track this planting.</p>
                         {!showAddPacketInline ? (
-                          <button type="button" onClick={() => setShowAddPacketInline(true)} className="min-h-[44px] px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50">
+                          <button type="button" onClick={() => setShowAddPacketInline(true)} className="min-h-[44px] px-3 py-2 rounded-3xl border border-emerald-300 text-emerald-700 font-medium text-sm hover:bg-emerald-50">
                             + Add packet
                           </button>
                         ) : (
-                          <div className="p-3 rounded-lg border border-neutral-200 bg-neutral-50 space-y-2">
+                          <div className="p-3 rounded-3xl border border-neutral-200 bg-neutral-50 space-y-2">
                             <input
                               type="text"
                               value={addPacketVendor}
                               onChange={(e) => setAddPacketVendor(e.target.value)}
                               placeholder="Vendor (optional)"
-                              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm"
+                              className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-sm"
                             />
                             <div className="flex gap-2">
-                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-neutral-600">Cancel</button>
+                              <button type="button" onClick={() => { setShowAddPacketInline(false); setAddPacketVendor(""); }} className="text-sm text-teal-gus hover:underline">Cancel</button>
                               <button type="button" onClick={handleAddPacketInline} disabled={addPacketSaving} className="text-sm font-medium text-emerald-600">{addPacketSaving ? "Adding…" : "Add"}</button>
                             </div>
                           </div>
@@ -653,7 +653,7 @@ export function AddPlantModal({
                     value={plantName}
                     onChange={(e) => setPlantName(e.target.value)}
                     placeholder={plantType === "permanent" ? "e.g. Avocado Tree, Rose" : "e.g. Tomato, Basil"}
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
                 <div>
@@ -664,33 +664,20 @@ export function AddPlantModal({
                     value={variety}
                     onChange={(e) => setVariety(e.target.value)}
                     placeholder={plantType === "permanent" ? "e.g. Hass, Cecile Brunner" : "e.g. Cherokee Purple, Genovese"}
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
-                {plantType === "seasonal" && (
-                  <div>
-                    <label htmlFor="add-plant-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor (optional)</label>
-                    <input
-                      id="add-plant-vendor"
-                      type="text"
-                      value={vendor}
-                      onChange={(e) => setVendor(e.target.value)}
-                      placeholder="e.g. Bonnie Plants, Burpee"
-                      className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
-                  </div>
-                )}
                 <div>
-                  <label htmlFor="add-plant-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Nursery (optional)</label>
+                  <label htmlFor="add-plant-vendor-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
                   <input
-                    id="add-plant-nursery"
+                    id="add-plant-vendor-nursery"
                     type="text"
-                    value={nursery}
-                    onChange={(e) => setNursery(e.target.value)}
-                    placeholder={plantType === "permanent" ? "e.g. Briggs Tree Nursery, Home Depot" : "e.g. Armstrong, Home Depot"}
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    value={vendorNursery}
+                    onChange={(e) => setVendorNursery(e.target.value)}
+                    placeholder={plantType === "permanent" ? "e.g. Briggs Tree Nursery, Home Depot" : "e.g. Bonnie Plants, Home Depot"}
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-teal-gus focus:border-teal-gus"
                   />
-                  {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">Vendor and nursery are for your records. We use plant + variety only to find details and a photo.</p>}
+                  {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">For your records. We use plant + variety only to find details and a photo.</p>}
                 </div>
                 <div>
                   <label htmlFor="add-plant-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
@@ -700,7 +687,7 @@ export function AddPlantModal({
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="e.g. $12.99"
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                     aria-label="Price paid for plant"
                   />
                 </div>
@@ -713,7 +700,7 @@ export function AddPlantModal({
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="e.g. 1"
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                     aria-label="Number of plants (optional)"
                   />
                 </div>
@@ -727,7 +714,7 @@ export function AddPlantModal({
                 type="date"
                 value={plantedDate}
                 onChange={(e) => setPlantedDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
             {mode === "existing" && (
@@ -740,7 +727,7 @@ export function AddPlantModal({
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="e.g. $12.99"
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                     aria-label="Price paid for plant"
                   />
                 </div>
@@ -753,7 +740,7 @@ export function AddPlantModal({
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="e.g. 1"
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                     aria-label="Number of plants (optional)"
                   />
                 </div>
@@ -767,7 +754,7 @@ export function AddPlantModal({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. Bed 2, Patio"
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
 
@@ -800,7 +787,7 @@ export function AddPlantModal({
                   <button
                     type="button"
                     onClick={() => photoInputRef.current?.click()}
-                    className="min-h-[80px] w-20 flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
+                    className="min-h-[80px] w-20 flex items-center justify-center rounded-3xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
                     aria-label="Take or add another photo"
                   >
                     +
@@ -817,17 +804,17 @@ export function AddPlantModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Where it's planted, age, any notes..."
-                className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
               />
             </div>
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>
           <div className="flex-shrink-0 p-4 border-t border-neutral-200 flex gap-3 justify-end">
-            <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
+            <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
               Cancel
             </button>
-            <button type="button" onClick={handleSubmit} disabled={submitting || (mode === "new" && !plantName.trim())} className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
+            <button type="button" onClick={handleSubmit} disabled={submitting || (mode === "new" && !plantName.trim())} className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
               {submitting ? "Adding…" : "Add Plant"}
             </button>
           </div>
@@ -836,7 +823,7 @@ export function AddPlantModal({
 
       {enrichmentFailed && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="enrichment-failed-title">
-          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+          <div className="bg-cream rounded-3xl shadow-lg max-w-sm w-full p-6">
             <h2 id="enrichment-failed-title" className="text-lg font-semibold text-neutral-900 mb-2">Details couldn&apos;t be loaded</h2>
             <p className="text-sm text-neutral-600 mb-4">
               We couldn&apos;t find growing details for this plant. You can add them now or edit the profile later.
@@ -849,7 +836,7 @@ export function AddPlantModal({
                   if (createdProfileId && !stayInGarden) router.push(`/vault/${createdProfileId}`);
                   handleClose();
                 }}
-                className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700"
+                className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"
               >
                 Add details now
               </button>
@@ -860,7 +847,7 @@ export function AddPlantModal({
                   handleClose();
                   router.refresh();
                 }}
-                className="min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
+                className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10"
               >
                 I&apos;ll do it later
               </button>

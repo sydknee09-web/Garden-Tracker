@@ -44,7 +44,7 @@ export function ModalShell({
 
   return (
     <div
-      className={`fixed ${containerPosition} z-50 max-h-[85vh] overflow-y-auto ${MODAL_RADIUS} bg-white p-6 border border-neutral-200/80 ${className}`}
+      className={`fixed ${containerPosition} z-50 max-h-[85vh] overflow-y-auto ${MODAL_RADIUS} bg-cream p-6 border border-neutral-200/80 ${className}`}
       style={{ boxShadow: MODAL_SHADOW }}
       role="dialog"
       aria-modal="true"
@@ -71,7 +71,7 @@ export function ModalShell({
           <button
             type="button"
             onClick={onCancel}
-            className="modal-cancel-btn w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
+            className="modal-cancel-btn w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
           >
             {cancelLabel}
           </button>
@@ -102,16 +102,16 @@ export function ModalActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 ${className}`}
+      className={`w-full text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-teal-gus/40 ${className}`}
       style={{
         fontSize: "var(--modal-action-text-size, 1rem)",
         padding: compact ? "0.75rem 1rem" : "1rem 1rem",
-        borderRadius: "12px",
+        borderRadius: "1.5rem",
         minHeight: 44,
       }}
     >
       <span
-        className="flex shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-700"
+        className="flex shrink-0 items-center justify-center rounded-3xl bg-neutral-100 text-neutral-700 p-2.5"
         style={{ width: compact ? 32 : 40, height: compact ? 32 : 40 }}
       >
         {icon}
@@ -132,7 +132,7 @@ export function ModalPrimaryButton({
     <button
       type="submit"
       disabled={disabled}
-      className={`w-full min-h-[44px] py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`w-full min-h-[44px] py-3 rounded-3xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       {...rest}
     >
       {children}
@@ -154,7 +154,7 @@ export function ModalCancelButton({
     <button
       type="button"
       onClick={onClick}
-      className={`py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px] ${className}`}
+      className={`py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10 ${className}`}
     >
       {children}
     </button>

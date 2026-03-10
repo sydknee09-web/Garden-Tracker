@@ -704,7 +704,7 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setPlantableInventoryPlantType(null)} />
           <div
-            className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-lg border border-black/10 max-w-md mx-auto flex flex-col"
+            className="fixed left-4 right-4 top-1/2 z-50 max-h-[85vh] -translate-y-1/2 overflow-hidden rounded-3xl bg-cream shadow-lg border border-black/10 max-w-md mx-auto flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-labelledby="plantable-inventory-title"
@@ -716,7 +716,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setPlantableInventoryPlantType(null)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 text-black/60 hover:bg-black/5"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-3xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"
                 aria-label="Close"
               >
                 ×
@@ -1117,7 +1117,7 @@ export default function CalendarPage() {
       {batchActionOpen === "reschedule" && (
         <>
           <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => setBatchActionOpen(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+          <div className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 pb-10 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
             <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}</h3>
             <div className="grid grid-cols-3 gap-2">
               {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
@@ -1125,7 +1125,7 @@ export default function CalendarPage() {
                 const dateStr = d.toISOString().slice(0, 10);
                 return (
                   <button key={label} type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(dateStr)}
-                    className="py-3 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-emerald-50 hover:border-emerald-200 disabled:opacity-40 min-h-[44px]">
+                    className="py-3 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10 disabled:opacity-40 min-h-[44px]">
                     {label}
                   </button>
                 );
@@ -1133,9 +1133,9 @@ export default function CalendarPage() {
             </div>
             <div className="flex gap-2 items-center pt-1">
               <input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)}
-                className="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm" />
+                className="flex-1 rounded-3xl border border-black/10 px-3 py-2 text-sm" />
               <button type="button" disabled={batchSaving} onClick={() => handleBatchReschedule(batchDate)}
-                className="px-4 py-2 rounded-xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40">
+                className="px-4 py-2 rounded-3xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40">
                 {batchSaving ? "Saving…" : "Apply"}
               </button>
             </div>
@@ -1148,7 +1148,7 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }} aria-hidden />
           <div
-            className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl px-4 pt-5 pb-10 space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 pb-10 space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
             style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
             role="dialog"
             aria-labelledby="delete-dialog-title"
@@ -1177,11 +1177,11 @@ export default function CalendarPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }}
-                className="flex-1 py-3 rounded-xl border border-black/10 text-sm font-medium min-h-[44px]">
+                className="flex-1 py-3 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
                 Cancel
               </button>
               <button type="button" disabled={batchSaving} onClick={handleBatchDelete}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
+                className="flex-1 py-3 rounded-3xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
                 {batchSaving ? "Deleting…" : "Delete"}
               </button>
             </div>
@@ -1537,21 +1537,21 @@ function CalendarTaskRow({
       {snoozeOpen && !selectMode && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setSnoozeOpen(false)} />
-          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-card border border-black/5 max-w-xs mx-auto">
+          <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-3xl bg-cream p-4 shadow-card border border-black/5 max-w-xs mx-auto">
             <p className="text-sm font-medium text-black mb-2">New due date</p>
             <input
               type="date"
               value={snoozeDate}
               onChange={(e) => setSnoozeDate(e.target.value)}
-              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm mb-3"
+              className="w-full rounded-3xl border border-black/10 px-3 py-2 text-sm mb-3"
             />
             <div className="flex gap-2">
               <button type="button" onClick={() => setSnoozeOpen(false)}
-                className="flex-1 py-2 rounded-xl border border-black/10 text-sm font-medium">
+                className="flex-1 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium">
                 Cancel
               </button>
               <button type="button" onClick={() => { onSnooze(snoozeDate); setSnoozeOpen(false); }}
-                className="flex-1 py-2 rounded-xl bg-emerald text-white text-sm font-medium">
+                className="flex-1 py-2 rounded-3xl bg-emerald text-white text-sm font-medium">
                 Save
               </button>
             </div>
