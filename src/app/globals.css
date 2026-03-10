@@ -171,20 +171,6 @@ input, select, textarea {
   .animate-shutter-flash {
     animation: shutter-flash 0.1s ease-out forwards;
   }
-  /* Loading screen: app icon fades in and out */
-  @keyframes loading-fade {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 1; }
-  }
-  .animate-loading-fade {
-    animation: loading-fade 2s ease-in-out infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .animate-loading-fade {
-      animation: none;
-      opacity: 1;
-    }
-  }
   /* Loading screen: full-screen fade-in on mount */
   @keyframes loading-screen-fade-in {
     from { opacity: 0; }
@@ -193,10 +179,18 @@ input, select, textarea {
   .animate-loading-screen-fade-in {
     animation: loading-screen-fade-in 0.3s ease-out forwards;
   }
+  /* App ready: subtle fade-in for main dashboard (luxury transition) */
+  @keyframes app-ready-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-app-ready-fade-in {
+    animation: app-ready-fade-in 0.4s ease-out forwards;
+  }
   @media (prefers-reduced-motion: reduce) {
-    .animate-loading-screen-fade-in {
+    .animate-loading-screen-fade-in,
+    .animate-app-ready-fade-in {
       animation: none;
       opacity: 1;
     }
   }
-}

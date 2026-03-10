@@ -314,8 +314,19 @@ function CancelIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Plain X for modal close / dismiss (1.5 stroke). */
+function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
+  Close: CloseIcon,
   Edit: EditIcon,
   Journal: JournalIcon,
   Shopping: ShoppingIcon,

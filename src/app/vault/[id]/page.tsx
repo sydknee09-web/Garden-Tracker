@@ -587,7 +587,7 @@ export default function VaultSeedPage() {
       .eq("id", editGrowTarget.id)
       .eq("user_id", ownerId);
     setEditGrowSaving(false);
-    if (error) return;
+    if (error) { hapticError(); return; }
     hapticSuccess();
     setEditGrowTarget(null);
     loadProfile();
@@ -1054,6 +1054,7 @@ export default function VaultSeedPage() {
   // Edit modal
   const openEditModal = useCallback(() => {
     if (!profile) return;
+    setError(null);
     const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null; propagation_notes?: string | null; seed_saving_notes?: string | null; purchase_vendor?: string | null };
     const dateForInput = pp.purchase_date?.trim() || pp.created_at;
     const companions = pp.companion_plants ?? [];
@@ -1220,7 +1221,7 @@ export default function VaultSeedPage() {
                 <p className="text-sm text-neutral-500 mt-0.5">Take a photo, choose from files, or pick from web images.</p>
               </div>
               <button type="button" onClick={() => setShowSetPhotoModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex-shrink-0" aria-label="Close">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <ICON_MAP.Close className="w-6 h-6" />
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -1235,7 +1236,7 @@ export default function VaultSeedPage() {
                       className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 focus:ring-2 focus:ring-red-400"
                       aria-label="Remove current photo"
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                      <ICON_MAP.Close className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -1382,7 +1383,7 @@ export default function VaultSeedPage() {
             <div className="flex-shrink-0 p-4 pb-2 flex items-start justify-between gap-3">
               <h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2>
               <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" aria-label="Close">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <ICON_MAP.Close className="w-6 h-6" />
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
@@ -1465,6 +1466,7 @@ export default function VaultSeedPage() {
               )}
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+              {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <ICON_MAP.Save className="w-4 h-4" />
                 {savingEdit ? "Saving..." : "Save Changes"}
@@ -2755,7 +2757,7 @@ export default function VaultSeedPage() {
             className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
             aria-label="Close"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            <ICON_MAP.Close className="w-6 h-6" />
           </button>
           {imageLightbox.urls.length > 1 && (
             <>

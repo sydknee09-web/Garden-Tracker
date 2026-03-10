@@ -134,7 +134,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const mainRef = useRef<HTMLElement>(null);
   const hasCompletedInitialLoadRef = useRef(false);
 
-  // When loading becomes false, show loading screen for 1.2s (initial load only)
+  // Keep initial placeholder until auth is ready; no artificial minimum duration
   useEffect(() => {
     if (loading) {
       setMinDisplayPending(false);
@@ -143,7 +143,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const t = setTimeout(() => {
         setMinDisplayPending(false);
         hasCompletedInitialLoadRef.current = true;
-      }, 1200);
+      }, 0);
       return () => clearTimeout(t);
     }
   }, [loading]);
@@ -177,10 +177,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const showLoadingScreen = loading || minDisplayPending;
   if (showLoadingScreen) {
-    // Only show branded LoadingScreen on initial app open; use skeleton during navigation
+    // Initial load: show placeholder that matches system splash (no teal, no icon)
     if (hasCompletedInitialLoadRef.current) {
       return (
-        <>
+        <div className="animate-app-ready-fade-in">
           {!isAuthPage && (
             <>
               <header
@@ -244,7 +244,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             {getSkeletonForPath(pathname)}
           </main>
           {!isAuthPage && <BottomNav />}
-        </>
+        </div>
       );
     }
     return <LoadingScreen />;
@@ -255,7 +255,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <>
+    <div className="animate-app-ready-fade-in">
       {!isAuthPage && (
         <>
           <header
@@ -329,6 +329,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       {!isAuthPage && <BottomNav />}
-    </>
+    </div>
   );
 }

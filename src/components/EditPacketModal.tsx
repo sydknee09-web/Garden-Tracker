@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { StarRating } from "@/components/StarRating";
 import { ICON_MAP } from "@/lib/styleDictionary";
-import { hapticSuccess } from "@/lib/haptics";
+import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 function toDateInputValue(value: string | null | undefined): string {
   if (!value) return "";
@@ -108,6 +108,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
     setSaving(false);
     if (err) {
       setError(err.message);
+      hapticError();
       return;
     }
     hapticSuccess();

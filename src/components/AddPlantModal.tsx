@@ -231,7 +231,6 @@ export function AddPlantModal({
           growing_notes: notes.trim() || null,
           purchase_date: plantedDate || null,
           purchase_vendor: plantType === "seasonal" ? (vendorNursery.trim() || null) : null,
-          purchase_nursery: vendorNursery.trim() || null,
         };
         const { data: insertRow, error: insertErr } = await supabase
           .from("plant_profiles")

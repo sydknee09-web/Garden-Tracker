@@ -542,12 +542,10 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
               <form onSubmit={handleLinkToExisting} className="space-y-4">
                 {preSelectedProfileId ? (
                   <>
-                    {lockedInVarietyLabel && (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/90 mb-0.5">Variety</p>
-                        <p className="text-neutral-900 font-medium">{lockedInVarietyLabel}</p>
-                      </div>
-                    )}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/90 mb-0.5">Variety</p>
+                      <p className="text-neutral-900 font-medium">{lockedInVarietyLabel ?? "Loading…"}</p>
+                    </div>
                     <div>
                       <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
                         Vendor / Nursery (optional)
