@@ -43,6 +43,10 @@ const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -121,6 +125,7 @@ export default function HomePage() {
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -642,9 +647,19 @@ export default function HomePage() {
             setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/journal/new");
+            setQuickLogOpen(true);
+          }}
+        />
+      )}
+
+      {quickLogOpen && (
+        <QuickLogModal
+          open={quickLogOpen}
+          onClose={() => setQuickLogOpen(false)}
+          onJournalAdded={() => {
+            router.refresh();
+            setQuickLogOpen(false);
           }}
         />
       )}

@@ -41,6 +41,10 @@ const EditJournalModal = dynamic(
   () => import("@/components/EditJournalModal").then((m) => ({ default: m.EditJournalModal })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -233,6 +237,7 @@ export default function JournalPage() {
   const [deleteConfirmEntryIds, setDeleteConfirmEntryIds] = useState<string[] | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
@@ -975,9 +980,20 @@ export default function JournalPage() {
             setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/journal/new");
+            setQuickLogOpen(true);
+          }}
+        />
+      )}
+
+      {quickLogOpen && (
+        <QuickLogModal
+          open={quickLogOpen}
+          onClose={() => setQuickLogOpen(false)}
+          onJournalAdded={() => {
+            router.refresh();
+            setQuickLogOpen(false);
+            setRefetchTrigger((t) => t + 1);
           }}
         />
       )}

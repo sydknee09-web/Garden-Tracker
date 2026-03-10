@@ -143,7 +143,7 @@ export function UniversalAddMenu({
         {screen === "add-plant" && (
           <>
             <div className="flex items-center gap-2 mb-4">
-              <button type="button" onClick={() => setScreen("main")} className="p-2.5 rounded-3xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
+              <button type="button" onClick={() => setScreen("main")} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
                 <ICON_MAP.Back className="w-5 h-5" />
               </button>
               <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>

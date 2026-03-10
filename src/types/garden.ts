@@ -362,6 +362,10 @@ export interface SupplyProfile {
   source_url?: string | null;
   npk?: string | null;
   notes?: string | null;
+  /** Product size (e.g. "1", "2.5"). */
+  size?: string | null;
+  /** Unit of measure (e.g. "gal", "qt", "oz"). */
+  size_uom?: string | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;

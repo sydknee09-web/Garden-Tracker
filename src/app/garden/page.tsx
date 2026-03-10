@@ -33,6 +33,10 @@ const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -133,6 +137,7 @@ function GardenPageInner() {
     }
   }, [plantsFilters.loadedSort, setPlantsSortBy, setPlantsSortDir]);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
   const [bulkModeActive, setBulkModeActive] = useState(false);
@@ -1206,9 +1211,20 @@ function GardenPageInner() {
             setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
-            skipPopOnNavigateRef.current = true;
             setFabMenuOpen(false);
-            router.push("/journal/new");
+            setQuickLogOpen(true);
+          }}
+        />
+      )}
+
+      {quickLogOpen && (
+        <QuickLogModal
+          open={quickLogOpen}
+          onClose={() => setQuickLogOpen(false)}
+          onJournalAdded={() => {
+            router.refresh();
+            setQuickLogOpen(false);
+            setRefetchTrigger((t) => t + 1);
           }}
         />
       )}

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { localDateString, addDays } from "@/lib/calendarDate";
 
 type ScheduleForEffectiveIds = {
   grow_instance_ids?: string[] | null;
@@ -24,12 +25,15 @@ export function getEffectiveInstanceIds(schedule: ScheduleForEffectiveIds): stri
  * Prevents duplicates via care_schedule_id on the tasks table.
  * Should be called on dashboard load and Active Garden load.
  */
+/** Number of days ahead to pre-populate task rows for recurring schedules. */
+const RECURRING_WINDOW_DAYS = 30;
+
 export async function generateCareTasks(userId: string): Promise<number> {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateString();
     const oneYearOut = new Date();
     oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
-    const futureLimit = oneYearOut.toISOString().slice(0, 10);
+    const futureLimit = localDateString(oneYearOut);
     let created = 0;
 
     // Fetch all active schedules due within the next year (so they appear on the calendar).
@@ -137,18 +141,23 @@ export async function generateCareTasks(userId: string): Promise<number> {
         .is("deleted_at", null);
     }
 
-    // Batch fetch existing tasks for all due schedules (avoids N+1 queries)
+    // Batch fetch existing tasks for all due schedules: (care_schedule_id, due_date) for pending tasks
     const scheduleIds = dueSchedules.map((s) => (s as { id: string }).id);
-    const { data: existingBySchedule } = await supabase
+    const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("care_schedule_id")
+      .select("care_schedule_id, due_date")
       .eq("user_id", userId)
       .in("care_schedule_id", scheduleIds)
       .is("completed_at", null)
       .is("deleted_at", null);
-    const existingScheduleIds = new Set(
-      (existingBySchedule ?? []).map((t: { care_schedule_id: string | null }) => t.care_schedule_id).filter(Boolean) as string[]
-    );
+    const existingByScheduleAndDate = new Map<string, Set<string>>();
+    for (const t of existingTasks ?? []) {
+      const row = t as { care_schedule_id: string | null; due_date: string };
+      if (!row.care_schedule_id) continue;
+      const set = existingByScheduleAndDate.get(row.care_schedule_id) ?? new Set();
+      set.add(row.due_date);
+      existingByScheduleAndDate.set(row.care_schedule_id, set);
+    }
 
     for (const schedule of dueSchedules) {
       const s = schedule as {
@@ -161,6 +170,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
         next_due_date: string;
         recurrence_type: string;
         interval_days: number | null;
+        end_date: string | null;
       };
 
       // For permanent with grow_instance_ids: skip if any instance is stale (archived/deleted)
@@ -171,25 +181,51 @@ export async function generateCareTasks(userId: string): Promise<number> {
         if (!allValid) continue;
       }
 
-      if (existingScheduleIds.has(s.id)) continue;
-
-      // Task grow_instance_id: single instance or null (all / multi-plant)
       const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
       const taskTitle = effectiveIds && effectiveIds.length > 1 ? `${s.title} (${effectiveIds.length} plants)` : s.title;
-      // Use today for overdue schedules so the task appears on the calendar (calendar only fetches due_date >= today)
-      const taskDueDate = s.next_due_date < today ? today : s.next_due_date;
 
-      const { error } = await supabase.from("tasks").insert({
-        user_id: userId,
-        plant_profile_id: s.plant_profile_id,
-        grow_instance_id: taskGrowInstanceId,
-        category: s.category as "maintenance" | "fertilize" | "prune" | "general",
-        due_date: taskDueDate,
-        title: taskTitle,
-        care_schedule_id: s.id,
-      });
+      const isRecurringInterval = s.recurrence_type === "interval" && s.interval_days != null && s.interval_days > 0;
+      const startFrom = s.next_due_date < today ? today : s.next_due_date;
 
-      if (!error) created++;
+      if (isRecurringInterval) {
+        // Pre-populate next RECURRING_WINDOW_DAYS of task rows for this schedule
+        const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
+        const toInsert: { due_date: string }[] = [];
+        let cursor = startFrom;
+        const windowEnd = addDays(today, RECURRING_WINDOW_DAYS);
+        while (cursor <= windowEnd) {
+          if (s.end_date && cursor > s.end_date) break;
+          if (!existingDates.has(cursor)) toInsert.push({ due_date: cursor });
+          cursor = addDays(cursor, s.interval_days);
+        }
+        for (const { due_date: taskDueDate } of toInsert) {
+          const { error } = await supabase.from("tasks").insert({
+            user_id: userId,
+            plant_profile_id: s.plant_profile_id,
+            grow_instance_id: taskGrowInstanceId,
+            category: s.category as "maintenance" | "fertilize" | "prune" | "general",
+            due_date: taskDueDate,
+            title: taskTitle,
+            care_schedule_id: s.id,
+          });
+          if (!error) created++;
+        }
+      } else {
+        // One-off or non-interval: create single task at next_due_date if missing
+        const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
+        if (existingDates.has(startFrom)) continue;
+        const taskDueDate = startFrom;
+        const { error } = await supabase.from("tasks").insert({
+          user_id: userId,
+          plant_profile_id: s.plant_profile_id,
+          grow_instance_id: taskGrowInstanceId,
+          category: s.category as "maintenance" | "fertilize" | "prune" | "general",
+          due_date: taskDueDate,
+          title: taskTitle,
+          care_schedule_id: s.id,
+        });
+        if (!error) created++;
+      }
     }
 
     return created;

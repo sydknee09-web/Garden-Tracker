@@ -50,6 +50,10 @@ const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
@@ -231,9 +235,10 @@ function VaultPageInner() {
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || batchAddSupplyOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || batchAddSupplyOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen || quickLogOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
@@ -245,6 +250,7 @@ function VaultPageInner() {
     setUniversalAddMenuOpen(false);
     setShowAddPlantModal(false);
     setNewTaskModalOpen(false);
+    setQuickLogOpen(false);
     setScannerOpen(false);
   }, []), skipPopOnNavigateRef);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -2982,9 +2988,20 @@ function VaultPageInner() {
             setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/journal/new");
+            setQuickLogOpen(true);
+          }}
+        />
+      )}
+
+      {quickLogOpen && (
+        <QuickLogModal
+          open={quickLogOpen}
+          onClose={() => setQuickLogOpen(false)}
+          onJournalAdded={() => {
+            router.refresh();
+            setQuickLogOpen(false);
+            setRefetchTrigger((t) => t + 1);
           }}
         />
       )}

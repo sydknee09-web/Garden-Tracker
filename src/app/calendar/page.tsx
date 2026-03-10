@@ -37,6 +37,10 @@ const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -49,6 +53,7 @@ import type { Task } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
+import { localDateString, firstDayOfMonth, lastDayOfMonth } from "@/lib/calendarDate";
 
 const TASK_LABELS: Record<string, string> = {
   sow: "Sow",
@@ -133,12 +138,13 @@ export default function CalendarPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchActionOpen, setBatchActionOpen] = useState<"reschedule" | "delete" | null>(null);
-  const [batchDate, setBatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [batchDate, setBatchDate] = useState(() => localDateString());
   const [batchSaving, setBatchSaving] = useState(false);
   /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks) */
   const [removeScheduleToo, setRemoveScheduleToo] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = localDateString();
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
@@ -323,17 +329,16 @@ export default function CalendarPage() {
     }
     const viewMode = householdViewMode ?? "personal";
     let cancelled = false;
-    const firstDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(month.year, month.month + 1, 0).getDate();
-    const lastDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const firstDay = firstDayOfMonth(month.year, month.month);
+    const lastDay = lastDayOfMonth(month.year, month.month);
     (async () => {
       let query = supabase
         .from("tasks")
         .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
         .is("deleted_at", null)
         .not("completed_at", "is", null)
-        .gte("due_date", firstDayOfMonth)
-        .lte("due_date", lastDayOfMonth)
+        .gte("due_date", firstDay)
+        .lte("due_date", lastDay)
         .order("completed_at", { ascending: false });
       if (viewMode !== "family") query = query.eq("user_id", user!.id);
       const { data: rows } = await query;
@@ -477,10 +482,9 @@ export default function CalendarPage() {
     return out;
   }, [completedTasksForMonth]);
 
-  const firstDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-01`;
-  const lastDayNum = new Date(month.year, month.month + 1, 0).getDate();
-  const lastDayOfMonth = `${month.year}-${String(month.month + 1).padStart(2, "0")}-${String(lastDayNum).padStart(2, "0")}`;
-  const isTodayInMonth = todayStr >= firstDayOfMonth && todayStr <= lastDayOfMonth;
+  const firstDayOfMonthStr = firstDayOfMonth(month.year, month.month);
+  const lastDayOfMonthStr = lastDayOfMonth(month.year, month.month);
+  const isTodayInMonth = todayStr >= firstDayOfMonthStr && todayStr <= lastDayOfMonthStr;
   const completedForToday = isTodayInMonth ? (completedByDate[todayStr] ?? []) : [];
 
   const expandedInitRef = useRef(false);
@@ -613,10 +617,13 @@ export default function CalendarPage() {
   }
   const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
+  const SWIPE_MIN_DELTA = 25;
+  const SWIPE_THRESHOLD = 50;
+
   return (
     <div className="px-6 pt-2 pb-6">
       <div
-        className="flex items-center justify-center gap-2 mb-2 touch-pan-y"
+        className="flex items-center justify-center gap-2 mb-2 touch-pan-y pl-6 pr-6"
         onTouchStart={(e) => {
           swipeStartX.current = e.touches[0]?.clientX ?? null;
         }}
@@ -627,8 +634,9 @@ export default function CalendarPage() {
           const end = e.changedTouches[0]?.clientX;
           if (end == null) return;
           const delta = end - start;
-          if (delta < -50) nextMonth();
-          else if (delta > 50) prevMonth();
+          if (Math.abs(delta) < SWIPE_MIN_DELTA) return;
+          if (delta < -SWIPE_THRESHOLD) nextMonth();
+          else if (delta > SWIPE_THRESHOLD) prevMonth();
         }}
       >
         <button
@@ -776,7 +784,7 @@ export default function CalendarPage() {
         </div>
       ) : (
         <div
-          className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden"
+          className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden pl-6 pr-6"
           onTouchStart={(e) => {
             swipeStartX.current = e.touches[0]?.clientX ?? null;
           }}
@@ -787,8 +795,9 @@ export default function CalendarPage() {
             const end = e.changedTouches[0]?.clientX;
             if (end == null) return;
             const delta = end - start;
-            if (delta < -50) nextMonth();
-            else if (delta > 50) prevMonth();
+            if (Math.abs(delta) < SWIPE_MIN_DELTA) return;
+            if (delta < -SWIPE_THRESHOLD) nextMonth();
+            else if (delta > SWIPE_THRESHOLD) prevMonth();
           }}
         >
           <div className="grid grid-cols-7 border-b border-black/10">
@@ -1286,9 +1295,19 @@ export default function CalendarPage() {
             setNewTaskOpen(true);
           }}
           onAddJournal={() => {
-            skipPopOnNavigateRef.current = true;
             setUniversalAddMenuOpen(false);
-            router.push("/journal/new");
+            setQuickLogOpen(true);
+          }}
+        />
+      )}
+
+      {quickLogOpen && (
+        <QuickLogModal
+          open={quickLogOpen}
+          onClose={() => setQuickLogOpen(false)}
+          onJournalAdded={() => {
+            router.refresh();
+            setQuickLogOpen(false);
           }}
         />
       )}

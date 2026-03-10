@@ -128,7 +128,7 @@ export function ShedView({
     setLoading(true);
     let query = supabase
       .from("supply_profiles")
-      .select("id, user_id, name, brand, category, usage_instructions, application_rate, primary_image_path, source_url, npk, notes, created_at, updated_at")
+      .select("id, user_id, name, brand, category, usage_instructions, application_rate, primary_image_path, source_url, npk, notes, size, size_uom, created_at, updated_at")
       .is("deleted_at", null)
       .order("updated_at", { ascending: false });
     if (!isFamilyView) query = query.eq("user_id", user.id);
