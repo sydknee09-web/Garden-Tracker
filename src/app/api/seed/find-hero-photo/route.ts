@@ -39,9 +39,9 @@ async function filterAccessibleUrls(urls: string[], timeoutMs: number = GALLERY_
 }
 
 /**
- * Download an external image URL and upload it to Supabase Storage.
- * Returns the storage path, or null if the download/upload fails.
- * Called server-side after Gemini finds a URL so we never store raw external links.
+ * Download an external image URL, compress it (Sharp), and upload to Supabase Storage.
+ * Returns the storage path, or null if the download/compress/upload fails.
+ * Per Law 4: every hero photo must be compressed before storage (~800KB target).
  */
 async function downloadAndStore(
   url: string,
@@ -68,13 +68,25 @@ async function downloadAndStore(
     const contentType = res.headers.get("content-type") || "";
     const rawType = contentType.split(";")[0].trim().toLowerCase();
     if (!rawType.startsWith("image/") && rawType !== "application/octet-stream") return null;
-    const blob = await res.blob();
-    const type = rawType.startsWith("image/") ? (contentType.split(";")[0].trim() || "image/jpeg") : "image/jpeg";
-    const ext = type.includes("png") ? "png" : "jpg";
-    const path = `${userId}/hero-${profileId}-from-web-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Server-side compression (Law 4): same targets as client compressImage — max long edge 1200, ~800KB
+    let compressed: Buffer;
+    try {
+      const sharp = (await import("sharp")).default;
+      compressed = await sharp(buffer)
+        .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+    } catch {
+      return null;
+    }
+
+    const path = `${userId}/hero-${profileId}-from-web-${crypto.randomUUID().slice(0, 8)}.jpg`;
     const { error } = await admin.storage
       .from("journal-photos")
-      .upload(path, blob, { contentType: type, upsert: false, cacheControl: "31536000" });
+      .upload(path, compressed, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
     if (error) return null;
     return path;
   } catch {

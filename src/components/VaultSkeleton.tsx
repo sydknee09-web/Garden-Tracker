@@ -50,12 +50,13 @@ export function GridSkeleton({ gridDisplayStyle = "condensed" }: { gridDisplaySt
   );
 }
 
-/** Garden list: rows with thumbnail + lines. */
-export function ListSkeleton() {
+/** Garden list: rows with thumbnail + lines. Optional rowCount for Shed list loading (e.g. 5). */
+export function ListSkeleton({ rowCount = 7 }: { rowCount?: number }) {
+  const rows = [1, 2, 3, 4, 5, 6, 7].slice(0, Math.min(Math.max(1, rowCount), 7));
   return (
     <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
       <ul className="divide-y divide-black/5" role="list">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+        {rows.map((i) => (
           <li key={i} className="flex items-center gap-3 px-3 py-3">
             <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 relative shrink-0">
               <div className="absolute inset-0 animate-shimmer rounded-lg overflow-hidden" aria-hidden />

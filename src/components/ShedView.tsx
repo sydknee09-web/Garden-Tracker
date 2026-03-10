@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { SVGProps } from "react";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -15,7 +15,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 import { NoMatchCard } from "@/components/NoMatchCard";
-import { ShedSkeleton } from "@/components/VaultSkeleton";
+import { ShedSkeleton, ListSkeleton } from "@/components/VaultSkeleton";
 
 /** Renders product thumb, or shed-sack.png for items without photos, or ShedSupplyIcon on load error. */
 const SHED_FALLBACK_IMAGE = "/shed-sack.png";
@@ -225,6 +225,47 @@ export function ShedView({
 
   usePullToRefresh({ onRefresh: fetchSupplies, disabled: loading, containerRef: effectiveScrollContainerRef });
 
+  const LONG_PRESS_MS = 500;
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+  const getLongPressHandlers = useCallback(
+    (id: string, detailHref: string) => {
+      const startLongPress = () => {
+        longPressFiredRef.current = false;
+        clearLongPressTimer();
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          longPressFiredRef.current = true;
+          onLongPress?.(id);
+        }, LONG_PRESS_MS);
+      };
+      return {
+        onTouchStart: startLongPress,
+        onTouchMove: clearLongPressTimer,
+        onTouchEnd: clearLongPressTimer,
+        onTouchCancel: clearLongPressTimer,
+        onMouseDown: startLongPress,
+        onMouseUp: clearLongPressTimer,
+        onMouseLeave: clearLongPressTimer,
+        handleClick: (e?: React.MouseEvent) => {
+          if (longPressFiredRef.current) {
+            longPressFiredRef.current = false;
+            e?.preventDefault?.();
+            return;
+          }
+          router.push(detailHref);
+        },
+      };
+    },
+    [onLongPress, clearLongPressTimer, router]
+  );
+
   return (
     <div className="pt-2">
       {!embedded && (
@@ -319,7 +360,11 @@ export function ShedView({
       )}
 
       {loading ? (
-        <ShedSkeleton />
+        displayStyle === "list" ? (
+          <ListSkeleton rowCount={5} />
+        ) : (
+          <ShedSkeleton />
+        )
       ) : filteredSupplies.length === 0 ? (
         supplies.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
@@ -389,10 +434,20 @@ export function ShedView({
                   )}
                 </>
               );
+              const lp = onLongPress ? getLongPressHandlers(s.id, detailHref) : null;
               return (
                 <li key={s.id}>
                   {batchSelectMode && onToggleSelection ? (
                     <button type="button" onClick={() => onToggleSelection(s.id)} className={`w-full ${rowClassName}`}>
+                      {rowInner}
+                    </button>
+                  ) : lp ? (
+                    <button
+                      type="button"
+                      onClick={(e) => lp.handleClick(e)}
+                      className={`w-full cursor-pointer relative z-[1] ${rowClassName}`}
+                      {...{ onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave }}
+                    >
                       {rowInner}
                     </button>
                   ) : (
@@ -463,12 +518,23 @@ export function ShedView({
                 </div>
               </>
             );
+            const lpGrid = onLongPress ? getLongPressHandlers(s.id, detailHref) : null;
             return batchSelectMode && onToggleSelection ? (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => onToggleSelection(s.id)}
                 className={cardClassName}
+              >
+                {cardInner}
+              </button>
+            ) : lpGrid ? (
+              <button
+                key={s.id}
+                type="button"
+                onClick={(e) => lpGrid.handleClick(e)}
+                className={`cursor-pointer relative z-[1] block ${cardClassName}`}
+                {...{ onTouchStart: lpGrid.onTouchStart, onTouchMove: lpGrid.onTouchMove, onTouchEnd: lpGrid.onTouchEnd, onTouchCancel: lpGrid.onTouchCancel, onMouseDown: lpGrid.onMouseDown, onMouseUp: lpGrid.onMouseUp, onMouseLeave: lpGrid.onMouseLeave }}
               >
                 {cardInner}
               </button>

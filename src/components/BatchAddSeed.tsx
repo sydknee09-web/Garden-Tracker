@@ -108,6 +108,12 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   const [shutterActive, setShutterActive] = useState(false);
   const queueScrollRef = useRef<HTMLDivElement>(null);
 
+  /** Refs for unmount cleanup: revoke all blob URLs when component unmounts (e.g. route change) without open having been set to false. */
+  const queueRef = useRef<PendingPhoto[]>([]);
+  const cropQueueRef = useRef<CropQueueItem[]>([]);
+  queueRef.current = queue;
+  cropQueueRef.current = cropQueue;
+
   useEffect(() => {
     if (!open) {
       queue.forEach((i) => {
@@ -130,6 +136,18 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       streamRef.current = null;
     }
   }, [open]);
+
+  /** On unmount (e.g. route change), revoke every blob URL in queue and cropQueue so we don't leak. */
+  useEffect(() => {
+    return () => {
+      queueRef.current.forEach((i) => {
+        if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl);
+      });
+      cropQueueRef.current.forEach((i) => {
+        if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl);
+      });
+    };
+  }, []);
 
   // Reset step to capture when queue is cleared (e.g. after save) so next open starts at capture
   useEffect(() => {

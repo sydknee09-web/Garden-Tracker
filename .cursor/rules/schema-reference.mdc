@@ -1,0 +1,10 @@
+---
+description: Single source of truth for seed quantity schema. Use seed_packets.qty_status (0-100), not seed_stocks or volume.
+alwaysApply: false
+---
+
+# Schema reference: Seed quantity
+
+- **Table:** `seed_packets` (not `seed_stocks`).
+- **Column:** `qty_status` — numeric integer 0–100 (percentage).
+- **UI labels:** Full = 100, Partial = 50, Low = 25, Empty = 0. When sending to the API or Supabase, always send `qty_status` as a number (0–100). Do not use a string "volume" field or lowercase labels like 'full'/'partial' for the database; those are display-only mappings in the client.

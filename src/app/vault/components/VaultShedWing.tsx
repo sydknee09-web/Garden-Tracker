@@ -536,10 +536,39 @@ export function VaultShedWingModals({
     router,
   } = ctx;
 
-  if (viewMode !== "shed") return null;
-
   return (
     <>
+      {/* QuickAddSupply and BatchAddSupply: always render when provider is mounted so "Add to shed" from Universal Add works without leaving current tab */}
+      <QuickAddSupply
+        open={shedQuickAddOpen}
+        onClose={() => setShedQuickAddOpen(false)}
+        onSuccess={() => refetch()}
+        onBackToMenu={() => {
+          setShedQuickAddOpen(false);
+          onOpenUniversalAddMenu?.();
+        }}
+        onOpenPurchaseOrder={() => {
+          if (skipPopOnNavigateRef) skipPopOnNavigateRef.current = true;
+          setShedQuickAddOpen(false);
+          onOpenPurchaseOrderSupply?.();
+        }}
+        onOpenBatchPhotoImport={() => {
+          if (skipPopOnNavigateRef) skipPopOnNavigateRef.current = true;
+          setShedQuickAddOpen(false);
+          setBatchAddSupplyOpen(true);
+        }}
+      />
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => refetch()}
+        />
+      )}
+
+      {/* Shed-only modals: filter and selection actions */}
+      {viewMode === "shed" && (
       {/* Shed category filter modal */}
       {shedFilterOpen && (
         <>
@@ -703,33 +732,7 @@ export function VaultShedWingModals({
           </div>
         </>
       )}
-
-      <QuickAddSupply
-        open={shedQuickAddOpen}
-        onClose={() => setShedQuickAddOpen(false)}
-        onSuccess={() => refetch()}
-        onBackToMenu={() => {
-          setShedQuickAddOpen(false);
-          onOpenUniversalAddMenu?.();
-        }}
-        onOpenPurchaseOrder={() => {
-          if (skipPopOnNavigateRef) skipPopOnNavigateRef.current = true;
-          setShedQuickAddOpen(false);
-          onOpenPurchaseOrderSupply?.();
-        }}
-        onOpenBatchPhotoImport={() => {
-          if (skipPopOnNavigateRef) skipPopOnNavigateRef.current = true;
-          setShedQuickAddOpen(false);
-          setBatchAddSupplyOpen(true);
-        }}
-      />
-
-      {batchAddSupplyOpen && (
-        <BatchAddSupply
-          open={batchAddSupplyOpen}
-          onClose={() => setBatchAddSupplyOpen(false)}
-          onSuccess={() => refetch()}
-        />
+      </>
       )}
     </>
   );

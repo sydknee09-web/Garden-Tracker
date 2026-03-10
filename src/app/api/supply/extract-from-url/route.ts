@@ -19,8 +19,10 @@ Return a single JSON object only (no markdown, no explanation). Use these exact 
 - usage_instructions: string (how to apply, when to use, safety notes - can be multiple sentences)
 - source_url: string (the product page URL you used)
 - image_url: string (direct https URL to the product image from the page, or empty string if none)
+- size: string (numeric value only for package size, e.g. "50", "2.5", "1" - no unit)
+- size_uom: string (unit of measure for package size only; normalize to: "lbs" for pounds/lb, "gal" for gallons/gallon/g, "oz" for ounces, "qt" for quarts, "pt" for pints, "ml" for milliliters, "L" for liters; use empty string if not found)
 
-Use empty string for any field you cannot find. Return only valid JSON.`;
+Normalize units: map "pounds" or "lb" to "lbs"; map "gallons" or "gallon" or "g" (when meaning gallon) to "gal"; "ounces" or "oz" to "oz". Use empty string for any field you cannot find. Return only valid JSON.`;
 
 export type SupplyExtractResult = {
   name: string;
@@ -32,6 +34,8 @@ export type SupplyExtractResult = {
   source_url: string;
   image_url?: string;
   primary_image_path?: string;
+  size?: string;
+  size_uom?: string;
 };
 
 function parseExtractJson(jsonStr: string, url: string): SupplyExtractResult | null {
@@ -51,6 +55,9 @@ function parseExtractJson(jsonStr: string, url: string): SupplyExtractResult | n
     ? cat
     : "other";
 
+  const rawUom = getStr("size_uom").toLowerCase().replace(/\s+/g, "");
+  const sizeUom = normalizeSizeUom(rawUom);
+
   return {
     name: getStr("name") || getStr("ogTitle") || "Imported product",
     brand: getStr("brand"),
@@ -60,7 +67,37 @@ function parseExtractJson(jsonStr: string, url: string): SupplyExtractResult | n
     usage_instructions: getStr("usage_instructions"),
     source_url: getStr("source_url") || url,
     image_url: getStr("image_url") || undefined,
+    size: getStr("size") || undefined,
+    size_uom: sizeUom || undefined,
   };
+}
+
+function normalizeSizeUom(raw: string): string {
+  if (!raw) return "";
+  const m: Record<string, string> = {
+    lb: "lbs",
+    lbs: "lbs",
+    pound: "lbs",
+    pounds: "lbs",
+    gallon: "gal",
+    gallons: "gal",
+    gal: "gal",
+    g: "gal",
+    oz: "oz",
+    ounce: "oz",
+    ounces: "oz",
+    qt: "qt",
+    quart: "qt",
+    quarts: "qt",
+    pt: "pt",
+    pint: "pt",
+    pints: "pt",
+    ml: "ml",
+    l: "L",
+    liter: "L",
+    liters: "L",
+  };
+  return m[raw] ?? raw;
 }
 
 const IMAGE_FETCH_TIMEOUT_MS = 12_000;

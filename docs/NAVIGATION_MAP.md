@@ -40,6 +40,61 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 
 When in selection mode (Vault batch select, Garden batch select, Journal entries selected), FAB opens the **selection actions menu**, not the Universal Add Menu.
 
+### FAB coordinate map (UniversalAdd ↔ Add to Supply)
+
+**Purpose:** Exact "coordinate map" for FAB menu stacking so routing for Seed/Packet and Supply sides stay consistent. Do not change without approval.
+
+#### 1. UniversalAddMenu internal state
+
+| State | Type | Meaning |
+|-------|------|---------|
+| `screen` | `"main"` \| `"add-plant"` | Only **Add plant** uses a second screen inside the same modal. **Add to Supply does not** — it leaves the menu. |
+
+- **Main screen:** Add Seed Packet, Add plant, Add to shed, Add task, Add journal, Cancel.
+- **Add plant screen:** Back (→ `setScreen("main")`), Manual Entry, Start Seeds, optional Scan PO / Photo Import, Cancel.
+- When `open` becomes true, `useEffect` resets `screen` to `"main"`.
+
+#### 2. Transition: UniversalAdd → Add to Supply
+
+| Step | Location | Action |
+|------|----------|--------|
+| User tap | UniversalAddMenu | "Add to shed" button |
+| Handler | UniversalAddMenu | `onClose(); onAddToShed();` (no internal sub-screen) |
+| Parent | Each page (Home, Vault, Garden, Journal, Calendar) | `setUniversalAddMenuOpen(false); setShedQuickAddOpen(true);` (or equivalent: Vault uses `setShedQuickAddOpen(true)` and Universal Add is already closed) |
+
+So: **UniversalAdd closes, QuickAddSupply opens.** Two separate modals; no shared "stack" state inside UniversalAddMenu.
+
+#### 3. Back from Add to Supply (QuickAddSupply choose screen)
+
+| Step | Location | Action |
+|------|----------|--------|
+| User tap | QuickAddSupply | Back arrow (only when `onBackToMenu` is provided and `screen === "choose"` and not edit mode) |
+| Handler | QuickAddSupply | Calls `onBackToMenu()` — component does not close itself for Back |
+| Parent | Each page | **Must:** close QuickAddSupply, then re-open Universal Add Menu. |
+
+**Required parent pattern (do not break):**
+
+```text
+onBackToMenu={() => {
+  setShedQuickAddOpen(false);   // or equivalent
+  setUniversalAddMenuOpen(true);
+}}
+```
+
+**Vault (Shed wing):** QuickAddSupply lives in `VaultShedWingModals`; it receives `onBackToMenu={() => { setShedQuickAddOpen(false); onOpenUniversalAddMenu?.(); }}`, and `VaultPageContent` passes `onOpenUniversalAddMenu={() => setUniversalAddMenuOpen(true)}` into the wing.
+
+#### 4. Where state lives per page
+
+| Page | Universal Add open | Supply modal open | Back-to-menu handler |
+|------|--------------------|-------------------|----------------------|
+| Home | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
+| Vault | `universalAddMenuOpen` | `shedQuickAddOpen` (in VaultShedWing) | `setShedQuickAddOpen(false); onOpenUniversalAddMenu?.()` → `setUniversalAddMenuOpen(true)` |
+| Garden | `fabMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setFabMenuOpen(true)` |
+| Journal | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
+| Calendar | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
+
+QuickAddSupply internal screens: `"choose"` | `"link"` | `"form"`. Back from **choose** goes to FAB menu via `onBackToMenu`. Back from **link** goes to choose (`setScreen("choose")`). Back from **form** goes to choose (or Cancel when edit). These are internal to QuickAddSupply only.
+
 ---
 
 ## Garden
@@ -298,3 +353,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-05 | Calendar: Added Completed section (collapsible). Shows last 50 when no date selected; shows completed for selected date when viewing prior or today. All tasks redate to today on completion. |
 | 2025-03-06 | Calendar: Dots (colored and grey) stay visible on calendar grid when a date is selected. Tap selected date again to deselect and return to full (outstanding + current + future) view. |
 | 2025-03-10 | Add journal: FAB opens Quick Log modal (slide-over) on Home, Vault, Garden, Journal, Calendar; date picker persists to created_at (noon UTC); full form at /journal/new unchanged. |
+| 2025-03-10 | FAB coordinate map: Added section documenting UniversalAdd → Add to Supply transition and Back handling (state, parent pattern, per-page wiring). |

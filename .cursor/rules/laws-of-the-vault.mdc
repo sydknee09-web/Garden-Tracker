@@ -43,15 +43,16 @@ All fetch queries for these tables must include `.is("deleted_at", null)` to exc
 
 ## Law 3: Seed Packet Volume
 
-The `qty_status` field on `seed_packets` is a numeric percentage (0-100). When planting, **decrement** the packet -- never delete the row. Archive the packet (`is_archived: true`) when `qty_status` reaches 0. If all packets for a profile are archived/empty, set `plant_profiles.status = 'out_of_stock'` and add to `shopping_list`.
+The **`seed_packets`** table (not `seed_stocks`) holds packet quantity in the **`qty_status`** column as a **numeric percentage (0–100)**. When planting, **decrement** the packet — never delete the row. Archive the packet (`is_archived: true`) when `qty_status` reaches 0. If all packets for a profile are archived/empty, set `plant_profiles.status = 'out_of_stock'` and add to `shopping_list`. UI labels (Full / Partial / Low / Empty) map to `qty_status` 100 / 50 / 25 / 0; always persist a number 0–100, not a string.
 
 ---
 
 ## Law 4: Image Compression
 
-Every image upload path must use `compressImage()` from `src/lib/compressImage.ts` before uploading to Supabase Storage. Raw phone photos are 5-10MB; compressed targets are ~800KB max.
+Every image upload path must compress before uploading to Supabase Storage. **Client-side:** use `compressImage()` from `src/lib/compressImage.ts` (target ~800KB max). **Server-side API routes** (e.g. find-hero-photo, supply extract-from-photo): use Sharp to resize and compress to JPEG before upload — same size/quality targets. Raw phone or web images are 5–10MB; never store uncompressed.
 
 ```typescript
+// Client-side
 import { compressImage } from "@/lib/compressImage";
 const { blob } = await compressImage(file);
 await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg" });

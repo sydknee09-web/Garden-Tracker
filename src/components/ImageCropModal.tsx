@@ -42,6 +42,11 @@ export function ImageCropModal({
   const isRectangular = Math.abs(aspectRatio - 1) > 0.01;
   const effectiveShape = isRectangular ? "square" : shape;
 
+  const isCrossOrigin =
+    typeof imageSrc === "string" &&
+    !imageSrc.startsWith("blob:") &&
+    !imageSrc.startsWith("data:");
+
   const updateImageSize = useCallback(() => {
     const img = imageRef.current;
     if (!img || !img.complete) return;
@@ -179,6 +184,7 @@ export function ImageCropModal({
             className="absolute inset-0 w-full h-full object-contain"
             draggable={false}
             style={{ touchAction: "none" }}
+            {...(isCrossOrigin ? { crossOrigin: "anonymous" as const } : {})}
           />
           <div
             className={`absolute border-2 border-white shadow-lg ${effectiveShape === "circle" ? "rounded-full" : ""}`}

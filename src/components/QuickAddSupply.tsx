@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { ImageCropModal } from "@/components/ImageCropModal";
 import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -36,6 +37,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   const [usageInstructions, setUsageInstructions] = useState("");
   const [applicationRate, setApplicationRate] = useState("");
   const [npk, setNpk] = useState("");
+  const [size, setSize] = useState("");
+  const [sizeUom, setSizeUom] = useState("");
   const [notes, setNotes] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -45,6 +48,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
@@ -77,6 +81,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         setNpk(initialData.npk ?? "");
         setNotes(initialData.notes ?? "");
         setSourceUrl(initialData.source_url ?? "");
+        setSize(initialData.size ?? "");
+        setSizeUom(initialData.size_uom ?? "");
         setScreen("form");
       } else {
         setName("");
@@ -87,6 +93,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         setNpk("");
         setNotes("");
         setSourceUrl("");
+        setSize("");
+        setSizeUom("");
         setScreen("choose");
       }
     }
@@ -108,6 +116,29 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
     setPhotoPreviewUrl(null);
   }, [photoPreviewUrl]);
+
+  const imagePreviewSrc = photoPreviewUrl ?? (existingImageUrl && !photoRemoved ? existingImageUrl : null);
+
+  const handleCropConfirm = useCallback(
+    async (blob: Blob) => {
+      if (!user?.id) return;
+      const path = `${user.id}/supply-${crypto.randomUUID().slice(0, 8)}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("journal-photos")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
+      if (uploadErr) {
+        setError(uploadErr.message);
+        return;
+      }
+      setPhotoFile(null);
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+      setPhotoPreviewUrl(null);
+      setImportedImagePath(path);
+      setPhotoRemoved(false);
+      setCropModalOpen(false);
+    },
+    [user?.id, photoPreviewUrl]
+  );
 
   const handleImportFromLink = useCallback(async () => {
     const url = importUrl.trim();
@@ -146,6 +177,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       setApplicationRate((data.application_rate as string) ?? "");
       setNpk((data.npk as string) ?? "");
       setSourceUrl((data.source_url as string) ?? "");
+      setSize((data.size as string) ?? "");
+      setSizeUom((data.size_uom as string) ?? "");
       if (data.primary_image_path) setImportedImagePath(data.primary_image_path as string);
       setPhotoRemoved(false);
       setImportUrl("");
@@ -200,6 +233,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
           notes: notes.trim() || null,
           source_url: sourceUrl.trim() || null,
           ...(primaryImagePath != null && { primary_image_path: primaryImagePath }),
+          size: size.trim() || null,
+          size_uom: sizeUom.trim() || null,
         };
 
         if (isEdit && initialData?.id) {
@@ -238,6 +273,8 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       usageInstructions,
       applicationRate,
       npk,
+      size,
+      sizeUom,
       notes,
       sourceUrl,
       photoFile,
@@ -279,6 +316,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               onClick={() => setScreen("choose")}
               className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Back to choose method"
+            >
+              <BackIcon />
+            </button>
+          ) : !isEdit && screen === "form" ? (
+            <button
+              type="button"
+              onClick={() => setScreen("choose")}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to add options"
             >
               <BackIcon />
             </button>
@@ -440,13 +486,23 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
                   alt="Product"
                   className="w-full rounded-xl object-cover aspect-video max-h-40 bg-neutral-100"
                 />
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  className="text-sm font-medium text-amber-600 hover:text-amber-700 min-h-[44px]"
-                >
-                  Remove photo
-                </button>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={() => imagePreviewSrc && setCropModalOpen(true)}
+                    disabled={!imagePreviewSrc}
+                    className="text-sm font-medium text-emerald-600 hover:text-emerald-700 min-h-[44px] px-2"
+                  >
+                    Crop scraped image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="text-sm font-medium text-amber-600 hover:text-amber-700 min-h-[44px] px-2"
+                  >
+                    Remove photo
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex gap-2">
@@ -494,6 +550,37 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
               aria-label="Application rate"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="supply-size" className="block text-sm font-medium text-black/80 mb-1">
+                Size (optional)
+              </label>
+              <input
+                id="supply-size"
+                type="text"
+                inputMode="decimal"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                placeholder="e.g. 50, 2.5"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Package size"
+              />
+            </div>
+            <div>
+              <label htmlFor="supply-size-uom" className="block text-sm font-medium text-black/80 mb-1">
+                Unit (UOM)
+              </label>
+              <input
+                id="supply-size-uom"
+                type="text"
+                value={sizeUom}
+                onChange={(e) => setSizeUom(e.target.value)}
+                placeholder="e.g. lbs, gal, oz"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Unit of measure"
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
@@ -558,6 +645,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         </div>
         )}
       </div>
+      {imagePreviewSrc && (
+        <ImageCropModal
+          open={cropModalOpen}
+          onClose={() => setCropModalOpen(false)}
+          imageSrc={imagePreviewSrc}
+          shape="square"
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </>
   );
 }
