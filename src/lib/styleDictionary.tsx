@@ -6,25 +6,29 @@
 
 import type { SVGProps } from "react";
 
-const iconProps = (props?: { className?: string; "aria-hidden"?: boolean }) => ({
-  width: 24,
-  height: 24,
-  viewBox: "0 0 24 24",
-  fill: "none" as const,
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": props?.["aria-hidden"] ?? true,
-  className: props?.className,
-});
+/** Base SVG props (viewBox, stroke, aria). Callers can override via className, width, height. */
+function iconProps(props?: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
+  return {
+    width: 24,
+    height: 24,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": props?.["aria-hidden"] ?? true,
+    className: props?.className,
+  };
+}
 
 /** Standard soft shadow for FAB menu container. Use className="shadow-float". */
 export const FAB_MENU_SHADOW_CLASS = "shadow-float";
 
 function AddIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <circle cx="12" cy="12" r="10" />
       <path d="M12 8v8M8 12h8" />
     </svg>
@@ -32,8 +36,9 @@ function AddIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function EditIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
       <path d="m15 5 4 4" />
     </svg>
@@ -41,8 +46,9 @@ function EditIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function JournalIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
       <path d="M8 7h8" />
@@ -52,8 +58,9 @@ function JournalIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function ShoppingIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <circle cx="9" cy="21" r="1" />
       <circle cx="20" cy="21" r="1" />
       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
@@ -62,8 +69,9 @@ function ShoppingIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function TaskIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
@@ -71,8 +79,9 @@ function TaskIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function TrashIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <line x1="10" y1="11" x2="10" y2="17" />
@@ -82,8 +91,9 @@ function TrashIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function SeedIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M12 22v-4" />
       <path d="M12 18a6 6 0 0 0 6-6V4" />
       <path d="M12 18a6 6 0 0 1-6-6V4" />
@@ -95,8 +105,9 @@ function SeedIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function PlantIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M7 20h10" />
       <path d="M10 20c5.5-2.5 7.5-8 7.5-12a7.5 7.5 0 0 0-15 0c0 4 2 9.5 7.5 12Z" />
       <path d="M12 8v4" />
@@ -106,8 +117,9 @@ function PlantIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function ShedIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
       <path d="M16 13H8" />
@@ -118,16 +130,18 @@ function ShedIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function BackIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M19 12H5M12 19l-7-7 7-7" />
     </svg>
   );
 }
 
 function HarvestIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M5 8h14l-1.5 10H6.5L5 8z" />
       <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
       <path d="M4 10h16" />
@@ -136,8 +150,9 @@ function HarvestIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function ManualEntryIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
@@ -145,8 +160,9 @@ function ManualEntryIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function PhotoImportIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
     </svg>
@@ -154,8 +170,9 @@ function PhotoImportIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function PurchaseOrderIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6" />
       <path d="M16 13H8" />
@@ -166,16 +183,18 @@ function PurchaseOrderIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function SparkleIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
     </svg>
   );
 }
 
 function CameraIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
     </svg>
@@ -183,16 +202,18 @@ function CameraIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
 
 function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <polyline points="9 6 15 12 9 18" />
     </svg>
   );
@@ -200,8 +221,9 @@ function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
 
 /** Journal/log entry — cupped hands with heart and sprout (care logging). */
 function JournalCareHandsIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
   return (
-    <svg {...iconProps(props)} {...props}>
+    <svg {...p}>
       <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" />
       <path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
       <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />

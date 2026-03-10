@@ -287,7 +287,7 @@ export default function CalendarPage() {
       ] as string[];
       const names: Record<string, string> = {};
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds).is("deleted_at", null);
         (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
           names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });
@@ -341,7 +341,7 @@ export default function CalendarPage() {
       const allProfileIds = [...new Set((rows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds).is("deleted_at", null);
         (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
           names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });
@@ -382,7 +382,7 @@ export default function CalendarPage() {
       const allProfileIds = [...new Set((rows ?? []).map((t: { plant_profile_id?: string | null }) => t.plant_profile_id).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds);
+        const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds).is("deleted_at", null);
         (profiles ?? []).forEach((p: { id: string; name: string; variety_name: string | null }) => {
           names[p.id] = p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name;
         });

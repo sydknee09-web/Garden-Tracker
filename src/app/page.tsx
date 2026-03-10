@@ -156,7 +156,7 @@ export default function HomePage() {
       const listSupplyIds = Array.from(new Set(listRows.map((r: { supply_profile_id?: string | null }) => r.supply_profile_id).filter(Boolean) as string[]));
       const allProfileIds = Array.from(new Set([...profileIds, ...listPlantIds]));
 
-      const profilesRes = allProfileIds.length > 0 ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds) : { data: [] };
+      const profilesRes = allProfileIds.length > 0 ? await supabase.from("plant_profiles").select("id, name, variety_name").in("id", allProfileIds).is("deleted_at", null) : { data: [] };
       const profiles = profilesRes.data ?? [];
       const names: Record<string, string> = {};
       profiles.forEach((p: { id: string; name: string; variety_name: string | null }) => {

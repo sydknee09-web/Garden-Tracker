@@ -151,7 +151,7 @@ export default function VaultSeedPage() {
   const { user, session } = useAuth();
   const { canEditPage } = useHousehold();
 
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profile, setProfile] = useState<PlantProfile | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
   const [growInstances, setGrowInstances] = useState<(GrowInstance & { journal_count?: number })[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
@@ -285,7 +285,7 @@ export default function VaultSeedPage() {
       return;
     }
     if (profileData) {
-      setProfile(profileData as ProfileData);
+      setProfile(profileData as PlantProfile);
       // Use the profile's actual owner for all child read queries so household
       // members viewing someone else's profile get the right data.
       const ownerIdFromData = profileData.user_id as string;
