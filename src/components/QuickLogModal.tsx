@@ -242,6 +242,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
             entry_type: entryType,
             image_file_path: firstPath,
             weather_snapshot: weatherSnapshot ?? undefined,
+            created_at: new Date(`${entryDate}T12:00:00Z`).toISOString(),
           } as Record<string, unknown>)
           .select("id")
           .single();
@@ -269,7 +270,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
         setSaving(false);
       }
     },
-    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, onJournalAdded, onClose]
+    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, onJournalAdded, onClose]
   );
 
   if (!open) return null;

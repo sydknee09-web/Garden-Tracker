@@ -13,6 +13,7 @@ import {
 } from "@/lib/supplyReviewStorage";
 import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
+import { ImageCropModal } from "@/components/ImageCropModal";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -31,6 +32,8 @@ export default function ShedReviewImportPage() {
   const [savedCount, setSavedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [itemPhotos, setItemPhotos] = useState<Record<string, { file: File; previewUrl: string }>>({});
+  const [cropModalItemId, setCropModalItemId] = useState<string | null>(null);
+  const [cropModalImageSrc, setCropModalImageSrc] = useState<string>("");
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const photoGalleryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -111,6 +114,31 @@ export default function ShedReviewImportPage() {
       return next;
     });
   }, []);
+
+  const openCropModal = useCallback((itemId: string) => {
+    const photo = itemPhotos[itemId];
+    const item = items.find((i) => i.id === itemId);
+    if (photo?.previewUrl) {
+      setCropModalImageSrc(photo.previewUrl);
+      setCropModalItemId(itemId);
+    } else if (item?.primary_image_path) {
+      setCropModalImageSrc(supabase.storage.from("journal-photos").getPublicUrl(item.primary_image_path).data.publicUrl);
+      setCropModalItemId(itemId);
+    }
+  }, [itemPhotos, items]);
+
+  const handleCropConfirm = useCallback((itemId: string, blob: Blob) => {
+    const file = new File([blob], "cropped.jpg", { type: "image/jpeg" });
+    const previewUrl = URL.createObjectURL(blob);
+    setItemPhotos((prev) => {
+      const old = prev[itemId];
+      if (old?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(old.previewUrl);
+      return { ...prev, [itemId]: { file, previewUrl } };
+    });
+    updateItem(itemId, { primary_image_path: undefined });
+    setCropModalItemId(null);
+    setCropModalImageSrc("");
+  }, [updateItem]);
 
   const handleSaveAll = useCallback(async () => {
     if (!user?.id || items.length === 0) return;
@@ -232,7 +260,14 @@ export default function ShedReviewImportPage() {
                         alt=""
                         className="w-full rounded-lg object-cover aspect-video max-h-32 bg-neutral-100"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => openCropModal(item.id)}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Crop image
+                        </button>
                         <button
                           type="button"
                           onClick={() => photoInputRefs.current[item.id]?.click()}
@@ -263,7 +298,14 @@ export default function ShedReviewImportPage() {
                         alt=""
                         className="w-full rounded-lg object-cover aspect-video max-h-32 bg-neutral-100"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => openCropModal(item.id)}
+                          className="text-sm font-medium text-emerald-600 hover:underline min-h-[44px]"
+                        >
+                          Crop image
+                        </button>
                         <button
                           type="button"
                           onClick={() => photoInputRefs.current[item.id]?.click()}
@@ -431,6 +473,19 @@ export default function ShedReviewImportPage() {
           </button>
         </div>
       </div>
+
+      {cropModalItemId && cropModalImageSrc && (
+        <ImageCropModal
+          open={true}
+          onClose={() => {
+            setCropModalItemId(null);
+            setCropModalImageSrc("");
+          }}
+          imageSrc={cropModalImageSrc}
+          shape="square"
+          onConfirm={(blob) => handleCropConfirm(cropModalItemId, blob)}
+        />
+      )}
     </div>
   );
 }

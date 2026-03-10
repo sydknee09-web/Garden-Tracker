@@ -189,6 +189,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
 
       if (isRecurringInterval) {
         // Pre-populate next RECURRING_WINDOW_DAYS of task rows for this schedule
+        const intervalDays: number = s.interval_days ?? 1;
         const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
         const toInsert: { due_date: string }[] = [];
         let cursor = startFrom;
@@ -196,7 +197,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
         while (cursor <= windowEnd) {
           if (s.end_date && cursor > s.end_date) break;
           if (!existingDates.has(cursor)) toInsert.push({ due_date: cursor });
-          cursor = addDays(cursor, s.interval_days);
+          cursor = addDays(cursor, intervalDays);
         }
         for (const { due_date: taskDueDate } of toInsert) {
           const { error } = await supabase.from("tasks").insert({
@@ -301,6 +302,21 @@ export async function advanceCareSchedule(
       })
       .eq("id", scheduleId)
       .eq("user_id", userId);
+
+    // Only sweep and regenerate when the schedule is still active (not expired).
+    if (!isExpired) {
+      const today = localDateString();
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: now.toISOString() })
+        .eq("care_schedule_id", scheduleId)
+        .eq("user_id", userId)
+        .is("completed_at", null)
+        .gt("due_date", today)
+        .is("deleted_at", null);
+      // Regenerate all recurring schedules for this user to keep the calendar in sync.
+      await generateCareTasks(userId);
+    }
   } catch (err) {
     console.error("advanceCareSchedule: unexpected error", err);
   }

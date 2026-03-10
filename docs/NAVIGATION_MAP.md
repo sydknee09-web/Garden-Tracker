@@ -27,7 +27,7 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 | **Add plant** | Screen 2: Manual Entry \| Start Seeds |
 | **Add to shed** | Opens QuickAddSupply (Manual / Photo Import single / Import from Photos batch / Link / Purchase Order) |
 | **Add task** | Opens New Task modal on current page (no navigation). Calendar also supports `?openTask=1` URL param. |
-| **Add journal** | Navigate to `/journal/new` |
+| **Add journal** | Opens Quick Log modal (slide-over); no navigation. |
 
 ### Add plant – Screen 2
 
@@ -80,8 +80,8 @@ When in selection mode (Vault batch select, Garden batch select, Journal entries
 ### Journal – add entry flows (via Universal Add Menu → Add journal)
 
 | Flow | Trigger | Destination |
-|------|---------|-------------|
-| **Add journal** | FAB → Add journal | Navigate to `/journal/new` |
+|------|---------|--------------|
+| **Add journal** | FAB → Add journal | Opens Quick Log modal (slide-over) on current page; full form remains at `/journal/new`. |
 
 ### Journal – entry cards
 
@@ -297,3 +297,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-03 | Add to shed: Added "Import from Photos (batch)" option. User can add multiple photos, extract each via AI, then review all at /shed/review-import before saving. Single-photo import retained. SupplyReviewItem extended with primary_image_path for batch-extracted photos. |
 | 2025-03-05 | Calendar: Added Completed section (collapsible). Shows last 50 when no date selected; shows completed for selected date when viewing prior or today. All tasks redate to today on completion. |
 | 2025-03-06 | Calendar: Dots (colored and grey) stay visible on calendar grid when a date is selected. Tap selected date again to deselect and return to full (outstanding + current + future) view. |
+| 2025-03-10 | Add journal: FAB opens Quick Log modal (slide-over) on Home, Vault, Garden, Journal, Calendar; date picker persists to created_at (noon UTC); full form at /journal/new unchanged. |

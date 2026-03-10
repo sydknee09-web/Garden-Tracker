@@ -314,7 +314,13 @@ export function ShedView({
       )}
 
       {loading ? (
-        <p className="text-neutral-500 py-8">Loading…</p>
+        <div className="grid grid-cols-3 gap-2" aria-label="Loading supplies">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl overflow-hidden bg-neutral-100 relative z-0" style={{ aspectRatio: "1" }}>
+              <div className="absolute inset-0 animate-shimmer rounded-xl overflow-hidden" aria-hidden />
+            </div>
+          ))}
+        </div>
       ) : filteredSupplies.length === 0 ? (
         supplies.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
