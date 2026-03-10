@@ -524,6 +524,7 @@ export function VaultShedWingModals({
     setShedSortDir,
     shedSelectionActionsOpen,
     setShedSelectionActionsOpen,
+    shedBatchSelectMode,
     handleShedBatchDelete,
     selectedSupplyIds,
     shedBatchDeleting,
