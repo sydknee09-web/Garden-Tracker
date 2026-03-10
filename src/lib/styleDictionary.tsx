@@ -14,7 +14,7 @@ function iconProps(props?: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "#333333",
-    strokeWidth: 2.5,
+    strokeWidth: 1.5,
     strokeLinecap: "round",
     strokeLinejoin: "round",
     "aria-hidden": props?.["aria-hidden"] ?? true,
@@ -232,6 +232,67 @@ function JournalCareHandsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function WaterIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" />
+    </svg>
+  );
+}
+
+function FertilizeIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </svg>
+  );
+}
+
+function SprayIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M3 6h4v14H3zM17 6h4v14h-4zM7 6h10v4H7z" />
+    </svg>
+  );
+}
+
+function PestIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M12 22c-4 0-6-2-6-6 0-2.5 1.5-4.5 4-5.5" />
+      <path d="M12 22c4 0 6-2 6-6 0-2.5-1.5-4.5-4-5.5" />
+      <path d="M12 10.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+      <path d="M8 6c0-1 .5-2 2-2" />
+      <path d="M16 6c0-1-.5-2-2-2" />
+    </svg>
+  );
+}
+
+function GalleryIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="M21 15l-5-5L5 21" />
+    </svg>
+  );
+}
+
+function ArchiveIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Edit: EditIcon,
@@ -253,6 +314,12 @@ export const ICON_MAP = {
   ChevronRight: ChevronRightIcon,
   /** For "Add journal entry" / log care on cards. */
   JournalCareHands: JournalCareHandsIcon,
+  Water: WaterIcon,
+  Fertilize: FertilizeIcon,
+  Spray: SprayIcon,
+  Pest: PestIcon,
+  Gallery: GalleryIcon,
+  Archive: ArchiveIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

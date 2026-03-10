@@ -9,8 +9,11 @@ import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
+
+type QuickActionType = "note" | "growth" | "planting" | "harvest" | "water" | "fertilize" | "spray" | "pest";
 
 function isMobileDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -21,24 +24,16 @@ function isMobileDevice(): boolean {
   return (hasTouch && mobileKeywords.test(ua)) || narrowScreen || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function CameraIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  );
-}
+const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string }[] = [
+  { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+  { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
+  { id: "planting", label: "Planting", icon: "Plant", entryType: "planting" },
+  { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
+  { id: "water", label: "Water", icon: "Water", entryType: "quick" },
+  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick" },
+  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick" },
+  { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
+];
 
 export default function JournalNewPage() {
   const router = useRouter();
@@ -59,6 +54,7 @@ export default function JournalNewPage() {
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
   const [plantSearch, setPlantSearch] = useState("");
+  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionType>("note");
   const cameraMobileRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -89,6 +85,16 @@ export default function JournalNewPage() {
       cancelled = true;
     };
   }, [user?.id]);
+
+  const plantIdFromUrl = searchParams.get("plant_id") ?? searchParams.get("profile") ?? null;
+
+  useEffect(() => {
+    if (!plantIdFromUrl || profiles.length === 0) return;
+    const exists = profiles.some((p) => p.id === plantIdFromUrl);
+    if (exists) setSelectedProfileIds(new Set([plantIdFromUrl]));
+  }, [plantIdFromUrl, profiles]);
+
+  const isPlantSpecific = !!plantIdFromUrl && selectedProfileIds.size > 0;
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -227,6 +233,12 @@ export default function JournalNewPage() {
         setUploadingPhoto(false);
       }
       const firstPath = uploadedPaths[0] ?? null;
+      const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
+      const entryType = (quickAction?.entryType ?? "note") as string;
+      const isQuickCare = entryType === "quick";
+      const noteForEntry = isQuickCare
+        ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
+        : noteTrim;
       const { data: entry, error: insertErr } = await supabase
         .from("journal_entries")
         .insert({
@@ -234,8 +246,8 @@ export default function JournalNewPage() {
           plant_profile_id: plantProfileId,
           grow_instance_id: null,
           seed_packet_id: null,
-          note: noteTrim,
-          entry_type: "note",
+          note: noteForEntry || null,
+          entry_type: entryType,
           image_file_path: firstPath,
           weather_snapshot: weatherSnapshot ?? undefined,
         } as Record<string, unknown>)
@@ -331,6 +343,46 @@ export default function JournalNewPage() {
           }}
         />
 
+        {/* 1. Quick Actions row */}
+        <div>
+          <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 scrollbar-thin">
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = ICON_MAP[action.icon];
+              const isSelected = selectedQuickAction === action.id;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => setSelectedQuickAction(action.id)}
+                  className={`min-w-[44px] min-h-[44px] shrink-0 inline-flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                    isSelected ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+                  }`}
+                >
+                  {Icon && <Icon className="w-5 h-5" />}
+                  <span className="text-[10px] leading-tight">{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2. Quick Memo */}
+        <div>
+          <label htmlFor="journal-note-new" className="block text-sm font-medium text-black/80 mb-1">
+            Quick memo
+          </label>
+          <textarea
+            id="journal-note-new"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Transplants, slope progress, weather…"
+            rows={3}
+            className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+          />
+        </div>
+
+        {/* 3. Photo row */}
         <div>
           <span className="block text-sm font-medium text-black/80 mb-2">Photos (optional)</span>
           {webcamActive ? (
@@ -344,7 +396,7 @@ export default function JournalNewPage() {
                   onClick={captureFromWebcam}
                   className="min-w-[44px] min-h-[44px] inline-flex items-center gap-2 py-2.5 px-4 rounded-xl bg-emerald text-white text-sm font-medium"
                 >
-                  <CameraIcon />
+                  <ICON_MAP.Camera className="w-5 h-5" />
                   Capture
                 </button>
                 <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">
@@ -373,51 +425,45 @@ export default function JournalNewPage() {
               )}
               <div className="flex flex-wrap gap-2">
                 <button
-                type="button"
-                onClick={() => {
-                  if (isMobile) cameraMobileRef.current?.click();
-                  else startDesktopWebcam();
-                }}
-                className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
-              >
-                <CameraIcon />
-                Take Photo
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
-              >
-                <UploadIcon />
-                Choose from Files
-              </button>
+                  type="button"
+                  onClick={() => {
+                    if (isMobile) cameraMobileRef.current?.click();
+                    else startDesktopWebcam();
+                  }}
+                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
+                >
+                  <ICON_MAP.Camera className="w-5 h-5" />
+                  Take Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
+                >
+                  <ICON_MAP.Gallery className="w-5 h-5" />
+                  From gallery
+                </button>
               </div>
             </>
           )}
           {webcamError && <p className="text-xs text-citrus mt-1">{webcamError}</p>}
         </div>
 
+        {/* 4. Linked Plants (at bottom) */}
         <div>
-          <label htmlFor="journal-note-new" className="block text-sm font-medium text-black/80 mb-1">
-            Note
-          </label>
-          <p className="text-xs text-black/50 mb-1">Add a note or photo (at least one required).</p>
-          <textarea
-            id="journal-note-new"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Transplants, slope progress, weather…"
-            rows={3}
-            className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black/80 mb-2">Plants (optional — link this entry to one or more)</label>
+          <label className="block text-sm font-medium text-black/80 mb-2">Linked plants (optional)</label>
           {profilesLoading ? (
             <p className="text-sm text-black/50">Loading plants…</p>
           ) : profiles.length === 0 ? (
             <p className="text-sm text-black/50">No varieties in vault. Add seeds first.</p>
+          ) : isPlantSpecific ? (
+            <div className="rounded-xl border border-black/10 px-3 py-2 bg-black/[0.02]">
+              {profiles.filter((p) => selectedProfileIds.has(p.id)).map((p) => (
+                <p key={p.id} className="text-sm text-black">
+                  Linked: {p.name}{p.variety_name?.trim() ? ` (${p.variety_name})` : ""}
+                </p>
+              ))}
+            </div>
           ) : (
             <>
               <input

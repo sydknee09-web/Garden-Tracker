@@ -51,6 +51,7 @@ import { useSync } from "@/contexts/SyncContext";
 import { formatWeatherBadge } from "@/lib/weatherSnapshot";
 import type { JournalEntry } from "@/types/garden";
 import type { GrowInstance } from "@/types/garden";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 type JournalEntryWithPlant = JournalEntry & {
   plant_name?: string;
@@ -58,17 +59,6 @@ type JournalEntryWithPlant = JournalEntry & {
   plant_profile_id?: string | null;
   weather_snapshot?: JournalEntry["weather_snapshot"];
 };
-
-function TrashIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
 
 type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" };
 
@@ -201,83 +191,20 @@ function groupEntriesByPlant(entries: JournalEntryWithPlant[]): { plantName: str
     const da = a.entries[0]?.created_at ?? "";
     const db = b.entries[0]?.created_at ?? "";
     return db.localeCompare(da);
-  });
+  }  );
 }
-function PlantIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 20h10" />
-      <path d="M10 20c5.5-2.5.8-6.4 3-10" />
-      <path d="M12 8a4 4 0 0 1-4 4 4 4 0 0 1-1.5-7.5A4 4 0 0 1 12 2" />
-    </svg>
-  );
-}
-function HarvestIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 8h14l-1.5 10H6.5L5 8z" />
-      <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-function NoteIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-    </svg>
-  );
-}
-function GrowthIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 22v-6" />
-      <path d="M12 16a4 4 0 0 1-4-4V4" />
-      <path d="M12 16a4 4 0 0 0 4-4V4" />
-    </svg>
-  );
-}
-function WaterIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-    </svg>
-  );
-}
-function FertilizeIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-    </svg>
-  );
-}
-function SprayIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 6h4v14H3zM17 6h4v14h-4zM7 6h10v4H7z" />
-    </svg>
-  );
-}
-function CareIconSmall() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  );
-}
+
 function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
+  const className = "w-4 h-4";
   switch (icon) {
-    case "plant": return <PlantIcon />;
-    case "harvest": return <HarvestIconSmall />;
-    case "growth": return <GrowthIconSmall />;
-    case "water": return <WaterIconSmall />;
-    case "fertilize": return <FertilizeIconSmall />;
-    case "spray": return <SprayIconSmall />;
-    case "care": return <CareIconSmall />;
-    default: return <NoteIcon />;
+    case "plant": return <ICON_MAP.Plant className={className} />;
+    case "harvest": return <ICON_MAP.Harvest className={className} />;
+    case "growth": return <ICON_MAP.Plant className={className} />;
+    case "water": return <ICON_MAP.Water className={className} />;
+    case "fertilize": return <ICON_MAP.Fertilize className={className} />;
+    case "spray": return <ICON_MAP.Spray className={className} />;
+    case "care": return <ICON_MAP.JournalCareHands className={className} />;
+    default: return <ICON_MAP.ManualEntry className={className} />;
   }
 }
 
@@ -1193,7 +1120,7 @@ export default function JournalPage() {
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-citrus/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <TrashIcon />
+                  <ICON_MAP.Trash className="w-5 h-5" />
                 </span>
                 Trash
               </button>
@@ -1206,7 +1133,7 @@ export default function JournalPage() {
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <ArchiveIcon />
+                  <ICON_MAP.Archive className="w-5 h-5" />
                 </span>
                 Archive
               </button>
@@ -1224,7 +1151,7 @@ export default function JournalPage() {
                 className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0">
-                  <PencilEditIcon />
+                  <ICON_MAP.Edit className="w-5 h-5" />
                 </span>
                 Edit {selectedEntryIds.length === 1 ? "entry" : "(select one)"}
               </button>
@@ -1271,34 +1198,5 @@ export default function JournalPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function DocumentIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-      <polyline points="10 9 9 9 8 9" />
-    </svg>
-  );
-}
-
-function ArchiveIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
-    </svg>
-  );
-}
-
-function PencilEditIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
   );
 }

@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 export type BatchLogBatch = {
   id: string;
@@ -356,24 +357,49 @@ export function BatchLogSheet({
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
           <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
-          {/* Primary actions — Fertilize, Spray */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => (isBulk ? handleQuickCareTap("fertilize") : toggleAction("fertilize"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 text-sm font-medium py-2"
-            >
-              <span className="flex items-center gap-1.5"><span>🌿</span> Fertilize</span>
-              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastFertilize)}</span>}
-            </button>
-            <button
-              type="button"
-              onClick={() => (isBulk ? handleQuickCareTap("spray") : toggleAction("spray"))}
-              className="min-w-[44px] min-h-[44px] flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm font-medium py-2"
-            >
-              <span className="flex items-center gap-1.5"><span>🧴</span> Spray</span>
-              {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastSpray)}</span>}
-            </button>
+          {/* 1. Quick Actions row */}
+          <div>
+            <span className="block text-xs font-medium text-black/60 mb-2">Quick action</span>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1">
+              <button
+                type="button"
+                onClick={() => handleQuickCareTap("water")}
+                className="min-w-[44px] min-h-[44px] shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 text-sm font-medium py-2"
+              >
+                <ICON_MAP.Water className="w-5 h-5" />
+                <span className="text-[10px]">Water</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => (isBulk ? handleQuickCareTap("fertilize") : toggleAction("fertilize"))}
+                className={`min-w-[44px] min-h-[44px] shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-xl border text-sm font-medium py-2 ${
+                  selectedActions.has("fertilize") ? "border-amber-300 bg-amber-100 text-amber-700" : "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                }`}
+              >
+                <ICON_MAP.Fertilize className="w-5 h-5" />
+                <span className="text-[10px]">Fertilize</span>
+                {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastFertilize)}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => (isBulk ? handleQuickCareTap("spray") : toggleAction("spray"))}
+                className={`min-w-[44px] min-h-[44px] shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-xl border text-sm font-medium py-2 ${
+                  selectedActions.has("spray") ? "border-purple-300 bg-purple-100 text-purple-700" : "border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100"
+                }`}
+              >
+                <ICON_MAP.Spray className="w-5 h-5" />
+                <span className="text-[10px]">Spray</span>
+                {!isBulk && <span className="text-[10px] font-normal text-black/50">{formatLastAction(lastSpray)}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={handleHarvest}
+                className="min-w-[44px] min-h-[44px] shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-medium py-2"
+              >
+                <ICON_MAP.Harvest className="w-5 h-5" />
+                <span className="text-[10px]">Harvest</span>
+              </button>
+            </div>
           </div>
 
           {isBulk && (
@@ -522,10 +548,10 @@ export function BatchLogSheet({
                 onClick={handleHarvest}
                 className="w-full min-h-[44px] flex items-center gap-2 px-0 py-3 rounded-lg border-b border-black/5 text-emerald-700 hover:bg-emerald-50/50 text-sm font-medium"
               >
-                <span>🧺</span> Harvest
+                <ICON_MAP.Harvest className="w-5 h-5" /> Harvest
               </button>
 
-              {/* Quick memo + Add photo — always visible, no accordion */}
+              {/* 2. Quick memo */}
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-black/60 mb-1">Quick memo</label>
@@ -534,9 +560,10 @@ export function BatchLogSheet({
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Growth update, note…"
                     rows={2}
-                    className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
+                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm resize-none"
                   />
                 </div>
+                {/* 3. Photo row */}
                 <div>
                   <label className="block text-xs font-medium text-black/60 mb-1">Photo (max {MAX_JOURNAL_PHOTOS})</label>
                   {photos.length > 0 ? (
@@ -560,15 +587,17 @@ export function BatchLogSheet({
                           <button
                             type="button"
                             onClick={() => cameraInputRef.current?.click()}
-                            className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium"
+                            className="min-h-[44px] py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium flex items-center gap-2"
                           >
+                            <ICON_MAP.Camera className="w-5 h-5" />
                             Take photo
                           </button>
                           <button
                             type="button"
                             onClick={() => galleryInputRef.current?.click()}
-                            className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium"
+                            className="min-h-[44px] py-2 px-3 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2"
                           >
+                            <ICON_MAP.Gallery className="w-5 h-5" />
                             From gallery
                           </button>
                         </div>
@@ -581,14 +610,16 @@ export function BatchLogSheet({
                         onClick={() => cameraInputRef.current?.click()}
                         className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
                       >
-                        <span>📷</span> Take photo
+                        <ICON_MAP.Camera className="w-5 h-5" />
+                        Take photo
                       </button>
                       <button
                         type="button"
                         onClick={() => galleryInputRef.current?.click()}
                         className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
                       >
-                        <span>🖼</span> From gallery
+                        <ICON_MAP.Gallery className="w-5 h-5" />
+                        From gallery
                       </button>
                     </div>
                   )}
@@ -660,6 +691,7 @@ export function BatchLogSheet({
                               onClick={() => cameraInputRef.current?.click()}
                               className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium"
                             >
+                              <ICON_MAP.Camera className="w-5 h-5" />
                               Take photo
                             </button>
                             <button
@@ -667,6 +699,7 @@ export function BatchLogSheet({
                               onClick={() => galleryInputRef.current?.click()}
                               className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium"
                             >
+                              <ICON_MAP.Gallery className="w-5 h-5" />
                               From gallery
                             </button>
                           </div>
@@ -679,14 +712,16 @@ export function BatchLogSheet({
                           onClick={() => cameraInputRef.current?.click()}
                           className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
                         >
-                          <span>📷</span> Take photo
+                          <ICON_MAP.Camera className="w-5 h-5" />
+                          Take photo
                         </button>
                         <button
                           type="button"
                           onClick={() => galleryInputRef.current?.click()}
                           className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
                         >
-                          <span>🖼</span> From gallery
+                          <ICON_MAP.Gallery className="w-5 h-5" />
+                          From gallery
                         </button>
                       </div>
                     )}
