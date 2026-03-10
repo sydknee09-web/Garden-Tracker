@@ -74,7 +74,7 @@ export type VaultPacketWingContextValue = {
   setBatchSelectMode: (v: boolean | ((prev: boolean) => boolean)) => void;
   selectedPacketIds: Set<string>;
   setSelectedPacketIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-  vaultFilters: UseFilterStateReturn;
+  vaultFilters: UseFilterStateReturn<"vault">;
   onEmptyStateChange: (empty: boolean) => void;
   onSaveMessage: (message: string) => void;
   router: ReturnType<typeof useRouter>;
@@ -96,7 +96,7 @@ type VaultPacketWingProviderProps = {
   refetchTrigger: number;
   refetch: () => void;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  vaultFilters: UseFilterStateReturn;
+  vaultFilters: UseFilterStateReturn<"vault">;
   batchSelectMode: boolean;
   setBatchSelectMode: (v: boolean | ((prev: boolean) => boolean)) => void;
   selectedPacketIds: Set<string>;
@@ -319,7 +319,7 @@ export function VaultPacketWingToolbar() {
           >
             <ICON_MAP.Filter className="w-5 h-5 shrink-0" />
             Filter
-            {hasPacketActiveFilters && (
+            {(hasPacketActiveFilters ?? false) && (
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                 {[
                   packetSearchQuery.trim() ? 1 : 0,
@@ -336,10 +336,10 @@ export function VaultPacketWingToolbar() {
               </span>
             )}
           </button>
-          {hasPacketActiveFilters && (
+          {(hasPacketActiveFilters ?? false) && (
             <button
               type="button"
-              onClick={clearPacketFilters}
+              onClick={() => clearPacketFilters?.()}
               className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
               aria-label="Clear all filters"
             >
@@ -378,7 +378,6 @@ export function VaultPacketWingToolbar() {
 
 export function VaultPacketWingContent() {
   const ctx = useContext(VaultPacketWingContext);
-  if (!ctx || ctx.viewMode !== "list") return null;
   const {
     refetchTrigger,
     scrollContainerRef,
@@ -402,10 +401,11 @@ export function VaultPacketWingContent() {
     setPacketRefineChips,
     onOpenScanner,
     onAddFirst,
-  } = ctx;
+  } = ctx ?? {};
 
   const togglePacketSelection = useCallback((packetId: string) => {
-    setSelectedPacketIds((prev) => {
+    if (!setSelectedPacketIds) return;
+    setSelectedPacketIds((prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(packetId)) next.delete(packetId);
       else next.add(packetId);
@@ -414,9 +414,12 @@ export function VaultPacketWingContent() {
   }, [setSelectedPacketIds]);
 
   const handleLongPressPacket = useCallback((packetId: string) => {
+    if (!ctx?.setBatchSelectMode || !setSelectedPacketIds) return;
     ctx.setBatchSelectMode(true);
-    setSelectedPacketIds((prev) => new Set([...prev, packetId]));
+    setSelectedPacketIds((prev: Set<string>) => new Set([...prev, packetId]));
   }, [ctx, setSelectedPacketIds]);
+
+  if (!ctx || ctx.viewMode !== "list") return null;
 
   return (
     <div className="relative z-10 pt-2">
@@ -451,12 +454,12 @@ export function VaultPacketWingContent() {
         onAddFirst={onAddFirst}
         onPacketStatusChipsLoaded={setPacketStatusChips}
         onPacketVendorChipsLoaded={setPacketVendorChips}
-        tagFilters={vaultFilters.filters.tags}
-        seedTypeFilters={vaultFilters.filters.seedTypes}
-        sunFilter={vaultFilters.filters.sun}
-        spacingFilter={vaultFilters.filters.spacing}
-        germinationFilter={vaultFilters.filters.germination}
-        maturityFilter={vaultFilters.filters.maturity}
+        tagFilters={vaultFilters!.filters.tags}
+        seedTypeFilters={vaultFilters!.filters.seedTypes}
+        sunFilter={vaultFilters!.filters.sun}
+        spacingFilter={vaultFilters!.filters.spacing}
+        germinationFilter={vaultFilters!.filters.germination}
+        maturityFilter={vaultFilters!.filters.maturity}
         onPacketTagsLoaded={setPacketAvailableTags}
         onPacketSeedTypeChipsLoaded={setPacketSeedTypeChips}
         onPacketRefineChipsLoaded={setPacketRefineChips}
@@ -466,5 +469,350 @@ export function VaultPacketWingContent() {
 }
 
 export function VaultPacketWingRefineModal() {
-  return null;
+  const ctx = useContext(VaultPacketWingContext);
+  const {
+    setRefineByOpen,
+    refineBySection,
+    setRefineBySection,
+    hasPacketActiveFilters,
+    clearPacketFilters,
+    packetSortBy,
+    setPacketSortBy,
+    packetSortDirection,
+    setPacketSortDirection,
+    packetStatusFilter,
+    setPacketStatusFilter,
+    packetStatusChips,
+    packetVendorFilter,
+    setPacketVendorFilter,
+    packetVendorChips,
+    packetSowMonth,
+    setPacketSowMonth,
+    packetAvailableTags,
+    packetSeedTypeChips,
+    vaultFilters,
+    packetHasDefault,
+    setPacketHasDefault,
+    filteredPacketCount,
+    router,
+  } = ctx ?? {};
+
+  const closeModal = useCallback(() => {
+    if (!setRefineByOpen || !setRefineBySection) return;
+    setRefineByOpen(false);
+    setRefineBySection(null);
+  }, [setRefineByOpen, setRefineBySection]);
+
+  const statusOptions = (packetStatusChips?.length ?? 0) > 0
+    ? (packetStatusChips ?? [])
+    : [
+        { value: "" as PacketStatusFilter, label: "All", count: 0 },
+        { value: "vault" as PacketStatusFilter, label: "In Storage", count: 0 },
+        { value: "active" as PacketStatusFilter, label: "Active", count: 0 },
+        { value: "low_inventory" as PacketStatusFilter, label: "Low Inventory", count: 0 },
+        { value: "archived" as PacketStatusFilter, label: "Archived", count: 0 },
+      ];
+
+  const saveAsDefault = useCallback(() => {
+    if (!setPacketHasDefault) return;
+    saveFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets, {
+      status: packetStatusFilter,
+      vendor: packetVendorFilter,
+      sowMonth: packetSowMonth,
+      sortBy: packetSortBy,
+      sortDirection: packetSortDirection,
+    });
+    setPacketHasDefault(true);
+  }, [packetStatusFilter, packetVendorFilter, packetSowMonth, packetSortBy, packetSortDirection, setPacketHasDefault]);
+
+  if (!ctx || !ctx.refineByOpen) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[100] bg-black/40"
+        aria-hidden
+        onClick={closeModal}
+      />
+      <div
+        className="fixed left-4 right-4 top-1/2 z-[101] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="packet-refine-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
+          <h2 id="packet-refine-title" className="text-lg font-semibold text-black">Filter</h2>
+          <div className="flex items-center gap-1">
+            {(hasPacketActiveFilters ?? false) && (
+              <button
+                type="button"
+                onClick={() => clearPacketFilters?.()}
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                aria-label="Clear all filters"
+              >
+                Clear filters
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={closeModal}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
+              aria-label="Close"
+            >
+              <span className="text-xl leading-none" aria-hidden>×</span>
+            </button>
+          </div>
+        </header>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Sort */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection?.((s) => (s === "sort" ? null : "sort"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "sort"}
+            >
+              <span>Sort</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "sort" && (
+              <div className="px-4 pb-3 pt-0 space-y-0.5">
+                {[
+                  { sortBy: "date" as const, sortDirection: "desc" as const, label: "Date (newest first)" },
+                  { sortBy: "date" as const, sortDirection: "asc" as const, label: "Date (oldest first)" },
+                  { sortBy: "variety" as const, sortDirection: "asc" as const, label: "Variety (A–Z)" },
+                  { sortBy: "variety" as const, sortDirection: "desc" as const, label: "Variety (Z–A)" },
+                  { sortBy: "vendor" as const, sortDirection: "asc" as const, label: "Vendor (A–Z)" },
+                  { sortBy: "vendor" as const, sortDirection: "desc" as const, label: "Vendor (Z–A)" },
+                  { sortBy: "qty" as const, sortDirection: "desc" as const, label: "Quantity (high first)" },
+                  { sortBy: "qty" as const, sortDirection: "asc" as const, label: "Quantity (low first)" },
+                  { sortBy: "rating" as const, sortDirection: "desc" as const, label: "Rating (high first)" },
+                  { sortBy: "rating" as const, sortDirection: "asc" as const, label: "Rating (low first)" },
+                ].map(({ sortBy: sb, sortDirection: sd, label }) => {
+                  const selected = packetSortBy === sb && packetSortDirection === sd;
+                  return (
+                    <button
+                      key={`${sb}-${sd}`}
+                      type="button"
+                      onClick={() => { setPacketSortBy?.(sb); setPacketSortDirection?.(sd); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* Status */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection?.((s) => (s === "vault" ? null : "vault"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "vault"}
+            >
+              <span>Vault Status</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "vault" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "vault" && (
+              <div className="px-4 pb-3 pt-0 space-y-0.5">
+                {statusOptions.map(({ value, label, count }) => {
+                  const selected = packetStatusFilter === value;
+                  return (
+                    <button
+                      key={value || "all"}
+                      type="button"
+                      onClick={() => setPacketStatusFilter?.(value)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                    >
+                      {label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* Vendor */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection?.((s) => (s === "packetVendor" ? null : "packetVendor"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "packetVendor"}
+            >
+              <span>Vendor</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetVendor" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "packetVendor" && (
+              <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setPacketVendorFilter?.(null)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${packetVendorFilter === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                >
+                  All
+                </button>
+                {(packetVendorChips ?? []).map(({ value, count }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPacketVendorFilter?.(value)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] truncate ${packetVendorFilter === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                  >
+                    {value} ({count})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Sow Month */}
+          <div className="border-b border-black/5">
+            <button
+              type="button"
+              onClick={() => setRefineBySection?.((s) => (s === "packetSow" ? null : "packetSow"))}
+              className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+              aria-expanded={refineBySection === "packetSow"}
+            >
+              <span>Plant this month</span>
+              <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "packetSow" ? "▼" : "▸"}</span>
+            </button>
+            {refineBySection === "packetSow" && (
+              <div className="px-4 pb-3 pt-0 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setPacketSowMonth?.(null); router?.replace("/vault?tab=list", { scroll: false }); }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!packetSowMonth ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                    setPacketSowMonth?.(sow);
+                    router?.replace(`/vault?tab=list&sow=${sow}`, { scroll: false });
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${
+                    packetSowMonth && /^\d{4}-\d{2}$/.test(packetSowMonth) && packetSowMonth === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+                      ? "bg-emerald/10 text-emerald-800 font-medium"
+                      : "text-black/80 hover:bg-black/5"
+                  }`}
+                >
+                  Plant Now
+                </button>
+              </div>
+            )}
+          </div>
+          {/* Tags */}
+          {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection?.((s) => (s === "tags" ? null : "tags"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "tags"}
+              >
+                <span>Tags</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "tags" ? "▼" : "▸"}</span>
+              </button>
+              {refineBySection === "tags" && (
+                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                  {(packetAvailableTags ?? []).filter((t) => !isSeedTypeTag(t)).map((tag) => {
+                    const checked = vaultFilters?.filters.tags.includes(tag);
+                    return (
+                      <label
+                        key={tag}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => vaultFilters?.toggleTagFilter(tag)}
+                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                          aria-label={`Filter by ${tag}`}
+                        />
+                        <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>
+                          {tag}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Seed Type */}
+          {(packetSeedTypeChips ?? []).length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection?.((s) => (s === "seedType" ? null : "seedType"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "seedType"}
+              >
+                <span>Seed Type</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "seedType" ? "▼" : "▸"}</span>
+              </button>
+              {refineBySection === "seedType" && (
+                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                  {(packetSeedTypeChips ?? []).map(({ value, count }) => {
+                    const checked = vaultFilters?.filters.seedTypes.includes(value);
+                    return (
+                      <label
+                        key={value}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 cursor-pointer min-h-[44px]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => vaultFilters?.toggleSeedTypeFilter(value)}
+                          className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                          aria-label={`Filter by ${value}`}
+                        />
+                        <span className="text-sm text-black/80">{value} ({count})</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            {!(packetHasDefault ?? false) && (
+              <button
+                type="button"
+                onClick={saveAsDefault}
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
+                aria-label="Save current filters as default"
+              >
+                Save Default
+              </button>
+            )}
+            {(packetHasDefault ?? false) && (
+              <button
+                type="button"
+                onClick={() => { clearFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets); setPacketHasDefault?.(false); }}
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
+                aria-label="Reset saved default filters"
+              >
+                Reset Default
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={closeModal}
+            className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
+          >
+            Show Results ({(filteredPacketCount ?? 0)})
+          </button>
+        </footer>
+      </div>
+    </>
+  );
 }
