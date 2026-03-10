@@ -31,6 +31,7 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 // ---------------------------------------------------------------------------
@@ -138,20 +139,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 /** Allowed profile status values for Edit modal; users must pick one, not free-text. */
-
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
-/** Sparkle icon for "Fill blanks" — AI/cache lookup to populate empty fields */
-function SparkleIcon() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>; }
-function CameraIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>; }
-function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>; }
-function ChevronDownIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
-function ChevronRightIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>; }
-function CartIcon() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>; }
-
-type ProfileData = PlantProfile | PlantVarietyProfile;
 
 // ===========================================================================
 // Main component
@@ -1452,7 +1439,7 @@ export default function VaultSeedPage() {
               )}
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
+              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 disabled:opacity-50">Delete Plant Profile</button>
               )}
@@ -1497,7 +1484,7 @@ export default function VaultSeedPage() {
                 className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous plant profile"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+                <ICON_MAP.Back className="w-6 h-6" />
               </Link>
             ) : null}
             {nextId ? (
@@ -1506,7 +1493,7 @@ export default function VaultSeedPage() {
                 className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next plant profile"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
+                <ICON_MAP.ChevronRight className="w-6 h-6" />
               </Link>
             ) : null}
           </>
@@ -1545,7 +1532,7 @@ export default function VaultSeedPage() {
         )}
 
         {toastMessage && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
             {toastMessage}
           </div>
         )}
@@ -1579,7 +1566,7 @@ export default function VaultSeedPage() {
                 aria-label="Add to shopping list"
                 title="Add to shopping list"
               >
-                <CartIcon />
+                <ICON_MAP.Shopping className="w-[18px] h-[18px]" />
               </button>
             )}
             {isOwnProfile && (
@@ -1596,11 +1583,11 @@ export default function VaultSeedPage() {
                     {fillBlanksRunning ? (
                       <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
                     ) : (
-                      <SparkleIcon />
+                      <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
                     )}
                   </button>
                 )}
-                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><PencilIcon /></button>
+                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><ICON_MAP.Edit className="w-4 h-4" /></button>
               </>
             )}
           </div>
@@ -1629,7 +1616,7 @@ export default function VaultSeedPage() {
               )}
               {canEdit && heroImageLoaded && (
                 <div className="absolute bottom-3 right-3">
-                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><CameraIcon /></button>
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-5 h-5" /></button>
                 </div>
               )}
             </>
@@ -1643,7 +1630,7 @@ export default function VaultSeedPage() {
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 bg-white">
               <PlantPlaceholderIcon size="2xl" className="opacity-90 object-contain" />
               {canEdit && (
-                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 min-w-[44px] min-h-[44px]">Add Photo</button>
+                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
@@ -1670,7 +1657,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("description")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("description")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Description</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("description") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("description") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("description") && (
                   <div className="px-4 pb-4 pt-0">
@@ -1690,7 +1677,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("growingNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growingNotes")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Growing Notes</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growingNotes") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growingNotes") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("growingNotes") && (
                   <div className="px-4 pb-4 pt-0">
@@ -1705,7 +1692,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
                   <h3 className="text-sm font-semibold text-neutral-700">How to propagate</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("propagation") && (
                   <div className="px-4 pb-4 pt-0">
@@ -1724,7 +1711,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("seedSaving")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("seedSaving")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Harvest / Save seeds</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("seedSaving") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("seedSaving") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("seedSaving") && (
                   <div className="px-4 pb-4 pt-0">
@@ -1741,7 +1728,7 @@ export default function VaultSeedPage() {
             <div className="bg-white rounded-xl border border-neutral-200 mb-4">
               <button type="button" onClick={() => toggleAboutSection("howToGrow")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("howToGrow")}>
                 <h3 className="text-sm font-semibold text-neutral-700">How to Grow</h3>
-                <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("howToGrow") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("howToGrow") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
               </button>
               {isAboutOpen("howToGrow") && (
               <div className="px-4 pb-4 pt-0 space-y-4">
@@ -1785,7 +1772,7 @@ export default function VaultSeedPage() {
                 <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                   <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("companion")}>
                     <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
-                    <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                    <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                   </button>
                   {isAboutOpen("companion") && (
                   <div className="px-4 pb-4 pt-0">
@@ -1828,7 +1815,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("vendorRecs")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("vendorRecs")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Vendor recommendations</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("vendorRecs") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("vendorRecs") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("vendorRecs") && (
                 <div className="px-4 pb-4 pt-0">
@@ -1871,7 +1858,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("tags")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("tags") && (
                 <div className="px-4 pb-4 pt-0">
@@ -1886,7 +1873,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("source")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("source")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Source</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("source") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("source") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("source") && (
                 <div className="px-4 pb-4 pt-0">
@@ -1901,7 +1888,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("growthGallery")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growthGallery")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Growth Gallery</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growthGallery") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growthGallery") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("growthGallery") && (
                 <div className="px-4 pb-4 pt-0">
@@ -1932,7 +1919,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("legacyNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyNotes")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Notes</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyNotes") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyNotes") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("legacyNotes") && (
                 <div className="px-4 pb-4 pt-0">
@@ -1959,7 +1946,7 @@ export default function VaultSeedPage() {
               <div className="bg-white rounded-xl border border-neutral-200 mb-4">
                 <button type="button" onClick={() => toggleAboutSection("legacyImport")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyImport")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Import link</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyImport") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyImport") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("legacyImport") && (
                 <div className="px-4 pb-4 pt-0">
@@ -2011,7 +1998,7 @@ export default function VaultSeedPage() {
                 <button type="button" onClick={() => toggleAboutSection("historicalTasks")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("historicalTasks")}>
                   <h3 className="text-sm font-semibold text-neutral-700">Historical tasks</h3>
                   <span className="text-neutral-500 text-sm">{standaloneTasks.length > 0 ? `(${standaloneTasks.length})` : ""}</span>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("historicalTasks") ? <ChevronDownIcon /> : <ChevronRightIcon />}</span>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("historicalTasks") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
                 </button>
                 {isAboutOpen("historicalTasks") && (
                   <div className="px-4 pb-4 pt-0">
@@ -2057,7 +2044,7 @@ export default function VaultSeedPage() {
                     <button
                       type="button"
                       onClick={() => setShowAddPacketModal(true)}
-                      className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                      className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-luxury focus:ring-offset-2"
                     >
                       Add seed packet
                     </button>
@@ -2119,7 +2106,7 @@ export default function VaultSeedPage() {
                               aria-label={open ? "Collapse packet details" : "Expand packet details"}
                             >
                               <span className={`inline-flex transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
-                                <ChevronDownIcon />
+                                <ICON_MAP.ChevronDown className="w-3 h-3" />
                               </span>
                             </button>
                           </div>
@@ -2244,7 +2231,7 @@ export default function VaultSeedPage() {
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 min-h-[36px]"
                                   aria-label="Remove packet"
                                 >
-                                  <TrashIcon />
+                                  <ICON_MAP.Trash className="w-4 h-4" />
                                   Remove packet
                                 </button>
                               </div>
@@ -2367,7 +2354,7 @@ export default function VaultSeedPage() {
                               className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
                               aria-label="Edit plant"
                             >
-                              <PencilIcon />
+                              <ICON_MAP.Edit className="w-4 h-4" />
                             </button>
                             <button
                               type="button"
@@ -2486,7 +2473,7 @@ export default function VaultSeedPage() {
               {addPacketError && <p className="text-sm text-red-600" role="alert">{addPacketError}</p>}
               <div className="flex gap-3 justify-end pt-2">
                 <button type="button" onClick={() => setShowAddPacketModal(false)} disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{addPacketSaving ? "Adding…" : "Add packet"}</button>
+                <button type="submit" disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{addPacketSaving ? "Adding…" : "Add packet"}</button>
               </div>
             </form>
           </div>
@@ -2583,7 +2570,7 @@ export default function VaultSeedPage() {
             </div>
             <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
               <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
+              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
             </div>
           </div>
         </div>

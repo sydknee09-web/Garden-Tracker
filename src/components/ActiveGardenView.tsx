@@ -11,6 +11,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { WeatherSnapshotData } from "@/types/garden";
 
@@ -1082,10 +1083,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           setBatchLogBatches([toBatchLogBatch(batch)]);
                           setBatchLogOpen(true);
                         }}
-                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-luxury hover:bg-emerald-luxury/10"
                         aria-label="Add journal entry"
                       >
-                        <CareHandsIcon />
+                        <ICON_MAP.JournalCareHands className="w-5 h-5" />
                       </button>
                     </div>
                   )}
@@ -1227,10 +1228,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                             setBatchLogBatches([toBatchLogBatch(batch)]);
                             setBatchLogOpen(true);
                           }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-luxury hover:bg-emerald-luxury/10"
                           aria-label="Add journal entry"
                         >
-                          <CareHandsIcon />
+                          <ICON_MAP.JournalCareHands className="w-5 h-5" />
                         </button>
                       </div>
                     )}
@@ -1247,20 +1248,3 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 });
 
 ActiveGardenView.displayName = "ActiveGardenView";
-
-/** Hands/care icon: cupped hands with heart and sprout — for logging care journal entries. */
-function CareHandsIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      {/* Cupped hands (left and right) */}
-      <path d="M5 19c0-3 2-6 5-7 1.5-.5 3 0 4 1" />
-      <path d="M19 19c0-3-2-6-5-7-1.5-.5-3 0-4 1" />
-      {/* Heart */}
-      <path d="M12 8.5C10.5 7 8 7.5 8 9.5c0 2 4 4 4 4s4-2 4-4c0-2-2.5-2.5-4-1z" />
-      {/* Small sprout/leaf from heart */}
-      <path d="M13 11v1.5c0 .8.6 1.5 1.2 1.5" />
-    </svg>
-  );
-}
-function PencilIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>; }
-function BasketIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.5 10H6.5L5 8z" /><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path d="M4 10h16" /></svg>; }

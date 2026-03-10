@@ -38,6 +38,8 @@ const config: Config = {
           950: "#022c22",
         },
         citrus: "#FFD700",
+        // Refined Architectural Luxury — Add/Save primary actions
+        "emerald-luxury": "#50C878",
         // Semantic aliases (action matches emerald for primary buttons)
         action: "#10b981",
         alert: "#FFD700",
