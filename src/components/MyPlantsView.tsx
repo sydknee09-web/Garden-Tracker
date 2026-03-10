@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -10,7 +9,7 @@ import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQu
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
-import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { PlantImage } from "@/components/PlantImage";
 import { NoMatchCard } from "@/components/NoMatchCard";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
@@ -841,12 +840,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                           {selected ? <span className="w-3 h-3 rounded-full bg-blue-600" /> : null}
                         </span>
                       )}
-                      <div className="relative shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
-                        {imgUrl ? (
-                          <Image src={imgUrl} alt="" width={48} height={48} className="w-full h-full object-cover group-hover:scale-105 transition-transform" unoptimized />
-                        ) : (
-                          <PlantPlaceholderIcon size="md" />
-                        )}
+                      <div className="relative shrink-0 w-12 h-12 rounded-xl overflow-hidden">
+                        <PlantImage imageUrl={imgUrl} alt="" size="md" variant="emerald" className="group-hover:scale-105 transition-transform" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-semibold text-neutral-900 truncate">{plant.profile_name}</h3>
@@ -900,17 +895,13 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                     }`}
                   >
                     <div className="px-1.5 pt-1.5 shrink-0">
-                      <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                      <div className="relative w-full aspect-square overflow-hidden rounded-xl">
                         {batchSelectMode && (
                           <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                             {selected ? <span className="w-3 h-3 rounded-full bg-blue-600" /> : null}
                           </span>
                         )}
-                        {imgUrl ? (
-                          <Image src={imgUrl} alt="" fill className="object-cover object-center group-hover:scale-105 transition-transform" sizes="120px" unoptimized />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
-                        )}
+                        <PlantImage imageUrl={imgUrl} alt="" fill size="lg" variant="emerald" className="group-hover:scale-105 transition-transform" />
                         <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
                           Perennial
                         </span>

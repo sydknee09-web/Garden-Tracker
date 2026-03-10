@@ -324,6 +324,19 @@ function CloseIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Sprout/seedling for plant profile fallback (1.5 stroke). */
+function SeedlingIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M12 22v-6" />
+      <path d="M12 16c2.5-2 4-5 4-8a4 4 0 1 0-8 0c0 3 1.5 6 4 8z" />
+      <path d="M8 10h2" />
+      <path d="M14 10h2" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Close: CloseIcon,
@@ -333,6 +346,7 @@ export const ICON_MAP = {
   Task: TaskIcon,
   Trash: TrashIcon,
   Seed: SeedIcon,
+  Seedling: SeedlingIcon,
   Plant: PlantIcon,
   Shed: ShedIcon,
   Back: BackIcon,

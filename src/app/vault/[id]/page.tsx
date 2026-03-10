@@ -30,6 +30,7 @@ import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 import { generateCareTasks } from "@/lib/generateCareTasks";
+import { PlantImage } from "@/components/PlantImage";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -1635,12 +1636,14 @@ export default function VaultSeedPage() {
         <div className="mb-4 rounded-2xl overflow-hidden bg-white border border-neutral-200 relative aspect-[16/10] max-h-[300px] w-full">
           {heroImageUrl ? (
             <>
-              <img
-                src={heroImageUrl}
+              <PlantImage
+                imageUrl={heroImageUrl}
                 alt=""
-                className="w-full h-full object-cover"
+                fill
+                size="2xl"
+                variant="neutral"
+                className="!rounded-none"
                 onLoad={() => setHeroImageLoaded(true)}
-                onError={() => setImageError(true)}
               />
               {!heroImageLoaded && (
                 <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
