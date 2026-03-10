@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { StarRating } from "@/components/StarRating";
+import { ICON_MAP } from "@/lib/styleDictionary";
+import { hapticSuccess } from "@/lib/haptics";
 
 function toDateInputValue(value: string | null | undefined): string {
   if (!value) return "";
@@ -108,13 +110,14 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
       setError(err.message);
       return;
     }
+    hapticSuccess();
     onSaved();
     onClose();
   }, [user?.id, packetId, vendorName, purchaseDate, purchaseUrl, price, qtyStatus, packetRating, userNotes, storageLocation, tagsInput, onSaved, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
-      <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
+      <div className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
         <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
           <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit packet</h2>
         </div>
@@ -126,7 +129,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
           ) : (
             <>
               <div>
-                <label htmlFor="edit-vendor" className="block text-xs font-medium uppercase text-neutral-500 mb-1">Vendor</label>
+                <label htmlFor="edit-vendor" className="block text-xs font-medium uppercase text-neutral-500 mb-1">Vendor / Nursery</label>
                 <input
                   id="edit-vendor"
                   type="text"
@@ -224,16 +227,18 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50"
+            className="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50"
           >
+            <ICON_MAP.Cancel className="w-4 h-4" />
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={loading || saving}
-            className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 min-h-[44px] disabled:opacity-50"
+            className="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
           >
+            <ICON_MAP.Save className="w-4 h-4" />
             {saving ? "Saving…" : "Save"}
           </button>
         </div>

@@ -36,6 +36,8 @@ interface QuickAddSeedProps {
   onSuccess: (opts?: QuickAddSuccessOpts) => void;
   /** When opening with prefill (e.g. from vault toolbar scan), go straight to manual with form filled */
   initialPrefill?: SeedQRPrefill | null;
+  /** When set (e.g. Plant Again from vault profile), lock to this profile: hide variety search, show read-only chip, only add packet to this profile */
+  preSelectedProfileId?: string | null;
   /** Open the Photo Import (group photo) flow; parent should close this modal and open BatchAddSeed */
   onOpenBatch?: () => void;
   /** Open Link Import (paste URL) flow; parent should close this modal and navigate to /vault/import */
@@ -61,7 +63,7 @@ function applyPrefillToForm(
   if (prefill.vendor) setters.setVendor(prefill.vendor);
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
@@ -83,12 +85,17 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
 
-  // Reset screen when modal opens/closes; apply initial prefill from parent
+  // Reset screen when modal opens/closes; apply initial prefill and/or preSelectedProfileId from parent
   useEffect(() => {
     if (open) {
       setAddedToVault(false);
       const hasPrefill = initialPrefill && Object.keys(initialPrefill).length > 0;
-      setScreen(hasPrefill ? "manual" : "choose");
+      const hasPreSelected = !!preSelectedProfileId;
+      setScreen(hasPrefill || hasPreSelected ? "manual" : "choose");
+      if (hasPreSelected && preSelectedProfileId) {
+        setManualMode("link");
+        setSelectedProfileIdForLink(preSelectedProfileId);
+      }
       if (hasPrefill && initialPrefill) {
         applyPrefillToForm(initialPrefill, {
           setPlantName,
@@ -110,7 +117,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
       setManualMode("new");
       setSelectedProfileIdForLink("");
     }
-  }, [open, initialPrefill]);
+  }, [open, initialPrefill, preSelectedProfileId]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -123,6 +130,10 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
   }, [open, user?.id]);
 
   const seedProfiles = profiles.filter((p) => (p.profile_type ?? "seed") === "seed");
+  const preSelectedProfile = preSelectedProfileId ? seedProfiles.find((p) => p.id === preSelectedProfileId) : null;
+  const lockedInVarietyLabel = preSelectedProfile
+    ? (preSelectedProfile.variety_name?.trim() ? `${preSelectedProfile.name} (${preSelectedProfile.variety_name})` : preSelectedProfile.name)
+    : null;
 
   // Plant suggestions from global_plant_cache (standardized, excludes bad rows)
   useEffect(() => {
@@ -509,6 +520,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
         {screen === "manual" && (
           <div className="relative">
             <SubmitLoadingOverlay show={submitting} message={submitMessage} />
+            {!preSelectedProfileId && (
             <div className="flex gap-2 mb-4">
               <button
                 type="button"
@@ -525,34 +537,20 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                 Add new
               </button>
             </div>
-            {manualMode === "link" ? (
+            )}
+            {manualMode === "link" || preSelectedProfileId ? (
               <form onSubmit={handleLinkToExisting} className="space-y-4">
-                {seedProfiles.length === 0 ? (
-                  <p className="text-sm text-neutral-600">No varieties in vault. Add new instead.</p>
-                ) : (
+                {preSelectedProfileId ? (
                   <>
-                    <div>
-                      <label htmlFor="quick-add-link-profile" className="block text-sm font-medium text-black/80 mb-1">
-                        Variety *
-                      </label>
-                      <select
-                        id="quick-add-link-profile"
-                        value={selectedProfileIdForLink}
-                        onChange={(e) => setSelectedProfileIdForLink(e.target.value)}
-                        className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                        aria-label="Select variety"
-                      >
-                        <option value="">Select a variety</option>
-                        {seedProfiles.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {lockedInVarietyLabel && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/90 mb-0.5">Variety</p>
+                        <p className="text-neutral-900 font-medium">{lockedInVarietyLabel}</p>
+                      </div>
+                    )}
                     <div>
                       <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                        Vendor (optional)
+                        Vendor / Nursery (optional)
                       </label>
                       <Combobox
                         id="quick-add-link-vendor"
@@ -560,7 +558,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                         onChange={setVendor}
                         suggestions={vendorSuggestions}
                         placeholder="e.g. Burpee"
-                        aria-label="Vendor"
+                        aria-label="Vendor / Nursery"
                         className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
                       />
                     </div>
@@ -624,6 +622,107 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                       />
                     </div>
                   </>
+                ) : (
+                  <>
+                    {seedProfiles.length === 0 ? (
+                      <p className="text-sm text-neutral-600">No varieties in vault. Add new instead.</p>
+                    ) : (
+                      <>
+                        <div>
+                          <label htmlFor="quick-add-link-profile" className="block text-sm font-medium text-black/80 mb-1">
+                            Variety *
+                          </label>
+                          <select
+                            id="quick-add-link-profile"
+                            value={selectedProfileIdForLink}
+                            onChange={(e) => setSelectedProfileIdForLink(e.target.value)}
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                            aria-label="Select variety"
+                          >
+                            <option value="">Select a variety</option>
+                            {seedProfiles.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
+                            Vendor / Nursery (optional)
+                          </label>
+                          <Combobox
+                            id="quick-add-link-vendor"
+                            value={vendor}
+                            onChange={setVendor}
+                            suggestions={vendorSuggestions}
+                            placeholder="e.g. Burpee"
+                            aria-label="Vendor / Nursery"
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                          />
+                        </div>
+                        <div>
+                          <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
+                          <div className="flex gap-2 flex-wrap">
+                            {VOLUMES.map((v) => (
+                              <button
+                                key={v}
+                                type="button"
+                                onClick={() => setVolume(v)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  volume === v ? "bg-emerald text-white" : "bg-black/5 text-black/70 hover:bg-black/10"
+                                }`}
+                              >
+                                {VOLUME_LABELS[v]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="quick-add-link-source-url-2" className="block text-sm font-medium text-black/80 mb-1">
+                            Source URL (optional)
+                          </label>
+                          <input
+                            id="quick-add-link-source-url-2"
+                            type="url"
+                            value={sourceUrlToSave}
+                            onChange={(e) => setSourceUrlToSave(e.target.value)}
+                            placeholder="https://..."
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                            aria-label="Product or vendor URL"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="quick-add-link-price-2" className="block text-sm font-medium text-black/80 mb-1">
+                            Price (optional)
+                          </label>
+                          <input
+                            id="quick-add-link-price-2"
+                            type="text"
+                            value={priceToSave}
+                            onChange={(e) => setPriceToSave(e.target.value)}
+                            placeholder="e.g. $3.50"
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                            aria-label="Price (optional)"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="quick-add-link-notes-2" className="block text-sm font-medium text-black/80 mb-1">
+                            Notes (optional)
+                          </label>
+                          <textarea
+                            id="quick-add-link-notes-2"
+                            value={notesToSave}
+                            onChange={(e) => setNotesToSave(e.target.value)}
+                            placeholder="e.g. From seed swap, organic"
+                            rows={2}
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] resize-none"
+                            aria-label="Packet notes"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
                 {error && <p className="text-sm text-citrus font-medium">{error}</p>}
                 <div className="flex gap-2 pt-2">
@@ -632,7 +731,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, onOpenB
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting || addedToVault || seedProfiles.length === 0}
+                    disabled={submitting || addedToVault || (!preSelectedProfileId && seedProfiles.length === 0)}
                     className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {addedToVault ? (

@@ -357,10 +357,10 @@ export function BatchLogSheet({
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
           <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
-          {/* 1. Quick Actions row */}
+          {/* 1. Quick Actions row — 2-row grid so all icons visible on mobile without scroll */}
           <div>
             <span className="block text-xs font-medium text-black/60 mb-2">Quick action</span>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1">
+            <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickCareTap("water")}

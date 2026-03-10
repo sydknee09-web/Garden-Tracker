@@ -343,10 +343,10 @@ export default function JournalNewPage() {
           }}
         />
 
-        {/* 1. Quick Actions row */}
+        {/* 1. Quick Actions row — 2-row grid so all icons visible on mobile without scroll */}
         <div>
           <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 scrollbar-thin">
+          <div className="grid grid-cols-4 gap-2">
             {QUICK_ACTIONS.map((action) => {
               const Icon = ICON_MAP[action.icon];
               const isSelected = selectedQuickAction === action.id;

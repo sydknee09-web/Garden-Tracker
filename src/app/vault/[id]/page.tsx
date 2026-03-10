@@ -33,6 +33,16 @@ import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
+import dynamic from "next/dynamic";
+
+const AddPlantModal = dynamic(
+  () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
+  { ssr: false }
+);
+const QuickAddSeed = dynamic(
+  () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
+  { ssr: false }
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -176,6 +186,8 @@ export default function VaultSeedPage() {
   const [deleteSaving, setDeleteSaving] = useState(false);
   const [editGrowTarget, setEditGrowTarget] = useState<GrowInstance | null>(null);
   const [editGrowLocation, setEditGrowLocation] = useState("");
+  const [editGrowVendor, setEditGrowVendor] = useState("");
+  const [editGrowPrice, setEditGrowPrice] = useState("");
   const [editGrowPlantCount, setEditGrowPlantCount] = useState(1);
   const [editGrowSownDate, setEditGrowSownDate] = useState("");
   const [editGrowSaving, setEditGrowSaving] = useState(false);
@@ -189,7 +201,7 @@ export default function VaultSeedPage() {
   const [editForm, setEditForm] = useState({
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
     germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
-    purchaseDate: "", growingNotes: "", status: "",
+    purchaseDate: "", purchaseVendor: "", growingNotes: "", status: "",
     companionPlants: "", avoidPlants: "",
     propagationNotes: "", seedSavingNotes: "",
   });
@@ -220,6 +232,8 @@ export default function VaultSeedPage() {
   const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
   const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const [plantAgainAddPlantOpen, setPlantAgainAddPlantOpen] = useState(false);
+  const [plantAgainQuickAddOpen, setPlantAgainQuickAddOpen] = useState(false);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
@@ -552,6 +566,8 @@ export default function VaultSeedPage() {
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);
     setEditGrowLocation(gi.location ?? "");
+    setEditGrowVendor((gi.vendor ?? "").trim());
+    setEditGrowPrice((gi.purchase_price ?? "").trim());
     setEditGrowPlantCount(Math.max(1, (gi as GrowInstance).plant_count ?? 1));
     setEditGrowSownDate(gi.sown_date ? gi.sown_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
   }, []);
@@ -563,6 +579,8 @@ export default function VaultSeedPage() {
     const { error } = await supabase.from("grow_instances")
       .update({
         location: editGrowLocation.trim() || null,
+        vendor: editGrowVendor.trim() || null,
+        purchase_price: editGrowPrice.trim() || null,
         plant_count: Math.max(1, editGrowPlantCount),
         sown_date: editGrowSownDate || editGrowTarget.sown_date,
       })
@@ -570,9 +588,10 @@ export default function VaultSeedPage() {
       .eq("user_id", ownerId);
     setEditGrowSaving(false);
     if (error) return;
+    hapticSuccess();
     setEditGrowTarget(null);
     loadProfile();
-  }, [user?.id, editGrowTarget, editGrowLocation, editGrowPlantCount, editGrowSownDate, loadProfile]);
+  }, [user?.id, editGrowTarget, editGrowLocation, editGrowVendor, editGrowPrice, editGrowPlantCount, editGrowSownDate, loadProfile]);
 
   // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
   useEffect(() => {
@@ -1035,7 +1054,7 @@ export default function VaultSeedPage() {
   // Edit modal
   const openEditModal = useCallback(() => {
     if (!profile) return;
-    const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null; propagation_notes?: string | null; seed_saving_notes?: string | null };
+    const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null; propagation_notes?: string | null; seed_saving_notes?: string | null; purchase_vendor?: string | null };
     const dateForInput = pp.purchase_date?.trim() || pp.created_at;
     const companions = pp.companion_plants ?? [];
     const avoid = pp.avoid_plants ?? [];
@@ -1050,6 +1069,7 @@ export default function VaultSeedPage() {
       sowingMethod: "sowing_method" in pp && pp.sowing_method != null ? pp.sowing_method : "",
       plantingWindow: "planting_window" in pp && pp.planting_window != null ? pp.planting_window : "",
       purchaseDate: dateForInput ? toDateInputValue(dateForInput) : "",
+      purchaseVendor: (pp.purchase_vendor ?? "").trim(),
       growingNotes: pp.growing_notes ?? "",
       status: profile.status ?? "",
       companionPlants: Array.isArray(companions) ? companions.join(", ") : "",
@@ -1088,12 +1108,14 @@ export default function VaultSeedPage() {
         growing_notes: editForm.growingNotes.trim() || null,
         propagation_notes: editForm.propagationNotes.trim() || null,
         seed_saving_notes: editForm.seedSavingNotes.trim() || null,
+        purchase_vendor: editForm.purchaseVendor.trim() || null,
         ...(editForm.growingNotes.trim() && { description_source: "user" }),
       } : {}),
     };
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
     setSavingEdit(false);
     if (error) { setError(error.message); return; }
+    hapticSuccess();
     if (user?.id && profile) {
       const oldKey = buildIdentityKey(profile.name ?? "", profile.variety_name ?? "");
       const newKey = buildIdentityKey(editForm.plantType.trim(), editForm.varietyName.trim());
@@ -1411,7 +1433,11 @@ export default function VaultSeedPage() {
               ))}
               <div>
                 <label htmlFor="edit-purchase-date" className="block text-sm font-medium text-neutral-700 mb-1">Purchase Date</label>
-                <input id="edit-purchase-date" type="date" value={editForm.purchaseDate} onChange={(e) => setEditForm((f) => ({ ...f, purchaseDate: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+                <input id="edit-purchase-date" type="date" value={editForm.purchaseDate} onChange={(e) => setEditForm((f) => ({ ...f, purchaseDate: e.target.value }))} className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+              </div>
+              <div>
+                <label htmlFor="edit-purchase-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                <input id="edit-purchase-vendor" type="text" value={editForm.purchaseVendor} onChange={(e) => setEditForm((f) => ({ ...f, purchaseVendor: e.target.value }))} placeholder="e.g. Briggs Tree Nursery, Home Depot" className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Vendor or nursery" />
               </div>
               <div>
                 <label htmlFor="edit-growing-notes" className="block text-sm font-medium text-neutral-700 mb-1">Growing Notes</label>
@@ -1439,7 +1465,10 @@ export default function VaultSeedPage() {
               )}
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{savingEdit ? "Saving..." : "Save Changes"}</button>
+              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-2">
+                <ICON_MAP.Save className="w-4 h-4" />
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 disabled:opacity-50">Delete Plant Profile</button>
               )}
@@ -2263,6 +2292,23 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "plantings" && (
           <>
+            <div className="flex items-center justify-end mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isPermanent) {
+                    setPlantAgainAddPlantOpen(true);
+                  } else {
+                    setPlantAgainQuickAddOpen(true);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 text-sm"
+                aria-label="Plant again"
+              >
+                <ICON_MAP.Add className="w-4 h-4" />
+                Plant Again
+              </button>
+            </div>
             {growInstances.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">{isPermanent ? "No plants yet." : "No plantings yet."}</p>
@@ -2480,10 +2526,10 @@ export default function VaultSeedPage() {
         </div>
       )}
 
-      {/* Edit grow instance modal */}
+      {/* Edit grow instance modal — full-screen on mobile, centered on desktop */}
       {editGrowTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
-          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
+          <div className="bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl p-6">
             <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900 mb-4">Edit plant</h2>
             <div className="space-y-4">
               <div>
@@ -2493,7 +2539,31 @@ export default function VaultSeedPage() {
                   type="date"
                   value={editGrowSownDate}
                   onChange={(e) => setEditGrowSownDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-grow-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                <input
+                  id="edit-grow-vendor"
+                  type="text"
+                  value={editGrowVendor}
+                  onChange={(e) => setEditGrowVendor(e.target.value)}
+                  placeholder="e.g. Home Depot, Briggs Tree Nursery"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Vendor or nursery"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-grow-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                <input
+                  id="edit-grow-price"
+                  type="text"
+                  value={editGrowPrice}
+                  onChange={(e) => setEditGrowPrice(e.target.value)}
+                  placeholder="e.g. $12.99"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Price paid"
                 />
               </div>
               <div>
@@ -2569,8 +2639,14 @@ export default function VaultSeedPage() {
               </button>
             </div>
             <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
-              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{editGrowSaving ? "Saving…" : "Save"}</button>
+              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
+                <ICON_MAP.Cancel className="w-4 h-4" />
+                Cancel
+              </button>
+              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">
+                <ICON_MAP.Save className="w-4 h-4" />
+                {editGrowSaving ? "Saving…" : "Save"}
+              </button>
             </div>
           </div>
         </div>
@@ -2599,6 +2675,26 @@ export default function VaultSeedPage() {
         growInstanceId={harvestTarget?.growId ?? ""}
         displayName={harvestTarget?.displayName ?? ""}
       />
+
+      {plantAgainAddPlantOpen && (
+        <AddPlantModal
+          open={plantAgainAddPlantOpen}
+          onClose={() => setPlantAgainAddPlantOpen(false)}
+          onSuccess={() => { loadProfile(); setPlantAgainAddPlantOpen(false); }}
+          profileId={id}
+          profileDisplayName={profile?.variety_name?.trim() ? `${profile?.name ?? ""} (${profile.variety_name})` : profile?.name ?? ""}
+          defaultPlantType="permanent"
+        />
+      )}
+      {plantAgainQuickAddOpen && (
+        <QuickAddSeed
+          open={plantAgainQuickAddOpen}
+          onClose={() => setPlantAgainQuickAddOpen(false)}
+          onSuccess={() => { loadProfile(); setPlantAgainQuickAddOpen(false); }}
+          preSelectedProfileId={id}
+          initialPrefill={{ name: profile?.name ?? "", variety: profile?.variety_name ?? "" }}
+        />
+      )}
 
       {endBatchTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
