@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useVaultOptional } from "@/contexts/VaultContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { BatchAddSupply } from "@/components/BatchAddSupply";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -100,6 +101,9 @@ export function ShedView({
   onLongPress?: (id: string) => void;
   onFilteredIdsChange?: (ids: string[]) => void;
 }) {
+  const vault = useVaultOptional();
+  const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
+  const effectiveScrollContainerRef = vault?.scrollContainerRef ?? scrollContainerRef;
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const router = useRouter();
@@ -163,7 +167,7 @@ export function ShedView({
 
   useEffect(() => {
     fetchSupplies();
-  }, [fetchSupplies, refetchTrigger]);
+  }, [fetchSupplies, effectiveRefetchTrigger]);
 
   useEffect(() => {
     if (!embedded && categoryFromUrl && SUPPLY_CATEGORIES.includes(categoryFromUrl as (typeof SUPPLY_CATEGORIES)[number])) {
@@ -219,7 +223,7 @@ export function ShedView({
     if (!embedded) setInternalCategoryFilter(cat);
   }, [embedded, router]);
 
-  usePullToRefresh({ onRefresh: fetchSupplies, disabled: loading, containerRef: scrollContainerRef });
+  usePullToRefresh({ onRefresh: fetchSupplies, disabled: loading, containerRef: effectiveScrollContainerRef });
 
   return (
     <div className="pt-2">

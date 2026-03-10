@@ -120,11 +120,7 @@ function ShedIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M16 13H8" />
-      <path d="M16 17H8" />
-      <path d="M10 9H8" />
+      <path d="M3 21V9l9-6 9 6v12H3zM9 21v-7h6v7" />
     </svg>
   );
 }
@@ -337,6 +333,116 @@ function SeedlingIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Shovel/spade for plant/sow actions (1.5 stroke). */
+function ShovelIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M2 22l7-7m0 0l-4-4 7-7 4 4-7 7zM15 3l6 6" />
+    </svg>
+  );
+}
+
+/** Trash can (alternate style, 1.5 stroke). */
+function Trash2Icon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+/** Calendar for schedule/task actions (1.5 stroke). */
+function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M19 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM16 2v4M8 2v4M3 10h18M17 17h.01" />
+    </svg>
+  );
+}
+
+/** Pencil for edit (1.5 stroke). Same as Edit. */
+function PencilIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+/** Merge profiles icon (1.5 stroke). */
+function MergeIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M8 6h3v3H8z" />
+      <path d="M13 6h3v3h-3z" />
+      <path d="M10.5 12v6M8 15h5" />
+    </svg>
+  );
+}
+
+/** Shopping list / box with handle (1.5 stroke). */
+function ShoppingListIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
+/** Photo cards grid = 2x2 quadrants (1.5 stroke). */
+function PhotoCardsGridIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
+    </svg>
+  );
+}
+
+/** Condensed grid = 3x2 denser cells (1.5 stroke). */
+function CondensedGridIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <rect x="2" y="2" width="5" height="5" />
+      <rect x="9.5" y="2" width="5" height="5" />
+      <rect x="17" y="2" width="5" height="5" />
+      <rect x="2" y="9.5" width="5" height="5" />
+      <rect x="9.5" y="9.5" width="5" height="5" />
+      <rect x="17" y="9.5" width="5" height="5" />
+    </svg>
+  );
+}
+
+/** Filter funnel (1.5 stroke). */
+function FilterIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+    </svg>
+  );
+}
+
+/** Search magnifier (1.5 stroke). */
+function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Close: CloseIcon,
@@ -368,6 +474,16 @@ export const ICON_MAP = {
   Archive: ArchiveIcon,
   Save: SaveIcon,
   Cancel: CancelIcon,
+  Shovel: ShovelIcon,
+  Trash2: Trash2Icon,
+  Calendar: CalendarIcon,
+  Pencil: PencilIcon,
+  Merge: MergeIcon,
+  ShoppingList: ShoppingListIcon,
+  PhotoCardsGrid: PhotoCardsGridIcon,
+  CondensedGrid: CondensedGridIcon,
+  Filter: FilterIcon,
+  Search: SearchIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

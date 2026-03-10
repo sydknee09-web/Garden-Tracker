@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useVaultOptional } from "@/contexts/VaultContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -123,6 +124,9 @@ export function PacketVaultView({
   onPacketSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   onPacketRefineChipsLoaded?: (chips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }) => void;
 }) {
+  const vault = useVaultOptional();
+  const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
+  const effectiveScrollContainerRef = vault?.scrollContainerRef ?? scrollContainerRef;
   const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
@@ -338,18 +342,18 @@ export function PacketVaultView({
 
     fetchPackets();
     return () => { cancelled = true; };
-  }, [user?.id, refetchTrigger, householdViewMode, pullRefetch]);
+  }, [user?.id, effectiveRefetchTrigger, householdViewMode, pullRefetch]);
 
   useEffect(() => {
     setImageErrorIds(new Set());
-  }, [refetchTrigger]);
+  }, [effectiveRefetchTrigger]);
 
   usePullToRefresh({
     onRefresh: async () => {
       setPullRefetch((r) => r + 1);
     },
     disabled: loading,
-    containerRef: scrollContainerRef,
+    containerRef: effectiveScrollContainerRef,
   });
 
   const q = searchQuery.trim().toLowerCase();

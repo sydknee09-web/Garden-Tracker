@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -15,11 +15,6 @@ const PacketVaultLazy = dynamic(
   () => import("./PacketVaultLazy").then((m) => ({ default: m.PacketVaultLazy })),
   { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading packets…</div> }
 );
-
-const ShedView = dynamic(
-  () => import("@/components/ShedView").then((m) => ({ default: m.ShedView })),
-  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading shed…</div> }
-);
 /** Lazy-load modals so vault initial render never pulls zone10b/BatchAddSeed chunk. */
 const SupplyPicker = dynamic(
   () => import("@/components/SupplyPicker").then((m) => ({ default: m.SupplyPicker })),
@@ -27,14 +22,6 @@ const SupplyPicker = dynamic(
 );
 const QuickAddSeed = dynamic(
   () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
-  { ssr: false }
-);
-const QuickAddSupply = dynamic(
-  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
-  { ssr: false }
-);
-const BatchAddSupply = dynamic(
-  () => import("@/components/BatchAddSupply").then((m) => ({ default: m.BatchAddSupply })),
   { ssr: false }
 );
 const PurchaseOrderImport = dynamic(
@@ -78,7 +65,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTagStyle } from "@/components/TagBadges";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
-import { compressImage } from "@/lib/compressImage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useFilterState } from "@/hooks/useFilterState";
 import {
@@ -119,90 +105,17 @@ import {
   getNavSection,
   setLastNavSection,
 } from "@/lib/navSectionClear";
+import { useVault } from "@/contexts/VaultContext";
+import { ICON_MAP } from "@/lib/styleDictionary";
+import {
+  VaultShedWingProvider,
+  VaultShedWingToolbar,
+  VaultShedWingContent,
+  VaultShedWingModals,
+  VaultShedWingBridge,
+} from "@/app/vault/components/VaultShedWing";
 
 const SAVE_TOAST_DURATION_MS = 5000;
-
-function ShovelIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      {/* Handle */}
-      <path d="M12 2v9" />
-      {/* Blade (spade head) */}
-      <path d="M12 11 8 11 5 22h14l-3-11H12z" />
-    </svg>
-  );
-}
-function Trash2Icon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  );
-}
-function MergeIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M8 6h3v3H8z" />
-      <path d="M13 6h3v3h-3z" />
-      <path d="M10.5 12v6M8 15h5" />
-    </svg>
-  );
-}
-function ShoppingListIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
-  );
-}
-/** Photo cards = image-dominant 2-col grid (4 quadrants). */
-function PhotoCardsGridIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-/** Condensed = denser 3-col grid (6 cells). */
-function CondensedGridIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="2" width="5" height="5" />
-      <rect x="9.5" y="2" width="5" height="5" />
-      <rect x="17" y="2" width="5" height="5" />
-      <rect x="2" y="9.5" width="5" height="5" />
-      <rect x="9.5" y="9.5" width="5" height="5" />
-      <rect x="17" y="9.5" width="5" height="5" />
-    </svg>
-  );
-}
 
 function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
   if (!searchParams) return "grid";
@@ -218,15 +131,17 @@ function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "lis
 
 function VaultPageInner() {
   const { user } = useAuth();
+  const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
-  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
+  const [shedModalOpen, setShedModalOpen] = useState(false);
+  const [shedSelectionState, setShedSelectionState] = useState<{ shedBatchSelectMode: boolean; selectedSupplyIds: Set<string> }>({ shedBatchSelectMode: false, selectedSupplyIds: new Set() });
+  const pendingShedActionRef = useRef<"quickAdd" | null>(null);
+  const shedActionsRef = useRef<{ openSelectionActions: () => void; openQuickAdd: () => void; closeAllShedModals: () => void } | null>(null);
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
@@ -238,15 +153,14 @@ function VaultPageInner() {
   const [quickLogOpen, setQuickLogOpen] = useState(false);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedQuickAddOpen || batchAddSupplyOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen || quickLogOpen;
+  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen || quickLogOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQuickAddOpen(false);
     setQrPrefill(null);
     setBatchAddOpen(false);
     setPurchaseOrderOpen(false);
-    setShedQuickAddOpen(false);
-    setBatchAddSupplyOpen(false);
+    shedActionsRef.current?.closeAllShedModals?.();
     setUniversalAddMenuOpen(false);
     setShowAddPlantModal(false);
     setNewTaskModalOpen(false);
@@ -279,7 +193,6 @@ function VaultPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const [tagSearchQuery, setTagSearchQuery] = useState("");
@@ -292,22 +205,6 @@ function VaultPageInner() {
   const [sortBy, setSortBy] = useState<VaultSortBy>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
-  const [shedSearchQuery, setShedSearchQuery] = useState("");
-  const [shedCategoryFilter, setShedCategoryFilter] = useState<string | null>(() => {
-    const loaded = loadFilterDefault<string>(FILTER_DEFAULT_KEYS.vaultShed);
-    if (typeof loaded === "string" && ["fertilizer", "pesticide", "soil_amendment", "other"].includes(loaded)) return loaded;
-    return null;
-  });
-  const [shedHasDefault, setShedHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultShed));
-  const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
-  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
-  const [shedFilterOpen, setShedFilterOpen] = useState(false);
-  const [shedSortBy, setShedSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("updated_at");
-  const [shedSortDir, setShedSortDir] = useState<"asc" | "desc">("desc");
-  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("list");
-  const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
-  const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
-  const [shedSelectionActionsOpen, setShedSelectionActionsOpen] = useState(false);
   const [seedTypeChips, setSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
   const [refineChips, setRefineChips] = useState<{
@@ -368,7 +265,7 @@ function VaultPageInner() {
   useEffect(() => {
     if (!user?.id || viewMode !== "grid") return;
     runSeedTypeBackfill(user.id).then((didUpdate) => {
-      if (didUpdate) setRefetchTrigger((t) => t + 1);
+      if (didUpdate) refetch();
     });
   }, [user?.id, viewMode]);
 
@@ -387,13 +284,6 @@ function VaultPageInner() {
     setPacketSortBy(sortBy);
     setPacketSortDirection(sortDirection);
   }, []);
-
-  const shedCategoryFromUrl = searchParams.get("category");
-  useEffect(() => {
-    if (viewMode === "shed" && shedCategoryFromUrl && ["fertilizer", "pesticide", "soil_amendment", "other"].includes(shedCategoryFromUrl)) {
-      setShedCategoryFilter(shedCategoryFromUrl);
-    }
-  }, [viewMode, shedCategoryFromUrl]);
 
   const handleVaultStatusChipsLoaded = useCallback((chips: { value: StatusFilter; label: string; count: number }[]) => {
     setVaultStatusChips(chips);
@@ -466,13 +356,13 @@ function VaultPageInner() {
     if (!user?.id || !newName.trim()) return;
     const { error } = await supabase.from("plant_profiles").update({ name: newName.trim(), updated_at: new Date().toISOString() }).eq("id", profileId).eq("user_id", user.id);
     if (error) setSaveToastMessage(`Could not update: ${error.message}`);
-    else setRefetchTrigger((t) => t + 1);
+    else refetch();
   }, [user?.id]);
 
   // When landing on vault after a profile delete, refetch list and clean URL
   useEffect(() => {
     if (searchParams.get("deleted") === "1") {
-      setRefetchTrigger((t) => t + 1);
+      refetch();
       router.replace("/vault", { scroll: false });
     }
   }, [searchParams, router]);
@@ -480,7 +370,7 @@ function VaultPageInner() {
   // When landing after adding packets from Import Review, force refetch so new packet shows
   useEffect(() => {
     if (searchParams.get("added") === "1") {
-      setRefetchTrigger((t) => t + 1);
+      refetch();
       router.replace("/vault?status=vault", { scroll: false });
     }
   }, [searchParams, router]);
@@ -503,7 +393,7 @@ function VaultPageInner() {
     } else if (tab === "active" || tab === "plants") {
       // Legacy tab values — fall back to Plant Profiles (grid) and refresh
       setViewMode("grid");
-      if (tab === "active") setRefetchTrigger((t) => t + 1);
+      if (tab === "active") refetch();
     }
     const status = searchParams.get("status");
     if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
@@ -570,8 +460,6 @@ function VaultPageInner() {
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
-      const savedShedStyle = sessionStorage.getItem("vault-shed-display-style");
-      if (savedShedStyle === "grid" || savedShedStyle === "list") setShedDisplayStyle(savedShedStyle);
       const savedStatus = sessionStorage.getItem("vault-status-filter");
       // Restore only explicit non-default filters; treat "" and legacy "vault" (In storage) as All
       if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") vaultFilters.setStatus(savedStatus);
@@ -620,42 +508,6 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [gridDisplayStyle]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      sessionStorage.setItem("vault-shed-display-style", shedDisplayStyle);
-    } catch {
-      /* ignore */
-    }
-  }, [shedDisplayStyle]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      sessionStorage.setItem("vault-shed-sort", JSON.stringify({ sortBy: shedSortBy, sortDir: shedSortDir }));
-    } catch {
-      /* ignore */
-    }
-  }, [shedSortBy, shedSortDir]);
-  // Restore shed display style and sort on mount (runs even when tab=shed in URL, unlike hasRestoredSession)
-  const shedStyleRestoredRef = useRef(false);
-  useEffect(() => {
-    if (shedStyleRestoredRef.current || typeof window === "undefined") return;
-    shedStyleRestoredRef.current = true;
-    try {
-      const saved = sessionStorage.getItem("vault-shed-display-style");
-      if (saved === "grid" || saved === "list") setShedDisplayStyle(saved);
-      const sortRaw = sessionStorage.getItem("vault-shed-sort");
-      if (sortRaw) {
-        const parsed = JSON.parse(sortRaw) as { sortBy?: string; sortDir?: string };
-        if (["name", "updated_at", "last_used", "category"].includes(parsed.sortBy ?? "")) {
-          setShedSortBy(parsed.sortBy as "name" | "updated_at" | "last_used" | "category");
-        }
-        if (parsed.sortDir === "asc" || parsed.sortDir === "desc") setShedSortDir(parsed.sortDir);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -744,7 +596,7 @@ function VaultPageInner() {
       const count = selectedVarietyIds.size;
       setSelectedVarietyIds(new Set());
       setBatchSelectMode(false);
-      setRefetchTrigger((t) => t + 1);
+      refetch();
       setSaveToastMessage(`${count} item${count === 1 ? "" : "s"} removed from vault.`);
     }
   }, [user?.id, selectedVarietyIds]);
@@ -764,7 +616,7 @@ function VaultPageInner() {
         setSelectedPacketIds(new Set());
         setBatchSelectMode(false);
         setBatchPacketDeleteConfirmOpen(false);
-        setRefetchTrigger((t) => t + 1);
+        refetch();
         setSaveToastMessage(`${count} packet${count === 1 ? "" : "s"} removed.`);
       } catch (err) {
         setSaveToastMessage(err instanceof Error ? err.message : "Could not delete packets.");
@@ -774,33 +626,6 @@ function VaultPageInner() {
     },
     [user?.id, selectedPacketIds]
   );
-
-  const handleShedBatchDelete = useCallback(async () => {
-    if (selectedSupplyIds.size === 0) return;
-    const uid = user?.id;
-    if (!uid) {
-      setSaveToastMessage("You must be signed in to delete.");
-      return;
-    }
-    setShedBatchDeleting(true);
-    const now = new Date().toISOString();
-    const ids = Array.from(selectedSupplyIds);
-    const { error } = await supabase
-      .from("supply_profiles")
-      .update({ deleted_at: now })
-      .in("id", ids)
-      .eq("user_id", uid);
-    setShedBatchDeleting(false);
-    if (error) {
-      setSaveToastMessage(`Could not delete: ${error.message}`);
-      return;
-    }
-    const count = ids.length;
-    setSelectedSupplyIds(new Set());
-    setShedBatchSelectMode(false);
-    setRefetchTrigger((t) => t + 1);
-    setSaveToastMessage(`${count} supply${count === 1 ? "" : " supplies"} removed.`);
-  }, [user?.id, selectedSupplyIds]);
 
   const handleSelectAll = useCallback(() => {
     if (viewMode === "list") {
@@ -851,7 +676,7 @@ function VaultPageInner() {
       setMergeModalOpen(false);
       setSelectedVarietyIds(new Set());
       setBatchSelectMode(false);
-      setRefetchTrigger((t) => t + 1);
+      refetch();
       setSaveToastMessage("Profiles merged successfully.");
     } catch (err) {
       setSaveToastMessage(err instanceof Error ? err.message : "Could not merge profiles.");
@@ -1104,7 +929,7 @@ function VaultPageInner() {
     setSelectedVarietyIds(new Set());
     setPlantSelectedSupplyIds(new Set());
     setBatchSelectMode(false);
-    setRefetchTrigger((t) => t + 1);
+    refetch();
     setSaveToastMessage("Planted!");
     setTimeout(() => router.push("/garden?tab=active"), 600);
   }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantPlantCountByProfileId, plantSelectedSupplyIds, router, consumePackets]);
@@ -1188,6 +1013,8 @@ function VaultPageInner() {
   }, [router]);
 
   return (
+    <VaultShedWingProvider viewMode={viewMode} pendingShedActionRef={pendingShedActionRef} onSaveMessage={setSaveToastMessage}>
+      <VaultShedWingBridge onShedModalOpenChange={setShedModalOpen} onShedSelectionStateChange={setShedSelectionState} shedActionsRef={shedActionsRef} />
     <div className="px-6 pt-0 pb-10">
       {hasPendingReview && (
         <div className="w-full mb-3 mt-2 flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 relative">
@@ -1203,7 +1030,7 @@ function VaultPageInner() {
             type="button"
             onClick={() => {
               clearReviewImportData();
-              setRefetchTrigger((t) => t + 1);
+              refetch();
             }}
             className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-amber-700 hover:bg-amber-200/80 transition-colors"
             aria-label="Cancel batch and dismiss"
@@ -1220,7 +1047,7 @@ function VaultPageInner() {
               className="inline-flex items-center gap-1.5 text-xs text-neutral-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-1 shrink-0"
               title={`Gemini is researching photos for ${pendingHeroCount} new variet${pendingHeroCount === 1 ? "y" : "ies"}…`}
             >
-              <ShovelIcon className="w-3.5 h-3.5 animate-spin text-amber-600" aria-hidden />
+              <ICON_MAP.Shovel className="w-3.5 h-3.5 animate-spin text-amber-600" aria-hidden />
               <span>AI Researching…</span>
             </span>
           )}
@@ -1362,7 +1189,7 @@ function VaultPageInner() {
                     title={gridDisplayStyle === "condensed" ? "Photo cards" : "Condensed grid"}
                     aria-label={gridDisplayStyle === "condensed" ? "Switch to photo cards" : "Switch to condensed grid"}
                   >
-                    {gridDisplayStyle === "condensed" ? <PhotoCardsGridIcon /> : <CondensedGridIcon />}
+                    {gridDisplayStyle === "condensed" ? <ICON_MAP.PhotoCardsGrid className="w-5 h-5" /> : <ICON_MAP.CondensedGrid className="w-5 h-5" />}
                   </button>
                 )}
               </div>
@@ -1371,226 +1198,9 @@ function VaultPageInner() {
           </>
         )}
 
-        {/* Shed toolbar: same header as plant profiles / seed vault */}
-        {viewMode === "shed" && (
-          <>
-            <div className="flex gap-2 mb-2">
-              <div className="flex-1 relative">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="search"
-                  value={shedSearchQuery}
-                  onChange={(e) => setShedSearchQuery(e.target.value)}
-                  placeholder="Search supplies…"
-                  className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset min-h-[44px]"
-                  aria-label="Search supplies"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
-                <button
-                  type="button"
-                  onClick={() => setShedFilterOpen(true)}
-                  className={`min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 flex items-center gap-2 shrink-0 ${shedCategoryFilter ? "ring-2 ring-emerald/40" : ""}`}
-                  aria-label="Filter by category"
-                >
-                  Filter
-                  {shedCategoryFilter && (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">1</span>
-                  )}
-                </button>
-                {shedCategoryFilter && (
-                  <button
-                    type="button"
-                    onClick={() => { setShedCategoryFilter(null); router.replace("/vault?tab=shed", { scroll: false }); }}
-                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
-                    aria-label="Clear category filter"
-                  >
-                    Clear filters
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (shedBatchSelectMode) {
-                      setShedBatchSelectMode(false);
-                      setSelectedSupplyIds(new Set());
-                    } else {
-                      setShedBatchSelectMode(true);
-                    }
-                  }}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5 shrink-0"
-                >
-                  {shedBatchSelectMode ? "Cancel" : "Select"}
-                </button>
-                {shedBatchSelectMode && filteredSupplyIds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSupplyIds(new Set(filteredSupplyIds))}
-                    className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 hover:bg-black/5"
-                    id="shed-select-all"
-                  >
-                    Select All
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShedDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                  title={shedDisplayStyle === "grid" ? "List view" : "Grid view"}
-                  aria-label={shedDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
-                >
-                  {shedDisplayStyle === "grid" ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+        {/* Shed toolbar */}
+        {viewMode === "shed" && <VaultShedWingToolbar />}
       </div>
-
-      {/* Shed category filter modal */}
-      {shedFilterOpen && viewMode === "shed" && (
-        <>
-          <div
-            className="fixed inset-0 z-[100] bg-black/40"
-            aria-hidden
-            onClick={() => setShedFilterOpen(false)}
-          />
-          <div
-            className="fixed left-4 right-4 top-1/2 z-[101] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="shed-filter-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
-              <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter & Sort</h2>
-              <button
-                type="button"
-                onClick={() => setShedFilterOpen(false)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/60 hover:bg-black/5 hover:text-black"
-                aria-label="Close"
-              >
-                <span className="text-xl leading-none" aria-hidden>×</span>
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              <div>
-                <h3 className="text-sm font-medium text-black/70 mb-2">Filter by category</h3>
-                <div className="space-y-1">
-                  {[
-                    { value: null, label: "All" },
-                    { value: "fertilizer", label: "Fertilizer" },
-                    { value: "pesticide", label: "Pesticide" },
-                    { value: "soil_amendment", label: "Soil Amendment" },
-                    { value: "other", label: "Other" },
-                  ].map(({ value, label }) => {
-                    const selected = shedCategoryFilter === value;
-                    return (
-                      <button
-                        key={value ?? "all"}
-                        type="button"
-                        onClick={() => {
-                          setShedCategoryFilter(value);
-                          router.replace(value ? `/vault?tab=shed&category=${value}` : "/vault?tab=shed", { scroll: false });
-                          setShedFilterOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-black/70 mb-2">Sort by</h3>
-                <div className="space-y-1">
-                  {[
-                    { value: "updated_at" as const, label: "Date added" },
-                    { value: "name" as const, label: "Name" },
-                    { value: "last_used" as const, label: "Last used" },
-                    { value: "category" as const, label: "Category" },
-                  ].map(({ value, label }) => {
-                    const selected = shedSortBy === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setShedSortBy(value);
-                          setShedFilterOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShedSortDir("asc")}
-                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium ${shedSortDir === "asc" ? "bg-emerald/10 text-emerald-800" : "text-black/60 hover:bg-black/5"}`}
-                  >
-                    A → Z
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShedSortDir("desc")}
-                    className={`flex-1 min-h-[44px] py-2 rounded-lg text-sm font-medium ${shedSortDir === "desc" ? "bg-emerald/10 text-emerald-800" : "text-black/60 hover:bg-black/5"}`}
-                  >
-                    Z → A
-                  </button>
-                </div>
-              </div>
-            </div>
-            <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
-              <div className="flex items-center gap-2">
-                {!shedHasDefault && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      saveFilterDefault(FILTER_DEFAULT_KEYS.vaultShed, shedCategoryFilter);
-                      setShedHasDefault(true);
-                    }}
-                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                    aria-label="Save current filter as default"
-                  >
-                    Save Default
-                  </button>
-                )}
-                {shedHasDefault && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearFilterDefault(FILTER_DEFAULT_KEYS.vaultShed);
-                      setShedHasDefault(false);
-                    }}
-                    className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-black/60 hover:bg-black/5"
-                    aria-label="Reset saved default filter"
-                  >
-                    Reset Default
-                  </button>
-                )}
-              </div>
-            </footer>
-          </div>
-        </>
-      )}
 
       {/* Refine By pop-up modal (shared across Plant Profiles, Seed Vault, Active Garden, My Plants) */}
       {refineByOpen && (
@@ -1630,7 +1240,7 @@ function VaultPageInner() {
                 </button>
               </div>
             </header>
-            <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
+            <div ref={scrollContainerRef as React.RefObject<HTMLDivElement>} className="flex-1 min-h-0 overflow-y-auto">
               {/* Content for Plant Profiles (grid) vs Seed Vault / Packets (list) — separate per tab */}
               {(viewMode === "grid" || viewMode === "list") && (
                 <>
@@ -2230,36 +1840,7 @@ function VaultPageInner() {
         </>
       )}
 
-      {viewMode === "shed" && (
-        <div className="relative z-10 pt-2 pointer-events-auto">
-          <ShedView
-            embedded
-            refetchTrigger={refetchTrigger}
-            categoryFromUrl={searchParams.get("category")}
-            scrollContainerRef={scrollContainerRef}
-            searchQuery={shedSearchQuery}
-            categoryFilter={shedCategoryFilter}
-            sortBy={shedSortBy}
-            sortDir={shedSortDir}
-            displayStyle={shedDisplayStyle}
-            batchSelectMode={shedBatchSelectMode}
-            selectedIds={selectedSupplyIds}
-            onToggleSelection={(id) => {
-              setSelectedSupplyIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
-                return next;
-              });
-            }}
-            onLongPress={(id) => {
-              setShedBatchSelectMode(true);
-              setSelectedSupplyIds((prev) => new Set([...prev, id]));
-            }}
-            onFilteredIdsChange={setFilteredSupplyIds}
-          />
-        </div>
-      )}
+      {viewMode === "shed" && <VaultShedWingContent />}
 
       {(viewMode === "grid" || viewMode === "list") && (
         <div className="relative z-10 pt-2">
@@ -2703,7 +2284,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
                     aria-label="Delete selected"
                   >
-                    <Trash2Icon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Trash2 className="w-5 h-5 shrink-0" />
                     Delete
                   </button>
                   <button
@@ -2717,7 +2298,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
                     aria-label="Edit selected packet"
                   >
-                    <PencilIcon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Pencil className="w-5 h-5 shrink-0" />
                     Edit
                   </button>
                 </>
@@ -2730,7 +2311,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
                     aria-label="Delete selected"
                   >
-                    <Trash2Icon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Trash2 className="w-5 h-5 shrink-0" />
                     Delete
                   </button>
                   <button
@@ -2740,7 +2321,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
                     aria-label="Plant selected"
                   >
-                    <ShovelIcon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Shovel className="w-5 h-5 shrink-0" />
                     Plant
                   </button>
                   <button
@@ -2750,7 +2331,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
                     aria-label="Add to shopping list"
                   >
-                    <ShoppingListIcon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.ShoppingList className="w-5 h-5 shrink-0" />
                     Shopping list
                   </button>
                   <button
@@ -2760,7 +2341,7 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
                     aria-label="Schedule sowing"
                   >
-                    <CalendarIcon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Calendar className="w-5 h-5 shrink-0" />
                     Plan
                   </button>
                   <button
@@ -2770,40 +2351,11 @@ function VaultPageInner() {
                     className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
                     aria-label="Merge selected"
                   >
-                    <MergeIcon className="w-5 h-5 shrink-0" />
+                    <ICON_MAP.Merge className="w-5 h-5 shrink-0" />
                     Merge
                   </button>
                 </>
               )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Shed selection actions menu */}
-      {shedSelectionActionsOpen && viewMode === "shed" && shedBatchSelectMode && (
-        <>
-          <div
-            className="fixed inset-0 z-[99] bg-black/40"
-            aria-hidden
-            onClick={() => setShedSelectionActionsOpen(false)}
-          />
-          <div
-            role="menu"
-            aria-label="Shed selection actions"
-            className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
-          >
-            <div className="flex-1 overflow-y-auto py-2">
-              <button
-                type="button"
-                onClick={() => { handleShedBatchDelete(); setShedSelectionActionsOpen(false); }}
-                disabled={selectedSupplyIds.size === 0 || shedBatchDeleting}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
-                aria-label="Delete selected"
-              >
-                <Trash2Icon className="w-5 h-5 shrink-0" />
-                Delete
-              </button>
             </div>
           </div>
         </>
@@ -2889,7 +2441,7 @@ function VaultPageInner() {
         <EditPacketModal
           packetId={editPacketId}
           onClose={() => { setEditPacketModalOpen(false); setEditPacketId(null); setSelectedPacketIds(new Set()); setBatchSelectMode(false); }}
-          onSaved={() => { setRefetchTrigger((t) => t + 1); setSelectedPacketIds(new Set()); setBatchSelectMode(false); }}
+          onSaved={() => { refetch(); setSelectedPacketIds(new Set()); setBatchSelectMode(false); }}
         />
       )}
 
@@ -2899,8 +2451,8 @@ function VaultPageInner() {
           const hasSelection = viewMode === "list" ? selectedPacketIds.size > 0 : selectedVarietyIds.size > 0;
           if ((viewMode === "grid" || viewMode === "list") && batchSelectMode && hasSelection) {
             setSelectionActionsOpen(true);
-          } else if (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0) {
-            setShedSelectionActionsOpen(true);
+          } else if (viewMode === "shed" && shedSelectionState.shedBatchSelectMode && shedSelectionState.selectedSupplyIds.size > 0) {
+            shedActionsRef.current?.openSelectionActions?.();
           } else if (universalAddMenuOpen) {
             setUniversalAddMenuOpen(false);
           } else {
@@ -2909,7 +2461,7 @@ function VaultPageInner() {
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
           ((viewMode === "grid" && batchSelectMode && selectedVarietyIds.size > 0) || (viewMode === "list" && batchSelectMode && selectedPacketIds.size > 0)) ||
-          (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0)
+          (viewMode === "shed" && shedSelectionState.shedBatchSelectMode && shedSelectionState.selectedSupplyIds.size > 0)
             ? "bg-amber-500 text-white"
             : universalAddMenuOpen
               ? "bg-emerald-700 text-white"
@@ -2917,7 +2469,7 @@ function VaultPageInner() {
         }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         aria-label={
-          ((viewMode === "grid" || viewMode === "list") && batchSelectMode) || (viewMode === "shed" && shedBatchSelectMode)
+          ((viewMode === "grid" || viewMode === "list") && batchSelectMode) || (viewMode === "shed" && shedSelectionState.shedBatchSelectMode)
             ? "Selection actions"
             : universalAddMenuOpen
               ? "Close add menu"
@@ -2925,7 +2477,7 @@ function VaultPageInner() {
         }
       >
         {((viewMode === "grid" && batchSelectMode && selectedVarietyIds.size > 0) || (viewMode === "list" && batchSelectMode && selectedPacketIds.size > 0)) ||
-        (viewMode === "shed" && shedBatchSelectMode && selectedSupplyIds.size > 0) ? (
+        (viewMode === "shed" && shedSelectionState.shedBatchSelectMode && shedSelectionState.selectedSupplyIds.size > 0) ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
             <path d="M7 6l4 6-4 6" />
             <path d="M13 6l4 6-4 6" />
@@ -2940,7 +2492,7 @@ function VaultPageInner() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${quickAddOpen || shedQuickAddOpen ? "rotate-45" : "rotate-0"}`}
+            className={`transition-transform duration-200 ${quickAddOpen || shedModalOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -2981,7 +2533,9 @@ function VaultPageInner() {
           }}
           onAddToShed={() => {
             setUniversalAddMenuOpen(false);
-            setShedQuickAddOpen(true);
+            setViewMode("shed");
+            router.replace("/vault?tab=shed", { scroll: false });
+            pendingShedActionRef.current = "quickAdd";
           }}
           onAddTask={() => {
             setUniversalAddMenuOpen(false);
@@ -3001,7 +2555,7 @@ function VaultPageInner() {
           onJournalAdded={() => {
             router.refresh();
             setQuickLogOpen(false);
-            setRefetchTrigger((t) => t + 1);
+            refetch();
           }}
         />
       )}
@@ -3030,7 +2584,7 @@ function VaultPageInner() {
           setUniversalAddMenuOpen(true);
         }}
         onSuccess={(opts) => {
-          setRefetchTrigger((t) => t + 1);
+          refetch();
           router.refresh();
           if (opts?.photoBlocked) {
             setSaveToastMessage("Seed details saved. Product photo could not be saved.");
@@ -3066,7 +2620,7 @@ function VaultPageInner() {
         <BatchAddSeed
           open={batchAddOpen}
           onClose={() => setBatchAddOpen(false)}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onSuccess={() => refetch()}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
             setBatchAddOpen(false);
@@ -3086,40 +2640,21 @@ function VaultPageInner() {
       />
       )}
 
-      <QuickAddSupply
-        open={shedQuickAddOpen}
-        onClose={() => setShedQuickAddOpen(false)}
-        onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        onBackToMenu={() => {
-          setShedQuickAddOpen(false);
-          setUniversalAddMenuOpen(true);
-        }}
-        onOpenPurchaseOrder={() => {
+      <VaultShedWingModals
+        onOpenUniversalAddMenu={() => setUniversalAddMenuOpen(true)}
+        onOpenPurchaseOrderSupply={() => {
           skipPopOnNavigateRef.current = true;
-          setShedQuickAddOpen(false);
           setPurchaseOrderMode("supply");
           setPurchaseOrderOpen(true);
         }}
-        onOpenBatchPhotoImport={() => {
-          skipPopOnNavigateRef.current = true;
-          setShedQuickAddOpen(false);
-          setBatchAddSupplyOpen(true);
-        }}
+        skipPopOnNavigateRef={skipPopOnNavigateRef}
       />
-
-      {batchAddSupplyOpen && (
-        <BatchAddSupply
-          open={batchAddSupplyOpen}
-          onClose={() => setBatchAddSupplyOpen(false)}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        />
-      )}
 
       {showAddPlantModal && (
         <AddPlantModal
           open={showAddPlantModal}
           onClose={() => setShowAddPlantModal(false)}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onSuccess={() => refetch()}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}
         />
@@ -3144,6 +2679,7 @@ function VaultPageInner() {
         </div>
       )}
     </div>
+    </VaultShedWingProvider>
   );
 }
 

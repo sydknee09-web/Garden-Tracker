@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useAnnouncer } from "@/contexts/AnnouncerContext";
+import { useVaultOptional } from "@/contexts/VaultContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -342,6 +343,9 @@ export function SeedVaultView({
   sortBy?: VaultSortBy | null;
   sortDirection?: "asc" | "desc";
 }) {
+  const vault = useVaultOptional();
+  const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
+  const effectiveScrollContainerRef = vault?.scrollContainerRef ?? scrollContainerRef;
   const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditPage } = useHousehold();
@@ -1026,16 +1030,16 @@ export function SeedVaultView({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, refetchTrigger, householdViewMode, pullRefetch]);
+  }, [user?.id, effectiveRefetchTrigger, householdViewMode, pullRefetch]);
 
   useEffect(() => {
     setImageErrorIds(new Set());
-  }, [refetchTrigger]);
+  }, [effectiveRefetchTrigger]);
 
   usePullToRefresh({
     onRefresh: () => setPullRefetch((r) => r + 1),
     disabled: loading,
-    containerRef: scrollContainerRef,
+    containerRef: effectiveScrollContainerRef,
   });
 
   const filteredIds = useMemo(

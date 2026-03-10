@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
+import { VaultProvider } from "@/contexts/VaultContext";
 
 const VaultPageContent = dynamic(
   () => import("./VaultPageContent"),
@@ -31,12 +32,14 @@ export default function VaultPage() {
   }
 
   return (
-    <Suspense fallback={
-      <div className="min-h-[50vh] flex items-center justify-center p-6 text-neutral-600">
-        Loading…
-      </div>
-    }>
-      <VaultPageContent />
-    </Suspense>
+    <VaultProvider>
+      <Suspense fallback={
+        <div className="min-h-[50vh] flex items-center justify-center p-6 text-neutral-600">
+          Loading…
+        </div>
+      }>
+        <VaultPageContent />
+      </Suspense>
+    </VaultProvider>
   );
 }
