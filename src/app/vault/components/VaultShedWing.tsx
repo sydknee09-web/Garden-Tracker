@@ -569,6 +569,7 @@ export function VaultShedWingModals({
 
       {/* Shed-only modals: filter and selection actions */}
       {viewMode === "shed" && (
+      <>
       {/* Shed category filter modal */}
       {shedFilterOpen && (
         <>
