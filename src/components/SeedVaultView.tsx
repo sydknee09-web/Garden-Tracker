@@ -37,7 +37,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 }
 import { StarRating } from "@/components/StarRating";
 import { PlantImage } from "@/components/PlantImage";
-import { VaultGridSkeleton } from "@/components/PageSkeleton";
+import { GridSkeleton } from "@/components/VaultSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
@@ -1085,7 +1085,7 @@ export function SeedVaultView({
   if (loading) {
     return (
       <div className="relative z-10">
-        <VaultGridSkeleton gridDisplayStyle={gridDisplayStyle} />
+        <GridSkeleton gridDisplayStyle={gridDisplayStyle} />
       </div>
     );
   }

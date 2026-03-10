@@ -13,6 +13,7 @@ import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
+import { ListSkeleton } from "@/components/VaultSkeleton";
 import type { WeatherSnapshotData } from "@/types/garden";
 
 const LONG_PRESS_MS = 500;
@@ -780,9 +781,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   if (!user) return null;
   if (loading) {
     return (
-      <div className="py-8 px-4 text-center space-y-4">
-        <p className="text-black/50 text-sm">Loading Active Garden...</p>
-        <p className="text-sm text-black/60">
+      <div className="py-8 px-4 space-y-4">
+        <ListSkeleton />
+        <p className="text-sm text-black/60 text-center">
           <Link href="/garden?tab=plants" className="text-emerald-600 font-medium underline hover:text-emerald-700">
             Switch to My Plants
           </Link>

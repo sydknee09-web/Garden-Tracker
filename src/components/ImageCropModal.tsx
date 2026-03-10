@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ICON_MAP } from "@/lib/styleDictionary";
 
 export type CropShape = "square" | "circle";
 
@@ -10,8 +9,10 @@ export interface ImageCropModalProps {
   onClose: () => void;
   /** Image source: URL string or object URL from File. */
   imageSrc: string;
-  /** Crop shape. Square = 1:1; circle uses same 1:1 crop with circular mask on preview. */
+  /** Crop shape. Square = 1:1; circle uses same 1:1 crop with circular mask. Ignored when aspectRatio !== 1 (rectangular priority). */
   shape?: CropShape;
+  /** Width / height of crop box. Default 1 (square). Use 16/10 for hero. When !== 1, shape is forced to rectangle. */
+  aspectRatio?: number;
   /** Called with the cropped image as a Blob (JPEG). */
   onConfirm: (blob: Blob) => void;
 }
@@ -19,18 +20,27 @@ export interface ImageCropModalProps {
 const DEFAULT_MIN_SIZE = 80;
 
 /**
- * User-guided crop modal. Renders the image and a draggable/resizable crop overlay.
- * On confirm, draws the cropped region to canvas and returns a Blob.
- * High-performance: single canvas draw on confirm.
+ * User-guided crop modal. Supports optional aspect ratio; when aspectRatio !== 1, crop is rectangular and shape is ignored.
  */
-export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onConfirm }: ImageCropModalProps) {
+export function ImageCropModal({
+  open,
+  onClose,
+  imageSrc,
+  shape = "square",
+  aspectRatio: aspectRatioProp = 1,
+  onConfirm,
+}: ImageCropModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [crop, setCrop] = useState({ x: 0, y: 0, size: 200 });
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: 200, height: 200 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  const aspectRatio = aspectRatioProp > 0 ? aspectRatioProp : 1;
+  const isRectangular = Math.abs(aspectRatio - 1) > 0.01;
+  const effectiveShape = isRectangular ? "square" : shape;
 
   const updateImageSize = useCallback(() => {
     const img = imageRef.current;
@@ -63,11 +73,26 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
 
   useEffect(() => {
     if (!open || containerSize.width === 0) return;
-    const size = Math.min(containerSize.width, containerSize.height, 320);
-    const x = Math.max(0, (containerSize.width - size) / 2);
-    const y = Math.max(0, (containerSize.height - size) / 2);
-    setCrop({ x, y, size });
-  }, [open, containerSize.width, containerSize.height]);
+    const w = containerSize.width;
+    const h = containerSize.height;
+    let cw: number;
+    let ch: number;
+    if (isRectangular) {
+      cw = Math.min(w, h * aspectRatio);
+      ch = cw / aspectRatio;
+      if (ch > h) {
+        ch = h;
+        cw = h * aspectRatio;
+      }
+    } else {
+      const size = Math.min(w, h, 320);
+      cw = size;
+      ch = size;
+    }
+    const x = Math.max(0, (w - cw) / 2);
+    const y = Math.max(0, (h - ch) / 2);
+    setCrop({ x, y, width: cw, height: ch });
+  }, [open, containerSize.width, containerSize.height, aspectRatio, isRectangular]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -83,10 +108,12 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
     const onMove = (e: PointerEvent) => {
       const w = containerSize.width;
       const h = containerSize.height;
+      const cw = crop.width;
+      const ch = crop.height;
       let nx = e.clientX - dragStart.x;
       let ny = e.clientY - dragStart.y;
-      nx = Math.max(0, Math.min(w - crop.size, nx));
-      ny = Math.max(0, Math.min(h - crop.size, ny));
+      nx = Math.max(0, Math.min(w - cw, nx));
+      ny = Math.max(0, Math.min(h - ch, ny));
       setCrop((prev) => ({ ...prev, x: nx, y: ny }));
     };
     const onUp = () => setIsDragging(false);
@@ -96,7 +123,7 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [isDragging, dragStart, containerSize, crop.size]);
+  }, [isDragging, dragStart, containerSize, crop.width, crop.height]);
 
   const handleConfirm = useCallback(() => {
     const img = imageRef.current;
@@ -106,13 +133,14 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
     const scaleY = img.naturalHeight / img.offsetHeight;
     const sx = crop.x * scaleX;
     const sy = crop.y * scaleY;
-    const s = crop.size * Math.min(scaleX, scaleY);
+    const sw = crop.width * Math.min(scaleX, scaleY);
+    const sh = crop.height * Math.min(scaleX, scaleY);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(s);
-    canvas.height = Math.round(s);
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(img, sx, sy, s, s, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(
       (blob) => {
         if (blob) {
@@ -127,6 +155,8 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
 
   if (!open) return null;
 
+  const containerAspectStyle = isRectangular ? { aspectRatio: `${aspectRatio}` } : undefined;
+
   return (
     <>
       <div className="fixed inset-0 z-[110] bg-black/50" aria-hidden onClick={onClose} />
@@ -137,7 +167,11 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
         aria-labelledby="crop-modal-title"
       >
         <h2 id="crop-modal-title" className="text-lg font-semibold text-neutral-900 mb-3 text-center">Crop image</h2>
-        <div ref={containerRef} className="relative w-full aspect-square max-h-[60vh] bg-neutral-100 rounded-xl overflow-hidden">
+        <div
+          ref={containerRef}
+          className={`relative w-full max-h-[60vh] bg-neutral-100 rounded-xl overflow-hidden ${!isRectangular ? "aspect-square" : ""}`}
+          style={containerAspectStyle}
+        >
           <img
             ref={imageRef}
             src={imageSrc}
@@ -147,20 +181,20 @@ export function ImageCropModal({ open, onClose, imageSrc, shape = "square", onCo
             style={{ touchAction: "none" }}
           />
           <div
-            className={`absolute border-2 border-white shadow-lg ${shape === "circle" ? "rounded-full" : ""}`}
+            className={`absolute border-2 border-white shadow-lg ${effectiveShape === "circle" ? "rounded-full" : ""}`}
             style={{
               left: crop.x,
               top: crop.y,
-              width: crop.size,
-              height: crop.size,
+              width: crop.width,
+              height: crop.height,
               cursor: isDragging ? "grabbing" : "grab",
             }}
             onPointerDown={handlePointerDown}
           />
           <div
-            className={`absolute inset-0 pointer-events-none ${shape === "circle" ? "rounded-full" : ""}`}
+            className={`absolute inset-0 pointer-events-none ${effectiveShape === "circle" ? "rounded-full" : ""}`}
             style={{
-              boxShadow: `inset ${crop.x}px ${crop.y}px 0 0 rgba(0,0,0,0.5), inset ${crop.x + crop.size}px 0 0 0 rgba(0,0,0,0.5), inset 0 ${crop.y + crop.size}px 0 0 rgba(0,0,0,0.5), inset 0 0 ${crop.x}px 0 rgba(0,0,0,0.5)`,
+              boxShadow: `inset ${crop.x}px ${crop.y}px 0 0 rgba(0,0,0,0.5), inset ${crop.x + crop.width}px 0 0 0 rgba(0,0,0,0.5), inset 0 ${crop.y + crop.height}px 0 0 rgba(0,0,0,0.5), inset 0 0 ${crop.x}px 0 rgba(0,0,0,0.5)`,
             }}
             aria-hidden
           />

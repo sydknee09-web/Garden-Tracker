@@ -33,6 +33,7 @@ import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantImage } from "@/components/PlantImage";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { ImageCropModal } from "@/components/ImageCropModal";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import dynamic from "next/dynamic";
 
@@ -218,6 +219,8 @@ export default function VaultSeedPage() {
   }, [id, validTab]);
   const [showSetPhotoModal, setShowSetPhotoModal] = useState(false);
   const [heroUploading, setHeroUploading] = useState(false);
+  const [heroCropOpen, setHeroCropOpen] = useState(false);
+  const [heroCropPreviewUrl, setHeroCropPreviewUrl] = useState("");
   const [findingStockPhoto, setFindingStockPhoto] = useState(false);
   const [findHeroError, setFindHeroError] = useState<string | null>(null);
   const [searchWebLoading, setSearchWebLoading] = useState(false);
@@ -1243,13 +1246,13 @@ export default function VaultSeedPage() {
                 </div>
               )}
               <div className="flex flex-col gap-2">
-                <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-camera-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
-                <input type="file" accept="image/*" className="hidden" id="hero-files-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) setHeroFromUpload(file); e.target.value = ""; }} />
-                <label htmlFor={heroUploading ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-camera-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setHeroCropPreviewUrl(URL.createObjectURL(file)); setHeroCropOpen(true); } e.target.value = ""; }} />
+                <input type="file" accept="image/*" className="hidden" id="hero-files-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setHeroCropPreviewUrl(URL.createObjectURL(file)); setHeroCropOpen(true); } e.target.value = ""; }} />
+                <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   Take photo
                 </label>
-                <label htmlFor={heroUploading ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {heroUploading ? "Uploading..." : "Choose from files"}
+                <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                  {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "Choose from files"}
                 </label>
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Choose from web images</p>
@@ -1376,6 +1379,26 @@ export default function VaultSeedPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {heroCropOpen && heroCropPreviewUrl && (
+        <ImageCropModal
+          open={heroCropOpen}
+          imageSrc={heroCropPreviewUrl}
+          aspectRatio={16 / 10}
+          onConfirm={(blob) => {
+            const file = new File([blob], "hero.jpg", { type: "image/jpeg" });
+            setHeroFromUpload(file);
+            if (heroCropPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(heroCropPreviewUrl);
+            setHeroCropOpen(false);
+            setHeroCropPreviewUrl("");
+          }}
+          onClose={() => {
+            if (heroCropPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(heroCropPreviewUrl);
+            setHeroCropOpen(false);
+            setHeroCropPreviewUrl("");
+          }}
+        />
       )}
 
       {showEditModal && (

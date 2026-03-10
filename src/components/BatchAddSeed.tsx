@@ -15,6 +15,7 @@ import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
+import { ImageCropModal } from "@/components/ImageCropModal";
 
 /** Today's date in YYYY-MM-DD for default purchase date. */
 function todayISO(): string {
@@ -38,6 +39,13 @@ interface PendingPhoto {
   tags?: string[];
   purchaseDate?: string;
   error?: string;
+}
+
+/** Item in the sequential crop queue (file or camera capture) before being appended to main queue. */
+interface CropQueueItem {
+  id: string;
+  file: File;
+  previewUrl: string;
 }
 
 /** Derive slug-like string from filename (no extension). Good for Rareseeds. */
@@ -74,6 +82,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
+  const [cropQueue, setCropQueue] = useState<CropQueueItem[]>([]);
   const [step, setStep] = useState<"capture" | "extracting" | "review">("capture");
   const [processingAll, setProcessingAll] = useState(false);
   const [geminiProcessing, setGeminiProcessing] = useState(false);
@@ -105,6 +114,12 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl);
       });
       setQueue([]);
+      setCropQueue((prev) => {
+        prev.forEach((i) => {
+          if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl);
+        });
+        return [];
+      });
       setStep("capture");
       setError(null);
       setSaveSuccessCount(null);
@@ -294,19 +309,12 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   function addFiles(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (list.length === 0) return;
-    const newItems: PendingPhoto[] = list.map((file) => ({
+    const newItems: CropQueueItem[] = list.map((file) => ({
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
-      status: "loading" as const,
-      name: "",
-      variety: "",
-      vendor: "",
-      tags: [],
-      ocrText: "",
-      purchaseDate: todayISO(),
     }));
-    setQueue((prev) => [...prev, ...newItems]);
+    setCropQueue((prev) => [...prev, ...newItems]);
     setError(null);
   }
 
@@ -433,35 +441,12 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
 
-    // 2. Add placeholder immediately so queue count increments (preview from canvas)
-    const placeholderId = crypto.randomUUID();
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    setQueue((prev) => [
-      ...prev,
-      {
-        id: placeholderId,
-        file: null,
-        previewUrl: dataUrl,
-        status: "loading",
-        name: "",
-        variety: "",
-        vendor: "",
-        tags: [],
-        purchaseDate: todayISO(),
-      },
-    ]);
-
+    // 2. Push one item into crop queue (same path as file input); modal shows when cropQueue.length > 0
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
         const file = new File([blob], `packet-${Date.now()}.jpg`, { type: "image/jpeg" });
-        setQueue((prev) =>
-          prev.map((i) => (i.id === placeholderId ? { ...i, file, previewUrl: URL.createObjectURL(file) } : i))
-        );
-        // Revoke the data URL we used as placeholder (no-op for data URLs; we're replacing with blob URL)
-        if (dataUrl.startsWith("data:")) {
-          // data URLs are not revokable; the new previewUrl is the blob URL
-        }
+        setCropQueue((prev) => [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]);
       },
       "image/jpeg",
       0.85
@@ -695,6 +680,43 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
             {batchProgress ? `${batchProgress.current} of ${batchProgress.total} complete` : ""}
           </p>
         </div>
+      )}
+      {cropQueue.length > 0 && (
+        <ImageCropModal
+          open={true}
+          imageSrc={cropQueue[0].previewUrl}
+          aspectRatio={1}
+          onConfirm={(blob) => {
+            const file = new File([blob], `packet-${Date.now()}.jpg`, { type: "image/jpeg" });
+            const previewUrl = URL.createObjectURL(file);
+            setQueue((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                file,
+                previewUrl,
+                status: "loading",
+                name: "",
+                variety: "",
+                vendor: "",
+                tags: [],
+                purchaseDate: todayISO(),
+              },
+            ]);
+            setCropQueue((prev) => {
+              const [current, ...rest] = prev;
+              if (current?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(current.previewUrl);
+              return rest;
+            });
+          }}
+          onClose={() => {
+            setCropQueue((prev) => {
+              const [current, ...rest] = prev;
+              if (current?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(current.previewUrl);
+              return rest;
+            });
+          }}
+        />
       )}
       <div
         className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
