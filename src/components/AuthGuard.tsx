@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BottomNav } from "./BottomNav";
@@ -101,23 +102,6 @@ function FeedbackIcon() {
   );
 }
 
-function ChevronLeftIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ShoppingListIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
-  );
-}
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -219,7 +203,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
                     aria-label="Shopping list"
                   >
-                    <ShoppingListIcon />
+                    <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
                   </Link>
                   <Link
                     href="/settings"
@@ -271,7 +255,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full"
                   aria-label="Back"
                 >
-                  <ChevronLeftIcon />
+                  <ICON_MAP.ChevronLeft stroke="currentColor" className="w-5 h-5" />
                 </button>
               ) : null}
               <CloudSyncIcon syncing={syncing} offline={!isOnline} />
@@ -304,7 +288,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
                 aria-label="Shopping list"
               >
-                <ShoppingListIcon />
+                <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
               </Link>
               <Link
                 href="/settings"

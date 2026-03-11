@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { getPendingWrites, removeWrite, incrementRetry } from "@/lib/offlineQueue";
 import type { QueuedWrite } from "@/lib/offlineQueue";
@@ -105,10 +106,7 @@ export function OfflineIndicator() {
         className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-amber-500 min-w-[44px] min-h-[44px] flex items-center justify-center"
         aria-label="Dismiss offline message"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
+        <ICON_MAP.Close stroke="currentColor" className="w-[18px] h-[18px]" />
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -1174,7 +1175,7 @@ export default function ReviewImportPage() {
             className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
             aria-label="Close"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            <ICON_MAP.Close stroke="currentColor" className="w-6 h-6" />
           </button>
           <button
             type="button"

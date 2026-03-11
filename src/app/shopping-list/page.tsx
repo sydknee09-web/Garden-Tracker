@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/lib/supabase";
@@ -273,10 +274,7 @@ export default function ShoppingListPage() {
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
                       aria-label="Remove from list"
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
+                      <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
                     </button>
                   </li>
                 );
@@ -321,10 +319,7 @@ export default function ShoppingListPage() {
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
                     aria-label="Remove from list"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
                   </button>
                 </li>
               );

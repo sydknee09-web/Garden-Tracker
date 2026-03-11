@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 /** Planting calendar references: Zone 9/10 primary (SDSC), other zones, Farmers' Almanac. */
 const PLANTING_CALENDAR_LINKS = [
@@ -34,12 +35,7 @@ export default function ResourcesPage() {
               className="flex items-center gap-3 min-w-[44px] min-h-[44px] w-full rounded-xl bg-emerald-50 border border-emerald-100/80 p-3 text-left hover:bg-emerald-100 transition-colors group"
             >
               <span className="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700" aria-hidden>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
+                <ICON_MAP.Calendar stroke="currentColor" className="w-[22px] h-[22px]" />
               </span>
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-semibold text-emerald-800 group-hover:text-emerald-900">{cal.label}</span>

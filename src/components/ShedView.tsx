@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { SVGProps } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRouter } from "next/navigation";
@@ -292,19 +293,7 @@ export function ShedView({
         <>
           <div className="flex gap-2 mb-4">
             <div className="flex-1 relative">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none"
-                aria-hidden
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
+              <ICON_MAP.Search stroke="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none w-[18px] h-[18px]" />
               <input
                 type="search"
                 value={searchQuery}
@@ -350,9 +339,7 @@ export function ShedView({
                   <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                 </svg>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                </svg>
+                <ICON_MAP.PhotoCardsGrid stroke="currentColor" className="w-5 h-5" />
               )}
             </button>
           </div>

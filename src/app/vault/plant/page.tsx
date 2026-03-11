@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, Suspense } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -590,7 +591,7 @@ function VaultPlantPageInner() {
                       </div>
                     </div>
                   </div>
-                  <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><TrashIcon /></button>
+                  <button type="button" onClick={() => removeRowFromBatch(row.rowId)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${row.customName} from batch`}><ICON_MAP.Trash stroke="currentColor" className="w-[22px] h-[22px] shrink-0" /></button>
                 </div>
               </div>
             );
@@ -645,7 +646,7 @@ function VaultPlantPageInner() {
                       </div>
                     </div>
                   </div>
-                  <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
+                  <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><ICON_MAP.Trash stroke="currentColor" className="w-[22px] h-[22px] shrink-0" /></button>
                 </div>
                 <div className="mt-2">
                   <PacketQtyOptions
@@ -711,7 +712,7 @@ function VaultPlantPageInner() {
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><TrashIcon /></button>
+                <button type="button" onClick={() => removeRowFromBatch(profile.id)} className="mt-0.5 w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-black/50 hover:text-red-600 hover:bg-red-50" aria-label={`Remove ${displayName} from batch`}><ICON_MAP.Trash stroke="currentColor" className="w-[22px] h-[22px] shrink-0" /></button>
               </div>
               {selectedPackets.length === 0 && (
                 <p className="text-xs text-black/50 mt-1">Select a packet above</p>
@@ -745,7 +746,7 @@ function VaultPlantPageInner() {
             className="flex items-center gap-2 w-full min-h-[44px] rounded-lg border-2 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50/80 hover:border-emerald-400 font-medium text-sm transition-colors"
             aria-label="Add seed to planting"
           >
-            <PlusIcon className="w-5 h-5 shrink-0" />
+            <ICON_MAP.Add stroke="currentColor" className="w-5 h-5 shrink-0" />
             Add Seed
           </button>
         </div>
@@ -877,22 +878,3 @@ export default function VaultPlantPage() {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}

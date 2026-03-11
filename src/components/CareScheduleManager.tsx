@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -256,10 +257,10 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                   {!readOnly && (
                     <div className="flex gap-1 shrink-0">
                       <button type="button" onClick={() => openEdit(s)} className="p-2 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50" aria-label="Edit">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                        <ICON_MAP.Edit stroke="currentColor" className="w-4 h-4" />
                       </button>
                       <button type="button" onClick={() => handleDelete(s.id)} className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50" aria-label="Delete">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        <ICON_MAP.Trash stroke="currentColor" className="w-4 h-4" />
                       </button>
                     </div>
                   )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -19,14 +20,6 @@ function MapPinIcon({ className }: { className?: string }) {
   );
 }
 
-function PencilIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
 
 function formatFrostDate(d: string | null | undefined): string {
   if (!d) return "Not set";
@@ -329,7 +322,7 @@ export default function SettingsProfilePage() {
                   className="flex items-center gap-1 text-xs text-neutral-400 hover:text-emerald-600 transition-colors min-h-[32px] px-1"
                   aria-label="Edit garden settings"
                 >
-                  <PencilIcon />
+                  <ICON_MAP.Pencil stroke="currentColor" className="w-[14px] h-[14px]" />
                   Edit
                 </button>
               </div>

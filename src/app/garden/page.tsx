@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
 import { MyPlantsView, type MyPlantsViewHandle } from "@/components/MyPlantsView";
@@ -538,10 +539,7 @@ function GardenPageInner() {
           <>
             <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" aria-hidden>
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
+                <ICON_MAP.Search stroke="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none w-[18px] h-[18px]" />
                 <input
                   type="search"
                   value={effectiveViewMode === "active" ? activeSearchQuery : plantsSearchQuery}
@@ -667,9 +665,7 @@ function GardenPageInner() {
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
                 ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                  </svg>
+                  <ICON_MAP.PhotoCardsGrid stroke="currentColor" className="w-5 h-5" />
                 )}
               </button>
             </div>
@@ -1384,9 +1380,7 @@ function GardenPageInner() {
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-black/5"
                 aria-label="Delete selected"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
-                  <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
+                <ICON_MAP.Trash stroke="currentColor" className="w-5 h-5 shrink-0" />
                 Delete
               </button>
               <button
@@ -1416,9 +1410,7 @@ function GardenPageInner() {
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
                 aria-label="Journal"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
-                  <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
+                <ICON_MAP.ManualEntry stroke="currentColor" className="w-5 h-5 shrink-0" />
                 Journal
               </button>
             </div>

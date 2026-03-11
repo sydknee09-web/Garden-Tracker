@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -1530,9 +1531,7 @@ export default function VaultImportPage() {
               className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/60 hover:bg-black/5"
               aria-label="Close"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-6 pb-24">

@@ -158,16 +158,6 @@ function TableIcon() {
     </svg>
   );
 }
-function LayoutGridIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
 function TimelineIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -508,7 +498,7 @@ export default function JournalPage() {
               title="Gallery view"
               aria-label="Gallery view"
             >
-              <LayoutGridIcon />
+              <ICON_MAP.PhotoCardsGrid stroke="currentColor" className="w-5 h-5" />
             </button>
             <button
               type="button"

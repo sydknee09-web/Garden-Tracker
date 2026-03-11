@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CareScheduleSuggestion } from "@/types/garden";
 
@@ -185,10 +186,7 @@ export function CareSuggestions({
                       className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                       aria-label="Reject"
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
+                      <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
                     </button>
                   </div>
                 )}

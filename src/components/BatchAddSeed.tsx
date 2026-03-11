@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -752,9 +753,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
             className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/50 hover:text-black/70 hover:bg-black/5 -m-2"
             aria-label="Close"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
           </button>
         </div>
 

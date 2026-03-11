@@ -212,6 +212,15 @@ function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
 /** Journal/log entry — cupped hands with heart and sprout (care logging). */
 function JournalCareHandsIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
@@ -461,6 +470,7 @@ export const ICON_MAP = {
   Camera: CameraIcon,
   ChevronDown: ChevronDownIcon,
   ChevronRight: ChevronRightIcon,
+  ChevronLeft: ChevronLeftIcon,
   /** For "Add journal entry" / log care on cards. */
   JournalCareHands: JournalCareHandsIcon,
   Water: WaterIcon,

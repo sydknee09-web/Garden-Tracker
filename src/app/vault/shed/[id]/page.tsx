@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { QuickLogModal } from "@/components/QuickLogModal";
@@ -377,7 +378,7 @@ export default function VaultShedDetailPage() {
                 <p className="text-sm text-neutral-500 mt-0.5">Take a photo or choose from files.</p>
               </div>
               <button type="button" onClick={() => setShowSetPhotoModal(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 flex-shrink-0" aria-label="Close">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <ICON_MAP.Close stroke="currentColor" className="w-6 h-6" />
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -393,7 +394,7 @@ export default function VaultShedDetailPage() {
                       className="absolute top-2 right-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 focus:ring-2 focus:ring-red-400 disabled:opacity-50"
                       aria-label="Remove current photo"
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+                      <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -443,7 +444,7 @@ export default function VaultShedDetailPage() {
                 className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous product"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+                <ICON_MAP.ChevronLeft stroke="currentColor" className="w-6 h-6" />
               </Link>
             ) : null}
             {nextId ? (
@@ -452,7 +453,7 @@ export default function VaultShedDetailPage() {
                 className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next product"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 18l6-6-6-6" /></svg>
+                <ICON_MAP.ChevronRight stroke="currentColor" className="w-6 h-6" />
               </Link>
             ) : null}
           </>

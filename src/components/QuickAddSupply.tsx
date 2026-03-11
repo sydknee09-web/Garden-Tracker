@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -308,7 +309,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Back to add menu"
             >
-              <BackIcon />
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
             </button>
           ) : !isEdit && screen === "link" ? (
             <button
@@ -317,7 +318,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Back to choose method"
             >
-              <BackIcon />
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
             </button>
           ) : !isEdit && screen === "form" ? (
             <button
@@ -326,7 +327,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Back to add options"
             >
-              <BackIcon />
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
             </button>
           ) : (
             <div className="w-11 shrink-0" aria-hidden />
@@ -658,10 +659,3 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   );
 }
 
-function BackIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  );
-}

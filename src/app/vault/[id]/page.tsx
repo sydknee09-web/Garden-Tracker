@@ -2718,7 +2718,7 @@ export default function VaultSeedPage() {
                 className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
                 aria-label="Previous photo"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+                <ICON_MAP.ChevronLeft stroke="currentColor" className="w-6 h-6" />
               </button>
               <button
                 type="button"
@@ -2726,7 +2726,7 @@ export default function VaultSeedPage() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 text-neutral-700 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
                 aria-label="Next photo"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                <ICON_MAP.ChevronRight stroke="currentColor" className="w-6 h-6" />
               </button>
               <span className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-sm text-white/90 bg-black/40 px-3 py-1 rounded-full">
                 {imageLightbox.index + 1} / {imageLightbox.urls.length}

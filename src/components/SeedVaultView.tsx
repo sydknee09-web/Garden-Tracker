@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
@@ -232,14 +233,6 @@ function SortArrowIcon({ dir }: { dir: "asc" | "desc" | "off" }) {
   );
 }
 
-function FilterIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.35-4.35" />
-    </svg>
-  );
-}
 
 export function SeedVaultView({
   mode,
@@ -1406,7 +1399,7 @@ export function SeedVaultView({
             aria-label="Filter by plant type"
             aria-expanded={plantFilterOpen}
           >
-            <FilterIcon />
+            <ICON_MAP.Search stroke="currentColor" className="w-[14px] h-[14px]" />
           </button>
           {plantFilterOpen && (
             <div className="absolute left-0 top-full mt-1 py-1 min-w-[160px] max-h-[280px] overflow-hidden flex flex-col bg-white border border-neutral-200 rounded-lg shadow-lg z-30">
