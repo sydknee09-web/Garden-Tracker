@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSupabaseUser } from "@/app/api/import/auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth?.user?.id) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
+    if (!auth) return unauthorized();
 
     const body = (await req.json()) as { suggestion_id?: string; action?: "approve" | "reject" };
     const suggestionId = typeof body?.suggestion_id === "string" ? body.suggestion_id.trim() : "";

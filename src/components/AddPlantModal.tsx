@@ -9,6 +9,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
+import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -594,7 +595,7 @@ export function AddPlantModal({
                           <option value="">None — add new packet</option>
                           {packetsForProfile.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.vendor_name?.trim() || "Unnamed"} ({p.qty_status}%)
+                              {p.vendor_name?.trim() || "Unnamed"} ({qtyStatusToLabel(p.qty_status)})
                             </option>
                           ))}
                         </select>

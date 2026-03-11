@@ -1,5 +1,7 @@
 # Filter Default Save/Remove Flow
 
+**Status:** Done. Save Default / Reset Default (when hasDefault), sort in defaults, hide Save when hasDefault are implemented. Optional: rename "Reset Default" to "Remove Default" if product prefers that wording.
+
 ## Overview
 
 Establish a clear Save Default / Remove Default flow for filter views on Vault and Garden. When a default exists, only "Remove Default" is shown; user must remove before saving a new default. **Include both filters and sort** in the saved default. Ensure the default buttons are visible in the filter modal.

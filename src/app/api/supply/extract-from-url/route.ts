@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 
 export const maxDuration = 30;
 
@@ -173,24 +172,23 @@ async function fetchAndUploadImage(
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
+    const { user } = auth;
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const bodySizeErr = checkContentLength(req);
+    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const url = typeof body?.url === "string" ? body.url.trim() : "";
     if (!url || !url.startsWith("http")) {
       return NextResponse.json({ error: "url required and must be http(s)" }, { status: 400 });
+    }
+    if (url.length > MAX_URL_LENGTH) {
+      return NextResponse.json({ error: "URL too long" }, { status: 400 });
     }
     if (isUrlBlockedForSSRF(url)) {
       return NextResponse.json({ error: "URL not allowed" }, { status: 400 });

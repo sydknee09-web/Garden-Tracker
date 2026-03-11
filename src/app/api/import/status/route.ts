@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseUser, unauthorized } from "../auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 
 export const dynamic = "force-dynamic";
 

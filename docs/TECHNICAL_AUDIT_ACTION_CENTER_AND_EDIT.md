@@ -122,3 +122,17 @@
 | `src/components/HarvestModal.tsx` | `harvest` |
 
 No missing or defaulted `entry_type` found.
+
+---
+
+## Phase 2 audit — entry_type, profile_type, deleted_at, cascade (2025-03-11)
+
+**Scope:** Law 9 (entry_type), Law 10 (profile_type), Law 2 (soft delete / deleted_at), and cascade behavior.
+
+**entry_type (Law 9):** Re-verified all `journal_entries` insert sites. Every insert sets `entry_type` explicitly (`planting`, `growth`, `harvest`, `note`, `care`, `quick`, `death`). No reliance on DB default or note-matching. Same locations as Estate Audit Wave 1; plus `src/app/journal/new/page.tsx` and `src/components/QuickLogModal.tsx` (both pass `entryType` from form).
+
+**profile_type (Law 10):** Used consistently: `AddPlantModal` and `buildProfileInsertFromName` set `profile_type: 'seed' | 'permanent'` on new profiles; vault and recommend-care-tasks filter/display by `profile_type`. Seed profiles show Packets + Plantings; permanent shows Care tab.
+
+**deleted_at (Law 2):** Fetches for `plant_profiles`, `seed_packets`, `journal_entries`, `grow_instances`, and `tasks` include `.is("deleted_at", null)` (or equivalent) to exclude trashed rows. Soft delete is used for user-facing deletes; hard delete only in Settings purge flows.
+
+**Cascade:** Application uses soft delete for the main tables above, so FK CASCADE DELETE is not triggered by app code. Cascade behavior in the DB is for referential integrity (e.g. if a hard delete were run in future). No code changes required for cascade.

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { applyZone10bToProfile } from "@/data/zone10b_schedule";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
  * For existing plant_profiles: where sun, plant_spacing, or days_to_germination
@@ -11,35 +8,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  * refill from ZONE_10B_SCHEDULE. Call with Bearer token. Returns { updated: number }.
  */
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const token =
-    authHeader != null && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : null;
-
-  if (!token) {
-    return NextResponse.json(
-      { error: "Authorization required. Send Bearer <access_token>." },
-      { status: 401 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser(token);
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: "Invalid or expired token." },
-      { status: 401 }
-    );
-  }
-
+  const auth = await getSupabaseUser(request);
+  if (!auth) return unauthorized();
+  const { supabase, user } = auth;
   const userId = user.id;
 
   const { data: profiles, error: fetchError } = await supabase

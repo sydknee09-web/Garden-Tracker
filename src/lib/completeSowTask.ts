@@ -137,8 +137,8 @@ export async function completeTask(
 // ---------------------------------------------------------------------------
 
 /**
- * Decrement a packet's qty_status by a given percentage of current amount.
- * percentToUse: 0–100, e.g. 50 = use half of what's in the packet.
+ * Decrement a packet's qty_status by a fixed number of points (0–100).
+ * percentToUse: points to subtract, e.g. 50 = "Use Half" → new qty_status = current - 50 (floor 0).
  * If qty reaches 0, mark as archived.
  */
 async function decrementPacket(packetId: string, userId: string, percentToUse: number): Promise<void> {
@@ -152,8 +152,7 @@ async function decrementPacket(packetId: string, userId: string, percentToUse: n
     if (!pkt) return;
 
     const current = (pkt.qty_status as number | null) ?? 100;
-    const take = current * (percentToUse / 100);
-    const newQty = Math.max(0, Math.round(current - take));
+    const newQty = Math.max(0, Math.round(current - percentToUse));
 
     const updates: Record<string, unknown> = { qty_status: newQty };
     if (newQty <= 0) {

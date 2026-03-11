@@ -1,12 +1,12 @@
 /**
- * Standard qty_status values: Full=100, Half=50, Low=25, Empty=0.
- * Used across PacketQtyOptions, plant flows, and display.
+ * Standard qty_status values: Full=100, Partial=50, Low=25, Empty=0.
+ * Used across PacketQtyOptions, plant flows, and display. Aligns with Law 3 (Full/Partial/Low/Empty).
  */
 export const QTY_STANDARD_VALUES = [100, 50, 25, 0] as const;
 
 const REMAINING_LABELS: Record<number, string> = {
   100: "Full",
-  50: "Half",
+  50: "Partial",
   25: "Low",
   0: "Empty",
 };

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getSupabaseUser } from "@/app/api/import/auth";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { PLANT_CATEGORY_DEFAULTS, type PlantCategoryKey } from "@/constants/plantDefaults";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
@@ -3484,6 +3486,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const auth = await getSupabaseUser(request);
+  const key = auth?.user?.id ?? "anon";
+  if (!checkRateLimit(key, DEFAULT_RATE_LIMIT)) {
+    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+  }
+  const bodySizeErr = checkContentLength(request);
+  if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
   let body: { url?: string; knownPlantTypes?: string[] };
   try {
     body = await request.json();
@@ -3500,6 +3508,10 @@ export async function POST(request: Request) {
       : undefined;
   if (!urlString) {
     return NextResponse.json({ error: "url is required." }, { status: 400 });
+  }
+
+  if (urlString.length > MAX_URL_LENGTH) {
+    return NextResponse.json({ error: "URL too long" }, { status: 400 });
   }
 
   let url: URL;

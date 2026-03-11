@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { getSupabaseUser } from "@/app/api/import/auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiError } from "@/lib/apiErrorLog";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 
 export const maxDuration = 30;
 
@@ -50,8 +51,9 @@ export type RecommendCareTasksResponse = {
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth?.user?.id) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
+    if (!auth) return unauthorized();
+    if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
 
     const body = (await req.json()) as {

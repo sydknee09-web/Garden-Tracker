@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
  * POST: Soft-delete orphan seed packets (packets whose plant_profile is deleted).
@@ -12,19 +9,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  */
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
-
-    const anon = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await anon.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
 
     const admin = getSupabaseAdmin();
     if (!admin) {

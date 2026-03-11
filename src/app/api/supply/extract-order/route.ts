@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSupabaseUser } from "@/app/api/import/auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 60;
@@ -51,6 +51,7 @@ function stripBrandOrVendorFromName(name: string, brand: string, vendor: string)
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
     const body = (await req.json()) as { imageBase64?: string; mimeType?: string };
     const { imageBase64, mimeType } = body;
 

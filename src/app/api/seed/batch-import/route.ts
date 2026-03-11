@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkContentLength, MAX_URLS_ARRAY_LENGTH } from "@/lib/requestValidation";
 import { applyZone10bToProfile, toScheduleKey, getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export type BatchImportResultItem = {
   url: string;
@@ -23,33 +22,16 @@ export type BatchImportResultItem = {
  * If no match → new PlantProfile + new SeedPacket.
  */
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const token =
-    authHeader != null && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7).trim()
-      : null;
-
-  if (!token) {
-    return NextResponse.json(
-      { error: "Authorization required. Send Bearer <access_token>." },
-      { status: 401 }
-    );
+  const auth = await getSupabaseUser(request);
+  if (!auth) return unauthorized();
+  if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
   }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { error: "Invalid or expired token." },
-      { status: 401 }
-    );
-  }
-
+  const { supabase, user } = auth;
   const userId = user.id;
+
+  const bodySizeErr = checkContentLength(request);
+  if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
 
   let body: { urls?: unknown };
   try {
@@ -61,7 +43,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const raw = Array.isArray(body.urls) ? body.urls : [];
+  if (!Array.isArray(body.urls)) {
+    return NextResponse.json({ error: "urls must be an array" }, { status: 400 });
+  }
+  if (body.urls.length > MAX_URLS_ARRAY_LENGTH) {
+    return NextResponse.json({ error: "Too many URLs" }, { status: 400 });
+  }
+
+  const raw = body.urls;
   const urls: string[] = [];
   for (const u of raw) {
     const s = typeof u === "string" ? u.trim() : "";
@@ -84,6 +73,7 @@ export async function POST(request: Request) {
 
   const origin = new URL(request.url).origin;
   const results: BatchImportResultItem[] = [];
+  const authHeader = request.headers.get("authorization") ?? "";
 
   const { data: profileRows } = await supabase
     .from("plant_profiles")
@@ -99,7 +89,7 @@ export async function POST(request: Request) {
       const isRareseeds = url.toLowerCase().includes("rareseeds.com");
       const scrapeRes = await fetch(`${origin}/api/seed/scrape-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
         body: JSON.stringify({
           url,
           ...(isRareseeds && { knownPlantTypes }),

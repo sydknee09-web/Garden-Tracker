@@ -365,10 +365,7 @@ function VaultPlantPageInner() {
             if (!selectedIds.includes(pk.id)) continue;
             const usePct = usePercentByPacketId[pk.id] ?? 50;
             if (usePct <= 0) continue;
-            const packetValue = pk.qty_status / 100;
-            const take = packetValue * (usePct / 100);
-            const remaining = Math.round((packetValue - take) * 100);
-            const newQty = Math.max(0, Math.min(100, remaining));
+            const newQty = Math.max(0, Math.min(100, pk.qty_status - usePct));
             if (newQty <= 0) {
               await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", pk.id).eq("user_id", user.id);
             } else {

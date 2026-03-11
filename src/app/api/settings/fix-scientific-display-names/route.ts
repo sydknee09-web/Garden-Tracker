@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { looksLikeScientificName } from "@/lib/htmlEntities";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 120;
 
 const PERENUAL_BASE = "https://perenual.com/api/v2";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
  * Fix plant profiles that use scientific names as the display "name" (e.g. from GeoSeed import).
@@ -19,24 +17,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
  */
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    const { supabase, user } = auth;
 
     const key = process.env.PERENUAL_API_KEY?.trim();
     if (!key) {
       return NextResponse.json({ error: "PERENUAL_API_KEY not configured." }, { status: 503 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data: profiles, error: profilesError } = await supabase

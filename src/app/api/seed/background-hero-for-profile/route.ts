@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 
 export const maxDuration = 35;
 
@@ -45,18 +45,10 @@ async function findHeroPhotoUrl(
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token =
-      authHeader != null && authHeader.startsWith("Bearer ")
-        ? authHeader.slice(7).trim()
-        : null;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    const { supabase, user } = auth;
+    const token = req.headers.get("authorization")?.startsWith("Bearer ") ? req.headers.get("authorization")!.slice(7).trim() : null;
 
     const body = await req.json();
     const profileId = typeof body?.profileId === "string" ? body.profileId.trim() : "";
@@ -134,7 +126,7 @@ export async function POST(req: Request) {
         vendor,
         profileId,
         identityKey,
-        token
+        token ?? ""
       );
 
       let updates: Record<string, string | null> = {};

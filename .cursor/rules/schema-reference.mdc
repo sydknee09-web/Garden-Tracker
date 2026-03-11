@@ -1,10 +1,12 @@
 ---
-description: Single source of truth for seed quantity schema. Use seed_packets.qty_status (0-100), not seed_stocks or volume.
+description: Single source of truth for seed quantity schema. Use seed_packets.qty_status (0-100) exclusively. Deprecate string volume.
 alwaysApply: false
 ---
 
 # Schema reference: Seed quantity
 
-- **Table:** `seed_packets` (not `seed_stocks`).
-- **Column:** `qty_status` — numeric integer 0–100 (percentage).
-- **UI labels:** Full = 100, Partial = 50, Low = 25, Empty = 0. When sending to the API or Supabase, always send `qty_status` as a number (0–100). Do not use a string "volume" field or lowercase labels like 'full'/'partial' for the database; those are display-only mappings in the client.
+**Seed Inventory Law:** Use numeric `qty_status` (0, 25, 50, 75, 100) exclusively. Display to the user via the `qtyStatusToLabel()` helper from `@/lib/packetQtyLabels`. Deprecate all string-based volume logic (e.g. `seed_stocks.volume`, or any `volume` column with values like 'full'/'partial'/'low'/'empty').
+
+- **Table:** `seed_packets` (not `seed_stocks`). The `seed_stocks` table and its string `volume` column are legacy; do not use. Mark for removal in a future migration.
+- **Column:** `qty_status` — numeric integer 0–100 (percentage). Always persist a number; never a string.
+- **UI labels:** Full = 100, Partial = 50, Low = 25, Empty = 0. Use `qtyStatusToLabel(value)` for display. When sending to the API or Supabase, always send `qty_status` as a number (0–100). Do not use a string "volume" field or lowercase labels for the database; those are display-only in the client.

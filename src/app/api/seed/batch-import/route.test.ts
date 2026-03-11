@@ -50,7 +50,7 @@ describe("POST /api/seed/batch-import", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const data = await res.json();
-    expect(data.error).toMatch(/invalid|expired/i);
+    expect(data.error).toMatch(/authorization|bearer/i);
     expect(mockGetUser).toHaveBeenCalled();
   });
 

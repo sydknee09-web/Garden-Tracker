@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSupabaseUser } from "@/app/api/import/auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkContentLength } from "@/lib/requestValidation";
 
 export const maxDuration = 30;
 
@@ -73,10 +75,13 @@ function parseExtractJson(jsonStr: string): SupplyPhotoExtractResult | null {
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
+    if (!auth) return unauthorized();
+    if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
     const { user } = auth;
+    const bodySizeErr = checkContentLength(req);
+    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
     const body = (await req.json()) as { imageBase64?: string; mimeType?: string };
     const { imageBase64, mimeType } = body;
 

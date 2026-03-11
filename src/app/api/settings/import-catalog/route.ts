@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { createRequire } from "module";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { parseCatalogWithGemini, toCacheRow } from "@/lib/importPdfCatalog";
@@ -7,8 +7,6 @@ import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 export const maxDuration = 120;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const require = createRequire(import.meta.url);
 
 /**
@@ -19,19 +17,9 @@ const require = createRequire(import.meta.url);
  */
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    const { user } = auth;
 
     const admin = getSupabaseAdmin();
     if (!admin) {

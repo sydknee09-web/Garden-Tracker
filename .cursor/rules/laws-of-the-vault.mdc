@@ -43,7 +43,7 @@ All fetch queries for these tables must include `.is("deleted_at", null)` to exc
 
 ## Law 3: Seed Packet Volume
 
-The **`seed_packets`** table (not `seed_stocks`) holds packet quantity in the **`qty_status`** column as a **numeric percentage (0–100)**. When planting, **decrement** the packet — never delete the row. Archive the packet (`is_archived: true`) when `qty_status` reaches 0. If all packets for a profile are archived/empty, set `plant_profiles.status = 'out_of_stock'` and add to `shopping_list`. UI labels (Full / Partial / Low / Empty) map to `qty_status` 100 / 50 / 25 / 0; always persist a number 0–100, not a string.
+The **`seed_packets`** table (not `seed_stocks`) holds packet quantity in the **`qty_status`** column as a **numeric percentage (0–100)**. When planting, **decrement** the packet — never delete the row. Archive the packet (`is_archived: true`) when `qty_status` reaches 0. If all packets for a profile are archived/empty, set `plant_profiles.status = 'out_of_stock'` and add to `shopping_list`. UI labels (Full / Partial / Low / Empty) map to `qty_status` 100 / 50 / 25 / 0; always persist a number 0–100, not a string. **Deprecate all string-based volume logic** (e.g. `seed_stocks.volume`); use `qty_status` and `qtyStatusToLabel()` only.
 
 ---
 

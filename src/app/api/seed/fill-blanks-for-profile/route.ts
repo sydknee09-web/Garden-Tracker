@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -10,9 +10,6 @@ import {
 } from "@/lib/fillBlanksCache";
 
 export const maxDuration = 60;
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 async function findHeroPhotoWithToken(
   token: string,
@@ -53,19 +50,9 @@ async function findHeroPhotoWithToken(
  */
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    const { supabase, user } = auth;
 
     const body = await req.json().catch(() => ({}));
     const profileId = typeof body?.profileId === "string" ? body.profileId.trim() : "";
@@ -142,15 +129,18 @@ export async function POST(req: Request) {
     const needAi = useGemini && (stillMissingHero || stillMissingDescription);
 
     if (needAi) {
+      const token = req.headers.get("authorization")?.startsWith("Bearer ") ? req.headers.get("authorization")!.slice(7).trim() : null;
       if (stillMissingHero) {
-        const aiHero = await findHeroPhotoWithToken(
-          token,
-          name,
-          variety,
-          vendor,
-          identityKey,
-          (profile as { scientific_name?: string | null }).scientific_name ?? undefined
-        );
+        const aiHero = token
+          ? await findHeroPhotoWithToken(
+              token,
+              name,
+              variety,
+              vendor,
+              identityKey,
+              (profile as { scientific_name?: string | null }).scientific_name ?? undefined
+            )
+          : "";
         if (aiHero) {
           await supabase
             .from("plant_profiles")

@@ -1,24 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 
 /** GET /api/settings/import-logs — list import/heros-search logs (auth required). Includes hero_image_url and error_message for trace + Vault badge. */
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(request);
+    if (!auth) return unauthorized();
+    const { supabase, user } = auth;
     // Column names match seed_import_logs schema: status_code (not status), identity_key_generated, error_message, hero_image_url
     const { data, error } = await supabase
       .from("seed_import_logs")
@@ -40,18 +28,9 @@ export async function GET(request: Request) {
 /** POST /api/settings/import-logs — append one import/heros-search log (auth required). */
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(request);
+    if (!auth) return unauthorized();
+    const { supabase, user } = auth;
 
     const body = await request.json();
     const url = typeof body?.url === "string" ? body.url.trim() : "";

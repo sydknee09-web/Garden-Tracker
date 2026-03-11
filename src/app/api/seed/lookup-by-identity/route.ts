@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { stripHtmlForDisplay } from "@/lib/htmlEntities";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const IMAGE_CHECK_TIMEOUT_MS = 5_000;
 
@@ -46,20 +43,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ found: false }, { status: 200 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    const { supabase } = auth;
 
     const { data: rows, error } = await supabase
       .from("global_plant_cache")

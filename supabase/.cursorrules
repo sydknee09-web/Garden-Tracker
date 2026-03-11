@@ -1,0 +1,26 @@
+# Garden Tracker Project Rules & Architectural Standards
+
+## 1. THE "SOURCE OF TRUTH" PROTOCOL
+- **Navigation:** Always consult `docs/NAVIGATION_MAP.md` before implementing or changing any route, redirect, or FAB behavior.
+- **Extraction Logic:** All seed/supply extraction MUST follow the 15-step "Order of Operations" in `docs/SEED_EXTRACT_FLOW.md`.
+- **Soft Deletes:** Every SELECT query on main tables (profiles, packets, grows, journal, tasks) MUST include `.is("deleted_at", null)` unless trashed data is explicitly requested.
+
+## 2. DESIGN SYSTEM (Refined Architectural Luxury)
+- **Colors:** Primary Action: Emerald (#50C878). Alerts: Citrus (#FFD700). Background: Pure White (#FFFFFF).
+- **Typography:** Use high-contrast hierarchy. Avoid grey text; use opacity on black/navy for secondary information.
+- **Shadows:** Use only the standard soft shadow: `0 10px 30px rgba(0,0,0,0.05)`.
+- **Loading:** Never use a generic spinner. Use Shimmer Skeletons that match the target component's layout.
+- **Media:** All thumbnails/mini-photos MUST be tappable and utilize Framer Motion 'Hero' layout animations to expand to full-screen.
+
+## 3. COMPONENT & ICON CONSISTENCY
+- **Icons:** Use the centralized `IconDictionary` (to be created). 
+    - Log/Journal = 'book-open'
+    - Edit Metadata = 'pencil-shimmer'
+    - Add/New = 'plus'
+- **Modals:** Use shared components from `src/components/modals/shared`. Do not create one-off modals for the same action in different routes.
+- **FAB:** The Universal Add Menu must be identical across Home, Vault, Garden, Journal, and Calendar.
+
+## 4. CODE QUALITY & TDD
+- **Logic First:** For any new utility in `lib/` or API route logic, write a Vitest test in a sibling `.test.ts` file BEFORE implementing the logic (Red-Green-Refactor).
+- **Performance:** Avoid in-memory joins for dashboard/list views. Prefer Supabase Views or RPCs to return "flattened" data in a single request.
+- **Masot:** Use "Gus" (the kind, cute mascot) for all empty states and onboarding hints.

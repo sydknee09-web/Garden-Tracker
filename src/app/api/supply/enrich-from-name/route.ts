@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 
 export const maxDuration = 30;
 
@@ -111,19 +109,12 @@ async function fetchAndUploadImage(imageUrl: string, userId: string): Promise<st
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-    if (!token) {
-      return NextResponse.json({ error: "Authorization required" }, { status: 401 });
+    const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = auth;
 
     const body = await req.json().catch(() => ({}));
     const name = typeof body?.name === "string" ? body.name.trim() : "";

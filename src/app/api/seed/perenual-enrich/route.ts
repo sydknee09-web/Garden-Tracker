@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 
 const PERENUAL_BASE = "https://perenual.com/api/v2";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export type PerenualEnrichResult = {
   perenual_id: number;
@@ -24,14 +22,8 @@ export type PerenualEnrichResult = {
  * Requires PERENUAL_API_KEY in env.
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  let userId: string | null = null;
-  if (token) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: { user } } = await supabase.auth.getUser(token);
-    userId = user?.id ?? null;
-  }
+  const auth = await getSupabaseUser(request);
+  const userId = auth?.user?.id ?? null;
 
   const key = process.env.PERENUAL_API_KEY;
   if (!key?.trim()) {

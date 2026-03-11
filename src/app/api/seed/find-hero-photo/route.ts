@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "@/app/api/import/auth";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
@@ -106,9 +107,6 @@ Return a single JSON object only (no markdown, no explanation):
 
 Return only valid JSON.`;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -127,6 +125,12 @@ export async function POST(req: Request) {
 
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const auth = token ? await getSupabaseUser(req) : null;
+
+    const key = auth?.user?.id ?? "anon";
+    if (!checkRateLimit(key, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
 
     // -------------------------------------------------------------------------
     // Gallery mode always goes straight to Gemini — no cache.
@@ -137,13 +141,10 @@ export async function POST(req: Request) {
     // -------------------------------------------------------------------------
     // Non-gallery cache: return cached hero URL without any Gemini call.
     // -------------------------------------------------------------------------
-    if (!gallery && identity_key && token) {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (!authError && user?.id) {
-        // Tier 2: plant_extract_cache (user-specific, storage path or original_hero_url)
+    if (!gallery && identity_key && auth) {
+      const supabase = auth.supabase;
+      const user = auth.user;
+      // Tier 2: plant_extract_cache
         const { data: extractRows } = await supabase
           .from("plant_extract_cache")
           .select("hero_storage_path, original_hero_url, vendor")
@@ -219,7 +220,6 @@ export async function POST(req: Request) {
             return NextResponse.json({ hero_image_url: cachedUrl });
           }
         }
-      }
     }
 
     // -------------------------------------------------------------------------
@@ -329,11 +329,7 @@ export async function POST(req: Request) {
       if (combined.length === 0) {
         return NextResponse.json({ urls: [], error: "No images found. Try again." });
       }
-      if (token) {
-        const sb = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
-        const { data: { user } } = await sb.auth.getUser(token);
-        if (user?.id) logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "find-hero-photo-gallery" });
-      }
+      if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "find-hero-photo-gallery" });
       return NextResponse.json({ urls: combined });
     }
 
@@ -446,11 +442,8 @@ export async function POST(req: Request) {
     const idKey = identity_key?.trim() || identityKeyFromVariety(name || "Imported seed", variety || "");
     let storagePath: string | null = null;
 
-    if (token) {
-      const sb = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
-      const { data: { user } } = await sb.auth.getUser(token);
+    if (auth) {
+      const { supabase: sb, user } = auth;
       if (user?.id) {
         logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "find-hero-photo" });
         // Download the image server-side and store it in journal-photos bucket

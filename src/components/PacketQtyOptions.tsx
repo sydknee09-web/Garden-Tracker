@@ -5,7 +5,7 @@
 
 const REMAINING_OPTIONS = [
   { value: 100, label: "Full" },
-  { value: 50, label: "Half" },
+  { value: 50, label: "Partial" },
   { value: 25, label: "Low" },
   { value: 0, label: "Empty" },
 ] as const;
@@ -44,7 +44,7 @@ interface PacketQtyOptionsProps {
   value: number;
   /** Called when user selects an option. */
   onChange: (value: number) => void;
-  /** "remaining" = packet fullness (Full/Half/Low/Empty). "used" = how much to use when planting (Whole/Half/Some). */
+  /** "remaining" = packet fullness (Full/Partial/Low/Empty). "used" = how much to use when planting (Whole/Half/Some). */
   variant: "remaining" | "used";
   /** For "used" variant: max value (e.g. packet qty_status). Filters options to those <= max. */
   maxValue?: number;

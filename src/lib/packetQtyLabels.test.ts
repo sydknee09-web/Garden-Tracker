@@ -5,7 +5,7 @@ describe("packetQtyLabels", () => {
   describe("qtyStatusToLabel", () => {
     it("maps standard values to labels", () => {
       expect(qtyStatusToLabel(100)).toBe("Full");
-      expect(qtyStatusToLabel(50)).toBe("Half");
+      expect(qtyStatusToLabel(50)).toBe("Partial");
       expect(qtyStatusToLabel(25)).toBe("Low");
       expect(qtyStatusToLabel(0)).toBe("Empty");
     });
@@ -17,8 +17,8 @@ describe("packetQtyLabels", () => {
     });
 
     it("rounds before lookup", () => {
-      expect(qtyStatusToLabel(49.6)).toBe("Half"); // 49.6 rounds to 50
-      expect(qtyStatusToLabel(50.4)).toBe("Half"); // 50.4 rounds to 50
+      expect(qtyStatusToLabel(49.6)).toBe("Partial"); // 49.6 rounds to 50
+      expect(qtyStatusToLabel(50.4)).toBe("Partial"); // 50.4 rounds to 50
     });
   });
 

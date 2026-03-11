@@ -5,6 +5,7 @@ import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { getSupabaseUser } from "@/app/api/import/auth";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 
 export const maxDuration = 30;
 
@@ -50,6 +51,11 @@ export async function POST(req: Request) {
     const variety = typeof body?.variety === "string" ? body.variety.trim() : "";
     if (!name) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
+    }
+
+    const key = auth?.user?.id ?? "anon";
+    if (!checkRateLimit(key, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
 
     const identityKey = identityKeyFromVariety(name, variety);

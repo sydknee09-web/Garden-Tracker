@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
-import { getSupabaseUser } from "@/app/api/import/auth";
+import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import {
@@ -14,19 +15,11 @@ import {
 
 export const maxDuration = 60;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 /** If request has Bearer token, return user id and a Set of blocked tag names (normalized). Otherwise null. */
 export async function getBlockedTagsForRequest(req: Request): Promise<Set<string> | null> {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  if (!token) return null;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user?.id) return null;
+  const auth = await getSupabaseUser(req);
+  if (!auth) return null;
+  const { supabase, user } = auth;
   const { data: rows } = await supabase.from("blocked_tags").select("tag_name").eq("user_id", user.id);
   const set = new Set<string>();
   (rows ?? []).forEach((r: { tag_name: string }) => set.add(String(r.tag_name).trim()));
@@ -457,10 +450,19 @@ async function researchVarietyForExtract(
 export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
+    if (!auth) return unauthorized();
+    if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
+    const bodySizeErr = checkContentLength(req);
+    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
     const body = await req.json();
     const url = typeof body?.url === "string" ? body.url.trim() : "";
 
     if (url) {
+      if (url.length > MAX_URL_LENGTH) {
+        return NextResponse.json({ error: "URL too long" }, { status: 400 });
+      }
       console.log("[extract] URL branch: request received for", url?.slice(0, 60) + "...");
       const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
       if (!apiKey) {
