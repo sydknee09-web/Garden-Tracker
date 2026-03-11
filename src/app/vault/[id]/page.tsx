@@ -789,9 +789,14 @@ export default function VaultSeedPage() {
 
   const updatePacketNotes = useCallback(
     async (packetId: string, notes: string, options?: { persist?: boolean }) => {
+      if (options?.persist === false) {
+        // Live typing: store raw value so spaces aren't stripped mid-word
+        setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: notes } : p)));
+        return;
+      }
       const value = notes.trim() || null;
-      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: value ?? undefined } : p)));
-      if (options?.persist !== false && user?.id) {
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: value } : p)));
+      if (user?.id) {
         const owner = profileOwnerId || user.id;
         await supabase.from("seed_packets").update({ user_notes: value }).eq("id", packetId).eq("user_id", owner);
       }
@@ -801,9 +806,14 @@ export default function VaultSeedPage() {
 
   const updatePacketStorageLocation = useCallback(
     async (packetId: string, location: string, options?: { persist?: boolean }) => {
+      if (options?.persist === false) {
+        // Live typing: store raw value so spaces aren't stripped mid-word
+        setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: location } : p)));
+        return;
+      }
       const value = location.trim() || null;
-      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: value ?? undefined } : p)));
-      if (options?.persist !== false && user?.id) {
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: value } : p)));
+      if (user?.id) {
         const owner = profileOwnerId || user.id;
         await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", owner);
       }
