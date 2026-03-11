@@ -251,7 +251,10 @@ function SprayIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M3 6h4v14H3zM17 6h4v14h-4zM7 6h10v4H7z" />
+      <path d="M7 10l2-6h6l2 6" />
+      <path d="M5 10h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V10z" />
+      <path d="M9 7h6" />
+      <path d="M12 4v3" />
     </svg>
   );
 }
@@ -260,11 +263,13 @@ function PestIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M12 22c-4 0-6-2-6-6 0-2.5 1.5-4.5 4-5.5" />
-      <path d="M12 22c4 0 6-2 6-6 0-2.5-1.5-4.5-4-5.5" />
-      <path d="M12 10.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-      <path d="M8 6c0-1 .5-2 2-2" />
-      <path d="M16 6c0-1-.5-2-2-2" />
+      <path d="M12 2v10" />
+      <path d="M18 7a6 6 0 0 0-12 0" />
+      <path d="M12 12a6 6 0 0 0 6 6H6a6 6 0 0 0 6-6z" />
+      <path d="M6 13H3" />
+      <path d="M18 13h3" />
+      <path d="M7 19l-2 2" />
+      <path d="M17 19l2 2" />
     </svg>
   );
 }
