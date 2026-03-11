@@ -1,4 +1,4 @@
-import { test as setup } from "@playwright/test";
+import { test as setup, expect } from "@playwright/test";
 
 /**
  * Logs in and saves auth state for authenticated E2E tests.
@@ -19,6 +19,20 @@ setup("authenticate", async ({ page }) => {
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
+
+  // Wait for redirect away from login page
   await page.waitForURL(/\/(?!login|signup|reset-password)/, { timeout: 15000 });
+
+  // Wait for the page to fully settle (Supabase needs to persist session to localStorage)
+  await page.waitForLoadState("networkidle");
+
+  // Give Supabase JS a moment to write the session token to localStorage
+  // (onAuthStateChange fires async after signInWithPassword resolves)
+  await page.waitForTimeout(1500);
+
+  // Confirm we're authenticated — the app should show app chrome, not the login page
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 5000 });
+
+  // Save auth state (cookies + localStorage) for use by authenticated test projects
   await page.context().storageState({ path: ".auth/user.json" });
 });

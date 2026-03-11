@@ -2,23 +2,46 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+type Phase = "exchanging" | "ready" | "invalid" | "done";
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasRecoveryToken, setHasRecoveryToken] = useState<boolean | null>(null);
+  const [phase, setPhase] = useState<Phase>("exchanging");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    const code = searchParams.get("code");
+
+    if (code) {
+      // PKCE flow: exchange the one-time code for a recovery session
+      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
+        if (err) {
+          setError(err.message);
+          setPhase("invalid");
+        } else {
+          setPhase("ready");
+        }
+      });
+      return;
+    }
+
+    // Legacy implicit flow: check for recovery token in hash
     const hash = typeof window !== "undefined" ? window.location.hash : "";
     const params = new URLSearchParams(hash.replace("#", ""));
     const type = params.get("type");
-    setHasRecoveryToken(type === "recovery" || type === "invite");
-  }, []);
+    if (type === "recovery" || type === "invite") {
+      setPhase("ready");
+    } else {
+      setPhase("invalid");
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,19 +61,30 @@ export default function UpdatePasswordPage() {
       setError(err.message);
       return;
     }
-    router.push("/");
-    router.refresh();
+    setPhase("done");
+    setTimeout(() => {
+      router.push("/");
+      router.refresh();
+    }, 1500);
   }
 
-  if (hasRecoveryToken === null) {
+  if (phase === "exchanging") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-black/60">Loading…</p>
+        <p className="text-black/60 text-sm">Verifying reset link…</p>
       </div>
     );
   }
 
-  if (!hasRecoveryToken) {
+  if (phase === "done") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <p className="text-emerald-600 text-sm font-medium">Password updated! Redirecting…</p>
+      </div>
+    );
+  }
+
+  if (phase === "invalid") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-white">
         <div
@@ -58,8 +92,10 @@ export default function UpdatePasswordPage() {
           style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
         >
           <h1 className="text-xl font-semibold text-black mb-2">Invalid or expired link</h1>
+          <p className="text-black/60 text-sm mb-2">
+            {error ?? "This reset link has expired or already been used."}
+          </p>
           <p className="text-black/60 text-sm mb-6">
-            This page is for setting a new password after clicking the link in your recovery email.
             Request a new link from the reset password page.
           </p>
           <Link

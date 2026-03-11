@@ -22,7 +22,7 @@ export default function SignupPage() {
     const { error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${APP_URL}/` },
+      options: { emailRedirectTo: `${APP_URL}/auth/callback` },
     });
     setLoading(false);
     if (err) {

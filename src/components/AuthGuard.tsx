@@ -28,7 +28,7 @@ import {
 } from "./PageSkeleton";
 import { LoadingScreen } from "./LoadingScreen";
 
-const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password"];
+const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password", "/auth/callback"];
 
 function getSkeletonForPath(pathname: string | null) {
   if (!pathname || pathname === "/") return <PageSkeletonHome />;
