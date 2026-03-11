@@ -14,6 +14,8 @@ export async function POST(req: Request) {
   try {
     const auth = await getSupabaseUser(req);
     if (!auth) return unauthorized();
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 
     const admin = getSupabaseAdmin();
     if (!admin) {
