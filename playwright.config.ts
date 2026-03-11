@@ -26,9 +26,10 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "Mobile Chrome", use: { ...devices["Pixel 5"] } },
-    // Authenticated smoke tests (run only when E2E_TEST_EMAIL + E2E_TEST_PASSWORD are set)
+    // Unauthenticated projects: public pages, a11y audit. Exclude any *authenticated* spec.
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /authenticated\.spec\.ts/ },
+    { name: "Mobile Chrome", use: { ...devices["Pixel 5"] }, testIgnore: /authenticated\.spec\.ts/ },
+    // Authenticated smoke + critical-path tests (run only when E2E_TEST_EMAIL + E2E_TEST_PASSWORD are set)
     ...(hasAuthCreds
       ? [
           { name: "setup", testMatch: /auth\.setup\.ts/ },
@@ -36,7 +37,7 @@ export default defineConfig({
             name: "chromium-authenticated",
             use: { ...devices["Desktop Chrome"], storageState: ".auth/user.json" },
             dependencies: ["setup"],
-            testMatch: /smoke-authenticated\.spec\.ts/,
+            testMatch: /authenticated\.spec\.ts/,
           },
         ]
       : []),
