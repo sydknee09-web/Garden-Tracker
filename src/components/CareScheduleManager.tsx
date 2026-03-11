@@ -215,8 +215,8 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
             <>
               <p className="text-neutral-400 text-xs mt-1 mb-4">Add recurring reminders like fertilize, prune, or water.</p>
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px] min-w-[44px]">Add Care Schedule</button>
                 {extraActions}
+                <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px] min-w-[44px]">Add Manual</button>
               </div>
             </>
           )}

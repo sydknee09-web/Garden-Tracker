@@ -15,6 +15,8 @@ Extract the following and return a single JSON object only (no markdown, no expl
 - sun_requirement: e.g. "Full Sun", "Partial Shade", "Full Sun to Partial Shade"
 - days_to_germination: e.g. "7-14" or "10"
 - days_to_maturity: e.g. "65" or "55-70"
+- mature_height: Typical mature height in feet/inches (e.g. "3-4 ft", "18 inches"). Use empty string if not found.
+- mature_width: Typical mature spread/width (e.g. "2 ft spread", "12 inches"). Use empty string if not found.
 - source_url: the URL of the page you used (so the user can verify)
 - stock_photo_url: a direct URL (https://...) to a high-quality stock image of the actual plant/fruit for this variety—not the packet. Use empty string if no suitable image found.
 - plant_description: 2-4 factual sentences describing this plant/variety (appearance, use, growing context). Gardening-relevant only; no marketing fluff. Use empty string if not found.
@@ -35,6 +37,8 @@ export type ResearchVarietyResult = {
   sun_requirement?: string;
   days_to_germination?: string;
   days_to_maturity?: string;
+  mature_height?: string;
+  mature_width?: string;
   source_url?: string;
   stock_photo_url?: string;
   plant_description?: string;
@@ -87,6 +91,8 @@ export async function researchVariety(
       sun_requirement: getStr("sun_requirement") || undefined,
       days_to_germination: getStr("days_to_germination") || undefined,
       days_to_maturity: getStr("days_to_maturity") || undefined,
+      mature_height: getStr("mature_height") || undefined,
+      mature_width: getStr("mature_width") || undefined,
       source_url: source_url || undefined,
       stock_photo_url: getStr("stock_photo_url") || undefined,
       plant_description: getStr("plant_description") || undefined,

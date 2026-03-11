@@ -181,10 +181,9 @@ function getHealthColor(seed: VaultCardItem): string {
   return "bg-emerald-500";
 }
 
-/** Card border by planting status: active = in garden, out_of_stock = muted, default = vault/dormant. */
+/** Card border: green only when active_plantings_count > 0 (status is "active" only when profile has active grow_instances). */
 function getCardBorderClass(seed: VaultCardItem): string {
-  const active = (seed.status ?? "").toLowerCase().includes("active");
-  if (active) return "border-emerald-500/60 border-2";
+  if (seed.status === "active") return "border-emerald-500/60 border-2";
   if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-neutral-300 border border-dashed";
   return "border-slate-200/80 border";
 }
@@ -989,7 +988,7 @@ export function SeedVaultView({
         const sumQty = sumQtyByProfile.get(pid) ?? 0;
         const avg_qty_pct = count > 0 ? Math.round(sumQty / count) : null;
         const max_qty_pct = count > 0 ? (maxQtyByProfile.get(pid) ?? null) : null;
-        const effectiveStatus = activeProfileIds.has(pid) ? "active" : (p.status as string | null);
+        const effectiveStatus = activeProfileIds.has(pid) ? "active" : ((p.status as string) === "active" ? "vault" : (p.status as string | null));
         return {
           id: pid,
           name: (p.name as string) ?? "Unknown",

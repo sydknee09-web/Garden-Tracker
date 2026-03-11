@@ -26,6 +26,9 @@ All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal
 | **Add Seed Packet** | Opens QuickAddSeed (Manual / Photo / Link / Purchase Order) |
 | **Add plant** | Screen 2: Manual Entry \| Start Seeds |
 | **Add to shed** | Opens QuickAddSupply (Manual / Photo Import single / Import from Photos batch / Link / Purchase Order) |
+
+**Add to shed (stay-in-place):** Choosing "Add to shed" never navigates or changes the URL/tab. The parent only closes the Universal Add Menu and opens the QuickAddSupply modal on the current page. On **Vault**, QuickAddSupply is rendered by the Shed wing regardless of the active tab (Grid, List, or Shed), so the modal is available from any Vault tab without switching views.
+
 | **Add task** | Opens New Task modal on current page (no navigation). Calendar also supports `?openTask=1` URL param. |
 | **Add journal** | Opens Quick Log modal (slide-over); no navigation. |
 
@@ -354,3 +357,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-06 | Calendar: Dots (colored and grey) stay visible on calendar grid when a date is selected. Tap selected date again to deselect and return to full (outstanding + current + future) view. |
 | 2025-03-10 | Add journal: FAB opens Quick Log modal (slide-over) on Home, Vault, Garden, Journal, Calendar; date picker persists to created_at (noon UTC); full form at /journal/new unchanged. |
 | 2025-03-10 | FAB coordinate map: Added section documenting UniversalAdd → Add to Supply transition and Back handling (state, parent pattern, per-page wiring). |
+| 2025-03-10 | Add to shed: Documented stay-in-place behavior (no navigation/URL change; modal overlay only). QuickAddSupply on Vault is globally available from any tab (Grid, List, Shed) via VaultShedWingModals. |

@@ -38,11 +38,17 @@ export interface QuickLogModalProps {
   onClose: () => void;
   /** When set (e.g. from vault/[id]), pre-select this plant and hide search. */
   preSelectedProfileId?: string | null;
+  /** When set (e.g. from shed/[id] "I used this today"), pre-fill supply and link the created entry to this supply. */
+  preSelectedSupplyId?: string | null;
+  /** Optional supply display name for default note e.g. "Used Miracle-Gro". */
+  preSelectedSupplyName?: string | null;
+  /** When opening with a supply, default quick action (e.g. fertilize, spray). */
+  defaultActionType?: QuickActionType;
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
   onJournalAdded?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAdded }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedSupplyId, preSelectedSupplyName, defaultActionType, onJournalAdded }: QuickLogModalProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
@@ -70,15 +76,20 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
   useEffect(() => {
     if (!open) return;
     setEntryDate(localDateString());
-    setNote("");
+    setNote(preSelectedSupplyName?.trim() ? `Used ${preSelectedSupplyName.trim()}` : "");
     setPhotos([]);
     setSubmitError(null);
+    if (defaultActionType && QUICK_ACTIONS.some((a) => a.id === defaultActionType)) {
+      setSelectedQuickAction(defaultActionType);
+    } else {
+      setSelectedQuickAction("note");
+    }
     if (preSelectedProfileId) {
       setSelectedProfileIds(new Set([preSelectedProfileId]));
     } else {
       setSelectedProfileIds(new Set());
     }
-  }, [open, preSelectedProfileId]);
+  }, [open, preSelectedProfileId, preSelectedSupplyName, defaultActionType]);
 
   useEffect(() => {
     if (!open || !user?.id) {
@@ -231,6 +242,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
         const noteForEntry = isQuickCare
           ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
           : noteTrim;
+        const supplyId = preSelectedSupplyId?.trim() || null;
         const { data: entry, error: insertErr } = await supabase
           .from("journal_entries")
           .insert({
@@ -238,6 +250,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
             plant_profile_id: plantProfileId,
             grow_instance_id: null,
             seed_packet_id: null,
+            supply_profile_id: supplyId ?? undefined,
             note: noteForEntry || null,
             entry_type: entryType,
             image_file_path: firstPath,
@@ -270,7 +283,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, onJournalAd
         setSaving(false);
       }
     },
-    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, onJournalAdded, onClose]
+    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, preSelectedSupplyId, onJournalAdded, onClose]
   );
 
   if (!open) return null;

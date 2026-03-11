@@ -851,6 +851,15 @@ export default function JournalPage() {
                 )}
                 {/* Note and meta (text bubble when no photo) */}
                 <div className="p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <time dateTime={row.date} className="text-sm text-black/80 shrink-0">
+                      {new Date(row.date).toLocaleDateString()}
+                    </time>
+                    <span className="inline-flex items-center gap-1.5 text-black/80 shrink-0">
+                      <ActionIcon icon={row.action.icon} />
+                      <span className="text-sm font-medium">{row.action.label}</span>
+                    </span>
+                  </div>
                   {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex flex-wrap gap-1.5 items-center">
@@ -874,9 +883,6 @@ export default function JournalPage() {
                         <OwnerBadge shorthand={getShorthandForUser(row.owner_user_id)} canEdit={canEditPage(row.owner_user_id ?? "", "journal")} size="xs" />
                       )}
                     </div>
-                    <time dateTime={row.date} className="text-xs text-black/50 shrink-0">
-                      {new Date(row.date).toLocaleDateString()}
-                    </time>
                   </div>
                 </div>
               </article>

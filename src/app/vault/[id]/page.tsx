@@ -700,6 +700,15 @@ export default function VaultSeedPage() {
 
   // Swipe to prev/next profile (mobile); only when no modal is open
   const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || !!editGrowTarget;
+  const nonEmptyPackets = useMemo(() => packets.filter((p) => (p.qty_status ?? 0) > 0 && !p.is_archived), [packets]);
+
+  const handlePlantAgain = useCallback(() => {
+    if (nonEmptyPackets.length === 0) {
+      setShowAddPacketModal(true);
+      return;
+    }
+    setPlantAgainAddPlantOpen(true);
+  }, [nonEmptyPackets.length]);
   const handleSwipeStart = useCallback((e: React.TouchEvent) => {
     swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
   }, []);
@@ -1411,6 +1420,15 @@ export default function VaultSeedPage() {
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
+              {canEdit && (
+                <div>
+                  <p className="text-sm font-medium text-neutral-700 mb-2">Photo</p>
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Add or change photo">
+                    <ICON_MAP.Camera className="w-5 h-5" />
+                    {profile?.hero_image_path || profile?.hero_image_url ? "Change Photo" : "Add Photo"}
+                  </button>
+                </div>
+              )}
               {[
                 { id: "edit-status", label: "Status", key: "status" as const },
                 { id: "edit-plant-type", label: "Plant Type", key: "plantType" as const },
@@ -1671,11 +1689,6 @@ export default function VaultSeedPage() {
               {!heroImageLoaded && (
                 <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
               )}
-              {canEdit && heroImageLoaded && (
-                <div className="absolute bottom-3 right-3">
-                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-5 h-5" /></button>
-                </div>
-              )}
             </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative bg-white">
@@ -1686,9 +1699,6 @@ export default function VaultSeedPage() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 bg-white">
               <PlantPlaceholderIcon size="2xl" className="opacity-90 object-contain" />
-              {canEdit && (
-                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
-              )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
           )}
@@ -2030,7 +2040,7 @@ export default function VaultSeedPage() {
                   schedules={careSchedules}
                   onChanged={async () => { if (user?.id) await generateCareTasks(user.id); loadProfile(); }}
                   readOnly={!canEdit}
-                  extraActions={canEdit && (careSchedules.length > 0 || careSuggestions.length > 0) ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={loadProfile} /> : null}
+                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={loadProfile} /> : null}
                 />
               </div>
             )}
@@ -2046,7 +2056,7 @@ export default function VaultSeedPage() {
                   readOnly={!canEdit}
                   growInstances={growInstances}
                   isPermanent={isPermanent}
-                  extraActions={canEdit && (careSchedules.length > 0 || careSuggestions.length > 0) ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={loadProfile} /> : null}
+                  extraActions={canEdit ? <GetAiSuggestionsButton profileId={id} userId={user?.id ?? ""} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={loadProfile} /> : null}
                 />
               </div>
             )}
@@ -2320,29 +2330,34 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "plantings" && (
           <>
-            <div className="flex items-center justify-end mb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isPermanent) {
-                    setPlantAgainAddPlantOpen(true);
-                  } else {
-                    setPlantAgainQuickAddOpen(true);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 text-sm"
-                aria-label="Plant again"
-              >
-                <ICON_MAP.Add className="w-4 h-4" />
-                Plant Again
-              </button>
-            </div>
+            {growInstances.length > 0 && (
+              <div className="flex items-center justify-end mb-3">
+                <button
+                  type="button"
+                  onClick={handlePlantAgain}
+                  className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 text-sm"
+                  aria-label="Plant again"
+                >
+                  <ICON_MAP.Add className="w-4 h-4" />
+                  Plant Again
+                </button>
+              </div>
+            )}
             {growInstances.length === 0 ? (
               <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
                 <p className="text-neutral-500 text-sm">{isPermanent ? "No plants yet." : "No plantings yet."}</p>
-                <p className="text-neutral-400 text-xs mt-1">
-                  {isPermanent ? "Add your trees or perennials via the FAB from Home or Vault." : "Start a new planting via the FAB from Home or Vault."}
+                <p className="text-neutral-400 text-xs mt-1 mb-4">
+                  {isPermanent ? "Add your trees or perennials via the FAB from Home or Vault." : nonEmptyPackets.length === 0 ? "Add a seed packet first, then start a planting." : "Start a new planting from your packets."}
                 </p>
+                <button
+                  type="button"
+                  onClick={handlePlantAgain}
+                  className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 text-sm"
+                  aria-label={nonEmptyPackets.length === 0 ? "Add seed packet" : "Plant again"}
+                >
+                  <ICON_MAP.Add className="w-4 h-4" />
+                  {nonEmptyPackets.length === 0 ? "Add Seed Packet" : "Plant Again"}
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -2711,7 +2726,7 @@ export default function VaultSeedPage() {
           onSuccess={() => { loadProfile(); setPlantAgainAddPlantOpen(false); }}
           profileId={id}
           profileDisplayName={profile?.variety_name?.trim() ? `${profile?.name ?? ""} (${profile.variety_name})` : profile?.name ?? ""}
-          defaultPlantType="permanent"
+          defaultPlantType={isPermanent ? "permanent" : "seasonal"}
         />
       )}
       {plantAgainQuickAddOpen && (

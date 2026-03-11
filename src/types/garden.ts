@@ -192,6 +192,10 @@ export interface PlantProfile {
   days_to_germination?: string | null;
   harvest_days?: number | null;
   height?: string | null;
+  /** Typical mature height (e.g. "3-4 ft"). From Magic Fill or manual. */
+  mature_height?: string | null;
+  /** Typical mature spread/width (e.g. "2 ft"). From Magic Fill or manual. */
+  mature_width?: string | null;
   tags?: string[] | null;
   status?: string | null;
   sowing_method?: string | null;

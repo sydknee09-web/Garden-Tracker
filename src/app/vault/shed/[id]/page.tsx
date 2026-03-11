@@ -8,11 +8,11 @@ import { insertWithOfflineQueue, updateWithOfflineQueue, upsertWithOfflineQueue 
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
+import { QuickLogModal } from "@/components/QuickLogModal";
 import { ShedSupplyIcon } from "@/components/ShedView";
 import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { hapticSuccess } from "@/lib/haptics";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
 
@@ -49,6 +49,7 @@ export default function VaultShedDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
@@ -195,40 +196,9 @@ export default function VaultShedDetailPage() {
     }
   }, [user?.id, supply?.id]);
 
-  const handleUsedToday = useCallback(async () => {
-    if (!user?.id || !supply?.id) return;
-    const optimisticEntry: JournalEntry & { plant_name?: string } = {
-      id: "temp-used",
-      plant_profile_id: null,
-      plant_variety_id: null,
-      grow_instance_id: null,
-      note: `Used ${supply.name}`,
-      photo_url: null,
-      image_file_path: null,
-      entry_type: "care",
-      created_at: new Date().toISOString(),
-      user_id: user.id,
-    };
-    setHistory((prev) => [optimisticEntry, ...prev]);
-    setUsedTodaySaving(true);
-    const weather = await fetchWeatherSnapshot();
-    const { error } = await insertWithOfflineQueue("journal_entries", {
-      user_id: user.id,
-      supply_profile_id: supply.id,
-      note: `Used ${supply.name}`,
-      entry_type: "care",
-      weather_snapshot: weather ?? undefined,
-    });
-    setUsedTodaySaving(false);
-    if (error) {
-      setHistory((prev) => prev.filter((e) => e.id !== "temp-used"));
-    } else {
-      hapticSuccess();
-      fetchHistory();
-      setToastMessage("Usage logged");
-      setTimeout(() => setToastMessage(null), 2500);
-    }
-  }, [user?.id, supply?.id, supply?.name, fetchHistory]);
+  const handleUsedToday = useCallback(() => {
+    setQuickLogOpen(true);
+  }, []);
 
   const handleSaveNotes = useCallback(
     async (value: string, persist: boolean) => {
@@ -643,10 +613,9 @@ export default function VaultShedDetailPage() {
             <button
               type="button"
               onClick={handleUsedToday}
-              disabled={usedTodaySaving}
               className="min-h-[44px] min-w-[44px] px-4 rounded-xl bg-emerald text-white font-medium hover:opacity-90 disabled:opacity-50"
             >
-              {usedTodaySaving ? "Saving…" : "I used this today"}
+              I used this today
             </button>
           </>
         )}
@@ -679,6 +648,18 @@ export default function VaultShedDetailPage() {
           setEditOpen(false);
         }}
         initialData={supply}
+      />
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        preSelectedSupplyId={supply?.id ?? null}
+        preSelectedSupplyName={supply?.name ?? null}
+        defaultActionType={supply?.category === "fertilizer" ? "fertilize" : supply?.category === "pesticide" ? "spray" : "note"}
+        onJournalAdded={() => {
+          fetchHistory();
+          setToastMessage("Usage logged");
+          setTimeout(() => setToastMessage(null), 2500);
+        }}
       />
       </div>
     </div>

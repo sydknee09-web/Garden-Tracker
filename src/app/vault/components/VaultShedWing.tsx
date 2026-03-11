@@ -135,14 +135,12 @@ export function VaultShedWingBridge({
 type VaultShedWingProviderProps = {
   viewMode: "grid" | "list" | "shed";
   children: ReactNode;
-  pendingShedActionRef: React.MutableRefObject<"quickAdd" | null>;
   onSaveMessage: (message: string) => void;
 };
 
 export function VaultShedWingProvider({
   viewMode,
   children,
-  pendingShedActionRef,
   onSaveMessage,
 }: VaultShedWingProviderProps) {
   const { user } = useAuth();
@@ -213,15 +211,6 @@ export function VaultShedWingProvider({
       /* ignore */
     }
   }, []);
-
-  useEffect(() => {
-    if (viewMode !== "shed") return;
-    const action = pendingShedActionRef.current;
-    if (action === "quickAdd") {
-      pendingShedActionRef.current = null;
-      setShedQuickAddOpen(true);
-    }
-  }, [viewMode, pendingShedActionRef]);
 
   const handleShedBatchDelete = useCallback(async () => {
     if (selectedSupplyIds.size === 0) return;
