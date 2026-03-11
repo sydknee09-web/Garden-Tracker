@@ -61,7 +61,7 @@
 ### 1.2 Legacy code
 
 - [x] **vault.ts / vault types:** Deleted `src/lib/vault.ts` (`normalizeSeedStockRow`, `normalizeSeedStockRows`, `SeedStockRowRaw`) and `src/lib/vault.test.ts`. Deleted `src/app/calendar/page_prev.tsx`. Updated `SeedVaultView.tsx` comment. All consumers already use `seed_packets` and `qty_status` only.
-- [ ] **QuickLogModal:** Remove or update the `@deprecated` JSDoc about supply name in notes (line 44).
+- [x] **QuickLogModal:** Removed the unused `preSelectedSupplyName` prop and its `@deprecated` JSDoc.
 
 ### 1.3 Docs
 
@@ -101,17 +101,17 @@
 
 ### 3.1 Data and labels
 
-- [ ] **AddPlantModal:** For new plant_profiles inserts, set only `purchase_vendor` from the "Vendor / Nursery" field. Stop setting `purchase_nursery` so the UI matches the one-column rule.
-- [ ] **QuickAddSeed:** When opened with `preSelectedProfileId`, show variety in the chip immediately: either pass `profileDisplayName` from parent for the chip until `preSelectedProfile` loads, or show a short loading state in the chip area.
+- [x] **AddPlantModal:** Investigated — already correctly sets only `purchase_vendor`; no code change needed.
+- [x] **QuickAddSeed:** Fixed — `profileDisplayName` prop added and passed from `vault/[id]/page.tsx`; chip shows immediately on open.
 
 ### 3.2 Icons and visuals
 
 - [x] **Stroke weight:** Consolidated to styleDictionary/ICON_MAP (stroke 1.2). Added `ChevronLeft` to ICON_MAP. Replaced 38 inline SVGs (close, chevrons, back, edit, trash, add, search, grid, camera, manualentry, calendar, shoppinglist) across 22 files. Deleted 10 dead local icon functions.
-- [ ] **Colors:** Align with locked decisions: primary #064e3b; emerald-luxury (#50C878) for success states only. No new UI logic.
+- [x] **Colors:** Aligned — replaced 5 `bg-emerald-luxury` CTA buttons and 2 `text-emerald-luxury` icon buttons with `emerald-900` (#064e3b). One toast kept as correct success state. FAB badge tints left (core-locked, 10% opacity). Tailwind config comment corrected.
 
 ### 3.3 Error and feedback
 
-- [ ] **Edit modals:** Ensure each Edit flow (Plant Profile, Grow Instance, Packet) has one visible error region above the primary button and shows save failure inside the modal. Add `hapticError()` on save failure in all three; keep `hapticSuccess()` on success.
+- [x] **Edit modals:** Done — `hapticError()` + visible error region added to all three edit flows (Plant Profile, Grow Instance, Packet). Save errors render in modal footer; form stays visible.
 - [ ] **Shared Quick Actions grid:** Extract `QUICK_ACTIONS_GRID_CLASS` or a small wrapper from journal/new and BatchLogSheet so the grid layout lives in one place. Optional but reduces drift.
 
 **Exit criteria:** Single vendor field, chip loading fixed, icons consistent, error/haptic consistent. No new flows or redirects. Tests pass.
