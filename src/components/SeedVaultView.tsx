@@ -87,7 +87,7 @@ function saveListTableState(columnOrder: ListDataColumnId[], columnWidths: Recor
   }
 }
 
-/** Unified vault card item: from plant_profiles (new) or seed_stocks (legacy). */
+/** Unified vault card item sourced from plant_profiles. */
 export type VaultCardItem = {
   id: string;
   name: string;

@@ -32,7 +32,6 @@ export type TaskType =
 export interface Task {
   id: string;
   plant_profile_id?: string | null;
-  plant_variety_id?: string | null; // legacy — column dropped from DB
   category: TaskType;
   due_date: string; // ISO date
   completed_at: string | null;
@@ -57,7 +56,6 @@ export type GrowInstanceStatus =
 export interface GrowInstance {
   id: string;
   plant_profile_id?: string | null;
-  plant_variety_id?: string | null; // legacy — column dropped from DB
   sown_date: string;
   expected_harvest_date: string | null;
   status?: GrowInstanceStatus | null;
@@ -105,7 +103,6 @@ export type WeatherSnapshotData = {
 
 export interface JournalEntry {
   id: string;
-  plant_variety_id?: string | null; // legacy — column dropped from DB
   plant_profile_id?: string | null;
   grow_instance_id: string | null;
   seed_packet_id?: string | null;
@@ -131,7 +128,6 @@ export interface ShoppingListItem {
   user_id: string;
   /** Set when item is from vault (out of stock); null for wishlist placeholders. */
   plant_profile_id: string | null;
-  plant_variety_id?: string; // legacy
   /** Set when item is a supply (running low). */
   supply_profile_id?: string | null;
   /** Wishlist: display name when plant_profile_id is null. */

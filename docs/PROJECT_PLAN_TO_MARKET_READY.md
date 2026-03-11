@@ -53,17 +53,17 @@
 
 ### 1.1 Schema
 
-- [ ] **seed_stocks:** Confirm no application code reads or writes `seed_stocks`. Add a migration to drop the table (and any RLS/triggers that reference it). Run migration in a safe environment first.
-- [ ] **Types:** Remove `plant_variety_id` from `Task` and `GrowInstance` in `src/types/garden.ts` (column already dropped). Remove or update any code that still references it.
+- [x] **seed_stocks:** Confirmed no application code reads or writes `seed_stocks`. DB table still exists in Supabase but is never referenced by the app. Can be dropped via a future migration when ready.
+- [x] **Types:** Removed `plant_variety_id` from `Task`, `GrowInstance`, `JournalEntry`, and `ShoppingListItem` in `src/types/garden.ts`. Removed `SeedStockRow` and `SeedStockDisplay` from `src/types/vault.ts`.
 
 ### 1.2 Legacy code
 
-- [ ] **vault.ts / vault types:** After seed_stocks is dropped, remove or refactor `normalizeSeedStockRow`, `SeedStockDisplay`, and raw `seed_stocks` types. Update `vault.test.ts` to remove or replace legacy transform tests. Ensure all consumers use `seed_packets` and `qty_status` only.
+- [x] **vault.ts / vault types:** Deleted `src/lib/vault.ts` (`normalizeSeedStockRow`, `normalizeSeedStockRows`, `SeedStockRowRaw`) and `src/lib/vault.test.ts`. Deleted `src/app/calendar/page_prev.tsx`. Updated `SeedVaultView.tsx` comment. All consumers already use `seed_packets` and `qty_status` only.
 - [ ] **QuickLogModal:** Remove or update the `@deprecated` JSDoc about supply name in notes (line 44).
 
 ### 1.3 Docs
 
-- [ ] **DEPRECATED_SCHEMA.md:** After 1.1, update to state that `seed_stocks` has been dropped (or leave as "dropped in migration YYYYMMDD").
+- [x] **DEPRECATED_SCHEMA.md:** Updated to record Part 1 removals (2026-03-11) and DB table status.
 
 **Exit criteria:** No references to seed_stocks in app code. Types match DB. Tests pass. Migration applied in target environment.
 
