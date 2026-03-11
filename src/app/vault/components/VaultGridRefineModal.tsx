@@ -18,8 +18,6 @@ export type GridRefineSection =
   | "germination"
   | "maturity"
   | "packetCount"
-  | "packetVendor"
-  | "packetSow"
   | null;
 
 export type RefineChips = {

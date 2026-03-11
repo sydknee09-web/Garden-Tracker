@@ -11,6 +11,7 @@ import { localDateString } from "@/lib/calendarDate";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
+type SupplyOption = { id: string; name: string; brand: string | null };
 
 type QuickActionType = "note" | "growth" | "planting" | "harvest" | "water" | "fertilize" | "spray" | "pest";
 
@@ -38,9 +39,9 @@ export interface QuickLogModalProps {
   onClose: () => void;
   /** When set (e.g. from vault/[id]), pre-select this plant and hide search. */
   preSelectedProfileId?: string | null;
-  /** When set (e.g. from shed/[id] "I used this today"), pre-fill supply and link the created entry to this supply. */
+  /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
-  /** Optional supply display name for default note e.g. "Used Miracle-Gro". */
+  /** @deprecated No longer used; supply name is not appended to notes. */
   preSelectedSupplyName?: string | null;
   /** When opening with a supply, default quick action (e.g. fertilize, spray). */
   defaultActionType?: QuickActionType;
@@ -48,10 +49,13 @@ export interface QuickLogModalProps {
   onJournalAdded?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedSupplyId, preSelectedSupplyName, defaultActionType, onJournalAdded }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedSupplyId, defaultActionType, onJournalAdded }: QuickLogModalProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [supplies, setSupplies] = useState<SupplyOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
+  const [suppliesLoading, setSuppliesLoading] = useState(false);
+  const [selectedSupplyId, setSelectedSupplyId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set());
@@ -76,9 +80,10 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
   useEffect(() => {
     if (!open) return;
     setEntryDate(localDateString());
-    setNote(preSelectedSupplyName?.trim() ? `Used ${preSelectedSupplyName.trim()}` : "");
+    setNote("");
     setPhotos([]);
     setSubmitError(null);
+    setSelectedSupplyId(preSelectedSupplyId?.trim() || null);
     if (defaultActionType && QUICK_ACTIONS.some((a) => a.id === defaultActionType)) {
       setSelectedQuickAction(defaultActionType);
     } else {
@@ -89,7 +94,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     } else {
       setSelectedProfileIds(new Set());
     }
-  }, [open, preSelectedProfileId, preSelectedSupplyName, defaultActionType]);
+  }, [open, preSelectedProfileId, preSelectedSupplyId, defaultActionType]);
 
   useEffect(() => {
     if (!open || !user?.id) {
@@ -108,6 +113,27 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         .order("name");
       if (!cancelled && data) setProfiles(data as ProfileOption[]);
       if (!cancelled) setProfilesLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, user?.id]);
+
+  useEffect(() => {
+    if (!open || !user?.id) {
+      setSupplies([]);
+      setSuppliesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSuppliesLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from("supply_profiles")
+        .select("id, name, brand")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("name");
+      if (!cancelled && data) setSupplies(data as SupplyOption[]);
+      if (!cancelled) setSuppliesLoading(false);
     })();
     return () => { cancelled = true; };
   }, [open, user?.id]);
@@ -242,7 +268,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         const noteForEntry = isQuickCare
           ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
           : noteTrim;
-        const supplyId = preSelectedSupplyId?.trim() || null;
+        const supplyId = selectedSupplyId?.trim() || null;
         const { data: entry, error: insertErr } = await supabase
           .from("journal_entries")
           .insert({
@@ -283,7 +309,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         setSaving(false);
       }
     },
-    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, preSelectedSupplyId, onJournalAdded, onClose]
+    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyId, onJournalAdded, onClose]
   );
 
   if (!open) return null;
@@ -371,6 +397,25 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="quicklog-supply" className="block text-sm font-medium text-black/80 mb-1">Supply Used</label>
+            <select
+              id="quicklog-supply"
+              value={selectedSupplyId ?? ""}
+              onChange={(e) => setSelectedSupplyId(e.target.value.trim() || null)}
+              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px] bg-white"
+              aria-label="Supply used"
+            >
+              <option value="">None</option>
+              {supplies.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.brand?.trim() ? ` (${s.brand})` : ""}
+                </option>
+              ))}
+            </select>
+            {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
           </div>
 
           <div>

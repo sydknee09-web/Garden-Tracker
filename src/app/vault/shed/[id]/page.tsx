@@ -653,7 +653,6 @@ export default function VaultShedDetailPage() {
         open={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}
         preSelectedSupplyId={supply?.id ?? null}
-        preSelectedSupplyName={supply?.name ?? null}
         defaultActionType={supply?.category === "fertilizer" ? "fertilize" : supply?.category === "pesticide" ? "spray" : "note"}
         onJournalAdded={() => {
           fetchHistory();

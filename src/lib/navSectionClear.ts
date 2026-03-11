@@ -10,6 +10,8 @@ const LAST_NAV_SECTION_KEY = "last-nav-section";
 const VAULT_KEYS = [
   "vault-view-mode",
   "vault-status-filter",
+  "vault-status-filter-grid",
+  "vault-status-filter-list",
   "vault-grid-style",
   "vault-shed-display-style",
   "vault-search",

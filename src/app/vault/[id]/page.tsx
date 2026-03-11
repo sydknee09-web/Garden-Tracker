@@ -19,6 +19,7 @@ import { StarRating } from "@/components/StarRating";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
+import { AddPlantManualModal } from "@/components/AddPlantManualModal";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
@@ -258,16 +259,11 @@ export default function VaultSeedPage() {
   // The user_id of the profile owner (may differ from user.id when viewing family profiles)
   const [profileOwnerId, setProfileOwnerId] = useState<string>("");
 
-  // Add packet modal (when profile has 0 packets or user wants to add another)
-  const [showAddPacketModal, setShowAddPacketModal] = useState(false);
-  const [addPacketVendor, setAddPacketVendor] = useState("");
-  const [addPacketPurchaseDate, setAddPacketPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [addPacketUrl, setAddPacketUrl] = useState("");
-  const [addPacketSaving, setAddPacketSaving] = useState(false);
-  const [addPacketError, setAddPacketError] = useState<string | null>(null);
+  // Add packet modal (single entry point: Plant Again with 0 packets or Packets tab "Add seed packet")
+  const [addPlantManualOpen, setAddPlantManualOpen] = useState(false);
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
-  useModalBackClose(showAddPacketModal, () => setShowAddPacketModal(false));
+  useModalBackClose(addPlantManualOpen, () => setAddPlantManualOpen(false));
   useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
   useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
@@ -699,12 +695,12 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || showAddPacketModal || !!editGrowTarget;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget;
   const nonEmptyPackets = useMemo(() => packets.filter((p) => (p.qty_status ?? 0) > 0 && !p.is_archived), [packets]);
 
   const handlePlantAgain = useCallback(() => {
     if (nonEmptyPackets.length === 0) {
-      setShowAddPacketModal(true);
+      setAddPlantManualOpen(true);
       return;
     }
     setPlantAgainAddPlantOpen(true);
@@ -845,44 +841,6 @@ export default function VaultSeedPage() {
     setToastMessage("Added to shopping list");
     setTimeout(() => setToastMessage(null), 2500);
   }, [user?.id, id]);
-
-  const handleAddPacketSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.id || !id) return;
-    setAddPacketError(null);
-    setAddPacketSaving(true);
-    const purchaseDate = addPacketPurchaseDate.trim() || new Date().toISOString().slice(0, 10);
-    const purchaseUrl = addPacketUrl.trim() || null;
-    const vendorName = addPacketVendor.trim() || null;
-    const { error: packetErr } = await supabase.from("seed_packets").insert({
-      plant_profile_id: id,
-      user_id: user.id,
-      vendor_name: vendorName,
-      purchase_url: purchaseUrl,
-      purchase_date: purchaseDate,
-      qty_status: 100,
-    });
-    setAddPacketSaving(false);
-    if (packetErr) {
-      setAddPacketError(packetErr.message);
-      return;
-    }
-    const owner = profileOwnerId || user.id;
-    const { data: activeGrows } = await supabase
-      .from("grow_instances")
-      .select("id")
-      .eq("plant_profile_id", id)
-      .eq("user_id", owner)
-      .is("deleted_at", null)
-      .in("status", ["pending", "growing"]);
-    const status = (activeGrows?.length ?? 0) > 0 ? "active" : "in_stock";
-    await supabase.from("plant_profiles").update({ status }).eq("id", id).eq("user_id", owner);
-    setShowAddPacketModal(false);
-    setAddPacketVendor("");
-    setAddPacketPurchaseDate(new Date().toISOString().slice(0, 10));
-    setAddPacketUrl("");
-    await loadProfile();
-  }, [user?.id, id, profileOwnerId, addPacketVendor, addPacketPurchaseDate, addPacketUrl, loadProfile]);
 
   const fetchJournalForPacket = useCallback(async (packetId: string) => {
     if (!user?.id) return;
@@ -1226,7 +1184,7 @@ export default function VaultSeedPage() {
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Modals */}
       {showSetPhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex-shrink-0 p-4 border-b border-neutral-200 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -1689,6 +1647,11 @@ export default function VaultSeedPage() {
               {!heroImageLoaded && (
                 <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
               )}
+              {canEdit && heroImageLoaded && (
+                <div className="absolute bottom-3 right-3">
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-5 h-5" /></button>
+                </div>
+              )}
             </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative bg-white">
@@ -1699,6 +1662,9 @@ export default function VaultSeedPage() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 bg-white">
               <PlantPlaceholderIcon size="2xl" className="opacity-90 object-contain" />
+              {canEdit && (
+                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
+              )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
           )}
@@ -2110,7 +2076,7 @@ export default function VaultSeedPage() {
                     <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
                     <button
                       type="button"
-                      onClick={() => setShowAddPacketModal(true)}
+                      onClick={() => setAddPlantManualOpen(true)}
                       className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-luxury focus:ring-offset-2"
                     >
                       Add seed packet
@@ -2313,7 +2279,7 @@ export default function VaultSeedPage() {
                   <div className="p-4 border-t border-neutral-100">
                     <button
                       type="button"
-                      onClick={() => setShowAddPacketModal(true)}
+                      onClick={() => setAddPlantManualOpen(true)}
                       className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       + Add another packet
@@ -2518,56 +2484,13 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
       </div>
 
-      {/* Add seed packet modal (when profile has 0 packets or adding another) */}
-      {showAddPacketModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-packet-title">
-          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
-            <h2 id="add-packet-title" className="text-lg font-bold text-neutral-900 mb-4">Add seed packet</h2>
-            <form onSubmit={handleAddPacketSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="add-packet-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor (optional)</label>
-                <input
-                  id="add-packet-vendor"
-                  type="text"
-                  value={addPacketVendor}
-                  onChange={(e) => setAddPacketVendor(e.target.value)}
-                  placeholder="e.g. Johnny's, Baker Creek"
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Vendor name"
-                />
-              </div>
-              <div>
-                <label htmlFor="add-packet-date" className="block text-sm font-medium text-neutral-700 mb-1">Purchase date</label>
-                <input
-                  id="add-packet-date"
-                  type="date"
-                  value={addPacketPurchaseDate}
-                  onChange={(e) => setAddPacketPurchaseDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Purchase date"
-                />
-              </div>
-              <div>
-                <label htmlFor="add-packet-url" className="block text-sm font-medium text-neutral-700 mb-1">Purchase URL (optional)</label>
-                <input
-                  id="add-packet-url"
-                  type="url"
-                  value={addPacketUrl}
-                  onChange={(e) => setAddPacketUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Purchase URL"
-                />
-              </div>
-              {addPacketError && <p className="text-sm text-red-600" role="alert">{addPacketError}</p>}
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => setShowAddPacketModal(false)} disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
-                <button type="submit" disabled={addPacketSaving} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">{addPacketSaving ? "Adding…" : "Add packet"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddPlantManualModal
+        open={addPlantManualOpen}
+        onClose={() => setAddPlantManualOpen(false)}
+        onSuccess={loadProfile}
+        profileId={id}
+        profileOwnerId={profileOwnerId || undefined}
+      />
 
       {/* Edit grow instance modal — full-screen on mobile, centered on desktop */}
       {editGrowTarget && (

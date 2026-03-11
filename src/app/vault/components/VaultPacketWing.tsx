@@ -11,6 +11,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVault } from "@/contexts/VaultContext";
+import { cascadeForDeletedPackets } from "@/lib/cascadeOnPacketDelete";
 import {
   loadFilterDefault,
   saveFilterDefault,
@@ -27,6 +31,10 @@ import type { UseFilterStateReturn } from "@/hooks/useFilterState";
 const PacketVaultLazy = dynamic(
   () => import("../PacketVaultLazy").then((m) => ({ default: m.PacketVaultLazy })),
   { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading packets…</div> }
+);
+const EditPacketModal = dynamic(
+  () => import("@/components/EditPacketModal").then((m) => ({ default: m.EditPacketModal })),
+  { ssr: false }
 );
 
 type PacketFilterDefault = { status: string; vendor: string | null; sowMonth: string | null; sortBy: string; sortDirection: string };
@@ -80,6 +88,19 @@ export type VaultPacketWingContextValue = {
   router: ReturnType<typeof useRouter>;
   onOpenScanner?: () => void;
   onAddFirst?: () => void;
+  packetModalOpen: boolean;
+  openSelectionActions: () => void;
+  closeAllPacketModals: () => void;
+  selectionActionsOpen: boolean;
+  setSelectionActionsOpen: (v: boolean) => void;
+  batchPacketDeleteConfirmOpen: boolean;
+  setBatchPacketDeleteConfirmOpen: (v: boolean) => void;
+  editPacketId: string | null;
+  setEditPacketId: (v: string | null) => void;
+  editPacketModalOpen: boolean;
+  setEditPacketModalOpen: (v: boolean) => void;
+  batchPacketDeleting: boolean;
+  handleBatchDeletePackets: (deleteGrowInstances: boolean) => Promise<void>;
 };
 
 const VaultPacketWingContext = createContext<VaultPacketWingContextValue | null>(null);
@@ -90,40 +111,93 @@ export function useVaultPacketWing(): VaultPacketWingContextValue {
   return ctx;
 }
 
+export function useVaultPacketWingOptional(): VaultPacketWingContextValue | null {
+  return useContext(VaultPacketWingContext);
+}
+
+/** Syncs packet modal open and selection state to parent for FAB and useModalBackClose. Render inside VaultPacketWingProvider. */
+export function VaultPacketWingBridge({
+  onPacketModalOpenChange,
+  onPacketSelectionStateChange,
+  packetActionsRef,
+  sharedSearchQuery,
+  onSyncSearchToGrid,
+}: {
+  onPacketModalOpenChange: (open: boolean) => void;
+  onPacketSelectionStateChange: (state: { batchSelectMode: boolean; selectedPacketIds: Set<string> }) => void;
+  packetActionsRef: React.MutableRefObject<{
+    openSelectionActions: () => void;
+    closeAllPacketModals: () => void;
+  } | null>;
+  sharedSearchQuery?: string;
+  onSyncSearchToGrid?: (query: string) => void;
+}) {
+  const wing = useVaultPacketWingOptional();
+  useEffect(() => {
+    onPacketModalOpenChange(wing?.packetModalOpen ?? false);
+  }, [wing?.packetModalOpen, onPacketModalOpenChange]);
+  useEffect(() => {
+    if (!wing) return;
+    onPacketSelectionStateChange({
+      batchSelectMode: wing.batchSelectMode,
+      selectedPacketIds: wing.selectedPacketIds,
+    });
+  }, [wing?.batchSelectMode, wing?.selectedPacketIds, onPacketSelectionStateChange]);
+  useEffect(() => {
+    if (wing) {
+      packetActionsRef.current = {
+        openSelectionActions: wing.openSelectionActions,
+        closeAllPacketModals: wing.closeAllPacketModals,
+      };
+    } else {
+      packetActionsRef.current = null;
+    }
+    return () => {
+      packetActionsRef.current = null;
+    };
+  }, [wing, packetActionsRef]);
+  const prevViewModeRef = useRef<"grid" | "list" | "shed">(wing?.viewMode ?? "grid");
+  useEffect(() => {
+    if (!wing) return;
+    const prev = prevViewModeRef.current;
+    const curr = wing.viewMode;
+    if (prev !== "list" && curr === "list" && sharedSearchQuery !== undefined) {
+      wing.setPacketSearchQuery(sharedSearchQuery);
+    }
+    if (prev === "list" && curr !== "list" && onSyncSearchToGrid) {
+      onSyncSearchToGrid(wing.packetSearchQuery);
+    }
+    prevViewModeRef.current = curr;
+  }, [wing?.viewMode, wing?.packetSearchQuery, wing?.setPacketSearchQuery, sharedSearchQuery, onSyncSearchToGrid]);
+  return null;
+}
+
 type VaultPacketWingProviderProps = {
   viewMode: "grid" | "list" | "shed";
   children: ReactNode;
-  refetchTrigger: number;
-  refetch: () => void;
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   vaultFilters: UseFilterStateReturn<"vault">;
-  batchSelectMode: boolean;
-  setBatchSelectMode: (v: boolean | ((prev: boolean) => boolean)) => void;
-  selectedPacketIds: Set<string>;
-  setSelectedPacketIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onEmptyStateChange: (empty: boolean) => void;
   onSaveMessage: (message: string) => void;
   onOpenScanner?: () => void;
   onAddFirst?: () => void;
+  sharedSearchQuery?: string;
+  onSyncSearchToGrid?: (query: string) => void;
 };
 
 export function VaultPacketWingProvider({
   viewMode,
   children,
-  refetchTrigger,
-  refetch,
-  scrollContainerRef,
   vaultFilters,
-  batchSelectMode,
-  setBatchSelectMode,
-  selectedPacketIds,
-  setSelectedPacketIds,
   onEmptyStateChange,
   onSaveMessage,
   onOpenScanner,
   onAddFirst,
+  sharedSearchQuery,
+  onSyncSearchToGrid,
 }: VaultPacketWingProviderProps) {
   const router = useRouter();
+  const { user } = useAuth();
+  const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const [packetSearchQuery, setPacketSearchQuery] = useState("");
   const [packetStatusFilter, setPacketStatusFilter] = useState<PacketStatusFilter>("");
   const [packetVendorFilter, setPacketVendorFilter] = useState<string | null>(null);
@@ -140,6 +214,13 @@ export function VaultPacketWingProvider({
   const [filteredPacketCount, setFilteredPacketCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"sort" | "vault" | "packetVendor" | "packetSow" | "tags" | "seedType" | "sun" | "spacing" | "germination" | "maturity" | null>(null);
+  const [batchSelectMode, setBatchSelectMode] = useState(false);
+  const [selectedPacketIds, setSelectedPacketIds] = useState<Set<string>>(new Set());
+  const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
+  const [batchPacketDeleteConfirmOpen, setBatchPacketDeleteConfirmOpen] = useState(false);
+  const [editPacketId, setEditPacketId] = useState<string | null>(null);
+  const [editPacketModalOpen, setEditPacketModalOpen] = useState(false);
+  const [batchPacketDeleting, setBatchPacketDeleting] = useState(false);
   const packetFiltersRestoredRef = useRef(false);
 
   const hasPacketActiveFilters =
@@ -167,6 +248,47 @@ export function VaultPacketWingProvider({
     setRefineByOpen(false);
     setRefineBySection(null);
   }, [router, vaultFilters]);
+
+  const handleBatchDeletePackets = useCallback(
+    async (deleteGrowInstances: boolean) => {
+      if (selectedPacketIds.size === 0) return;
+      const uid = user?.id;
+      if (!uid) {
+        onSaveMessage("You must be signed in to delete.");
+        return;
+      }
+      setBatchPacketDeleting(true);
+      try {
+        await cascadeForDeletedPackets(supabase, Array.from(selectedPacketIds), uid, { deleteGrowInstances });
+        const count = selectedPacketIds.size;
+        setSelectedPacketIds(new Set());
+        setBatchSelectMode(false);
+        setBatchPacketDeleteConfirmOpen(false);
+        refetch();
+        onSaveMessage(`${count} packet${count === 1 ? "" : "s"} removed.`);
+      } catch (err) {
+        onSaveMessage(err instanceof Error ? err.message : "Could not delete packets.");
+      } finally {
+        setBatchPacketDeleting(false);
+      }
+    },
+    [user?.id, selectedPacketIds, refetch, onSaveMessage]
+  );
+
+  const packetModalOpen =
+    refineByOpen || selectionActionsOpen || batchPacketDeleteConfirmOpen || editPacketModalOpen;
+
+  const openSelectionActions = useCallback(() => {
+    setSelectionActionsOpen(true);
+  }, []);
+
+  const closeAllPacketModals = useCallback(() => {
+    setRefineByOpen(false);
+    setSelectionActionsOpen(false);
+    setBatchPacketDeleteConfirmOpen(false);
+    setEditPacketModalOpen(false);
+    setEditPacketId(null);
+  }, []);
 
   useEffect(() => {
     const loaded = loadFilterDefault<PacketFilterDefault>(FILTER_DEFAULT_KEYS.vaultPackets);
@@ -268,6 +390,19 @@ export function VaultPacketWingProvider({
     router,
     onOpenScanner: onOpenScanner ?? (() => {}),
     onAddFirst: onAddFirst ?? (() => {}),
+    packetModalOpen,
+    openSelectionActions,
+    closeAllPacketModals,
+    selectionActionsOpen,
+    setSelectionActionsOpen,
+    batchPacketDeleteConfirmOpen,
+    setBatchPacketDeleteConfirmOpen,
+    editPacketId,
+    setEditPacketId,
+    editPacketModalOpen,
+    setEditPacketModalOpen,
+    batchPacketDeleting,
+    handleBatchDeletePackets,
   };
 
   return (
@@ -813,6 +948,143 @@ export function VaultPacketWingRefineModal() {
           </button>
         </footer>
       </div>
+    </>
+  );
+}
+
+/** List-only modals: selection actions menu, batch packet delete confirm, EditPacketModal. */
+export function VaultPacketWingModals() {
+  const ctx = useContext(VaultPacketWingContext);
+  if (!ctx || ctx.viewMode !== "list") return null;
+  const {
+    selectionActionsOpen,
+    setSelectionActionsOpen,
+    batchSelectMode,
+    selectedPacketIds,
+    setSelectedPacketIds,
+    setBatchSelectMode,
+    setBatchPacketDeleteConfirmOpen,
+    batchPacketDeleteConfirmOpen,
+    setEditPacketId,
+    setEditPacketModalOpen,
+    editPacketId,
+    editPacketModalOpen,
+    refetch,
+    batchPacketDeleting,
+    handleBatchDeletePackets,
+  } = ctx;
+
+  return (
+    <>
+      {/* Selection actions menu (packet list) */}
+      {selectionActionsOpen && batchSelectMode && (
+        <>
+          <div
+            className="fixed inset-0 z-[99] bg-black/40"
+            aria-hidden
+            onClick={() => setSelectionActionsOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Selection actions"
+            className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
+          >
+            <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
+              <p className="text-sm font-medium text-black/70">{selectedPacketIds.size} selected</p>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchPacketDeleteConfirmOpen(true);
+                  setSelectionActionsOpen(false);
+                }}
+                disabled={selectedPacketIds.size === 0 || batchPacketDeleting}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-citrus hover:bg-black/5 disabled:opacity-50"
+                aria-label="Delete selected"
+              >
+                <ICON_MAP.Trash2 className="w-5 h-5 shrink-0" />
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const first = Array.from(selectedPacketIds)[0];
+                  if (first) {
+                    setEditPacketId(first);
+                    setEditPacketModalOpen(true);
+                  }
+                  setSelectionActionsOpen(false);
+                }}
+                disabled={selectedPacketIds.size !== 1}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                aria-label="Edit selected packet"
+              >
+                <ICON_MAP.Pencil className="w-5 h-5 shrink-0" />
+                Edit
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Batch packet delete confirm */}
+      {batchPacketDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="alertdialog" aria-modal="true" aria-labelledby="batch-packet-delete-title">
+          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
+            <h2 id="batch-packet-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedPacketIds.size} seed packet{selectedPacketIds.size !== 1 ? "s" : ""}?</h2>
+            <p className="text-sm text-black/70 mb-3">Choose how to handle related data:</p>
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => handleBatchDeletePackets(false)}
+                disabled={batchPacketDeleting}
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50 text-left"
+              >
+                <span className="block font-medium">Delete packet only</span>
+                <span className="block text-xs text-black/60 mt-0.5">Removes packets and journal entries. Plantings kept; packet link cleared.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBatchDeletePackets(true)}
+                disabled={batchPacketDeleting}
+                className="w-full px-4 py-2.5 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 min-h-[44px] disabled:opacity-50 text-left"
+              >
+                <span className="block font-medium">Delete packet and all related</span>
+                <span className="block text-xs text-red-600/80 mt-0.5">Removes packets, journal entries, and plantings started from these packets.</span>
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setBatchPacketDeleteConfirmOpen(false)}
+                disabled={batchPacketDeleting}
+                className="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-700 font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editPacketModalOpen && editPacketId && (
+        <EditPacketModal
+          packetId={editPacketId}
+          onClose={() => {
+            setEditPacketModalOpen(false);
+            setEditPacketId(null);
+            setSelectedPacketIds(new Set());
+            setBatchSelectMode(false);
+          }}
+          onSaved={() => {
+            refetch();
+            setSelectedPacketIds(new Set());
+            setBatchSelectMode(false);
+          }}
+        />
+      )}
     </>
   );
 }

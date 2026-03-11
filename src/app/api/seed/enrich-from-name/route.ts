@@ -54,36 +54,40 @@ export async function POST(req: Request) {
 
     const identityKey = identityKeyFromVariety(name, variety);
 
-    // Botany brain: check global_plant_library before AI
+    // Botany brain: check global_plant_library before AI (fallback to AI if table missing or unreachable)
     if (auth?.supabase && identityKey) {
-      const { data: libRow } = await auth.supabase
-        .from("global_plant_library")
-        .select("mature_height, mature_width, sun, water, spacing, germination_days, harvest_days, description")
-        .eq("identity_key", identityKey)
-        .maybeSingle();
-      if (libRow) {
-        const row = libRow as {
-          mature_height?: string | null;
-          mature_width?: string | null;
-          sun?: string | null;
-          water?: string | null;
-          spacing?: string | null;
-          germination_days?: string | null;
-          harvest_days?: number | null;
-          description?: string | null;
-        };
-        const response: EnrichFromNameResponse = {
-          sun: row.sun?.trim() || null,
-          plant_spacing: row.spacing?.trim() || null,
-          days_to_germination: row.germination_days?.trim() || null,
-          harvest_days: row.harvest_days ?? null,
-          water: row.water?.trim() || null,
-          plant_description: row.description?.trim() || null,
-          growing_notes: null,
-          mature_height: row.mature_height?.trim() || null,
-          mature_width: row.mature_width?.trim() || null,
-        };
-        return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
+      try {
+        const { data: libRow } = await auth.supabase
+          .from("global_plant_library")
+          .select("mature_height, mature_width, sun, water, spacing, germination_days, harvest_days, description")
+          .eq("identity_key", identityKey)
+          .maybeSingle();
+        if (libRow) {
+          const row = libRow as {
+            mature_height?: string | null;
+            mature_width?: string | null;
+            sun?: string | null;
+            water?: string | null;
+            spacing?: string | null;
+            germination_days?: string | null;
+            harvest_days?: number | null;
+            description?: string | null;
+          };
+          const response: EnrichFromNameResponse = {
+            sun: row.sun?.trim() || null,
+            plant_spacing: row.spacing?.trim() || null,
+            days_to_germination: row.germination_days?.trim() || null,
+            harvest_days: row.harvest_days ?? null,
+            water: row.water?.trim() || null,
+            plant_description: row.description?.trim() || null,
+            growing_notes: null,
+            mature_height: row.mature_height?.trim() || null,
+            mature_width: row.mature_width?.trim() || null,
+          };
+          return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
+        }
+      } catch {
+        // Table may not exist yet (migration not propagated); fall through to AI
       }
     }
 

@@ -209,16 +209,14 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
       {saveError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{saveError}</p>}
       {schedules.length === 0 && !showAdd ? (
         <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-8 text-center">
-          <span className="text-3xl mb-2 block" aria-hidden>📋</span>
-          <p className="text-neutral-500 text-sm">No care schedules yet.</p>
+          <span className="text-3xl mb-3 block" aria-hidden>📋</span>
+          <p className="text-neutral-800 font-medium text-sm mb-1">No care schedules yet</p>
+          <p className="text-neutral-600 text-sm mb-6">Add recurring reminders like fertilize, prune, or water.</p>
           {readOnly ? null : (
-            <>
-              <p className="text-neutral-400 text-xs mt-1 mb-4">Add recurring reminders like fertilize, prune, or water.</p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {extraActions}
-                <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px] min-w-[44px]">Add Manual</button>
-              </div>
-            </>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {extraActions}
+              <button type="button" onClick={() => setShowAdd(true)} className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 bg-white font-medium hover:bg-neutral-50 min-h-[44px] min-w-[44px]">Add Manual</button>
+            </div>
           )}
         </div>
       ) : (

@@ -261,9 +261,9 @@ export function GetAiSuggestionsButton({
       type="button"
       onClick={handleClick}
       disabled={generating}
-      className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 min-h-[44px] min-w-[44px]"
+      className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 bg-white font-medium hover:bg-neutral-50 disabled:opacity-50 min-h-[44px] min-w-[44px]"
     >
-      {generating ? "…" : "✨ AI suggestions"}
+      {generating ? "…" : "Magic Fill"}
     </button>
   );
 }
