@@ -194,6 +194,7 @@ export default function VaultSeedPage() {
   const [editGrowPlantCount, setEditGrowPlantCount] = useState(1);
   const [editGrowSownDate, setEditGrowSownDate] = useState("");
   const [editGrowSaving, setEditGrowSaving] = useState(false);
+  const [editGrowError, setEditGrowError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -566,6 +567,7 @@ export default function VaultSeedPage() {
 
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);
+    setEditGrowError(null);
     setEditGrowLocation(gi.location ?? "");
     setEditGrowVendor((gi.vendor ?? "").trim());
     setEditGrowPrice((gi.purchase_price ?? "").trim());
@@ -588,8 +590,9 @@ export default function VaultSeedPage() {
       .eq("id", editGrowTarget.id)
       .eq("user_id", ownerId);
     setEditGrowSaving(false);
-    if (error) { hapticError(); return; }
+    if (error) { setEditGrowError(error.message); hapticError(); return; }
     hapticSuccess();
+    setEditGrowError(null);
     setEditGrowTarget(null);
     loadProfile();
   }, [user?.id, editGrowTarget, editGrowLocation, editGrowVendor, editGrowPrice, editGrowPlantCount, editGrowSownDate, loadProfile]);
@@ -1087,7 +1090,7 @@ export default function VaultSeedPage() {
     };
     const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
     setSavingEdit(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(error.message); hapticError(); return; }
     hapticSuccess();
     if (user?.id && profile) {
       const oldKey = buildIdentityKey(profile.name ?? "", profile.variety_name ?? "");
@@ -2584,15 +2587,18 @@ export default function VaultSeedPage() {
                 Delete batch
               </button>
             </div>
-            <div className="flex gap-3 justify-end pt-4 mt-4 border-t border-neutral-200">
-              <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
-                <ICON_MAP.Cancel className="w-4 h-4" />
-                Cancel
-              </button>
-              <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">
-                <ICON_MAP.Save className="w-4 h-4" />
-                {editGrowSaving ? "Saving…" : "Save"}
-              </button>
+            <div className="pt-4 mt-4 border-t border-neutral-200">
+              {editGrowError && <p className="text-sm text-red-600 mb-3" role="alert">{editGrowError}</p>}
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
+                  <ICON_MAP.Cancel className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">
+                  <ICON_MAP.Save className="w-4 h-4" />
+                  {editGrowSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

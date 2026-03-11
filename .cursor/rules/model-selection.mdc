@@ -1,0 +1,42 @@
+---
+description: When to use a more capable model (e.g. Sonnet) vs Auto or a faster model for Seed Vault work.
+alwaysApply: false
+---
+
+# Cursor model selection
+
+Use this to choose which Cursor model to use for a session. The agent cannot switch the model for you; you select it in Cursor’s model picker. This rule documents the policy so you (or whoever is driving the session) can choose consistently.
+
+---
+
+## Use a more capable model (e.g. Sonnet)
+
+Use when:
+
+- **Executing the project plan** — Working through `docs/PROJECT_PLAN_TO_MARKET_READY.md` (Parts 0–6), especially multi-step parts.
+- **Multi-file edits** — Changes that span several components or pages (e.g. vault profile page + modals + types).
+- **Flows that touch Laws or schema** — Add/edit flows (plant profile, seed packet, grow instance, shed supply), RLS, soft delete, `qty_status`, navigation, or redirect rules.
+- **Refactors or consistency passes** — Icons, error/haptic consistency, shared components, or anything that must stay aligned with Laws and NAVIGATION_MAP.
+
+Reason: these tasks need strong context retention and consistent application of project rules across large files.
+
+---
+
+## Use Auto or a faster / lower-tier model
+
+Use when:
+
+- **Single-file tweaks** — One component, one page, or one util file.
+- **Docs or comments only** — Updating README, TESTING.md, NAVIGATION_MAP, or inline comments.
+- **Running commands** — `npm run build`, `npm run test:run`, git commit/push, with no or minimal code changes.
+- **Quick Q&A** — Explaining code, answering “how does X work?”, or deciding approach without implementing.
+
+Reason: lower cost and latency; a lighter model is usually enough.
+
+---
+
+## Reference
+
+- **Project plan:** `docs/PROJECT_PLAN_TO_MARKET_READY.md`
+- **Laws and schema:** `.cursor/rules/laws-of-the-vault.mdc`, `.cursor/rules/schema-reference.mdc`
+- **Navigation:** `docs/NAVIGATION_MAP.md`

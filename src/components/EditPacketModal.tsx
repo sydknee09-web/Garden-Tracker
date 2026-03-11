@@ -41,6 +41,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [vendorName, setVendorName] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [purchaseUrl, setPurchaseUrl] = useState("");
@@ -87,6 +88,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
     if (!user?.id || !packetId) return;
     setSaving(true);
     setError(null);
+    setSaveError(null);
     const tags = tagsInput
       .split(",")
       .map((t) => t.trim())
@@ -108,7 +110,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
       .eq("user_id", user.id);
     setSaving(false);
     if (err) {
-      setError(err.message);
+      setSaveError(err.message);
       hapticError();
       return;
     }
@@ -224,7 +226,9 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
             </>
           )}
         </div>
-        <div className="flex-shrink-0 flex gap-3 justify-end p-4 border-t border-black/10">
+        <div className="flex-shrink-0 p-4 border-t border-black/10">
+          {saveError && <p className="text-sm text-red-600 mb-3" role="alert">{saveError}</p>}
+          <div className="flex gap-3 justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -243,6 +247,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
             <ICON_MAP.Save className="w-4 h-4" />
             {saving ? "Saving…" : "Save"}
           </button>
+          </div>
         </div>
       </div>
     </div>

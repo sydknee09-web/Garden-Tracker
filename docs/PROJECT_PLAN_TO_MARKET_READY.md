@@ -16,6 +16,8 @@
 | **One-way doors** | Decisions that affect many files (e.g. "only redirect when new profile is created") are documented and treated as final. Reversing them is a new project. |
 | **No flow changes in polish** | UX consistency work (icons, labels, error messages) does not add new screens, redirects, or change what happens on submit. |
 
+**Cursor model:** For plan-driven or multi-file work, use a more capable model (e.g. Sonnet); for single-file or docs-only work, Auto or a faster model is fine. See `.cursor/rules/model-selection.mdc`.
+
 ---
 
 ## Current State Summary
