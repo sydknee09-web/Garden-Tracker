@@ -106,7 +106,7 @@
 
 ### 3.2 Icons and visuals
 
-- [ ] **Stroke weight:** Consolidate to styleDictionary/ICON_MAP (stroke 1.2 per remaining_steps_roadmap). Replace inline SVGs (close, edit, trash, chevrons) that use stroke 2 or 2.5 with ICON_MAP equivalents. Do not change behavior or layout.
+- [x] **Stroke weight:** Consolidated to styleDictionary/ICON_MAP (stroke 1.2). Added `ChevronLeft` to ICON_MAP. Replaced 38 inline SVGs (close, chevrons, back, edit, trash, add, search, grid, camera, manualentry, calendar, shoppinglist) across 22 files. Deleted 10 dead local icon functions.
 - [ ] **Colors:** Align with locked decisions: primary #064e3b; emerald-luxury (#50C878) for success states only. No new UI logic.
 
 ### 3.3 Error and feedback

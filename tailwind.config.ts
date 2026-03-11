@@ -38,7 +38,7 @@ const config: Config = {
           950: "#022c22",
         },
         citrus: "#FFD700",
-        // Refined Architectural Luxury — Add/Save primary actions
+        // Refined Architectural Luxury — success states only (toasts, completed, in-stock)
         "emerald-luxury": "#50C878",
         // Gus Teal — secondary actions (Cancel, secondary tabs)
         "teal-gus": "#2A9D8F",

@@ -1084,7 +1084,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           setBatchLogBatches([toBatchLogBatch(batch)]);
                           setBatchLogOpen(true);
                         }}
-                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-luxury hover:bg-emerald-luxury/10"
+                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-900 hover:bg-emerald-900/10"
                         aria-label="Add journal entry"
                       >
                         <ICON_MAP.JournalCareHands className="w-5 h-5" />
@@ -1229,7 +1229,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                             setBatchLogBatches([toBatchLogBatch(batch)]);
                             setBatchLogOpen(true);
                           }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-luxury hover:bg-emerald-luxury/10"
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-900 hover:bg-emerald-900/10"
                           aria-label="Add journal entry"
                         >
                           <ICON_MAP.JournalCareHands className="w-5 h-5" />

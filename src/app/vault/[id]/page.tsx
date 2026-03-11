@@ -1471,7 +1471,7 @@ export default function VaultSeedPage() {
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-2">
+              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <ICON_MAP.Save className="w-4 h-4" />
                 {savingEdit ? "Saving..." : "Save Changes"}
               </button>
@@ -1667,7 +1667,7 @@ export default function VaultSeedPage() {
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 bg-white">
               <PlantPlaceholderIcon size="2xl" className="opacity-90 object-contain" />
               {canEdit && (
-                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
+                <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-900 text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
             </div>
@@ -2081,7 +2081,7 @@ export default function VaultSeedPage() {
                     <button
                       type="button"
                       onClick={() => setAddPlantManualOpen(true)}
-                      className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-luxury focus:ring-offset-2"
+                      className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:ring-offset-2"
                     >
                       Add seed packet
                     </button>
@@ -2594,7 +2594,7 @@ export default function VaultSeedPage() {
                   <ICON_MAP.Cancel className="w-4 h-4" />
                   Cancel
                 </button>
-                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50">
+                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50">
                   <ICON_MAP.Save className="w-4 h-4" />
                   {editGrowSaving ? "Saving…" : "Save"}
                 </button>

@@ -229,7 +229,7 @@ export function AddPlantManualModal({
             <button
               type="submit"
               disabled={saving}
-              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-luxury text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
             >
               <ICON_MAP.Save className="w-4 h-4" />
               {saving ? "Adding…" : "Add packet"}
