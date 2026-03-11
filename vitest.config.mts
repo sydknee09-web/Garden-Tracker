@@ -21,8 +21,8 @@ export default defineConfig({
       ],
       // Fail CI when coverage drops below threshold. Raise as tests are added.
       thresholds: {
-        lines: 1.5,
-        functions: 10,
+        lines: 5,
+        functions: 15,
         branches: 50,
       },
     },
