@@ -40,6 +40,8 @@ interface QuickAddSeedProps {
   initialPrefill?: SeedQRPrefill | null;
   /** When set (e.g. Plant Again from vault profile), lock to this profile: hide variety search, show read-only chip, only add packet to this profile */
   preSelectedProfileId?: string | null;
+  /** Display name for the locked chip shown immediately before the profile list loads (e.g. "Tomato (Brandywine)"). Parent should pass this when it already has the profile name. */
+  profileDisplayName?: string | null;
   /** Open the Photo Import (group photo) flow; parent should close this modal and open BatchAddSeed */
   onOpenBatch?: () => void;
   /** Open Link Import (paste URL) flow; parent should close this modal and navigate to /vault/import */
@@ -65,7 +67,7 @@ function applyPrefillToForm(
   if (prefill.vendor) setters.setVendor(prefill.vendor);
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
@@ -179,7 +181,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
   const preSelectedProfile = preSelectedProfileId ? seedProfiles.find((p) => p.id === preSelectedProfileId) : null;
   const lockedInVarietyLabel = preSelectedProfile
     ? (preSelectedProfile.variety_name?.trim() ? `${preSelectedProfile.name} (${preSelectedProfile.variety_name})` : preSelectedProfile.name)
-    : null;
+    : (profileDisplayName ?? null);
 
   // Plant suggestions from global_plant_cache (standardized, excludes bad rows)
   useEffect(() => {

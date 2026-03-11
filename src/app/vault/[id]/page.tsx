@@ -2638,6 +2638,7 @@ export default function VaultSeedPage() {
           onClose={() => setPlantAgainQuickAddOpen(false)}
           onSuccess={() => { loadProfile(); setPlantAgainQuickAddOpen(false); }}
           preSelectedProfileId={id}
+          profileDisplayName={profile?.variety_name?.trim() ? `${profile?.name ?? ""} (${profile.variety_name})` : (profile?.name ?? "")}
           initialPrefill={{ name: profile?.name ?? "", variety: profile?.variety_name ?? "" }}
         />
       )}

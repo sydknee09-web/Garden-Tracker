@@ -41,8 +41,6 @@ export interface QuickLogModalProps {
   preSelectedProfileId?: string | null;
   /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
-  /** @deprecated No longer used; supply name is not appended to notes. */
-  preSelectedSupplyName?: string | null;
   /** When opening with a supply, default quick action (e.g. fertilize, spray). */
   defaultActionType?: QuickActionType;
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
