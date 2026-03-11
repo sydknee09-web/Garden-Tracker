@@ -5,6 +5,15 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import type { Volume } from "@/types/vault";
+
+const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
+const VOLUME_LABELS: Record<Volume, string> = {
+  full: "Full",
+  partial: "Partial",
+  low: "Low",
+  empty: "Empty",
+};
 
 export interface AddPlantManualModalProps {
   open: boolean;
@@ -27,6 +36,10 @@ export function AddPlantManualModal({
   const [vendor, setVendor] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [purchaseUrl, setPurchaseUrl] = useState("");
+  const [price, setPrice] = useState("");
+  const [volume, setVolume] = useState<Volume>("full");
+  const [notes, setNotes] = useState("");
+  const [storageLocation, setStorageLocation] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +50,10 @@ export function AddPlantManualModal({
     setVendor("");
     setPurchaseDate(new Date().toISOString().slice(0, 10));
     setPurchaseUrl("");
+    setPrice("");
+    setVolume("full");
+    setNotes("");
+    setStorageLocation("");
     setError(null);
   }, [open]);
 
@@ -49,13 +66,21 @@ export function AddPlantManualModal({
       const dateVal = purchaseDate.trim() || new Date().toISOString().slice(0, 10);
       const urlVal = purchaseUrl.trim() || null;
       const vendorVal = vendor.trim() || null;
+      const volToQty: Record<Volume, number> = { full: 100, partial: 50, low: 25, empty: 0 };
+      const qtyStatus = volToQty[volume] ?? 100;
+      const notesVal = notes.trim() || null;
+      const priceVal = price.trim() || null;
+      const storageVal = storageLocation.trim() || null;
       const { error: packetErr } = await supabase.from("seed_packets").insert({
         plant_profile_id: profileId,
         user_id: user.id,
         vendor_name: vendorVal,
         purchase_url: urlVal,
         purchase_date: dateVal,
-        qty_status: 100,
+        qty_status: qtyStatus,
+        ...(notesVal && { user_notes: notesVal }),
+        ...(priceVal && { price: priceVal }),
+        ...(storageVal && { storage_location: storageVal }),
       });
       setSaving(false);
       if (packetErr) {
@@ -75,7 +100,7 @@ export function AddPlantManualModal({
       onSuccess?.();
       onClose();
     },
-    [user?.id, profileId, profileOwnerId, vendor, purchaseDate, purchaseUrl, onSuccess, onClose]
+    [user?.id, profileId, profileOwnerId, vendor, purchaseDate, purchaseUrl, price, volume, notes, storageLocation, onSuccess, onClose]
   );
 
   if (!open) return null;
@@ -126,6 +151,65 @@ export function AddPlantManualModal({
               placeholder="https://..."
               className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
               aria-label="Purchase URL"
+            />
+          </div>
+          <div>
+            <label htmlFor="add-plant-manual-price" className="block text-sm font-medium text-neutral-700 mb-1">
+              Price (optional)
+            </label>
+            <input
+              id="add-plant-manual-price"
+              type="text"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="e.g. $3.50"
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+              aria-label="Price"
+            />
+          </div>
+          <div>
+            <span className="block text-sm font-medium text-neutral-700 mb-2">Volume (optional)</span>
+            <div className="flex gap-2 flex-wrap">
+              {VOLUMES.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVolume(v)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    volume === v ? "bg-emerald-600 text-white" : "bg-black/5 text-black/70 hover:bg-black/10"
+                  }`}
+                >
+                  {VOLUME_LABELS[v]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label htmlFor="add-plant-manual-notes" className="block text-sm font-medium text-neutral-700 mb-1">
+              Packet notes (optional)
+            </label>
+            <textarea
+              id="add-plant-manual-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. From seed swap"
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px] resize-none"
+              aria-label="Packet notes"
+            />
+          </div>
+          <div>
+            <label htmlFor="add-plant-manual-storage" className="block text-sm font-medium text-neutral-700 mb-1">
+              Storage location (optional)
+            </label>
+            <input
+              id="add-plant-manual-storage"
+              type="text"
+              value={storageLocation}
+              onChange={(e) => setStorageLocation(e.target.value)}
+              placeholder="e.g. Fridge, Cool dry place"
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+              aria-label="Storage location"
             />
           </div>
           {error && (

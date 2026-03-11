@@ -1023,7 +1023,14 @@ export default function JournalPage() {
             setQuickAddSeedOpen(false);
             setUniversalAddMenuOpen(true);
           }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+          onSuccess={(opts) => {
+            if (opts?.newProfileId) {
+              setQuickAddSeedOpen(false);
+              router.push(`/vault/${opts.newProfileId}`);
+              return;
+            }
+            setRefetchTrigger((t) => t + 1);
+          }}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
             setBatchAddPlantMode(false);

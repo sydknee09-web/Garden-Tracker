@@ -13,6 +13,7 @@ import type {
   UserSettings,
 } from "@/types/garden";
 import { PAGE_LABELS } from "@/types/garden";
+import { LoadingState } from "@/components/LoadingState";
 
 /** Derive a 3-char shorthand from email (local part, alphanumeric only, uppercase). */
 function shorthandFromEmail(email: string | null | undefined): string {
@@ -437,7 +438,7 @@ export default function SettingsFamilyPage() {
         )}
 
         {householdLoading ? (
-          <p className="text-sm text-neutral-400">Loading...</p>
+          <LoadingState message="Loading…" className="py-4" />
         ) : household ? (
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm space-y-4">
             {/* Name + rename */}
@@ -454,7 +455,7 @@ export default function SettingsFamilyPage() {
                       autoFocus
                     />
                     <button type="button" onClick={handleRenameHousehold} disabled={renaming || !householdRenameVal.trim()} className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-                      {renaming ? "..." : "Save"}
+                      {renaming ? "…" : "Save"}
                     </button>
                     <button type="button" onClick={() => { setShowRenameInput(false); setHouseholdRenameVal(""); }} className="px-3 py-1.5 rounded-lg text-sm border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
                       Cancel
@@ -804,7 +805,7 @@ export default function SettingsFamilyPage() {
                   className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm"
                 />
                 <button type="button" onClick={handleCreateHousehold} disabled={creatingHousehold || !householdName.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-                  {creatingHousehold ? "..." : "Create"}
+                  {creatingHousehold ? "…" : "Create"}
                 </button>
               </div>
             </div>
@@ -825,7 +826,7 @@ export default function SettingsFamilyPage() {
                   className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm font-mono"
                 />
                 <button type="button" onClick={handleJoinHousehold} disabled={joiningHousehold || !joinCode.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-                  {joiningHousehold ? "..." : "Join"}
+                  {joiningHousehold ? "…" : "Join"}
                 </button>
               </div>
             </div>

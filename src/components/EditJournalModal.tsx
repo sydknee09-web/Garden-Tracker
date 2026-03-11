@@ -367,7 +367,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="relative">
-            <SubmitLoadingOverlay show={saving || uploadingPhoto} message="Saving…" />
+            <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
             <form onSubmit={handleSubmit} className="space-y-5">
               <input
                 ref={cameraMobileRef}
@@ -555,7 +555,12 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                     disabled={saving || uploadingPhoto}
                     className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
                   >
-                    {uploadingPhoto ? "Uploading…" : saving ? "Saving…" : "Save"}
+                    {uploadingPhoto ? "Uploading…" : saving ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                        Saving…
+                      </span>
+                    ) : "Save"}
                   </button>
                 </div>
               )}

@@ -741,7 +741,7 @@ export default function SettingsDeveloperPage() {
                         disabled={deletingPlantingId === item.id}
                         className="shrink-0 min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50"
                       >
-                        {deletingPlantingId === item.id ? "..." : "Delete"}
+                        {deletingPlantingId === item.id ? "…" : "Delete"}
                       </button>
                     </li>
                   ))}
@@ -796,7 +796,7 @@ export default function SettingsDeveloperPage() {
                         disabled={unarchivingId === item.id}
                         className="shrink-0 min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
                       >
-                        {unarchivingId === item.id ? "..." : "Un-archive"}
+                        {unarchivingId === item.id ? "…" : "Un-archive"}
                       </button>
                     </li>
                   ))}

@@ -1,10 +1,13 @@
 /**
  * Centralized visual language: icons and design tokens.
- * Refined Architectural Luxury — clean, stroke-based SVG icons.
- * Use with Tailwind: text-emerald-luxury, bg-emerald-luxury for Add/Save actions.
+ * Architectural Luxury — stroke 1.2, primary green #064e3b (Deep Forest Green).
+ * Reserve emerald-luxury (#50C878) for success states only (toasts, completed, in-stock).
  */
 
 import type { SVGProps } from "react";
+
+/** Primary green for icons/borders (Architectural Luxury). */
+export const PRIMARY_GREEN = "#064e3b";
 
 /** Base SVG props (viewBox, stroke, aria). Callers can override via className, width, height. */
 function iconProps(props?: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
@@ -13,8 +16,8 @@ function iconProps(props?: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
     height: 24,
     viewBox: "0 0 24 24",
     fill: "none",
-    stroke: "#333333",
-    strokeWidth: 1.5,
+    stroke: PRIMARY_GREEN,
+    strokeWidth: 1.2,
     strokeLinecap: "round",
     strokeLinejoin: "round",
     "aria-hidden": props?.["aria-hidden"] ?? true,
@@ -49,10 +52,11 @@ function JournalIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      <path d="M8 7h8" />
-      <path d="M8 11h8" />
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 12h8" />
+      <path d="M8 16h8" />
+      <path d="M8 8h4" />
     </svg>
   );
 }
@@ -94,12 +98,8 @@ function SeedIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M12 22v-4" />
-      <path d="M12 18a6 6 0 0 0 6-6V4" />
-      <path d="M12 18a6 6 0 0 1-6-6V4" />
-      <path d="M12 14v-2" />
-      <path d="M12 10a2 2 0 0 0 2-2V2" />
-      <path d="M12 10a2 2 0 0 1-2-2V2" />
+      <rect x="5" y="5" width="14" height="14" rx="1.5" ry="1.5" />
+      <path d="M12 9v6M9 12h6" />
     </svg>
   );
 }
@@ -108,10 +108,7 @@ function PlantIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M7 20h10" />
-      <path d="M10 20c5.5-2.5 7.5-8 7.5-12a7.5 7.5 0 0 0-15 0c0 4 2 9.5 7.5 12Z" />
-      <path d="M12 8v4" />
-      <path d="M10 12h4" />
+      <path d="M11 20c-2.5-2-4-6-4-9a4 4 0 1 1 8 0c0 3-1.5 7-4 9" />
     </svg>
   );
 }
@@ -262,9 +259,9 @@ function PestIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="M12 8v4" />
-      <path d="M12 16h.01" />
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
     </svg>
   );
 }

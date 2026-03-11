@@ -243,6 +243,7 @@ export default function VaultSeedPage() {
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const journalTabRef = useRef<HTMLDivElement | null>(null);
 
   // About tab: which sections are collapsed (default all open)
   const [aboutCollapsed, setAboutCollapsed] = useState<Record<string, boolean>>({});
@@ -2335,6 +2336,7 @@ export default function VaultSeedPage() {
                   const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
                   const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
                   const plantLabel = isPermanent ? (gi.location?.trim() || `Plant ${giIdx + 1}`) : null;
+                  const vendorLabel = (gi as GrowInstance).vendor?.trim() || null;
                   const cardContent = (
                     <>
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -2346,45 +2348,9 @@ export default function VaultSeedPage() {
                         </div>
                         <span className="text-xs text-neutral-500">{formatDisplayDate(gi.sown_date)}</span>
                       </div>
-                      <div className="text-sm text-neutral-700 space-y-1">
-                        {(gi as GrowInstance).seeds_sown != null && <span className="text-xs text-neutral-600">{(gi as GrowInstance).seeds_sown} sown</span>}
-                        {(gi as GrowInstance).seeds_sprouted != null && (gi as GrowInstance).seeds_sown != null && (
-                          <span className="text-xs text-neutral-600"> · {(gi as GrowInstance).seeds_sprouted} of {(gi as GrowInstance).seeds_sown} sprouted</span>
-                        )}
-                        {(gi as GrowInstance).plant_count != null && (
-                          <span className="text-xs font-medium text-emerald-600 ml-1"> · {(gi as GrowInstance).plant_count} plants</span>
-                        )}
-                        {gi.end_reason && <p className="text-xs text-neutral-500">Ended: {gi.end_reason}</p>}
-                        {harvests.length > 0 && <p className="text-xs text-emerald-600 font-medium">Harvested {harvests.length} time{harvests.length !== 1 ? "s" : ""}</p>}
-                      </div>
-                      {giJournals.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-neutral-100">
-                          <p className="text-xs font-medium text-neutral-500 mb-2">Journal ({giJournals.length})</p>
-                          <ul className="space-y-2 max-h-48 overflow-y-auto">
-                            {giJournals.slice(0, 5).map((j) => (
-                              <li key={j.id} className="text-sm">
-                                <span className="text-neutral-400">{formatDisplayDate(j.created_at)}</span>
-                                {j.entry_type && <span className={`ml-1.5 px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : "bg-neutral-50 text-neutral-600"}`}>{j.entry_type}</span>}
-                                {j.note?.trim() && <span className="text-neutral-700 ml-1">- {j.note.trim().slice(0, 120)}</span>}
-                              </li>
-                            ))}
-                            {giJournals.length > 5 && <li className="text-xs text-neutral-400">+{giJournals.length - 5} more entries</li>}
-                          </ul>
-                        </div>
-                      )}
+                      {vendorLabel && <p className="text-xs text-neutral-500">{vendorLabel}</p>}
                     </>
                   );
-                  const batchForLog: BatchLogBatch = {
-                    id: gi.id,
-                    plant_profile_id: gi.plant_profile_id ?? id,
-                    profile_name: profile?.name ?? "",
-                    profile_variety_name: profile?.variety_name ?? null,
-                    seeds_sown: (gi as GrowInstance).seeds_sown ?? null,
-                    seeds_sprouted: (gi as GrowInstance).seeds_sprouted ?? null,
-                    plant_count: (gi as GrowInstance).plant_count ?? null,
-                    location: gi.location ?? null,
-                    user_id: (gi as { user_id?: string }).user_id ?? null,
-                  };
                   return (
                     <div key={gi.id} className="bg-white rounded-xl border border-neutral-200 p-4">
                       <div className="flex items-start justify-between gap-2">
@@ -2413,11 +2379,15 @@ export default function VaultSeedPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setBatchLogTarget(batchForLog); setBatchLogOpen(true); }}
-                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10 text-xl"
-                              aria-label="Add journal entry"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveTab("journal");
+                                setTimeout(() => journalTabRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                              }}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                              aria-label="View journal"
                             >
-                              <span aria-hidden>📖</span>
+                              <ICON_MAP.Journal className="w-4 h-4" />
                             </button>
                           </div>
                         )}
@@ -2435,47 +2405,57 @@ export default function VaultSeedPage() {
         {/* ============================================================ */}
         {activeTab === "journal" && (
           <>
-            {journalEntries.length === 0 ? (
-              <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-                <p className="text-neutral-500 text-sm">No journal entries yet.</p>
-                <p className="text-neutral-400 text-xs mt-1">Entries appear here as you plant, care for, and harvest this variety.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {journalEntries.map((j) => {
-                  const paths = entryIdToPhotoPaths[j.id] ?? (j.image_file_path ? [j.image_file_path] : []);
-                  const photoUrls = paths.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p).data.publicUrl);
-                  return (
-                    <div key={j.id} className="bg-white rounded-xl border border-neutral-200 p-4">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-500">{formatDisplayDate(j.created_at)}</span>
-                          {j.entry_type && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : j.entry_type === "death" ? "bg-red-100 text-red-800" : "bg-neutral-50 text-neutral-600"}`}>{j.entry_type}</span>}
-                        </div>
-                        {j.weather_snapshot && typeof j.weather_snapshot === "object" && "temp" in j.weather_snapshot && (
-                          <span className="text-xs text-neutral-400">{j.weather_snapshot.icon} {Math.round(j.weather_snapshot.temp as number)}°F</span>
-                        )}
-                      </div>
-                      {j.note?.trim() && <p className="text-sm text-neutral-700 whitespace-pre-wrap mb-2">{j.note}</p>}
-                      {j.entry_type === "harvest" && (j.harvest_weight != null || j.harvest_quantity != null) && (
-                        <p className="text-sm text-emerald-700 font-medium mb-2">
-                          Harvested: {j.harvest_weight != null ? `${j.harvest_weight} ${j.harvest_unit || "units"}` : ""}{j.harvest_quantity != null ? `${j.harvest_weight != null ? ", " : ""}${j.harvest_quantity} count` : ""}
-                        </p>
-                      )}
-                      {photoUrls.length > 0 && (
-                        <div className={`mt-2 flex gap-2 overflow-x-auto snap-x snap-mandatory ${photoUrls.length === 1 ? "" : "pb-2"}`} style={{ scrollbarWidth: "thin" }}>
-                          {photoUrls.map((url, i) => (
-                            <div key={i} className={`flex-shrink-0 rounded-lg overflow-hidden bg-neutral-100 snap-center ${photoUrls.length === 1 ? "w-full max-w-xs" : "min-w-[16rem] w-64"}`}>
-                              <img src={url} alt="" className="w-full h-auto object-cover" />
+            <div ref={journalTabRef} className="scroll-mt-4">
+              {journalEntries.length === 0 ? (
+                <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+                  <p className="text-neutral-500 text-sm">No journal entries yet.</p>
+                  <p className="text-neutral-400 text-xs mt-1">Entries appear here as you plant, care for, and harvest this variety.</p>
+                </div>
+              ) : (
+                <div className="relative pl-8">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-[#064e3b]/30" aria-hidden="true" />
+                  <div className="space-y-0">
+                    {journalEntries.map((j) => {
+                      const paths = entryIdToPhotoPaths[j.id] ?? (j.image_file_path ? [j.image_file_path] : []);
+                      const photoUrls = paths.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p).data.publicUrl);
+                      return (
+                        <div key={j.id} className="relative flex gap-4 pb-6 last:pb-0">
+                          {/* Dot */}
+                          <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-[#064e3b] border-2 border-white shadow-sm -translate-x-1/2" aria-hidden="true" />
+                          <div className="flex-1 min-w-0 bg-white rounded-xl border border-neutral-200 p-4">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-neutral-500">{formatDisplayDate(j.created_at)}</span>
+                                {j.entry_type && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : j.entry_type === "death" ? "bg-red-100 text-red-800" : "bg-[#064e3b]/10 text-[#064e3b]"}`}>{j.entry_type}</span>}
+                              </div>
+                              {j.weather_snapshot && typeof j.weather_snapshot === "object" && "temp" in j.weather_snapshot && (
+                                <span className="text-xs text-neutral-400">{j.weather_snapshot.icon} {Math.round(j.weather_snapshot.temp as number)}°F</span>
+                              )}
                             </div>
-                          ))}
+                            {j.note?.trim() && <p className="text-sm text-neutral-700 whitespace-pre-wrap mb-2">{j.note}</p>}
+                            {j.entry_type === "harvest" && (j.harvest_weight != null || j.harvest_quantity != null) && (
+                              <p className="text-sm text-emerald-700 font-medium mb-2">
+                                Harvested: {j.harvest_weight != null ? `${j.harvest_weight} ${j.harvest_unit || "units"}` : ""}{j.harvest_quantity != null ? `${j.harvest_weight != null ? ", " : ""}${j.harvest_quantity} count` : ""}
+                              </p>
+                            )}
+                            {photoUrls.length > 0 && (
+                              <div className={`mt-2 flex gap-2 overflow-x-auto snap-x snap-mandatory ${photoUrls.length === 1 ? "" : "pb-2"}`} style={{ scrollbarWidth: "thin" }}>
+                                {photoUrls.map((url, i) => (
+                                  <div key={i} className={`flex-shrink-0 rounded-lg overflow-hidden bg-neutral-100 snap-center ${photoUrls.length === 1 ? "w-full max-w-xs" : "min-w-[16rem] w-64"}`}>
+                                    <img src={url} alt="" className="w-full h-auto object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
 

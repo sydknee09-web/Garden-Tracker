@@ -337,7 +337,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick Log</h2>
         </div>
 
-        <SubmitLoadingOverlay show={saving || uploadingPhoto} message="Saving…" />
+        <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             ref={cameraMobileRef}
@@ -521,8 +521,13 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
             <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
               Cancel
             </button>
-            <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60">
-              {uploadingPhoto ? "Uploading…" : saving ? "Saving…" : "Save"}
+            <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">
+              {uploadingPhoto ? "Uploading…" : saving ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                  Saving…
+                </>
+              ) : "Save"}
             </button>
           </div>
         </form>

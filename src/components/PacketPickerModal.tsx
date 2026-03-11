@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { LoadingState } from "@/components/LoadingState";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { qtyStatusToLabel, usedPercentToLabel } from "@/lib/packetQtyLabels";
 
@@ -97,7 +98,7 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
           {loading ? (
-            <p className="text-neutral-400 text-sm">Loading packets...</p>
+            <LoadingState message="Loading packets…" className="py-4" />
           ) : packets.length === 0 ? (
             <p className="text-neutral-500 text-sm">No available packets (all archived or empty).</p>
           ) : (

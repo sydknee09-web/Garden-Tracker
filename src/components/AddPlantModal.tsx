@@ -485,6 +485,9 @@ export function AddPlantModal({
         setSubmitting(false);
         return;
       }
+      if (createdProfileId && !stayInGarden) {
+        router.push(`/vault/${createdProfileId}`);
+      }
       handleClose();
       router.refresh();
     } catch (e) {
@@ -501,7 +504,7 @@ export function AddPlantModal({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-cream rounded-3xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
-          <div className="flex-shrink-0 p-4 border-b border-neutral-200">
+          <div className="flex-shrink-0 p-3.5 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
             <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
             {!hidePlantTypeToggle && (
@@ -529,7 +532,7 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 relative">
             <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
             {!addToExistingProfile && (
               <div className="flex gap-2">
@@ -551,7 +554,7 @@ export function AddPlantModal({
             )}
 
             {mode === "existing" && !addToExistingProfile ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
                   <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">
                     {plantType === "permanent" ? "Plant profile *" : "Variety *"}
@@ -706,6 +709,20 @@ export function AddPlantModal({
               </>
             )}
 
+            {mode === "existing" && plantType === "permanent" && (
+              <div>
+                <label htmlFor="add-plant-vendor-existing" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
+                <input
+                  id="add-plant-vendor-existing"
+                  type="text"
+                  value={vendorNursery}
+                  onChange={(e) => setVendorNursery(e.target.value)}
+                  placeholder="e.g. Briggs Tree Nursery, Home Depot"
+                  className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                  aria-label="Vendor or nursery"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
               <input
@@ -809,12 +826,12 @@ export function AddPlantModal({
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>
-          <div className="flex-shrink-0 p-4 border-t border-neutral-200 flex gap-3 justify-end">
+          <div className="flex-shrink-0 p-3.5 border-t border-neutral-200 flex gap-3 justify-end">
             <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
               Cancel
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting || (mode === "new" && !plantName.trim())} className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
-              {submitting ? "Adding…" : "Add Plant"}
+              {submitting ? "Adding…" : plantType === "permanent" ? "Confirm Planting" : "Confirm Sowing"}
             </button>
           </div>
         </div>
@@ -822,7 +839,7 @@ export function AddPlantModal({
 
       {enrichmentFailed && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="enrichment-failed-title">
-          <div className="bg-cream rounded-3xl shadow-lg max-w-sm w-full p-6">
+          <div className="bg-cream rounded-3xl shadow-lg max-w-sm w-full p-3.5">
             <h2 id="enrichment-failed-title" className="text-lg font-semibold text-neutral-900 mb-2">Details couldn&apos;t be loaded</h2>
             <p className="text-sm text-neutral-600 mb-4">
               We couldn&apos;t find growing details for this plant. You can add them now or edit the profile later.

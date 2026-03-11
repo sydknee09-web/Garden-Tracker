@@ -28,6 +28,8 @@ type QuickAddScreen = "choose" | "manual";
 export interface QuickAddSuccessOpts {
   /** True when seed was saved but product photo upload was blocked or failed */
   photoBlocked?: boolean;
+  /** When a new plant profile was created (manual new variety), redirect to this profile's detail page. */
+  newProfileId?: string;
 }
 
 interface QuickAddSeedProps {
@@ -81,6 +83,13 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
   const [profiles, setProfiles] = useState<{ id: string; name: string; variety_name: string | null; profile_type?: string }[]>([]);
   const [manualMode, setManualMode] = useState<"new" | "link">("new");
   const [selectedProfileIdForLink, setSelectedProfileIdForLink] = useState<string>("");
+  /** When "Link to existing": either add a new packet or use an existing in-stock packet. */
+  const [linkSubChoice, setLinkSubChoice] = useState<"new_packet" | "use_existing">("new_packet");
+  /** In-stock packets for selectedProfileIdForLink (for "Use existing packet"). */
+  const [packetsForProfile, setPacketsForProfile] = useState<{ id: string; vendor_name: string | null; purchase_date: string | null }[]>([]);
+  const [packetsLoading, setPacketsLoading] = useState(false);
+  /** Selected packet when linkSubChoice === "use_existing". Cleared when profile changes to prevent linking wrong variety. */
+  const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
@@ -116,6 +125,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       setPriceToSave("");
       setManualMode("new");
       setSelectedProfileIdForLink("");
+      setLinkSubChoice("new_packet");
+      setPacketsForProfile([]);
+      setSelectedPacketId(null);
     }
   }, [open, initialPrefill, preSelectedProfileId]);
 
@@ -128,6 +140,40 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       .is("deleted_at", null)
       .then(({ data }) => setProfiles((data ?? []) as { id: string; name: string; variety_name: string | null; profile_type?: string }[]));
   }, [open, user?.id]);
+
+  // When variety (profile) for "Link to existing" changes, clear selected packet and re-fetch in-stock packets.
+  // Prevent linking a packet from the previous variety (e.g. Tomato packet for African Daisy).
+  useEffect(() => {
+    if (!open || !user?.id || !selectedProfileIdForLink?.trim()) {
+      setPacketsForProfile([]);
+      setSelectedPacketId(null);
+      setPacketsLoading(false);
+      return;
+    }
+    setSelectedPacketId(null);
+    setPacketsLoading(true);
+    const profileId = selectedProfileIdForLink;
+    supabase
+      .from("seed_packets")
+      .select("id, vendor_name, purchase_date")
+      .eq("plant_profile_id", profileId)
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .gt("qty_status", 0)
+      .eq("is_archived", false)
+      .then(
+        ({ data }) => {
+          const rows = (data ?? []) as { id: string; vendor_name: string | null; purchase_date: string | null }[];
+          setPacketsForProfile(rows);
+          setPacketsLoading(false);
+          if (rows.length === 1) setSelectedPacketId(rows[0].id);
+        },
+        () => {
+          setPacketsForProfile([]);
+          setPacketsLoading(false);
+        }
+      );
+  }, [open, user?.id, selectedProfileIdForLink]);
 
   const seedProfiles = profiles.filter((p) => (p.profile_type ?? "seed") === "seed");
   const preSelectedProfile = preSelectedProfileId ? seedProfiles.find((p) => p.id === preSelectedProfileId) : null;
@@ -184,7 +230,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     setScreen("choose");
   }
 
-  /** Link to existing: insert packet directly under selected profile. */
+  /** Link to existing: either add a new packet (new_packet) or confirm use of an existing packet (use_existing; no insert, just close and refresh). */
   async function handleLinkToExisting(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -194,6 +240,24 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     }
     if (!user?.id) {
       setError("You must be signed in to add a seed.");
+      return;
+    }
+    if (linkSubChoice === "use_existing" && selectedPacketId) {
+      hapticSuccess();
+      setAddedToVault(true);
+      setTimeout(() => {
+        setSelectedProfileIdForLink("");
+        setLinkSubChoice("new_packet");
+        setPacketsForProfile([]);
+        setSelectedPacketId(null);
+        setAddedToVault(false);
+        onSuccess();
+        onClose();
+      }, 400);
+      return;
+    }
+    if (linkSubChoice === "use_existing") {
+      setError("Select a packet or add a new packet instead.");
       return;
     }
     setSubmitMessage("Adding to vault…");
@@ -269,6 +333,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
         normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
     );
 
+    let createdProfileId: string | undefined;
     if (match) {
       await supabase.from("plant_profiles").update({ status: "out_of_stock", updated_at: new Date().toISOString() }).eq("id", match.id).eq("user_id", userId);
     } else {
@@ -295,6 +360,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
         return;
       }
       const profileId = (newProfile as { id: string }).id;
+      createdProfileId = profileId;
       await enrichProfileFromName(supabase, profileId, userId, name, varietyCultivar.trim(), {
         vendor: vendor.trim(),
         skipHero: false,
@@ -309,7 +375,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     setVendor("");
     setTagsToSave([]);
     setSourceUrlToSave("");
-    onSuccess();
+    onSuccess(createdProfileId ? { newProfileId: createdProfileId } : undefined);
     onClose();
   }
 
@@ -546,6 +612,65 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
                       <p className="text-xs font-medium uppercase tracking-wide text-emerald-700/90 mb-0.5">Variety</p>
                       <p className="text-neutral-900 font-medium">{lockedInVarietyLabel ?? "Loading…"}</p>
                     </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setLinkSubChoice("new_packet")}
+                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${linkSubChoice === "new_packet" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                      >
+                        Add new packet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLinkSubChoice("use_existing")}
+                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${linkSubChoice === "use_existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                      >
+                        Use existing packet
+                      </button>
+                    </div>
+                    {linkSubChoice === "use_existing" ? (
+                      <div className="space-y-2">
+                        {packetsLoading ? (
+                          <p className="text-sm text-neutral-500">Loading packets…</p>
+                        ) : packetsForProfile.length === 0 ? (
+                          <p className="text-sm text-neutral-600">No in-stock packets for this variety. Add new packet instead.</p>
+                        ) : packetsForProfile.length === 1 && selectedPacketId ? (
+                          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 flex items-center justify-between gap-2">
+                            <span className="text-sm text-neutral-800">
+                              Selected: {packetsForProfile[0].vendor_name || "Unknown"} {packetsForProfile[0].purchase_date ? `(${packetsForProfile[0].purchase_date})` : ""}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPacketId(null)}
+                              className="text-sm font-medium text-emerald-700 hover:underline min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <label htmlFor="quick-add-link-packet" className="block text-sm font-medium text-black/80 mb-1">
+                              Choose packet
+                            </label>
+                            <select
+                              id="quick-add-link-packet"
+                              value={selectedPacketId ?? ""}
+                              onChange={(e) => setSelectedPacketId(e.target.value || null)}
+                              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                              aria-label="Choose packet"
+                            >
+                              <option value="">Select a packet</option>
+                              {packetsForProfile.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.vendor_name || "Unknown"} {p.purchase_date ? `(${p.purchase_date})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
                     <div>
                       <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
                         Vendor / Nursery (optional)
@@ -619,6 +744,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
                         aria-label="Packet notes"
                       />
                     </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -645,6 +772,70 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
                             ))}
                           </select>
                         </div>
+                        {selectedProfileIdForLink && (
+                          <>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setLinkSubChoice("new_packet")}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${linkSubChoice === "new_packet" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                              >
+                                Add new packet
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setLinkSubChoice("use_existing")}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border ${linkSubChoice === "use_existing" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                              >
+                                Use existing packet
+                              </button>
+                            </div>
+                            {linkSubChoice === "use_existing" ? (
+                              <div className="space-y-2">
+                                {packetsLoading ? (
+                                  <p className="text-sm text-neutral-500">Loading packets…</p>
+                                ) : packetsForProfile.length === 0 ? (
+                                  <p className="text-sm text-neutral-600">No in-stock packets for this variety. Add new packet instead.</p>
+                                ) : packetsForProfile.length === 1 && selectedPacketId ? (
+                                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 flex items-center justify-between gap-2">
+                                    <span className="text-sm text-neutral-800">
+                                      Selected: {packetsForProfile[0].vendor_name || "Unknown"} {packetsForProfile[0].purchase_date ? `(${packetsForProfile[0].purchase_date})` : ""}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedPacketId(null)}
+                                      className="text-sm font-medium text-emerald-700 hover:underline min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                    >
+                                      Change
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <label htmlFor="quick-add-link-packet-2" className="block text-sm font-medium text-black/80 mb-1">
+                                      Choose packet
+                                    </label>
+                                    <select
+                                      id="quick-add-link-packet-2"
+                                      value={selectedPacketId ?? ""}
+                                      onChange={(e) => setSelectedPacketId(e.target.value || null)}
+                                      className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                                      aria-label="Choose packet"
+                                    >
+                                      <option value="">Select a packet</option>
+                                      {packetsForProfile.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                          {p.vendor_name || "Unknown"} {p.purchase_date ? `(${p.purchase_date})` : ""}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                        {linkSubChoice === "new_packet" && (
+                          <>
                         <div>
                           <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
                             Vendor / Nursery (optional)
@@ -718,6 +909,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
                             aria-label="Packet notes"
                           />
                         </div>
+                          </>
+                        )}
                       </>
                     )}
                   </>
@@ -729,7 +922,12 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting || addedToVault || (!preSelectedProfileId && seedProfiles.length === 0)}
+                    disabled={
+                      submitting ||
+                      addedToVault ||
+                      (linkSubChoice === "new_packet" && !preSelectedProfileId && seedProfiles.length === 0) ||
+                      (linkSubChoice === "use_existing" && !selectedPacketId)
+                    }
                     className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {addedToVault ? (

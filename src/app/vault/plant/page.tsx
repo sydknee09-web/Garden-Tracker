@@ -11,6 +11,7 @@ import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { SupplyPicker } from "@/components/SupplyPicker";
+import { LoadingState } from "@/components/LoadingState";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
@@ -465,7 +466,7 @@ function VaultPlantPageInner() {
   if (loading) {
     return (
       <div className="px-6 py-8">
-        <p className="text-black/50 text-sm">Loading…</p>
+        <LoadingState message="Loading…" />
       </div>
     );
   }
@@ -873,7 +874,7 @@ function VaultPlantPageInner() {
 
 export default function VaultPlantPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-neutral-600">Loading…</div>}>
+    <Suspense fallback={<LoadingState message="Loading…" className="p-6" />}>
       <VaultPlantPageInner />
     </Suspense>
   );

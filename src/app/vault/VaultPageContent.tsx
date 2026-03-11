@@ -5,10 +5,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { StatusFilter, VaultSortBy } from "@/types/vault";
+import { LoadingState } from "@/components/LoadingState";
 
 const SeedVaultView = dynamic(
   () => import("@/components/SeedVaultView").then((m) => ({ default: m.SeedVaultView })),
-  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading…</div> }
+  { ssr: false, loading: () => <LoadingState className="min-h-[200px]" /> }
 );
 /** Lazy-load modals so vault initial render never pulls zone10b/BatchAddSeed chunk. */
 const SupplyPicker = dynamic(
@@ -940,7 +941,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "grid"}
-              onClick={() => { setViewMode("grid"); setSelectedVarietyIds(new Set()); router.replace("/vault?tab=grid", { scroll: false }); }}
+              onClick={() => { setViewMode("grid"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=grid", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "grid"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -953,7 +954,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "list"}
-              onClick={() => { setViewMode("list"); setSelectedVarietyIds(new Set()); router.replace("/vault?tab=list", { scroll: false }); }}
+              onClick={() => { setViewMode("list"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=list", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "list"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -966,7 +967,7 @@ function VaultPageInner() {
               type="button"
               role="tab"
               aria-selected={viewMode === "shed"}
-              onClick={() => { setViewMode("shed"); setSelectedVarietyIds(new Set()); router.replace("/vault?tab=shed", { scroll: false }); }}
+              onClick={() => { setViewMode("shed"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=shed", { scroll: false }); }}
               className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === "shed"
                   ? "bg-white text-emerald-700 shadow-sm"
@@ -1266,7 +1267,7 @@ function VaultPageInner() {
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {scheduleProfiles.length === 0 ? (
-                <p className="text-black/50 text-sm">Loading…</p>
+                <LoadingState message="Loading…" className="py-4" />
               ) : (
                 <ul className="space-y-2">
                   {scheduleProfiles.map((p) => {
@@ -1379,7 +1380,7 @@ function VaultPageInner() {
             </div>
             <div className="p-4 overflow-y-auto flex-1">
               {plantModalRows.length === 0 ? (
-                <p className="text-black/50 text-sm">Loading…</p>
+                <LoadingState message="Loading plants…" className="py-4" />
               ) : (
                 <ul className="space-y-3">
                   {plantModalRows.map((row) => {
@@ -1736,6 +1737,11 @@ function VaultPageInner() {
           setUniversalAddMenuOpen(true);
         }}
         onSuccess={(opts) => {
+          if (opts?.newProfileId) {
+            setQuickAddOpen(false);
+            router.push(`/vault/${opts.newProfileId}`);
+            return;
+          }
           refetch();
           router.refresh();
           if (opts?.photoBlocked) {

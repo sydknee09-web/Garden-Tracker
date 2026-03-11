@@ -10,6 +10,7 @@ import { AddItemModal } from "@/components/AddItemModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { LoadingState } from "@/components/LoadingState";
 
 const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
@@ -421,7 +422,7 @@ export default function HomePage() {
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
           <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Shopping list</h2>
           {loadingTasksAndList ? (
-            <p className="text-black/50 text-sm">Loading...</p>
+            <LoadingState message="Loading…" className="py-4" />
           ) : shoppingList.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-4">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/15" aria-hidden>
@@ -531,7 +532,7 @@ export default function HomePage() {
           <h2 className="text-base font-bold text-black mb-1 pb-2 border-b border-black/5">At a glance</h2>
           <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
           {loadingTasksAndList ? (
-            <p className="text-black/50 text-sm">Loading...</p>
+            <LoadingState message="Loading…" className="py-4" />
           ) : (
             <div className="space-y-3">
               <div>
@@ -566,7 +567,7 @@ export default function HomePage() {
                             disabled={isMarking}
                             className="shrink-0 min-w-[44px] min-h-[44px] px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50"
                           >
-                            {isMarking ? "..." : "Done"}
+                            {isMarking ? "…" : "Done"}
                           </button>
                         </li>
                       );
@@ -684,7 +685,14 @@ export default function HomePage() {
             setQuickAddSeedOpen(false);
             setUniversalAddMenuOpen(true);
           }}
-          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onSuccess={(opts) => {
+            if (opts?.newProfileId) {
+              setQuickAddSeedOpen(false);
+              router.push(`/vault/${opts.newProfileId}`);
+              return;
+            }
+            setShoppingListRefreshKey((k) => k + 1);
+          }}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
             setBatchAddPlantMode(false);

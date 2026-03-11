@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingState } from "@/components/LoadingState";
 
 type GrowRow = {
   id: string;
@@ -84,7 +85,7 @@ export default function PlantingHistoryPage() {
       <p className="text-sm text-neutral-500 mb-6">Every grow instance across all plants.</p>
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400">Loading...</div>
+        <LoadingState message="Loading…" />
       ) : grows.length === 0 ? (
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400">No planting history yet. Plant something from your vault!</div>
       ) : (

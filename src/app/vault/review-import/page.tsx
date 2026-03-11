@@ -27,6 +27,7 @@ import { stripVarietySuffixes } from "@/app/api/seed/extract/route";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { Combobox } from "@/components/Combobox";
+import { LoadingState } from "@/components/LoadingState";
 import { hapticSuccess } from "@/lib/haptics";
 
 function todayISO(): string {
@@ -1152,7 +1153,7 @@ export default function ReviewImportPage() {
   if (items.length === 0) {
     return (
       <div className="px-6 py-8 text-center">
-        <p className="text-black/60">Loading…</p>
+        <LoadingState message="Loading…" />
       </div>
     );
   }

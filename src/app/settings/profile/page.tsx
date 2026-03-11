@@ -442,10 +442,10 @@ export default function SettingsProfilePage() {
             <p className="text-sm text-neutral-500 mb-3">Download or copy all your garden data for backups and migrations. Includes seeds, supplies, journal, tasks, and settings.</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={handleExportJSON} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
-                {exporting ? "..." : "Download JSON"}
+                {exporting ? "…" : "Download JSON"}
               </button>
               <button type="button" onClick={handleExportCSV} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
-                {exporting ? "..." : "Download CSV"}
+                {exporting ? "…" : "Download CSV"}
               </button>
               <button type="button" onClick={handleCopyExport} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
                 {copySuccess ? "Copied!" : "Copy JSON"}

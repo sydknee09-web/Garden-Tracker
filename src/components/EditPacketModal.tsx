@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
+import { LoadingState } from "@/components/LoadingState";
 import { StarRating } from "@/components/StarRating";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -124,7 +125,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading ? (
-            <p className="text-black/60 text-sm">Loading…</p>
+            <LoadingState message="Loading…" className="py-4" />
           ) : error ? (
             <p className="text-red-600 text-sm">{error}</p>
           ) : (

@@ -26,11 +26,12 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { getTagStyle } from "@/components/TagBadges";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import type { PacketStatusFilter } from "@/types/vault";
+import { LoadingState } from "@/components/LoadingState";
 import type { UseFilterStateReturn } from "@/hooks/useFilterState";
 
 const PacketVaultLazy = dynamic(
   () => import("../PacketVaultLazy").then((m) => ({ default: m.PacketVaultLazy })),
-  { ssr: false, loading: () => <div className="min-h-[200px] flex items-center justify-center text-neutral-500">Loading packets…</div> }
+  { ssr: false, loading: () => <LoadingState message="Loading packets…" className="min-h-[200px]" /> }
 );
 const EditPacketModal = dynamic(
   () => import("@/components/EditPacketModal").then((m) => ({ default: m.EditPacketModal })),

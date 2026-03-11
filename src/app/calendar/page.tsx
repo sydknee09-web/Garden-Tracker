@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } fr
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { LoadingState } from "@/components/LoadingState";
 
 const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
@@ -732,7 +733,7 @@ export default function CalendarPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {inventoryPacketsLoading ? (
-                <p className="text-sm text-black/50">Loading packets…</p>
+                <LoadingState message="Loading packets…" className="py-2" />
               ) : (
                 plantableInventoryPlantType.profiles.map((profile) => {
                   const packets = inventoryPackets.filter((p) => p.plant_profile_id === profile.id);
@@ -774,9 +775,7 @@ export default function CalendarPage() {
       )}
 
       {loading ? (
-        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center text-black/60">
-          Loading...
-        </div>
+        <LoadingState message="Loading…" />
       ) : error ? (
         <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <p className="text-citrus font-medium">Could not load tasks</p>
@@ -1320,7 +1319,14 @@ export default function CalendarPage() {
             setQuickAddSeedOpen(false);
             setUniversalAddMenuOpen(true);
           }}
-          onSuccess={() => setRefetch((r) => r + 1)}
+          onSuccess={(opts) => {
+            if (opts?.newProfileId) {
+              setQuickAddSeedOpen(false);
+              router.push(`/vault/${opts.newProfileId}`);
+              return;
+            }
+            setRefetch((r) => r + 1);
+          }}
           onOpenBatch={() => {
             setQuickAddSeedOpen(false);
             setBatchAddPlantMode(false);

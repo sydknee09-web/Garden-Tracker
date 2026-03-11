@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingState } from "@/components/LoadingState";
 
 type CacheEntry = {
   id: string;
@@ -105,7 +106,7 @@ export default function ExtractCachePage() {
       </div>
 
       {loading ? (
-        <p className="text-neutral-500 text-sm">Loading\u2026</p>
+        <LoadingState message="Loading…" className="py-4" />
       ) : entries.length === 0 ? (
         <p className="text-neutral-500 text-sm">
           No cached entries yet. Import seeds and save to vault to populate the cache.
