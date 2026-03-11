@@ -1687,6 +1687,7 @@ function VaultPageInner() {
             setBatchAddOpen(true);
           }}
           onAddToShed={() => {
+            setShedModalOpen(true); // keep anyModalOpen=true so useModalBackClose doesn't fire history.back() before the shed context updates
             setUniversalAddMenuOpen(false);
             shedActionsRef.current?.openQuickAdd?.();
           }}
