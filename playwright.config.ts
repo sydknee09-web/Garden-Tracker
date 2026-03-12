@@ -29,8 +29,9 @@ export default defineConfig({
   },
   projects: [
     // Unauthenticated projects: public pages, a11y audit. Exclude any *authenticated* spec.
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /authenticated\.spec\.ts/ },
-    { name: "Mobile Chrome", use: { ...devices["Pixel 5"] }, testIgnore: /authenticated\.spec\.ts/ },
+    // colorScheme: 'light' forces light-mode rendering in headless CI to prevent dark-mode contrast artifacts.
+    { name: "chromium", use: { ...devices["Desktop Chrome"], colorScheme: "light" }, testIgnore: /authenticated\.spec\.ts/ },
+    { name: "Mobile Chrome", use: { ...devices["Pixel 5"], colorScheme: "light" }, testIgnore: /authenticated\.spec\.ts/ },
     // Authenticated smoke + critical-path tests (run only when E2E_TEST_EMAIL + E2E_TEST_PASSWORD are set)
     ...(hasAuthCreds
       ? [

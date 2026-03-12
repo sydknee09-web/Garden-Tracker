@@ -66,8 +66,8 @@ test.describe("Journal — Quick Log entry creation", () => {
     // Submit
     await page.getByRole("button", { name: "Save" }).click();
 
-    // Dialog should close after save (allow up to 20s for Supabase insert in CI)
-    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 20000 });
+              // Dialog should close after save (allow up to 30s for Supabase insert in CI)
+              await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 30000 });
 
     // Should stay on journal page, no login redirect
     await expect(page).not.toHaveURL(/\/login/);
