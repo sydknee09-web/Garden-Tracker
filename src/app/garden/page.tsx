@@ -1213,17 +1213,15 @@ function GardenPageInner() {
         />
       )}
 
-      {quickLogOpen && (
-        <QuickLogModal
-          open={quickLogOpen}
-          onClose={() => setQuickLogOpen(false)}
-          onJournalAdded={() => {
-            router.refresh();
-            setQuickLogOpen(false);
-            setRefetchTrigger((t) => t + 1);
-          }}
-        />
-      )}
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onJournalAdded={() => {
+          router.refresh();
+          setQuickLogOpen(false);
+          setRefetchTrigger((t) => t + 1);
+        }}
+      />
 
       {newTaskModalOpen && (
         <NewTaskModal
@@ -1236,14 +1234,13 @@ function GardenPageInner() {
         />
       )}
 
-      {quickAddSeedOpen && (
-        <QuickAddSeed
-          open={quickAddSeedOpen}
-          onClose={() => setQuickAddSeedOpen(false)}
-          onBackToMenu={() => {
-            setQuickAddSeedOpen(false);
-            setFabMenuOpen(true);
-          }}
+      <QuickAddSeed
+        open={quickAddSeedOpen}
+        onClose={() => setQuickAddSeedOpen(false)}
+        onBackToMenu={() => {
+          setQuickAddSeedOpen(false);
+          setFabMenuOpen(true);
+        }}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               setQuickAddSeedOpen(false);
@@ -1275,7 +1272,6 @@ function GardenPageInner() {
             setPurchaseOrderOpen(true);
           }}
         />
-      )}
 
       {batchAddSeedOpen && (
         <BatchAddSeed

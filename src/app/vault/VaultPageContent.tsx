@@ -1702,17 +1702,15 @@ function VaultPageInner() {
         />
       )}
 
-      {quickLogOpen && (
-        <QuickLogModal
-          open={quickLogOpen}
-          onClose={() => setQuickLogOpen(false)}
-          onJournalAdded={() => {
-            router.refresh();
-            setQuickLogOpen(false);
-            refetch();
-          }}
-        />
-      )}
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onJournalAdded={() => {
+          router.refresh();
+          setQuickLogOpen(false);
+          refetch();
+        }}
+      />
 
       {newTaskModalOpen && (
         <NewTaskModal
@@ -1725,7 +1723,6 @@ function VaultPageInner() {
         />
       )}
 
-      {quickAddOpen && (
       <QuickAddSeed
         open={quickAddOpen}
         onClose={() => {
@@ -1773,7 +1770,6 @@ function VaultPageInner() {
           setPurchaseOrderOpen(true);
         }}
       />
-      )}
 
       {batchAddOpen && (
         <BatchAddSeed

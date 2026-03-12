@@ -982,17 +982,15 @@ export default function JournalPage() {
         />
       )}
 
-      {quickLogOpen && (
-        <QuickLogModal
-          open={quickLogOpen}
-          onClose={() => setQuickLogOpen(false)}
-          onJournalAdded={() => {
-            router.refresh();
-            setQuickLogOpen(false);
-            setRefetchTrigger((t) => t + 1);
-          }}
-        />
-      )}
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onJournalAdded={() => {
+          router.refresh();
+          setQuickLogOpen(false);
+          setRefetchTrigger((t) => t + 1);
+        }}
+      />
 
       {newTaskModalOpen && (
         <NewTaskModal

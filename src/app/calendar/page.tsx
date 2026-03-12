@@ -1300,57 +1300,53 @@ export default function CalendarPage() {
         />
       )}
 
-      {quickLogOpen && (
-        <QuickLogModal
-          open={quickLogOpen}
-          onClose={() => setQuickLogOpen(false)}
-          onJournalAdded={() => {
-            router.refresh();
-            setQuickLogOpen(false);
-          }}
-        />
-      )}
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onJournalAdded={() => {
+          router.refresh();
+          setQuickLogOpen(false);
+        }}
+      />
 
-      {quickAddSeedOpen && (
-        <QuickAddSeed
-          open={quickAddSeedOpen}
-          onClose={() => setQuickAddSeedOpen(false)}
-          onBackToMenu={() => {
+      <QuickAddSeed
+        open={quickAddSeedOpen}
+        onClose={() => setQuickAddSeedOpen(false)}
+        onBackToMenu={() => {
+          setQuickAddSeedOpen(false);
+          setUniversalAddMenuOpen(true);
+        }}
+        onSuccess={(opts) => {
+          if (opts?.newProfileId) {
             setQuickAddSeedOpen(false);
-            setUniversalAddMenuOpen(true);
-          }}
-          onSuccess={(opts) => {
-            if (opts?.newProfileId) {
-              setQuickAddSeedOpen(false);
-              router.push(`/vault/${opts.newProfileId}`);
-              return;
-            }
-            setRefetch((r) => r + 1);
-          }}
-          onOpenBatch={() => {
-            setQuickAddSeedOpen(false);
-            setBatchAddPlantMode(false);
-            setBatchAddSeedOpen(true);
-          }}
-          onOpenLinkImport={() => {
-            skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
-            router.push("/vault/import?embed=1");
-          }}
-          onStartManualImport={() => {
-            skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
-            router.push("/vault/import/manual");
-          }}
-          onOpenPurchaseOrder={() => {
-            skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
-            setPurchaseOrderMode("seed");
-            setPurchaseOrderAddPlantMode(false);
-            setPurchaseOrderOpen(true);
-          }}
-        />
-      )}
+            router.push(`/vault/${opts.newProfileId}`);
+            return;
+          }
+          setRefetch((r) => r + 1);
+        }}
+        onOpenBatch={() => {
+          setQuickAddSeedOpen(false);
+          setBatchAddPlantMode(false);
+          setBatchAddSeedOpen(true);
+        }}
+        onOpenLinkImport={() => {
+          skipPopOnNavigateRef.current = true;
+          setQuickAddSeedOpen(false);
+          router.push("/vault/import?embed=1");
+        }}
+        onStartManualImport={() => {
+          skipPopOnNavigateRef.current = true;
+          setQuickAddSeedOpen(false);
+          router.push("/vault/import/manual");
+        }}
+        onOpenPurchaseOrder={() => {
+          skipPopOnNavigateRef.current = true;
+          setQuickAddSeedOpen(false);
+          setPurchaseOrderMode("seed");
+          setPurchaseOrderAddPlantMode(false);
+          setPurchaseOrderOpen(true);
+        }}
+      />
 
       {batchAddSeedOpen && (
         <BatchAddSeed
