@@ -17,26 +17,30 @@ setup("authenticate", async ({ page }) => {
     );
   }
 
-  // --- Step 1: navigate to login and fill credentials ---
+  // --- Step 1: navigate to login and wait for React hydration ---
   await page.goto("/login");
-  await page.waitForLoadState("domcontentloaded");
+  // #login-email is a client component — wait for it to be visible (hydrated), not just domcontentloaded
+  await page.locator("#login-email").waitFor({ state: "visible", timeout: 15000 });
 
   await page.locator("#login-email").fill(email);
   await page.locator("#login-password").fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 
   // --- Step 2: wait for redirect away from /login (up to 30s) ---
-  await page.waitForURL(/\/(?!login)/, { timeout: 30000 }).catch(async () => {
-    const errorText = await page
-      .locator('[role="alert"]:not(#__next-route-announcer__)')
-      .textContent()
-      .catch(() => null);
-    throw new Error(
-      `Login failed — still on login page (${page.url()}). ` +
-        `Page error: ${errorText ?? "none"}. ` +
-        `Check E2E_TEST_EMAIL and E2E_TEST_PASSWORD.`
-    );
-  });
+  // NOTE: must use a URL function, NOT /\/(?!login)/ — that regex matches http:// immediately.
+  await page
+    .waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30000 })
+    .catch(async () => {
+      const errorText = await page
+        .locator('[role="alert"]:not(#__next-route-announcer__)')
+        .textContent()
+        .catch(() => null);
+      throw new Error(
+        `Login failed — still on login page (${page.url()}). ` +
+          `Page error: ${errorText ?? "none"}. ` +
+          `Check E2E_TEST_EMAIL and E2E_TEST_PASSWORD.`
+      );
+    });
 
   // --- Step 3: let Supabase JS write the session to localStorage ---
   await page.waitForLoadState("networkidle", { timeout: 20000 });
