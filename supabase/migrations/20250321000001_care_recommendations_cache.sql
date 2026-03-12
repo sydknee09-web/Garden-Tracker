@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.care_recommendations_cache (
   UNIQUE (identity_key, profile_type)
 );
 
-CREATE INDEX idx_crc_identity_profile ON public.care_recommendations_cache(identity_key, profile_type);
+CREATE INDEX IF NOT EXISTS idx_crc_identity_profile ON public.care_recommendations_cache(identity_key, profile_type);
 
 ALTER TABLE public.care_recommendations_cache ENABLE ROW LEVEL SECURITY;
 

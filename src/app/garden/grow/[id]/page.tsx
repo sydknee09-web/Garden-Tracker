@@ -331,7 +331,7 @@ export default function GrowInstancePage() {
     );
   }
 
-  if (error || !grow || !profile) {
+  if (error || !grow) {
     return (
       <div className="min-h-screen bg-neutral-50 p-6 pb-24">
         <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4 min-h-[44px]">
@@ -348,9 +348,9 @@ export default function GrowInstancePage() {
   const fertInfo = lastFertilized();
   const canEdit = grow.user_id === user?.id;
 
-  const displayTitle = profile.variety_name?.trim()
-    ? `${profile.name} (${profile.variety_name})`
-    : profile.name;
+  const displayTitle = profile
+    ? (profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name)
+    : "Plant";
 
   const sowBadge =
     grow.sow_method === "direct_sow" ? "Direct sow"
@@ -399,13 +399,15 @@ export default function GrowInstancePage() {
               ) : null}
             </h1>
           </div>
-          <Link
-            href={`/vault/${profile.id}`}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-xs font-medium px-2 shrink-0"
-            aria-label="View plant profile"
-          >
-            About variety
-          </Link>
+          {profile && (
+            <Link
+              href={`/vault/${profile.id}`}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-xs font-medium px-2 shrink-0"
+              aria-label="View plant profile"
+            >
+              About variety
+            </Link>
+          )}
           {canEdit && (
             <button
               type="button"

@@ -1608,7 +1608,11 @@ function CalendarTaskRow({
   const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
   const plantName = task.plant_name?.trim();
   const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
-  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${new Date(task.due_date + "T12:00:00").toLocaleDateString()})`;
+  // For completed tasks show completion date so "Tasks for [date]" only shows that date in labels
+  const dateLabel = task.completed_at
+    ? new Date(task.completed_at).toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
+    : new Date(task.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${dateLabel})`;
 
   const handlePointerDown = () => {
     if (selectMode) return;
