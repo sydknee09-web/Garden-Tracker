@@ -74,8 +74,8 @@ test.describe("Calendar — task management", () => {
     // Universal Add Menu should appear
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
-    // Close to clean up
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 3000 });
+    // Close via Cancel button (UniversalAddMenu has no Escape handler)
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5000 });
   });
 });

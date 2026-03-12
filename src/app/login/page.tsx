@@ -39,11 +39,11 @@ export default function LoginPage() {
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
       >
         <h1 className="text-2xl font-semibold text-black mb-1">Welcome back</h1>
-        <p className="text-black/60 text-sm mb-6">Sign in to your garden</p>
+        <p className="text-neutral-600 text-sm mb-6">Sign in to your garden</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="login-email" className="block text-sm font-medium text-black/80 mb-1">
+            <label htmlFor="login-email" className="block text-sm font-medium text-neutral-700 mb-1">
               Email
             </label>
             <input
@@ -59,12 +59,12 @@ export default function LoginPage() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="login-password" className="block text-sm font-medium text-black/80">
+              <label htmlFor="login-password" className="block text-sm font-medium text-neutral-700">
                 Password
               </label>
               <Link
                 href="/reset-password"
-                className="text-sm text-emerald font-medium hover:underline"
+                className="text-sm text-emerald-700 font-medium hover:underline"
               >
                 Forgot password?
               </Link>
@@ -91,9 +91,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-black/60">
+        <p className="mt-6 text-center text-sm text-neutral-600">
           No account?{" "}
-          <Link href="/signup" className="font-medium text-emerald hover:underline">
+          <Link href="/signup" className="font-medium text-emerald-700 hover:underline">
             Sign up
           </Link>
         </p>
