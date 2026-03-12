@@ -499,11 +499,16 @@ export default function CalendarPage() {
     year: "numeric",
   });
 
+  /** Normalize to YYYY-MM-DD so keys match calendar cell dateStr and selectedDate */
+  const toDateKey = (value: string | undefined | null) =>
+    value ? value.slice(0, 10) : "";
+
   const byDate: Record<string, (Task & { plant_name?: string; user_id?: string | null })[]> = {};
   tasks
     .filter((t) => !t.completed_at)
     .forEach((t) => {
-      const d = t.due_date;
+      const d = toDateKey(t.due_date) || t.due_date;
+      if (!d) return;
       if (!byDate[d]) byDate[d] = [];
       byDate[d].push(t);
     });
@@ -511,7 +516,8 @@ export default function CalendarPage() {
   const completedByDate = useMemo(() => {
     const out: Record<string, (Task & { plant_name?: string; user_id?: string | null })[]> = {};
     completedTasksForMonth.forEach((t) => {
-      const d = t.due_date;
+      const d = toDateKey(t.due_date) || t.due_date;
+      if (!d) return;
       if (!out[d]) out[d] = [];
       out[d].push(t);
     });
@@ -946,8 +952,15 @@ export default function CalendarPage() {
             </div>
           ) : selectedDate ? (
             (() => {
-              const upcomingForDate = byDate[selectedDate] ?? [];
-              const completedForDate = completedTasksForSelectedDay;
+              // Only show tasks that belong to this day: upcoming by due_date, completed by completed_at
+              const upcomingForDate = (byDate[selectedDate] ?? []).filter(
+                (t) => toDateKey(t.due_date) === selectedDate
+              );
+              const completedForDate = completedTasksForSelectedDay.filter((t) => {
+                if (!t.completed_at) return false;
+                const completedDay = toDateKey(new Date(t.completed_at).toISOString());
+                return completedDay === selectedDate;
+              });
               const hasAny = upcomingForDate.length > 0 || completedForDate.length > 0;
               if (!hasAny) {
                 return (

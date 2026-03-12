@@ -7,13 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
-import dynamic from "next/dynamic";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile } from "@/types/garden";
-
-const QuickLogModal = dynamic(
-  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
-  { ssr: false }
-);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,7 +21,7 @@ interface PlantProfileSummary {
   plant_type?: string | null;
 }
 
-type ActiveTab = "overview" | "history" | "notes";
+type ActiveTab = "overview" | "history";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,8 +135,6 @@ export default function GrowInstancePage() {
   const [savingLocation, setSavingLocation] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveSaving, setArchiveSaving] = useState(false);
-  const [quickLogOpen, setQuickLogOpen] = useState(false);
-
   const locationInputRef = useRef<HTMLInputElement>(null);
 
   // ---------------------------------------------------------------------------
@@ -374,9 +366,6 @@ export default function GrowInstancePage() {
     return new Date(bDate).getTime() - new Date(aDate).getTime();
   });
 
-  // Notes tab: only note-type journal entries
-  const noteEntries = journalEntries.filter((e) => e.entry_type === "note");
-
   return (
     <div className="min-h-screen bg-neutral-50 pb-28">
       {/* ------------------------------------------------------------------ */}
@@ -497,14 +486,14 @@ export default function GrowInstancePage() {
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white border-b border-neutral-100 sticky top-[57px] z-10">
         <div className="flex">
-          {(["overview", "history", "notes"] as const).map((tab) => (
+          {(["overview", "history"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-sm font-medium capitalize transition-colors min-h-[44px] border-b-2 ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}
             >
-              {tab === "history" ? "Task History" : tab === "notes" ? "Notes" : "Overview"}
+              {tab === "history" ? "Task History" : "Overview"}
             </button>
           ))}
         </div>
@@ -607,16 +596,7 @@ export default function GrowInstancePage() {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-sm text-neutral-500">No photos yet.</p>
-                  <p className="text-xs text-neutral-400 mt-1">Add a journal entry with a photo to document this plant&apos;s progress.</p>
-                  {grow.plant_profile_id && (
-                    <button
-                      type="button"
-                      onClick={() => setQuickLogOpen(true)}
-                      className="mt-3 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 min-h-[44px]"
-                    >
-                      Add a photo note
-                    </button>
-                  )}
+                  <p className="text-xs text-neutral-400 mt-1">Photos from journal entries linked to this plant will appear here.</p>
                 </div>
               )}
             </div>
@@ -704,41 +684,6 @@ export default function GrowInstancePage() {
           </>
         )}
 
-        {/* NOTES TAB */}
-        {activeTab === "notes" && (
-          <>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setQuickLogOpen(true)}
-                className="w-full min-h-[44px] rounded-xl border-2 border-dashed border-emerald-300 text-emerald-700 text-sm font-medium flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors"
-              >
-                <ICON_MAP.Add className="w-4 h-4" />
-                Add note
-              </button>
-            )}
-
-            {noteEntries.length === 0 ? (
-              <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-                <p className="text-neutral-500 text-sm">No notes yet.</p>
-                <p className="text-neutral-400 text-xs mt-1">Tap "Add note" to jot down observations for this plant.</p>
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {noteEntries.map((e) => {
-                  const imgUrl = getJournalImageUrl(e);
-                  return (
-                    <li key={e.id} className="bg-white rounded-xl border border-neutral-200 p-4">
-                      <p className="text-xs text-neutral-400 mb-1">{formatShortDate(e.created_at)}</p>
-                      {e.note?.trim() && <p className="text-sm text-neutral-800 break-words">{e.note.trim()}</p>}
-                      {imgUrl && <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-48 object-cover" />}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </>
-        )}
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -774,18 +719,6 @@ export default function GrowInstancePage() {
         </>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* QUICK LOG MODAL (Add note)                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <QuickLogModal
-        open={quickLogOpen}
-        onClose={() => setQuickLogOpen(false)}
-        preSelectedProfileId={profile?.id ?? null}
-        onJournalAdded={() => {
-          setQuickLogOpen(false);
-          loadData();
-        }}
-      />
     </div>
   );
 }
