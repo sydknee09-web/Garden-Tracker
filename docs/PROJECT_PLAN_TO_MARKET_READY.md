@@ -124,17 +124,17 @@
 
 ### 4.1 E2E critical paths
 
-- [ ] **Auth:** Login, signup, reset-password (existing). Keep and maintain.
-- [ ] **Vault → add seed:** Open vault, FAB → Add Seed Packet, complete manual add (or link) with required fields, assert new profile or packet appears and URL does not change (stay + refresh).
-- [ ] **Plant → harvest:** From vault profile, Plant, complete sow flow; from Active Garden, open Harvest, submit with weight/unit; assert harvest appears on profile or journal.
-- [ ] **Shopping list:** Add plant to shopping list from profile; open shopping list page; assert item present. Remove item; assert removed.
-- [ ] **Smoke (authenticated):** Existing smoke (vault, garden, calendar, etc.) — ensure it still passes and extend if key pages are missing.
-- [ ] **Accessibility:** Existing axe E2E — keep and run in CI. Fix any new violations introduced in Parts 1–3.
+- [x] **Auth:** Login, signup, reset-password fixed (PKCE flow). Auth setup uses REST API injection for reliable headless auth.
+- [x] **Vault → add seed:** `e2e/vault-add-seed.authenticated.spec.ts` — FAB opens menu, QuickAddSeed modal opens, manual add completes on /vault.
+- [ ] **Plant → harvest:** From vault profile, Plant, complete sow flow; from Active Garden, open Harvest, submit with weight/unit; assert harvest appears on profile or journal. _(deferred to Part 5)_
+- [x] **Shopping list:** `e2e/shopping-list.authenticated.spec.ts` — page loads, add-from-vault flow (graceful skip if no eligible profile).
+- [x] **Smoke (authenticated):** `e2e/smoke.authenticated.spec.ts` — 9 pages pass (Home, Vault, Garden, Calendar, Journal, Schedule, Shopping List, Settings, Shed).
+- [x] **Accessibility:** `e2e/accessibility.spec.ts` — axe audit on public pages, runs in CI.
 
 ### 4.2 CI and local
 
-- [ ] **CI:** E2E runs on push/PR (or on release branch). Use `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` for authenticated smoke if available.
-- [ ] **Local:** Document in TESTING.md that `npm run test:all` (or unit + E2E) is the pre-release suite. Run before tagging a release.
+- [x] **CI:** `.github/workflows/test.yml` — E2E runs on push/PR. Passes Supabase + E2E secrets. Uploads Playwright HTML report artifact. Authenticated suite activates when `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` secrets are set.
+- [x] **Local:** `TESTING.md` updated — CI secrets guide, full E2E file inventory, `npm run test:all` documented as pre-release command.
 
 **Exit criteria:** E2E covers vault add seed, plant→harvest, shopping list, smoke, a11y. CI runs E2E. Tests pass.
 

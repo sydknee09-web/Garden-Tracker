@@ -71,10 +71,16 @@ Do not merge or ship code with failing tests. If you're in a hurry, at minimum r
 
 ### E2E (Playwright)
 
-- **`e2e/home.spec.ts`** — E2E: Login page load, sign-in prompt
-- **`e2e/public-pages.spec.ts`** — E2E: Login, signup, reset-password pages
-- **`e2e/smoke-authenticated.spec.ts`** — E2E: Vault, Garden, Calendar, etc. (requires `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` in `.env.local`)
-- **`e2e/accessibility.spec.ts`** — E2E: axe accessibility audit (home, login)
+**Unauthenticated (public pages — always run):**
+- **`e2e/home.spec.ts`** — Login page load, sign-in prompt
+- **`e2e/public-pages.spec.ts`** — Login, signup, reset-password pages load without error
+- **`e2e/accessibility.spec.ts`** — axe accessibility audit (home, login)
+
+**Authenticated (critical paths — run when `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` are set):**
+- **`e2e/auth.setup.ts`** — Signs in via Supabase REST API, injects session into localStorage, saves `storageState` to `.auth/user.json`
+- **`e2e/smoke.authenticated.spec.ts`** — Smoke test: all main app pages load without redirecting to `/login` (Home, Vault, Garden, Calendar, Journal, Schedule, Shopping List, Settings, Shed)
+- **`e2e/vault-add-seed.authenticated.spec.ts`** — FAB → Add Seed Packet: menu opens, QuickAddSeed modal opens, manual add flow completes on `/vault`
+- **`e2e/shopping-list.authenticated.spec.ts`** — Shopping list page renders heading and content; add-from-vault flow (skips gracefully if no eligible profile)
 
 ## Coverage
 
@@ -102,20 +108,44 @@ If you see `lockfileTryAcquireSync is not a function` when running `npm run test
 
 ## CI
 
-GitHub Actions (`.github/workflows/test.yml`) runs on push/PR:
+GitHub Actions (`.github/workflows/test.yml`) runs on every push and PR to `main`:
 
-- **Unit tests** — `npm run test:ci` (with coverage)
-- **E2E tests** — Build app, start server, run Playwright (public pages only; authenticated smoke tests need `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` secrets)
+| Job | What it does |
+|-----|-------------|
+| `unit` | `npm run test:ci` — unit tests + coverage |
+| `e2e` | Build → start server → Playwright (public + authenticated if secrets are set) |
 
-To run the full suite locally before pushing: `npm run test:all`
+The `e2e` job uploads the Playwright HTML report as an artifact (`playwright-report`, 14-day retention) so you can inspect failures without re-running locally.
+
+### GitHub Secrets required
+
+Add these in **GitHub → your repo → Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Value |
+|--------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL (e.g. `https://xxx.supabase.co`) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/publishable key |
+| `E2E_TEST_EMAIL` | Email of a confirmed Supabase user for E2E tests |
+| `E2E_TEST_PASSWORD` | Password for that user |
+
+Without `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` the build will fail (Next.js needs them at compile time). Without `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` the authenticated E2E project is skipped automatically — only public-page tests run.
+
+### Running the full suite locally before pushing
+
+```bash
+npm run test:all
+```
+
+This runs unit tests (with coverage) and then E2E. Requires `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` in `.env.local` for the authenticated suite.
 
 ---
 
 ## Gaps and suggested next steps
 
-| Gap | Why it matters | Effort |
-|-----|----------------|--------|
-| **More E2E flows** | Home, login, accessibility covered. Add vault → add seed, plant → harvest, shopping list. | Medium |
-| **mergeProfiles test** | `reassignAndMergeProfiles` touches many tables; worth a focused DB-mock test. | Medium |
-| **fillBlanksCache test** | Cache-fill logic used during import; a unit test would lock down cache-hit behavior. | Medium |
-| **Component integration** | `QuickAddSeed` and `AddPlantModal` happy-path submission. | Medium–high |
+| Gap | Why it matters | Effort | Status |
+|-----|----------------|--------|--------|
+| **Plant → harvest E2E** | Sow + harvest is the core garden loop; not yet automated. | Medium | Open |
+| **mergeProfiles test** | `reassignAndMergeProfiles` touches many tables; worth a focused DB-mock test. | Medium | Open |
+| **fillBlanksCache test** | Cache-fill logic used during import; a unit test would lock down cache-hit behavior. | Medium | Open |
+| **Component integration** | `QuickAddSeed` and `AddPlantModal` happy-path submission. | Medium–high | Open |
+| ~~**More E2E flows**~~ | ~~Vault → add seed and shopping list added.~~ | — | Done |

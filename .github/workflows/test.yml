@@ -20,6 +20,11 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # Build-time env vars (NEXT_PUBLIC_* must be present during `npm run build`)
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,17 +33,40 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run build
+
+      - name: Build app
+        run: npm run build
+
+      # auth.setup.ts writes session state here; directory must exist before Playwright runs
+      - name: Create auth state directory
+        run: mkdir -p .auth
+
       - name: Start app
         run: npm run start &
-      - name: Wait for app
+
+      - name: Wait for app to be ready
         run: |
           for i in $(seq 1 30); do
             curl -sf http://localhost:3000 >/dev/null && break
             sleep 2
           done
+
       - name: Run E2E tests
         run: npm run test:e2e
         env:
           CI: true
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+          # Supabase credentials (repeated here so Playwright process inherits them)
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Authenticated E2E account — set these in GitHub → Settings → Secrets
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
