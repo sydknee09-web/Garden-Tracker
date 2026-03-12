@@ -300,106 +300,108 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
             </div>
 
             {!editTask && (
-            <button
-              type="button"
-              onClick={() => setIsRecurring((r) => !r)}
-              className={`w-full min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                isRecurring ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-white border-black/10 text-black/70 hover:bg-black/[0.02]"
-              }`}
-            >
-              <span className="text-sm font-medium">Recurring</span>
-              <span
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRecurring ? "bg-emerald-500" : "bg-black/20"}`}
-                aria-hidden
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${isRecurring ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </span>
-            </button>
-
-            {isRecurring && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="recurring-interval" className="text-sm font-medium text-black/80 shrink-0">
-                    Repeat every
-                  </label>
-                  <input
-                    id="recurring-interval"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={recurringIntervalDays}
-                    onChange={(e) => setRecurringIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                  />
-                  <span className="text-sm text-black/60">days</span>
-                </div>
-                <div>
-                  <label htmlFor="recurring-end" className="block text-sm font-medium text-black/80 mb-1">
-                    End date <span className="text-black/40 font-normal">(optional)</span>
-                  </label>
-                  <input
-                    id="recurring-end"
-                    type="date"
-                    value={recurringEndDate}
-                    onChange={(e) => setRecurringEndDate(e.target.value)}
-                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/40"
-                  />
-                </div>
-                {profileId && (
-                  <p className="text-xs text-emerald-700 flex items-start gap-1.5">
-                    <span aria-hidden>🔗</span>
-                    <span>This will also appear in the linked plant&apos;s Care schedule.</span>
-                  </p>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring((r) => !r)}
+                  className={`w-full min-h-[44px] flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                    isRecurring ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-white border-black/10 text-black/70 hover:bg-black/[0.02]"
+                  }`}
+                >
+                  <span className="text-sm font-medium">Recurring</span>
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRecurring ? "bg-emerald-500" : "bg-black/20"}`}
+                    aria-hidden
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${isRecurring ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </span>
+                </button>
+                {isRecurring && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="recurring-interval" className="text-sm font-medium text-black/80 shrink-0">
+                        Repeat every
+                      </label>
+                      <input
+                        id="recurring-interval"
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={recurringIntervalDays}
+                        onChange={(e) => setRecurringIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald/40"
+                      />
+                      <span className="text-sm text-black/60">days</span>
+                    </div>
+                    <div>
+                      <label htmlFor="recurring-end" className="block text-sm font-medium text-black/80 mb-1">
+                        End date <span className="text-black/40 font-normal">(optional)</span>
+                      </label>
+                      <input
+                        id="recurring-end"
+                        type="date"
+                        value={recurringEndDate}
+                        onChange={(e) => setRecurringEndDate(e.target.value)}
+                        className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/40"
+                      />
+                    </div>
+                    {profileId && (
+                      <p className="text-xs text-emerald-700 flex items-start gap-1.5">
+                        <span aria-hidden>🔗</span>
+                        <span>This will also appear in the linked plant&apos;s Care schedule.</span>
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-
+              </>
             )}
 
             {!editTask && (
-            <div>
-              <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
-                Link to plant (optional)
-              </label>
-              <select
-                id="task-profile"
-                value={profileId}
-                onChange={(e) => {
-                  setProfileId(e.target.value);
-                  setGrowId("");
-                }}
-                className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-              >
-                <option value="">None</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {growInstances.length > 0 && (
-              <div>
-                <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
-                  Active planting (optional)
-                </label>
-                <select
-                  id="task-grow"
-                  value={growId}
-                  onChange={(e) => setGrowId(e.target.value)}
-                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                >
-                  <option value="">Any / not specific</option>
-                  {growInstances.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      Sown {g.sown_date}{g.location ? ` · ${g.location}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+              <>
+                <div>
+                  <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
+                    Link to plant (optional)
+                  </label>
+                  <select
+                    id="task-profile"
+                    value={profileId}
+                    onChange={(e) => {
+                      setProfileId(e.target.value);
+                      setGrowId("");
+                    }}
+                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                  >
+                    <option value="">None</option>
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.variety_name ? ` (${p.variety_name})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {growInstances.length > 0 && (
+                  <div>
+                    <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
+                      Active planting (optional)
+                    </label>
+                    <select
+                      id="task-grow"
+                      value={growId}
+                      onChange={(e) => setGrowId(e.target.value)}
+                      className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
+                    >
+                      <option value="">Any / not specific</option>
+                      {growInstances.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          Sown {g.sown_date}{g.location ? ` · ${g.location}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
             )}
             {error && <p className="text-sm text-citrus font-medium">{error}</p>}
             <div className="space-y-2 pt-2">

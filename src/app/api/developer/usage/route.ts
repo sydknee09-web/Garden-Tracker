@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 
+export const dynamic = "force-dynamic";
+
 function startOfMonth(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }

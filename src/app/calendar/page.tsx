@@ -1218,7 +1218,7 @@ export default function CalendarPage() {
               return (t as { care_schedule_id?: string | null })?.care_schedule_id != null;
             }) && (
               <div className="space-y-2" role="radiogroup" aria-labelledby="delete-scope-label">
-                <p id="delete-scope-label" className="text-sm font-medium text-black/80">Recurring task — delete:</p>
+                <p id="delete-scope-label" className="text-sm font-medium text-black/80">One or more selected tasks are recurring. Delete:</p>
                 <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
                   <input
                     type="radio"
@@ -1274,6 +1274,12 @@ export default function CalendarPage() {
                 <dt className="text-neutral-500">Due</dt>
                 <dd>{new Date(taskDetailTask.due_date + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</dd>
               </div>
+              {taskDetailTask.completed_at && (
+                <div>
+                  <dt className="text-neutral-500">Completed</dt>
+                  <dd>{new Date(taskDetailTask.completed_at).toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</dd>
+                </div>
+              )}
               {taskDetailTask.plant_name && taskDetailTask.plant_name !== "Unknown" && (
                 <div>
                   <dt className="text-neutral-500">Plant</dt>
