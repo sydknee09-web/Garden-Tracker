@@ -57,10 +57,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const blob = await res.blob();
-    const type = isImage ? (contentType.split(";")[0].trim() || "image/jpeg") : "image/jpeg";
-    const ext = type.includes("png") ? "png" : "jpg";
-    const path = `${user.id}/hero-${profile_id}-from-web-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const path = `${user.id}/hero-${profile_id}-from-web-${crypto.randomUUID().slice(0, 8)}.jpg`;
+
+    // Compress before upload (Law 4: never store raw web images; phone/web images can be 5–10 MB)
+    const sharp = (await import("sharp")).default;
+    const compressed = await sharp(buffer)
+      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
 
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -69,7 +74,7 @@ export async function POST(req: Request) {
 
     const { error: uploadError } = await admin.storage
       .from("journal-photos")
-      .upload(path, blob, { contentType: type, upsert: false, cacheControl: "31536000" });
+      .upload(path, compressed, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });

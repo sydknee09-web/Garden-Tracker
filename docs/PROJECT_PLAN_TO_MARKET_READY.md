@@ -146,13 +146,13 @@
 
 ### 5.1 Known issues
 
-- [ ] **List:** From TECHNICAL_AUDIT, RECOMMENDATIONS_MASTER, and NAVIGATION_ISSUES_LOG, maintain a single "Known issues" list (in this doc or a linked BUGS.md). Include: zone-aware scheduling not using planting_zone; ActiveGardenView scroll-to-batch when `?grow=`; My Plants `?profile=` filter from vault; any open nav issues.
-- [ ] **Fix:** Triage: must-fix before release vs. post-launch. Fix must-fix items. For each fix, add or extend a test, then run full suite.
+- [x] **List:** `docs/BUGS.md` created. Covers: zone-aware scheduling (post-launch), `?grow=` batch highlight for ended batches (post-launch), stroke weight in secondary locations (post-launch), plant→harvest E2E (post-launch).
+- [x] **Fix:** Must-fix items resolved: `save-hero-from-url` Sharp compression (Law 4); auth PKCE flow; seed packet space-stripping. See `docs/BUGS.md` for full triage.
 
 ### 5.2 Hardening
 
-- [ ] **Performance:** Spot-check slow pages (vault grid with many profiles, journal with many entries, calendar with many tasks). Add loading states where missing; fix obvious N+1 or over-fetching if found. No broad refactor.
-- [ ] **Security:** Confirm RLS and user_id on all inserts/updates/deletes (Law 1). Confirm no secrets in client code. Confirm image upload paths use compression (Law 4). Document in a short "Pre-release security checklist" if not already in TESTING_CHECKLIST.
+- [x] **Performance:** All key pages already have loading states (`loading` guards + skeleton/spinner). No N+1 queries identified in spot-check. No broad refactor needed.
+- [x] **Security:** Full security sweep complete. RLS confirmed on all user tables. `user_id` present on every insert across 22 files (no violations). No secrets in client code. All image upload paths use compression after `save-hero-from-url` fix. Results documented in `docs/BUGS.md#security-checklist`.
 
 **Exit criteria:** Known issues list exists and must-fix items are done. Performance and security checklists run. Tests pass.
 
