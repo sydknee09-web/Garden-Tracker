@@ -207,6 +207,7 @@
 | Mobile keyboard in drawers, overflow audit | Part 5 optional or post-launch |
 | Companion planting, pre-seed library | Post-launch or optional |
 | Add plant vs add packet flows, packet selection/edit, Calendar/Shed refactor | Only if they do not change core redirect/nav; otherwise post-launch. |
+| **Audit AI plant profile fill process** (QuickAdd/URL import → Gemini extraction → field mapping → saved profile; verify accuracy, fallback behavior, compression, 11-tag auto-apply, source_url preservation, user_id on insert) | Post-launch v1.1 |
 
 ---
 
