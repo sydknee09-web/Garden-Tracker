@@ -201,6 +201,7 @@ export default function VaultSeedPage() {
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -1639,38 +1640,69 @@ export default function VaultSeedPage() {
             {isOwnProfile && (
               <>
                 {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleFillBlanks}
-                      disabled={fillBlanksRunning}
-                      className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                      aria-label={fillBlanksRunning ? "Filling blanks…" : "Fill blank info from cache or AI"}
-                      title={fillBlanksRunning ? "Filling blanks…" : "Fill blank info"}
-                    >
-                      {fillBlanksRunning ? (
-                        <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
-                      ) : (
-                        <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOverwriteConfirmOpen(true)}
-                      disabled={fillBlanksRunning}
-                      className="p-2 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                      aria-label="Overwrite with AI"
-                      title="Overwrite description, growing notes, propagation, and other AI-filled details with new AI data"
-                    >
-                      Overwrite AI
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => (fillBlanksRunning ? undefined : setAiMenuOpen(true))}
+                    disabled={fillBlanksRunning}
+                    className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                    aria-label={fillBlanksRunning ? "Filling blanks…" : "AI fill options"}
+                    title="Fill or overwrite with AI"
+                    aria-expanded={aiMenuOpen}
+                    aria-haspopup="true"
+                  >
+                    {fillBlanksRunning ? (
+                      <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                    ) : (
+                      <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
+                    )}
+                  </button>
                 )}
                 <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><ICON_MAP.Edit className="w-4 h-4" /></button>
               </>
             )}
           </div>
         </div>
+
+        {/* AI fill menu: Fill blanks | Overwrite existing and fill all */}
+        {aiMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setAiMenuOpen(false)} />
+            <div
+              className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] bg-white rounded-2xl shadow-xl p-5 max-w-sm mx-auto"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ai-menu-title"
+            >
+              <h2 id="ai-menu-title" className="font-semibold text-neutral-900 text-base mb-3">AI fill</h2>
+              <p className="text-sm text-neutral-500 mb-4">Fill empty fields from cache or AI, or replace all AI-filled details.</p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setAiMenuOpen(false); handleFillBlanks(); }}
+                  disabled={fillBlanksRunning}
+                  className="w-full min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm hover:bg-neutral-50 disabled:opacity-50 text-left px-4"
+                >
+                  Fill blanks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAiMenuOpen(false); setOverwriteConfirmOpen(true); }}
+                  disabled={fillBlanksRunning}
+                  className="w-full min-h-[44px] rounded-xl border border-amber-200 text-amber-700 font-medium text-sm hover:bg-amber-50 disabled:opacity-50 text-left px-4"
+                >
+                  Overwrite existing and fill all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMenuOpen(false)}
+                  className="w-full min-h-[44px] rounded-xl border border-neutral-200 text-neutral-500 font-medium text-sm hover:bg-neutral-50 mt-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {fillBlanksError && (
           <div className="mb-4 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-center justify-between gap-2">
