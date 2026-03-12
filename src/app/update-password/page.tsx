@@ -38,9 +38,14 @@ export default function UpdatePasswordPage() {
     const type = params.get("type");
     if (type === "recovery" || type === "invite") {
       setPhase("ready");
-    } else {
-      setPhase("invalid");
+      return;
     }
+
+    // User arrived via /auth/callback which already exchanged the code —
+    // check for an active session set by the callback
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setPhase(session ? "ready" : "invalid");
+    });
   }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
