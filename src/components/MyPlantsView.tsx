@@ -913,7 +913,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{plant.profile_name}</h3>
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] text-center line-clamp-2 break-words mb-0" title={plant.profile_name}>{plant.profile_name}</h3>
                       <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${plant.profile_variety_name ? "italic" : ""}`} title={plant.profile_variety_name || undefined}>{plant.profile_variety_name || "—"}</div>
                       <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full text-[9px] text-black/60">
                         {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
