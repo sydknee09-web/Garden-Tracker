@@ -68,7 +68,7 @@ export function UniversalAddMenu({
     <>
       <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
       <div
-        className={`fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-cream border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto ${FAB_MENU_SHADOW_CLASS}`}
+        className={`fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto ${FAB_MENU_SHADOW_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"
