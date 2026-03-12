@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -29,6 +29,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoGalleryRef = useRef<HTMLInputElement>(null);
 
@@ -53,9 +54,14 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
 
   useEscapeKey(open, onClose);
 
+  useEffect(() => {
+    if (open) setErrorMessage(null);
+  }, [open]);
+
   const handleSave = useCallback(async () => {
     if (!user?.id) return;
     setSaving(true);
+    setErrorMessage(null);
     try {
       const uploadedPaths: string[] = [];
       for (const p of photos) {
@@ -97,10 +103,11 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       setWeight(""); setUnit("lbs"); setQuantity(""); setNote("");
       photos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
       setPhotos([]);
+      setErrorMessage(null);
       onSaved();
       onClose();
     } catch (err) {
-      console.error("HarvestModal: unexpected error", err);
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -114,6 +121,9 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
         <div className="flex-shrink-0 p-5 border-b border-neutral-200">
           <h2 className="text-lg font-semibold text-neutral-900">Log Harvest</h2>
           <p className="text-sm text-neutral-500 mt-1">{displayName}</p>
+          {errorMessage && (
+            <p className="mt-2 text-sm text-red-600" role="alert">{errorMessage}</p>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">

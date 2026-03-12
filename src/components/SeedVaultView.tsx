@@ -169,7 +169,7 @@ const VOLUME_LABELS: Record<string, string> = {
 const VOLUME_COLORS: Record<string, string> = {
   full: "bg-emerald/20 text-emerald",
   partial: "bg-emerald/10 text-emerald",
-  low: "bg-citrus/20 text-[#b8860b]",
+  low: "bg-citrus/20 text-amber-700",
   empty: "bg-black/5 text-black/50",
 };
 

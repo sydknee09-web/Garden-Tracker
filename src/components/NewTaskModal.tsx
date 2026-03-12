@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
-import type { TaskType } from "@/types/garden";
+import type { TaskType, Task } from "@/types/garden";
 
 const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
   { value: "maintenance", label: "Maintenance" },
@@ -25,9 +25,11 @@ export interface NewTaskModalProps {
   initialDueDate?: string;
   /** When provided, show back arrow to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
   onBackToMenu?: () => void;
+  /** When provided, edit this task (title, due date, category only) instead of creating */
+  editTask?: (Task & { user_id?: string | null }) | null;
 }
 
-export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackToMenu }: NewTaskModalProps) {
+export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackToMenu, editTask }: NewTaskModalProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [due, setDue] = useState(() => new Date().toISOString().slice(0, 10));
@@ -46,9 +48,17 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
 
   useEffect(() => {
     if (open) {
-      setDue(initialDueDate ?? new Date().toISOString().slice(0, 10));
+      if (editTask) {
+        setTitle(editTask.title?.trim() ?? "");
+        setDue(editTask.due_date);
+        setCategory((editTask.category as TaskType) ?? "maintenance");
+        setProfileId(editTask.plant_profile_id ?? "");
+        setGrowId(editTask.grow_instance_id ?? "");
+      } else {
+        setDue(initialDueDate ?? new Date().toISOString().slice(0, 10));
+      }
     }
-  }, [open, initialDueDate]);
+  }, [open, initialDueDate, editTask]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -122,6 +132,24 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
       const savedEndDate = recurringEndDate.trim() || null;
 
       try {
+        if (editTask) {
+          const taskOwnerId = (editTask as { user_id?: string | null }).user_id ?? user.id;
+          const { error: updateErr } = await supabase
+            .from("tasks")
+            .update({ title: titleTrim, due_date: savedDue, category: savedCategory })
+            .eq("id", editTask.id)
+            .eq("user_id", taskOwnerId);
+          if (updateErr) {
+            setError(updateErr.message);
+            hapticError();
+            return;
+          }
+          hapticSuccess();
+          resetForm();
+          onClose();
+          onSuccess?.();
+          return;
+        }
         if (savedRecurring) {
           const { data: scheduleRow, error: schedErr } = await supabase
             .from("care_schedules")
@@ -181,6 +209,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
     },
     [
       user?.id,
+      editTask,
       title,
       due,
       category,
@@ -223,7 +252,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
               <div className="w-11 shrink-0" aria-hidden />
             )}
             <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-              New Task
+              {editTask ? "Edit Task" : "New Task"}
             </h2>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -270,6 +299,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
               </select>
             </div>
 
+            {!editTask && (
             <button
               type="button"
               onClick={() => setIsRecurring((r) => !r)}
@@ -326,6 +356,9 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
               </div>
             )}
 
+            )}
+
+            {!editTask && (
             <div>
               <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
                 Link to plant (optional)
@@ -367,6 +400,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
                 </select>
               </div>
             )}
+            )}
             {error && <p className="text-sm text-citrus font-medium">{error}</p>}
             <div className="space-y-2 pt-2">
               <button
@@ -374,7 +408,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
                 disabled={saving}
                 className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
-                {saving ? "Saving…" : isRecurring ? "Save Recurring Task" : "Save Task"}
+                {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Save Recurring Task" : "Save Task"}
               </button>
               <button
                 type="button"

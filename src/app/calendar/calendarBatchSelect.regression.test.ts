@@ -158,21 +158,24 @@ describe("Batch select — CalendarTaskRow component interface", () => {
 // Feature B — Batch action bar and sheets
 // ---------------------------------------------------------------------------
 describe("Batch select — action bar and sheets", () => {
-  it("Action bar renders conditionally when selectMode is true", () => {
-    expect(src).toContain("{selectMode && (");
+  it("Batch menu renders when selectMode and batchMenuOpen are true", () => {
+    // B7: Fixed action bar removed; FAB opens a menu (batchMenuOpen) when in select mode.
+    expect(src).toContain("batchMenuOpen");
+    expect(src).toContain("selectMode && batchMenuOpen");
   });
 
-  it("Action bar sits above the fixed bottom nav (bottom-[88px])", () => {
-    // The nav is 80px tall; bottom-[88px] gives 8px breathing room above it.
-    expect(src).toContain("bottom-[88px]");
+  it("Batch action menu sits above the fixed bottom nav", () => {
+    // Menu is positioned above FAB and nav (5rem + 80px + safe area).
+    expect(src).toContain("bottom-[calc(5rem+80px");
   });
 
-  it("Reschedule button is present in the action bar", () => {
+  it("Reschedule and Delete are present in the batch menu", () => {
     expect(src).toContain("Reschedule");
+    expect(src).toContain("Delete");
   });
 
-  it("Delete button is present in the action bar", () => {
-    expect(src).toContain("Delete");
+  it("Edit task option is present in the batch menu", () => {
+    expect(src).toContain("Edit task");
   });
 
   it("Reschedule sheet offers 'Tomorrow' quick preset", () => {

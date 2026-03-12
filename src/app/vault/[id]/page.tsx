@@ -148,7 +148,7 @@ const STATUS_COLORS: Record<string, string> = {
   in_stock: "bg-emerald-100 text-emerald-800",
   out_of_stock: "bg-red-100 text-red-800",
   planted: "bg-blue-100 text-blue-800",
-  growing: "bg-green-100 text-green-800",
+  growing: "bg-emerald-100 text-emerald-800",
 };
 
 /** Allowed profile status values for Edit modal; users must pick one, not free-text. */
@@ -201,6 +201,7 @@ export default function VaultSeedPage() {
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
+  const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     plantType: "", varietyName: "", sun: "", water: "", spacing: "",
@@ -1157,6 +1158,27 @@ export default function VaultSeedPage() {
     }
   }, [id, session?.access_token, profile, fillBlanksRunning, loadProfile]);
 
+  const handleOverwriteWithAi = useCallback(async () => {
+    if (!id || !session?.access_token || fillBlanksRunning) return;
+    setOverwriteConfirmOpen(false);
+    setFillBlanksRunning(true);
+    setFillBlanksError(null);
+    try {
+      const res = await fetch("/api/seed/fill-blanks-for-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ profileId: id, useGemini: true, overwrite: true }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Overwrite failed");
+      await loadProfile();
+    } catch (e) {
+      setFillBlanksError(e instanceof Error ? e.message : "Could not overwrite with AI");
+    } finally {
+      setFillBlanksRunning(false);
+    }
+  }, [id, session?.access_token, fillBlanksRunning, loadProfile]);
+
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
   const sortedPackets = useMemo(() => {
     return [...packets].sort((a, b) => {
@@ -1481,7 +1503,7 @@ export default function VaultSeedPage() {
             </div>
             <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
-              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-2">
+              <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <ICON_MAP.Save className="w-4 h-4" />
                 {savingEdit ? "Saving..." : "Save Changes"}
               </button>
@@ -1598,7 +1620,7 @@ export default function VaultSeedPage() {
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[profileStatus]}`}>{profileStatusLabel}</span>
               )}
               {isPlantableNow && (
-                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Plant now</span>
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Plant now</span>
               )}
             </div>
           </div>
@@ -1617,20 +1639,32 @@ export default function VaultSeedPage() {
             {isOwnProfile && (
               <>
                 {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
-                  <button
-                    type="button"
-                    onClick={handleFillBlanks}
-                    disabled={fillBlanksRunning}
-                    className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
-                    aria-label={fillBlanksRunning ? "Filling blanks…" : "Fill blank info from cache or AI"}
-                    title={fillBlanksRunning ? "Filling blanks…" : "Fill blank info"}
-                  >
-                    {fillBlanksRunning ? (
-                      <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
-                    ) : (
-                      <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
-                    )}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleFillBlanks}
+                      disabled={fillBlanksRunning}
+                      className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                      aria-label={fillBlanksRunning ? "Filling blanks…" : "Fill blank info from cache or AI"}
+                      title={fillBlanksRunning ? "Filling blanks…" : "Fill blank info"}
+                    >
+                      {fillBlanksRunning ? (
+                        <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                      ) : (
+                        <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOverwriteConfirmOpen(true)}
+                      disabled={fillBlanksRunning}
+                      className="p-2 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                      aria-label="Overwrite with AI"
+                      title="Overwrite description, growing notes, propagation, and other AI-filled details with new AI data"
+                    >
+                      Overwrite AI
+                    </button>
+                  </>
                 )}
                 <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><ICON_MAP.Edit className="w-4 h-4" /></button>
               </>
@@ -1643,6 +1677,37 @@ export default function VaultSeedPage() {
             <span>{fillBlanksError}</span>
             <button type="button" onClick={() => setFillBlanksError(null)} className="shrink-0 text-amber-600 hover:text-amber-800" aria-label="Dismiss">×</button>
           </div>
+        )}
+
+        {/* Overwrite with AI confirmation */}
+        {overwriteConfirmOpen && (
+          <>
+            <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setOverwriteConfirmOpen(false)} />
+            <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] bg-white rounded-2xl shadow-xl p-5 max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="overwrite-dialog-title">
+              <h2 id="overwrite-dialog-title" className="font-semibold text-neutral-900 text-base mb-1">Overwrite with AI?</h2>
+              <p className="text-sm text-neutral-500 mb-4">
+                This will replace description, growing notes, propagation, and other AI-filled details. Continue?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOverwriteConfirmOpen(false)}
+                  className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOverwriteWithAi}
+                  disabled={fillBlanksRunning}
+                  className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {fillBlanksRunning ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden /> : null}
+                  Continue
+                </button>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Hero */}
@@ -1734,44 +1799,7 @@ export default function VaultSeedPage() {
               </div>
             )}
 
-            {/* Propagation — how to multiply (cuttings, division, etc.) */}
-            {!isLegacy && (
-              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">How to propagate</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-                </button>
-                {isAboutOpen("propagation") && (
-                  <div className="px-4 pb-4 pt-0">
-                    {(profile as PlantProfile)?.propagation_notes?.trim() ? (
-                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).propagation_notes}</p>
-                    ) : (
-                      <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Harvest / Save Seeds — how to collect and store seeds */}
-            {!isLegacy && (
-              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                <button type="button" onClick={() => toggleAboutSection("seedSaving")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("seedSaving")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Harvest / Save seeds</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("seedSaving") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-                </button>
-                {isAboutOpen("seedSaving") && (
-                  <div className="px-4 pb-4 pt-0">
-                    {(profile as PlantProfile)?.seed_saving_notes?.trim() ? (
-                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).seed_saving_notes}</p>
-                    ) : (
-                      <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
+            {/* How to Grow — moved above Propagate & Harvest per B1 */}
             <div className="bg-white rounded-xl border border-neutral-200 mb-4">
               <button type="button" onClick={() => toggleAboutSection("howToGrow")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("howToGrow")}>
                 <h3 className="text-sm font-semibold text-neutral-700">How to Grow</h3>
@@ -1807,55 +1835,35 @@ export default function VaultSeedPage() {
               )}
             </div>
 
-            {/* Companion planting */}
-            {(() => {
-              const pp = profile as PlantProfile | null;
-              const companions = pp?.companion_plants ?? [];
-              const avoid = pp?.avoid_plants ?? [];
-              const hasCompanions = Array.isArray(companions) && companions.length > 0;
-              const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
-              const hasAny = hasCompanions || hasAvoid;
-              return (
-                <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                  <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("companion")}>
-                    <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
-                    <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-                  </button>
-                  {isAboutOpen("companion") && (
-                  <div className="px-4 pb-4 pt-0">
-                  {hasAny ? (
-                    <div className="space-y-3">
-                      {hasCompanions && (
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">Plant with</p>
-                          <TagBadges tags={companions} />
-                        </div>
-                      )}
-                      {hasAvoid && (
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {avoid.map((name) => {
-                              const key = name.trim();
-                              if (!key) return null;
-                              return (
-                                <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
-                                  {key}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
+            {/* Propagate & Harvest seeds — one card with two sections (B1) */}
+            {!isLegacy && (
+              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
+                <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Propagate &amp; Harvest seeds</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
+                </button>
+                {isAboutOpen("propagation") && (
+                  <div className="px-4 pb-4 pt-0 space-y-4">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-1.5">How to propagate</p>
+                      {(profile as PlantProfile)?.propagation_notes?.trim() ? (
+                        <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).propagation_notes}</p>
+                      ) : (
+                        <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
                       )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-neutral-500">None known</p>
-                  )}
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-1.5">How to harvest / save seeds</p>
+                      {(profile as PlantProfile)?.seed_saving_notes?.trim() ? (
+                        <p className="text-sm text-neutral-700 whitespace-pre-wrap">{(profile as PlantProfile).seed_saving_notes}</p>
+                      ) : (
+                        <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
+                      )}
+                    </div>
                   </div>
-                  )}
-                </div>
-              );
-            })()}
+                )}
+              </div>
+            )}
 
             {/* Vendor recommendations (by packet) */}
             {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs).length > 0) && (
@@ -1895,21 +1903,6 @@ export default function VaultSeedPage() {
                       );
                     })}
                 </ul>
-                </div>
-                )}
-              </div>
-            )}
-
-            {/* Tags */}
-            {profile?.tags && profile.tags.length > 0 && (
-              <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-                <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("tags")}>
-                  <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
-                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-                </button>
-                {isAboutOpen("tags") && (
-                <div className="px-4 pb-4 pt-0">
-                  <TagBadges tags={profile.tags} />
                 </div>
                 )}
               </div>
@@ -2069,6 +2062,72 @@ export default function VaultSeedPage() {
                 )}
               </div>
             )}
+
+            {/* Care tab: Companion planting (B1 — moved from About) */}
+            {(() => {
+              const pp = profile as PlantProfile | null;
+              const companions = pp?.companion_plants ?? [];
+              const avoid = pp?.avoid_plants ?? [];
+              const hasCompanions = Array.isArray(companions) && companions.length > 0;
+              const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
+              const hasAny = hasCompanions || hasAvoid;
+              return (
+                <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                  <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("companion")}>
+                    <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
+                    <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
+                  </button>
+                  {isAboutOpen("companion") && (
+                    <div className="px-4 pb-4 pt-0">
+                      {hasAny ? (
+                        <div className="space-y-3">
+                          {hasCompanions && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">Plant with</p>
+                              <TagBadges tags={companions} />
+                            </div>
+                          )}
+                          {hasAvoid && (
+                            <div>
+                              <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {avoid.map((name) => {
+                                  const key = name.trim();
+                                  if (!key) return null;
+                                  return (
+                                    <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
+                                      {key}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-neutral-500">None known</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Care tab: Tags (B1 — moved from About) */}
+            {profile?.tags && profile.tags.length > 0 && (
+              <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("tags")}>
+                  <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
+                  <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
+                </button>
+                {isAboutOpen("tags") && (
+                  <div className="px-4 pb-4 pt-0">
+                    <TagBadges tags={profile.tags} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {isLegacy && (
               <div className="bg-white rounded-xl border border-neutral-200 p-6 text-center">
                 <p className="text-neutral-500 text-sm">Care schedules are not available for legacy imports.</p>
@@ -2344,7 +2403,7 @@ export default function VaultSeedPage() {
                 {growInstances.map((gi, giIdx) => {
                   const giJournals = journalEntries.filter((j) => j.grow_instance_id === gi.id);
                   const harvests = giJournals.filter((j) => j.entry_type === "harvest");
-                  const statusColor = gi.status === "growing" ? "bg-green-100 text-green-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
+                  const statusColor = gi.status === "growing" ? "bg-emerald-100 text-emerald-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
                   const isActive = gi.status === "growing" || gi.status === "pending";
                   const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
                   const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
@@ -2369,11 +2428,11 @@ export default function VaultSeedPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {isPermanent ? (
-                            <Link href="/garden?tab=plants" className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant in My Plants`}>
+                            <Link href={`/garden/grow/${gi.id}?from=profile`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant details`}>
                               {cardContent}
                             </Link>
                           ) : isActive ? (
-                            <Link href={`/garden?tab=active&grow=${gi.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View ${gi.status} planting in Active Garden`}>
+                            <Link href={`/garden/grow/${gi.id}?from=profile`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View planting details`}>
                               {cardContent}
                             </Link>
                           ) : (
@@ -2427,7 +2486,7 @@ export default function VaultSeedPage() {
               ) : (
                 <div className="relative pl-8">
                   {/* Vertical timeline line */}
-                  <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-[#064e3b]/30" aria-hidden="true" />
+                  <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-emerald-900/30" aria-hidden="true" />
                   <div className="space-y-0">
                     {journalEntries.map((j) => {
                       const paths = entryIdToPhotoPaths[j.id] ?? (j.image_file_path ? [j.image_file_path] : []);
@@ -2435,12 +2494,12 @@ export default function VaultSeedPage() {
                       return (
                         <div key={j.id} className="relative flex gap-4 pb-6 last:pb-0">
                           {/* Dot */}
-                          <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-[#064e3b] border-2 border-white shadow-sm -translate-x-1/2" aria-hidden="true" />
+                          <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-emerald-900 border-2 border-white shadow-sm -translate-x-1/2" aria-hidden="true" />
                           <div className="flex-1 min-w-0 bg-white rounded-xl border border-neutral-200 p-4">
                             <div className="flex items-center justify-between gap-2 mb-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-neutral-500">{formatDisplayDate(j.created_at)}</span>
-                                {j.entry_type && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : j.entry_type === "death" ? "bg-red-100 text-red-800" : "bg-[#064e3b]/10 text-[#064e3b]"}`}>{j.entry_type}</span>}
+                                {j.entry_type && <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${j.entry_type === "harvest" ? "bg-amber-50 text-amber-700" : j.entry_type === "care" ? "bg-blue-50 text-blue-700" : j.entry_type === "pest" ? "bg-red-50 text-red-700" : j.entry_type === "death" ? "bg-red-100 text-red-800" : "bg-emerald-900/10 text-emerald-900"}`}>{j.entry_type}</span>}
                               </div>
                               {j.weather_snapshot && typeof j.weather_snapshot === "object" && "temp" in j.weather_snapshot && (
                                 <span className="text-xs text-neutral-400">{j.weather_snapshot.icon} {Math.round(j.weather_snapshot.temp as number)}°F</span>
@@ -2453,7 +2512,13 @@ export default function VaultSeedPage() {
                               </p>
                             )}
                             {photoUrls.length > 0 && (
-                              <div className={`mt-2 flex gap-2 overflow-x-auto snap-x snap-mandatory ${photoUrls.length === 1 ? "" : "pb-2"}`} style={{ scrollbarWidth: "thin" }}>
+                              <div
+                                className={`mt-2 flex gap-2 overflow-x-auto snap-x snap-mandatory ${photoUrls.length === 1 ? "" : "pb-2"}`}
+                                style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchEnd={(e) => e.stopPropagation()}
+                                onTouchMove={(e) => e.stopPropagation()}
+                              >
                                 {photoUrls.map((url, i) => (
                                   <div key={i} className={`flex-shrink-0 rounded-lg overflow-hidden bg-neutral-100 snap-center ${photoUrls.length === 1 ? "w-full max-w-xs" : "min-w-[16rem] w-64"}`}>
                                     <img src={url} alt="" className="w-full h-auto object-cover" />

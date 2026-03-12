@@ -59,6 +59,8 @@ export async function POST(req: Request) {
     const useGemini = Boolean(body?.useGemini);
     /** When true, only fill metadata; never touch hero/photos. */
     const skipHero = Boolean(body?.skipHero);
+    /** When true, skip cache and run AI (hero + enrich), overwriting all AI-fillable fields. */
+    const overwrite = Boolean(body?.overwrite);
     if (!profileId) {
       return NextResponse.json({ error: "profileId required" }, { status: 400 });
     }
@@ -94,7 +96,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not derive identity key from name/variety" }, { status: 400 });
     }
 
-    const bestRow = await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor);
+    const bestRow = !overwrite ? await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor) : null;
     let updates = bestRow
       ? await buildUpdatesFromCacheRow(profile as Parameters<typeof buildUpdatesFromCacheRow>[0], bestRow)
       : {};
@@ -106,7 +108,7 @@ export async function POST(req: Request) {
     let fromCache = false;
     let fromAi = false;
 
-    if (Object.keys(updates).length > 0) {
+    if (!overwrite && Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase
         .from("plant_profiles")
         .update(updates)
@@ -126,11 +128,11 @@ export async function POST(req: Request) {
       hadNoDescription &&
       !(updates as Record<string, unknown>).plant_description &&
       !(updates as Record<string, unknown>).growing_notes;
-    const needAi = useGemini && (stillMissingHero || stillMissingDescription);
+    const needAi = (useGemini && (stillMissingHero || stillMissingDescription)) || overwrite;
 
     if (needAi) {
       const token = req.headers.get("authorization")?.startsWith("Bearer ") ? req.headers.get("authorization")!.slice(7).trim() : null;
-      if (stillMissingHero) {
+      if (stillMissingHero || overwrite) {
         const aiHero = token
           ? await findHeroPhotoWithToken(
               token,
@@ -151,7 +153,7 @@ export async function POST(req: Request) {
         }
       }
 
-      if (stillMissingDescription || (!fromCache && (profile.plant_description ?? "").trim() === "")) {
+      if (stillMissingDescription || overwrite || (!fromCache && (profile.plant_description ?? "").trim() === "")) {
         const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const origin = base.startsWith("http") ? base : `https://${base}`;
         try {

@@ -195,11 +195,45 @@ QuickAddSupply internal screens: `"choose"` | `"link"` | `"form"`. Back from **c
 
 | Plant type | Tap plant card | Destination |
 |------------|-----------------|-------------|
-| **Permanent** (trees, perennials) | All plants | `/garden?tab=plants` — My Plants (no filter) |
-| **Seasonal** (active) | Active plantings only | `/garden?tab=active&grow=[grow_id]` — Active Garden with grow filter |
+| **Permanent** (trees, perennials) | All plants | `/garden/grow/[grow_id]?from=profile` — Grow Instance page |
+| **Seasonal** (active) | Active plantings only | `/garden/grow/[grow_id]?from=profile` — Grow Instance page |
 | **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
 
 Add plant / Add planting: Removed from profile page. Users add plants via the Universal Add Menu (FAB) from Home, Vault, Garden, Journal, or Calendar.
+
+---
+
+## Grow Instance page (`/garden/grow/[id]`)
+
+Dedicated page for one specific plant (one `grow_instance`). Shows age, status, next milestone, task history, last fertilized, and notes. Distinct from the Vault plant profile (variety page).
+
+### Back behavior
+
+| `from` + `gardenTab` | Destination |
+|----------------------|-------------|
+| `from=profile` | `/vault/[plant_profile_id]?tab=plantings` |
+| `from=garden&gardenTab=active` | `/garden?tab=active` |
+| `from=garden&gardenTab=plants` | `/garden?tab=plants` |
+| No `from` (fallback) | `/garden` (or `/garden?tab=plants` for permanent plantings) |
+
+### Entry points
+
+| Source | Link |
+|--------|------|
+| Plant profile → Plantings tab (all types) | `/garden/grow/[id]?from=profile` |
+| Garden (Active) — grid card tap | `/garden/grow/[id]?from=garden&gardenTab=active` |
+| Garden (Active) — list card tap | `/garden/grow/[id]?from=garden&gardenTab=active` |
+| Garden (My Plants) — card tap | `/garden/grow/[id]?from=garden&gardenTab=plants` |
+
+### Actions within page
+
+| Action | Behavior |
+|--------|----------|
+| **About variety** link (header) | Navigate to `/vault/[plant_profile_id]` |
+| **Long-press** | Not applicable — no swipe-to-navigate on this page |
+| **Red trash (archive)** | Confirm dialog → sets `status = archived`, `ended_at`, `end_reason = archived`. Plant stays in history. |
+| **Edit location** | Inline tap on Location stat → text input, saves on Enter or ✓ button |
+| **Add note** (Notes tab) | Opens QuickLogModal pre-scoped to this plant profile |
 
 ### Vault – selection mode
 

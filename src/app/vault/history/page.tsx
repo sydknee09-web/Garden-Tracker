@@ -71,7 +71,7 @@ export default function PlantingHistoryPage() {
   }, [user?.id]);
 
   const statusColors: Record<string, string> = {
-    growing: "bg-green-100 text-green-800",
+    growing: "bg-emerald-100 text-emerald-800",
     harvested: "bg-amber-100 text-amber-800",
     dead: "bg-red-100 text-red-800",
     archived: "bg-neutral-100 text-neutral-600",

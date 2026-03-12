@@ -840,8 +840,7 @@ export default function SettingsDeveloperPage() {
             type="button"
             onClick={() => setRepairConfirmOpen(true)}
             disabled={repairHeroRunning}
-            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
           >
             {repairHeroRunning ? "Repairing..." : "Repair Missing Photos"}
           </button>
@@ -892,8 +891,7 @@ export default function SettingsDeveloperPage() {
               type="button"
               onClick={() => runFillInBlanks({ useGemini: true })}
               disabled={fillInBlanksRunning}
-              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-              style={{ backgroundColor: "#059669", color: "#ffffff" }}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
             >
               {fillInBlanksRunning ? "Running…" : "Cache + AI"}
             </button>
@@ -945,8 +943,7 @@ export default function SettingsDeveloperPage() {
               type="button"
               onClick={runRefillCacheScientificNames}
               disabled={refillScientificRunning || refillCacheScientificRunning}
-              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-              style={{ backgroundColor: "#059669", color: "#ffffff" }}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
             >
               {refillCacheScientificRunning ? "Running…" : "Refill cache (global_plant_cache)"}
             </button>
@@ -972,8 +969,7 @@ export default function SettingsDeveloperPage() {
             type="button"
             onClick={runFixScientificDisplayNames}
             disabled={fixScientificDisplayRunning}
-            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
           >
             {fixScientificDisplayRunning ? "Running…" : "Fix existing profiles now"}
           </button>
@@ -1042,8 +1038,7 @@ export default function SettingsDeveloperPage() {
             type="button"
             onClick={runBackfillPlantDescriptions}
             disabled={backfillDescriptionsRunning}
-            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
           >
             {backfillDescriptionsRunning ? "Running…" : "Fill in missing details"}
           </button>
@@ -1073,8 +1068,7 @@ export default function SettingsDeveloperPage() {
             type="button"
             onClick={runBackfillCache}
             disabled={backfillCacheRunning}
-            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90"
-            style={{ backgroundColor: "#059669", color: "#ffffff" }}
+            className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white"
           >
             {backfillCacheRunning ? "Running…" : "Backfill Cache"}
           </button>

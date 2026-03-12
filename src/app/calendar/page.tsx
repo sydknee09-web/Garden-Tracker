@@ -141,9 +141,16 @@ export default function CalendarPage() {
   const [batchActionOpen, setBatchActionOpen] = useState<"reschedule" | "delete" | null>(null);
   const [batchDate, setBatchDate] = useState(() => localDateString());
   const [batchSaving, setBatchSaving] = useState(false);
-  /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks) */
-  const [removeScheduleToo, setRemoveScheduleToo] = useState(false);
+  /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks). "selected" = delete only selected tasks; "all_future" = delete schedule + all its tasks. */
+  const [deleteScope, setDeleteScope] = useState<"selected" | "all_future">("selected");
   const [quickLogOpen, setQuickLogOpen] = useState(false);
+  /** Task shown in detail popup (tap task → popup instead of navigating) */
+  const [taskDetailTask, setTaskDetailTask] = useState<(Task & { plant_name?: string; user_id?: string | null; supply_profile_id?: string | null }) | null>(null);
+  const [taskDetailSupplyName, setTaskDetailSupplyName] = useState<string | null>(null);
+  /** When selectMode, FAB opens this menu (Reschedule / Delete / Edit / Exit) instead of add menu */
+  const [batchMenuOpen, setBatchMenuOpen] = useState(false);
+  /** Task to edit in NewTaskModal (set when user chooses Edit from batch menu with one task selected) */
+  const [editTask, setEditTask] = useState<(Task & { plant_name?: string; user_id?: string | null }) | null>(null);
 
   const todayStr = localDateString();
 
@@ -254,7 +261,7 @@ export default function CalendarPage() {
       // Fetch overdue tasks (due_date < today, completed_at = null)
       let overdueQuery = supabase
         .from("tasks")
-        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id, supply_profile_id")
         .is("deleted_at", null)
         .is("completed_at", null)
         .lt("due_date", todayStr)
@@ -269,7 +276,7 @@ export default function CalendarPage() {
 
       let tasksQuery = supabase
         .from("tasks")
-        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id, supply_profile_id")
         .is("deleted_at", null)
         .gte("due_date", todayStr)
         .lte("due_date", futureLimit)
@@ -335,7 +342,7 @@ export default function CalendarPage() {
     (async () => {
       let query = supabase
         .from("tasks")
-        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id, supply_profile_id")
         .is("deleted_at", null)
         .not("completed_at", "is", null)
         .gte("due_date", firstDay)
@@ -376,7 +383,7 @@ export default function CalendarPage() {
     (async () => {
       let query = supabase
         .from("tasks")
-        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id")
+        .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id, supply_profile_id")
         .is("deleted_at", null)
         .not("completed_at", "is", null)
         .gte("completed_at", startOfDay)
@@ -401,6 +408,25 @@ export default function CalendarPage() {
     })();
     return () => { cancelled = true; };
   }, [user?.id, refetch, householdViewMode, selectedDate]);
+
+  // Fetch linked supply name when task detail popup opens with a task that has supply_profile_id
+  useEffect(() => {
+    if (!taskDetailTask?.supply_profile_id) {
+      setTaskDetailSupplyName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("supply_profiles")
+        .select("name")
+        .eq("id", taskDetailTask.supply_profile_id!)
+        .maybeSingle();
+      if (!cancelled && data) setTaskDetailSupplyName((data as { name?: string }).name ?? null);
+      else if (!cancelled) setTaskDetailSupplyName(null);
+    })();
+    return () => { cancelled = true; };
+  }, [taskDetailTask?.id, taskDetailTask?.supply_profile_id]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -532,6 +558,7 @@ export default function CalendarPage() {
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
+    setBatchMenuOpen(false);
   }, []);
 
   const handleBatchReschedule = useCallback(async (newDate: string) => {
@@ -557,7 +584,7 @@ export default function CalendarPage() {
     const now = new Date().toISOString();
     const ids = Array.from(selectedIds);
     const selectedTasks = ids.map((id) => tasks.find((t) => t.id === id)).filter(Boolean) as (Task & { user_id?: string | null; care_schedule_id?: string | null })[];
-    const careScheduleIds = removeScheduleToo
+    const careScheduleIds = deleteScope === "all_future"
       ? [...new Set(selectedTasks.map((t) => t.care_schedule_id).filter(Boolean))] as string[]
       : [];
 
@@ -595,9 +622,9 @@ export default function CalendarPage() {
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
-    setRemoveScheduleToo(false);
+    setDeleteScope("selected");
     setRefetch((r) => r + 1);
-  }, [user, selectedIds, tasks, removeScheduleToo]);
+  }, [user, selectedIds, tasks, deleteScope]);
 
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();
@@ -942,7 +969,7 @@ export default function CalendarPage() {
                         isSelected={selectedIds.has(t.id)}
                         onLongPress={() => handleLongPressTask(t.id)}
                         onToggleSelect={() => toggleTaskSelect(t.id)}
-                        onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                        onTaskTap={() => setTaskDetailTask(t)}
                         ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                         canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                       />
@@ -958,7 +985,7 @@ export default function CalendarPage() {
                             onComplete={() => {}}
                             onSnooze={() => {}}
                             selectMode={false}
-                            onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                            onTaskTap={() => setTaskDetailTask(t)}
                             ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                             canEdit={false}
                           />
@@ -996,7 +1023,7 @@ export default function CalendarPage() {
                           isSelected={selectedIds.has(t.id)}
                           onLongPress={() => handleLongPressTask(t.id)}
                           onToggleSelect={() => toggleTaskSelect(t.id)}
-                          onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                          onTaskTap={() => setTaskDetailTask(t)}
                           ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                           canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                         />
@@ -1054,7 +1081,7 @@ export default function CalendarPage() {
                               isSelected={selectedIds.has(t.id)}
                               onLongPress={() => handleLongPressTask(t.id)}
                               onToggleSelect={() => toggleTaskSelect(t.id)}
-                              onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                              onTaskTap={() => setTaskDetailTask(t)}
                               ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                               canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
                             />
@@ -1068,7 +1095,7 @@ export default function CalendarPage() {
                                   onComplete={() => {}}
                                   onSnooze={() => {}}
                                   selectMode={false}
-                                  onTaskTap={t.plant_profile_id ? () => router.push(`/vault/${t.plant_profile_id}?tab=care&from=calendar&date=${t.due_date}`) : undefined}
+                                  onTaskTap={() => setTaskDetailTask(t)}
                                   ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                                   canEdit={false}
                                 />
@@ -1086,39 +1113,59 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Batch select action bar */}
-      {selectMode && (
-        <div className="fixed bottom-[88px] left-0 right-0 z-40 px-4 pointer-events-none">
-          <div className="bg-white rounded-2xl shadow-lg border border-black/10 px-4 py-3 flex items-center gap-3 pointer-events-auto">
-            <span className="flex-1 text-sm font-semibold text-black">
-              {selectedIds.size} selected
-            </span>
+      {/* Batch action menu (B7): FAB opens this when in select mode — Reschedule / Delete / Edit / Exit */}
+      {selectMode && batchMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-[99] bg-black/20" aria-hidden onClick={() => setBatchMenuOpen(false)} />
+          <div
+            className="fixed bottom-[calc(5rem+80px+env(safe-area-inset-bottom,0px))] right-6 z-[100] bg-white rounded-2xl shadow-xl border border-neutral-200 py-2 min-w-[200px]"
+            role="menu"
+            aria-label="Task actions"
+          >
+            <div className="px-4 py-2 border-b border-neutral-100 text-sm font-medium text-neutral-600">
+              {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""} selected
+            </div>
             <button
               type="button"
               disabled={selectedIds.size === 0 || batchSaving}
-              onClick={() => { setBatchDate(new Date().toISOString().slice(0, 10)); setBatchActionOpen("reschedule"); }}
-              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 min-h-[44px]"
+              onClick={() => { setBatchDate(new Date().toISOString().slice(0, 10)); setBatchActionOpen("reschedule"); setBatchMenuOpen(false); }}
+              className="w-full min-h-[44px] px-4 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              role="menuitem"
             >
               Reschedule
             </button>
             <button
               type="button"
               disabled={selectedIds.size === 0 || batchSaving}
-              onClick={() => setBatchActionOpen("delete")}
-              className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-200 hover:bg-red-100 disabled:opacity-40 min-h-[44px]"
+              onClick={() => { setBatchActionOpen("delete"); setBatchMenuOpen(false); }}
+              className="w-full min-h-[44px] px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              role="menuitem"
             >
               Delete
             </button>
             <button
               type="button"
-              onClick={exitSelectMode}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-black/50 hover:text-black hover:bg-black/5"
-              aria-label="Exit select mode"
+              disabled={selectedIds.size !== 1 || batchSaving}
+              onClick={() => {
+                const id = Array.from(selectedIds)[0];
+                const t = tasks.find((x) => x.id === id) ?? overdueTasks.find((x) => x.id === id);
+                if (t) { setEditTask(t); setNewTaskOpen(true); setBatchMenuOpen(false); }
+              }}
+              className="w-full min-h-[44px] px-4 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              role="menuitem"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              Edit task
+            </button>
+            <button
+              type="button"
+              onClick={() => { exitSelectMode(); setBatchMenuOpen(false); }}
+              className="w-full min-h-[44px] px-4 py-2 text-left text-sm font-medium text-neutral-500 hover:bg-neutral-50 border-t border-neutral-100"
+              role="menuitem"
+            >
+              Exit select mode
             </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Batch reschedule sheet */}
@@ -1154,7 +1201,7 @@ export default function CalendarPage() {
       {/* Batch delete confirm sheet — single unified delete confirmation */}
       {batchActionOpen === "delete" && (
         <>
-          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }} aria-hidden />
+          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => { setBatchActionOpen(null); setDeleteScope("selected"); }} aria-hidden />
           <div
             className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 pb-10 space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
             style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
@@ -1167,24 +1214,35 @@ export default function CalendarPage() {
             </h3>
             <p id="delete-dialog-desc" className="text-sm text-black/60">This cannot be undone.</p>
             {Array.from(selectedIds).some((id) => {
-              const t = tasks.find((x) => x.id === id) as { care_schedule_id?: string | null } | undefined;
-              return t?.care_schedule_id != null;
+              const t = tasks.find((x) => x.id === id) ?? overdueTasks.find((x) => x.id === id);
+              return (t as { care_schedule_id?: string | null })?.care_schedule_id != null;
             }) && (
-              <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={removeScheduleToo}
-                  onChange={(e) => setRemoveScheduleToo(e.target.checked)}
-                  className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
-                  aria-describedby="remove-schedule-desc"
-                />
-                <span id="remove-schedule-desc" className="text-sm text-black/80">
-                  Also remove recurring schedule (stop future tasks)
-                </span>
-              </label>
+              <div className="space-y-2" role="radiogroup" aria-labelledby="delete-scope-label">
+                <p id="delete-scope-label" className="text-sm font-medium text-black/80">Recurring task — delete:</p>
+                <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="delete-scope"
+                    checked={deleteScope === "selected"}
+                    onChange={() => setDeleteScope("selected")}
+                    className="border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-black/80">Only this instance (selected task{selectedIds.size !== 1 ? "s" : ""})</span>
+                </label>
+                <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="delete-scope"
+                    checked={deleteScope === "all_future"}
+                    onChange={() => setDeleteScope("all_future")}
+                    className="border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-black/80">All future tasks (stop recurring schedule)</span>
+                </label>
+              </div>
             )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => { setBatchActionOpen(null); setRemoveScheduleToo(false); }}
+              <button type="button" onClick={() => { setBatchActionOpen(null); setDeleteScope("selected"); }}
                 className="flex-1 py-3 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
                 Cancel
               </button>
@@ -1192,6 +1250,63 @@ export default function CalendarPage() {
                 className="flex-1 py-3 rounded-3xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
                 {batchSaving ? "Deleting…" : "Delete"}
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Task detail popup (B10): tap task → show details + View Plant Profile */}
+      {taskDetailTask && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setTaskDetailTask(null)} />
+          <div
+            className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] bg-white rounded-2xl shadow-xl p-5 max-w-sm mx-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-detail-title"
+          >
+            <h2 id="task-detail-title" className="font-semibold text-neutral-900 text-base mb-3">
+              {TASK_LABELS[taskDetailTask.category] ?? taskDetailTask.category ?? "Task"}
+              {taskDetailTask.title?.trim() ? `: ${taskDetailTask.title.trim()}` : ""}
+            </h2>
+            <dl className="space-y-2 text-sm mb-4">
+              <div>
+                <dt className="text-neutral-500">Due</dt>
+                <dd>{new Date(taskDetailTask.due_date + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</dd>
+              </div>
+              {taskDetailTask.plant_name && taskDetailTask.plant_name !== "Unknown" && (
+                <div>
+                  <dt className="text-neutral-500">Plant</dt>
+                  <dd>{taskDetailTask.plant_name}</dd>
+                </div>
+              )}
+              {taskDetailTask.supply_profile_id && (
+                <div>
+                  <dt className="text-neutral-500">Linked product</dt>
+                  <dd>{taskDetailSupplyName ?? "—"}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTaskDetailTask(null)}
+                className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm"
+              >
+                Close
+              </button>
+              {taskDetailTask.plant_profile_id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTaskDetailTask(null);
+                    router.push(`/vault/${taskDetailTask.plant_profile_id}?tab=care&from=calendar&date=${taskDetailTask.due_date}`);
+                  }}
+                  className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700"
+                >
+                  View Plant Profile
+                </button>
+              )}
             </div>
           </div>
         </>
@@ -1225,6 +1340,10 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => {
+          if (selectMode) {
+            setBatchMenuOpen(true);
+            return;
+          }
           if (universalAddMenuOpen) {
             setUniversalAddMenuOpen(false);
           } else if (newTaskOpen) {
@@ -1233,26 +1352,34 @@ export default function CalendarPage() {
             setUniversalAddMenuOpen(true);
           }
         }}
-        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${universalAddMenuOpen || newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"}`}
+        className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
+          selectMode ? "bg-amber-500 text-white hover:bg-amber-600" : universalAddMenuOpen || newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+        }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={universalAddMenuOpen || newTaskOpen ? "Close" : "Add"}
-        aria-expanded={universalAddMenuOpen || newTaskOpen}
+        aria-label={selectMode ? "Task options" : universalAddMenuOpen || newTaskOpen ? "Close" : "Add"}
+        aria-expanded={selectMode ? batchMenuOpen : universalAddMenuOpen || newTaskOpen}
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`transition-transform duration-200 ${universalAddMenuOpen || newTaskOpen ? "rotate-45" : "rotate-0"}`}
-          aria-hidden
-        >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        {selectMode ? (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        ) : (
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-200 ${universalAddMenuOpen || newTaskOpen ? "rotate-45" : "rotate-0"}`}
+            aria-hidden
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        )}
       </button>
 
       {universalAddMenuOpen && (
@@ -1416,12 +1543,14 @@ export default function CalendarPage() {
       {newTaskOpen && (
         <NewTaskModal
           open={newTaskOpen}
-          onClose={() => setNewTaskOpen(false)}
+          onClose={() => { setNewTaskOpen(false); setEditTask(null); }}
           onBackToMenu={() => {
             setNewTaskOpen(false);
+            setEditTask(null);
             setUniversalAddMenuOpen(true);
           }}
-          onSuccess={() => setRefetch((r) => r + 1)}
+          onSuccess={() => { setRefetch((r) => r + 1); setEditTask(null); exitSelectMode(); }}
+          editTask={editTask}
         />
       )}
     </div>
@@ -1470,7 +1599,7 @@ function CalendarTaskRow({
   const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
   const plantName = task.plant_name?.trim();
   const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
-  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${new Date(task.due_date).toLocaleDateString()})`;
+  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${new Date(task.due_date + "T12:00:00").toLocaleDateString()})`;
 
   const handlePointerDown = () => {
     if (selectMode) return;

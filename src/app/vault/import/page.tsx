@@ -1263,8 +1263,7 @@ export default function VaultImportPage() {
                   type="button"
                   onClick={handleAddNewPlant}
                   disabled={savingBrain}
-                  style={{ backgroundColor: "#10b981", color: "#ffffff", border: "none" }}
-                  className="min-h-[44px] min-w-[44px] flex-1 sm:flex-none px-5 py-3 rounded-lg font-semibold disabled:opacity-60 shadow-md border-0 !bg-emerald-600 !text-white hover:!bg-emerald-700"
+                  className="min-h-[44px] min-w-[44px] flex-1 sm:flex-none px-5 py-3 rounded-lg font-semibold disabled:opacity-60 shadow-md border-0 bg-emerald-600 text-white hover:bg-emerald-700"
                 >
                   {savingBrain ? "Adding…" : "Add to Vault"}
                 </button>

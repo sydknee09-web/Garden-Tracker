@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import type { UserSettings } from "@/types/garden";
+import { LoadingState } from "@/components/LoadingState";
 
 const APP_VERSION = "0.1.0";
 
@@ -37,8 +38,11 @@ export default function SettingsProfilePage() {
   const [lastSavedSettings, setLastSavedSettings] = useState<Partial<UserSettings> | null>(null);
   const [gardenEditing, setGardenEditing] = useState(false);
   const gardenEditSnapshot = useRef<Partial<UserSettings> | null>(null);
+  const [gardenLoading, setGardenLoading] = useState(true);
+  const [gardenLoadError, setGardenLoadError] = useState<string | null>(null);
   const [gardenSaving, setGardenSaving] = useState(false);
   const [gardenSaved, setGardenSaved] = useState(false);
+  const [gardenSaveError, setGardenSaveError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
@@ -49,12 +53,19 @@ export default function SettingsProfilePage() {
   // Garden settings load
   useEffect(() => {
     if (!user?.id) return;
+    setGardenLoading(true);
+    setGardenLoadError(null);
     supabase
       .from("user_settings")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        setGardenLoading(false);
+        if (error) {
+          setGardenLoadError(error.message || "Could not load garden settings.");
+          return;
+        }
         if (data) {
           const s = data as UserSettings;
           setGardenSettings(s);
@@ -90,12 +101,14 @@ export default function SettingsProfilePage() {
   const handleCancelEditGarden = useCallback(() => {
     if (gardenEditSnapshot.current) setGardenSettings(gardenEditSnapshot.current);
     setGardenEditing(false);
+    setGardenSaveError(null);
   }, []);
 
   const saveGardenSettings = useCallback(async () => {
     if (!user?.id) return;
     setGardenSaving(true);
     setGardenSaved(false);
+    setGardenSaveError(null);
     const toSave = {
       planting_zone: gardenSettings.planting_zone || null,
       last_frost_date: gardenSettings.last_frost_date || null,
@@ -114,7 +127,10 @@ export default function SettingsProfilePage() {
       setLastSavedSettings((prev) => ({ ...prev, ...toSave }));
       setGardenSaved(true);
       setGardenEditing(false);
+      setGardenSaveError(null);
       setTimeout(() => setGardenSaved(false), 2500);
+    } else {
+      setGardenSaveError(error.message || "Could not save settings. Please try again.");
     }
   }, [user?.id, gardenSettings]);
 
@@ -279,7 +295,7 @@ export default function SettingsProfilePage() {
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0" style={{ backgroundColor: "#059669" }}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0 bg-emerald-600">
                 {emailInitial}
               </div>
               <div className="min-w-0 flex-1">
@@ -311,7 +327,11 @@ export default function SettingsProfilePage() {
       <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">My Garden</h2>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          {!gardenEditing ? (
+          {gardenLoading ? (
+            <LoadingState message="Loading garden settings…" />
+          ) : gardenLoadError ? (
+            <p className="text-sm text-red-600" role="alert">{gardenLoadError}</p>
+          ) : !gardenEditing ? (
             /* View mode */
             <div>
               <div className="flex items-start justify-between gap-2 mb-4">
@@ -413,8 +433,11 @@ export default function SettingsProfilePage() {
                   Use My Location
                 </button>
               </div>
+              {gardenSaveError && (
+                <p className="text-sm text-red-600" role="alert">{gardenSaveError}</p>
+              )}
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={saveGardenSettings} disabled={gardenSaving} className="flex-1 min-h-[44px] px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                <button type="button" onClick={saveGardenSettings} disabled={gardenSaving} className="flex-1 min-h-[44px] px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white">
                   {gardenSaving ? "Saving..." : "Save"}
                 </button>
                 <button type="button" onClick={handleCancelEditGarden} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
@@ -437,7 +460,7 @@ export default function SettingsProfilePage() {
               <button type="button" onClick={handleExportJSON} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
                 {exporting ? "…" : "Download JSON"}
               </button>
-              <button type="button" onClick={handleExportCSV} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+              <button type="button" onClick={handleExportCSV} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white">
                 {exporting ? "…" : "Download CSV"}
               </button>
               <button type="button" onClick={handleCopyExport} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">

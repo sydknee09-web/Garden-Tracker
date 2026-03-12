@@ -56,6 +56,7 @@ import { formatWeatherBadge } from "@/lib/weatherSnapshot";
 import type { JournalEntry } from "@/types/garden";
 import type { GrowInstance } from "@/types/garden";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { LoadingState } from "@/components/LoadingState";
 
 type JournalEntryWithPlant = JournalEntry & {
   plant_name?: string;
@@ -449,8 +450,8 @@ export default function JournalPage() {
     return (
       <div className="px-6 pt-2 pb-6">
         <p className="text-muted text-sm mb-4">Notes and photos</p>
-        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5 text-center text-black/60">
-          Loading…
+        <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5">
+          <LoadingState message="Loading…" />
         </div>
       </div>
     );

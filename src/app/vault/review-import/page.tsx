@@ -151,7 +151,6 @@ function persistHeroSearchLog(
       error_message,
       ...(success && heroImageUrl?.trim().startsWith("http") ? { hero_image_url: heroImageUrl.trim() } : {}),
     };
-    console.info("🚀 LOGGING ATTEMPT:", payload);
     try {
       const res = await fetch("/api/settings/import-logs", {
         method: "POST",

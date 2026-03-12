@@ -454,7 +454,7 @@ export default function SettingsFamilyPage() {
                       className="flex-1 px-3 py-1.5 rounded-lg border border-neutral-300 text-sm"
                       autoFocus
                     />
-                    <button type="button" onClick={handleRenameHousehold} disabled={renaming || !householdRenameVal.trim()} className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                    <button type="button" onClick={handleRenameHousehold} disabled={renaming || !householdRenameVal.trim()} className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 bg-emerald-600 text-white">
                       {renaming ? "…" : "Save"}
                     </button>
                     <button type="button" onClick={() => { setShowRenameInput(false); setHouseholdRenameVal(""); }} className="px-3 py-1.5 rounded-lg text-sm border border-neutral-300 text-neutral-600 hover:bg-neutral-50">
@@ -804,7 +804,7 @@ export default function SettingsFamilyPage() {
                   placeholder="e.g. The Smith Garden"
                   className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm"
                 />
-                <button type="button" onClick={handleCreateHousehold} disabled={creatingHousehold || !householdName.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                <button type="button" onClick={handleCreateHousehold} disabled={creatingHousehold || !householdName.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90 bg-emerald-600 text-white">
                   {creatingHousehold ? "…" : "Create"}
                 </button>
               </div>
@@ -825,7 +825,7 @@ export default function SettingsFamilyPage() {
                   placeholder="Enter invite code"
                   className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-sm font-mono"
                 />
-                <button type="button" onClick={handleJoinHousehold} disabled={joiningHousehold || !joinCode.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90" style={{ backgroundColor: "#059669", color: "#ffffff" }}>
+                <button type="button" onClick={handleJoinHousehold} disabled={joiningHousehold || !joinCode.trim()} className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 hover:opacity-90 bg-emerald-600 text-white">
                   {joiningHousehold ? "…" : "Join"}
                 </button>
               </div>

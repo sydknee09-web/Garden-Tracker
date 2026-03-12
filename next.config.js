@@ -5,7 +5,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Don't fail Vercel build on ESLint warnings; fix lint in project plan Part 2/3.
+  // Re-enabling ESLint will fail the build until lint warnings are addressed (see docs/Outstanding_Audit_Notes.md).
   eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [
