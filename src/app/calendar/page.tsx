@@ -157,6 +157,15 @@ export default function CalendarPage() {
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
 
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchActionOpen(null);
+    setBatchMenuOpen(false);
+  }, []);
+
+  useModalBackClose(selectMode, exitSelectMode);
+
   // Auto-open task form when navigating with ?openTask=1
   const openTaskHandledRef = useRef(false);
   useEffect(() => {
@@ -552,13 +561,6 @@ export default function CalendarPage() {
       else next.add(taskId);
       return next;
     });
-  }, []);
-
-  const exitSelectMode = useCallback(() => {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-    setBatchActionOpen(null);
-    setBatchMenuOpen(false);
   }, []);
 
   const handleBatchReschedule = useCallback(async (newDate: string) => {
@@ -1366,8 +1368,9 @@ export default function CalendarPage() {
         aria-expanded={selectMode ? batchMenuOpen : universalAddMenuOpen || newTaskOpen}
       >
         {selectMode ? (
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M9 18l6-6-6-6" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
+            <path d="M7 6l4 6-4 6" />
+            <path d="M13 6l4 6-4 6" />
           </svg>
         ) : (
           <svg
