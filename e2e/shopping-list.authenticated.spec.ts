@@ -13,12 +13,11 @@ test.describe("Shopping List", () => {
     // Should not redirect to login
     await expect(page).not.toHaveURL(/\/login/);
 
-    // Should show either the list or an empty state — not a blank page
-    const hasContent = await Promise.race([
-      page.getByRole("list").waitFor({ state: "visible", timeout: 8000 }).then(() => true),
-      page.getByText(/shopping list|out of stock|nothing here/i).waitFor({ state: "visible", timeout: 8000 }).then(() => true),
-    ]).catch(() => false);
-    expect(hasContent, "Shopping list page should show content or empty state").toBe(true);
+    // Should show the main page heading — confirms the page rendered (not blank/redirected)
+    await expect(
+      page.getByRole("main").getByRole("heading", { name: /shopping list/i }),
+      "Shopping list page should render its heading"
+    ).toBeVisible({ timeout: 8000 });
   });
 
   test("add to shopping list from vault profile, verify, remove", async ({ page }) => {

@@ -15,7 +15,7 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     // Wait for the vault to finish loading
     await page.waitForLoadState("networkidle");
 
-    const fab = page.getByRole("button", { name: "Add" });
+    const fab = page.getByRole("button", { name: "Add", exact: true });
     await fab.waitFor({ state: "visible", timeout: 10000 });
     await fab.click();
 
@@ -34,7 +34,7 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.waitForLoadState("networkidle");
 
     // Open FAB menu
-    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
     // Click Add Seed Packet
@@ -52,7 +52,7 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.waitForLoadState("networkidle");
 
     // Open FAB → Add Seed Packet
-    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     await page.getByText("Add Seed Packet").click();
     await expect(page.getByText("Add Seed")).toBeVisible({ timeout: 5000 });
 
@@ -74,7 +74,9 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     // URL should be /vault or /vault/[id] (new profile redirect)
     await expect(page).toHaveURL(/\/vault/, { timeout: 15000 });
 
-    // No visible error alert
-    await expect(page.getByRole("alert")).not.toBeVisible();
+    // No visible error alert (excludes Next.js route announcer which is always in the DOM)
+    await expect(
+      page.locator('[role="alert"]:not(#__next-route-announcer__)').filter({ hasText: /./ })
+    ).not.toBeVisible();
   });
 });
