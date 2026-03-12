@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { APP_URL } from "@/contexts/AuthContext";
+
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -22,7 +22,7 @@ export default function SignupPage() {
     const { error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${APP_URL}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     setLoading(false);
     if (err) {
