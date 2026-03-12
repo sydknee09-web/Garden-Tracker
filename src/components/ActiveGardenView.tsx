@@ -1001,7 +1001,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
               return (
                 <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
                   <Link
-                    href={`/garden/grow/${batch.id}?from=garden&gardenTab=active`}
+                    href={`/garden?tab=active&grow=${batch.id}`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
                     onClick={(e) => {
                       if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
@@ -1152,7 +1152,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       )}
                     </div>
                     <Link
-                      href={`/garden/grow/${batch.id}?from=garden&gardenTab=active`}
+                      href={`/garden?tab=active&grow=${batch.id}`}
                       className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
                       aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
                       onClick={(e) => {

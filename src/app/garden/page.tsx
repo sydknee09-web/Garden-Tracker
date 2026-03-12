@@ -38,6 +38,10 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
+const GrowInstanceModal = dynamic(
+  () => import("@/components/GrowInstanceModal").then((m) => ({ default: m.GrowInstanceModal })),
+  { ssr: false }
+);
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -84,6 +88,7 @@ function GardenPageInner() {
   const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
 
   const profileParam = searchParams.get("profile");
+  const fromParam = searchParams.get("from");
   const closeRefinePanel = useCallback(() => {
     setRefineByOpen(false);
     setRefineBySection(null);
@@ -1486,6 +1491,17 @@ function GardenPageInner() {
         defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
         addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
+
+      {growParam && (
+        <GrowInstanceModal
+          growId={growParam}
+          onClose={() => {
+            if (fromParam === "profile" && profileParam) router.push(`/vault/${profileParam}`);
+            else router.replace(`/garden?tab=${effectiveViewMode}`);
+          }}
+          backHref={fromParam === "profile" && profileParam ? `/vault/${profileParam}` : undefined}
+        />
+      )}
     </div>
   );
 }

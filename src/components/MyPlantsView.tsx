@@ -201,7 +201,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
             onToggleGrowSelection?.(growId, profileId, userId);
             return;
           }
-          router.push(`/garden/grow/${growId}?from=garden&gardenTab=plants`);
+          router.push(`/garden?tab=plants&grow=${growId}`);
         },
       };
     },

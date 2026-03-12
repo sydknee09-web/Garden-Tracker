@@ -2460,11 +2460,11 @@ export default function VaultSeedPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {isPermanent ? (
-                            <Link href={`/garden/grow/${gi.id}?from=profile`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant details`}>
+                            <Link href={`/garden?grow=${gi.id}&from=profile&profile=${profile.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View plant details`}>
                               {cardContent}
                             </Link>
                           ) : isActive ? (
-                            <Link href={`/garden/grow/${gi.id}?from=profile`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View planting details`}>
+                            <Link href={`/garden?grow=${gi.id}&from=profile&profile=${profile.id}`} className="block -m-2 p-2 rounded-xl hover:bg-neutral-50/80 transition-colors min-h-[44px]" aria-label={`View planting details`}>
                               {cardContent}
                             </Link>
                           ) : (
