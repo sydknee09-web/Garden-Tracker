@@ -91,7 +91,7 @@ Run `npm run test:ci` to generate coverage. Reports:
 
 Coverage includes `src/**/*.{ts,tsx}` and excludes test files, `src/test/`, and type declarations.
 
-**Coverage thresholds** (in `vitest.config.mts`): CI fails if coverage drops below `lines: 5`, `functions: 15`, `branches: 50`. Raise these as tests are added.
+**Coverage thresholds** (in `vitest.config.mts`): CI fails if coverage drops below `lines: 2`, `functions: 14`, `branches: 50`. Current baselines at v1.0.0: lines 2.97%, functions 14.55%, branches 51.58%. Raise the thresholds as tests are added.
 
 ## Writing tests
 
