@@ -1,42 +1,145 @@
-# Garden Tracker
+# Garden Tracker — Seed Vault
 
-Universal Garden Management PWA — **Garden Tracker / Seed Vault**. Next.js (App Router), TypeScript, Tailwind CSS. Supabase + Google Gemini for extraction/AI.
+A personal garden management web app. Track your seed packets, plan and record plantings, log growth and harvests, manage care schedules, and collaborate with your household.
 
-## Design system
+**Live app:** [https://garden-tracker-cyan.vercel.app](https://garden-tracker-cyan.vercel.app)  
+**Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · Supabase · Google Gemini
 
-- **Background:** Pure White `#FFFFFF`
-- **Actions:** Emerald `#50C878`
-- **Alerts:** Citrus `#FFD700`
-- No grey; hierarchy via opacity, soft shadows (`0 10px 30px rgba(0,0,0,0.05)`), and white space.
+---
 
-## Run locally
+## Features
+
+| Section | What it does |
+|---------|-------------|
+| **Vault** | Seed packet inventory — import by link, photo, or manual entry. Profile detail with About, Care, Packets, Plantings, Journal tabs. |
+| **Garden** | Active plantings with quick-tap Water / Fertilize / Spray care. Harvest modal with weight and unit. My Plants (permanent plants). |
+| **Calendar** | Tasks by month — Sow, Harvest, Care. Overdue section. |
+| **Journal** | Timeline, table, and grid views. Edit entries. Photos with compression. |
+| **Shopping List** | Out-of-stock seeds and supplies. Wishlist placeholders. |
+| **Settings** | Planting zone, location, weather, data export, household sharing, developer tools. |
+
+---
+
+## Running locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) (or the port shown in the terminal).
+Open [http://localhost:3000](http://localhost:3000) (or the port shown in the terminal).
 
-**Auth sync:** Set `NEXT_PUBLIC_DEV_USER_ID` in `.env.local` to your Supabase user id so all data (vault, journal, tasks, batches) is saved and loaded for your account.
+### Environment variables
 
-**Database:** Apply all migrations in `supabase/migrations/` in order (e.g. via Supabase CLI `supabase db push`, or run each `.sql` file in the Supabase SQL Editor). The foundation migration assumes `plant_profiles`, `seed_packets`, `grow_instances`, and related tables exist from earlier migrations.
+Create `.env.local` in the project root:
 
-**Data maintenance** (discover, scrape, cleanup, normalize): see [docs/DATA_MAINTENANCE.md](docs/DATA_MAINTENANCE.md).
+```env
+# Supabase (required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # needed for some admin/storage flows
 
-**Testing:** Run the full suite for every feature or fix: `npm run test:run` (or `npm test` in watch mode). See [TESTING.md](TESTING.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+# App URL — used for auth email redirects (use http://localhost:3000 locally)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-## Structure
+# AI / enrichment (optional — features degrade gracefully without them)
+GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-key      # photo extraction, hero image search
+OPENAI_API_KEY=your-openai-key                    # OCR fallback
+PERENUAL_API_KEY=your-perenual-key                # botanical enrichment
+TAVILY_API_KEY=your-tavily-key                    # web scraping search
 
-- **Home** — Dashboard: pending tasks, recent activity, journal photos; link to Shopping List
-- **Vault** — Seed Vault (grid / list / active / plants). Import (link, photo, manual), review, plant; profile detail at `/vault/[id]` (About, Packets, Plantings, Journal). Also: history, packets list, tags
-- **Garden** — Active plantings, quick-tap care (water/fertilize/spray), harvest, bulk notes
-- **Calendar** — Tasks from Supabase by month (Sow/Harvest from batches)
-- **Journal** — Journal entries (table / grid / timeline), new entry
-- **Shopping List** — Out-of-stock items + wishlist placeholders (linked from dashboard)
-- **Settings** — Zone, location, weather, export, trash, household, developer tools, etc.
-- **Chat** — AI assistant at `/chat` (coming soon; not in bottom nav)
+# E2E testing (optional — only needed to run authenticated Playwright tests)
+E2E_TEST_EMAIL=your-test-account@example.com
+E2E_TEST_PASSWORD=your-test-password
+```
 
-## Data architecture
+### Database
 
-Plant Profile (master) → Seed Packets (inventory) → Grow Instances (seasonal plantings). Care schedules, tasks, and journal entries tie to profiles and instances.
+Apply all migrations in `supabase/migrations/` in order:
+
+```bash
+supabase db push          # via Supabase CLI
+# or run each .sql file in the Supabase SQL Editor
+```
+
+See [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) for Vercel-specific setup.
+
+---
+
+## Testing
+
+```bash
+npm run test:run          # unit tests (run once)
+npm test                  # unit tests in watch mode
+npm run test:ci           # unit tests + coverage report
+npm run test:e2e          # Playwright E2E tests (requires dev server or npm run dev)
+npm run test:all          # full suite: unit + coverage + E2E (run before tagging a release)
+```
+
+See [TESTING.md](TESTING.md) for the full test inventory, CI setup, and E2E troubleshooting.
+
+**Law:** Run `npm run test:run` before every commit. Do not ship with failing tests.
+
+---
+
+## Project structure
+
+```
+src/
+  app/           # Next.js App Router pages and API routes
+  components/    # Shared React components
+  lib/           # Utility functions (compressImage, generateCareTasks, etc.)
+  types/         # Shared TypeScript interfaces (garden.ts)
+  test/          # Test helpers and setup
+e2e/             # Playwright E2E tests
+docs/            # Architecture, nav map, testing checklist, bugs, deployment
+supabase/
+  migrations/    # SQL migration files (apply in order)
+```
+
+---
+
+## Key architecture
+
+| Layer | Tech |
+|-------|------|
+| Framework | Next.js 14 App Router |
+| Database + Auth + Storage | Supabase (Postgres + RLS) |
+| Styling | Tailwind CSS (`emerald`, `citrus` design system) |
+| AI | Google Gemini — extraction, hero image, research |
+| OCR | OpenAI gpt-4o-mini + Tesseract.js |
+| State | React `useState` / `useCallback` — Supabase is source of truth |
+
+**Data model:** `plant_profiles` → `seed_packets` → `grow_instances` → `journal_entries`  
+All user tables are protected by Supabase Row Level Security (`auth.uid() = user_id`).
+
+---
+
+## Deployment
+
+Deployed to Vercel. See [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) for the full checklist including required environment variables, build settings, and post-deploy Supabase auth configuration.
+
+---
+
+## Design system
+
+- **Background:** Paper white `#FAFAF8`
+- **Primary action:** Emerald `#064e3b` (`emerald-900`)
+- **Success state:** Emerald luxury `#50C878` (toasts only)
+- **Alert:** Citrus `#FFD700`
+- Touch targets: `min-w-[44px] min-h-[44px]` on all interactive elements
+- Modals: `max-h-[85vh]` with internal scroll
+
+---
+
+## Docs
+
+| Doc | Purpose |
+|-----|---------|
+| [TESTING.md](TESTING.md) | Test inventory, CI, E2E setup |
+| [docs/NAVIGATION_MAP.md](docs/NAVIGATION_MAP.md) | All app navigation flows (do not change without approval) |
+| [docs/BUGS.md](docs/BUGS.md) | Known issues triage and security checklist |
+| [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) | Deploy checklist and env vars |
+| [docs/TESTING_CHECKLIST.md](docs/TESTING_CHECKLIST.md) | Manual QA checklist by phase |
+| [docs/TDD_GUIDE.md](docs/TDD_GUIDE.md) | How to write tests in this project |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
