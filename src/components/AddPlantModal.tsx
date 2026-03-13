@@ -82,14 +82,12 @@ export function AddPlantModal({
     if (!user?.id) return;
     const type = profileType ?? profileTypeFilter;
     // No user_id filter: RLS returns own + household members' profiles (household_profiles_select)
-    // Seasonal: filter to seed only. Permanent: show full vault so user can link any profile.
-    let query = supabase
+    // Show all profiles; user selects plant then packet or creates new (Law 10: permanent vs seasonal is instance-level only).
+    const { data } = await supabase
       .from("plant_profiles")
       .select("id, name, variety_name, profile_type")
       .is("deleted_at", null)
       .order("name", { ascending: true });
-    if (type === "seed") query = query.eq("profile_type", "seed");
-    const { data } = await query;
     const list = (data ?? []) as ProfileOption[];
     setProfiles(list);
     setSelectedProfileId(list.length > 0 ? list[0].id : "");

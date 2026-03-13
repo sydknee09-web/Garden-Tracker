@@ -389,9 +389,9 @@ Use this checklist to confirm every feature in the 10-phase blueprint is functio
 ### Entry Types (Law 9)
 - [ ] All journal inserts set `entry_type` explicitly
 
-### Profile Type Distinction (Law 10)
-- [ ] Seed profiles show: About, Packets, Plantings, Journal tabs
-- [ ] Permanent profiles show: About, Care, Journal tabs
+### Profile Type / Permanent vs Seasonal (Law 10)
+- [ ] All Vault plant profiles show the same tabs: About, Care, Packets, Plantings, Journal
+- [ ] Permanent vs seasonal is instance-level only (`grow_instances.is_permanent_planting`); it drives which Garden tab (My Plants vs Active), not Vault tab structure
 
 ### Care Schedule Architecture (Law 11)
 - [ ] Templates (`is_template: true`) live on `plant_profile_id`

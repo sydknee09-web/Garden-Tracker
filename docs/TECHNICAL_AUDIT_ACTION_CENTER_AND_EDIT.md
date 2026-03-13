@@ -131,7 +131,7 @@ No missing or defaulted `entry_type` found.
 
 **entry_type (Law 9):** Re-verified all `journal_entries` insert sites. Every insert sets `entry_type` explicitly (`planting`, `growth`, `harvest`, `note`, `care`, `quick`, `death`). No reliance on DB default or note-matching. Same locations as Estate Audit Wave 1; plus `src/app/journal/new/page.tsx` and `src/components/QuickLogModal.tsx` (both pass `entryType` from form).
 
-**profile_type (Law 10):** Used consistently: `AddPlantModal` and `buildProfileInsertFromName` set `profile_type: 'seed' | 'permanent'` on new profiles; vault and recommend-care-tasks filter/display by `profile_type`. Seed profiles show Packets + Plantings; permanent shows Care tab.
+**Permanent vs seasonal (Law 10):** Stored on the grow instance (`grow_instances.is_permanent_planting`), not the profile. It only drives which Garden tab (My Plants vs Active). All Vault plant profiles show the same tabs (About, Care, Packets, Plantings, Journal).
 
 **deleted_at (Law 2):** Fetches for `plant_profiles`, `seed_packets`, `journal_entries`, `grow_instances`, and `tasks` include `.is("deleted_at", null)` (or equivalent) to exclude trashed rows. Soft delete is used for user-facing deletes; hard delete only in Settings purge flows.
 

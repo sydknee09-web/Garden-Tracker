@@ -95,13 +95,13 @@ Journal entries must set `entry_type` explicitly on insert. Valid types: `planti
 
 ---
 
-## Law 10: Profile Type Distinction
+## Law 10: Permanent vs Seasonal (Instance-Level Only)
 
-`plant_profiles.profile_type` distinguishes:
-- `"seed"` -- seasonal plants grown from seed (default). Shows Packets + Plantings tabs.
-- `"permanent"` -- trees, bushes, perennials. Shows Care tab instead.
+Permanent vs seasonal is a property of the **grow instance**, not the plant profile. It is stored as `grow_instances.is_permanent_planting` and determines **only** which Garden tab the plant appears on (My Plants vs Active). Do **not** store this distinction on the plant profile.
 
-Never mix these up. The tab structure and available actions change based on profile type.
+- **Vault plant profiles** use the same tab set for all: About, Care, Packets, Plantings, Journal. Tab structure does not depend on profile type.
+- **Garden** uses `is_permanent_planting` on each grow instance to show it on My Plants vs Active.
+- A plant profile can have both seasonal and permanent plants (mixed instances). When deriving UI hints from instances (e.g. empty-state copy), use "has any permanent instance" or neutral copy; do not treat a profile as wholly "permanent" or "seasonal."
 
 ---
 

@@ -5,12 +5,10 @@
  *     — QuickLogModal must contain a "Full journal entry" link to /journal/new
  *     — /journal/new must contain a back-reference to the Quick Log (Add → Add journal)
  *
- *  2. Permanent plant profile_type tab handling
- *     — The tab bar must NOT show "Packets" for permanent plants
- *       (seed packets are meaningless for trees/perennials — Law 10)
- *     — A redirect effect must exist to move away from the "packets" tab
- *       for permanent plants (guards against direct URL navigation)
- *     — The Care tab must render permanent-specific content (profileType="permanent")
+ *  2. Vault profile tabs (Law 10)
+ *     — All plant profiles show the same five tabs: About, Care, Packets, Plantings, Journal
+ *     — isPermanent is derived from grow instances (has any permanent instance), not profile
+ *     — The Care tab still receives isPermanent and profileType for content (CareSuggestions)
  */
 
 import { describe, it, expect } from "vitest";
@@ -77,25 +75,20 @@ describe("§1.4 — /journal/new: back-reference to Quick Log", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Permanent plant profile — tab bar (Law 10)
+// Vault profile tabs — unified for all (Law 10)
 // ---------------------------------------------------------------------------
-describe("Permanent plant profile — Packets tab is hidden (Law 10)", () => {
-  it("tab bar uses isPermanent to conditionally exclude the packets tab", () => {
-    // The tab list for permanent plants should omit "packets"
-    expect(vaultPage).toContain('isPermanent\n            ? (["about","care","plantings","journal"] as const)');
+describe("Vault profile — same five tabs for all profiles (Law 10)", () => {
+  it("tab bar shows all five tabs: about, care, packets, plantings, journal", () => {
+    expect(vaultPage).toContain('(["about","care","packets","plantings","journal"] as const)');
   });
 
-  it("seed plants still get the full five-tab list including packets", () => {
-    expect(vaultPage).toContain('["about","care","packets","plantings","journal"] as const');
+  it("isPermanent is derived from grow instances (not profile_type)", () => {
+    expect(vaultPage).toContain("growInstances.some");
+    expect(vaultPage).toContain("is_permanent_planting");
   });
 
-  it("a useEffect redirects away from 'packets' tab when isPermanent is true", () => {
-    expect(vaultPage).toContain('if (isPermanent && activeTab === "packets") setActiveTab("care")');
-  });
-
-  it("does NOT render a flat hardcoded five-tab list for all profile types", () => {
-    // Guard: the old single-line array that ignored profile_type must be gone
-    expect(vaultPage).not.toContain('(["about","care","packets","plantings","journal"] as const).map');
+  it("no redirect effect that forces user off packets tab for permanent", () => {
+    expect(vaultPage).not.toContain('if (isPermanent && activeTab === "packets") setActiveTab("care")');
   });
 });
 

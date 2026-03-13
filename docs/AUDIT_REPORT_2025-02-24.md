@@ -27,7 +27,7 @@ The codebase is in good shape after the legacy `plant_variety_id` cleanup. Migra
 | **7. Plant Profile Image Hierarchy** | ✅ Documented | hero_image_url → hero_image_path → journal → packet → emoji. |
 | **8. Source URL Preservation** | ✅ Compliant | source_url / purchase_url saved on import. |
 | **9. Entry Types Explicit** | ✅ Compliant | All journal inserts set `entry_type`. |
-| **10. Profile Type Distinction** | ✅ Compliant | seed vs permanent drives tab structure. |
+| **10. Permanent vs Seasonal (Law 10)** | ✅ Compliant | Instance-level only (`is_permanent_planting`); drives Garden tab. Vault profile tabs unified for all. |
 | **11. Care Schedule Architecture** | ✅ Compliant | Templates on profiles, instance schedules on grows. |
 | **12. Test Suite** | ✅ Passing | 201 tests; run before commit per policy. |
 

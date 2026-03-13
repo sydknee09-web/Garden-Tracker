@@ -523,7 +523,8 @@ export default function VaultSeedPage() {
     ? `${stripHtmlForDisplay(profile.name)} – ${stripHtmlForDisplay(profile.variety_name)}`
     : stripHtmlForDisplay(profile?.name) ?? "";
   const isLegacy = profile ? "vendor" in profile && (profile as PlantVarietyProfile).vendor != null : false;
-  const isPermanent = (profile as PlantProfile | null)?.profile_type === "permanent";
+  // Derive from instances: profile can have both seasonal and permanent plants (Law 10).
+  const isPermanent = growInstances.some((g) => g.is_permanent_planting === true);
   const profileStatus = (profile?.status ?? "").trim().toLowerCase().replace(/\s+/g, "_");
   const profileStatusLabel = getProfileStatusLabel(profileStatus);
 
@@ -548,11 +549,6 @@ export default function VaultSeedPage() {
   useEffect(() => {
     setHeroImageLoaded(false);
   }, [heroImageUrl]);
-
-  // Permanent plants don't have seed packets — redirect away from the packets tab.
-  useEffect(() => {
-    if (isPermanent && activeTab === "packets") setActiveTab("care");
-  }, [isPermanent, activeTab]);
 
   // Quick stats
   const packetCount = packets.length;
@@ -1195,12 +1191,9 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Tabs — permanent: About/Care/Plantings/Journal; seed: About/Care/Packets/Plantings/Journal */}
+        {/* Tabs — same for all profiles (About, Care, Packets, Plantings, Journal) per Law 10 */}
         <div className="flex flex-nowrap items-stretch border-b border-neutral-200 gap-x-2 sm:gap-x-3 mb-4">
-          {(isPermanent
-            ? (["about","care","plantings","journal"] as const)
-            : (["about","care","packets","plantings","journal"] as const)
-          ).map((tab) => (
+          {(["about","care","packets","plantings","journal"] as const).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
               {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
