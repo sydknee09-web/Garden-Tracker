@@ -303,7 +303,7 @@ export default function JournalNewPage() {
 
   return (
     <div className="px-6 pb-8 max-w-lg mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-2">
         <Link
           href={fromGarden ? "/garden" : "/journal"}
           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl border border-black/10 text-black/80 font-medium"
@@ -312,6 +312,7 @@ export default function JournalNewPage() {
         </Link>
         <h1 className="text-xl font-semibold text-black">Add Journal Entry</h1>
       </div>
+      <p className="text-sm text-neutral-500 mb-6">For a quick note, use <strong>Add → Add journal</strong> from any page.</p>
 
       <div className="relative">
         <SubmitLoadingOverlay show={saving || uploadingPhoto} message="Saving…" />

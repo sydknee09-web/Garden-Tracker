@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -528,6 +529,9 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               ) : "Save"}
             </button>
           </div>
+          <p className="text-center text-sm text-neutral-500 mt-3">
+            Need more fields? <Link href="/journal/new" className="text-emerald-600 font-medium hover:underline" onClick={onClose}>Full journal entry</Link>
+          </p>
         </form>
       </div>
     </>

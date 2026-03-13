@@ -142,7 +142,7 @@ function GardenPageInner() {
       }
     }
   }, [plantsFilters.loadedSort, setPlantsSortBy, setPlantsSortDir]);
-  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
@@ -259,10 +259,10 @@ function GardenPageInner() {
   const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
   const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
 
-  useEscapeKey(fabMenuOpen, () => setFabMenuOpen(false));
+  useEscapeKey(universalAddMenuOpen, () => setUniversalAddMenuOpen(false));
   useEscapeKey(refineByOpen, () => { setRefineByOpen(false); setRefineBySection(null); });
   useEscapeKey(
-    !fabMenuOpen && !refineByOpen && (!!profileParam || !!growParam),
+    !universalAddMenuOpen && !refineByOpen && (!!profileParam || !!growParam),
     () => { if (profileParam) clearProfileFilter(); else if (growParam) clearGrowView(); }
   );
 
@@ -1172,47 +1172,47 @@ function GardenPageInner() {
         </div>
       )}
 
-      {fabMenuOpen && (
+      {universalAddMenuOpen && (
         <UniversalAddMenu
-          open={fabMenuOpen}
-          onClose={() => setFabMenuOpen(false)}
+          open={universalAddMenuOpen}
+          onClose={() => setUniversalAddMenuOpen(false)}
           pathname={pathname ?? "/garden"}
           gardenTab={effectiveViewMode}
           onAddSeed={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setQuickAddSeedOpen(true);
           }}
           onAddPlantManual={(defaultType) => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setAddPlantDefaultType(defaultType);
             setShowAddPlantModal(true);
           }}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             router.push("/vault/plant?from=garden");
           }}
           onAddPlantPurchaseOrder={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setPurchaseOrderMode("seed");
             setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
           }}
           onAddPlantPhotoImport={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setBatchAddPlantMode(true);
             setBatchAddSeedOpen(true);
           }}
           onAddToShed={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setShedQuickAddOpen(true);
           }}
           onAddTask={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setNewTaskModalOpen(true);
           }}
           onAddJournal={() => {
-            setFabMenuOpen(false);
+            setUniversalAddMenuOpen(false);
             setQuickLogOpen(true);
           }}
         />
@@ -1234,7 +1234,7 @@ function GardenPageInner() {
           onClose={() => setNewTaskModalOpen(false)}
           onBackToMenu={() => {
             setNewTaskModalOpen(false);
-            setFabMenuOpen(true);
+            setUniversalAddMenuOpen(true);
           }}
         />
       )}
@@ -1244,7 +1244,7 @@ function GardenPageInner() {
         onClose={() => setQuickAddSeedOpen(false)}
         onBackToMenu={() => {
           setQuickAddSeedOpen(false);
-          setFabMenuOpen(true);
+          setUniversalAddMenuOpen(true);
         }}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
@@ -1299,7 +1299,7 @@ function GardenPageInner() {
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onBackToMenu={() => {
             setShedQuickAddOpen(false);
-            setFabMenuOpen(true);
+            setUniversalAddMenuOpen(true);
           }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
@@ -1426,13 +1426,13 @@ function GardenPageInner() {
             if ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) {
               setSelectionActionsOpen(true);
             } else {
-              setFabMenuOpen((o) => !o);
+              setUniversalAddMenuOpen((o) => !o);
             }
           }}
           className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
             (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
               ? "bg-amber-500 text-white"
-              : fabMenuOpen
+              : universalAddMenuOpen
                 ? "bg-emerald-700 text-white"
                 : "bg-emerald text-white"
           }`}
@@ -1440,7 +1440,7 @@ function GardenPageInner() {
           aria-label={
             (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
               ? "Selection actions"
-              : fabMenuOpen
+              : universalAddMenuOpen
                 ? "Close menu"
                 : effectiveViewMode === "plants"
                   ? "Add permanent plant"
@@ -1462,7 +1462,7 @@ function GardenPageInner() {
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`transition-transform duration-200 ${fabMenuOpen ? "rotate-45" : "rotate-0"}`}
+              className={`transition-transform duration-200 ${universalAddMenuOpen ? "rotate-45" : "rotate-0"}`}
               aria-hidden
             >
               <line x1="12" y1="5" x2="12" y2="19" />

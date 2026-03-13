@@ -113,6 +113,14 @@ export default function HomePage() {
       return false;
     }
   });
+  const [fabTipDismissed, setFabTipDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("home-fab-tip-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
   const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
   const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
@@ -315,6 +323,28 @@ export default function HomePage() {
             }}
             className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 rounded-lg text-white/90 hover:bg-white/20 hover:text-white transition-colors"
             aria-label="Dismiss insight"
+          >
+            <span className="text-lg font-bold leading-none">×</span>
+          </button>
+        </div>
+      )}
+
+      {/* ---- First-run FAB tip (dismissible) ---- */}
+      {!fabTipDismissed && (
+        <div className="mb-3 rounded-lg bg-neutral-100 border border-neutral-200/80 px-3 py-2.5 shadow-card-soft flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-neutral-700">Tap <strong>+</strong> to add seeds, plants, supplies, tasks, or a quick log.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFabTipDismissed(true);
+              try {
+                localStorage.setItem("home-fab-tip-dismissed", "1");
+              } catch {}
+            }}
+            className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/80 hover:text-neutral-700 transition-colors"
+            aria-label="Dismiss tip"
           >
             <span className="text-lg font-bold leading-none">×</span>
           </button>

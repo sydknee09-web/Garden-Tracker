@@ -356,6 +356,25 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 
 ---
 
+## Data input map
+
+Input type → entry point → redirect (if any).
+
+| Input type | Entry | Redirect |
+|------------|--------|----------|
+| Seed packet (manual, photo, link, PO) | FAB → Add Seed Packet → choose method | New profile created → `/vault/[id]`; else stay + refresh |
+| Plant (manual) | FAB → Add plant → Manual Entry | New profile created and not "stay in garden" → `/vault/[id]`; else stay + refresh |
+| Plant (from packets) | FAB → Add plant → Start Seeds | Navigate to `/vault/plant?from=…`; after save, back to referrer |
+| Supply | FAB → Add to shed → choose method | Stay + refresh |
+| Task | FAB → Add task | Stay + refresh |
+| Journal (quick) | FAB → Add journal (Quick Log modal) | Stay + refresh |
+| Journal (full) | `/journal/new` or Quick Log → "Full journal entry" | After save → `/journal` or `/garden` per `?from=` |
+| Shopping list item | Home/Shopping List → Add item modal; or profile/supply page → Add to list | Stay + refresh |
+
+See **docs/WHERE_DO_I.md** for the user-facing "Where do I…?" guide.
+
+---
+
 ## Change log
 
 | Date | Change |
@@ -394,3 +413,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-11 | Phase 0 (Universal Add audit): **Stay + Refresh** for all FAB add paths. **Only** intentional redirect: when user creates a **new plant profile** (new variety) → redirect to `/vault/[id]`. QuickAddSeed passes `newProfileId` in `onSuccess` when a new profile is created (manual "Save for later"); AddPlantModal redirects when `createdProfileId && !stayInGarden`. All other adds (packet to existing, supply, task, journal, grow instance on existing profile) stay on page and refresh. |
 | 2025-03-10 | Add to shed: Documented stay-in-place behavior (no navigation/URL change; modal overlay only). QuickAddSupply on Vault is globally available from any tab (Grid, List, Shed) via VaultShedWingModals. |
 | 2025-03-11 | Grow instance: **Popup modal** on Garden instead of dedicated page. Entry via `/garden?grow=[id]` (from Vault: `&from=profile&profile=[id]`; from Garden: `&tab=active` or `tab=plants`). Route `/garden/grow/[id]` redirects to `/garden?grow=[id]`. Modal: plant name in header links to plant profile; Back/Escape/To Garden close; from=profile → close navigates to vault profile. Notes tab removed; page purely informational. |
+| 2025-03-12 | Added **Data input map** section (input type → entry → redirect). User-facing guide: docs/WHERE_DO_I.md. Garden page: FAB state renamed from `fabMenuOpen` to `universalAddMenuOpen` for consistency. |
