@@ -59,6 +59,19 @@ describe("MyPlantsView — openBulkLogRequest timing guard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// MyPlantsView — card tap navigation
+// ---------------------------------------------------------------------------
+describe("MyPlantsView — card tap navigation", () => {
+  it("Short tap navigates to vault profile with from=garden&gardenTab=plants", () => {
+    expect(myPlantsView).toContain("router.push(`/vault/${profileId}?from=garden&gardenTab=plants`)");
+  });
+
+  it("Does NOT navigate to the grow popup (/garden?grow=) on short tap", () => {
+    expect(myPlantsView).not.toContain("/garden?tab=plants&grow=");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // MyPlantsView — Batch select state and handlers
 // ---------------------------------------------------------------------------
 describe("MyPlantsView — batch select state and handlers", () => {
