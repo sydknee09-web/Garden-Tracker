@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface QRScannerModalProps {
   open: boolean;
@@ -16,6 +17,7 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
   const containerId = "qr-reader";
 
   useEscapeKey(open, onClose);
+  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +65,7 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
     <>
       <div className="fixed inset-0 z-50 bg-black/60" aria-hidden onClick={onClose} />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-4 shadow-card max-w-sm mx-auto"
         role="dialog"
         aria-modal="true"

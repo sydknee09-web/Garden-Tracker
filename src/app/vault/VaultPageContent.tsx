@@ -898,7 +898,7 @@ function VaultPageInner() {
         onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
         onSaveMessage={setSaveToastMessage}
         onOpenScanner={() => setScannerOpen(true)}
-        onAddFirst={() => setUniversalAddMenuOpen(true)}
+        onAddFirst={openMenu}
         sharedSearchQuery={searchQuery}
         onSyncSearchToGrid={setSearchQuery}
       >
@@ -1148,7 +1148,7 @@ function VaultPageInner() {
               seedTypeFilters={gridFilters.filters.seedTypes}
               onTagsLoaded={handleTagsLoaded}
               onOpenScanner={() => setScannerOpen(true)}
-              onAddFirst={() => setUniversalAddMenuOpen(true)}
+              onAddFirst={openMenu}
               batchSelectMode={batchSelectMode}
               selectedVarietyIds={selectedVarietyIds}
               onToggleVarietySelection={toggleVarietySelection}
