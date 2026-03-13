@@ -44,6 +44,7 @@ const QuickLogModal = dynamic(
 );
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { completeTask } from "@/lib/completeSowTask";
@@ -113,14 +114,25 @@ export default function CalendarPage() {
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const [newTaskOpen, setNewTaskOpen] = useState(false);
-  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
-  const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
-  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
-  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
-  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const {
+    addMenuOpen,
+    setAddMenuOpen,
+    activeModal,
+    addPlantDefaultType,
+    openMenu,
+    closeMenu,
+    openSeed,
+    openShed,
+    openPlant,
+    openTask,
+    openJournal,
+    closeActiveModal,
+    backToMenu,
+    closeAll,
+  } = useUniversalAddModals();
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
@@ -143,7 +155,6 @@ export default function CalendarPage() {
   const [batchSaving, setBatchSaving] = useState(false);
   /** When true, deactivate care schedules and cascade to all their tasks (for recurring care tasks). "selected" = delete only selected tasks; "all_future" = delete schedule + all its tasks. */
   const [deleteScope, setDeleteScope] = useState<"selected" | "all_future">("selected");
-  const [quickLogOpen, setQuickLogOpen] = useState(false);
   /** Task shown in detail popup (tap task → popup instead of navigating) */
   const [taskDetailTask, setTaskDetailTask] = useState<(Task & { plant_name?: string; user_id?: string | null; supply_profile_id?: string | null }) | null>(null);
   const [taskDetailSupplyName, setTaskDetailSupplyName] = useState<string | null>(null);
@@ -1365,20 +1376,20 @@ export default function CalendarPage() {
             setBatchMenuOpen(true);
             return;
           }
-          if (universalAddMenuOpen) {
-            setUniversalAddMenuOpen(false);
+          if (addMenuOpen) {
+            closeMenu();
           } else if (newTaskOpen) {
             setNewTaskOpen(false);
           } else {
-            setUniversalAddMenuOpen(true);
+            setAddMenuOpen(true);
           }
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-          selectMode ? "bg-amber-500 text-white hover:bg-amber-600" : universalAddMenuOpen || newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
+          selectMode ? "bg-amber-500 text-white hover:bg-amber-600" : addMenuOpen || newTaskOpen ? "bg-emerald-700 text-white" : "bg-emerald text-white"
         }`}
         style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        aria-label={selectMode ? "Task options" : universalAddMenuOpen || newTaskOpen ? "Close" : "Add"}
-        aria-expanded={selectMode ? batchMenuOpen : universalAddMenuOpen || newTaskOpen}
+        aria-label={selectMode ? "Task options" : addMenuOpen || newTaskOpen ? "Close" : "Add"}
+        aria-expanded={selectMode ? batchMenuOpen : addMenuOpen || newTaskOpen}
       >
         {selectMode ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
@@ -1395,7 +1406,7 @@ export default function CalendarPage() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${universalAddMenuOpen || newTaskOpen ? "rotate-45" : "rotate-0"}`}
+            className={`transition-transform duration-200 ${addMenuOpen || newTaskOpen ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -1404,98 +1415,92 @@ export default function CalendarPage() {
         )}
       </button>
 
-      {universalAddMenuOpen && (
+      {addMenuOpen && (
         <UniversalAddMenu
-          open={universalAddMenuOpen}
-          onClose={() => setUniversalAddMenuOpen(false)}
+          open={addMenuOpen}
+          onClose={closeMenu}
           pathname={pathname ?? "/calendar"}
-          onAddSeed={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickAddSeedOpen(true);
-          }}
-          onAddPlantManual={(defaultType) => {
-            setUniversalAddMenuOpen(false);
-            setAddPlantDefaultType(defaultType);
-            setShowAddPlantModal(true);
-          }}
+          onAddSeed={openSeed}
+          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
-            setUniversalAddMenuOpen(false);
+            closeAll();
             router.push("/vault/plant?from=calendar");
           }}
           onAddPlantPurchaseOrder={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setPurchaseOrderMode("seed");
             setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
           }}
           onAddPlantPhotoImport={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setBatchAddPlantMode(true);
             setBatchAddSeedOpen(true);
           }}
-          onAddToShed={() => {
-            setUniversalAddMenuOpen(false);
-            setShedQuickAddOpen(true);
-          }}
-          onAddTask={() => {
-            setUniversalAddMenuOpen(false);
-            setNewTaskOpen(true);
-          }}
-          onAddJournal={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickLogOpen(true);
+          onAddToShed={openShed}
+          onAddTask={openTask}
+          onAddJournal={openJournal}
+        />
+      )}
+
+      {activeModal === "journal" && (
+        <QuickLogModal
+          open
+          onClose={closeActiveModal}
+          onJournalAdded={() => {
+            router.refresh();
+            closeActiveModal();
           }}
         />
       )}
 
-      <QuickLogModal
-        open={quickLogOpen}
-        onClose={() => setQuickLogOpen(false)}
-        onJournalAdded={() => {
-          router.refresh();
-          setQuickLogOpen(false);
-        }}
-      />
+      {activeModal === "task" && (
+        <NewTaskModal
+          open
+          onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
+          onSuccess={() => setRefetch((r) => r + 1)}
+        />
+      )}
 
-      <QuickAddSeed
-        open={quickAddSeedOpen}
-        onClose={() => setQuickAddSeedOpen(false)}
-        onBackToMenu={() => {
-          setQuickAddSeedOpen(false);
-          setUniversalAddMenuOpen(true);
-        }}
-        onSuccess={(opts) => {
-          if (opts?.newProfileId) {
-            setQuickAddSeedOpen(false);
-            router.push(`/vault/${opts.newProfileId}`);
-            return;
-          }
-          setRefetch((r) => r + 1);
-        }}
-        onOpenBatch={() => {
-          setQuickAddSeedOpen(false);
-          setBatchAddPlantMode(false);
-          setBatchAddSeedOpen(true);
-        }}
-        onOpenLinkImport={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddSeedOpen(false);
-          router.push("/vault/import?embed=1");
-        }}
-        onStartManualImport={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddSeedOpen(false);
-          router.push("/vault/import/manual");
-        }}
-        onOpenPurchaseOrder={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddSeedOpen(false);
-          setPurchaseOrderMode("seed");
-          setPurchaseOrderAddPlantMode(false);
-          setPurchaseOrderOpen(true);
-        }}
-      />
+      {activeModal === "seed" && (
+        <QuickAddSeed
+          open
+          onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
+          onSuccess={(opts) => {
+            if (opts?.newProfileId) {
+              closeActiveModal();
+              router.push(`/vault/${opts.newProfileId}`);
+              return;
+            }
+            setRefetch((r) => r + 1);
+          }}
+          onOpenBatch={() => {
+            closeActiveModal();
+            setBatchAddPlantMode(false);
+            setBatchAddSeedOpen(true);
+          }}
+          onOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            router.push("/vault/import?embed=1");
+          }}
+          onStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            router.push("/vault/import/manual");
+          }}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
+            setPurchaseOrderOpen(true);
+          }}
+        />
+      )}
 
       {batchAddSeedOpen && (
         <BatchAddSeed
@@ -1511,24 +1516,21 @@ export default function CalendarPage() {
         />
       )}
 
-      {shedQuickAddOpen && (
+      {activeModal === "shed" && (
         <QuickAddSupply
-          open={shedQuickAddOpen}
-          onClose={() => setShedQuickAddOpen(false)}
+          open
+          onClose={closeActiveModal}
           onSuccess={() => setRefetch((r) => r + 1)}
-          onBackToMenu={() => {
-            setShedQuickAddOpen(false);
-            setUniversalAddMenuOpen(true);
-          }}
+          onBackToMenu={backToMenu}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
-            setShedQuickAddOpen(false);
+            closeActiveModal();
             setPurchaseOrderMode("supply");
             setPurchaseOrderOpen(true);
           }}
           onOpenBatchPhotoImport={() => {
             skipPopOnNavigateRef.current = true;
-            setShedQuickAddOpen(false);
+            closeActiveModal();
             setBatchAddSupplyOpen(true);
           }}
         />
@@ -1542,11 +1544,11 @@ export default function CalendarPage() {
         />
       )}
 
-      {showAddPlantModal && (
+      {activeModal === "plant" && (
         <AddPlantModal
-          open={showAddPlantModal}
-          onClose={() => setShowAddPlantModal(false)}
-          onSuccess={() => setRefetch((r) => r + 1)}
+          open
+          onClose={closeActiveModal}
+          onSuccess={() => { closeActiveModal(); setRefetch((r) => r + 1); }}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}
         />
@@ -1569,7 +1571,7 @@ export default function CalendarPage() {
           onBackToMenu={() => {
             setNewTaskOpen(false);
             setEditTask(null);
-            setUniversalAddMenuOpen(true);
+            openMenu();
           }}
           onSuccess={() => { setRefetch((r) => r + 1); setEditTask(null); exitSelectMode(); }}
           editTask={editTask}

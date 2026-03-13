@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { setReviewImportData, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { setSupplyReviewData } from "@/lib/supplyReviewStorage";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
@@ -141,7 +142,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         });
         const data = (await res.json().catch(() => ({}))) as { items: SupplyOrderLineItem[]; vendor: string; error?: string };
         if (!res.ok || data.error) {
-          setError(data.error || `Failed to process order (${res.status}).`);
+          setError(formatAddFlowError((data.error as string) || `Failed to process order (${res.status}).`));
           setIsExtracting(false);
           return;
         }
@@ -178,18 +179,18 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       try {
         data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
       } catch {
-        setError(res.ok ? "Invalid response from server." : `Failed to process order (${res.status}).`);
+        setError(formatAddFlowError(res.ok ? "Invalid response from server." : `Failed to process order (${res.status}).`));
         setIsExtracting(false);
         return;
       }
 
       if (!res.ok) {
-        setError(data.error || `Failed to process order (${res.status}).`);
+        setError(formatAddFlowError((data.error as string) || `Failed to process order (${res.status}).`));
         setIsExtracting(false);
         return;
       }
       if (data.error) {
-        setError(data.error);
+        setError(formatAddFlowError(data.error));
         setIsExtracting(false);
         return;
       }
@@ -217,7 +218,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       onClose();
       window.location.href = "/vault/review-import";
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Order scan failed");
+      setError(formatAddFlowError(e));
       setIsExtracting(false);
     }
   }

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { compressImage } from "@/lib/compressImage";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import type { JournalEntry } from "@/types/garden";
@@ -242,7 +243,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         { id: entry.id, user_id: entry.user_id }
       );
       if (updateErr) {
-        setSubmitError(updateErr.message);
+        setSubmitError(formatAddFlowError(updateErr));
         return;
       }
 
@@ -257,7 +258,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
             .from("journal-photos")
             .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
           if (uploadErr) {
-            setSubmitError(uploadErr.message);
+            setSubmitError(formatAddFlowError(uploadErr));
             setUploadingPhoto(false);
             return;
           }
@@ -277,7 +278,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         .eq("journal_entry_id", entry.id)
         .eq("user_id", entry.user_id);
       if (delErr) {
-        setSubmitError(delErr.message);
+        setSubmitError(formatAddFlowError(delErr));
         return;
       }
 
@@ -290,7 +291,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         }));
         const { error: photoErr } = await supabase.from("journal_entry_photos").insert(photoRows);
         if (photoErr) {
-          setSubmitError(photoErr.message);
+          setSubmitError(formatAddFlowError(photoErr));
           return;
         }
       }
@@ -302,7 +303,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
           .eq("journal_entry_id", entry.id)
           .eq("user_id", entry.user_id);
         if (delJepErr) {
-          setSubmitError(delJepErr.message);
+          setSubmitError(formatAddFlowError(delJepErr));
           return;
         }
 
@@ -315,7 +316,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
           }));
           const { error: jepErr } = await supabase.from("journal_entry_plants").insert(jepRows);
           if (jepErr) {
-            setSubmitError(jepErr.message);
+            setSubmitError(formatAddFlowError(jepErr));
             return;
           }
         }

@@ -9,6 +9,7 @@ import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { localDateString } from "@/lib/calendarDate";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
@@ -254,7 +255,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
             .from("journal-photos")
             .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
           if (uploadErr) {
-            setSubmitError(uploadErr.message);
+            setSubmitError(formatAddFlowError(uploadErr));
             hapticError();
             return;
           }
@@ -285,7 +286,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           .select("id")
           .single();
         if (insertErr) {
-          setSubmitError(insertErr.message);
+          setSubmitError(formatAddFlowError(insertErr));
           hapticError();
           return;
         }
@@ -302,7 +303,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         onJournalAdded?.();
         onClose();
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : "Failed to save");
+        setSubmitError(formatAddFlowError(err));
         hapticError();
       } finally {
         setSaving(false);

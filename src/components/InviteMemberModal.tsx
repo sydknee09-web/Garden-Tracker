@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 interface InviteMemberModalProps {
@@ -40,14 +41,14 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Failed to send invitation.");
+        setError(formatAddFlowError((data.error as string) ?? "Failed to send invitation."));
         setLoading(false);
         return;
       }
       setSuccess(true);
       setEmail("");
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      setError(formatAddFlowError(err));
     }
     setLoading(false);
   }

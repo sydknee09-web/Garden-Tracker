@@ -10,6 +10,7 @@ import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -190,7 +191,7 @@ export function AddPlantModal({
       .select("id, vendor_name, qty_status")
       .single();
     setAddPacketSaving(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(formatAddFlowError(error)); return; }
     const pkt = newPkt as PacketOption;
     setPacketsForProfile((prev) => [...prev, pkt]);
     setSelectedPacketId(pkt.id);
@@ -239,7 +240,7 @@ export function AddPlantModal({
           .select("id")
           .single();
         if (insertErr) {
-          setError(insertErr.message);
+          setError(formatAddFlowError(insertErr));
           setSubmitting(false);
           return;
         }
@@ -266,7 +267,7 @@ export function AddPlantModal({
           .select("id")
           .single();
         if (growInsertErr) {
-          setError(growInsertErr.message);
+          setError(formatAddFlowError(growInsertErr));
           setSubmitting(false);
           return;
         }
@@ -389,7 +390,7 @@ export function AddPlantModal({
           ...(plantCount != null && { purchase_quantity: plantCount }),
         }).select("id").single();
         if (growErr || !growRow) {
-          setError(growErr?.message ?? "Could not create planting.");
+          setError(formatAddFlowError(growErr ?? new Error("Could not create planting.")));
           setSubmitting(false);
           return;
         }
@@ -492,7 +493,7 @@ export function AddPlantModal({
       handleClose();
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(formatAddFlowError(e));
       hapticError();
     } finally {
       setSubmitting(false);

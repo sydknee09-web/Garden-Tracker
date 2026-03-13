@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { ICON_MAP } from "@/lib/styleDictionary";
@@ -84,7 +85,7 @@ export function AddPlantManualModal({
       });
       setSaving(false);
       if (packetErr) {
-        setError(packetErr.message);
+        setError(formatAddFlowError(packetErr));
         return;
       }
       const owner = profileOwnerId ?? user.id;

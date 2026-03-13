@@ -46,6 +46,7 @@ import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { compressImage } from "@/lib/compressImage";
@@ -142,8 +143,6 @@ function GardenPageInner() {
       }
     }
   }, [plantsFilters.loadedSort, setPlantsSortBy, setPlantsSortDir]);
-  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
-  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
   const [bulkModeActive, setBulkModeActive] = useState(false);
@@ -151,8 +150,22 @@ function GardenPageInner() {
   const [openBulkLogForPlants, setOpenBulkLogForPlants] = useState(false);
   const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
   const [moveToActiveGardenToast, setMoveToActiveGardenToast] = useState<string | null>(null);
-  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
-  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
+  const {
+    addMenuOpen,
+    setAddMenuOpen,
+    activeModal,
+    addPlantDefaultType,
+    openMenu,
+    closeMenu,
+    openSeed,
+    openShed,
+    openPlant,
+    openTask,
+    openJournal,
+    closeActiveModal,
+    backToMenu,
+    closeAll,
+  } = useUniversalAddModals();
   const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "list", {
     serialize: (v) => v,
     deserialize: (s) => (s === "grid" || s === "list" ? s : "list"),
@@ -188,11 +201,8 @@ function GardenPageInner() {
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
-  const [quickAddSeedOpen, setQuickAddSeedOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
-  const [shedQuickAddOpen, setShedQuickAddOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
-  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
   const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
@@ -259,10 +269,10 @@ function GardenPageInner() {
   const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
   const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
 
-  useEscapeKey(universalAddMenuOpen, () => setUniversalAddMenuOpen(false));
+  useEscapeKey(addMenuOpen || !!activeModal, closeAll);
   useEscapeKey(refineByOpen, () => { setRefineByOpen(false); setRefineBySection(null); });
   useEscapeKey(
-    !universalAddMenuOpen && !refineByOpen && (!!profileParam || !!growParam),
+    !addMenuOpen && !refineByOpen && (!!profileParam || !!growParam),
     () => { if (profileParam) clearProfileFilter(); else if (growParam) clearGrowView(); }
   );
 
@@ -1172,111 +1182,93 @@ function GardenPageInner() {
         </div>
       )}
 
-      {universalAddMenuOpen && (
+      {addMenuOpen && (
         <UniversalAddMenu
-          open={universalAddMenuOpen}
-          onClose={() => setUniversalAddMenuOpen(false)}
+          open={addMenuOpen}
+          onClose={closeMenu}
           pathname={pathname ?? "/garden"}
           gardenTab={effectiveViewMode}
-          onAddSeed={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickAddSeedOpen(true);
-          }}
-          onAddPlantManual={(defaultType) => {
-            setUniversalAddMenuOpen(false);
-            setAddPlantDefaultType(defaultType);
-            setShowAddPlantModal(true);
-          }}
+          onAddSeed={openSeed}
+          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
-            setUniversalAddMenuOpen(false);
+            closeAll();
             router.push("/vault/plant?from=garden");
           }}
           onAddPlantPurchaseOrder={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setPurchaseOrderMode("seed");
             setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
           }}
           onAddPlantPhotoImport={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setBatchAddPlantMode(true);
             setBatchAddSeedOpen(true);
           }}
-          onAddToShed={() => {
-            setUniversalAddMenuOpen(false);
-            setShedQuickAddOpen(true);
-          }}
-          onAddTask={() => {
-            setUniversalAddMenuOpen(false);
-            setNewTaskModalOpen(true);
-          }}
-          onAddJournal={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickLogOpen(true);
+          onAddToShed={openShed}
+          onAddTask={openTask}
+          onAddJournal={openJournal}
+        />
+      )}
+
+      {activeModal === "journal" && (
+        <QuickLogModal
+          open
+          onClose={closeActiveModal}
+          onJournalAdded={() => {
+            router.refresh();
+            closeActiveModal();
+            setRefetchTrigger((t) => t + 1);
           }}
         />
       )}
 
-      <QuickLogModal
-        open={quickLogOpen}
-        onClose={() => setQuickLogOpen(false)}
-        onJournalAdded={() => {
-          router.refresh();
-          setQuickLogOpen(false);
-          setRefetchTrigger((t) => t + 1);
-        }}
-      />
-
-      {newTaskModalOpen && (
+      {activeModal === "task" && (
         <NewTaskModal
-          open={newTaskModalOpen}
-          onClose={() => setNewTaskModalOpen(false)}
-          onBackToMenu={() => {
-            setNewTaskModalOpen(false);
-            setUniversalAddMenuOpen(true);
-          }}
+          open
+          onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
         />
       )}
 
-      <QuickAddSeed
-        open={quickAddSeedOpen}
-        onClose={() => setQuickAddSeedOpen(false)}
-        onBackToMenu={() => {
-          setQuickAddSeedOpen(false);
-          setUniversalAddMenuOpen(true);
-        }}
+      {activeModal === "seed" && (
+        <QuickAddSeed
+          open
+          onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
-              setQuickAddSeedOpen(false);
+              closeActiveModal();
               router.push(`/vault/${opts.newProfileId}`);
               return;
             }
             setRefetchTrigger((t) => t + 1);
           }}
           onOpenBatch={() => {
-            setQuickAddSeedOpen(false);
+            closeActiveModal();
             setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
           onOpenLinkImport={() => {
             skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
+            closeActiveModal();
             router.push("/vault/import?embed=1");
           }}
           onStartManualImport={() => {
             skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
+            closeActiveModal();
             router.push("/vault/import/manual");
           }}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
-            setQuickAddSeedOpen(false);
+            closeActiveModal();
             setPurchaseOrderMode("seed");
             setPurchaseOrderAddPlantMode(false);
             setPurchaseOrderOpen(true);
           }}
         />
+      )}
 
       {batchAddSeedOpen && (
         <BatchAddSeed
@@ -1292,24 +1284,21 @@ function GardenPageInner() {
         />
       )}
 
-      {shedQuickAddOpen && (
+      {activeModal === "shed" && (
         <QuickAddSupply
-          open={shedQuickAddOpen}
-          onClose={() => setShedQuickAddOpen(false)}
+          open
+          onClose={closeActiveModal}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          onBackToMenu={() => {
-            setShedQuickAddOpen(false);
-            setUniversalAddMenuOpen(true);
-          }}
+          onBackToMenu={backToMenu}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
-            setShedQuickAddOpen(false);
+            closeActiveModal();
             setPurchaseOrderMode("supply");
             setPurchaseOrderOpen(true);
           }}
           onOpenBatchPhotoImport={() => {
             skipPopOnNavigateRef.current = true;
-            setShedQuickAddOpen(false);
+            closeActiveModal();
             setBatchAddSupplyOpen(true);
           }}
         />
@@ -1426,13 +1415,13 @@ function GardenPageInner() {
             if ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) {
               setSelectionActionsOpen(true);
             } else {
-              setUniversalAddMenuOpen((o) => !o);
+              setAddMenuOpen((o) => !o);
             }
           }}
           className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
             (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
               ? "bg-amber-500 text-white"
-              : universalAddMenuOpen
+              : addMenuOpen
                 ? "bg-emerald-700 text-white"
                 : "bg-emerald text-white"
           }`}
@@ -1440,7 +1429,7 @@ function GardenPageInner() {
           aria-label={
             (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
               ? "Selection actions"
-              : universalAddMenuOpen
+              : addMenuOpen
                 ? "Close menu"
                 : effectiveViewMode === "plants"
                   ? "Add permanent plant"
@@ -1462,7 +1451,7 @@ function GardenPageInner() {
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className={`transition-transform duration-200 ${universalAddMenuOpen ? "rotate-45" : "rotate-0"}`}
+              className={`transition-transform duration-200 ${addMenuOpen ? "rotate-45" : "rotate-0"}`}
               aria-hidden
             >
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -1483,7 +1472,9 @@ function GardenPageInner() {
         </div>
       )}
 
-      <AddPlantModal open={showAddPlantModal} onClose={() => setShowAddPlantModal(false)} onSuccess={() => setRefetchTrigger((t) => t + 1)} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
+      {activeModal === "plant" && (
+        <AddPlantModal open onClose={closeActiveModal} onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
+      )}
       <PurchaseOrderImport
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}

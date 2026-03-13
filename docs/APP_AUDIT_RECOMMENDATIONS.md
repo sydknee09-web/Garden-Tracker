@@ -94,15 +94,9 @@ The app is **feature-rich and consistent** under the hood (Universal Add Menu, s
 
 ### 2.1 Modal state duplicated across pages
 
-**Current:** Home, Vault, Garden, Journal, and Calendar each declare the same set of modal open states: `universalAddMenuOpen`, `quickAddSeedOpen`, `shedQuickAddOpen`, `showAddPlantModal`, `newTaskModalOpen`, `quickLogOpen`, etc. (and Vault has more: `packetModalOpen`, `scannerOpen`, `batchAddOpen`, …).
+**Done (2025-03-12):** Introduced **UniversalAddContext** and **useUniversalAddModals()** hook. The context holds: `addMenuOpen`, `activeModal` (`'seed' | 'shed' | 'plant' | 'task' | 'journal' | null`), `addPlantDefaultType`, and actions: `openMenu`, `closeMenu`, `openSeed`, `openShed`, `openPlant`, `openTask`, `openJournal`, `closeActiveModal`, `backToMenu`, `closeAll`. **UniversalAddProvider** wraps the app in the root layout. Home, Vault, Garden, Journal, and Calendar use the hook and render modals when `activeModal === 'seed'` etc. Page-specific state (e.g. batch add, purchase order, Vault scanner/qrPrefill) remains local. Back/escape and useModalBackClose call `closeAll()` so behavior is consistent.
 
-**Issue:** Boilerplate, risk of drift (e.g. one page forgets to close a modal on back), and harder refactors.
-
-**Recommendations:**
-
-- **Option A:** Introduce a small **context** (e.g. `UniversalAddContext`) that holds: FAB menu open, and which “add” modal is open (seed, shed, plant, task, journal). Each page uses one context instead of 5–10 `useState` calls. Back/escape closes the whole stack in one place.
-- **Option B:** If you prefer minimal change, at least **extract a custom hook** (e.g. `useUniversalAddModals()`) that returns `{ universalAddMenuOpen, setUniversalAddMenuOpen, quickAddSeedOpen, setQuickAddSeedOpen, … }` and the shared handlers (open seed, open shed, back-from-shed-to-menu). Each page calls the hook once. Unification of behavior (e.g. back-from-QuickAddSupply) stays in one module.
-
+**Removed duplicate recommendation.** (e.g. `UniversalAddContext`) that holds: FAB menu open, and which “add” modal is open (seed, shed, plant, task, journal). Each page uses one context instead of 5–10 `useState` calls. Back/escape closes the whole stack in one place.
 ### 2.2 Inconsistent FAB state naming
 
 **Current:** Garden page uses `fabMenuOpen` / `setFabMenuOpen`; Home, Vault, Journal, and Calendar use `universalAddMenuOpen` / `setUniversalAddMenuOpen`. Same menu, different names.
@@ -189,6 +183,8 @@ In `NAVIGATION_MAP.md`, add a compact table: “When I’m on [screen] and I got
 **Current:** `RouteErrorFallback` shows a friendly message; modals (e.g. `NewTaskModal`, `AddItemModal`) show inline errors and use haptics. Submit loading overlays prevent double-submit.
 
 **Suggestion:** Ensure every add flow (seed, plant, supply, task, journal) shows a clear success state (e.g. “Added” toast or inline message) and, on failure, “Something went wrong. Try again.” with the error message when safe. You already have hapticSuccess/hapticError; consistent copy helps.
+
+**Done (2025-03-12):** Added `src/lib/addFlowError.ts` with `ADD_FLOW_ERROR_PRIMARY` and `formatAddFlowError(err)`. All add flows (QuickAddSeed, QuickAddSupply, AddPlantModal, NewTaskModal, QuickLogModal, AddItemModal, AddPlantManualModal, EditJournalModal, EditPacketModal, HarvestModal, InviteMemberModal, BatchAddSeed, PurchaseOrderImport, CareScheduleManager) now use this for save/API/DB failures; validation messages (e.g. "Title is required", "Select a variety") remain specific.
 
 ### 7.3 Copy and labels
 

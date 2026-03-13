@@ -7,6 +7,7 @@ import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { LoadingState } from "@/components/LoadingState";
 import { StarRating } from "@/components/StarRating";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 function toDateInputValue(value: string | null | undefined): string {
@@ -110,7 +111,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
       .eq("user_id", user.id);
     setSaving(false);
     if (err) {
-      setSaveError(err.message);
+      setSaveError(formatAddFlowError(err));
       hapticError();
       return;
     }

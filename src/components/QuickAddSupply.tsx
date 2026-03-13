@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -128,7 +129,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         .from("journal-photos")
         .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
       if (uploadErr) {
-        setError(uploadErr.message);
+        setError(formatAddFlowError(uploadErr));
         return;
       }
       setPhotoFile(null);
@@ -164,7 +165,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setImportError((data.error as string) ?? "Import failed");
+        setImportError(formatAddFlowError((data.error as string) ?? undefined));
         return;
       }
       setName((data.name as string) ?? "");
@@ -185,7 +186,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
       setImportUrl("");
       setScreen("form");
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : "Import failed");
+      setImportError(formatAddFlowError(err));
     } finally {
       setImporting(false);
     }
@@ -261,7 +262,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
           onClose();
         }, 800);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save.");
+        setError(formatAddFlowError(err));
       } finally {
         setSubmitting(false);
       }

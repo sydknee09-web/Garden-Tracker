@@ -45,6 +45,10 @@ const AddPlantModal = dynamic(
   () => import("@/components/AddPlantModal").then((m) => ({ default: m.AddPlantModal })),
   { ssr: false }
 );
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 
 const QRScannerModal = dynamic(
@@ -54,6 +58,7 @@ const QRScannerModal = dynamic(
 import { supabase } from "@/lib/supabase";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { hasPendingReviewData, clearReviewImportData } from "@/lib/reviewImportStorage";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
@@ -132,13 +137,9 @@ function VaultPageInner() {
   const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [universalAddMenuOpen, setUniversalAddMenuOpen] = useState(false);
   const [shedModalOpen, setShedModalOpen] = useState(false);
   const [shedSelectionState, setShedSelectionState] = useState<{ shedBatchSelectMode: boolean; selectedSupplyIds: Set<string> }>({ shedBatchSelectMode: false, selectedSupplyIds: new Set() });
   const shedActionsRef = useRef<{ openSelectionActions: () => void; openQuickAdd: () => void; closeAllShedModals: () => void } | null>(null);
-  const [showAddPlantModal, setShowAddPlantModal] = useState(false);
-  const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
@@ -146,27 +147,38 @@ function VaultPageInner() {
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
-  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false);
-  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [packetModalOpen, setPacketModalOpen] = useState(false);
   const packetActionsRef = useRef<{ openSelectionActions: () => void; closeAllPacketModals: () => void } | null>(null);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
-  const anyModalOpen = quickAddOpen || batchAddOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || universalAddMenuOpen || showAddPlantModal || newTaskModalOpen || quickLogOpen || packetModalOpen;
+  const {
+    addMenuOpen,
+    setAddMenuOpen,
+    activeModal,
+    addPlantDefaultType,
+    openMenu,
+    closeMenu,
+    openSeed,
+    openShed,
+    openPlant,
+    openTask,
+    openJournal,
+    closeActiveModal,
+    backToMenu,
+    closeAll,
+  } = useUniversalAddModals();
+
+  const anyModalOpen = batchAddOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || addMenuOpen || !!activeModal || packetModalOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
-    setQuickAddOpen(false);
     setQrPrefill(null);
     setBatchAddOpen(false);
     setPurchaseOrderOpen(false);
     shedActionsRef.current?.closeAllShedModals?.();
     packetActionsRef.current?.closeAllPacketModals?.();
-    setUniversalAddMenuOpen(false);
-    setShowAddPlantModal(false);
-    setNewTaskModalOpen(false);
-    setQuickLogOpen(false);
+    closeAll();
     setScannerOpen(false);
-  }, []), skipPopOnNavigateRef);
+  }, [closeAll]), skipPopOnNavigateRef);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
   const [batchSelectMode, setBatchSelectMode] = useState(false);
@@ -326,10 +338,10 @@ function VaultPageInner() {
   // Open Quick Add when linked from home "Add a variety I don't have"
   useEffect(() => {
     if (searchParams.get("open") === "quickadd") {
-      setQuickAddOpen(true);
+      openSeed();
       router.replace("/vault", { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, openSeed]);
 
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
@@ -873,9 +885,9 @@ function VaultPageInner() {
     if (Object.keys(prefill).length > 0) {
       setQrPrefill(prefill);
       setScannerOpen(false);
-      setQuickAddOpen(true);
+      openSeed();
     }
-  }, [router]);
+  }, [router, openSeed]);
 
   return (
     <VaultShedWingProvider viewMode={viewMode} onSaveMessage={setSaveToastMessage}>
@@ -1606,10 +1618,10 @@ function VaultPageInner() {
             packetActionsRef.current?.openSelectionActions?.();
           } else if (viewMode === "shed" && shedSelectionState.shedBatchSelectMode && shedSelectionState.selectedSupplyIds.size > 0) {
             shedActionsRef.current?.openSelectionActions?.();
-          } else if (universalAddMenuOpen) {
-            setUniversalAddMenuOpen(false);
+          } else if (addMenuOpen) {
+            closeMenu();
           } else {
-            setUniversalAddMenuOpen(true);
+            setAddMenuOpen(true);
           }
         }}
         className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
@@ -1617,7 +1629,7 @@ function VaultPageInner() {
           (viewMode === "list" && packetSelectionState.batchSelectMode && packetSelectionState.selectedPacketIds.size > 0) ||
           (viewMode === "shed" && shedSelectionState.shedBatchSelectMode && shedSelectionState.selectedSupplyIds.size > 0)
             ? "bg-amber-500 text-white"
-            : universalAddMenuOpen
+            : addMenuOpen || !!activeModal
               ? "bg-emerald-700 text-white"
               : "bg-emerald text-white"
         }`}
@@ -1625,7 +1637,7 @@ function VaultPageInner() {
         aria-label={
           (viewMode === "grid" && batchSelectMode) || (viewMode === "list" && packetSelectionState.batchSelectMode) || (viewMode === "shed" && shedSelectionState.shedBatchSelectMode)
             ? "Selection actions"
-            : universalAddMenuOpen
+            : addMenuOpen
               ? "Close add menu"
               : "Add"
         }
@@ -1647,7 +1659,7 @@ function VaultPageInner() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`transition-transform duration-200 ${quickAddOpen || shedModalOpen ? "rotate-45" : "rotate-0"}`}
+            className={`transition-transform duration-200 ${addMenuOpen || !!activeModal ? "rotate-45" : "rotate-0"}`}
             aria-hidden
           >
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -1656,120 +1668,117 @@ function VaultPageInner() {
         )}
       </button>
 
-      {universalAddMenuOpen && (
+      {addMenuOpen && (
         <UniversalAddMenu
-          open={universalAddMenuOpen}
-          onClose={() => setUniversalAddMenuOpen(false)}
+          open={addMenuOpen}
+          onClose={closeMenu}
           pathname={pathname ?? "/vault"}
-          onAddSeed={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickAddOpen(true);
-          }}
-          onAddPlantManual={(defaultType) => {
-            setUniversalAddMenuOpen(false);
-            setAddPlantDefaultType(defaultType);
-            setShowAddPlantModal(true);
-          }}
+          onAddSeed={openSeed}
+          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
-            setUniversalAddMenuOpen(false);
+            closeAll();
             router.push("/vault/plant?from=vault");
           }}
           onAddPlantPurchaseOrder={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setPurchaseOrderMode("seed");
             setPurchaseOrderAddPlantMode(true);
             setPurchaseOrderOpen(true);
           }}
           onAddPlantPhotoImport={() => {
-            setUniversalAddMenuOpen(false);
+            closeAll();
             setBatchAddPlantMode(true);
             setBatchAddOpen(true);
           }}
-          onAddToShed={() => {
-            setShedModalOpen(true); // keep anyModalOpen=true so useModalBackClose doesn't fire history.back() before the shed context updates
-            setUniversalAddMenuOpen(false);
-            shedActionsRef.current?.openQuickAdd?.();
-          }}
-          onAddTask={() => {
-            setUniversalAddMenuOpen(false);
-            setNewTaskModalOpen(true);
-          }}
-          onAddJournal={() => {
-            setUniversalAddMenuOpen(false);
-            setQuickLogOpen(true);
+          onAddToShed={openShed}
+          onAddTask={openTask}
+          onAddJournal={openJournal}
+        />
+      )}
+
+      {activeModal === "journal" && (
+        <QuickLogModal
+          open
+          onClose={closeActiveModal}
+          onJournalAdded={() => {
+            router.refresh();
+            closeActiveModal();
+            refetch();
           }}
         />
       )}
 
-      <QuickLogModal
-        open={quickLogOpen}
-        onClose={() => setQuickLogOpen(false)}
-        onJournalAdded={() => {
-          router.refresh();
-          setQuickLogOpen(false);
-          refetch();
-        }}
-      />
-
-      {newTaskModalOpen && (
+      {activeModal === "task" && (
         <NewTaskModal
-          open={newTaskModalOpen}
-          onClose={() => setNewTaskModalOpen(false)}
-          onBackToMenu={() => {
-            setNewTaskModalOpen(false);
-            setUniversalAddMenuOpen(true);
+          open
+          onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
+        />
+      )}
+
+      {activeModal === "seed" && (
+        <QuickAddSeed
+          open
+          onClose={() => { setQrPrefill(null); closeActiveModal(); }}
+          onBackToMenu={() => { setQrPrefill(null); backToMenu(); }}
+          onSuccess={(opts) => {
+            if (opts?.newProfileId) {
+              closeActiveModal();
+              router.push(`/vault/${opts.newProfileId}`);
+              return;
+            }
+            refetch();
+            router.refresh();
+            if (opts?.photoBlocked) {
+              setSaveToastMessage("Seed details saved. Product photo could not be saved.");
+            }
+          }}
+          initialPrefill={qrPrefill}
+          onOpenBatch={() => {
+            closeActiveModal();
+            setBatchAddPlantMode(false);
+            setBatchAddOpen(true);
+          }}
+          onOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            router.push("/vault/import?embed=1");
+          }}
+          onStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            router.push("/vault/import/manual");
+          }}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
+            setPurchaseOrderOpen(true);
           }}
         />
       )}
 
-      <QuickAddSeed
-        open={quickAddOpen}
-        onClose={() => {
-          setQuickAddOpen(false);
-          setQrPrefill(null);
-        }}
-        onBackToMenu={() => {
-          setQuickAddOpen(false);
-          setQrPrefill(null);
-          setUniversalAddMenuOpen(true);
-        }}
-        onSuccess={(opts) => {
-          if (opts?.newProfileId) {
-            setQuickAddOpen(false);
-            router.push(`/vault/${opts.newProfileId}`);
-            return;
-          }
-          refetch();
-          router.refresh();
-          if (opts?.photoBlocked) {
-            setSaveToastMessage("Seed details saved. Product photo could not be saved.");
-          }
-        }}
-        initialPrefill={qrPrefill}
-        onOpenBatch={() => {
-          setQuickAddOpen(false);
-          setBatchAddPlantMode(false);
-          setBatchAddOpen(true);
-        }}
-        onOpenLinkImport={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddOpen(false);
-          router.push("/vault/import?embed=1");
-        }}
-        onStartManualImport={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddOpen(false);
-          router.push("/vault/import/manual");
-        }}
-        onOpenPurchaseOrder={() => {
-          skipPopOnNavigateRef.current = true;
-          setQuickAddOpen(false);
-          setPurchaseOrderMode("seed");
-          setPurchaseOrderAddPlantMode(false);
-          setPurchaseOrderOpen(true);
-        }}
-      />
+      {activeModal === "shed" && (
+        <QuickAddSupply
+          open
+          onClose={closeActiveModal}
+          onSuccess={() => refetch()}
+          onBackToMenu={backToMenu}
+          onOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            setPurchaseOrderMode("supply");
+            setPurchaseOrderOpen(true);
+          }}
+          onOpenBatchPhotoImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeActiveModal();
+            router.push("/shed/review-import");
+          }}
+        />
+      )}
 
       {batchAddOpen && (
         <BatchAddSeed
@@ -1796,7 +1805,7 @@ function VaultPageInner() {
       )}
 
       <VaultShedWingModals
-        onOpenUniversalAddMenu={() => setUniversalAddMenuOpen(true)}
+        onOpenUniversalAddMenu={openMenu}
         onOpenPurchaseOrderSupply={() => {
           skipPopOnNavigateRef.current = true;
           setPurchaseOrderMode("supply");
@@ -1805,11 +1814,11 @@ function VaultPageInner() {
         skipPopOnNavigateRef={skipPopOnNavigateRef}
       />
 
-      {showAddPlantModal && (
+      {activeModal === "plant" && (
         <AddPlantModal
-          open={showAddPlantModal}
-          onClose={() => setShowAddPlantModal(false)}
-          onSuccess={() => refetch()}
+          open
+          onClose={closeActiveModal}
+          onSuccess={() => { closeActiveModal(); refetch(); }}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}
         />

@@ -16,6 +16,7 @@ import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { ImageCropModal } from "@/components/ImageCropModal";
 
 /** Today's date in YYYY-MM-DD for default purchase date. */
@@ -370,7 +371,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       router.push("/vault/import/photos");
     } catch (e) {
       const isQuota = e instanceof DOMException && (e.name === "QuotaExceededError" || (e as { code?: number }).code === 22);
-      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : (e instanceof Error ? e.message : "Preparation failed"));
+      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : formatAddFlowError(e));
     } finally {
       setGeminiProcessing(false);
       setBatchProgress(null);
@@ -402,14 +403,14 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       });
 
       if (!res.ok) {
-        setError("Failed to process order confirmation.");
+        setError(formatAddFlowError(new Error("Failed to process order confirmation.")));
         setOrderProcessing(false);
         return;
       }
 
       const data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
       if (data.error) {
-        setError(data.error);
+        setError(formatAddFlowError(data.error));
         setOrderProcessing(false);
         return;
       }
@@ -436,7 +437,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       onClose();
       router.push("/vault/review-import");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Order scan failed");
+      setError(formatAddFlowError(e));
     } finally {
       setOrderProcessing(false);
     }
@@ -525,13 +526,13 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         setPendingPhotoHeroImport({ items: pendingItems });
       } catch (storageErr) {
         const isQuota = storageErr instanceof DOMException && (storageErr.name === "QuotaExceededError" || (storageErr as { code?: number }).code === 22);
-        setError(isQuota ? "Too much data for storage—try fewer photos." : "Could not save batch for next step.");
+        setError(isQuota ? "Too much data for storage—try fewer photos." : formatAddFlowError(storageErr));
         setSaving(false);
         return;
       }
       const verified = getPendingPhotoHeroImport();
       if (!verified?.items?.length || verified.items.length !== pendingItems.length) {
-        setError("Could not save batch (storage limit?). Try fewer photos.");
+        setError(formatAddFlowError(new Error("Could not save batch (storage limit?). Try fewer photos.")));
         setSaving(false);
         return;
       }
@@ -547,7 +548,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       }
     } catch (e) {
       const isQuota = e instanceof DOMException && (e.name === "QuotaExceededError" || (e as { code?: number }).code === 22);
-      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : (e instanceof Error ? e.message : "Preparation failed"));
+      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : formatAddFlowError(e));
     } finally {
       setSaving(false);
     }
@@ -568,7 +569,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         if (!bucketEnsured) {
           const ensureRes = await fetch("/api/seed/ensure-storage-bucket", { method: "POST" });
           if (!ensureRes.ok) {
-            setError((await ensureRes.json()).error ?? "Storage bucket unavailable");
+            setError(formatAddFlowError((await ensureRes.json()).error ?? "Storage bucket unavailable"));
             setSaving(false);
             return;
           }
@@ -582,7 +583,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
           cacheControl: "31536000",
         });
         if (uploadErr) {
-          setError(uploadErr.message);
+          setError(formatAddFlowError(uploadErr));
           setSaving(false);
           return;
         }
@@ -624,7 +625,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
           .select("id")
           .single();
         if (profileErr) {
-          setError(profileErr.message);
+          setError(formatAddFlowError(profileErr));
           setSaving(false);
           return;
         }
@@ -642,7 +643,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         ...(tagsToSave.length > 0 && { tags: tagsToSave }),
       });
       if (packetErr) {
-        setError(packetErr.message);
+        setError(formatAddFlowError(packetErr));
         setSaving(false);
         return;
       }

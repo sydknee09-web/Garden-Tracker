@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertManyWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 
@@ -60,7 +61,7 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       setSaving(false);
       if (insertError) {
         hapticError();
-        setError(insertError.message);
+        setError(formatAddFlowError(insertError));
         return;
       }
       hapticSuccess();

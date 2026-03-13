@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import type { CareSchedule, GrowInstance, SupplyProfile } from "@/types/garden";
@@ -140,12 +141,12 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         ? await updateWithOfflineQueue("care_schedules", payload, { id: editingId, user_id: userId })
         : await insertWithOfflineQueue("care_schedules", payload);
 
-      if (error) { setSaveError("Failed to save schedule. Try again."); setSaving(false); return; }
+      if (error) { setSaveError(formatAddFlowError(error)); setSaving(false); return; }
 
       resetForm();
       onChanged();
-    } catch {
-      setSaveError("Something went wrong. Try again.");
+    } catch (err) {
+      setSaveError(formatAddFlowError(err));
     } finally {
       setSaving(false);
     }
@@ -158,13 +159,13 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     try {
       const now = new Date().toISOString();
       const { error } = await updateWithOfflineQueue("care_schedules", { is_active: false, deleted_at: now }, { id: scheduleId, user_id: ownerId });
-      if (error) { setSaveError("Failed to remove schedule."); return; }
+      if (error) { setSaveError(formatAddFlowError(error)); return; }
       // Cascade: soft-delete tasks generated from this schedule so they don't appear as ghosts on Calendar
       await supabase.from("tasks").update({ deleted_at: now }).eq("care_schedule_id", scheduleId).eq("user_id", ownerId);
       setSaveError(null);
       onChanged();
-    } catch {
-      setSaveError("Something went wrong. Try again.");
+    } catch (err) {
+      setSaveError(formatAddFlowError(err));
     }
   }, [userId, schedules, onChanged]);
 

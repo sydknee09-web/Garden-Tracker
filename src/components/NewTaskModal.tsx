@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import type { TaskType, Task } from "@/types/garden";
@@ -140,7 +141,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
             .eq("id", editTask.id)
             .eq("user_id", taskOwnerId);
           if (updateErr) {
-            setError(updateErr.message);
+            setError(formatAddFlowError(updateErr));
             hapticError();
             return;
           }
@@ -170,7 +171,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
             .single();
 
           if (schedErr || !scheduleRow) {
-            setError(schedErr?.message ?? "Failed to create recurring schedule.");
+            setError(formatAddFlowError(schedErr ?? new Error("Failed to create recurring schedule.")));
             hapticError();
             return;
           }
@@ -194,7 +195,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
             title: titleTrim,
           });
           if (insertErr) {
-            setError(insertErr.message);
+            setError(formatAddFlowError(insertErr));
             hapticError();
             return;
           }

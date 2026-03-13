@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 
 interface Props {
@@ -107,7 +108,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       onSaved();
       onClose();
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setErrorMessage(formatAddFlowError(err));
     } finally {
       setSaving(false);
     }

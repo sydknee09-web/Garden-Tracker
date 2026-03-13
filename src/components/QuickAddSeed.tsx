@@ -13,6 +13,7 @@ import { Combobox } from "@/components/Combobox";
 import { setPendingManualAdd } from "@/lib/reviewImportStorage";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
@@ -284,7 +285,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       ...(priceVal && { price: priceVal }),
     });
     if (packetErr) {
-      setError(packetErr.message);
+      setError(formatAddFlowError(packetErr));
       setSubmitting(false);
       return;
     }
@@ -358,7 +359,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
         .select("id")
         .single();
       if (profileErr) {
-        setError(profileErr.message);
+        setError(formatAddFlowError(profileErr));
         setSubmitting(false);
         return;
       }
@@ -432,7 +433,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       });
       if (packetErr) {
         setSubmitting(false);
-        setError(packetErr.message);
+        setError(formatAddFlowError(packetErr));
         return;
       }
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", match.id).eq("user_id", userId);
