@@ -1009,11 +1009,7 @@ export default function VaultSeedPage() {
           </div>
         )}
 
-        {toastMessage && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-luxury text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
-            {toastMessage}
-          </div>
-        )}
+        {toastMessage}
 
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">

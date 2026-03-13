@@ -1205,13 +1205,16 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
-                      <p className="text-xs text-black/50 mt-0.5">
-                        Sown {new Date(batch.sown_date).toLocaleDateString()} – {label}
-                        {batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sown} sown</span>}
-                        {batch.seeds_sprouted != null && batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sprouted} of {batch.seeds_sown} sprouted</span>}
-                        {batch.seeds_sprouted != null && batch.seeds_sown == null && <span className="ml-1"> · {batch.seeds_sprouted} sprouted</span>}
-                        {batch.plant_count != null && <span className="ml-1 font-medium text-emerald-600"> · {batch.plant_count} plants</span>}
-                        {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> · Harvested {batch.harvest_count}x</span>}
+                      <p className="text-xs text-black/50 mt-0.5 space-y-0.5">
+                        <span className="block">Sown {new Date(batch.sown_date).toLocaleDateString()}</span>
+                        <span className="block">
+                          {label}
+                          {batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sown} sown</span>}
+                          {batch.seeds_sprouted != null && batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sprouted} of {batch.seeds_sown} sprouted</span>}
+                          {batch.seeds_sprouted != null && batch.seeds_sown == null && <span className="ml-1"> · {batch.seeds_sprouted} sprouted</span>}
+                          {batch.plant_count != null && <span className="ml-1 font-medium text-emerald-600"> · {batch.plant_count} plants</span>}
+                          {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> · Harvested {batch.harvest_count}x</span>}
+                        </span>
                       </p>
                       {progress != null && (
                         <div className="mt-2 h-2 rounded-full bg-black/10 overflow-hidden">

@@ -27,6 +27,7 @@ interface PlantProfileSummary {
   variety_name?: string | null;
   hero_image_url?: string | null;
   hero_image_path?: string | null;
+  primary_image_path?: string | null;
   plant_type?: string | null;
 }
 
@@ -130,6 +131,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
 
   const [grow, setGrow] = useState<GrowInstance | null>(null);
   const [profile, setProfile] = useState<PlantProfileSummary | null>(null);
+  const [packetImagePath, setPacketImagePath] = useState<string | null>(null);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [supplyMap, setSupplyMap] = useState<Record<string, SupplyProfile>>({});
@@ -163,11 +165,37 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
       if (growErr || !growData) { setError("Plant not found."); setLoading(false); return; }
       setGrow(growData as GrowInstance);
 
+      // Linked seed packet image (fallback when profile has no hero)
+      let packetPath: string | null = null;
+      if (growData.seed_packet_id) {
+        const { data: pkt } = await supabase
+          .from("seed_packets")
+          .select("primary_image_path")
+          .eq("id", growData.seed_packet_id)
+          .is("deleted_at", null)
+          .single();
+        const p = (pkt as { primary_image_path?: string | null } | null)?.primary_image_path?.trim();
+        if (p) packetPath = p;
+      }
+      if (!packetPath && growData.plant_profile_id) {
+        const { data: pkts } = await supabase
+          .from("seed_packets")
+          .select("primary_image_path")
+          .eq("plant_profile_id", growData.plant_profile_id)
+          .is("deleted_at", null)
+          .not("primary_image_path", "is", null)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        const p = (pkts?.[0] as { primary_image_path?: string } | undefined)?.primary_image_path?.trim();
+        if (p) packetPath = p;
+      }
+      setPacketImagePath(packetPath);
+
       // Plant profile
       if (growData.plant_profile_id) {
         const { data: profileData } = await supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, hero_image_url, hero_image_path, plant_type")
+          .select("id, name, variety_name, hero_image_url, hero_image_path, primary_image_path, plant_type")
           .eq("id", growData.plant_profile_id)
           .single();
         if (profileData) setProfile(profileData as PlantProfileSummary);
@@ -230,18 +258,26 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
   const trapRef = useFocusTrap(true);
 
   // ---------------------------------------------------------------------------
-  // Hero image (Law 7 for this grow)
+  // Hero image (Law 7 for this grow: journal → profile hero → profile packet → sprout)
   // ---------------------------------------------------------------------------
   function heroImageUrl(): string | null {
     // 1. Latest journal photo for this grow
     const firstWithPhoto = journalEntries.find((e) => e.image_file_path || e.photo_url);
     if (firstWithPhoto) return getJournalImageUrl(firstWithPhoto);
     // 2. Plant profile hero_image_path (journal-photos bucket)
-    if (profile?.hero_image_path) {
-      return supabase.storage.from("journal-photos").getPublicUrl(profile.hero_image_path).data.publicUrl;
+    if (profile?.hero_image_path?.trim()) {
+      return supabase.storage.from("journal-photos").getPublicUrl(profile.hero_image_path.trim()).data.publicUrl;
     }
     // 3. Plant profile hero_image_url (external)
     if (!isPlaceholderHeroUrl(profile?.hero_image_url)) return profile?.hero_image_url ?? null;
+    // 4. Plant profile packet image (primary_image_path in seed-packets bucket)
+    if (profile?.primary_image_path?.trim()) {
+      return supabase.storage.from("seed-packets").getPublicUrl(profile.primary_image_path.trim()).data.publicUrl;
+    }
+    // 5. Linked or profile packet image (from seed_packets)
+    if (packetImagePath) {
+      return supabase.storage.from("seed-packets").getPublicUrl(packetImagePath).data.publicUrl;
+    }
     return null;
   }
 
@@ -281,6 +317,16 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
     const supply = fertEntry.supply_profile_id ? supplyMap[fertEntry.supply_profile_id] : null;
     const productName = supply ? [supply.brand, supply.name].filter(Boolean).join(" ") || supply.name : null;
     return { date: fertEntry.created_at, productName };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Last watered (from quick journal entries with "watered" in note)
+  // ---------------------------------------------------------------------------
+  function lastWatered(): string | null {
+    const wateredEntry = journalEntries.find(
+      (e) => e.entry_type === "quick" && (e.note ?? "").toLowerCase().includes("watered")
+    );
+    return wateredEntry?.created_at ?? null;
   }
 
   // ---------------------------------------------------------------------------
@@ -353,7 +399,16 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
   const heroUrl = heroImageUrl();
   const milestone = nextMilestone();
   const fertInfo = lastFertilized();
+  const lastWateredAt = lastWatered();
   const canEdit = grow.user_id === user?.id;
+  const germinationLabel =
+    grow.seeds_sown != null && grow.seeds_sown > 0
+      ? grow.seeds_sprouted != null
+        ? `${grow.seeds_sprouted}/${grow.seeds_sown} sprouted`
+        : "0 sprouted"
+      : grow.seeds_sprouted != null
+        ? `${grow.seeds_sprouted} sprouted`
+        : null;
 
   const displayTitle = profile
     ? (profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name)
@@ -445,9 +500,9 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* HERO IMAGE                                                          */}
+      {/* HERO IMAGE — full-bleed 220px with name + age overlay */}
       {/* ------------------------------------------------------------------ */}
-      <div className="relative w-full aspect-[16/9] bg-neutral-100 overflow-hidden">
+      <div className="relative w-full h-[220px] bg-neutral-100 overflow-hidden shrink-0">
         {heroUrl ? (
           <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
         ) : (
@@ -455,11 +510,19 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             <PlantPlaceholderIcon size="lg" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-4 pb-3">
+          <h2 className="text-white font-semibold text-lg leading-tight" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
+            {displayTitle}
+          </h2>
+          <p className="text-white/95 text-sm mt-0.5 font-medium" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+            {formatAge(grow.sown_date, grow.ended_at)}
+          </p>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* STATS BAR                                                           */}
+      {/* VITALITY BAR — horizontal scroll */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white border-b border-neutral-100 overflow-x-auto">
         <div className="flex gap-0 divide-x divide-neutral-100 px-2 py-1 min-w-max">
@@ -475,11 +538,25 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
               {grow.status ?? "unknown"}
             </span>
           </div>
+          {/* Germination */}
+          {germinationLabel && (
+            <div className="flex flex-col items-center px-4 py-2 min-w-[120px]">
+              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Germination</span>
+              <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center">{germinationLabel}</span>
+            </div>
+          )}
           {/* Next milestone */}
           {milestone && (
             <div className="flex flex-col items-center px-4 py-2 min-w-[120px] max-w-[200px]">
               <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Milestone</span>
               <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center leading-tight">{milestone}</span>
+            </div>
+          )}
+          {/* Last watered */}
+          {lastWateredAt && (
+            <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
+              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Last watered</span>
+              <span className="text-xs font-medium text-neutral-700 mt-0.5 text-center">{formatShortDate(lastWateredAt)}</span>
             </div>
           )}
           {/* Location */}
