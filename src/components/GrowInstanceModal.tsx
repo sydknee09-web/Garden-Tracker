@@ -715,7 +715,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* BOTTOM NAV: To Vault / To Garden                                     */}
+      {/* BOTTOM NAV: Navigate to Vault (plant profile) / Navigate to Garden    */}
       {/* ------------------------------------------------------------------ */}
       <div className="px-4 pb-8 pt-4 border-t border-neutral-100 bg-white">
         <div className="flex gap-2">
@@ -725,7 +725,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
               className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100"
             >
               <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
-              To Vault
+              Navigate to Vault
             </Link>
           )}
           <button
@@ -734,7 +734,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
           >
             <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-            To Garden
+            Navigate to Garden
           </button>
         </div>
       </div>

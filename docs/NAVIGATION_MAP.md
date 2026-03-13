@@ -195,45 +195,45 @@ QuickAddSupply internal screens: `"choose"` | `"link"` | `"form"`. Back from **c
 
 | Plant type | Tap plant card | Destination |
 |------------|-----------------|-------------|
-| **Permanent** (trees, perennials) | All plants | `/garden/grow/[grow_id]?from=profile` — Grow Instance page |
-| **Seasonal** (active) | Active plantings only | `/garden/grow/[grow_id]?from=profile` — Grow Instance page |
+| **Permanent** (trees, perennials) | All plants | `/garden?grow=[grow_id]&from=profile&profile=[profile_id]` — Grow Instance popup on Garden |
+| **Seasonal** (active) | Active plantings only | `/garden?grow=[grow_id]&from=profile&profile=[profile_id]` — Grow Instance popup on Garden |
 | **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
 
 Add plant / Add planting: Removed from profile page. Users add plants via the Universal Add Menu (FAB) from Home, Vault, Garden, Journal, or Calendar.
 
 ---
 
-## Grow Instance page (`/garden/grow/[id]`)
+## Grow Instance popup (modal on Garden)
 
-Dedicated page for one specific plant (one `grow_instance`). Shows age, status, next milestone, task history, last fertilized, and notes. Distinct from the Vault plant profile (variety page).
+One specific plant (one `grow_instance`) is shown in a **full-screen modal** on the Garden page when the URL has `?grow=[id]`. Shows age, status, next milestone, task history, last fertilized, and photos. Distinct from the Vault plant profile (variety page). **Purely informational** — notes/photos are added via Journal.
 
-### Back behavior
+**Redirect:** The route `/garden/grow/[id]` redirects to `/garden?grow=[id]` (and preserves `from`, `profile`, `gardenTab` query params) so old links and bookmarks still work.
 
-| `from` + `gardenTab` | Destination |
-|----------------------|-------------|
-| `from=profile` | `/vault/[plant_profile_id]?tab=plantings` |
-| `from=garden&gardenTab=active` | `/garden?tab=active` |
-| `from=garden&gardenTab=plants` | `/garden?tab=plants` |
-| No `from` (fallback) | `/garden` (or `/garden?tab=plants` for permanent plantings) |
+### Back / Close behavior
+
+| Context | Back or Close | Result |
+|---------|----------------|--------|
+| `from=profile` and `profile=` in URL | Back button or Escape or To Garden | Navigate to `/vault/[profile_id]`, modal closes |
+| From Garden (no from=profile) | Back button or Escape or To Garden | Modal closes; URL becomes `/garden?tab=active` or `tab=plants` |
 
 ### Entry points
 
 | Source | Link |
 |--------|------|
-| Plant profile → Plantings tab (all types) | `/garden/grow/[id]?from=profile` |
-| Garden (Active) — grid card tap | `/garden/grow/[id]?from=garden&gardenTab=active` |
-| Garden (Active) — list card tap | `/garden/grow/[id]?from=garden&gardenTab=active` |
-| Garden (My Plants) — card tap | `/garden/grow/[id]?from=garden&gardenTab=plants` |
+| Plant profile → Plantings tab (all types) | `/garden?grow=[id]&from=profile&profile=[profile_id]` |
+| Garden (Active) — grid or list card tap | `/garden?tab=active&grow=[id]` |
+| Garden (My Plants) — card tap | `/garden?tab=plants&grow=[id]` |
 
-### Actions within page
+### Actions within popup
 
 | Action | Behavior |
 |--------|----------|
-| **About variety** link (header) | Navigate to `/vault/[plant_profile_id]` |
-| **Long-press** | Not applicable — no swipe-to-navigate on this page |
-| **Red trash (archive)** | Confirm dialog → sets `status = archived`, `ended_at`, `end_reason = archived`. Plant stays in history. |
+| **Plant name** (header) | When profile exists: link to `/vault/[plant_profile_id]` |
+| **About variety** (header) | Navigate to `/vault/[plant_profile_id]` |
+| **Red trash (archive)** | Confirm dialog → sets `status = archived`, `ended_at`, `end_reason = archived`. Then close modal (and navigate to vault if from=profile). |
 | **Edit location** | Inline tap on Location stat → text input, saves on Enter or ✓ button |
-| **Add note** (Notes tab) | Opens QuickLogModal pre-scoped to this plant profile |
+| **To Vault** (bottom) | Link to plant profile |
+| **To Garden** (bottom) | Close modal (stay on Garden) |
 
 ### Vault – selection mode
 
@@ -393,3 +393,4 @@ When navigating between top-level sections (Vault, Garden, Journal, etc.), filte
 | 2025-03-10 | FAB coordinate map: Added section documenting UniversalAdd → Add to Supply transition and Back handling (state, parent pattern, per-page wiring). |
 | 2025-03-11 | Phase 0 (Universal Add audit): **Stay + Refresh** for all FAB add paths. **Only** intentional redirect: when user creates a **new plant profile** (new variety) → redirect to `/vault/[id]`. QuickAddSeed passes `newProfileId` in `onSuccess` when a new profile is created (manual "Save for later"); AddPlantModal redirects when `createdProfileId && !stayInGarden`. All other adds (packet to existing, supply, task, journal, grow instance on existing profile) stay on page and refresh. |
 | 2025-03-10 | Add to shed: Documented stay-in-place behavior (no navigation/URL change; modal overlay only). QuickAddSupply on Vault is globally available from any tab (Grid, List, Shed) via VaultShedWingModals. |
+| 2025-03-11 | Grow instance: **Popup modal** on Garden instead of dedicated page. Entry via `/garden?grow=[id]` (from Vault: `&from=profile&profile=[id]`; from Garden: `&tab=active` or `tab=plants`). Route `/garden/grow/[id]` redirects to `/garden?grow=[id]`. Modal: plant name in header links to plant profile; Back/Escape/To Garden close; from=profile → close navigates to vault profile. Notes tab removed; page purely informational. |
