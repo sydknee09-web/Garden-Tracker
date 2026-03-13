@@ -549,6 +549,11 @@ export default function VaultSeedPage() {
     setHeroImageLoaded(false);
   }, [heroImageUrl]);
 
+  // Permanent plants don't have seed packets — redirect away from the packets tab.
+  useEffect(() => {
+    if (isPermanent && activeTab === "packets") setActiveTab("care");
+  }, [isPermanent, activeTab]);
+
   // Quick stats
   const packetCount = packets.length;
   const plantingsCount = growInstances.length;
@@ -1190,9 +1195,12 @@ export default function VaultSeedPage() {
           )}
         </div>
 
-        {/* Tabs — About, Care, Packets, Plantings, Journal. Equal spacing between, fit on one line. */}
+        {/* Tabs — permanent: About/Care/Plantings/Journal; seed: About/Care/Packets/Plantings/Journal */}
         <div className="flex flex-nowrap items-stretch border-b border-neutral-200 gap-x-2 sm:gap-x-3 mb-4">
-          {(["about","care","packets","plantings","journal"] as const).map((tab) => (
+          {(isPermanent
+            ? (["about","care","plantings","journal"] as const)
+            : (["about","care","packets","plantings","journal"] as const)
+          ).map((tab) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
               {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
