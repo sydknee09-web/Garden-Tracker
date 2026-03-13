@@ -15,6 +15,7 @@ import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { hapticSuccess } from "@/lib/haptics";
+import { useToast } from "@/hooks/useToast";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
 
 const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
@@ -52,7 +53,7 @@ export default function VaultShedDetailPage() {
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [enriching, setEnriching] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { toast: toastMessage, showToast: setToastMessage } = useToast();
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
   const [shedSackFallbackFailed, setShedSackFallbackFailed] = useState(false);
 
@@ -193,7 +194,6 @@ export default function VaultShedDetailPage() {
       }
     } else {
       setToastMessage("Added to shopping list");
-      setTimeout(() => setToastMessage(null), 2500);
     }
   }, [user?.id, supply?.id]);
 
@@ -269,10 +269,8 @@ export default function VaultShedDetailPage() {
         await fetchSupply();
         setToastMessage("Product details filled");
       }
-      setTimeout(() => setToastMessage(null), 2500);
     } catch (e) {
       setToastMessage(e instanceof Error ? e.message : "Failed to fill details");
-      setTimeout(() => setToastMessage(null), 2500);
     } finally {
       setEnriching(false);
     }
@@ -302,10 +300,8 @@ export default function VaultShedDetailPage() {
         setShowSetPhotoModal(false);
         await fetchSupply();
         setToastMessage("Photo added");
-        setTimeout(() => setToastMessage(null), 2500);
       } catch (err) {
         setToastMessage(err instanceof Error ? err.message : "Failed to add photo");
-        setTimeout(() => setToastMessage(null), 2500);
       } finally {
         setPhotoSaving(false);
       }
@@ -328,10 +324,8 @@ export default function VaultShedDetailPage() {
       setShowSetPhotoModal(false);
       setSupply((prev) => (prev ? { ...prev, primary_image_path: null } : null));
       setToastMessage("Photo removed");
-      setTimeout(() => setToastMessage(null), 2500);
     } catch (err) {
       setToastMessage(err instanceof Error ? err.message : "Failed to remove photo");
-      setTimeout(() => setToastMessage(null), 2500);
     } finally {
       setPhotoSaving(false);
     }
@@ -363,11 +357,7 @@ export default function VaultShedDetailPage() {
 
   return (
     <div className="px-6 pb-10">
-      {toastMessage && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage}
 
       {showSetPhotoModal && canEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="shed-set-photo-title">
@@ -658,7 +648,6 @@ export default function VaultShedDetailPage() {
         onJournalAdded={() => {
           fetchHistory();
           setToastMessage("Usage logged");
-          setTimeout(() => setToastMessage(null), 2500);
         }}
       />
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useToast } from "@/hooks/useToast";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -71,7 +72,7 @@ export function useVaultEditHandlers({
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [editForm, setEditForm] = useState<VaultEditForm>(EDIT_FORM_DEFAULTS);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { toast: toastMessage, showToast: setToastMessage } = useToast();
 
   useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
 
@@ -242,12 +243,10 @@ export function useVaultEditHandlers({
     if (error) {
       hapticError();
       setToastMessage("Failed to add to shopping list");
-      setTimeout(() => setToastMessage(null), 2500);
       return;
     }
     hapticSuccess();
     setToastMessage("Added to shopping list");
-    setTimeout(() => setToastMessage(null), 2500);
   }, [userId, profileId]);
 
   return {

@@ -85,7 +85,7 @@ export function UniversalAddMenu({
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
                 <div>
-                  <div>Add Seed Packet</div>
+                  <div>Add seed packet</div>
                   <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
                 </div>
               </button>
@@ -156,7 +156,10 @@ export function UniversalAddMenu({
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-                Manual Entry
+                <div>
+                  <div>Manual entry</div>
+                  <div className="text-xs font-normal text-neutral-500">Enter name, variety, notes</div>
+                </div>
               </button>
               <button
                 type="button"
@@ -164,7 +167,10 @@ export function UniversalAddMenu({
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
-                Start Seeds
+                <div>
+                  <div>From Vault</div>
+                  <div className="text-xs font-normal text-neutral-500">Plant from your existing vault</div>
+                </div>
               </button>
               {onAddPlantPurchaseOrder && (
                 <button

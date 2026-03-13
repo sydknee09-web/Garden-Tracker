@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useToast } from "@/hooks/useToast";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -118,7 +119,6 @@ import {
 } from "@/app/vault/components/VaultPacketWing";
 import { VaultGridRefineModal, type GridRefineSection } from "@/app/vault/components/VaultGridRefineModal";
 
-const SAVE_TOAST_DURATION_MS = 5000;
 
 function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
   if (!searchParams) return "grid";
@@ -180,7 +180,7 @@ function VaultPageInner() {
     setScannerOpen(false);
   }, [closeAll]), skipPopOnNavigateRef);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
+  const { toast: saveToastMessage, showToast: setSaveToastMessage } = useToast();
   const [batchSelectMode, setBatchSelectMode] = useState(false);
   const [selectedVarietyIds, setSelectedVarietyIds] = useState<Set<string>>(new Set());
   const [filteredVarietyIds, setFilteredVarietyIds] = useState<string[]>([]);
@@ -852,12 +852,6 @@ function VaultPageInner() {
     setBatchSelectMode(false);
   }, [user?.id, selectedVarietyIds]);
 
-  useEffect(() => {
-    if (!saveToastMessage) return;
-    const t = setTimeout(() => setSaveToastMessage(null), SAVE_TOAST_DURATION_MS);
-    return () => clearTimeout(t);
-  }, [saveToastMessage]);
-
   const toggleTagFilter = gridFilters.toggleTagFilter;
 
   const clearAllFilters = useCallback(() => {
@@ -960,7 +954,7 @@ function VaultPageInner() {
                   : "text-black/60 hover:text-black"
               }`}
             >
-              Plant Profiles
+              Plants
             </button>
             <button
               type="button"
@@ -973,7 +967,7 @@ function VaultPageInner() {
                   : "text-black/60 hover:text-black"
               }`}
             >
-              Seed Vault
+              Packets
             </button>
             <button
               type="button"
@@ -1832,16 +1826,7 @@ function VaultPageInner() {
         />
       )}
 
-      {saveToastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed left-4 right-4 max-w-md mx-auto z-50 px-4 py-3 rounded-xl bg-black/85 text-white text-sm shadow-lg flex items-center justify-center"
-          style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px) + 4rem)" }}
-        >
-          {saveToastMessage}
-        </div>
-      )}
+      {saveToastMessage}
     </div>
     <VaultPacketWingRefineModal />
     <VaultPacketWingModals />
