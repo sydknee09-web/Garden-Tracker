@@ -1415,7 +1415,7 @@ function GardenPageInner() {
             if ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) {
               setSelectionActionsOpen(true);
             } else {
-              setAddMenuOpen((o) => !o);
+              setAddMenuOpen(!addMenuOpen);
             }
           }}
           className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
