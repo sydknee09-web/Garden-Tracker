@@ -107,55 +107,6 @@ export function VaultProfileCareTab({
         </div>
       )}
 
-      {/* Companion planting */}
-      {(() => {
-        const companions = profile?.companion_plants ?? [];
-        const avoid = profile?.avoid_plants ?? [];
-        const hasCompanions = Array.isArray(companions) && companions.length > 0;
-        const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
-        const hasAny = hasCompanions || hasAvoid;
-        return (
-          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-            <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("companion")}>
-              <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
-              <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-            </button>
-            {isAboutOpen("companion") && (
-              <div className="px-4 pb-4 pt-0">
-                {hasAny ? (
-                  <div className="space-y-3">
-                    {hasCompanions && (
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">Plant with</p>
-                        <TagBadges tags={companions} />
-                      </div>
-                    )}
-                    {hasAvoid && (
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {avoid.map((name) => {
-                            const key = name.trim();
-                            if (!key) return null;
-                            return (
-                              <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
-                                {key}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-neutral-500">None known</p>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
       {/* Tags */}
       {profile?.tags && profile.tags.length > 0 && (
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
