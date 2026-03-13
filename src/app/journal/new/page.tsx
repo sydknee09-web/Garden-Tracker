@@ -306,9 +306,10 @@ export default function JournalNewPage() {
       <div className="flex items-center gap-3 mb-2">
         <Link
           href={fromGarden ? "/garden" : "/journal"}
-          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-xl border border-black/10 text-black/80 font-medium"
+          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/10 text-black/80 font-medium"
+          aria-label={fromGarden ? "Back to Garden" : "Back to Journal"}
         >
-          ←
+          ← {fromGarden ? "Garden" : "Journal"}
         </Link>
         <h1 className="text-xl font-semibold text-black">Add Journal Entry</h1>
       </div>

@@ -176,9 +176,16 @@ export default function ShoppingListPage() {
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
             <p className="text-neutral-600 mb-2">No items on your shopping list yet.</p>
-            <p className="text-neutral-500 text-sm">
+            <p className="text-neutral-500 text-sm mb-4">
               Add items by name. You can add to Vault or Shed after you purchase.
             </p>
+            <button
+              type="button"
+              onClick={() => setAddItemModalOpen(true)}
+              className="min-w-[44px] min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            >
+              Add item
+            </button>
           </div>
         ) : (
           <ul className="space-y-2">

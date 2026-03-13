@@ -273,7 +273,7 @@ export default function HomePage() {
   const frostAlert = frostDays.length > 0;
   const sowingOk = currentTemp != null && currentTemp >= 40 && currentTemp <= 90 && !frostAlert;
 
-  const locationLabel = userSettings?.location_name?.trim() || "Vista, CA";
+  const locationLabel = userSettings?.location_name?.trim() || "Set location in Settings";
 
   async function handleMarkPurchased(item: ShoppingItemWithName) {
     if (!user?.id) return;

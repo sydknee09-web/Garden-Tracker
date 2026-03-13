@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
@@ -46,7 +45,6 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
   const [recurringIntervalDays, setRecurringIntervalDays] = useState(30);
   const [recurringEndDate, setRecurringEndDate] = useState("");
 
-  useModalBackClose(open, onClose);
   const trapRef = useFocusTrap(open);
 
   useEffect(() => {

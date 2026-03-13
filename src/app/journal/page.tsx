@@ -481,7 +481,8 @@ export default function JournalPage() {
   return (
     <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
       <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
-        <div className="flex mb-3" role="tablist" aria-label="Journal view">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1 min-w-0" role="tablist" aria-label="Journal view">
           <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
             <button
               type="button"
@@ -526,6 +527,15 @@ export default function JournalPage() {
               <TimelineIcon />
             </button>
           </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => openJournal()}
+            className="shrink-0 min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            aria-label="New journal entry"
+          >
+            <span aria-hidden>+</span> Entry
+          </button>
         </div>
       </div>
 

@@ -48,9 +48,10 @@ describe("Tab wrapper consistency — no justify-center floating island", () => 
     expect(calendarPage).not.toContain("flex justify-center mb-3");
   });
 
-  it("Journal tab wrapper uses left-aligned flex mb-3 to match Garden and Vault", () => {
-    // Journal view tabs (Table/Grid/Timeline) were right-aligned; now left-aligned for consistency.
-    expect(journalPage).toContain("flex mb-3");
+  it("Journal tab wrapper uses left-aligned flex to match Garden and Vault", () => {
+    // Journal view tabs (Table/Grid/Timeline) are left-aligned; + Entry button is on the right.
+    expect(journalPage).toContain("flex items-center gap-3 mb-3");
+    expect(journalPage).toContain("flex-1 min-w-0");
     expect(journalPage).not.toContain("flex justify-end");
   });
 });

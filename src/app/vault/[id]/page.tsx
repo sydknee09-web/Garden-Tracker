@@ -976,9 +976,7 @@ export default function VaultSeedPage() {
             ) : null}
           </>
         )}
-        {validTab === "journal" ? (
-          <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
-        ) : fromParam === "garden" ? (
+        {fromParam === "garden" ? (
           (() => {
             const gardenTab = searchParams.get("gardenTab");
             const isActive = gardenTab === "active";
@@ -998,6 +996,8 @@ export default function VaultSeedPage() {
               </Link>
             );
           })()
+        ) : fromParam === "journal" ? (
+          <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
         ) : (
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}
@@ -1194,8 +1194,17 @@ export default function VaultSeedPage() {
         {/* Tabs — same for all profiles (About, Care, Packets, Plantings, Journal) per Law 10 */}
         <div className="flex flex-nowrap items-stretch border-b border-neutral-200 gap-x-2 sm:gap-x-3 mb-4">
           {(["about","care","packets","plantings","journal"] as const).map((tab) => (
-            <button key={tab} type="button" onClick={() => setActiveTab(tab)}
-              className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>
+            <button
+              key={tab}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab);
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("tab", tab);
+                router.replace(`/vault/${id}?${params.toString()}`, { scroll: false });
+              }}
+              className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+            >
               {tab === "about" ? "About" : tab === "care" ? "Care" : tab === "packets" ? `Packets (${packetCount})` : tab === "plantings" ? `Plants (${plantingsCount})` : "Journal"}
             </button>
           ))}
