@@ -1,5 +1,35 @@
 import { supabase } from "@/lib/supabase";
 
+/** Sync identity-key-keyed cache row when a profile's name/variety/hero changes. */
+export function syncExtractCache(
+  userId: string,
+  identityKey: string,
+  updates: { extractDataPatch?: Record<string, unknown>; heroStoragePath?: string | null; originalHeroUrl?: string | null },
+  oldIdentityKey?: string,
+): void {
+  (async () => {
+    try {
+      const lookupKey = oldIdentityKey || identityKey;
+      const { data: rows } = await supabase
+        .from("plant_extract_cache")
+        .select("id, extract_data, hero_storage_path, original_hero_url")
+        .eq("user_id", userId)
+        .eq("identity_key", lookupKey);
+      if (!rows?.length) return;
+      for (const row of rows) {
+        const merged = { ...(row.extract_data as Record<string, unknown>), ...(updates.extractDataPatch ?? {}) };
+        await supabase.from("plant_extract_cache").update({
+          ...(oldIdentityKey ? { identity_key: identityKey } : {}),
+          extract_data: merged,
+          ...(updates.heroStoragePath !== undefined ? { hero_storage_path: updates.heroStoragePath } : {}),
+          ...(updates.originalHeroUrl !== undefined ? { original_hero_url: updates.originalHeroUrl } : {}),
+          updated_at: new Date().toISOString(),
+        }).eq("id", row.id).eq("user_id", userId);
+      }
+    } catch (e) { console.error("[syncExtractCache] failed:", e instanceof Error ? e.message : String(e)); }
+  })();
+}
+
 export function toDateInputValue(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";

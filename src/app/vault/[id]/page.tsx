@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, CareScheduleSuggestion, VendorSpecs } from "@/types/garden";
@@ -16,16 +15,10 @@ import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { CareSuggestions, GetAiSuggestionsButton } from "@/components/CareSuggestions";
 import { StarRating } from "@/components/StarRating";
-import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
+import { BatchLogSheet } from "@/components/BatchLogSheet";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { HarvestModal } from "@/components/HarvestModal";
 import { AddPlantManualModal } from "@/components/AddPlantManualModal";
-import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
-import { cascadeAllForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
-import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
-import { compressImage } from "@/lib/compressImage";
-import { identityKeyFromVariety } from "@/lib/identityKey";
-import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
 import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
@@ -35,7 +28,6 @@ import { PlantImage } from "@/components/PlantImage";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ImageCropModal } from "@/components/ImageCropModal";
-import { hapticSuccess, hapticError } from "@/lib/haptics";
 import dynamic from "next/dynamic";
 
 const AddPlantModal = dynamic(
@@ -52,7 +44,11 @@ import { VaultProfileCareTab } from "./VaultProfileCareTab";
 import { VaultProfilePacketsTab } from "./VaultProfilePacketsTab";
 import { VaultProfilePlantingsTab } from "./VaultProfilePlantingsTab";
 import { VaultProfileJournalTab } from "./VaultProfileJournalTab";
-import { toDateInputValue, formatDisplayDate, getPacketImageUrls } from "./vaultProfileUtils";
+import { formatDisplayDate, getPacketImageUrls } from "./vaultProfileUtils";
+import { useVaultPlantingsHandlers } from "./useVaultPlantingsHandlers";
+import { useVaultPacketHandlers } from "./useVaultPacketHandlers";
+import { useVaultHeroHandlers } from "./useVaultHeroHandlers";
+import { useVaultEditHandlers } from "./useVaultEditHandlers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,30 +67,6 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
   const u = url?.trim();
   if (!u) return true;
   return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
-}
-
-function buildIdentityKey(type: string, variety: string): string {
-  return identityKeyFromVariety(type, variety);
-}
-
-function syncExtractCache(userId: string, identityKey: string, updates: { extractDataPatch?: Record<string, unknown>; heroStoragePath?: string | null; originalHeroUrl?: string | null }, oldIdentityKey?: string): void {
-  (async () => {
-    try {
-      const lookupKey = oldIdentityKey || identityKey;
-      const { data: rows } = await supabase.from("plant_extract_cache").select("id, extract_data, hero_storage_path, original_hero_url").eq("user_id", userId).eq("identity_key", lookupKey);
-      if (!rows?.length) return;
-      for (const row of rows) {
-        const merged = { ...(row.extract_data as Record<string, unknown>), ...(updates.extractDataPatch ?? {}) };
-        await supabase.from("plant_extract_cache").update({
-          ...(oldIdentityKey ? { identity_key: identityKey } : {}),
-          extract_data: merged,
-          ...(updates.heroStoragePath !== undefined ? { hero_storage_path: updates.heroStoragePath } : {}),
-          ...(updates.originalHeroUrl !== undefined ? { original_hero_url: updates.originalHeroUrl } : {}),
-          updated_at: new Date().toISOString(),
-        }).eq("id", row.id).eq("user_id", userId);
-      }
-    } catch (e) { console.error("[syncExtractCache] failed:", e instanceof Error ? e.message : String(e)); }
-  })();
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -130,40 +102,6 @@ export default function VaultSeedPage() {
   const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   const [vendorDetailsOpen, setVendorDetailsOpen] = useState(false);
-  const [openPacketDetails, setOpenPacketDetails] = useState<Set<string>>(new Set());
-  const [batchLogOpen, setBatchLogOpen] = useState(false);
-  const [batchLogTarget, setBatchLogTarget] = useState<BatchLogBatch | null>(null);
-  const [harvestTarget, setHarvestTarget] = useState<{ profileId: string; growId: string; displayName: string } | null>(null);
-  const [endBatchTarget, setEndBatchTarget] = useState<BatchLogBatch | null>(null);
-  const [endReason, setEndReason] = useState("season_ended");
-  const [endNote, setEndNote] = useState("");
-  const [endSaving, setEndSaving] = useState(false);
-  const [deleteBatchTarget, setDeleteBatchTarget] = useState<BatchLogBatch | null>(null);
-  const [deleteSaving, setDeleteSaving] = useState(false);
-  const [editGrowTarget, setEditGrowTarget] = useState<GrowInstance | null>(null);
-  const [editGrowLocation, setEditGrowLocation] = useState("");
-  const [editGrowVendor, setEditGrowVendor] = useState("");
-  const [editGrowPrice, setEditGrowPrice] = useState("");
-  const [editGrowPlantCount, setEditGrowPlantCount] = useState(1);
-  const [editGrowSownDate, setEditGrowSownDate] = useState("");
-  const [editGrowSaving, setEditGrowSaving] = useState(false);
-  const [editGrowError, setEditGrowError] = useState<string | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingProfile, setDeletingProfile] = useState(false);
-  const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
-  const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
-  const [aiMenuOpen, setAiMenuOpen] = useState(false);
-  const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({
-    plantType: "", varietyName: "", sun: "", water: "", spacing: "",
-    germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
-    purchaseDate: "", purchaseVendor: "", growingNotes: "", status: "",
-    companionPlants: "", avoidPlants: "",
-    propagationNotes: "", seedSavingNotes: "",
-  });
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
   const [entryIdToPhotoPaths, setEntryIdToPhotoPaths] = useState<Record<string, string[]>>({});
   const tabFromUrl = searchParams.get("tab");
@@ -174,23 +112,6 @@ export default function VaultSeedPage() {
   useEffect(() => {
     setActiveTab(validTab);
   }, [id, validTab]);
-  const [showSetPhotoModal, setShowSetPhotoModal] = useState(false);
-  const [heroUploading, setHeroUploading] = useState(false);
-  const [heroCropOpen, setHeroCropOpen] = useState(false);
-  const [heroCropPreviewUrl, setHeroCropPreviewUrl] = useState("");
-  const [findingStockPhoto, setFindingStockPhoto] = useState(false);
-  const [findHeroError, setFindHeroError] = useState<string | null>(null);
-  const [searchWebLoading, setSearchWebLoading] = useState(false);
-  const [searchWebGalleryUrls, setSearchWebGalleryUrls] = useState<string[]>([]);
-  const [searchWebError, setSearchWebError] = useState<string | null>(null);
-  const [galleryImageFailed, setGalleryImageFailed] = useState<Set<string>>(new Set());
-  const [stockPhotoCurrentFailed, setStockPhotoCurrentFailed] = useState(false);
-  const [savingWebHero, setSavingWebHero] = useState(false);
-  const [saveHeroError, setSaveHeroError] = useState<string | null>(null);
-  const searchWebAbortRef = useRef<AbortController | null>(null);
-  const photoGalleryLoadedRef = useRef(false);
-  const [journalByPacketId, setJournalByPacketId] = useState<Record<string, { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[]>>({});
-  const [loadingJournalForPacket, setLoadingJournalForPacket] = useState<Set<string>>(new Set());
   const [packetImagesByPacketId, setPacketImagesByPacketId] = useState<Map<string, { image_path: string }[]>>(new Map());
   const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [plantAgainAddPlantOpen, setPlantAgainAddPlantOpen] = useState(false);
@@ -206,8 +127,6 @@ export default function VaultSeedPage() {
   const isAboutOpen = (key: string) => !aboutCollapsed[key];
   const toggleAboutSection = (key: string) => setAboutCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // Harvest modal
-
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
 
@@ -221,20 +140,6 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(addPlantManualOpen, () => setAddPlantManualOpen(false));
-  useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
-  useModalBackClose(showDeleteConfirm, () => { if (!deletingProfile) setShowDeleteConfirm(false); });
-
-  useEffect(() => {
-    if (!showSetPhotoModal) {
-      photoGalleryLoadedRef.current = false;
-      return;
-    }
-    setSearchWebGalleryUrls([]);
-    setSearchWebError(null);
-    setGalleryImageFailed(new Set());
-    setStockPhotoCurrentFailed(false);
-    setSaveHeroError(null);
-  }, [showSetPhotoModal]);
 
   // =========================================================================
   // Load data
@@ -458,99 +363,128 @@ export default function VaultSeedPage() {
     }
   }, [loading, profile, id, router]);
 
-  // Plantings tab: quick care, end batch, delete batch
-  const handlePlantingsQuickCare = useCallback(async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
-    if (!user?.id) return;
-    const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-    const weather = await fetchWeatherSnapshot();
-    const { data: entry } = await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      plant_profile_id: batch.plant_profile_id,
-      grow_instance_id: batch.id,
-      note: notes[action],
-      entry_type: "quick",
-      weather_snapshot: weather ?? undefined,
-    }).select("id").single();
-    if (entry) {
-      await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: batch.plant_profile_id, user_id: user.id });
-    }
-    loadProfile();
-  }, [user?.id, loadProfile]);
+  // ── Handlers extracted to focused hooks ─────────────────────────────────
+  const plantings = useVaultPlantingsHandlers({
+    userId: user?.id,
+    profileId: id,
+    profile: profile as PlantProfile | null,
+    loadProfile,
+  });
 
-  const handlePlantingsEndBatch = useCallback(async () => {
-    if (!user?.id || !endBatchTarget) return;
-    setEndSaving(true);
-    const batchId = endBatchTarget.id;
-    const now = new Date().toISOString();
-    const isDead = endReason === "plant_died";
-    const status = isDead ? "dead" : "archived";
-    await supabase.from("grow_instances").update({ status, ended_at: now, end_reason: endReason }).eq("id", batchId);
-    await softDeleteTasksForGrowInstance(batchId, endBatchTarget.user_id ?? user.id);
-    if (endNote.trim() || isDead) {
-      const weather = await fetchWeatherSnapshot();
-      const { data: entry } = await supabase.from("journal_entries").insert({
-        user_id: user.id,
-        plant_profile_id: endBatchTarget.plant_profile_id,
-        grow_instance_id: batchId,
-        note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
-        entry_type: isDead ? "death" : "note",
-        weather_snapshot: weather ?? undefined,
-      }).select("id").single();
-      if (entry) {
-        await supabase.from("journal_entry_plants").insert({ journal_entry_id: (entry as { id: string }).id, plant_profile_id: endBatchTarget.plant_profile_id, user_id: user.id });
-      }
-    }
-    setEndSaving(false);
-    setEndBatchTarget(null);
-    setEndReason("season_ended");
-    setEndNote("");
-    loadProfile();
-  }, [user?.id, endBatchTarget, endReason, endNote, loadProfile]);
+  const packetHandlers = useVaultPacketHandlers({
+    userId: user?.id,
+    profileId: id,
+    profileOwnerId,
+    packets,
+    setPackets,
+  });
 
-  const handlePlantingsDeleteBatch = useCallback(async () => {
-    if (!user?.id || !deleteBatchTarget) return;
-    setDeleteSaving(true);
-    const batchId = deleteBatchTarget.id;
-    const now = new Date().toISOString();
-    const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batchId);
-    if (!error) await softDeleteTasksForGrowInstance(batchId, deleteBatchTarget.user_id ?? user.id);
-    setDeleteSaving(false);
-    setDeleteBatchTarget(null);
-    if (error) return;
-    loadProfile();
-  }, [user?.id, deleteBatchTarget, loadProfile]);
+  const hero = useVaultHeroHandlers({
+    userId: user?.id,
+    profileId: id,
+    profile: profile as PlantProfile | null,
+    packets,
+    session,
+    loadProfile,
+    profileOwnerId,
+    onRouterRefresh: () => router.refresh(),
+    setError,
+  });
 
-  const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
-    setEditGrowTarget(gi);
-    setEditGrowError(null);
-    setEditGrowLocation(gi.location ?? "");
-    setEditGrowVendor((gi.vendor ?? "").trim());
-    setEditGrowPrice((gi.purchase_price ?? "").trim());
-    setEditGrowPlantCount(Math.max(1, (gi as GrowInstance).plant_count ?? 1));
-    setEditGrowSownDate(gi.sown_date ? gi.sown_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
-  }, []);
+  const edit = useVaultEditHandlers({
+    userId: user?.id,
+    profileId: id,
+    profile: profile as PlantProfile | null,
+    profileOwnerId,
+    session,
+    loadProfile,
+    setError,
+  });
 
-  const handleEditGrowSave = useCallback(async () => {
-    if (!user?.id || !editGrowTarget) return;
-    setEditGrowSaving(true);
-    const ownerId = (editGrowTarget as { user_id?: string }).user_id ?? user.id;
-    const { error } = await supabase.from("grow_instances")
-      .update({
-        location: editGrowLocation.trim() || null,
-        vendor: editGrowVendor.trim() || null,
-        purchase_price: editGrowPrice.trim() || null,
-        plant_count: Math.max(1, editGrowPlantCount),
-        sown_date: editGrowSownDate || editGrowTarget.sown_date,
-      })
-      .eq("id", editGrowTarget.id)
-      .eq("user_id", ownerId);
-    setEditGrowSaving(false);
-    if (error) { setEditGrowError(error.message); hapticError(); return; }
-    hapticSuccess();
-    setEditGrowError(null);
-    setEditGrowTarget(null);
-    loadProfile();
-  }, [user?.id, editGrowTarget, editGrowLocation, editGrowVendor, editGrowPrice, editGrowPlantCount, editGrowSownDate, loadProfile]);
+  // Destructure hook returns into local scope so JSX remains unchanged
+  const {
+    batchLogOpen, setBatchLogOpen,
+    batchLogTarget, setBatchLogTarget,
+    harvestTarget, setHarvestTarget,
+    endBatchTarget, setEndBatchTarget,
+    endReason, setEndReason,
+    endNote, setEndNote,
+    endSaving,
+    deleteBatchTarget, setDeleteBatchTarget,
+    deleteSaving,
+    editGrowTarget, setEditGrowTarget,
+    editGrowLocation, setEditGrowLocation,
+    editGrowVendor, setEditGrowVendor,
+    editGrowPrice, setEditGrowPrice,
+    editGrowPlantCount, setEditGrowPlantCount,
+    editGrowSownDate, setEditGrowSownDate,
+    editGrowSaving,
+    editGrowError,
+    handlePlantingsQuickCare,
+    handlePlantingsEndBatch,
+    handlePlantingsDeleteBatch,
+    handleEditGrowOpen,
+    handleEditGrowSave,
+    buildBatchFromEditTarget,
+  } = plantings;
+
+  const {
+    openPacketDetails,
+    journalByPacketId,
+    loadingJournalForPacket,
+    togglePacketDetails,
+    updatePacketQty,
+    updatePacketPurchaseDate,
+    updatePacketNotes,
+    updatePacketStorageLocation,
+    updatePacketRating,
+    deletePacket,
+  } = packetHandlers;
+
+  const {
+    showSetPhotoModal, setShowSetPhotoModal,
+    heroUploading,
+    heroCropOpen, setHeroCropOpen,
+    heroCropPreviewUrl, setHeroCropPreviewUrl,
+    findingStockPhoto,
+    findHeroError,
+    searchWebLoading,
+    searchWebGalleryUrls,
+    searchWebError,
+    galleryImageFailed, setGalleryImageFailed,
+    stockPhotoCurrentFailed, setStockPhotoCurrentFailed,
+    savingWebHero,
+    saveHeroError,
+    setHeroFromPath,
+    setHeroFromUrl,
+    removeHeroImage,
+    loadPhotoGallery,
+    cancelSearchWeb,
+    setHeroFromPacket,
+    setHeroFromUpload,
+    setHeroFromJournal,
+    saveHeroFromUrl,
+  } = hero;
+
+  const {
+    showEditModal, setShowEditModal,
+    savingEdit,
+    showDeleteConfirm, setShowDeleteConfirm,
+    deletingProfile,
+    fillBlanksRunning,
+    fillBlanksError, setFillBlanksError,
+    aiMenuOpen, setAiMenuOpen,
+    overwriteConfirmOpen, setOverwriteConfirmOpen,
+    editForm, setEditForm,
+    toastMessage,
+    openEditModal,
+    handleSaveEdit,
+    handleDeleteProfile,
+    handleFillBlanks,
+    handleOverwriteWithAi,
+    handleAddToShoppingList,
+  } = edit;
+  // ────────────────────────────────────────────────────────────────────────
 
   // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
   useEffect(() => {
@@ -609,7 +543,7 @@ export default function VaultSeedPage() {
   const isPlaceholderResolved = !resolvedHeroUrl || isPlaceholderHeroUrl(resolvedHeroUrl);
   const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError && !isPlaceholderResolved;
   const heroImageUrl = hasHeroImage ? resolvedHeroUrl : null;
-  const showHeroResearching = !heroImageUrl && (findingStockPhoto || heroPending);
+  const showHeroResearching = !heroImageUrl && (hero.findingStockPhoto || heroPending);
 
   useEffect(() => {
     setHeroImageLoaded(false);
@@ -685,453 +619,6 @@ export default function VaultSeedPage() {
     if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}${from}`);
     else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}${from}`);
   }, [modalOpen, nextId, prevId, router, validTab, fromParam, searchParams]);
-
-  // =========================================================================
-  // Handlers
-  // =========================================================================
-  const updatePacketQty = useCallback(async (packetId: string, qty: number) => {
-    if (!user?.id) return;
-    const owner = profileOwnerId || user.id;
-    const clamped = Math.max(0, Math.min(100, qty));
-    const updates: Record<string, unknown> = { qty_status: clamped };
-    // Auto-archive when qty reaches 0, un-archive when raised above 0
-    if (clamped <= 0) updates.is_archived = true;
-    else updates.is_archived = false;
-    await supabase.from("seed_packets").update(updates).eq("id", packetId).eq("user_id", owner);
-    setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, qty_status: clamped, is_archived: clamped <= 0 } : p)));
-    // Profile: archive when all packets 0%; unarchive when any packet has inventory.
-    // If the plant is in the garden (has active grow_instances), keep status "active" so the green rim shows in Vault.
-    if (id) {
-      const { data: activeGrows } = await supabase
-        .from("grow_instances")
-        .select("id")
-        .eq("plant_profile_id", id)
-        .eq("user_id", owner)
-        .is("deleted_at", null)
-        .in("status", ["pending", "growing"]);
-      const inGarden = (activeGrows?.length ?? 0) > 0;
-
-      if (inGarden) {
-        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", id).eq("user_id", owner);
-      } else if (clamped > 0) {
-        await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", id).eq("user_id", owner);
-      } else {
-        const { data: remaining } = await supabase
-          .from("seed_packets")
-          .select("id")
-          .eq("plant_profile_id", id)
-          .eq("user_id", owner)
-          .or("is_archived.is.null,is_archived.eq.false")
-          .gt("qty_status", 0);
-        if (!remaining?.length) {
-          await supabase.from("plant_profiles").update({ status: "out_of_stock" }).eq("id", id).eq("user_id", owner);
-          await supabase.from("shopping_list").upsert(
-            { user_id: owner, plant_profile_id: id, is_purchased: false },
-            { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
-          );
-        }
-      }
-    }
-  }, [user?.id, id, profileOwnerId]);
-
-  const updatePacketPurchaseDate = useCallback(async (packetId: string, date: string) => {
-    if (!user?.id) return;
-    const owner = profileOwnerId || user.id;
-    const value = date.trim() || null;
-    await supabase.from("seed_packets").update({ purchase_date: value }).eq("id", packetId).eq("user_id", owner);
-    setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, purchase_date: value ?? undefined } : p)));
-  }, [user?.id, profileOwnerId]);
-
-  const updatePacketNotes = useCallback(
-    async (packetId: string, notes: string, options?: { persist?: boolean }) => {
-      if (options?.persist === false) {
-        // Live typing: store raw value so spaces aren't stripped mid-word
-        setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: notes } : p)));
-        return;
-      }
-      const value = notes.trim() || null;
-      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, user_notes: value } : p)));
-      if (user?.id) {
-        const owner = profileOwnerId || user.id;
-        await supabase.from("seed_packets").update({ user_notes: value }).eq("id", packetId).eq("user_id", owner);
-      }
-    },
-    [user?.id, profileOwnerId]
-  );
-
-  const updatePacketStorageLocation = useCallback(
-    async (packetId: string, location: string, options?: { persist?: boolean }) => {
-      if (options?.persist === false) {
-        // Live typing: store raw value so spaces aren't stripped mid-word
-        setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: location } : p)));
-        return;
-      }
-      const value = location.trim() || null;
-      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, storage_location: value } : p)));
-      if (user?.id) {
-        const owner = profileOwnerId || user.id;
-        await supabase.from("seed_packets").update({ storage_location: value }).eq("id", packetId).eq("user_id", owner);
-      }
-    },
-    [user?.id, profileOwnerId]
-  );
-
-  const updatePacketRating = useCallback(
-    async (packetId: string, rating: number | null) => {
-      if (!user?.id) return;
-      const owner = profileOwnerId || user.id;
-      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, packet_rating: rating } : p)));
-      await supabase.from("seed_packets").update({ packet_rating: rating }).eq("id", packetId).eq("user_id", owner);
-    },
-    [user?.id, profileOwnerId]
-  );
-
-  const deletePacket = useCallback(async (packetId: string) => {
-    if (!user?.id) return;
-    const owner = profileOwnerId || user.id;
-    const { error: e } = await supabase.from("seed_packets").update({ deleted_at: new Date().toISOString() }).eq("id", packetId).eq("user_id", owner);
-    if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
-  }, [user?.id, profileOwnerId]);
-
-  const handleAddToShoppingList = useCallback(async () => {
-    if (!user?.id || !id) return;
-    const { error } = await upsertWithOfflineQueue(
-      "shopping_list",
-      { user_id: user.id, plant_profile_id: id, is_purchased: false },
-      { onConflict: "user_id,plant_profile_id" }
-    );
-    if (error) {
-      hapticError();
-      setToastMessage("Failed to add to shopping list");
-      setTimeout(() => setToastMessage(null), 2500);
-      return;
-    }
-    hapticSuccess();
-    setToastMessage("Added to shopping list");
-    setTimeout(() => setToastMessage(null), 2500);
-  }, [user?.id, id]);
-
-  const fetchJournalForPacket = useCallback(async (packetId: string) => {
-    if (!user?.id) return;
-    setLoadingJournalForPacket((prev) => new Set(prev).add(packetId));
-    const { data } = await supabase.from("journal_entries").select("id, note, created_at, grow_instance_id").eq("seed_packet_id", packetId).eq("user_id", user.id).is("deleted_at", null).order("created_at", { ascending: false });
-    setJournalByPacketId((prev) => ({ ...prev, [packetId]: (data ?? []) as { id: string; note: string | null; created_at: string; grow_instance_id?: string | null }[] }));
-    setLoadingJournalForPacket((prev) => { const next = new Set(prev); next.delete(packetId); return next; });
-  }, [user?.id]);
-
-  const togglePacketDetails = useCallback((packetId: string) => {
-    setOpenPacketDetails((prev) => { const next = new Set(prev); if (next.has(packetId)) next.delete(packetId); else next.add(packetId); return next; });
-  }, []);
-
-  useEffect(() => {
-    openPacketDetails.forEach((packetId) => {
-      if (journalByPacketId[packetId] === undefined && !loadingJournalForPacket.has(packetId)) fetchJournalForPacket(packetId);
-    });
-  }, [openPacketDetails, journalByPacketId, loadingJournalForPacket, fetchJournalForPacket]);
-
-  // Hero image handlers
-  const setHeroFromPath = useCallback(async (storagePath: string) => {
-    if (!user?.id || !id) return;
-    const { error } = await supabase.from("plant_profiles").update({ hero_image_path: storagePath, hero_image_url: null }).eq("id", id).eq("user_id", user.id);
-    if (!error) {
-      if (profile) { const key = buildIdentityKey(profile.name ?? "", profile.variety_name ?? ""); if (key) syncExtractCache(user.id, key, { heroStoragePath: storagePath, originalHeroUrl: null }); }
-      await loadProfile();
-    }
-  }, [user?.id, id, profile, loadProfile]);
-
-  const setHeroFromUrl = useCallback(async (url: string) => {
-    if (!user?.id || !id || !url?.trim()) return;
-    const { error } = await supabase.from("plant_profiles").update({ hero_image_url: url.trim(), hero_image_path: null }).eq("id", id).eq("user_id", user.id);
-    if (!error) {
-      if (profile) { const key = buildIdentityKey(profile.name ?? "", profile.variety_name ?? ""); if (key) syncExtractCache(user.id, key, { originalHeroUrl: url.trim(), heroStoragePath: null }); }
-      await loadProfile();
-    }
-  }, [user?.id, id, profile, loadProfile]);
-
-  const removeHeroImage = useCallback(async () => {
-    if (!user?.id || !id) return;
-    const { error } = await supabase.from("plant_profiles").update({ hero_image_url: null, hero_image_path: null }).eq("id", id).eq("user_id", user.id);
-    if (!error) {
-      if (profile) { const key = buildIdentityKey(profile.name ?? "", profile.variety_name ?? ""); if (key) syncExtractCache(user.id, key, { originalHeroUrl: null, heroStoragePath: null }); }
-      await loadProfile();
-    }
-  }, [user?.id, id, profile, loadProfile]);
-
-  const findAndSetStockPhoto = useCallback(async () => {
-    if (!profile || findingStockPhoto) return;
-    setFindingStockPhoto(true);
-    setFindHeroError(null);
-    const name = (profile.name ?? "").trim() || "Imported seed";
-    const variety = (profile.variety_name ?? "").trim();
-    const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
-    const identityKey = identityKeyFromVariety(name, variety);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-    try {
-      const res = await fetch("/api/seed/find-hero-photo", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, profile_id: id }),
-      });
-      const data = (await res.json()) as { hero_image_url?: string; hero_image_path?: string; error?: string };
-      const storagePath = data.hero_image_path?.trim();
-      const url = data.hero_image_url?.trim();
-      if (storagePath) {
-        // Auto-downloaded to our storage — use path so it never breaks
-        await setHeroFromPath(storagePath);
-      } else if (url) {
-        await setHeroFromUrl(url);
-      }
-      if (storagePath || url) router.refresh();
-      if (data.error) setFindHeroError(data.error);
-      await loadProfile();
-    } finally {
-      setFindingStockPhoto(false);
-    }
-  }, [profile, packets, findingStockPhoto, session?.access_token, setHeroFromUrl, loadProfile, router]);
-
-  const setHeroFromJournal = useCallback((entry: JournalPhoto) => { setHeroFromPath(entry.image_file_path); setShowSetPhotoModal(false); }, [setHeroFromPath]);
-
-  /** Load photo gallery for Set Profile Photo modal: search variety + plant, show multiple images for user to pick. */
-  const loadPhotoGallery = useCallback(async () => {
-    if (!profile || searchWebLoading) return;
-    setSearchWebLoading(true);
-    setSearchWebGalleryUrls([]);
-    setSearchWebError(null);
-    const name = (profile.name ?? "").trim() || "Imported seed";
-    const variety = (profile.variety_name ?? "").trim();
-    const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
-    const identityKey = identityKeyFromVariety(name, variety);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-    const controller = new AbortController();
-    searchWebAbortRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 20_000);
-    try {
-      const res = await fetch("/api/seed/find-hero-photo", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name,
-          variety,
-          vendor,
-          identity_key: identityKey ?? undefined,
-          gallery: true,
-          scientific_name: (profile as { scientific_name?: string | null })?.scientific_name?.trim() || undefined,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      const text = await res.text();
-      const result = parseFindHeroPhotoGalleryResponse(text, res.ok);
-      if (result.success) {
-        setSearchWebGalleryUrls(result.urls);
-      } else {
-        setSearchWebError(result.error);
-      }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      if (e instanceof Error && e.name === "AbortError") {
-        setSearchWebError("Search timed out. Please try again.");
-      } else {
-        setSearchWebError(e instanceof Error ? e.message : "Search failed.");
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      searchWebAbortRef.current = null;
-      setSearchWebLoading(false);
-    }
-  }, [profile, packets, searchWebLoading, session?.access_token]);
-
-  const cancelSearchWeb = useCallback(() => {
-    searchWebAbortRef.current?.abort();
-  }, []);
-
-  // Auto-load photo gallery when Set Profile Photo modal opens (once per open).
-  useEffect(() => {
-    if (!showSetPhotoModal || !profile || photoGalleryLoadedRef.current || searchWebLoading) return;
-    photoGalleryLoadedRef.current = true;
-    loadPhotoGallery();
-  }, [showSetPhotoModal, profile, searchWebLoading, loadPhotoGallery]);
-
-  /** Copy packet image from seed-packets to journal-photos, then set as hero. Packet photos live in seed-packets but hero_image_path expects journal-photos. */
-  const setHeroFromPacket = useCallback(async (packetStoragePath: string) => {
-    if (!user?.id || !id) return;
-    setHeroUploading(true);
-    try {
-      const { data: blob, error: downloadErr } = await supabase.storage.from("seed-packets").download(packetStoragePath);
-      if (downloadErr || !blob) {
-        setError(downloadErr?.message ?? "Could not load packet photo");
-        return;
-      }
-      const destPath = `${profileOwnerId || user.id}/hero-${id}-from-packet-${crypto.randomUUID().slice(0, 8)}.jpg`;
-      const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(destPath, blob, { contentType: blob.type || "image/jpeg", upsert: false, cacheControl: "31536000" });
-      if (uploadErr) {
-        setError(uploadErr.message);
-        return;
-      }
-      await setHeroFromPath(destPath);
-      setShowSetPhotoModal(false);
-      setImageError(false);
-    } finally {
-      setHeroUploading(false);
-    }
-  }, [user?.id, id, setHeroFromPath]);
-
-  const setHeroFromUpload = useCallback(async (file: File) => {
-    if (!user?.id || !id) return;
-    setHeroUploading(true);
-    const { blob } = await compressImage(file);
-    // Unique path per upload so we always INSERT (RLS allows INSERT). Avoids UPDATE which can fail depending on policy.
-    const path = `${profileOwnerId || user.id}/hero-${id}-${crypto.randomUUID().slice(0, 8)}.jpg`;
-    const { error: uploadErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
-    setHeroUploading(false);
-    if (uploadErr) { setError(uploadErr.message); return; }
-    await setHeroFromPath(path);
-    setShowSetPhotoModal(false);
-  }, [user?.id, id, setHeroFromPath]);
-
-  // Edit modal
-  const openEditModal = useCallback(() => {
-    if (!profile) return;
-    setError(null);
-    const pp = profile as PlantProfile & { purchase_date?: string | null; created_at?: string | null; growing_notes?: string | null; propagation_notes?: string | null; seed_saving_notes?: string | null; purchase_vendor?: string | null };
-    const dateForInput = pp.purchase_date?.trim() || pp.created_at;
-    const companions = pp.companion_plants ?? [];
-    const avoid = pp.avoid_plants ?? [];
-    setEditForm({
-      plantType: profile.name ?? "",
-      varietyName: profile.variety_name ?? "",
-      sun: profile.sun ?? "",
-      water: ("water" in profile ? (profile as { water?: string | null }).water : null) ?? "",
-      spacing: profile.plant_spacing ?? "",
-      germination: profile.days_to_germination ?? "",
-      maturity: profile.harvest_days != null ? String(profile.harvest_days) : "",
-      sowingMethod: "sowing_method" in pp && pp.sowing_method != null ? pp.sowing_method : "",
-      plantingWindow: "planting_window" in pp && pp.planting_window != null ? pp.planting_window : "",
-      purchaseDate: dateForInput ? toDateInputValue(dateForInput) : "",
-      purchaseVendor: (pp.purchase_vendor ?? "").trim(),
-      growingNotes: pp.growing_notes ?? "",
-      status: profile.status ?? "",
-      companionPlants: Array.isArray(companions) ? companions.join(", ") : "",
-      avoidPlants: Array.isArray(avoid) ? avoid.join(", ") : "",
-      propagationNotes: pp.propagation_notes ?? "",
-      seedSavingNotes: pp.seed_saving_notes ?? "",
-    });
-    setShowEditModal(true);
-  }, [profile]);
-
-  const handleSaveEdit = useCallback(async () => {
-    if (!user?.id || !profile) return;
-    setSavingEdit(true);
-    const harvestDays = editForm.maturity.trim() === "" ? null : parseInt(editForm.maturity.trim(), 10);
-    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
-    const table = isLeg ? "plant_varieties" : "plant_profiles";
-    const parseCommaList = (s: string): string[] | null => {
-      const arr = s.split(",").map((x) => x.trim()).filter(Boolean);
-      return arr.length > 0 ? arr : null;
-    };
-    const updates: Record<string, unknown> = {
-      name: editForm.plantType.trim() || null,
-      variety_name: editForm.varietyName.trim() || null,
-      sun: editForm.sun.trim() || null,
-      water: editForm.water.trim() || null,
-      plant_spacing: editForm.spacing.trim() || null,
-      days_to_germination: editForm.germination.trim() || null,
-      harvest_days: harvestDays != null && !Number.isNaN(harvestDays) ? harvestDays : null,
-      status: editForm.status.trim() || null,
-      ...(isLeg ? { growing_notes: editForm.growingNotes.trim() || null } : {}),
-      ...(!isLeg ? {
-        sowing_method: editForm.sowingMethod.trim() || null,
-        planting_window: editForm.plantingWindow.trim() || null,
-        companion_plants: parseCommaList(editForm.companionPlants),
-        avoid_plants: parseCommaList(editForm.avoidPlants),
-        growing_notes: editForm.growingNotes.trim() || null,
-        propagation_notes: editForm.propagationNotes.trim() || null,
-        seed_saving_notes: editForm.seedSavingNotes.trim() || null,
-        purchase_vendor: editForm.purchaseVendor.trim() || null,
-        ...(editForm.growingNotes.trim() && { description_source: "user" }),
-      } : {}),
-    };
-    const { error } = await supabase.from(table).update(updates).eq("id", id).eq("user_id", user.id);
-    setSavingEdit(false);
-    if (error) { setError(error.message); hapticError(); return; }
-    hapticSuccess();
-    if (user?.id && profile) {
-      const oldKey = buildIdentityKey(profile.name ?? "", profile.variety_name ?? "");
-      const newKey = buildIdentityKey(editForm.plantType.trim(), editForm.varietyName.trim());
-      if (newKey) syncExtractCache(user.id, newKey, { extractDataPatch: { type: editForm.plantType.trim(), variety: editForm.varietyName.trim() } }, oldKey !== newKey ? oldKey : undefined);
-    }
-    setShowEditModal(false);
-    await loadProfile();
-  }, [user?.id, profile, id, editForm, loadProfile]);
-
-  const handleDeleteProfile = useCallback(async () => {
-    if (!user?.id || !id || !profile) return;
-    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
-    if (isLeg) return; // Legacy plant_varieties not supported
-    setDeletingProfile(true);
-    setError(null);
-    const now = new Date().toISOString();
-    const ownerId = profileOwnerId || user.id;
-    try {
-      // Cascade: tasks, shopping, grow instances, journal entries, seed packets, care schedules
-      await cascadeAllForDeletedProfiles(supabase, [id], ownerId);
-      // Soft-delete plant profile
-      const { error: profileErr } = await supabase.from("plant_profiles").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
-      if (profileErr) throw profileErr;
-      setShowDeleteConfirm(false);
-      setShowEditModal(false);
-      router.replace("/vault");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete profile");
-    } finally {
-      setDeletingProfile(false);
-    }
-  }, [user?.id, id, profile, profileOwnerId, router]);
-
-  const handleFillBlanks = useCallback(async () => {
-    if (!id || !session?.access_token || fillBlanksRunning) return;
-    const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
-    if (isLeg) return;
-    setFillBlanksRunning(true);
-    setFillBlanksError(null);
-    try {
-      const res = await fetch("/api/seed/fill-blanks-for-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId: id, useGemini: true }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Fill failed");
-      await loadProfile();
-    } catch (e) {
-      setFillBlanksError(e instanceof Error ? e.message : "Could not fill blanks");
-    } finally {
-      setFillBlanksRunning(false);
-    }
-  }, [id, session?.access_token, profile, fillBlanksRunning, loadProfile]);
-
-  const handleOverwriteWithAi = useCallback(async () => {
-    if (!id || !session?.access_token || fillBlanksRunning) return;
-    setOverwriteConfirmOpen(false);
-    setFillBlanksRunning(true);
-    setFillBlanksError(null);
-    try {
-      const res = await fetch("/api/seed/fill-blanks-for-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId: id, useGemini: true, overwrite: true }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Overwrite failed");
-      await loadProfile();
-    } catch (e) {
-      setFillBlanksError(e instanceof Error ? e.message : "Could not overwrite with AI");
-    } finally {
-      setFillBlanksRunning(false);
-    }
-  }, [id, session?.access_token, fillBlanksRunning, loadProfile]);
 
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
   const sortedPackets = useMemo(() => {
@@ -1253,38 +740,7 @@ export default function VaultSeedPage() {
                       <button
                         key={`${url}-${idx}`}
                         type="button"
-                        onClick={async () => {
-                          if (galleryImageFailed.has(url) || savingWebHero || !user?.id || !id || !session?.access_token) return;
-                          setSaveHeroError(null);
-                          setSavingWebHero(true);
-                          try {
-                            const res = await fetch("/api/seed/save-hero-from-url", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-                              body: JSON.stringify({ url, profile_id: id }),
-                            });
-                            const data = (await res.json()) as { path?: string; error?: string };
-                            if (res.ok && data.path) {
-                              await setHeroFromPath(data.path);
-                              setShowSetPhotoModal(false);
-                              const name = (profile?.name ?? "").trim() || "Imported seed";
-                              const variety = (profile?.variety_name ?? "").trim() ?? "";
-                              const vendor = packets.length > 0 ? (packets[0].vendor_name ?? "").trim() : "";
-                              const identityKey = identityKeyFromVariety(name, variety);
-                              if (identityKey) {
-                                fetch("/api/seed/save-hero-to-cache", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-                                  body: JSON.stringify({ identity_key: identityKey, hero_image_url: url, name, variety, vendor }),
-                                }).catch((err) => console.error("[save-hero-to-cache]", err));
-                              }
-                            } else {
-                              setSaveHeroError(data.error ?? "Couldn't save image. Try another tile or Refresh photos.");
-                            }
-                          } finally {
-                            setSavingWebHero(false);
-                          }
-                        }}
+                        onClick={() => saveHeroFromUrl(url)}
                         disabled={galleryImageFailed.has(url) || savingWebHero}
                         className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-emerald-500 bg-neutral-100 min-h-[44px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-60 disabled:pointer-events-none"
                       >
@@ -1931,18 +1387,8 @@ export default function VaultSeedPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!editGrowTarget) return;
-                  const b: BatchLogBatch = {
-                    id: editGrowTarget.id,
-                    plant_profile_id: editGrowTarget.plant_profile_id ?? id,
-                    profile_name: profile?.name ?? "",
-                    profile_variety_name: profile?.variety_name ?? null,
-                    seeds_sown: (editGrowTarget as GrowInstance).seeds_sown ?? null,
-                    seeds_sprouted: (editGrowTarget as GrowInstance).seeds_sprouted ?? null,
-                    plant_count: (editGrowTarget as GrowInstance).plant_count ?? null,
-                    location: editGrowTarget.location ?? null,
-                    user_id: (editGrowTarget as { user_id?: string }).user_id ?? null,
-                  };
+                  const b = buildBatchFromEditTarget();
+                  if (!b) return;
                   setEndBatchTarget(b);
                   setEditGrowTarget(null);
                 }}
@@ -1953,18 +1399,8 @@ export default function VaultSeedPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!editGrowTarget) return;
-                  const b: BatchLogBatch = {
-                    id: editGrowTarget.id,
-                    plant_profile_id: editGrowTarget.plant_profile_id ?? id,
-                    profile_name: profile?.name ?? "",
-                    profile_variety_name: profile?.variety_name ?? null,
-                    seeds_sown: (editGrowTarget as GrowInstance).seeds_sown ?? null,
-                    seeds_sprouted: (editGrowTarget as GrowInstance).seeds_sprouted ?? null,
-                    plant_count: (editGrowTarget as GrowInstance).plant_count ?? null,
-                    location: editGrowTarget.location ?? null,
-                    user_id: (editGrowTarget as { user_id?: string }).user_id ?? null,
-                  };
+                  const b = buildBatchFromEditTarget();
+                  if (!b) return;
                   setDeleteBatchTarget(b);
                   setEditGrowTarget(null);
                 }}

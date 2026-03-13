@@ -111,7 +111,7 @@ onBackToMenu={() => {
 |------|--------------------|-------------------|----------------------|
 | Home | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
 | Vault | `universalAddMenuOpen` | `shedQuickAddOpen` (in VaultShedWing) | `setShedQuickAddOpen(false); onOpenUniversalAddMenu?.()` → `setUniversalAddMenuOpen(true)` |
-| Garden | `fabMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setFabMenuOpen(true)` |
+| Garden | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
 | Journal | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
 | Calendar | `universalAddMenuOpen` | `shedQuickAddOpen` | `setShedQuickAddOpen(false); setUniversalAddMenuOpen(true)` |
 
