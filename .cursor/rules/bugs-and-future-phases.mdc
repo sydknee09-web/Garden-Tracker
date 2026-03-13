@@ -1,0 +1,27 @@
+---
+description: When a bug is reported for a feature scheduled for update in a future phase, acknowledge it, log it, and skip the fix unless the user explicitly asks to fix it now.
+alwaysApply: true
+---
+
+# Bugs in future-phase features
+
+When the user reports a bug, check whether the affected feature or area is scheduled for change in a **future phase** (see `docs/PROJECT_PLAN.md` for the phase list).
+
+## If the feature IS in a future phase
+
+1. **Acknowledge** the bug clearly.
+2. **Tell the user** it is deferred because that feature is being updated in a future phase.
+3. **Add a row** to `docs/BUGS_DEFERRED_TO_PHASE.md` (create the file if it does not exist) with: Bug description | Feature/area | Phase (if known) | Date noted.
+4. **Skip implementing a fix** unless the user explicitly says to fix it now (e.g. "fix it anyway", "I need a workaround now").
+
+## If the user asks to fix it now
+
+Proceed with the fix as normal, and do not add it to the deferral log.
+
+## If it is unclear whether the feature is in a future phase
+
+Ask the user: "Is this feature scheduled for a future phase update? If so, I can note it and skip the fix until that phase."
+
+## Deferral log location
+
+`docs/BUGS_DEFERRED_TO_PHASE.md` — one row per deferred bug. Revisit each row when starting the relevant phase.

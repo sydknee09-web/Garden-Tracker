@@ -1,0 +1,5 @@
+# Asset generation script (generate_assets.py)
+# Install: pip install -r scripts/requirements.txt
+
+google-genai>=1.0.0
+PyYAML>=6.0

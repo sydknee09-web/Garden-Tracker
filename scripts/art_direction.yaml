@@ -1,0 +1,65 @@
+# Voyager Sanctuary — Art direction & style lock
+# Used by scripts/generate_assets.py to keep POV and design consistent across all generated images.
+# Edit this file to add new subjects or poses; the script will always prepend global style + subject rules.
+
+global:
+  # Art style applied to every image. Be specific so outputs stay consistent.
+  style: |
+    Digital illustration, hand-painted feel, muted earth tones. Refined, not cartoonish.
+    Clean lines, subtle texture. Suitable for a contemplative, grounded app aesthetic.
+  # Quality modifiers sent with every prompt (Imagen prompt guide).
+  quality_modifiers: "high-quality, detailed, sharp edges, professional illustration, no pixelation"
+  # Default background when not overridden by pose.
+  default_background: "solid black or transparent background, character isolated, no scenery"
+  # Aspect ratio for character art: 3:4 portrait works well for full-body figures.
+  aspect_ratio: "3:4"
+  # Image size if supported by model (e.g. 2K for Imagen).
+  image_size: "2K"
+
+# Subjects (characters, props, etc.). Each has a fixed description + POV so all poses stay on-model.
+subjects:
+  elias:
+    name: "Elias"
+    # One canonical description. Every pose prompt will include this so the model stays consistent.
+    description: |
+      Elias is a stout older man, dwarf or hardy human, with a long white braided beard and mustache,
+      rosy cheeks, kind expression. He wears a metallic helmet (with green moss or leaves), grey chainmail,
+      a rust-brown leather apron, sturdy brown boots. Patches of green moss or foliage on shoulders/gear.
+      He is a grounded presence: wise, calm, welcoming—not an assistant or lecturer.
+    pov: |
+      He holds the space. He does not lecture, nag, or manage. He is the gatekeeper for the Satchel refill.
+      Minimalist silhouette or refined illustration. Silent operator.
+    do:
+      - "Keep expression gentle, welcoming, or contemplative"
+      - "Keep costume consistent: helmet, chainmail, apron, boots, nature touches"
+      - "Full-body or clear bust when specified"
+    dont:
+      - "No lecturing pose, no pointing, no busy backgrounds"
+      - "No modern or tech elements"
+      - "No text in image unless explicitly requested"
+    # Poses keyed by id; used for batch generation and filenames.
+    poses:
+      dawn:
+        prompt: "Standing, looking at horizon, cup in hand. Dawn light."
+        filename: "elias_dawn.png"
+        time_window: "5am – 10am"
+      midday:
+        prompt: "Upright, alert, arms relaxed. Midday. Optional: staff with moss and stones."
+        filename: "elias_midday.png"
+        time_window: "10am – 5pm"
+      sunset:
+        prompt: "Seated, contemplative, watching fire. Sunset warmth. Optional: mug or cup."
+        filename: "elias_sunset.png"
+        time_window: "5pm – 8pm"
+      night:
+        prompt: "Seated by fire, relaxed, quiet presence. Night. Calm, still."
+        filename: "elias_night.png"
+        time_window: "8pm – 5am"
+    # Output folder under project (relative to voyager_sanctuary).
+    output_dir: "assets/elias"
+
+  # Add more subjects here later, e.g.:
+  # prop_hearth:
+  #   name: "Hearth"
+  #   description: "..."
+  #   poses: { ... }

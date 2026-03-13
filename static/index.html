@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voyager Sanctuary</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(180deg, #05060f 0%, #0d1526 50%, #1a2540 100%);
+      color: #EDE3D4;
+      font-family: Georgia, serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+    .card {
+      background: rgba(44, 40, 37, 0.95);
+      border: 1px solid rgba(201, 168, 76, 0.25);
+      border-radius: 12px;
+      padding: 2.5rem;
+      max-width: 420px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      color: #EDE3D4;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      color: #C9A84C;
+      margin-bottom: 2rem;
+    }
+    hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent);
+      margin: 1.5rem 0;
+    }
+    p {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: rgba(237, 227, 212, 0.9);
+    }
+    .success { color: #C9A84C; font-size: 1rem; margin-bottom: 1rem; }
+    .muted { font-size: 0.85rem; color: rgba(237,227,212,0.6); margin-top: 1rem; }
+    a { color: #C9A84C; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>VOYAGER</h1>
+    <p class="subtitle">S A N C T U A R Y</p>
+    <hr>
+    <p class="success" id="message">You're all set.</p>
+    <p>Password updated. You can close this page and open the Voyager Sanctuary app to sign in with your new password.</p>
+    <p class="muted">Use this page as the redirect URL in Supabase (Authentication → URL Configuration) for password reset and email confirmation links.</p>
+    <hr>
+    <p class="muted"><a href="https://supabase.com/dashboard">Supabase Dashboard</a></p>
+  </div>
+  <script>
+    // If Supabase redirected with hash (e.g. #access_token=... or #error=...), show a tailored message
+    var hash = window.location.hash || '';
+    var msg = document.getElementById('message');
+    if (hash.indexOf('error=') !== -1) {
+      msg.textContent = 'Something went wrong.';
+      if (hash.indexOf('otp_expired') !== -1) msg.textContent = 'That link has expired. Request a new one from the app or Supabase.';
+    } else if (hash.indexOf('access_token') !== -1 || hash.indexOf('recovery') !== -1) {
+      msg.textContent = 'Password updated.';
+    }
+  </script>
+</body>
+</html>
