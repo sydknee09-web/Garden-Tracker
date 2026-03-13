@@ -1032,7 +1032,7 @@ function GardenPageInner() {
               onRefineChipsLoaded={handlePlantsRefineChipsLoaded}
               onFilteredCountChange={setPlantsFilteredCount}
               onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
-              onAddClick={() => { setAddPlantDefaultType("permanent"); setShowAddPlantModal(true); }}
+              onAddClick={() => openPlant("permanent")}
               batchSelectMode={plantsBatchSelectMode}
               selectedGrowIds={new Set(selectedPlantGrows.map((g) => g.growId))}
               onToggleGrowSelection={(growId, profileId, userId) => setSelectedPlantGrows((prev) => {

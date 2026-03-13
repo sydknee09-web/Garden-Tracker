@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
@@ -9,6 +9,7 @@ import { StarRating } from "@/components/StarRating";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 function toDateInputValue(value: string | null | undefined): string {
   if (!value) return "";
@@ -39,6 +40,7 @@ interface EditPacketModalProps {
 
 export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalProps) {
   const { user } = useAuth();
+  const trapRef = useFocusTrap(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
-      <div className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
+      <div ref={trapRef} className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
         <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
           <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit packet</h2>
         </div>

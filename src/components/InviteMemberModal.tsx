@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -23,6 +24,7 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
   }, [onClose]);
 
   useEscapeKey(open, handleClose);
+  const trapRef = useFocusTrap(open);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,6 +65,7 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
         onClick={handleClose}
       />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white shadow-card border border-black/5 p-6 max-w-sm mx-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"

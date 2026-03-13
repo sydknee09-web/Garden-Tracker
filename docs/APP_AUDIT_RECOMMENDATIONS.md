@@ -60,7 +60,7 @@ The app is **feature-rich and consistent** under the hood (Universal Add Menu, s
 
 **Recommendations:**
 
-- Keep Schedule as a secondary destination (no nav bloat), but make the **Home section label** very explicit: e.g. “When to plant (by zone)” with subtext “Action now · Monthly pulse · Annual roadmap” so the purpose is clear.
+- Keep Schedule as a secondary destination (no nav bloat), but make the **Home section label** very explicit: e.g. “When to plant (by zone)” with subtext “Action now · Monthly pulse · Annual roadmap” so the purpose is clear. **Done (2025-03-12):** Home schedule section title set to "When to plant (by zone)" and subtext to "Action now · Monthly pulse · Annual roadmap."
 - In **Resources**, keep a prominent “Zone charts & planting schedule” so planning has a second anchor.
 
 ### 1.4 Journal: Quick Log vs full form
@@ -86,7 +86,9 @@ The app is **feature-rich and consistent** under the hood (Universal Add Menu, s
 
 **Current:** Back and “from” params (`from=garden`, `from=calendar`, etc.) are documented and consistent. They improve context but add complexity for documentation and debugging.
 
-**Recommendation:** Keep as is. Optionally add a single **back-button matrix** in `NAVIGATION_MAP.md` (e.g. “From profile opened from Garden → Back goes to Garden”) so future changes don’t break expectations.
+**Recommendation:** Keep as is. Optionally add a single **back-button matrix** in `NAVIGATION_MAP.md` (e.g. "From profile opened from Garden → Back goes to Garden") so future changes don't break expectations.
+
+**Done (2025-03-12):** Added **When Back goes where** table to NAVIGATION_MAP.md (Universal Add Menu, QuickAddSupply, Vault profile, Grow popup, Journal New, Shopping List, add modals, Calendar date selection). (e.g. “From profile opened from Garden → Back goes to Garden”) so future changes don’t break expectations.
 
 ---
 
@@ -197,6 +199,8 @@ In `NAVIGATION_MAP.md`, add a compact table: “When I’m on [screen] and I got
 **Current:** Touch targets (min 44px), aria-labels on FAB and key actions, `role="dialog"` and `aria-modal` on modals, `LoadingState` and skeletons. Focus handling in modals should be verified.
 
 **Suggestion:** (A) Confirm focus is trapped in open modals and returns to trigger on close. (B) Ensure “Back” and “Cancel” are consistently labeled (e.g. “Back to menu” vs “Cancel”). (C) If you add a “Where do I…?” page, keep it keyboard- and screen-reader friendly.
+
+**Done (2025-03-12):** (A) useFocusTrap now saves/restores focus on close; applied to AddPlantModal, NewTaskModal, EditJournalModal, EditPacketModal, QuickLogModal, InviteMemberModal, AddItemModal, PacketPickerModal, HarvestModal, QRScannerModal, ImageCropModal, GrowInstanceModal.
 
 ### 7.5 One place to “start”
 

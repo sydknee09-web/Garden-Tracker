@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertManyWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface AddItemModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastInputRef = useRef<HTMLInputElement>(null);
+  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     if (open) {
@@ -82,6 +84,7 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={trapRef}
         className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-black/10 p-5 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >

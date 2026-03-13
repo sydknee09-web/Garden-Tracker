@@ -349,7 +349,7 @@ export default function CalendarPage() {
     };
   }, [user?.id, refetch, householdViewMode]);
 
-  // Fetch completed tasks for displayed month (by due_date) — used for calendar dots
+  // Fetch completed tasks for displayed month (by completed_at) — used for calendar dots
   useEffect(() => {
     if (!user?.id) {
       setCompletedTasksForMonth([]);
@@ -359,14 +359,16 @@ export default function CalendarPage() {
     let cancelled = false;
     const firstDay = firstDayOfMonth(month.year, month.month);
     const lastDay = lastDayOfMonth(month.year, month.month);
+    const startOfMonth = `${firstDay}T00:00:00.000Z`;
+    const endOfMonth = `${lastDay}T23:59:59.999Z`;
     (async () => {
       let query = supabase
         .from("tasks")
         .select("id, plant_profile_id, category, due_date, completed_at, created_at, grow_instance_id, title, care_schedule_id, user_id, supply_profile_id")
         .is("deleted_at", null)
         .not("completed_at", "is", null)
-        .gte("due_date", firstDay)
-        .lte("due_date", lastDay)
+        .gte("completed_at", startOfMonth)
+        .lte("completed_at", endOfMonth)
         .order("completed_at", { ascending: false });
       if (viewMode !== "family") query = query.eq("user_id", user!.id);
       const { data: rows } = await query;
@@ -527,7 +529,7 @@ export default function CalendarPage() {
   const completedByDate = useMemo(() => {
     const out: Record<string, (Task & { plant_name?: string; user_id?: string | null })[]> = {};
     completedTasksForMonth.forEach((t) => {
-      const d = toDateKey(t.due_date) || t.due_date;
+      const d = t.completed_at ? toDateKey(new Date(t.completed_at).toISOString().slice(0, 10)) : (toDateKey(t.due_date) || t.due_date);
       if (!d) return;
       if (!out[d]) out[d] = [];
       out[d].push(t);
@@ -1014,6 +1016,7 @@ export default function CalendarPage() {
                             onTaskTap={() => setTaskDetailTask(t)}
                             ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                             canEdit={false}
+                            displayDateOverride={selectedDate ?? undefined}
                           />
                         ))}
                       </div>
@@ -1124,6 +1127,7 @@ export default function CalendarPage() {
                                   onTaskTap={() => setTaskDetailTask(t)}
                                   ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
                                   canEdit={false}
+                                  displayDateOverride={date}
                                 />
                               ))}
                             </div>
@@ -1602,6 +1606,7 @@ function CalendarTaskRow({
   onTaskTap,
   ownerBadge,
   canEdit = true,
+  displayDateOverride,
 }: {
   task: Task & { plant_name?: string };
   onComplete: () => void;
@@ -1615,6 +1620,8 @@ function CalendarTaskRow({
   ownerBadge?: string | null;
   /** When false, complete/snooze/delete buttons are hidden */
   canEdit?: boolean;
+  /** When set (e.g. selectedDate), show this date in the label so it matches the section header */
+  displayDateOverride?: string;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
@@ -1623,10 +1630,12 @@ function CalendarTaskRow({
   const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
   const plantName = task.plant_name?.trim();
   const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
-  // For completed tasks show completion date so "Tasks for [date]" only shows that date in labels
-  const dateLabel = task.completed_at
-    ? new Date(task.completed_at).toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
-    : new Date(task.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+  // Completed tasks: show completion date (or displayDateOverride so label matches "Tasks for [date]"); upcoming: show due date
+  const dateLabel = displayDateOverride
+    ? new Date(displayDateOverride + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
+    : task.completed_at
+      ? new Date(task.completed_at).toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
+      : new Date(task.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
   const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${dateLabel})`;
 
   const handlePointerDown = () => {

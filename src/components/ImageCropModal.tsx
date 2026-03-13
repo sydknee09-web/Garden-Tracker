@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export type CropShape = "square" | "circle";
 
@@ -45,6 +46,7 @@ export function ImageCropModal({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, crop: { x: 0, y: 0, width: 200, height: 200 } });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [aspectPreset, setAspectPreset] = useState<AspectPreset>(null);
+  const trapRef = useFocusTrap(open);
 
   const naturalAspect = imageSize.width > 0 && imageSize.height > 0 ? imageSize.width / imageSize.height : 1;
   const effectiveAspect =
@@ -333,6 +335,7 @@ export function ImageCropModal({
     <>
       <div className="fixed inset-0 z-[110] bg-black/50" aria-hidden onClick={onClose} />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[111] rounded-3xl bg-white border border-neutral-200 p-4 max-w-md mx-auto max-h-[85vh] overflow-hidden flex flex-col shadow-xl"
         role="dialog"
         aria-modal="true"

@@ -423,8 +423,8 @@ export default function HomePage() {
 
       {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
       <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Planting Schedule</h2>
-        <p className="text-xs text-black/50 mb-3">Zone 10b reference guide — when to start indoors or plant outside. Not your vault.</p>
+        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">When to plant (by zone)</h2>
+        <p className="text-xs text-black/50 mb-3">Action now · Monthly pulse · Annual roadmap</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
             href="/schedule?view=action"

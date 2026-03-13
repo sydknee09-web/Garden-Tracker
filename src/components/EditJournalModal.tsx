@@ -9,6 +9,7 @@ import { compressImage } from "@/lib/compressImage";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { JournalEntry } from "@/types/garden";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
@@ -80,6 +81,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const trapRef = useFocusTrap(true);
 
   const isPlantingEntry = (entry.entry_type ?? "").toLowerCase() === "planting";
 
@@ -341,6 +343,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         onClick={onClose}
       />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 top-1/2 z-[101] -translate-y-1/2 rounded-2xl bg-white shadow-xl max-h-[85vh] flex flex-col max-w-md mx-auto overflow-hidden"
         role="dialog"
         aria-modal="true"

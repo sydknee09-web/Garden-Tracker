@@ -11,6 +11,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { localDateString } from "@/lib/calendarDate";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
@@ -72,6 +73,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -320,6 +322,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     <>
       <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
         role="dialog"
         aria-modal="true"

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile } from "@/types/garden";
 
 export interface GrowInstanceModalProps {
@@ -221,6 +222,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
   }, [backHref, onClose, router]);
 
   useEscapeKey(true, onClose);
+  const trapRef = useFocusTrap(true);
 
   // ---------------------------------------------------------------------------
   // Hero image (Law 7 for this grow)
@@ -382,7 +384,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
   return (
     <>
       <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
-      <div className="fixed inset-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
+      <div ref={trapRef} className="fixed inset-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
         <div className="flex-1 overflow-auto pb-28 min-h-0">
       {/* ------------------------------------------------------------------ */}
       {/* HEADER                                                              */}

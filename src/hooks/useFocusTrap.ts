@@ -5,13 +5,16 @@ import { useEffect, useRef } from "react";
 const FOCUSABLE = "button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])";
 
 /**
- * Trap focus within the container while active. Used for modals.
+ * Trap focus within the container while active and return focus to the trigger on close.
+ * Used for modals (role="dialog" aria-modal="true").
  */
 export function useFocusTrap(active: boolean) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!active || typeof document === "undefined") return;
+    previousActiveElement.current = document.activeElement as HTMLElement | null;
     const el = containerRef.current;
     if (!el) return;
 
@@ -36,7 +39,13 @@ export function useFocusTrap(active: boolean) {
 
     first?.focus();
     el.addEventListener("keydown", handleKeyDown);
-    return () => el.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      el.removeEventListener("keydown", handleKeyDown);
+      const prev = previousActiveElement.current;
+      if (prev?.focus && typeof prev.focus === "function" && document.contains(prev)) {
+        prev.focus();
+      }
+    };
   }, [active]);
 
   return containerRef;

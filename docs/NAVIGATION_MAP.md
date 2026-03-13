@@ -15,6 +15,25 @@
 
 ---
 
+## When Back goes where
+
+Quick reference for back behavior (browser back, in-app Back link, or Escape/close). Use for debugging and to avoid breaking expected flows.
+
+| Context | Back / Close action | Result |
+|--------|---------------------|--------|
+| **Universal Add Menu** (FAB menu) | Escape or Cancel | Menu closes; focus returns to trigger. No URL change. |
+| **QuickAddSupply** (Add to shed) | Back arrow (from choose screen) | Parent closes Supply modal and re-opens Universal Add Menu. No URL change. |
+| **QuickAddSupply** (link/form screen) | Back arrow | Internal: returns to choose screen. |
+| **Vault profile** (`/vault/[id]`) | Back link / browser back | To Garden if `from=garden`; to Calendar if `from=calendar` (optional `date=`); to Vault if `from=vault`; to Journal if `from=journal`. |
+| **Vault → Plant** (`/vault/plant`) | Back link | To Garden / Calendar / Vault / Journal per `from=` param. |
+| **Grow Instance popup** (Garden `?grow=`) | Back button, Escape, or "To Garden" | If `from=profile` and `profile=` in URL → navigate to `/vault/[profile_id]`. Else modal closes; URL becomes `/garden?tab=...`. |
+| **Journal New** (`/journal/new`) | Back link or Cancel | To `/garden` if `?from=garden`; else to `/journal`. |
+| **Shopping List** | "← Back" or browser back | Returns to prior page (Home, Vault, Garden, etc.). |
+| **Add modals** (QuickAddSeed, AddPlant, New Task, Quick Log, etc.) | Escape or Cancel / X | Modal closes; stay on current page; list refresh. No URL change. |
+| **Calendar** (date selected) | Tap selected date again | Deselect; return to full task list view. |
+
+---
+
 ## Universal Add Menu
 
 All main pages (Home, Vault, Garden, Journal, Calendar) use the same **Universal Add Menu** when the FAB is tapped (when not in selection mode).
@@ -414,3 +433,4 @@ See **docs/WHERE_DO_I.md** for the user-facing "Where do I…?" guide.
 | 2025-03-10 | Add to shed: Documented stay-in-place behavior (no navigation/URL change; modal overlay only). QuickAddSupply on Vault is globally available from any tab (Grid, List, Shed) via VaultShedWingModals. |
 | 2025-03-11 | Grow instance: **Popup modal** on Garden instead of dedicated page. Entry via `/garden?grow=[id]` (from Vault: `&from=profile&profile=[id]`; from Garden: `&tab=active` or `tab=plants`). Route `/garden/grow/[id]` redirects to `/garden?grow=[id]`. Modal: plant name in header links to plant profile; Back/Escape/To Garden close; from=profile → close navigates to vault profile. Notes tab removed; page purely informational. |
 | 2025-03-12 | Added **Data input map** section (input type → entry → redirect). User-facing guide: docs/WHERE_DO_I.md. Garden page: FAB state renamed from `fabMenuOpen` to `universalAddMenuOpen` for consistency. |
+| 2025-03-12 | Added **When Back goes where** table (back behavior reference for modals, profile, grow popup, journal new, shopping list). |

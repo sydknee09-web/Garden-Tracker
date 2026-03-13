@@ -7,6 +7,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface Props {
   open: boolean;
@@ -54,6 +55,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
   }, [photos.length]);
 
   useEscapeKey(open, onClose);
+  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     if (open) setErrorMessage(null);
@@ -118,7 +120,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
+      <div ref={trapRef} className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex-shrink-0 p-5 border-b border-neutral-200">
           <h2 className="text-lg font-semibold text-neutral-900">Log Harvest</h2>
           <p className="text-sm text-neutral-500 mt-1">{displayName}</p>

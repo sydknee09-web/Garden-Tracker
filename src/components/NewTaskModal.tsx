@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
@@ -46,6 +47,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
   const [recurringEndDate, setRecurringEndDate] = useState("");
 
   useModalBackClose(open, onClose);
+  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     if (open) {
@@ -231,6 +233,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
     <>
       <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={onClose} />
       <div
+        ref={trapRef}
         className="fixed left-4 right-4 bottom-20 z-50 max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
