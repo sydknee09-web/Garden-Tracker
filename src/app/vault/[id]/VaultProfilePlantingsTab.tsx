@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { PlantProfile, GrowInstance } from "@/types/garden";
+import type { PlantProfile, GrowInstance, PageKey } from "@/types/garden";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatDisplayDate } from "./vaultProfileUtils";
 
@@ -11,7 +11,7 @@ export interface VaultProfilePlantingsTabProps {
   growInstances: GrowInstance[];
   isPermanent: boolean;
   nonEmptyPacketsCount: number;
-  canEditPage: (userId: string, permission: string) => boolean;
+  canEditPage: (userId: string, permission: PageKey) => boolean;
   onPlantAgain: () => void;
   onEditGrow: (gi: GrowInstance) => void;
   onOpenJournal: () => void;
