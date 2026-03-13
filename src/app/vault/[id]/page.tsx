@@ -1754,9 +1754,9 @@ export default function VaultSeedPage() {
             journalPhotos={journalPhotos}
             isLegacy={isLegacy}
             legacyNotes={legacyNotes}
-            legacyPlantDesc={legacyPlantDesc}
-            legacyGrowingInfo={legacyGrowingInfo}
-            legacySourceUrl={legacySourceUrl}
+            legacyPlantDesc={legacyPlantDesc ?? null}
+            legacyGrowingInfo={legacyGrowingInfo ?? null}
+            legacySourceUrl={legacySourceUrl ?? null}
             careList={careList}
             growingList={growingList}
             harvestList={harvestList}
