@@ -221,6 +221,11 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
     onClose();
   }, [backHref, onClose, router]);
 
+  const handleGoToVault = useCallback(() => {
+    onClose();
+    if (profile?.id) router.push(`/vault/${profile.id}`);
+  }, [profile?.id, onClose, router]);
+
   useEscapeKey(true, onClose);
   const trapRef = useFocusTrap(true);
 
@@ -539,13 +544,14 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             {/* Navigation links */}
             <div className="flex gap-2">
               {profile && (
-                <Link
-                  href={`/vault/${profile.id}`}
+                <button
+                  type="button"
+                  onClick={handleGoToVault}
                   className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100"
                 >
                   <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
                   Plant profile
-                </Link>
+                </button>
               )}
               <button
                 type="button"
@@ -722,13 +728,14 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
       <div className="px-4 pb-8 pt-4 border-t border-neutral-100 bg-white">
         <div className="flex gap-2">
           {profile && (
-            <Link
-              href={`/vault/${profile.id}`}
+            <button
+              type="button"
+              onClick={handleGoToVault}
               className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100"
             >
               <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
-              Navigate to Vault
-            </Link>
+              To Vault
+            </button>
           )}
           <button
             type="button"
@@ -736,7 +743,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
           >
             <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-            Navigate to Garden
+            To Garden
           </button>
         </div>
       </div>
