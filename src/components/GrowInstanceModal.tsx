@@ -437,7 +437,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
 
   const toBatchLogBatch = (): BatchLogBatch => ({
     id: grow.id,
-    plant_profile_id: grow.plant_profile_id,
+    plant_profile_id: grow.plant_profile_id ?? "",
     profile_name: profile?.name ?? "Plant",
     profile_variety_name: profile?.variety_name ?? null,
     seeds_sown: grow.seeds_sown ?? null,

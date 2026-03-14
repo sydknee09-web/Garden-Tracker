@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useToast } from "@/hooks/useToast";
 import { AddItemModal } from "@/components/AddItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
 
@@ -32,6 +33,7 @@ export default function ShoppingListPage() {
   const searchParams = useSearchParams();
   const fromParam = searchParams.get("from");
   const { user } = useAuth();
+  const { toast, showErrorToast } = useToast();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,6 +162,7 @@ export default function ShoppingListPage() {
 
   return (
     <div className="min-h-screen bg-paper px-6 pt-2 pb-6">
+      {toast}
       <div className="mx-auto max-w-2xl">
         <button
           type="button"
@@ -334,6 +337,7 @@ export default function ShoppingListPage() {
           open={addItemModalOpen}
           onClose={() => setAddItemModalOpen(false)}
           onSuccess={fetchList}
+          onErrorToast={showErrorToast}
         />
 
         <button

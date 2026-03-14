@@ -151,7 +151,7 @@ export default function HomePage() {
     backToMenu,
     closeAll,
   } = useUniversalAddModals();
-  const { toast, showToast } = useToast();
+  const { toast, showToast, showErrorToast } = useToast();
 
   useEscapeKey(addMenuOpen || !!activeModal, closeAll);
 
@@ -578,6 +578,7 @@ export default function HomePage() {
           open={addItemModalOpen}
           onClose={() => setAddItemModalOpen(false)}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onErrorToast={showErrorToast}
         />
 
         {/* ---- Tasks ---- */}

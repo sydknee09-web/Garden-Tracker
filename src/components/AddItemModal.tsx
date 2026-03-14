@@ -11,9 +11,11 @@ interface AddItemModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** Optional: show error as a toast (e.g. from parent useToast().showErrorToast) for visibility. */
+  onErrorToast?: (message: string) => void;
 }
 
-export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
+export function AddItemModal({ open, onClose, onSuccess, onErrorToast }: AddItemModalProps) {
   const { user } = useAuth();
   const [cells, setCells] = useState<string[]>([""]);
   const [saving, setSaving] = useState(false);
@@ -63,14 +65,16 @@ export function AddItemModal({ open, onClose, onSuccess }: AddItemModalProps) {
       setSaving(false);
       if (insertError) {
         hapticError();
-        setError(formatAddFlowError(insertError));
+        const msg = formatAddFlowError(insertError);
+        setError(msg);
+        onErrorToast?.(msg);
         return;
       }
       hapticSuccess();
       onSuccess();
       onClose();
     },
-    [cells, user?.id, onSuccess, onClose]
+    [cells, user?.id, onSuccess, onClose, onErrorToast]
   );
 
   if (!open) return null;
