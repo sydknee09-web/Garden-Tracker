@@ -197,4 +197,9 @@ describe("Batch select — action bar and sheets", () => {
   it("exitSelectMode is wired to the action bar close/cancel button", () => {
     expect(src).toContain("exitSelectMode");
   });
+
+  // N4: NewTaskModal must NOT call useModalBackClose — calendar/page.tsx owns it. Duplicate causes double Back press.
+  it("NewTaskModal does not call useModalBackClose (page owns back state)", () => {
+    expect(newTaskModalSrc).not.toContain("useModalBackClose");
+  });
 });

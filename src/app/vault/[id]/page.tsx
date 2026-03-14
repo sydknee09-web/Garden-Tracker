@@ -976,6 +976,7 @@ export default function VaultSeedPage() {
             ) : null}
           </>
         )}
+        {/* N1: fromParam always wins — back destination reflects where user came from, never the active tab */}
         {fromParam === "garden" ? (
           (() => {
             const gardenTab = searchParams.get("gardenTab");

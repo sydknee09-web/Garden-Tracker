@@ -49,22 +49,9 @@ All items below have been implemented and can be considered closed.
 
 ## 🔧 Active Recommendations
 
-### N1 — Back arrow overrides `from=` param when on Journal tab *(High)*
+### N1 — Back arrow overrides `from=` param when on Journal tab *(High)* — **Completed**
 
-**Current:** In `vault/[id]/page.tsx`, the back-link logic checks `validTab === "journal"` **first**, before checking `fromParam`. So if a user arrives at a plant profile from Garden (`?from=garden`) and then clicks the Journal tab, the back arrow changes to "← Back to Journal" and navigates to `/journal` — abandoning the garden context entirely.
-
-**Impact:** User navigated from Garden, taps Journal tab to check entries, taps back → lands in Journal instead of Garden. Broken flow.
-
-**Fix:** Restructure back-link priority — `fromParam` should always take precedence. The Journal tab should never override where the user came from. The back arrow should reflect origin context, not the currently active tab.
-
-```tsx
-// Correct priority: fromParam wins; journal tab is irrelevant to "where I came from"
-const backLabel =
-  fromParam === "garden" ? (gardenTab === "active" ? "← Back to Active Garden" : "← Back to My Plants")
-  : fromParam === "calendar" ? "← Back to Calendar"
-  : fromParam === "journal" ? "← Back to Journal"
-  : "← Back to Vault";
-```
+**Fix applied:** Back-link logic uses `fromParam` only; `validTab`/active tab never overrides. Comment added: "fromParam always wins — back destination reflects where user came from, never the active tab."
 
 ---
 
@@ -104,11 +91,9 @@ Garden, Journal, and the Vault list page already do this — vault profile shoul
 
 ---
 
-### N4 — Double `useModalBackClose` in `NewTaskModal` + `calendar/page.tsx` *(Medium)*
+### N4 — Double `useModalBackClose` in `NewTaskModal` + `calendar/page.tsx` *(Medium)* — **Completed**
 
-**Current:** `NewTaskModal.tsx` calls `useModalBackClose(open, onClose)` at the component level (line 49). `calendar/page.tsx` also calls `useModalBackClose(newTaskOpen, () => setNewTaskOpen(false))` for the same modal. Two `history.pushState` calls fire when the modal opens — meaning the user must press Back **twice** to close and return to the normal calendar view.
-
-**Fix:** Remove the `useModalBackClose` call from inside `NewTaskModal` and rely on the page-level call (consistent with how all other modals are handled — the page owns the back state, not the modal component).
+**Fix applied:** `NewTaskModal` does not call `useModalBackClose`; only `calendar/page.tsx` does. Regression test added to prevent future duplicate.
 
 ---
 
@@ -260,9 +245,9 @@ These were recommendations in the original audit that are either no longer appli
 
 | Priority | Item | Effort |
 |----------|------|--------|
-| 🔴 High | **N1** — Back arrow ignores `from=` param when on Journal tab | Small — logic reorder in `vault/[id]/page.tsx` |
+| ~~🔴 High~~ | ~~**N1** — Back arrow ignores `from=` param~~ | Done |
 | 🟠 Medium | **N3** — Vault profile tab clicks don't update URL | Small — add `router.replace` on tab click |
-| 🟠 Medium | **N4** — Double `useModalBackClose` in NewTaskModal | Small — remove one call |
+| ~~🟠 Medium~~ | ~~**N4** — Double `useModalBackClose` in NewTaskModal~~ | Done |
 | 🟠 Medium | **U2** — Journal page: no direct "New entry" path | Small — add "+" button to journal header |
 | 🟠 Medium | **U3** — `EmptyState` component is dead code | Medium — either adopt everywhere or delete |
 | 🟠 Medium | **U4** — Toast inconsistency | Medium — shared Toast component |

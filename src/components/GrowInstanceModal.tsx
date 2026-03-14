@@ -618,28 +618,6 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
         {/* OVERVIEW TAB */}
         {activeTab === "overview" && (
           <>
-            {/* Navigation links */}
-            <div className="flex gap-2">
-              {profile && (
-                <button
-                  type="button"
-                  onClick={handleGoToVault}
-                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100"
-                >
-                  <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
-                  Plant profile
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-              >
-                <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-                My Garden
-              </button>
-            </div>
-
             {/* Key facts */}
             <div className="bg-white rounded-xl border border-neutral-200 divide-y divide-neutral-100">
               <div className="flex items-center gap-3 px-4 py-3">

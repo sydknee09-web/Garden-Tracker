@@ -147,3 +147,12 @@ Permanent vs seasonal is a property of the **grow instance**, not the plant prof
 ### Mobile-First Touch Targets
 
 All interactive elements must have `min-w-[44px] min-h-[44px]` for accessibility. Modals use `max-h-[85vh]` with internal scroll. Fixed bottom nav is 80px tall -- content must not be obscured.
+
+---
+
+## Audit & Recommendation Policy
+
+When the user requests audits or recommendations:
+- **Acknowledge when the app is polished.** If the codebase is in good shape, say so clearly. Don't invent issues to fill a report.
+- **Avoid circular or unnecessary recommendations.** Don't recommend changes that add little value, introduce risk, or churn for its own sake.
+- **Avoid destructive recommendations.** Prefer incremental, low-risk improvements. Flag breaking changes or high-effort refactors only when they solve real problems.
