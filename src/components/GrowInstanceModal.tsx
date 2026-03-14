@@ -375,6 +375,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       .eq("user_id", user.id);
     setArchiveSaving(false);
     if (!err) {
+      showToast("Archived");
       setArchiveOpen(false);
       if (backHref) router.push(backHref);
       onClose();

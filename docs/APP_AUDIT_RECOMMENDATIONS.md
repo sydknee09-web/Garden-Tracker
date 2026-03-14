@@ -75,6 +75,7 @@ All items below have been implemented and can be considered closed.
 | **E5 — Card hover/active state on desktop** | .card-interactive utility; applied to Journal, SeedVaultView, ActiveGardenView, MyPlantsView, ShedView cards. |
 | **E6 — Optional success sound** | Settings toggle; successSound.ts + useToast integration. |
 | **Error toasts in distinct style** | useToast supports variant `success` \| `error`; `showErrorToast(msg)` uses bg-amber-600, no success sound, aria-live="assertive". AddItemModal optional `onErrorToast`; Home and shopping-list pass showErrorToast. |
+| **Success feedback audit** | Added success toasts: GrowInstanceModal archive; BatchLogSheet (Garden, vault profile); HarvestModal (Garden, vault); EditPacketModal (Vault list); AddItemModal (shopping list). |
 
 ---
 

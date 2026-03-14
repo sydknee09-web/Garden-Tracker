@@ -7,6 +7,7 @@ import type { BatchLogBatch } from "@/components/BatchLogSheet";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
+import { useToast } from "@/hooks/useToast";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 interface UseVaultPlantingsHandlersArgs {
@@ -39,6 +40,7 @@ export function useVaultPlantingsHandlers({
   const [editGrowSownDate, setEditGrowSownDate] = useState("");
   const [editGrowSaving, setEditGrowSaving] = useState(false);
   const [editGrowError, setEditGrowError] = useState<string | null>(null);
+  const { showErrorToast } = useToast();
 
   useModalBackClose(!!editGrowTarget, () => { if (!editGrowSaving) setEditGrowTarget(null); });
 
@@ -71,7 +73,8 @@ export function useVaultPlantingsHandlers({
     const now = new Date().toISOString();
     const isDead = endReason === "plant_died";
     const status = isDead ? "dead" : "archived";
-    await supabase.from("grow_instances").update({ status, ended_at: now, end_reason: endReason }).eq("id", batchId);
+    const { error: growErr } = await supabase.from("grow_instances").update({ status, ended_at: now, end_reason: endReason }).eq("id", batchId).eq("user_id", endBatchTarget.user_id ?? userId);
+    if (growErr) { showErrorToast("Could not end batch. Try again."); setEndSaving(false); setEndBatchTarget(null); setEndReason("season_ended"); setEndNote(""); return; }
     await softDeleteTasksForGrowInstance(batchId, endBatchTarget.user_id ?? userId);
     if (endNote.trim() || isDead) {
       const weather = await fetchWeatherSnapshot();
@@ -96,20 +99,20 @@ export function useVaultPlantingsHandlers({
     setEndReason("season_ended");
     setEndNote("");
     loadProfile();
-  }, [userId, endBatchTarget, endReason, endNote, loadProfile]);
+  }, [userId, endBatchTarget, endReason, endNote, loadProfile, showErrorToast]);
 
   const handlePlantingsDeleteBatch = useCallback(async () => {
     if (!userId || !deleteBatchTarget) return;
     setDeleteSaving(true);
     const batchId = deleteBatchTarget.id;
     const now = new Date().toISOString();
-    const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batchId);
+    const { error } = await supabase.from("grow_instances").update({ deleted_at: now }).eq("id", batchId).eq("user_id", deleteBatchTarget.user_id ?? userId);
     if (!error) await softDeleteTasksForGrowInstance(batchId, deleteBatchTarget.user_id ?? userId);
     setDeleteSaving(false);
     setDeleteBatchTarget(null);
-    if (error) return;
+    if (error) { showErrorToast("Could not delete batch. Try again."); return; }
     loadProfile();
-  }, [userId, deleteBatchTarget, loadProfile]);
+  }, [userId, deleteBatchTarget, loadProfile, showErrorToast]);
 
   const handleEditGrowOpen = useCallback((gi: GrowInstance) => {
     setEditGrowTarget(gi);

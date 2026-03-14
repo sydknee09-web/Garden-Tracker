@@ -974,6 +974,7 @@ export function VaultPacketWingModals() {
     refetch,
     batchPacketDeleting,
     handleBatchDeletePackets,
+    onSaveMessage,
   } = ctx;
 
   return (
@@ -1084,6 +1085,7 @@ export function VaultPacketWingModals() {
             refetch();
             setSelectedPacketIds(new Set());
             setBatchSelectMode(false);
+            onSaveMessage("Packet saved");
           }}
         />
       )}

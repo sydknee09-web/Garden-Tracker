@@ -352,7 +352,8 @@ export default function VaultImportPage() {
                 ...(perenualData.scientific_name != null && { scientific_name: perenualData.scientific_name }),
                 ...(perenualData.botanical_care_notes != null && { botanical_care_notes: perenualData.botanical_care_notes }),
               })
-              .eq("id", profileId);
+              .eq("id", profileId)
+              .eq("user_id", uid);
             dataSource = "Perenual API";
           }
         }

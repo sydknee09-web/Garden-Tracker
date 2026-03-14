@@ -339,7 +339,7 @@ export default function SettingsProfilePage() {
                 <button
                   type="button"
                   onClick={handleStartEditGarden}
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:text-emerald-600 transition-colors min-h-[32px] px-1"
+                  className="flex items-center gap-1 text-xs text-neutral-400 hover:text-emerald-600 transition-colors min-h-[44px] min-w-[44px] px-2"
                   aria-label="Edit garden settings"
                 >
                   <ICON_MAP.Pencil stroke="currentColor" className="w-[14px] h-[14px]" />

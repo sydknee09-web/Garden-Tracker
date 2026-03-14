@@ -33,7 +33,7 @@ export default function ShoppingListPage() {
   const searchParams = useSearchParams();
   const fromParam = searchParams.get("from");
   const { user } = useAuth();
-  const { toast, showErrorToast } = useToast();
+  const { toast, showToast, showErrorToast } = useToast();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,7 +336,7 @@ export default function ShoppingListPage() {
         <AddItemModal
           open={addItemModalOpen}
           onClose={() => setAddItemModalOpen(false)}
-          onSuccess={fetchList}
+          onSuccess={() => { fetchList(); showToast("Added to list"); }}
           onErrorToast={showErrorToast}
         />
 

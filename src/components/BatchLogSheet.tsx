@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/useToast";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
@@ -67,6 +68,7 @@ export function BatchLogSheet({
   isPermanent = false,
 }: BatchLogSheetProps) {
   const { user } = useAuth();
+  const { showErrorToast } = useToast();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [selectedActions, setSelectedActions] = useState<Set<ActionId>>(new Set());
@@ -172,20 +174,23 @@ export function BatchLogSheet({
     try {
       const weather = await fetchWeatherSnapshot();
       const batch = firstBatch!;
+      const batchOwnerId = batch.user_id ?? user.id;
 
       // Germination: update seeds_sprouted + plant_count + sprout_date (RLS allows when owner or has edit grant)
       if (selectedActions.has("germination") && seedsSprouted.trim()) {
         const sprouted = parseInt(seedsSprouted, 10);
         if (!Number.isNaN(sprouted) && sprouted >= 0) {
           const today = new Date().toISOString().slice(0, 10);
-          await supabase
+          const { error: germErr } = await supabase
             .from("grow_instances")
             .update({
               seeds_sprouted: sprouted,
               plant_count: sprouted,
               sprout_date: today,
             })
-            .eq("id", batch.id);
+            .eq("id", batch.id)
+            .eq("user_id", batchOwnerId);
+          if (germErr) { showErrorToast("Could not save germination. Try again."); setSaving(false); return; }
         }
       }
 
@@ -193,7 +198,8 @@ export function BatchLogSheet({
       if (selectedActions.has("plant_count") && plantCount.trim()) {
         const count = parseInt(plantCount, 10);
         if (!Number.isNaN(count) && count >= 0) {
-          await supabase.from("grow_instances").update({ plant_count: count }).eq("id", batch.id);
+          const { error: pcErr } = await supabase.from("grow_instances").update({ plant_count: count }).eq("id", batch.id).eq("user_id", batchOwnerId);
+          if (pcErr) { showErrorToast("Could not save plant count. Try again."); setSaving(false); return; }
         }
       }
 
@@ -204,10 +210,12 @@ export function BatchLogSheet({
         if (count != null && !Number.isNaN(count) && count >= 0) updates.plant_count = count;
         if (transplantLocation.trim()) updates.location = transplantLocation.trim();
         // When transplanting from pending (e.g. pot up), set status to growing
-        const { data: current } = await supabase.from("grow_instances").select("status").eq("id", batch.id).single();
+        const { data: current, error: selErr } = await supabase.from("grow_instances").select("status").eq("id", batch.id).eq("user_id", batchOwnerId).single();
+        if (selErr) { showErrorToast("Could not load plant status. Try again."); setSaving(false); return; }
         if (current?.status === "pending") updates.status = "growing";
         if (Object.keys(updates).length > 0) {
-          await supabase.from("grow_instances").update(updates).eq("id", batch.id);
+          const { error: transErr } = await supabase.from("grow_instances").update(updates).eq("id", batch.id).eq("user_id", batchOwnerId);
+          if (transErr) { showErrorToast("Could not save transplant. Try again."); setSaving(false); return; }
         }
       }
 
@@ -278,6 +286,7 @@ export function BatchLogSheet({
       onClose();
     } catch (err) {
       console.error("BatchLogSheet save error", err);
+      showErrorToast("Something went wrong. Try again.");
     } finally {
       setSaving(false);
     }
@@ -294,6 +303,7 @@ export function BatchLogSheet({
     photos,
     onSaved,
     onClose,
+    showErrorToast,
   ]);
 
   const handleCameraPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

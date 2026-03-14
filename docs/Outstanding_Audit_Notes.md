@@ -4,37 +4,37 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #1 — Perenual update missing `user_id` scope (Law 1)
+## #1 — Perenual update missing `user_id` scope (Law 1) ✅ Fixed
 
 **File:** `src/app/vault/import/page.tsx` (lines ~348–355)
 
 **Bug:** The Perenual enrich update on `plant_profiles` uses only `.eq("id", profileId)` and does not scope by `user_id`. This violates Law 1 (RLS & User ID).
 
-**Fix:** Add `.eq("user_id", uid)` after `.eq("id", profileId)` on the update chain.
+**Fix:** Add `.eq("user_id", uid)` after `.eq("id", profileId)` on the update chain. **Done 2026-03-13.**
 
 ---
 
-## #3 — `grow_instances` mutations without `user_id` scope
+## #3 — `grow_instances` mutations without `user_id` scope ✅ Fixed
 
 **Files:**
-- `src/app/vault/[id]/page.tsx` — lines 532 (end batch), 560 (soft delete)
-- `src/components/BatchLogSheet.tsx` — lines 191, 202 (plant count, transplant)
+- `src/app/vault/[id]/useVaultPlantingsHandlers.ts` — end batch, soft delete
+- `src/components/BatchLogSheet.tsx` — germination, plant count, transplant
 
 **Bug:** Updates to `grow_instances` scope only by `id`, not `user_id`. RLS may mitigate, but defensive coding per Law 1 recommends adding `.eq("user_id", user.id)`. `BatchLogSheet` also does not check `error` from the Supabase response, so DB failures are silent.
 
-**Fix:** Add `user_id` scope to all four mutations. Add error handling in `BatchLogSheet` and surface failures to the user.
+**Fix:** Add `user_id` scope to all mutations. Add error handling in `BatchLogSheet` and `useVaultPlantingsHandlers`; surface failures via `showErrorToast`. **Done 2026-03-13.**
 
 ---
 
-## #5 — Touch targets below 44px minimum
+## #5 — Touch targets below 44px minimum ✅ Fixed
 
 **Files:**
-- `src/app/settings/profile/page.tsx` line 322 — "Edit" garden button uses `min-h-[32px]`
-- `src/app/login/page.tsx` line 86 — Submit button uses only `py-2.5` (~40px height)
+- `src/app/settings/profile/page.tsx` — "Edit" garden button
+- `src/app/login/page.tsx` — Submit button
 
-**Bug:** Mobile-first touch targets should be at least 44px. These fall short.
+**Bug:** Mobile-first touch targets should be at least 44px. These fell short.
 
-**Fix:** Add `min-h-[44px]` (and `min-w-[44px]` if needed) to both elements.
+**Fix:** Add `min-h-[44px]` (and `min-w-[44px]` if needed) to both elements. **Done 2026-03-13.**
 
 ---
 
@@ -48,13 +48,13 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #9 — Admin scraper-audit page unprotected
+## #9 — Admin scraper-audit page unprotected ✅ Fixed
 
 **File:** `src/app/admin/scraper-audit/page.tsx`
 
-**Bug:** The route is accessible to any authenticated user. It should be restricted to developers/admins.
+**Bug:** The route was accessible to any authenticated user. It should be restricted to developers/admins.
 
-**Fix:** Wrap the page or its content with `DeveloperUnlockContext` so only users who have passed the developer unlock can access it.
+**Fix:** Use `useDeveloperUnlock()`; when `!isUnlocked`, show "Developer tools require unlock" message and link to Settings. **Done 2026-03-13.**
 
 ---
 

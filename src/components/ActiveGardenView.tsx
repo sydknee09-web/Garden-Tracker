@@ -874,7 +874,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         open={batchLogOpen}
         batches={batchLogBatches}
         onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onSaved={() => { load(); }}
+        onSaved={() => { load(); onSaveMessage?.("Saved"); }}
         onLogHarvest={(b) => { onLogHarvest(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onQuickCare={(batch, action) => { handleQuickTap(batch as GrowingBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
         onBulkQuickCare={(batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}

@@ -22,6 +22,7 @@ import { AddPlantManualModal } from "@/components/AddPlantManualModal";
 import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { useToast } from "@/hooks/useToast";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantImage } from "@/components/PlantImage";
@@ -88,6 +89,7 @@ export default function VaultSeedPage() {
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
   const { canEditPage } = useHousehold();
+  const { showToast } = useToast();
 
   const [profile, setProfile] = useState<PlantProfile | null>(null);
   const [packets, setPackets] = useState<SeedPacket[]>([]);
@@ -1474,7 +1476,7 @@ export default function VaultSeedPage() {
         open={batchLogOpen}
         batches={batchLogTarget ? [batchLogTarget] : []}
         onClose={() => { setBatchLogOpen(false); setBatchLogTarget(null); }}
-        onSaved={loadProfile}
+        onSaved={() => { loadProfile(); showToast("Saved"); }}
         isPermanent={isPermanent}
         onLogHarvest={(b) => {
           setHarvestTarget({ profileId: b.plant_profile_id, growId: b.id, displayName: b.profile_variety_name?.trim() ? `${b.profile_name} (${b.profile_variety_name})` : b.profile_name });
@@ -1487,7 +1489,7 @@ export default function VaultSeedPage() {
       <HarvestModal
         open={!!harvestTarget}
         onClose={() => setHarvestTarget(null)}
-        onSaved={() => { loadProfile(); setHarvestTarget(null); }}
+        onSaved={() => { loadProfile(); setHarvestTarget(null); showToast("Harvest logged"); }}
         profileId={harvestTarget?.profileId ?? ""}
         growInstanceId={harvestTarget?.growId ?? ""}
         displayName={harvestTarget?.displayName ?? ""}

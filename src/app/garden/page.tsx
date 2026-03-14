@@ -1121,7 +1121,7 @@ function GardenPageInner() {
       <HarvestModal
         open={!!logHarvestBatch}
         onClose={() => setLogHarvestBatch(null)}
-        onSaved={() => { setRefetchTrigger((p: number) => p + 1); setLogHarvestBatch(null); }}
+        onSaved={() => { setRefetchTrigger((p: number) => p + 1); setLogHarvestBatch(null); showToast("Harvest logged"); }}
         profileId={logHarvestBatch?.plant_profile_id ?? ""}
         growInstanceId={logHarvestBatch?.id ?? ""}
         displayName={logHarvestBatch ? (logHarvestBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(logHarvestBatch.profile_name)} (${decodeHtmlEntities(logHarvestBatch.profile_variety_name)})` : decodeHtmlEntities(logHarvestBatch.profile_name)) : ""}
