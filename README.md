@@ -7,6 +7,43 @@ A personal garden management web app. Track your seed packets, plan and record p
 
 ---
 
+## Getting started
+
+**Prerequisites:** Node **24.x**, npm, and a [Supabase](https://supabase.com) project (create one at supabase.com → New project; get URL and anon key from **Project settings → API**).
+
+1. **Clone and install**
+   ```bash
+   git clone <your-repo-url>
+   cd garden-tracker
+   npm install
+   ```
+
+2. **Environment variables**  
+   Create `.env.local` in the project root with at least:
+   - `NEXT_PUBLIC_SUPABASE_URL` — your Supabase project URL  
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key  
+   - `NEXT_PUBLIC_APP_URL` — `http://localhost:3000` (for auth redirects)  
+   Add `SUPABASE_SERVICE_ROLE_KEY` for storage and invite flows. For AI features (photo extraction, hero image search), add `GOOGLE_GENERATIVE_AI_API_KEY` or `GEMINI_API_KEY`.  
+   Full list and optional keys: [Environment variables](#environment-variables) below.
+
+3. **Database**  
+   Apply migrations so the schema exists:
+   ```bash
+   supabase db push
+   ```
+   Or run each `.sql` in `supabase/migrations/` in order via the Supabase **SQL Editor**.
+
+4. **Run the app**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000), then sign up or sign in.
+
+5. **Run tests**  
+   `npm run test:run` — unit tests. See [Testing](#testing) for E2E and coverage.
+
+---
+
 ## Features
 
 | Section | What it does |
@@ -21,6 +58,8 @@ A personal garden management web app. Track your seed packets, plan and record p
 ---
 
 ## Running locally
+
+New to the project? See [Getting started](#getting-started) above.
 
 ```bash
 npm install
@@ -43,7 +82,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # needed for some admin/storag
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # AI / enrichment (optional — features degrade gracefully without them)
-GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-key      # photo extraction, hero image search
+GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-key      # or GEMINI_API_KEY — photo extraction, hero image search
 OPENAI_API_KEY=your-openai-key                    # OCR fallback
 PERENUAL_API_KEY=your-perenual-key                # botanical enrichment
 TAVILY_API_KEY=your-tavily-key                    # web scraping search
