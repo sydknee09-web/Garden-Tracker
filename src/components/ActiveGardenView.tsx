@@ -102,6 +102,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   onHighlightedBatch?: (batch: { id: string; profile_name: string; profile_variety_name: string | null } | null) => void;
   /** Called when user taps "Show all" in empty state (batch not found). Clears grow param. */
   onClearGrowView?: () => void;
+  /** Called when user taps "Clear filters" in no-match state. */
+  onClearFilters?: () => void;
   /** When true, enter bulk journal mode (e.g. from FAB "Add journal entry"). */
   openBulkJournalRequest?: boolean;
   onBulkJournalRequestHandled?: () => void;
@@ -115,6 +117,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   displayStyle?: "grid" | "list";
   sortBy?: "name" | "sown_date" | "harvest_date";
   sortDir?: "asc" | "desc";
+  /** Called on success (e.g. batch ended, task completed). */
+  onSaveMessage?: (msg: string) => void;
 }>(({
   refetchTrigger,
   highlightGrowId = null,
@@ -135,6 +139,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   onEmptyStateChange,
   onHighlightedBatch,
   onClearGrowView,
+  onClearFilters,
   openBulkJournalRequest = false,
   onBulkJournalRequestHandled,
   onBulkSelectionChange,
@@ -144,6 +149,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   displayStyle = "list",
   sortBy = "sown_date",
   sortDir = "desc",
+  onSaveMessage,
 }, ref) => {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditPage } = useHousehold();
@@ -658,8 +664,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     setEndReason("season_ended");
     setEndNote("");
     setGrowing((prev) => prev.filter((b) => b.id !== batchId));
+    onSaveMessage?.("Batch ended");
     load();
-  }, [user?.id, endBatchTarget, endReason, endNote, load]);
+  }, [user?.id, endBatchTarget, endReason, endNote, load, onSaveMessage]);
 
   const handleDeleteBatch = useCallback(async () => {
     if (!user?.id || !deleteBatchTarget) return;
@@ -702,11 +709,12 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       setQuickToast("Some deletions failed — try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
-      setQuickToast(`Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`);
-      setTimeout(() => setQuickToast(null), 2000);
+      const msg = `Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     }
     load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 
   const moveSelectedToPermanentPlants = useCallback(async () => {
     if (!user?.id || bulkSelected.size === 0) return;
@@ -725,11 +733,12 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       setQuickToast("Some moves failed — try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
-      setQuickToast(`Moved ${selectedBatches.length} to My Plants`);
-      setTimeout(() => setQuickToast(null), 2000);
+      const msg = `Moved ${selectedBatches.length} to My Plants`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     }
     load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 
   useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants]);
 
@@ -769,10 +778,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     setBulkMode(false);
     onBulkSelectionChange?.(0);
     onBulkModeChange?.(false);
-    setQuickToast(`Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`);
-    setTimeout(() => setQuickToast(null), 2000);
+    const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
+    if (onSaveMessage) onSaveMessage(msg);
+    else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load]);
+  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -978,7 +988,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
               </Link>
             </div>
           ) : (
-            <NoMatchCard message="No plantings match your search or filters." />
+            <NoMatchCard
+              message="No plantings match your search or filters."
+              actionLabel={onClearFilters ? "Clear filters" : undefined}
+              onAction={onClearFilters}
+            />
           )
         ) : highlightGrowId && displayBatches.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
