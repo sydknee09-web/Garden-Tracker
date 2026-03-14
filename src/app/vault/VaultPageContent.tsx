@@ -861,6 +861,14 @@ function VaultPageInner() {
     setRefineBySection(null);
   }, [viewMode, gridFilters.clearAllFilters, listFilters.clearAllFilters]);
 
+  const clearGridFiltersAndSearch = useCallback(() => {
+    setSearchQuery("");
+    gridFilters.clearAllFilters();
+    setRefineByOpen(false);
+    setRefineBySection(null);
+    if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace("/vault", { scroll: false });
+  }, [gridFilters.clearAllFilters, sowParam, router]);
+
   const hasActiveFilters = viewMode === "grid" ? gridFilters.hasActiveFilters : listFilters.hasActiveFilters;
 
   const handleQRScan = useCallback(async (value: string) => {
@@ -954,7 +962,7 @@ function VaultPageInner() {
                   : "text-black/60 hover:text-black"
               }`}
             >
-              Plants
+              Plant Profiles
             </button>
             <button
               type="button"
@@ -1168,6 +1176,7 @@ function VaultPageInner() {
               hideArchivedProfiles={false}
               sortBy={sortBy}
               sortDirection={sortDirection}
+              onClearFilters={clearGridFiltersAndSearch}
             />
           </div>
           <div className={viewMode === "list" ? "block" : "hidden"} aria-hidden={viewMode !== "list"}>
@@ -1719,7 +1728,7 @@ function VaultPageInner() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             refetch();

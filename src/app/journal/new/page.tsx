@@ -311,7 +311,7 @@ export default function JournalNewPage() {
         >
           ← {fromGarden ? "Garden" : "Journal"}
         </Link>
-        <h1 className="text-xl font-semibold text-black">Add Journal Entry</h1>
+        <h2 className="text-xl font-semibold text-black">Add Journal Entry</h2>
       </div>
       <p className="text-sm text-neutral-500 mb-6">For a quick note, use <strong>Add → Add journal</strong> from any page.</p>
 

@@ -1013,7 +1013,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             {sortedBatches.map((batch) => {
               const thumbUrl = getBatchImageUrl(batch);
               return (
-                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
+                <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
                   <Link
                     href={`/garden?tab=active&grow=${batch.id}`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
@@ -1134,7 +1134,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                 <li
                   key={batch.id}
                   ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
-                  className={`rounded-xl border bg-white p-4 shadow-sm transition-all ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
+                  className={`rounded-xl border bg-white p-4 shadow-sm transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
                 >
                   <div
                     className={`flex items-start justify-between gap-3 ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}

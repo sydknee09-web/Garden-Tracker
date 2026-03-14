@@ -130,6 +130,25 @@ export default function VaultSeedPage() {
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
 
+  // E2: First-time "Added to Vault" celebration (one-time per device)
+  const [addedToVaultCelebration, setAddedToVaultCelebration] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("added") !== "1") return;
+    try {
+      if (localStorage.getItem("first-added-to-vault-celebration-shown") === "1") return;
+      localStorage.setItem("first-added-to-vault-celebration-shown", "1");
+      setAddedToVaultCelebration(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("added");
+      const newUrl = params.toString() ? `/vault/${id}?${params.toString()}` : `/vault/${id}`;
+      router.replace(newUrl, { scroll: false });
+      const t = setTimeout(() => setAddedToVaultCelebration(false), 1200);
+      return () => clearTimeout(t);
+    } catch {
+      /* ignore */
+    }
+  }, [id, router, searchParams]);
+
   // True when the profile belongs to the current user; false when viewing a household member's profile
   const [isOwnProfile, setIsOwnProfile] = useState(true);
   // The user_id of the profile owner (may differ from user.id when viewing family profiles)
@@ -1012,12 +1031,29 @@ export default function VaultSeedPage() {
 
         {toastMessage}
 
+        {addedToVaultCelebration && (
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-emerald-500/90"
+            role="status"
+            aria-live="polite"
+            aria-label="Added to vault"
+          >
+            <div className="flex flex-col items-center justify-center gap-2">
+              <div className="relative w-16 h-16 flex items-center justify-center">
+                <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
+                <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
+              </div>
+              <p className="text-white font-semibold text-lg">Added to Vault!</p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <div>
-                <h1 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h1>
+                <h2 className="text-2xl font-bold text-neutral-900 break-words">{displayName}</h2>
                 {looksLikeScientificName((profile as PlantProfile)?.scientific_name) && (
                   <p className="mt-0.5 text-sm text-neutral-500 italic" aria-label="Scientific name">
                     {stripHtmlForDisplay((profile as PlantProfile).scientific_name)}

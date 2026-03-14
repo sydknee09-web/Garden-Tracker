@@ -11,6 +11,7 @@ import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantImage } from "@/components/PlantImage";
 import { NoMatchCard } from "@/components/NoMatchCard";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -105,6 +106,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   openBulkLogRequest?: boolean;
   onBulkLogRequestHandled?: () => void;
   onRefetch?: () => void;
+  /** Called on success (e.g. batch ended, batch deleted). */
+  onSaveMessage?: (msg: string) => void;
 }>(({
   refetchTrigger,
   searchQuery = "",
@@ -136,6 +139,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   openBulkLogRequest = false,
   onBulkLogRequestHandled,
   onRefetch,
+  onSaveMessage,
 }, ref) => {
   const router = useRouter();
   const { user } = useAuth();
@@ -453,11 +457,12 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
       setQuickToast("Some deletions failed — try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
-      setQuickToast(`Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`);
-      setTimeout(() => setQuickToast(null), 2000);
+      const msg = `Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     }
     onRefetch?.();
-  }, [user?.id, selectedGrowIds, plants, onRefetch]);
+  }, [user?.id, selectedGrowIds, plants, onRefetch, onSaveMessage]);
 
   const handleBulkEndBatch = useCallback(async () => {
     if (!user?.id || selectedGrowIds.size === 0) return;
@@ -471,10 +476,11 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     }
     setBulkEndBatchSaving(false);
     setBulkEndBatchConfirmOpen(false);
-    setQuickToast(`Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`);
-    setTimeout(() => setQuickToast(null), 2000);
+    const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
+    if (onSaveMessage) onSaveMessage(msg);
+    else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     onRefetch?.();
-  }, [user?.id, selectedGrowIds, plants, onRefetch]);
+  }, [user?.id, selectedGrowIds, plants, onRefetch, onSaveMessage]);
 
   const maturityRange = (days: number | null | undefined): string => {
     if (days == null || !Number.isFinite(days)) return "";
@@ -659,24 +665,19 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   return (
     <div>
       {plants.length === 0 ? (
-        <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-          <div className="flex justify-center mb-4" aria-hidden>
+        <EmptyStateCard
+          title="No permanent plants yet"
+          body="Add your fruit trees, bushes, and other perennial plants here."
+          actionLabel="Add a Perennial"
+          onAction={() => onAddClick?.()}
+          illustration={
             <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-400" aria-hidden>
               <path d="M32 60v-12" stroke="#78716c" strokeWidth="2.5" strokeLinecap="round" />
               <path d="M32 48c-10 0-18-8-18-18s8-18 18-18 18 8 18 18-8 18-18 18z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               <path d="M32 36c-5 0-9-4-9-9s4-9 9-9 9 4 9 9-4 9-9 9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7" />
             </svg>
-          </div>
-          <p className="text-black/70 font-medium mb-2">No permanent plants yet</p>
-          <p className="text-sm text-black/50 mb-6">Add your fruit trees, bushes, and other perennial plants here.</p>
-          <button
-            type="button"
-            onClick={() => onAddClick?.()}
-            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
-          >
-            Add a Perennial
-          </button>
-        </div>
+          }
+        />
       ) : sortedPlants.length === 0 ? (
         <NoMatchCard
           message="No plants match your search or filters."
@@ -890,7 +891,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                     onClick={(e) => handlers.handleClick(e as unknown as React.MouseEvent)}
                     onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
                     {...handlers}
-                    className={`group rounded-lg overflow-hidden flex flex-col border shadow-card transition-all w-full cursor-pointer min-h-[44px] ${
+                    className={`group rounded-lg overflow-hidden flex flex-col border shadow-card transition-all w-full cursor-pointer min-h-[44px] card-interactive ${
                       selected ? "ring-2 ring-emerald-500 border-2 border-emerald-500 bg-emerald-50/50" : "bg-white border-black/5 hover:border-emerald-500/40"
                     }`}
                   >

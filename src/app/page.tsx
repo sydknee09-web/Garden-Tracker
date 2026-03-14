@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useToast } from "@/hooks/useToast";
 import { LoadingState } from "@/components/LoadingState";
 
 const UniversalAddMenu = dynamic(
@@ -150,6 +151,7 @@ export default function HomePage() {
     backToMenu,
     closeAll,
   } = useUniversalAddModals();
+  const { toast, showToast } = useToast();
 
   useEscapeKey(addMenuOpen || !!activeModal, closeAll);
 
@@ -288,6 +290,7 @@ export default function HomePage() {
         setShoppingList((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
       } else {
         hapticSuccess();
+        showToast("Marked as purchased");
       }
     } finally { setMarkingPurchasedId(null); setSyncing(false); }
   }
@@ -304,6 +307,7 @@ export default function HomePage() {
 
   return (
     <div className="px-6 pt-2 pb-6 max-w-2xl mx-auto">
+      {toast}
       {/* ---- Frost Alert Banner ---- */}
       {frostAlert && (
         <div className="mb-4 rounded-2xl bg-blue-50 border border-blue-200 p-4">
@@ -317,12 +321,21 @@ export default function HomePage() {
       )}
 
       {/* ---- Insight Banner (dismissible, compact) ---- */}
-      {weather && sowingOk && !heatAlert && !insightDismissed && (
+      {weather && sowingOk && !heatAlert && !insightDismissed && (() => {
+        const insights = [
+          "Great weather for sowing!",
+          "Good day for watering.",
+          "Time to check your seedlings.",
+          "Ideal conditions for transplanting.",
+        ];
+        const day = new Date().getDay();
+        const message = insights[day % insights.length];
+        return (
         <div className="mb-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 shadow-card-soft flex items-center gap-2">
           <span className="shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
-            <p className="text-sm font-semibold text-white truncate">Great weather for sowing!</p>
+            <p className="text-sm font-semibold text-white truncate">{message}</p>
           </div>
           <button
             type="button"
@@ -338,7 +351,8 @@ export default function HomePage() {
             <span className="text-lg font-bold leading-none">×</span>
           </button>
         </div>
-      )}
+        );
+      })()}
 
       {/* ---- First-run FAB tip (dismissible) ---- */}
       {!fabTipDismissed && (
@@ -549,7 +563,7 @@ export default function HomePage() {
                 })}
               </ul>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
-                <Link href="/shopping-list" className="text-sm text-emerald-600 font-medium hover:underline">
+                <Link href="/shopping-list?from=home" className="text-sm text-emerald-600 font-medium hover:underline">
                   View full list &rarr;
                 </Link>
                 <button type="button" onClick={() => setAddItemModalOpen(true)} className="text-sm text-emerald-600 font-medium hover:underline">
@@ -682,6 +696,7 @@ export default function HomePage() {
           open
           onClose={closeActiveModal}
           onJournalAdded={() => {
+            showToast("Entry saved");
             router.refresh();
             closeActiveModal();
           }}
@@ -693,7 +708,7 @@ export default function HomePage() {
           open
           onClose={closeActiveModal}
           onBackToMenu={backToMenu}
-          onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
+          onSuccess={() => { showToast("Task added"); setShoppingListRefreshKey((k) => k + 1); }}
         />
       )}
 
@@ -705,7 +720,7 @@ export default function HomePage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             setShoppingListRefreshKey((k) => k + 1);

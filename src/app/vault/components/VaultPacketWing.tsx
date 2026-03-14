@@ -599,6 +599,7 @@ export function VaultPacketWingContent() {
         onPacketTagsLoaded={setPacketAvailableTags}
         onPacketSeedTypeChipsLoaded={setPacketSeedTypeChips}
         onPacketRefineChipsLoaded={setPacketRefineChips}
+        onClearFilters={ctx.clearPacketFilters}
       />
     </div>
   );

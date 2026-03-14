@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { isSuccessSoundEnabled, playSuccessSound } from "@/lib/successSound";
 
 const TOAST_DURATION_MS = 2500;
 
@@ -26,6 +27,7 @@ export function useToast(durationMs = TOAST_DURATION_MS) {
     (msg: string) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       setMessage(msg);
+      if (isSuccessSoundEnabled()) playSuccessSound();
       timerRef.current = setTimeout(() => {
         setMessage(null);
         timerRef.current = null;

@@ -54,6 +54,7 @@ import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useToast } from "@/hooks/useToast";
 import { useFilterState } from "@/hooks/useFilterState";
 import { FILTER_DEFAULT_KEYS } from "@/lib/filterDefaults";
 import { generateCareTasks } from "@/lib/generateCareTasks";
@@ -75,6 +76,7 @@ function GardenPageInner() {
   const viewModeFromUrl = tabParam === "active" || tabParam === "plants" ? tabParam : null;
   const effectiveViewMode = viewModeFromUrl ?? viewMode;
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const { toast, showToast } = useToast();
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
   const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
@@ -312,6 +314,12 @@ function GardenPageInner() {
     if (growParam) router.replace("/garden?tab=active");
   }, [growParam, router]);
 
+  const clearActiveSearchAndFilters = useCallback(() => {
+    setActiveSearchQuery("");
+    activeFilters.clearAllFilters();
+    if (growParam) router.replace("/garden?tab=active");
+  }, [activeFilters.clearAllFilters, growParam, router]);
+
   const activeFilterCount = activeFilters.filterCount;
   const plantsFilterCount = plantsFilters.filterCount;
 
@@ -520,6 +528,7 @@ function GardenPageInner() {
 
   return (
     <div className="min-h-screen pb-24">
+      {toast}
       <div className="px-6 pt-0 pb-6">
         <div className="sticky top-11 z-40 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
           <div className="flex mb-3" role="tablist" aria-label="View">
@@ -978,6 +987,8 @@ function GardenPageInner() {
               highlightGrowId={growParam}
               onHighlightedBatch={handleHighlightedBatch}
               onClearGrowView={clearGrowView}
+              onClearFilters={clearActiveSearchAndFilters}
+              onSaveMessage={showToast}
               searchQuery={activeSearchDebounced}
               onLogGrowth={openLogGrowth}
               onLogHarvest={openLogHarvest}
@@ -1051,6 +1062,7 @@ function GardenPageInner() {
                 setSelectedPlantGrows([]);
                 setPlantsBatchSelectMode(false);
               }}
+              onSaveMessage={showToast}
             />
           </div>
         )}
@@ -1240,7 +1252,7 @@ function GardenPageInner() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetchTrigger((t) => t + 1);
@@ -1491,6 +1503,15 @@ function GardenPageInner() {
             else router.replace(`/garden?tab=${effectiveViewMode}`);
           }}
           backHref={fromParam === "profile" && profileParam ? `/vault/${profileParam}` : undefined}
+          onLogHarvest={(batch) => {
+            router.replace(`/garden?tab=${effectiveViewMode}`);
+            setLogHarvestBatch({
+              id: batch.id,
+              plant_profile_id: batch.plant_profile_id,
+              profile_name: batch.profile_name,
+              profile_variety_name: batch.profile_variety_name,
+            });
+          }}
         />
       )}
     </div>

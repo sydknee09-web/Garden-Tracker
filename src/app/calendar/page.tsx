@@ -53,6 +53,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import type { Task } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { useToast } from "@/hooks/useToast";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
 import { localDateString, firstDayOfMonth, lastDayOfMonth } from "@/lib/calendarDate";
@@ -113,6 +114,7 @@ export default function CalendarPage() {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
+  const { toast, showToast } = useToast();
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
@@ -464,6 +466,7 @@ export default function CalendarPage() {
     await completeTask(t, (t as Task & { user_id?: string | null }).user_id ?? user.id);
     setRefetch((r) => r + 1);
     hapticSuccess();
+    showToast("Task completed");
 
     if (isHarvest) {
       setHarvestCelebration(plantLabel);
@@ -1348,6 +1351,8 @@ export default function CalendarPage() {
         </>
       )}
 
+      {toast}
+
       {harvestCelebration && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-amber-500 text-white text-sm font-medium shadow-lg flex items-center gap-2 animate-fade-in" role="status">
           <span aria-hidden>🌿</span>
@@ -1453,6 +1458,7 @@ export default function CalendarPage() {
           open
           onClose={closeActiveModal}
           onJournalAdded={() => {
+            showToast("Entry saved");
             router.refresh();
             closeActiveModal();
           }}
@@ -1464,7 +1470,7 @@ export default function CalendarPage() {
           open
           onClose={closeActiveModal}
           onBackToMenu={backToMenu}
-          onSuccess={() => setRefetch((r) => r + 1)}
+          onSuccess={() => { showToast("Task added"); setRefetch((r) => r + 1); }}
         />
       )}
 
@@ -1476,7 +1482,7 @@ export default function CalendarPage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetch((r) => r + 1);
@@ -1577,7 +1583,7 @@ export default function CalendarPage() {
             setEditTask(null);
             openMenu();
           }}
-          onSuccess={() => { setRefetch((r) => r + 1); setEditTask(null); exitSelectMode(); }}
+          onSuccess={() => { showToast("Task added"); setRefetch((r) => r + 1); setEditTask(null); exitSelectMode(); }}
           editTask={editTask}
         />
       )}

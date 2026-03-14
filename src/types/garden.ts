@@ -69,6 +69,8 @@ export interface GrowInstance {
   sow_method?: "direct_sow" | "seed_start" | null;
   seeds_sown?: number | null;
   seeds_sprouted?: number | null;
+  /** Date seeds sprouted; set when logging germination. Used for days_to_germinate display. */
+  sprout_date?: string | null;
   plant_count?: number | null;
   /** True = show in My Plants. False/null = show in Active Garden. Set when adding from Add permanent plant flow. */
   is_permanent_planting?: boolean | null;

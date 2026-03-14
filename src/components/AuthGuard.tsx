@@ -60,6 +60,7 @@ function getPageTitle(pathname: string | null): string {
   if (pathname.startsWith("/schedule")) return "Planting Schedule";
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/chat")) return "Chat";
+  if (pathname.startsWith("/help")) return "Help";
   return "";
 }
 
@@ -199,11 +200,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                     </button>
                   )}
                   <Link
-                    href="/shopping-list"
+                    href="/shopping-list?from=home"
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
                     aria-label="Shopping list"
                   >
                     <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
+                  </Link>
+                  <Link
+                    href="/help"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                    aria-label="Help"
+                    title="Where do I…?"
+                  >
+                    <span className="text-lg font-medium">?</span>
                   </Link>
                   <Link
                     href="/settings"
@@ -284,11 +293,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 </button>
               )}
               <Link
-                href="/shopping-list"
+                href="/shopping-list?from=home"
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
                 aria-label="Shopping list"
               >
                 <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/help"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black"
+                aria-label="Help"
+                title="Where do I…?"
+              >
+                <span className="text-lg font-medium">?</span>
               </Link>
               <Link
                 href="/settings"

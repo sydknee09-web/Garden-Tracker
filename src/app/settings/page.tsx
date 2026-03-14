@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { SettingsSuccessSoundToggle } from "@/components/SettingsSuccessSoundToggle";
 
 const SETTINGS_ITEMS = [
   { href: "/resources", label: "Resources", subtitle: "Planting calendars, zone charts, frost dates" },
@@ -29,6 +30,10 @@ export default function SettingsPage() {
       </Link>
       <h1 className="text-xl font-bold text-neutral-900 mb-1">Settings</h1>
       <p className="text-sm text-neutral-500 mb-4">Profile, data, and developer tools.</p>
+
+      <section className="rounded-xl border border-black/10 bg-white overflow-hidden mb-6" aria-label="Preferences">
+        <SettingsSuccessSoundToggle />
+      </section>
 
       <nav className="rounded-xl border border-black/10 bg-white overflow-hidden" aria-label="Settings">
         {items.map(({ href, label, subtitle }) => (

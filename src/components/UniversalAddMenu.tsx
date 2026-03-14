@@ -179,7 +179,10 @@ export function UniversalAddMenu({
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-                  Scan Purchase Order
+                  <div>
+                    <div>Scan purchase order</div>
+                    <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with seeds</div>
+                  </div>
                 </button>
               )}
               {onAddPlantPhotoImport && (
@@ -189,7 +192,10 @@ export function UniversalAddMenu({
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
-                  Photo Import
+                  <div>
+                    <div>Photo import</div>
+                    <div className="text-xs font-normal text-neutral-500">Multi-photo, extract plant tags</div>
+                  </div>
                 </button>
               )}
             </div>

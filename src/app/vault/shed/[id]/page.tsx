@@ -508,7 +508,7 @@ export default function VaultShedDetailPage() {
         <div className="p-4">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h1 className="text-xl font-bold text-neutral-900">{supply.name}</h1>
+              <h2 className="text-xl font-bold text-neutral-900">{supply.name}</h2>
               {supply.brand && <p className="text-neutral-600 text-sm">{supply.brand}</p>}
               <span className="inline-block mt-1 text-xs text-neutral-500 bg-neutral-100 rounded px-2 py-0.5">
                 {SUPPLY_CATEGORY_LABELS[supply.category] ?? supply.category}

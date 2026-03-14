@@ -9,13 +9,25 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useToast } from "@/hooks/useToast";
+import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile } from "@/types/garden";
+import type { BatchLogBatch } from "@/components/BatchLogSheet";
+import dynamic from "next/dynamic";
+
+const BatchLogSheet = dynamic(
+  () => import("@/components/BatchLogSheet").then((m) => ({ default: m.BatchLogSheet })),
+  { ssr: false }
+);
 
 export interface GrowInstanceModalProps {
   growId: string;
   onClose: () => void;
   /** When set, Back button navigates here then closes; otherwise just closes. */
   backHref?: string | null;
+  /** When user taps Harvest in BatchLogSheet, close modal and open HarvestModal for this batch. */
+  onLogHarvest?: (batch: BatchLogBatch) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,9 +136,10 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
-export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceModalProps) {
+export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { toast, showToast } = useToast();
   const instanceId = growId;
 
   const [grow, setGrow] = useState<GrowInstance | null>(null);
@@ -144,6 +157,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
   const [savingLocation, setSavingLocation] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveSaving, setArchiveSaving] = useState(false);
+  const [batchLogOpen, setBatchLogOpen] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
 
   // ---------------------------------------------------------------------------
@@ -410,6 +424,81 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
         ? `${grow.seeds_sprouted} sprouted`
         : null;
 
+  // Days to germinate (sprout_date - sown_date) when sprout_date exists
+  const daysToGerminate =
+    grow.sprout_date && grow.sown_date
+      ? (() => {
+          const sow = new Date(grow.sown_date + "T12:00:00").getTime();
+          const sprout = new Date(grow.sprout_date + "T12:00:00").getTime();
+          const days = Math.round((sprout - sow) / 86400000);
+          return days >= 0 ? days : null;
+        })()
+      : null;
+
+  const toBatchLogBatch = (): BatchLogBatch => ({
+    id: grow.id,
+    plant_profile_id: grow.plant_profile_id,
+    profile_name: profile?.name ?? "Plant",
+    profile_variety_name: profile?.variety_name ?? null,
+    seeds_sown: grow.seeds_sown ?? null,
+    seeds_sprouted: grow.seeds_sprouted ?? null,
+    plant_count: grow.plant_count ?? null,
+    location: grow.location ?? null,
+    user_id: grow.user_id ?? null,
+  });
+
+  const handleQuickCare = useCallback(
+    async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
+      if (!user?.id) return;
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const weather = await fetchWeatherSnapshot();
+      const { error } = await insertWithOfflineQueue("journal_entries", {
+        user_id: user.id,
+        plant_profile_id: batch.plant_profile_id,
+        grow_instance_id: batch.id,
+        note: notes[action],
+        entry_type: "quick",
+        weather_snapshot: weather ?? undefined,
+      });
+      if (!error) {
+        showToast(notes[action]);
+        loadData();
+      }
+    },
+    [user?.id, showToast, loadData]
+  );
+
+  const handleBatchLogSaved = useCallback(() => {
+    showToast("Saved");
+    loadData();
+  }, [showToast, loadData]);
+
+  const handleDeleteJournalEntry = useCallback(
+    async (entryId: string) => {
+      if (!user?.id) return;
+      const now = new Date().toISOString();
+      const { error } = await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { id: entryId, user_id: user.id });
+      if (!error) {
+        setJournalEntries((prev) => prev.filter((x) => x.id !== entryId));
+        showToast("Entry deleted");
+      }
+    },
+    [user?.id, showToast]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (taskId: string, taskUserId: string) => {
+      if (!user?.id) return;
+      const now = new Date().toISOString();
+      const { error } = await updateWithOfflineQueue("tasks", { deleted_at: now }, { id: taskId, user_id: taskUserId });
+      if (!error) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        showToast("Task deleted");
+      }
+    },
+    [user?.id, showToast]
+  );
+
   const displayTitle = profile
     ? (profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name)
     : "Plant";
@@ -443,6 +532,7 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
 
   return (
     <>
+      {toast}
       <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
       <div ref={trapRef} className="fixed inset-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
         <div className="flex-1 overflow-auto pb-28 min-h-0">
@@ -485,6 +575,16 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             >
               About variety
             </Link>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setBatchLogOpen(true)}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 px-3 shrink-0"
+              aria-label="Log care, germination, or harvest"
+            >
+              Log
+            </button>
           )}
           {canEdit && (
             <button
@@ -543,6 +643,13 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
             <div className="flex flex-col items-center px-4 py-2 min-w-[120px]">
               <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Germination</span>
               <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center">{germinationLabel}</span>
+            </div>
+          )}
+          {/* Days to germinate (when sprout_date exists) */}
+          {daysToGerminate != null && (
+            <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
+              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Germinated in</span>
+              <span className="text-xs font-medium text-neutral-700 mt-0.5 text-center">{daysToGerminate} days</span>
             </div>
           )}
           {/* Next milestone */}
@@ -688,6 +795,15 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
                 <div className="text-center py-4">
                   <p className="text-sm text-neutral-500">No photos yet.</p>
                   <p className="text-xs text-neutral-400 mt-1">Photos from journal entries linked to this plant will appear here.</p>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchLogOpen(true)}
+                      className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 min-h-[44px] min-w-[44px]"
+                    >
+                      Add photo
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -733,15 +849,27 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
                           <div className="shrink-0 w-10 flex flex-col items-center pt-1">
                             <div className="w-4 h-4 rounded-full bg-emerald-900 border-2 border-white shadow-sm z-10 relative" />
                           </div>
-                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-xs font-semibold text-neutral-700">{ENTRY_TYPE_LABELS(e.entry_type)}</span>
-                              <span className="text-xs text-neutral-400">{formatShortDate(e.created_at)}</span>
-                              {supplyName && <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full">{supplyName}</span>}
+                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0 flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-xs font-semibold text-neutral-700">{ENTRY_TYPE_LABELS(e.entry_type)}</span>
+                                <span className="text-xs text-neutral-400">{formatShortDate(e.created_at)}</span>
+                                {supplyName && <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full">{supplyName}</span>}
+                              </div>
+                              {e.note?.trim() && <p className="text-sm text-neutral-700 break-words">{e.note.trim()}</p>}
+                              {imgUrl && (
+                                <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-40 object-cover" />
+                              )}
                             </div>
-                            {e.note?.trim() && <p className="text-sm text-neutral-700 break-words">{e.note.trim()}</p>}
-                            {imgUrl && (
-                              <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-40 object-cover" />
+                            {canEdit && e.user_id === user?.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteJournalEntry(e.id)}
+                                className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
+                                aria-label="Delete entry"
+                              >
+                                <ICON_MAP.Trash className="w-5 h-5" />
+                              </button>
                             )}
                           </div>
                         </li>
@@ -756,14 +884,26 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-900/60" aria-hidden />
                             </div>
                           </div>
-                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-semibold text-neutral-700">{label}</span>
-                              <span className="text-xs text-neutral-400">
-                                {t.completed_at ? formatShortDate(t.completed_at) : `Due ${formatShortDate(t.due_date)}`}
-                              </span>
-                              <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">completed</span>
+                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0 flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-neutral-700">{label}</span>
+                                <span className="text-xs text-neutral-400">
+                                  {t.completed_at ? formatShortDate(t.completed_at) : `Due ${formatShortDate(t.due_date)}`}
+                                </span>
+                                <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">completed</span>
+                              </div>
                             </div>
+                            {canEdit && (t as Task & { user_id?: string }).user_id === user?.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTask(t.id, (t as Task & { user_id?: string }).user_id ?? user!.id)}
+                                className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
+                                aria-label="Delete task"
+                              >
+                                <ICON_MAP.Trash className="w-5 h-5" />
+                              </button>
+                            )}
                           </div>
                         </li>
                       );
@@ -838,6 +978,23 @@ export function GrowInstanceModal({ growId, onClose, backHref }: GrowInstanceMod
 
         </div>
       </div>
+
+      {/* BatchLogSheet for Log button */}
+      <BatchLogSheet
+        open={batchLogOpen}
+        batches={grow && profile ? [toBatchLogBatch()] : []}
+        onClose={() => setBatchLogOpen(false)}
+        onSaved={handleBatchLogSaved}
+        onLogHarvest={(batch) => {
+          setBatchLogOpen(false);
+          onLogHarvest?.(batch);
+        }}
+        onQuickCare={(batch, action) => {
+          handleQuickCare(batch, action);
+          setBatchLogOpen(false);
+        }}
+        isPermanent={grow?.is_permanent_planting === true}
+      />
     </>
   );
 }

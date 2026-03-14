@@ -46,10 +46,12 @@ const QuickLogModal = dynamic(
   { ssr: false }
 );
 import Image from "next/image";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/useToast";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useSync } from "@/contexts/SyncContext";
@@ -252,6 +254,7 @@ export default function JournalPage() {
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [editEntryId, setEditEntryId] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
   const skipPopOnNavigateRef = useRef(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
@@ -433,6 +436,7 @@ export default function JournalPage() {
       }
     }
     setEntries((prev) => prev.filter((x) => !ids.includes(x.id)));
+    showToast(`Archived ${ids.length} entr${ids.length === 1 ? "y" : "ies"}`);
   }
 
   async function confirmBulkDeleteEntry() {
@@ -449,6 +453,7 @@ export default function JournalPage() {
       }
     }
     setEntries((prev) => prev.filter((x) => !ids.includes(x.id)));
+    showToast(`Deleted ${ids.length} entr${ids.length === 1 ? "y" : "ies"}`);
   }
 
   const isRowSelected = useCallback(
@@ -480,6 +485,7 @@ export default function JournalPage() {
 
   return (
     <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
+      {toast}
       <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
         <div className="flex items-center gap-3 mb-3">
           <div className="flex-1 min-w-0" role="tablist" aria-label="Journal view">
@@ -540,33 +546,37 @@ export default function JournalPage() {
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center max-w-md mx-auto">
-          <div className="flex justify-center mb-4" aria-hidden>
+        <EmptyStateCard
+          title="No journal entries yet"
+          illustration={
             <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
               <rect x="8" y="4" width="48" height="56" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
               <rect x="12" y="12" width="40" height="28" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
               <circle cx="32" cy="26" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.5" />
               <path d="M20 48h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
             </svg>
-          </div>
-          <p className="text-slate-600 font-medium mb-2">No journal entries yet</p>
-          <p className="text-sm text-slate-500 mb-4">
-            {(() => {
-              const prompts = [
-                "What's looking green today? Take a photo of your first sprout!",
-                "Capture today's progress. How did your plants change?",
-                "Log a quick note—what did you water, harvest, or notice?",
-                "Snap a photo of your garden. Small moments add up.",
-                "What's blooming or growing? Document it.",
-                "Quick check-in: how are your seedlings doing?",
-                "Capture the light. Morning or evening—what do you see?",
-              ];
-              const day = new Date().getDay();
-              return prompts[day % prompts.length];
-            })()}
-          </p>
-          <p className="text-xs text-slate-400">Tap the + button below to add your first entry.</p>
-        </div>
+          }
+          body={
+            <>
+              <p className="mb-2">
+                {(() => {
+                  const prompts = [
+                    "What's looking green today? Take a photo of your first sprout!",
+                    "Capture today's progress. How did your plants change?",
+                    "Log a quick note—what did you water, harvest, or notice?",
+                    "Snap a photo of your garden. Small moments add up.",
+                    "What's blooming or growing? Document it.",
+                    "Quick check-in: how are your seedlings doing?",
+                    "Capture the light. Morning or evening—what do you see?",
+                  ];
+                  const day = new Date().getDay();
+                  return prompts[day % prompts.length];
+                })()}
+              </p>
+              <p className="text-xs text-slate-400">Tap the + button below or <strong>+ Entry</strong> above to add your first entry.</p>
+            </>
+          }
+        />
       ) : viewMode === "table" ? (
         <>
           {/* Mobile: card layout — no horizontal scroll */}
@@ -587,7 +597,7 @@ export default function JournalPage() {
               return (
                 <article
                   key={rowId}
-                  className={`rounded-xl border bg-white p-4 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
+                  className={`rounded-xl border bg-white p-4 shadow-card card-interactive ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
                   {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave } : {})}
                   onClick={lp?.handleClick}
                   role="button"
@@ -762,7 +772,7 @@ export default function JournalPage() {
               : null;
             const href = group.profileId ? `/vault/${group.profileId}?tab=journal` : null;
             const card = (
-              <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col">
+              <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col card-interactive">
                 {thumbSrc ? (
                   <div className="relative aspect-[4/3] bg-neutral-50 shrink-0">
                     <Image
@@ -815,7 +825,7 @@ export default function JournalPage() {
             return (
               <article
                 key={rowId}
-                className={`rounded-2xl bg-white border overflow-hidden mb-6 shadow-card ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
+                className={`rounded-2xl bg-white border overflow-hidden mb-6 shadow-card card-interactive ${selected ? "ring-2 ring-emerald bg-emerald/5 border-emerald/30" : "border-black/10"}`}
                 {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel, onMouseDown: lp.onMouseDown, onMouseUp: lp.onMouseUp, onMouseLeave: lp.onMouseLeave } : {})}
                 onClick={lp?.handleClick}
                 role="button"
@@ -992,6 +1002,7 @@ export default function JournalPage() {
           open
           onClose={closeActiveModal}
           onJournalAdded={() => {
+            showToast("Entry saved");
             router.refresh();
             closeActiveModal();
             setRefetchTrigger((t) => t + 1);
@@ -1015,7 +1026,7 @@ export default function JournalPage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetchTrigger((t) => t + 1);

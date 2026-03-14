@@ -173,13 +173,18 @@ export function BatchLogSheet({
       const weather = await fetchWeatherSnapshot();
       const batch = firstBatch!;
 
-      // Germination: update seeds_sprouted + plant_count (RLS allows when owner or has edit grant)
+      // Germination: update seeds_sprouted + plant_count + sprout_date (RLS allows when owner or has edit grant)
       if (selectedActions.has("germination") && seedsSprouted.trim()) {
         const sprouted = parseInt(seedsSprouted, 10);
         if (!Number.isNaN(sprouted) && sprouted >= 0) {
+          const today = new Date().toISOString().slice(0, 10);
           await supabase
             .from("grow_instances")
-            .update({ seeds_sprouted: sprouted, plant_count: sprouted })
+            .update({
+              seeds_sprouted: sprouted,
+              plant_count: sprouted,
+              sprout_date: today,
+            })
             .eq("id", batch.id);
         }
       }
@@ -192,12 +197,15 @@ export function BatchLogSheet({
         }
       }
 
-      // Transplant: plant count + location
+      // Transplant: plant count + location; set status to growing if currently pending
       if (selectedActions.has("transplant")) {
         const count = plantCount.trim() ? parseInt(plantCount, 10) : null;
         const updates: Record<string, unknown> = {};
         if (count != null && !Number.isNaN(count) && count >= 0) updates.plant_count = count;
         if (transplantLocation.trim()) updates.location = transplantLocation.trim();
+        // When transplanting from pending (e.g. pot up), set status to growing
+        const { data: current } = await supabase.from("grow_instances").select("status").eq("id", batch.id).single();
+        if (current?.status === "pending") updates.status = "growing";
         if (Object.keys(updates).length > 0) {
           await supabase.from("grow_instances").update(updates).eq("id", batch.id);
         }

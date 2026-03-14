@@ -16,6 +16,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import type { SupplyProfile } from "@/types/garden";
 import { NoMatchCard } from "@/components/NoMatchCard";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { ShedSkeleton, ListSkeleton } from "@/components/VaultSkeleton";
 
 /** Renders product thumb, or shed-sack.png for items without photos, or ShedSupplyIcon on load error. */
@@ -80,6 +81,7 @@ export function ShedView({
   onToggleSelection,
   onLongPress,
   onFilteredIdsChange,
+  onClearFilters,
 }: {
   /** When true, omit back link and title (used in vault inline). */
   embedded?: boolean;
@@ -101,6 +103,8 @@ export function ShedView({
   onToggleSelection?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onFilteredIdsChange?: (ids: string[]) => void;
+  /** Called when user taps "Clear filters" in no-match state. */
+  onClearFilters?: () => void;
 }) {
   const vault = useVaultOptional();
   const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
@@ -354,21 +358,19 @@ export function ShedView({
         )
       ) : filteredSupplies.length === 0 ? (
         supplies.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-            <div className="flex justify-center mb-4" aria-hidden>
-              <ShedSupplyIcon className="w-16 h-16 text-neutral-300" />
-            </div>
-            <p className="text-black/70 font-medium mb-4">No supplies yet. Add fertilizers, pesticides, or other products to track usage and instructions.</p>
-            <button
-              type="button"
-              onClick={() => setQuickAddOpen(true)}
-              className="min-h-[44px] px-6 rounded-xl bg-emerald text-white font-medium hover:opacity-90"
-            >
-              Add your first supply
-            </button>
-          </div>
+          <EmptyStateCard
+            title="No supplies yet"
+            body="Add fertilizers, pesticides, or other products to track usage and instructions."
+            actionLabel="Add your first supply"
+            onAction={() => setQuickAddOpen(true)}
+            illustration={<ShedSupplyIcon className="w-16 h-16 text-neutral-300" />}
+          />
         ) : (
-          <NoMatchCard message="No supplies match your search or filters." />
+          <NoMatchCard
+            message="No supplies match your search or filters."
+            actionLabel={onClearFilters ? "Clear filters" : undefined}
+            onAction={onClearFilters}
+          />
         )
       ) : displayStyle === "list" ? (
         <div className="rounded-xl border border-black/10 bg-white overflow-hidden [&_a]:pointer-events-auto">
@@ -472,7 +474,7 @@ export function ShedView({
               : null;
             const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
-            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[88px] flex flex-col text-left w-full ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
+            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[88px] flex flex-col text-left w-full card-interactive ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
             const cardInner = (
               <>
                 <div className="aspect-square bg-neutral-100 relative flex items-center justify-center min-h-0">

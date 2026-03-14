@@ -20,6 +20,7 @@ import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 /** Minimal sow-month check without loading zone10b_schedule (avoids init error in chunk). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
@@ -272,6 +273,7 @@ export function SeedVaultView({
   sortBy: sortByProp = null,
   sortDirection: sortDirectionProp = "asc",
   scrollContainerRef,
+  onClearFilters,
 }: {
   mode: "grid" | "list";
   refetchTrigger?: number;
@@ -334,6 +336,8 @@ export function SeedVaultView({
   /** Sort from Refine By (vault page). When set, overrides internal grid/list sort. */
   sortBy?: VaultSortBy | null;
   sortDirection?: "asc" | "desc";
+  /** Called when user taps "Clear filters" in no-match state. */
+  onClearFilters?: () => void;
 }) {
   const vault = useVaultOptional();
   const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
@@ -1100,8 +1104,12 @@ export function SeedVaultView({
 
   if (seeds.length === 0) {
     return (
-      <div className="rounded-card-lg bg-white p-8 shadow-card border border-black/5 text-center max-w-md mx-auto">
-        <div className="flex justify-center mb-4" aria-hidden>
+      <EmptyStateCard
+        title="Your vault is empty"
+        body="Add a packet or scan one with your camera to get started."
+        actionLabel={onAddFirst ? "Add your first packet" : undefined}
+        onAction={onAddFirst}
+        illustration={
           <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
             <rect x="10" y="6" width="44" height="52" rx="5" stroke="currentColor" strokeWidth="2" fill="none" />
             <path d="M10 18h44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -1109,19 +1117,8 @@ export function SeedVaultView({
             <path d="M18 36h20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
             <path d="M32 52v-6c0-2 2-4 4-6 1.5-1.5 1.5-4 0-5.5s-4-1.5-5.5 0c-2 2-4 4-4 6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
-        </div>
-        <p className="text-slate-600 font-medium mb-2">Your vault is empty</p>
-        <p className="text-sm text-slate-500 mb-4">Add a packet or scan one with your camera to get started.</p>
-        {onAddFirst && (
-          <button
-            type="button"
-            onClick={onAddFirst}
-            className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
-          >
-            Add your first packet
-          </button>
-        )}
-      </div>
+        }
+      />
     );
   }
 
@@ -1131,24 +1128,24 @@ export function SeedVaultView({
       const message = mode === "grid"
         ? "No plant profiles match your search or filters."
         : "No packets match your search or filters.";
-      return <NoMatchCard message={message} />;
+      return (
+        <NoMatchCard
+          message={message}
+          actionLabel={onClearFilters ? "Clear filters" : undefined}
+          onAction={onClearFilters}
+        />
+      );
     }
     const emptyVaultMessage = mode === "grid"
       ? "No plant profiles yet. Add your first variety to get started."
       : "No seeds yet. Add your first packet to get started.";
     return (
-      <div className="rounded-2xl bg-white p-8 shadow-card border border-black/10 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-        <p className="text-black/70 font-medium mb-4">{emptyVaultMessage}</p>
-        {onAddFirst && (
-          <button
-            type="button"
-            onClick={onAddFirst}
-            className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
-          >
-            {mode === "grid" ? "Add your first plant" : "Add your first packet"}
-          </button>
-        )}
-      </div>
+      <EmptyStateCard
+        title={emptyVaultMessage}
+        body="Tap + to add a seed packet or plant profile."
+        actionLabel={onAddFirst ? (mode === "grid" ? "Add your first plant" : "Add your first packet") : undefined}
+        onAction={onAddFirst}
+      />
     );
   }
 
@@ -1336,7 +1333,7 @@ export function SeedVaultView({
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleVarietySelection?.(seed.id)}
-                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
+                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 card-interactive ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
                   >
                     {condensedContent}
                   </article>
@@ -1349,7 +1346,7 @@ export function SeedVaultView({
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
                     {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                   >
-                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full ${getCardBorderClass(seed)}`}>
+                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full card-interactive ${getCardBorderClass(seed)}`}>
                       {condensedContent}
                     </article>
                   </div>

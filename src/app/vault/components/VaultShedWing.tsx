@@ -447,6 +447,8 @@ export function VaultShedWingContent() {
     scrollContainerRef,
     shedSearchQuery,
     shedCategoryFilter,
+    setShedSearchQuery,
+    setShedCategoryFilter,
     shedSortBy,
     shedSortDir,
     shedDisplayStyle,
@@ -456,6 +458,10 @@ export function VaultShedWingContent() {
     setFilteredSupplyIds,
     shedCategoryFromUrl,
   } = ctx;
+  const clearShedFilters = useCallback(() => {
+    setShedSearchQuery("");
+    setShedCategoryFilter(null);
+  }, [setShedSearchQuery, setShedCategoryFilter]);
   return (
     <div className="relative z-10 pt-2 pointer-events-auto">
       <ShedView
@@ -483,6 +489,7 @@ export function VaultShedWingContent() {
           setSelectedSupplyIds((prev) => new Set([...prev, id]));
         }}
         onFilteredIdsChange={setFilteredSupplyIds}
+        onClearFilters={clearShedFilters}
       />
     </div>
   );

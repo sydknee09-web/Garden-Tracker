@@ -58,6 +58,23 @@ input, select, textarea {
   .border-soft {
     @apply border-black/5;
   }
+  /* Subtle hover/active for clickable cards on desktop (E5) */
+  .card-interactive {
+    @apply transition-[box-shadow,transform] duration-150;
+  }
+  @media (hover: hover) {
+    .card-interactive:hover {
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+  }
+  .card-interactive:active {
+    transform: scale(0.99);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card-interactive:active {
+      transform: none;
+    }
+  }
   .range-thumb-lg {
     -webkit-appearance: none;
     appearance: none;

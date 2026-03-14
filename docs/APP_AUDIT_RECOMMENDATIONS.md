@@ -2,7 +2,7 @@
 
 **Originally written:** 2025-03-12  
 **Last updated:** 2026-03-13  
-**Focus:** Where to go for data/information/input, efficiency, code quality, unification.
+**Focus:** Where to go for data/information/input, efficiency, code quality, unification, and **enjoyment** (delight, personality, making the app feel good to use).
 
 ---
 
@@ -10,17 +10,27 @@
 
 | Criteria | Verdict | Notes |
 |----------|--------|--------|
-| **Easy to navigate** | **Mostly** *(improved from Partly)* | Bottom nav is clear. Universal Add Menu is consistent across all five main pages. Back behavior and `from=` param are documented and mostly reliable. Remaining gaps: back arrow title overrides `from=` param when on Journal tab of vault profile; `journal/new` back arrow has no label; tab clicks on vault profile don't update the URL. |
-| **User friendly** | **Mostly** | Touch targets (44px), loading states, soft delete, back/escape, focus trap, haptics all in place. Quick Log ↔ Full journal entry cross-links added. Permanent plant profile now shows correct tabs (no Packets tab). Remaining gaps: toast position/color/duration is inconsistent across pages; filter no-match states have no inline "Clear filters" action; no success feedback on Garden or Journal after completing actions. |
+| **Easy to navigate** | **Yes** | Bottom nav is clear. Universal Add Menu is consistent across all five main pages. Back behavior and `from=` param documented in NAVIGATION_MAP. Back arrow uses `from=` correctly; journal/new shows "← Garden" or "← Journal"; vault profile tab clicks update URL. |
+| **User friendly** | **Yes** | Touch targets (44px), loading states, soft delete, back/escape, focus trap, haptics. Quick Log ↔ Full journal entry cross-links. Permanent plant profile shows correct tabs. Shared useToast(); success feedback on Calendar, Home, Journal, Garden. NoMatchCard has "Clear filters" where applicable. |
 | **Useful** | **Yes** | Core value is fully present. All major flows (vault, plantings, journal, tasks, calendar, shopping list, care schedules, supplies) operational. Offline and sync indicators. Stay+refresh after add (redirects only on new profile creation). |
 
-**Bottom line:** The app has improved significantly. Navigation is reliable and consistent. The remaining gaps are primarily cosmetic/polish: back arrow label edge cases, toast inconsistency, and a handful of empty-state UX gaps.
+**Bottom line:** All tracked audit recommendations have been completed. Navigation, toasts, empty states, and back labels are consistent.
+
+---
+
+## Enjoyment audit — making the app more enjoyable
+
+**Focus:** Delight, personality, and moments that make using the app feel good (beyond correctness and efficiency).
+
+**What’s already in place:** Planting celebration (seed → sprout animation) on Calendar and vault/plant; harvest toast on Calendar; "Insight of the day — Great weather for sowing!" on Home; frost alert; Journal empty state with rotating daily prompts; haptics on success/error; shimmer skeletons; reduced-motion support; friendly empty-state copy in many places ("Add your first packet", "No journal entries yet" with prompts).
+
+**Gaps and opportunities:** The recommendations below aim to increase enjoyment without adding clutter. All are optional and can be prioritized by impact vs effort.
 
 ---
 
 ## Executive summary
 
-The app is **feature-rich, well-structured, and consistent** under the hood. All major architecture goals (Universal Add Menu, context-based modal state, custom hooks for vault profile, soft delete, RLS, focus traps, error messages, stay+refresh) have been implemented. What remains is **polish and edge-case navigation**: a back arrow that misbehaves when switching tabs, a few inconsistent toasts, and the `EmptyState` component that was defined but never actually used in favor of inline implementations.
+The app is **feature-rich, well-structured, and consistent** under the hood. All major architecture goals (Universal Add Menu, context-based modal state, custom hooks for vault profile, soft delete, RLS, focus traps, error messages, stay+refresh) have been implemented. All items from the active recommendations list (N1–N5, U1–U9) have been completed and are recorded in the ✅ Completed section.
 
 ---
 
@@ -44,184 +54,32 @@ All items below have been implemented and can be considered closed.
 | **My Plants card tap → vault profile** | Short tap on a My Plants card now navigates to `/vault/[profile_id]?from=garden&gardenTab=plants` (plant profile). Previously incorrectly went to the grow popup. Regression test added. |
 | **Permanent plant tab handling** | Vault profile tab bar now conditionally excludes the Packets tab for `profile_type="permanent"` plants. A redirect effect moves users from `?tab=packets` to `care` if they land there for a permanent plant. Regression tests added. |
 | **Permanent plant Care tab** | `VaultProfileCareTab` correctly differentiates seed (`profileType="seed"`) vs permanent (`profileType="permanent"`) — different `CareSuggestions` and `CareScheduleManager` rendering per type. |
+| **N1 — Back arrow overrides `from=` param** | Back-link logic uses `fromParam` only; `validTab`/active tab never overrides. Comment: "fromParam always wins — back destination reflects where user came from, never the active tab." |
+| **N2 — `journal/new` back button has no label** | Back link shows `← Garden` or `← Journal` per `?from=garden`; unauthenticated path shows `← Back to Garden` / `← Back to Journal`. |
+| **N3 — Vault profile tab clicks don't update URL** | Tab button onClick calls `setActiveTab(tab)` and `router.replace` with `?tab=` so URL and tab stay in sync. |
+| **N4 — Double `useModalBackClose`** | `NewTaskModal` does not call `useModalBackClose`; only `calendar/page.tsx` does. Regression test added. |
+| **N5 — Shopping list "← Back" label is generic** | Back button checks `?from=home` param; shows "← Home" when from=home, else "← Back". Added `aria-label`. |
+| **U1 — FAB menu inconsistent capitalization** | Added sub-labels to "Scan purchase order" and "Photo import" in add-plant sub-screen. Main options lowercase. |
+| **U2 — Journal page: no direct "New entry" path** | Journal page has "+ Entry" button in toolbar that opens Quick Log directly. |
+| **U3 — `EmptyState` component is dead code** | Deleted unused `EmptyState.tsx`. Added "Clear filters" to NoMatchCard usages (ActiveGardenView, PacketVaultView, SeedVaultView, ShedView). |
+| **U4 — Toast messages inconsistent** | Shared `useToast()` hook (2500ms, top-20, bg-emerald-600). Success toasts on Garden, Journal, Calendar, Home. |
+| **U5 — Double `<h1>` on detail pages** | Detail-page body headings downgraded to `<h2>` on vault/[id], vault/shed/[id], journal/new, shopping-list. |
+| **U6 — Weather default "Vista, CA"** | Fallback is `"Set location in Settings"` when no user location (`src/app/page.tsx`). |
+| **U7 — Shopping list empty state missing Add button** | `/shopping-list` empty state has "Add item" button opening add-item modal, matching Home dashboard. |
+| **U8 — First-run FAB tip dismisses permanently** | "?" Help link in header linking to `/help`. Help page has "Where do I…?" content. |
+| **U9 — Vault tab naming confusion** | User keeps **Plant Profiles** (not "Plants"). Vault tabs: Plant Profiles, Packets, Shed. |
+| **E1 — Rotate Insight of the day copy** | Home insight banner rotates 4 variants by day of week. |
+| **E2 — Added to Vault success moment** | First-time add: redirect with ?added=1; vault profile shows seedling celebration once per device (localStorage). |
+| **E3 — Empty-state visual consistency** | EmptyStateCard component used on Journal, SeedVaultView, MyPlantsView, ShedView, shopping-list. |
+| **E4 — Journal empty state: mention + Entry** | Copy updated to include "or + Entry above". |
+| **E5 — Card hover/active state on desktop** | .card-interactive utility; applied to Journal, SeedVaultView, ActiveGardenView, MyPlantsView, ShedView cards. |
+| **E6 — Optional success sound** | Settings toggle; successSound.ts + useToast integration. |
 
 ---
 
 ## 🔧 Active Recommendations
 
-### N1 — Back arrow overrides `from=` param when on Journal tab *(High)* — **Completed**
-
-**Fix applied:** Back-link logic uses `fromParam` only; `validTab`/active tab never overrides. Comment added: "fromParam always wins — back destination reflects where user came from, never the active tab."
-
----
-
-### N2 — `journal/new` back button has no label *(Medium)*
-
-**Current:** The back arrow on `/journal/new` (the authenticated main path) renders only `←` — a bare left arrow inside a styled button. There is no text beside it. The destination depends on `?from=garden` (→ `/garden`) or default (→ `/journal`), but nothing tells the user where tapping it will go.
-
-**Fix:** Add dynamic label matching the destination:
-
-```tsx
-← {fromGarden ? "Garden" : "Journal"}
-```
-
-Matches the unauthenticated path, which already uses this pattern correctly.
-
----
-
-### N3 — Vault profile tab clicks don't update the URL *(Medium)*
-
-**Current:** Opening `/vault/[id]?tab=care` correctly activates the Care tab. But clicking a tab at runtime only calls `setActiveTab(tab)` — the URL is never updated. This means:
-- If you click to the Care tab and then navigate away and return, you're back on About.
-- Prev/next arrow navigation preserves the tab as loaded from URL (`validTab`), not as the user last clicked.
-- Deep-linking to a specific tab for sharing or bookmarking only works if the URL was set on entry.
-
-**Fix:** When a tab button is clicked, do a `router.replace` (not `push`) with the updated `?tab=` param:
-
-```tsx
-onClick={() => {
-  setActiveTab(tab);
-  const url = new URL(window.location.href);
-  url.searchParams.set("tab", tab);
-  router.replace(url.toString(), { scroll: false });
-}}
-```
-
-Garden, Journal, and the Vault list page already do this — vault profile should match.
-
----
-
-### N4 — Double `useModalBackClose` in `NewTaskModal` + `calendar/page.tsx` *(Medium)* — **Completed**
-
-**Fix applied:** `NewTaskModal` does not call `useModalBackClose`; only `calendar/page.tsx` does. Regression test added to prevent future duplicate.
-
----
-
-### N5 — Shopping list "← Back" label is generic *(Low)*
-
-**Current:** The Shopping List back button uses `router.back()` with label `← Back`. Because the shopping list is accessible from any page via the header cart icon, `router.back()` is unpredictable if the user opened it by navigating directly (e.g., bookmarked URL or link). The label gives no hint where Back goes.
-
-**Recommendation:** Use `router.back()` is fine for history-based navigation, but improve the label by checking a `?from=` param (if available) or replace with a fixed "← Home" as a safer default. Add `aria-label="Back to previous page"` for accessibility.
-
----
-
-### U1 — FAB menu has inconsistent capitalization *(Low)*
-
-**Current:** `UniversalAddMenu` has five options:
-
-| Option | Sub-label |
-|--------|-----------|
-| **Add Seed Packet** ← title case | "Seeds for your vault" |
-| Add plant ← lowercase | "Trees, perennials, or seasonal" |
-| Add to shed ← lowercase | "Fertilizer, soil, supplies" |
-| Add task ← lowercase | "Reminder or to-do for calendar" |
-| Add journal ← lowercase | "Log growth, harvest, notes" |
-
-"Add Seed Packet" is title-cased; all others are lowercase. Pick one convention and apply it consistently. Lowercase sentence-style ("Add seed packet") is recommended — matches the rest of the UI.
-
-Also: the "Add plant" sub-screen options ("Manual Entry", "Start Seeds", "Scan Purchase Order", "Photo Import") have **no sub-labels**, while the main screen has helpful ones. Add a one-liner to each:
-
-| Sub-option | Suggested sub-label |
-|-----------|---------------------|
-| Manual Entry | "Enter name, variety, notes" |
-| Start Seeds | "Plant from your existing vault" |
-
-The label "Start Seeds" also implies you're beginning to germinate seeds, when it actually means "choose seeds from your vault to plant." Consider renaming to **"From Vault"** or **"Plant from Vault"** for clarity.
-
----
-
-### U2 — Journal page: no direct "New entry" path *(Medium)*
-
-**Current:** On `/journal`, the only way to add an entry is: FAB → Universal Add Menu → "Add journal" → Quick Log modal. For a page dedicated to journaling, this is one tap too many. The full form at `/journal/new` is not linked from the journal page at all.
-
-**Recommendations:**
-- In the journal page header toolbar (alongside the view toggle icons), add a compact **"+ Entry"** button that opens the Quick Log modal directly (bypassing the Universal Add Menu).
-- Or: the existing rotating empty-state prompt could include an inline "Add entry" button, not just "Tap the + button below."
-- The link to `/journal/new` from `QuickLogModal` ("Full journal entry") is good; it just isn't surfaced on the journal page itself. A text link "Full entry →" in the toolbar or near the empty state would help.
-
----
-
-### U3 — `EmptyState` component is dead code *(Medium)*
-
-**Current:** `src/components/EmptyState.tsx` is defined but never imported or used anywhere. All empty states are implemented inline, resulting in 15+ inconsistently styled empty state blocks across the codebase.
-
-**Recommendation:** Either:
-- **Adopt it:** Replace inline empty states with `<EmptyState message="..." action={...} />` calls everywhere, making them visually consistent and centrally styleable. 
-- **Delete it:** If the inline approach is preferred, remove the unused file to avoid confusion.
-
-Filter no-match states (Vault, Garden, Shed) currently show only text with no "Clear filters" action button. Whatever pattern you choose, these should include a `Clear filters` button inline.
-
----
-
-### U4 — Toast messages are inconsistent across pages *(Medium)*
-
-**Current:** Three different toast implementations across three files:
-
-| Page | Position | Color | Timeout |
-|------|----------|-------|---------|
-| `vault/[id]` | `fixed top-20, centered` | `bg-emerald-luxury` | unclear |
-| `vault/shed/[id]` | `fixed top-20, centered` | `bg-emerald-600` | 2500ms |
-| `vault/VaultPageContent` | `fixed above bottom nav` | `bg-black/85` | 5000ms |
-
-And no toast at all on Garden or Journal pages — successful actions there give no feedback.
-
-**Recommendation:** Create a shared `<Toast>` component (or a `useToast()` hook) with a single position, color, and 2500ms default timeout. Add success toasts to Garden (e.g., "Task completed", "Batch ended") and Journal (e.g., "Entry deleted") to match vault behavior.
-
----
-
-### U5 — Double `<h1>` on detail pages *(Low — accessibility)*
-
-**Current:** `AuthGuard` renders a global `<h1>` in the sticky header for every route. Detail pages (`/vault/[id]`, `/vault/shed/[id]`, `/journal/new`, `/shopping-list`) also render their own `<h1>` in the page body. This results in two `<h1>` elements simultaneously — a screen-reader and SEO concern.
-
-**Fix options:**
-- Change the global header element to `<p>` or `<span>` with `role="heading" aria-level="1"` only when no page-level `<h1>` exists.
-- Or: downgrade detail-page body headings to `<h2>` since the header `<h1>` already names the section.
-
----
-
-### U6 — Weather default location is hardcoded to "Vista, CA" *(Low)*
-
-**Current:** `src/app/page.tsx` falls back to `"Vista, CA"` when no user location is set:
-
-```tsx
-const locationLabel = userSettings?.location_name?.trim() || "Vista, CA";
-```
-
-New users who haven't set a location see weather labeled for Vista, CA, which may confuse or mislead.
-
-**Fix:** Replace the hardcoded fallback with a neutral prompt: `"Set your location in Settings"` — or hide the weather widget entirely until location is configured.
-
----
-
-### U7 — Shopping list empty state missing "Add item" button *(Low)*
-
-**Current:** The Home dashboard shopping list empty state has an "Add item" button. The `/shopping-list` page empty state shows only the message "No items on your shopping list yet." with no inline action — the user must use the FAB.
-
-**Fix:** Add an "Add item" button to the `/shopping-list` empty state, matching the Home dashboard pattern.
-
----
-
-### U8 — First-run FAB tip dismisses permanently *(Low)*
-
-**Current:** The Home page shows a one-time dismissible tip: "Tap + to add seeds, plants, supplies, tasks, or a quick log." Once dismissed (stored in localStorage), it never returns.
-
-**Recommendation:** This is acceptable behavior for an onboarding tip. However, consider adding a **Help link** (e.g., a `?` or `ⓘ` in the header) that links to `docs/WHERE_DO_I.md` or a `/help` page. This gives users a permanent escape hatch after dismissing the tip.
-
----
-
-### U9 — Vault tab naming creates confusion *(Low)*
-
-**Current:** The bottom nav says "Vault." Inside Vault, the three tabs are: **Plant Profiles**, **Seed Vault**, **Shed**. The second tab is called "Seed Vault" — the same word as the top-level section. A user may wonder: "Is the whole page the Vault, or just that tab?"
-
-**Recommendation:** Rename the second tab to **"Packets"** (matching the URL param `?tab=list` / the model name `seed_packets`) to remove the name collision. The first tab could become **"Plants"** and the third stays **"Shed"**:
-
-| Current | Suggested |
-|---------|-----------|
-| Plant Profiles | Plants |
-| Seed Vault | Packets |
-| Shed | Shed |
-
-This also aligns with the vault profile sub-tab labels ("Packets (N)" / "Plants (N)") already in use.
+None. All enjoyment items (E1–E6) have been completed and are in the ✅ Completed section above.
 
 ---
 
@@ -243,22 +101,79 @@ These were recommendations in the original audit that are either no longer appli
 
 ## Priority matrix
 
+### Enjoyment (E1–E6)
+
+| Priority | Item | Status |
+|----------|------|--------|
+| ~~🟡 Low~~ | ~~**E1** — Rotate Insight of the day copy~~ | Done |
+| ~~🟡 Low~~ | ~~**E2** — Added to Vault success moment~~ | Done |
+| ~~🟡 Low~~ | ~~**E3** — Empty-state visual consistency~~ | Done |
+| ~~🟢 Trivial~~ | ~~**E4** — Journal empty state: mention + Entry~~ | Done |
+| ~~🟡 Low~~ | ~~**E5** — Card hover/active state on desktop~~ | Done |
+| ~~🟡 Low~~ | ~~**E6** — Optional success sound (Settings)~~ | Done |
+
+### Previously completed (reference)
+
 | Priority | Item | Effort |
 |----------|------|--------|
 | ~~🔴 High~~ | ~~**N1** — Back arrow ignores `from=` param~~ | Done |
-| 🟠 Medium | **N3** — Vault profile tab clicks don't update URL | Small — add `router.replace` on tab click |
+| ~~🟠 Medium~~ | ~~**N3** — Vault profile tab clicks don't update URL~~ | Done |
 | ~~🟠 Medium~~ | ~~**N4** — Double `useModalBackClose` in NewTaskModal~~ | Done |
-| 🟠 Medium | **U2** — Journal page: no direct "New entry" path | Small — add "+" button to journal header |
-| 🟠 Medium | **U3** — `EmptyState` component is dead code | Medium — either adopt everywhere or delete |
-| 🟠 Medium | **U4** — Toast inconsistency | Medium — shared Toast component |
-| 🟡 Low | **N2** — `journal/new` back button has no label | Trivial — add text |
-| 🟡 Low | **N5** — Shopping list "← Back" is generic | Small |
-| 🟡 Low | **U1** — FAB menu capitalization + sub-screen sub-labels | Small |
-| 🟡 Low | **U5** — Double `<h1>` on detail pages | Small |
-| 🟡 Low | **U6** — Weather hardcoded to "Vista, CA" | Trivial |
-| 🟡 Low | **U7** — Shopping list empty state missing Add button | Trivial |
-| 🟡 Low | **U8** — First-run tip dismisses permanently | Small |
-| 🟡 Low | **U9** — Vault tab naming confusion | Small — rename two tab labels |
+| ~~🟠 Medium~~ | ~~**U2** — Journal page: no direct "New entry" path~~ | Done |
+| ~~🟠 Medium~~ | ~~**U3** — `EmptyState` component is dead code~~ | Done |
+| ~~🟠 Medium~~ | ~~**U4** — Toast inconsistency~~ | Done |
+| ~~🟡 Low~~ | ~~**N2** — `journal/new` back button has no label~~ | Done |
+| ~~🟡 Low~~ | ~~**N5** — Shopping list "← Back" is generic~~ | Done |
+| ~~🟡 Low~~ | ~~**U1** — FAB menu capitalization + sub-screen sub-labels~~ | Done |
+| ~~🟡 Low~~ | ~~**U5** — Double `<h1>` on detail pages~~ | Done |
+| ~~🟡 Low~~ | ~~**U6** — Weather hardcoded to "Vista, CA"~~ | Done |
+| ~~🟡 Low~~ | ~~**U7** — Shopping list empty state missing Add button~~ | Done |
+| ~~🟡 Low~~ | ~~**U8** — First-run tip dismisses permanently~~ | Done |
+| ~~🟡 Low~~ | ~~**U9** — Vault tab naming confusion~~ | Done |
+
+---
+
+## Medium- and high-effort tasks (final polish reference)
+
+Below are **all** tasks from the app audits that were (or are) **medium effort** or **high effort**, so you can confirm what’s already done and what might be worth doing for final polish. (The main recommendations list emphasized high-impact, low-effort items first.)
+
+### ✅ Completed (medium/high effort or priority)
+
+| Item | Effort / priority | What was done |
+|------|-------------------|----------------|
+| **N1 — Back arrow overrides `from=`** | High priority | Back-link logic uses `fromParam` only; comment added. |
+| **N3 — Vault profile tab clicks don’t update URL** | Medium priority | Tab click calls `router.replace` with `?tab=...`. |
+| **N4 — Double `useModalBackClose` in NewTaskModal** | Medium priority | Removed duplicate; regression test added. |
+| **U2 — Journal page: no direct "New entry" path** | Medium priority | "+ Entry" in toolbar opens Quick Log. |
+| **U3 — EmptyState component dead code** | Medium priority | Deleted; added "Clear filters" to NoMatchCard usages. |
+| **U4 — Toast inconsistency** | Medium priority | Shared `useToast()`; success toasts on Garden, Journal, Calendar, Home. |
+| **E3 — Empty-state visual consistency** | **Medium effort** | EmptyStateCard component; used on Journal, SeedVaultView, MyPlantsView, ShedView, shopping-list. |
+| **§2.3 Vault profile page split** | High effort (already done earlier) | Tabs + four custom hooks; state/handlers extracted. |
+| **§7.4 Focus trap** | Medium effort | useFocusTrap applied to 12 modals. |
+
+### 🔶 Open or optional (medium / high effort)
+
+*From FULL_APP_AUDIT.md and Outstanding_Audit_Notes.md — not in the main “active” list but relevant for final polish.*
+
+| Item | Effort | Source | Notes |
+|------|--------|--------|--------|
+| **Signature success moment (e.g. confetti/glow on “Planted!” / “Added to Vault”)** | Medium | FULL_APP_AUDIT §1.1 | Optional; user setting. E2 already added first-time “Added to Vault” celebration. |
+| **Light illustration set for empty states** | Medium | FULL_APP_AUDIT §1.1, §1.5 | One shared illustration (sprout, empty vault, empty journal) instead of text-only. EmptyStateCard is in place; adding art is optional. |
+| **Audit every save/complete for success toast** | Medium | FULL_APP_AUDIT §1.3 | Ensure every “save” / “complete” / “archive” shows toast or clear inline success. Main flows already use useToast; a full pass would catch edge cases. |
+| **Error toasts in distinct style (e.g. red/amber)** | Low–Medium | FULL_APP_AUDIT §1.3 | useToast variant for errors so they’re clearly different from success. |
+| **Document CONTRIBUTING or ARCHITECTURE** | Medium | FULL_APP_AUDIT §2.1 | “Where to put new X”; which page owns modals, which context holds state. |
+| **Getting started in README** | Low–Medium | FULL_APP_AUDIT §2.3 | Required env vars, first-run commands for new devs. |
+| **Optional “Quick start” onboarding (3 steps)** | Medium–High | FULL_APP_AUDIT §3.2 | e.g. set zone → add first seed → add first task. Product decision. |
+| **Law 5: Photo inputs — desktop webcam path** | **High** | Outstanding #6 | All photo-taking components (HarvestModal, AddPlantModal, QuickAddSupply, vault hero, garden, review-import, shed, etc.) should use `isMobileDevice()` + `getUserMedia` on desktop. Several components already do; rest need the same pattern. |
+| **Dual Gemini SDK migration** | Medium–High | Outstanding #10 | Migrate to `@google/genai`, remove `@google/generative-ai`; reduces bundle ~300KB. |
+| **ESLint re-enabled in builds** | **High** | Outstanding #8 | 50+ existing warnings + 2 errors; fix then set `ignoreDuringBuilds: false`. |
+| **grow_instances mutations: add user_id scope + error handling** | Medium | Outstanding #3 | vault/[id], BatchLogSheet; add `.eq("user_id", user.id)` and surface DB failures. |
+| **SeedVaultView: journal photo in hierarchy (Law 7)** | Medium | Outstanding #14 | Optional; cards could show first journal photo; currently skipped for performance. |
+
+### Summary for final polish
+
+- **Already dialed in:** All previously tracked medium/high priority and the one explicit medium-effort enjoyment item (E3) are done. Vault tab URL, toasts, empty-state component, focus trap, and vault profile structure are in place.
+- **If you want to go further:** The highest-impact remaining medium+ effort items for a cohesive, enjoyable experience are: **(1)** Law 5 webcam on desktop (high effort, many components), **(2)** full success-feedback audit (medium), **(3)** optional illustration set for empty states (medium), **(4)** error-toast variant (low–medium). Technical/debt items: Gemini migration, ESLint, and RLS-style fixes (Outstanding #1, #3, #15) are valuable but not “polish” per se.
 
 ---
 

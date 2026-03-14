@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { ICON_MAP } from "@/lib/styleDictionary";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue, deleteWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AddItemModal } from "@/components/AddItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
@@ -28,6 +29,8 @@ type ShoppingItem = {
 
 export default function ShoppingListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -162,11 +165,11 @@ export default function ShoppingListPage() {
           type="button"
           onClick={() => router.back()}
           className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6 min-h-[44px] min-w-[44px]"
-          aria-label="Go back"
+          aria-label={fromParam === "home" ? "Back to Home" : "Back to previous page"}
         >
-          ← Back
+          ← {fromParam === "home" ? "Home" : "Back"}
         </button>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Shopping List</h1>
+        <h2 className="text-2xl font-bold text-neutral-900 mb-2">Shopping List</h2>
         <p className="text-neutral-600 text-sm mb-6">
           Out-of-stock items, supplies, and wishlist placeholders. Mark purchased to archive.
         </p>
@@ -174,19 +177,12 @@ export default function ShoppingListPage() {
         {loading ? (
           <p className="text-neutral-500">Loading…</p>
         ) : items.length === 0 ? (
-          <div className="rounded-xl bg-white border border-black/10 p-8 text-center">
-            <p className="text-neutral-600 mb-2">No items on your shopping list yet.</p>
-            <p className="text-neutral-500 text-sm mb-4">
-              Add items by name. You can add to Vault or Shed after you purchase.
-            </p>
-            <button
-              type="button"
-              onClick={() => setAddItemModalOpen(true)}
-              className="min-w-[44px] min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-            >
-              Add item
-            </button>
-          </div>
+          <EmptyStateCard
+            title="No items on your shopping list yet."
+            body="Add items by name. You can add to Vault or Shed after you purchase."
+            actionLabel="Add item"
+            onAction={() => setAddItemModalOpen(true)}
+          />
         ) : (
           <ul className="space-y-2">
             {items.map((item) => {

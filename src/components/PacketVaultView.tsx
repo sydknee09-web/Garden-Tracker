@@ -94,6 +94,7 @@ export function PacketVaultView({
   onPacketTagsLoaded,
   onPacketSeedTypeChipsLoaded,
   onPacketRefineChipsLoaded,
+  onClearFilters,
 }: {
   refetchTrigger?: number;
   searchQuery?: string;
@@ -123,6 +124,7 @@ export function PacketVaultView({
   onPacketTagsLoaded?: (tags: string[]) => void;
   onPacketSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   onPacketRefineChipsLoaded?: (chips: { sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }) => void;
+  onClearFilters?: () => void;
 }) {
   const vault = useVaultOptional();
   const effectiveRefetchTrigger = vault?.refetchTrigger ?? refetchTrigger;
@@ -589,7 +591,13 @@ export function PacketVaultView({
   if (sortedPackets.length === 0) {
     const hasFilters = !!(q || statusFilter || vendorFilter || (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) || tagFilters.length > 0 || seedTypeFilters.length > 0 || sunFilter || spacingFilter || germinationFilter || maturityFilter);
     if (hasFilters) {
-      return <NoMatchCard message="No packets match your search or filters." />;
+      return (
+        <NoMatchCard
+          message="No packets match your search or filters."
+          actionLabel={onClearFilters ? "Clear filters" : undefined}
+          onAction={onClearFilters}
+        />
+      );
     }
     return (
       <div className="rounded-2xl bg-white p-8 shadow-card border border-black/10 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
