@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 
@@ -63,9 +63,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ items: [], vendor: "", error: "Gemini API key not configured" }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
     const prompt = `You are analyzing a garden supply order confirmation, order details screen, cart screenshot, or receipt (e.g. from Walmart, Amazon, or garden retailers). Extract ALL individual garden supply line items: fertilizers, pesticides, soil amendments, compost, mulch, plant food, gypsum, diatomaceous earth, etc.
 
 For each item, extract:
@@ -97,17 +95,20 @@ Important:
 - If there are no recognizable supply items, return an empty items array
 - Return ONLY the JSON object, no markdown or explanation`;
 
-    const result = await model.generateContent([
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType: mimeType || "image/jpeg",
-          data: imageBase64,
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType || "image/jpeg",
+            data: imageBase64,
+          },
         },
-      },
-    ]);
+      ],
+    });
 
-    const text = result.response.text().trim();
+    const text = (result.text ?? "").trim();
     const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
     let parsed: { vendor?: string; items?: unknown[] };

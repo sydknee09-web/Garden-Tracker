@@ -21,6 +21,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { EmptyStateVault, EmptyStateSprout } from "@/components/EmptyStateIllustrations";
 
 /** Minimal sow-month check without loading zone10b_schedule (avoids init error in chunk). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
@@ -1109,15 +1110,7 @@ export function SeedVaultView({
         body="Add a packet or scan one with your camera to get started."
         actionLabel={onAddFirst ? "Add your first packet" : undefined}
         onAction={onAddFirst}
-        illustration={
-          <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
-            <rect x="10" y="6" width="44" height="52" rx="5" stroke="currentColor" strokeWidth="2" fill="none" />
-            <path d="M10 18h44" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M18 28h28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-            <path d="M18 36h20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-            <path d="M32 52v-6c0-2 2-4 4-6 1.5-1.5 1.5-4 0-5.5s-4-1.5-5.5 0c-2 2-4 4-4 6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-        }
+        illustration={<EmptyStateVault />}
       />
     );
   }
@@ -1145,6 +1138,7 @@ export function SeedVaultView({
         body="Tap + to add a seed packet or plant profile."
         actionLabel={onAddFirst ? (mode === "grid" ? "Add your first plant" : "Add your first packet") : undefined}
         onAction={onAddFirst}
+        illustration={mode === "grid" ? <EmptyStateSprout /> : <EmptyStateVault />}
       />
     );
   }

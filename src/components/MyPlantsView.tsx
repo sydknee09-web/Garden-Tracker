@@ -12,6 +12,7 @@ import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantImage } from "@/components/PlantImage";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { EmptyStatePerennial } from "@/components/EmptyStateIllustrations";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -670,13 +671,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
           body="Add your fruit trees, bushes, and other perennial plants here."
           actionLabel="Add a Perennial"
           onAction={() => onAddClick?.()}
-          illustration={
-            <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-400" aria-hidden>
-              <path d="M32 60v-12" stroke="#78716c" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M32 48c-10 0-18-8-18-18s8-18 18-18 18 8 18 18-8 18-18 18z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M32 36c-5 0-9-4-9-9s4-9 9-9 9 4 9 9-4 9-9 9z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7" />
-            </svg>
-          }
+          illustration={<EmptyStatePerennial />}
         />
       ) : sortedPlants.length === 0 ? (
         <NoMatchCard

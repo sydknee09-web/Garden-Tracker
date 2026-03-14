@@ -10,6 +10,7 @@ import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { EmptyStateCart } from "@/components/EmptyStateIllustrations";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/useToast";
 import { AddItemModal } from "@/components/AddItemModal";
@@ -188,6 +189,7 @@ export default function ShoppingListPage() {
             body="Add items by name. You can add to Vault or Shed after you purchase."
             actionLabel="Add item"
             onAction={() => setAddItemModalOpen(true)}
+            illustration={<EmptyStateCart />}
           />
         ) : (
           <ul className="space-y-2">

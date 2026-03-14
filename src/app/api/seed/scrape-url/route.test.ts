@@ -15,11 +15,11 @@ vi.mock("@/lib/rateLimit", () => ({
   DEFAULT_RATE_LIMIT: { maxRequests: 10, windowMs: 60_000 },
 }));
 
-vi.mock("@google/generative-ai", () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({ response: { text: () => "{}" } }),
-    }),
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: vi.fn().mockImplementation(() => ({
+    models: {
+      generateContent: vi.fn().mockResolvedValue({ text: "{}" }),
+    },
   })),
 }));
 

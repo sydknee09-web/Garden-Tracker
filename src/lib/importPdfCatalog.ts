@@ -2,7 +2,7 @@
  * Shared logic for importing a vendor PDF catalog into global_plant_cache.
  * Used by the CLI script (scripts/import-pdf-catalog.ts) and the Settings API route.
  */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { stripPlantFromVariety, cleanVarietyForDisplay } from "@/lib/varietyNormalize";
 
@@ -47,8 +47,7 @@ async function parseOneChunk(
   if (!key) {
     throw new Error("GOOGLE_GENERATIVE_AI_API_KEY (or GEMINI_API_KEY) not set");
   }
-  const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const ai = new GoogleGenAI({ apiKey: key });
 
   const chunkNote =
     totalChunks > 1
@@ -79,11 +78,14 @@ Rules:
 - If a section header says "Tomatoes", use type "Tomato" for items under it unless the line clearly states another plant.
 - Return ONLY a JSON array of objects. No markdown code fences, no explanation. Example: [{"type":"Tomato","variety":"Brandywine","days_to_maturity":"80 days"}, ...]`;
 
-  const result = await model.generateContent([
-    { text: prompt },
-    { text: `Catalog text:\n\n${catalogChunk}` },
-  ]);
-  const raw = result.response.text().trim();
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      { text: prompt },
+      { text: `Catalog text:\n\n${catalogChunk}` },
+    ],
+  });
+  const raw = (result.text ?? "").trim();
   const jsonStr = stripJsonFences(raw);
   let arr: unknown[];
   try {

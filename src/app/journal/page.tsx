@@ -47,6 +47,7 @@ const QuickLogModal = dynamic(
 );
 import Image from "next/image";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { EmptyStateJournal } from "@/components/EmptyStateIllustrations";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -548,14 +549,7 @@ export default function JournalPage() {
       {entries.length === 0 ? (
         <EmptyStateCard
           title="No journal entries yet"
-          illustration={
-            <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-200" aria-hidden>
-              <rect x="8" y="4" width="48" height="56" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-              <rect x="12" y="12" width="40" height="28" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
-              <circle cx="32" cy="26" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.5" />
-              <path d="M20 48h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-            </svg>
-          }
+          illustration={<EmptyStateJournal />}
           body={
             <>
               <p className="mb-2">

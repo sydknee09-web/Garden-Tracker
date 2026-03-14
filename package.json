@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@google/genai": "^1.40.0",
-    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.94.1",
     "@tanstack/react-table": "^8.21.3",
     "html5-qrcode": "^2.3.8",

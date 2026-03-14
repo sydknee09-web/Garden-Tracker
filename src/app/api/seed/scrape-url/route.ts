@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser } from "@/app/api/import/auth";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
@@ -1645,7 +1645,7 @@ function getPageTextForGemini(html: string, metadata: OgMetadata | null): string
   return parts.join("\n\n");
 }
 
-/** Call Gemini 1.5 Flash to extract variety, maturity, depth, sun. Returns payload-shaped object or null on failure. */
+/** Call Gemini to extract variety, maturity, depth, sun. Returns payload-shaped object or null on failure. */
 async function extractWithGemini(
   pageText: string,
   _url: URL
@@ -1653,10 +1653,12 @@ async function extractWithGemini(
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
   if (!apiKey || !pageText.trim()) return null;
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent([GEMINI_SCRAPE_PROMPT, pageText]);
-    const text = result.response.text();
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [GEMINI_SCRAPE_PROMPT, pageText],
+    });
+    const text = result.text;
     if (!text?.trim()) return null;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? (JSON.parse(jsonMatch[0]) as Record<string, unknown>) : null;

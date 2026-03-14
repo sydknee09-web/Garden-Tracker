@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
@@ -101,20 +101,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    const result = await model.generateContent([
-      { text: SUPPLY_PHOTO_PROMPT },
-      {
-        inlineData: {
-          mimeType: mimeType || "image/jpeg",
-          data: imageBase64,
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        { text: SUPPLY_PHOTO_PROMPT },
+        {
+          inlineData: {
+            mimeType: mimeType || "image/jpeg",
+            data: imageBase64,
+          },
         },
-      },
-    ]);
+      ],
+    });
 
-    const text = result.response.text()?.trim();
+    const text = result.text?.trim();
     if (!text) {
       return NextResponse.json({ error: "Could not extract data from image" }, { status: 422 });
     }

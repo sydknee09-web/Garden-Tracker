@@ -78,6 +78,8 @@ All items below have been implemented and can be considered closed.
 | **Success feedback audit** | Added success toasts: GrowInstanceModal archive; BatchLogSheet (Garden, vault profile); HarvestModal (Garden, vault); EditPacketModal (Vault list); AddItemModal (shopping list). Shopping list: "Removed from list", "Saved", "Marked as purchased". |
 | **Outstanding #15 packet_images** | Confirmed N/A — table has no user_id; RLS via seed_packets. Doc updated. |
 | **Law 5 desktop webcam** | deviceUtils.ts + useDesktopPhotoCapture hook. Applied to HarvestModal, AddPlantModal, vault/[id] hero, garden (Log Growth + Quick Add), BatchLogSheet. Outstanding #6 updated. |
+| **Empty-state illustrations** | EmptyStateIllustrations.tsx with inline SVG components (journal, vault, sprout, cart, perennial). Wired to Journal, Shopping list, Seed Vault, My Plants. Shed keeps ShedSupplyIcon. |
+| **Gemini SDK migration** | All Gemini usage migrated to `@google/genai`; `@google/generative-ai` removed. Routes: supply extract-from-photo, extract-order; seed extract, extract-order, scrape-url; importPdfCatalog. |
 
 ---
 
@@ -154,6 +156,8 @@ Below are **all** tasks from the app audits that were (or are) **medium effort**
 | **E3 — Empty-state visual consistency** | **Medium effort** | EmptyStateCard component; used on Journal, SeedVaultView, MyPlantsView, ShedView, shopping-list. |
 | **§2.3 Vault profile page split** | High effort (already done earlier) | Tabs + four custom hooks; state/handlers extracted. |
 | **§7.4 Focus trap** | Medium effort | useFocusTrap applied to 12 modals. |
+| **Light illustration set for empty states** | **Medium effort** | EmptyStateIllustrations.tsx (inline SVGs: journal, vault, sprout, cart, perennial). Wired to Journal, Shopping list, Seed Vault, My Plants. |
+| **Dual Gemini SDK migration** | **Medium–High** | All routes use `@google/genai`; `@google/generative-ai` removed from package.json (Outstanding #10). |
 
 ### 🔶 Open or optional (medium / high effort)
 
@@ -162,14 +166,12 @@ Below are **all** tasks from the app audits that were (or are) **medium effort**
 | Item | Effort | Source | Notes |
 |------|--------|--------|--------|
 | **Signature success moment (e.g. confetti/glow on “Planted!” / “Added to Vault”)** | Medium | FULL_APP_AUDIT §1.1 | Optional; user setting. E2 already added first-time “Added to Vault” celebration. |
-| **Light illustration set for empty states** | Medium | FULL_APP_AUDIT §1.1, §1.5 | One shared illustration (sprout, empty vault, empty journal) instead of text-only. EmptyStateCard is in place; adding art is optional. |
 | **Audit every save/complete for success toast** | Medium | FULL_APP_AUDIT §1.3 | Ensure every “save” / “complete” / “archive” shows toast or clear inline success. Main flows already use useToast; a full pass would catch edge cases. |
 | **Error toasts in distinct style (e.g. red/amber)** | Low–Medium | FULL_APP_AUDIT §1.3 | useToast variant for errors so they’re clearly different from success. |
 | **Document CONTRIBUTING or ARCHITECTURE** | Medium | FULL_APP_AUDIT §2.1 | “Where to put new X”; which page owns modals, which context holds state. |
 | **Getting started in README** | Low–Medium | FULL_APP_AUDIT §2.3 | Required env vars, first-run commands for new devs. |
 | **Optional “Quick start” onboarding (3 steps)** | Medium–High | FULL_APP_AUDIT §3.2 | e.g. set zone → add first seed → add first task. Product decision. |
 | **Law 5: Photo inputs — desktop webcam path** | **High** | Outstanding #6 | All photo-taking components (HarvestModal, AddPlantModal, QuickAddSupply, vault hero, garden, review-import, shed, etc.) should use `isMobileDevice()` + `getUserMedia` on desktop. Several components already do; rest need the same pattern. |
-| **Dual Gemini SDK migration** | Medium–High | Outstanding #10 | Migrate to `@google/genai`, remove `@google/generative-ai`; reduces bundle ~300KB. |
 | **ESLint re-enabled in builds** | **High** | Outstanding #8 | 50+ existing warnings + 2 errors; fix then set `ignoreDuringBuilds: false`. |
 | **grow_instances mutations: add user_id scope + error handling** | Medium | Outstanding #3 | vault/[id], BatchLogSheet; add `.eq("user_id", user.id)` and surface DB failures. |
 | **SeedVaultView: journal photo in hierarchy (Law 7)** | Medium | Outstanding #14 | Optional; cards could show first journal photo; currently skipped for performance. |
@@ -177,7 +179,7 @@ Below are **all** tasks from the app audits that were (or are) **medium effort**
 ### Summary for final polish
 
 - **Already dialed in:** All previously tracked medium/high priority and the one explicit medium-effort enjoyment item (E3) are done. Vault tab URL, toasts, empty-state component, focus trap, and vault profile structure are in place.
-- **If you want to go further:** Success-feedback audit (shopping-list toasts) and Law 5 desktop webcam (main flows) are done. Remaining optional: illustration set for empty states; Law 5 on QuickAddSupply and review-import pages; Technical/debt: Gemini migration, ESLint (Outstanding #8, #10).
+- **If you want to go further:** Success-feedback audit (shopping-list toasts), Law 5 desktop webcam (main flows), empty-state illustrations, and Gemini SDK migration are done. Remaining optional: Law 5 on QuickAddSupply and review-import pages; technical debt: ESLint in builds (Outstanding #8).
 
 ---
 

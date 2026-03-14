@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 
@@ -40,9 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ items: [], vendor: "", error: "Gemini API key not configured" }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
     const prompt = `You are analyzing a seed order confirmation screenshot or email. Extract ALL individual seed/plant line items from this order.
 
 For each item, extract:
@@ -69,17 +67,20 @@ Important:
 - Do NOT include non-seed items (shipping, tools, etc.)
 - Return ONLY the JSON object, no markdown or explanation`;
 
-    const result = await model.generateContent([
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType: mimeType || "image/jpeg",
-          data: imageBase64,
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType || "image/jpeg",
+            data: imageBase64,
+          },
         },
-      },
-    ]);
+      ],
+    });
 
-    const text = result.response.text().trim();
+    const text = (result.text ?? "").trim();
     // Strip markdown fences if present
     const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 

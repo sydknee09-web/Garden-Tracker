@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
@@ -539,9 +538,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    const ai = new GoogleGenAI({ apiKey });
     const imagePart = {
       inlineData: {
         data: imageBase64,
@@ -554,8 +551,11 @@ export async function POST(req: Request) {
     let lastError: unknown;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const result = await model.generateContent([SYSTEM_PROMPT, imagePart]);
-        const text = result.response.text();
+        const result = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [SYSTEM_PROMPT, imagePart],
+        });
+        const text = result.text;
         if (!text) {
           return NextResponse.json(
             { vendor: "", type: "", variety: "", tags: [] } satisfies ExtractResponse,
