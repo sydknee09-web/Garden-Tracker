@@ -75,7 +75,9 @@ All items below have been implemented and can be considered closed.
 | **E5 — Card hover/active state on desktop** | .card-interactive utility; applied to Journal, SeedVaultView, ActiveGardenView, MyPlantsView, ShedView cards. |
 | **E6 — Optional success sound** | Settings toggle; successSound.ts + useToast integration. |
 | **Error toasts in distinct style** | useToast supports variant `success` \| `error`; `showErrorToast(msg)` uses bg-amber-600, no success sound, aria-live="assertive". AddItemModal optional `onErrorToast`; Home and shopping-list pass showErrorToast. |
-| **Success feedback audit** | Added success toasts: GrowInstanceModal archive; BatchLogSheet (Garden, vault profile); HarvestModal (Garden, vault); EditPacketModal (Vault list); AddItemModal (shopping list). |
+| **Success feedback audit** | Added success toasts: GrowInstanceModal archive; BatchLogSheet (Garden, vault profile); HarvestModal (Garden, vault); EditPacketModal (Vault list); AddItemModal (shopping list). Shopping list: "Removed from list", "Saved", "Marked as purchased". |
+| **Outstanding #15 packet_images** | Confirmed N/A — table has no user_id; RLS via seed_packets. Doc updated. |
+| **Law 5 desktop webcam** | deviceUtils.ts + useDesktopPhotoCapture hook. Applied to HarvestModal, AddPlantModal, vault/[id] hero, garden (Log Growth + Quick Add), BatchLogSheet. Outstanding #6 updated. |
 
 ---
 
@@ -175,7 +177,7 @@ Below are **all** tasks from the app audits that were (or are) **medium effort**
 ### Summary for final polish
 
 - **Already dialed in:** All previously tracked medium/high priority and the one explicit medium-effort enjoyment item (E3) are done. Vault tab URL, toasts, empty-state component, focus trap, and vault profile structure are in place.
-- **If you want to go further:** The highest-impact remaining medium+ effort items for a cohesive, enjoyable experience are: **(1)** Law 5 webcam on desktop (high effort, many components), **(2)** full success-feedback audit (medium), **(3)** optional illustration set for empty states (medium). Error-toast variant is done. Technical/debt items: Gemini migration, ESLint, and RLS-style fixes (Outstanding #1, #3, #15) are valuable but not “polish” per se.
+- **If you want to go further:** Success-feedback audit (shopping-list toasts) and Law 5 desktop webcam (main flows) are done. Remaining optional: illustration set for empty states; Law 5 on QuickAddSupply and review-import pages; Technical/debt: Gemini migration, ESLint (Outstanding #8, #10).
 
 ---
 

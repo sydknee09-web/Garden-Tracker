@@ -38,13 +38,11 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #6 — Law 5: Photo inputs missing desktop webcam path
+## #6 — Law 5: Photo inputs missing desktop webcam path ✅ Partially done
 
-**Components:** `HarvestModal`, `AddPlantModal`, `QuickAddSupply`, `vault/[id]` (hero photo), `garden/page`, `vault/review-import`, `vault/shed/[id]`, `shed/review-import`
+**Done (2026-03):** Shared `src/lib/deviceUtils.ts` (`isMobileDevice`) and `src/hooks/useDesktopPhotoCapture.ts`. Applied to: `HarvestModal`, `AddPlantModal`, `vault/[id]` (hero photo), `garden/page` (Log Growth + Quick Add Journal modals), `BatchLogSheet`. On desktop, "Take photo" now opens webcam via `getUserMedia`; mobile still uses `capture="environment"`.
 
-**Bug:** These use `capture="environment"` only. On desktop, this does not open the webcam. The pattern in `EditJournalModal` and `QuickLogModal` (check `isMobileDevice()` and use `getUserMedia` on desktop) should be applied.
-
-**Fix:** Apply the `isMobileDevice()` + `getUserMedia` pattern to all photo-taking components. For batch scanning (`BatchAddSeed`, `BatchAddSupply`, `PurchaseOrderImport`), consider `facingMode: "user"` vs `"environment"` based on device.
+**Remaining (optional):** `QuickAddSupply`, `vault/review-import`, `vault/shed/[id]`, `shed/review-import` — same pattern can be applied when touching those flows. `BatchAddSeed`, `BatchAddSupply`, `PurchaseOrderImport` already use `getUserMedia` for scan flows.
 
 ---
 
@@ -78,13 +76,11 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #15 — `packet_images` INSERT missing `user_id`
+## #15 — `packet_images` INSERT missing `user_id` — N/A
 
 **File:** `src/app/vault/review-import/page.tsx` line ~945
 
-**Bug:** Insert into `packet_images` does not include `user_id`. May violate RLS or schema expectations.
-
-**Fix:** Check `packet_images` schema. If it has a `user_id` column and RLS expects it, add `user_id: user.id` to the insert.
+**Check:** The `packet_images` table (migration `20250209200000_packet_images_table.sql`) has no `user_id` column. RLS is enforced via `EXISTS (SELECT 1 FROM seed_packets sp WHERE sp.id = seed_packet_id AND sp.user_id = auth.uid())`. No code change needed.
 
 ---
 

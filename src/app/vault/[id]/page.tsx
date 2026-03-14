@@ -50,6 +50,7 @@ import { useVaultPlantingsHandlers } from "./useVaultPlantingsHandlers";
 import { useVaultPacketHandlers } from "./useVaultPacketHandlers";
 import { useVaultHeroHandlers } from "./useVaultHeroHandlers";
 import { useVaultEditHandlers } from "./useVaultEditHandlers";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -487,6 +488,23 @@ export default function VaultSeedPage() {
     saveHeroFromUrl,
   } = hero;
 
+  const heroPhotoOnCapture = useCallback(
+    (file: File) => {
+      setHeroCropPreviewUrl(URL.createObjectURL(file));
+      setHeroCropOpen(true);
+    },
+    [setHeroCropPreviewUrl, setHeroCropOpen]
+  );
+  const {
+    isMobile: isMobileHero,
+    webcamActive: heroWebcamActive,
+    webcamError: heroWebcamError,
+    videoRef: heroWebcamVideoRef,
+    startWebcam: startHeroWebcam,
+    stopWebcam: stopHeroWebcam,
+    captureFromWebcam: captureHeroFromWebcam,
+  } = useDesktopPhotoCapture(heroPhotoOnCapture);
+
   const {
     showEditModal, setShowEditModal,
     savingEdit,
@@ -714,9 +732,30 @@ export default function VaultSeedPage() {
               <div className="flex flex-col gap-2">
                 <input type="file" accept="image/*" capture="environment" className="hidden" id="hero-camera-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setHeroCropPreviewUrl(URL.createObjectURL(file)); setHeroCropOpen(true); } e.target.value = ""; }} />
                 <input type="file" accept="image/*" className="hidden" id="hero-files-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setHeroCropPreviewUrl(URL.createObjectURL(file)); setHeroCropOpen(true); } e.target.value = ""; }} />
-                <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  Take photo
-                </label>
+                {heroWebcamActive ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                      <video ref={heroWebcamVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={captureHeroFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium">Capture</button>
+                      <button type="button" onClick={stopHeroWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {isMobileHero ? (
+                      <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                        Take photo
+                      </label>
+                    ) : (
+                      <button type="button" onClick={startHeroWebcam} disabled={heroUploading || heroCropOpen} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}>
+                        Take photo
+                      </button>
+                    )}
+                    {heroWebcamError && <p className="text-sm text-amber-600">{heroWebcamError}</p>}
+                  </>
+                )}
                 <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "Choose from files"}
                 </label>

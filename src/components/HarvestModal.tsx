@@ -8,6 +8,7 @@ import { compressImage } from "@/lib/compressImage";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 
 interface Props {
   open: boolean;
@@ -34,6 +35,21 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photoGalleryRef = useRef<HTMLInputElement>(null);
+
+  const addPhotoFromFile = useCallback((file: File) => {
+    if (photos.length >= MAX_JOURNAL_PHOTOS) return;
+    setPhotos((prev) => [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]);
+  }, [photos.length]);
+
+  const {
+    isMobile,
+    webcamActive,
+    webcamError,
+    videoRef,
+    startWebcam,
+    stopWebcam,
+    captureFromWebcam,
+  } = useDesktopPhotoCapture(addPhotoFromFile);
 
   const handleCameraPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,9 +175,19 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
           {/* Photo */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Victory Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
-            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="sr-only" aria-label="Take harvest photo" />
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleCameraPhoto} className="sr-only" aria-label="Take harvest photo (mobile)" />
             <input ref={photoGalleryRef} type="file" accept="image/*" multiple onChange={handleGalleryPhotos} className="sr-only" aria-label="Choose harvest photos from gallery" />
-            {photos.length > 0 ? (
+            {webcamActive ? (
+              <div className="space-y-2">
+                <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium">Capture</button>
+                  <button type="button" onClick={stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
+                </div>
+              </div>
+            ) : photos.length > 0 ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
                   {photos.map((p) => (
@@ -173,15 +199,18 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
                 </div>
                 {photos.length < MAX_JOURNAL_PHOTOS && (
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => photoInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium">Take photo</button>
+                    <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium">Take photo</button>
                     <button type="button" onClick={() => photoGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald-600 text-white text-sm font-medium">From gallery</button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex gap-2">
-                <button type="button" onClick={() => photoInputRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Take photo</button>
-                <button type="button" onClick={() => photoGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">From gallery</button>
+              <div className="flex flex-col gap-2">
+                {webcamError && <p className="text-sm text-amber-600">{webcamError}</p>}
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Take photo</button>
+                  <button type="button" onClick={() => photoGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">From gallery</button>
+                </div>
               </div>
             )}
           </div>

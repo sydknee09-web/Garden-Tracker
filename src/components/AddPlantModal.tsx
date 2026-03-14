@@ -14,6 +14,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
@@ -148,6 +149,20 @@ export function AddPlantModal({
     setPhotoFiles((prev) => [...prev, ...Array.from(files)]);
     if (photoInputRef.current) photoInputRef.current.value = "";
   }, []);
+
+  const addOnePhoto = useCallback((file: File) => {
+    setPhotoFiles((prev) => [...prev, file]);
+  }, []);
+
+  const {
+    isMobile: isMobileDevice,
+    webcamActive,
+    webcamError,
+    videoRef: webcamVideoRef,
+    startWebcam,
+    stopWebcam,
+    captureFromWebcam,
+  } = useDesktopPhotoCapture(addOnePhoto);
 
   const removePhoto = useCallback((index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
@@ -783,32 +798,45 @@ export function AddPlantModal({
                   capture="environment"
                   multiple
                   className="hidden"
-                  aria-label="Take or add photo"
+                  aria-label="Take or add photo (mobile)"
                   onChange={(e) => addPhoto(e.target.files)}
                 />
-                <div className="flex flex-wrap gap-2">
-                  {photoPreviews.map((url, i) => (
-                    <div key={i} className="relative">
-                      <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(i)}
-                        className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
-                        aria-label="Remove photo"
-                      >
-                        ×
-                      </button>
+                {webcamActive ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-w-xs">
+                      <video ref={webcamVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    className="min-h-[80px] w-20 flex items-center justify-center rounded-3xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
-                    aria-label="Take or add another photo"
-                  >
-                    +
-                  </button>
-                </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-3xl bg-emerald-600 text-white text-sm font-medium">Capture</button>
+                      <button type="button" onClick={stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-3xl border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {photoPreviews.map((url, i) => (
+                      <div key={i} className="relative">
+                        <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(i)}
+                          className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
+                          aria-label="Remove photo"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => { if (isMobileDevice) photoInputRef.current?.click(); else startWebcam(); }}
+                      className="min-h-[80px] w-20 flex items-center justify-center rounded-3xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
+                      aria-label="Take or add another photo"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+                {webcamError && !webcamActive && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
               <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
             </div>
 

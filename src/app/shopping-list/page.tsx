@@ -93,9 +93,10 @@ export default function ShoppingListPage() {
         setItems((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
       } else {
         hapticSuccess();
+        showToast("Removed from list");
       }
     },
-    [items, canEditPage]
+    [items, canEditPage, showToast]
   );
 
   const handleInlineSave = useCallback(
@@ -119,6 +120,7 @@ export default function ShoppingListPage() {
         setEditingValue("");
       } else {
         hapticSuccess();
+        showToast("Saved");
         setItems((prev) =>
           prev.map((i) =>
             i.id === item.id ? { ...i, placeholder_name, placeholder_variety } : i
@@ -126,7 +128,7 @@ export default function ShoppingListPage() {
         );
       }
     },
-    [editingValue, user?.id]
+    [editingValue, user?.id, showToast]
   );
 
   useEffect(() => {
@@ -153,9 +155,10 @@ export default function ShoppingListPage() {
         setItems((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
       } else {
         hapticSuccess();
+        showToast("Marked as purchased");
       }
     },
-    [items]
+    [items, showToast]
   );
 
   usePullToRefresh({ onRefresh: fetchList, disabled: loading });

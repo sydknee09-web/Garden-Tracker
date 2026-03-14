@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/useToast";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { ICON_MAP } from "@/lib/styleDictionary";
 
 export type BatchLogBatch = {
@@ -325,6 +326,15 @@ export function BatchLogSheet({
     e.target.value = "";
   }, [photos.length]);
 
+  const addPhotoFromFile = useCallback((file: File) => {
+    setPhotos((prev) => (prev.length >= MAX_JOURNAL_PHOTOS ? prev : [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]));
+  }, []);
+  const batchLogWebcam = useDesktopPhotoCapture(addPhotoFromFile);
+  const handleTakePhotoClick = useCallback(() => {
+    if (batchLogWebcam.isMobile) cameraInputRef.current?.click();
+    else batchLogWebcam.startWebcam();
+  }, [batchLogWebcam.isMobile, batchLogWebcam.startWebcam]);
+
   const hasContentToSave = isBulk
     ? (selectedActions.has("note") && note.trim()) || (selectedActions.has("photo") && photos.length > 0)
     : (selectedActions.has("germination") && seedsSprouted.trim()) ||
@@ -584,7 +594,20 @@ export function BatchLogSheet({
                 {/* 3. Photo row */}
                 <div>
                   <label className="block text-xs font-medium text-black/60 mb-1">Photo (max {MAX_JOURNAL_PHOTOS})</label>
-                  {photos.length > 0 ? (
+                  {batchLogWebcam.webcamActive ? (
+                    <div className="space-y-2">
+                      <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                        <video ref={batchLogWebcam.videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={batchLogWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2">
+                          <ICON_MAP.Camera className="w-5 h-5" />
+                          Capture
+                        </button>
+                        <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                      </div>
+                    </div>
+                  ) : photos.length > 0 ? (
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">
                         {photos.map((p) => (
@@ -602,19 +625,11 @@ export function BatchLogSheet({
                       </div>
                       {photos.length < MAX_JOURNAL_PHOTOS && (
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => cameraInputRef.current?.click()}
-                            className="min-h-[44px] py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium flex items-center gap-2"
-                          >
+                          <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium flex items-center gap-2">
                             <ICON_MAP.Camera className="w-5 h-5" />
                             Take photo
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => galleryInputRef.current?.click()}
-                            className="min-h-[44px] py-2 px-3 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2"
-                          >
+                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2">
                             <ICON_MAP.Gallery className="w-5 h-5" />
                             From gallery
                           </button>
@@ -622,23 +637,18 @@ export function BatchLogSheet({
                       )}
                     </div>
                   ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <ICON_MAP.Camera className="w-5 h-5" />
-                        Take photo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <ICON_MAP.Gallery className="w-5 h-5" />
-                        From gallery
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      {batchLogWebcam.webcamError && <p className="text-sm text-amber-600">{batchLogWebcam.webcamError}</p>}
+                      <div className="flex gap-2">
+                        <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                          <ICON_MAP.Camera className="w-5 h-5" />
+                          Take photo
+                        </button>
+                        <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                          <ICON_MAP.Gallery className="w-5 h-5" />
+                          From gallery
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -686,37 +696,33 @@ export function BatchLogSheet({
                 {selectedActions.has("photo") && (
                   <div className="mt-2">
                     <label className="block text-xs font-medium text-black/60 mb-1">Photo (max {MAX_JOURNAL_PHOTOS})</label>
-                    {photos.length > 0 ? (
+                    {batchLogWebcam.webcamActive ? (
+                      <div className="space-y-2">
+                        <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                          <video ref={batchLogWebcam.videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={batchLogWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-xl bg-emerald text-white text-sm font-medium">Capture</button>
+                          <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                        </div>
+                      </div>
+                    ) : photos.length > 0 ? (
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
                           {photos.map((p) => (
                             <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
                               <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => setPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); })}
-                                className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center"
-                              >
-                                ×
-                              </button>
+                              <button type="button" onClick={() => setPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); })} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">×</button>
                             </div>
                           ))}
                         </div>
                         {photos.length < MAX_JOURNAL_PHOTOS && (
                           <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => cameraInputRef.current?.click()}
-                              className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium"
-                            >
+                            <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">
                               <ICON_MAP.Camera className="w-5 h-5" />
                               Take photo
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => galleryInputRef.current?.click()}
-                              className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium"
-                            >
+                            <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">
                               <ICON_MAP.Gallery className="w-5 h-5" />
                               From gallery
                             </button>
@@ -724,23 +730,18 @@ export function BatchLogSheet({
                         )}
                       </div>
                     ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
-                        >
-                          <ICON_MAP.Camera className="w-5 h-5" />
-                          Take photo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => galleryInputRef.current?.click()}
-                          className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2"
-                        >
-                          <ICON_MAP.Gallery className="w-5 h-5" />
-                          From gallery
-                        </button>
+                      <div className="flex flex-col gap-2">
+                        {batchLogWebcam.webcamError && <p className="text-sm text-amber-600">{batchLogWebcam.webcamError}</p>}
+                        <div className="flex gap-2">
+                          <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                            <ICON_MAP.Camera className="w-5 h-5" />
+                            Take photo
+                          </button>
+                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                            <ICON_MAP.Gallery className="w-5 h-5" />
+                            From gallery
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

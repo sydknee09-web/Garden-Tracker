@@ -55,6 +55,7 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useToast } from "@/hooks/useToast";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useFilterState } from "@/hooks/useFilterState";
 import { FILTER_DEFAULT_KEYS } from "@/lib/filterDefaults";
 import { generateCareTasks } from "@/lib/generateCareTasks";
@@ -210,6 +211,15 @@ function GardenPageInner() {
   const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
   const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);
   const [highlightResolved, setHighlightResolved] = useState(false);
+
+  const addLogGrowthPhoto = useCallback((file: File) => {
+    setLogGrowthPhotos((prev) => (prev.length >= MAX_JOURNAL_PHOTOS ? prev : [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]));
+  }, []);
+  const addQuickAddPhoto = useCallback((file: File) => {
+    setQuickAddPhotos((prev) => (prev.length >= MAX_JOURNAL_PHOTOS ? prev : [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]));
+  }, []);
+  const logGrowthWebcam = useDesktopPhotoCapture(addLogGrowthPhoto);
+  const quickAddWebcam = useDesktopPhotoCapture(addQuickAddPhoto);
 
   const growParam = searchParams.get("grow");
 
@@ -1080,7 +1090,17 @@ function GardenPageInner() {
                 <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
                 <input ref={fileInputLogGrowthRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && logGrowthPhotos.length < MAX_JOURNAL_PHOTOS) { setLogGrowthPhotos((prev) => [...prev, { id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }]); } e.target.value = ""; }} />
                 <input ref={galleryInputLogGrowthRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const files = e.target.files; if (files?.length) { const toAdd = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, MAX_JOURNAL_PHOTOS - logGrowthPhotos.length); setLogGrowthPhotos((prev) => [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]); } e.target.value = ""; }} />
-                {logGrowthPhotos.length > 0 ? (
+                {logGrowthWebcam.webcamActive ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                      <video ref={logGrowthWebcam.videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={logGrowthWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-lg bg-emerald text-white text-sm font-medium">Capture</button>
+                      <button type="button" onClick={logGrowthWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                    </div>
+                  </div>
+                ) : logGrowthPhotos.length > 0 ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {logGrowthPhotos.map((p) => (
@@ -1092,15 +1112,18 @@ function GardenPageInner() {
                     </div>
                     {logGrowthPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
                         <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => fileInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take photo</button>
-                    <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium">From gallery</button>
+                  <div className="flex flex-col gap-2">
+                    {logGrowthWebcam.webcamError && <p className="text-sm text-amber-600">{logGrowthWebcam.webcamError}</p>}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take photo</button>
+                      <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium">From gallery</button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1160,7 +1183,17 @@ function GardenPageInner() {
                 <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
                 <input ref={quickAddFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && quickAddPhotos.length < MAX_JOURNAL_PHOTOS) { setQuickAddPhotos((prev) => [...prev, { id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }]); } e.target.value = ""; }} />
                 <input ref={quickAddGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const files = e.target.files; if (files?.length) { setQuickAddPhotos((prev) => { const toAdd = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, MAX_JOURNAL_PHOTOS - prev.length); return [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]; }); } e.target.value = ""; }} />
-                {quickAddPhotos.length > 0 ? (
+                {quickAddWebcam.webcamActive ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                      <video ref={quickAddWebcam.videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={quickAddWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-lg bg-emerald text-white text-sm font-medium">Capture</button>
+                      <button type="button" onClick={quickAddWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                    </div>
+                  </div>
+                ) : quickAddPhotos.length > 0 ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {quickAddPhotos.map((p) => (
@@ -1172,15 +1205,18 @@ function GardenPageInner() {
                     </div>
                     {quickAddPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => quickAddFileRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
                         <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => quickAddFileRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take photo</button>
-                    <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From gallery</button>
+                  <div className="flex flex-col gap-2">
+                    {quickAddWebcam.webcamError && <p className="text-sm text-amber-600">{quickAddWebcam.webcamError}</p>}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take photo</button>
+                      <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From gallery</button>
+                    </div>
                   </div>
                 )}
               </div>
