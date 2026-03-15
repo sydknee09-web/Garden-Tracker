@@ -78,9 +78,11 @@ interface BatchAddSeedProps {
   onNavigateToHero?: () => void;
   /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Photo Import. */
   addPlantMode?: boolean;
+  /** When addPlantMode, "permanent" = My Plants, "seed" = Active Garden. Passed to review-import and photo flows. */
+  defaultProfileType?: "seed" | "permanent";
 }
 
-export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPlantMode = false }: BatchAddSeedProps) {
+export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPlantMode = false, defaultProfileType }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
@@ -366,7 +368,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         pendingItems.push({ id: crypto.randomUUID(), fileName, imageBase64: base64 });
       }
       setBatchProgress(null);
-      setPendingPhotoImport({ items: pendingItems, addPlantMode });
+      setPendingPhotoImport({ items: pendingItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
       onClose();
       router.push("/vault/import/photos");
     } catch (e) {
@@ -433,7 +435,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         purchaseDate: todayISO(),
       }));
 
-      setReviewImportData({ items: reviewItems, addPlantMode });
+      setReviewImportData({ items: reviewItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
       onClose();
       router.push("/vault/review-import");
     } catch (e) {
@@ -523,7 +525,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         });
       }
       try {
-        setPendingPhotoHeroImport({ items: pendingItems });
+        setPendingPhotoHeroImport({ items: pendingItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
       } catch (storageErr) {
         const isQuota = storageErr instanceof DOMException && (storageErr.name === "QuotaExceededError" || (storageErr as { code?: number }).code === 22);
         setError(isQuota ? "Too much data for storage—try fewer photos." : formatAddFlowError(storageErr));
@@ -560,6 +562,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     if (toSave.length === 0) return;
     setError(null);
     setSaving(true);
+    const newProfileIds: string[] = [];
     let bucketEnsured = false;
     for (const item of toSave) {
       const name = (item.name ?? "").trim() || "Unknown";
@@ -630,6 +633,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
           return;
         }
         profileId = (newProfile as { id: string }).id;
+        newProfileIds.push(profileId);
       }
       const purchaseDate = item.purchaseDate?.trim() || todayISO();
       const tagsToSave = packetTags.length > 0 ? packetTags : (item.tags ?? []);
@@ -653,6 +657,15 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     const count = queue.filter((i) => i.status === "pending").length;
     queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
     setSaveSuccessCount(count);
+    if (authSession?.access_token && newProfileIds.length > 0) {
+      newProfileIds.forEach((profileId) => {
+        fetch("/api/seed/fill-blanks-for-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ profileId, useGemini: true, backgroundEnrich: true }),
+        }).catch(() => {});
+      });
+    }
     onSuccess();
   }
 

@@ -37,13 +37,16 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profileType, setProfileType] = useState<"seed" | "permanent">(defaultProfileType);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setProfileType(defaultProfileType);
+    } else {
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       setFile(null);
       setPreviewUrl(null);
@@ -52,7 +55,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-  }, [open]);
+  }, [open, defaultProfileType]);
 
   useEffect(() => {
     if (!open || !videoRef.current) return;
@@ -214,7 +217,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         purchase_quantity: item.quantity,
       }));
 
-      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType, addPlantMode });
+      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType: profileType, addPlantMode });
       onClose();
       window.location.href = "/vault/review-import";
     } catch (e) {
@@ -263,6 +266,28 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
             <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
           </button>
         </div>
+
+        {addPlantMode && mode === "seed" && (
+          <div className="mb-4">
+            <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setProfileType("permanent")}
+                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+              >
+                My Plants
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileType("seed")}
+                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+              >
+                Active Garden
+              </button>
+            </div>
+          </div>
+        )}
 
         <>
             <p className="text-sm text-black/70 mb-4">

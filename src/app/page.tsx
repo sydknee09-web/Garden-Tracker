@@ -140,6 +140,7 @@ export default function HomePage() {
     setAddMenuOpen,
     activeModal,
     addPlantDefaultType,
+    setAddPlantDefaultType,
     openMenu,
     closeMenu,
     openSeed,
@@ -668,6 +669,8 @@ export default function HomePage() {
           open={addMenuOpen}
           onClose={closeMenu}
           pathname={pathname ?? "/"}
+          addPlantDefaultType={addPlantDefaultType}
+          setAddPlantDefaultType={setAddPlantDefaultType}
           onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
@@ -762,6 +765,7 @@ export default function HomePage() {
             router.push("/vault/import/photos/hero");
           }}
           addPlantMode={batchAddPlantMode}
+          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
         />
       )}
 
@@ -798,7 +802,7 @@ export default function HomePage() {
           open={purchaseOrderOpen}
           onClose={() => setPurchaseOrderOpen(false)}
           mode={purchaseOrderMode}
-          defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+          defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
           addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
         />
       )}

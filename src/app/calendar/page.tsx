@@ -124,6 +124,7 @@ export default function CalendarPage() {
     setAddMenuOpen,
     activeModal,
     addPlantDefaultType,
+    setAddPlantDefaultType,
     openMenu,
     closeMenu,
     openSeed,
@@ -1429,6 +1430,8 @@ export default function CalendarPage() {
           open={addMenuOpen}
           onClose={closeMenu}
           pathname={pathname ?? "/calendar"}
+          addPlantDefaultType={addPlantDefaultType}
+          setAddPlantDefaultType={setAddPlantDefaultType}
           onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
@@ -1523,6 +1526,7 @@ export default function CalendarPage() {
             router.push("/vault/import/photos/hero");
           }}
           addPlantMode={batchAddPlantMode}
+          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
         />
       )}
 
@@ -1569,7 +1573,7 @@ export default function CalendarPage() {
           open={purchaseOrderOpen}
           onClose={() => setPurchaseOrderOpen(false)}
           mode={purchaseOrderMode}
-          defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+          defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
           addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
         />
       )}

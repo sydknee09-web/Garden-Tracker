@@ -158,6 +158,7 @@ function GardenPageInner() {
     setAddMenuOpen,
     activeModal,
     addPlantDefaultType,
+    setAddPlantDefaultType,
     openMenu,
     closeMenu,
     openSeed,
@@ -226,6 +227,13 @@ function GardenPageInner() {
   useEffect(() => {
     if (user?.id) generateCareTasks(user.id);
   }, [user?.id]);
+
+  // Seed add plant type from Garden tab when menu opens
+  useEffect(() => {
+    if (addMenuOpen) {
+      setAddPlantDefaultType(effectiveViewMode === "plants" ? "permanent" : "seasonal");
+    }
+  }, [addMenuOpen, effectiveViewMode, setAddPlantDefaultType]);
 
   useEffect(() => {
     if (!profileParam) {
@@ -1236,6 +1244,8 @@ function GardenPageInner() {
           onClose={closeMenu}
           pathname={pathname ?? "/garden"}
           gardenTab={effectiveViewMode}
+          addPlantDefaultType={addPlantDefaultType}
+          setAddPlantDefaultType={setAddPlantDefaultType}
           onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
@@ -1329,6 +1339,7 @@ function GardenPageInner() {
             router.push("/vault/import/photos/hero");
           }}
           addPlantMode={batchAddPlantMode}
+          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
         />
       )}
 
@@ -1527,7 +1538,7 @@ function GardenPageInner() {
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
         mode={purchaseOrderMode}
-        defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
         addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
 

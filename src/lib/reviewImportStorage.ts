@@ -168,6 +168,8 @@ export type PendingPhotoImportData = {
   items: PendingPhotoImportItem[];
   /** When true, create grow_instance only (no seed_packet). Passed through to review-import. */
   addPlantMode?: boolean;
+  /** When "permanent", new profiles are trees/perennials (My Plants). Passed through to review-import. */
+  defaultProfileType?: "seed" | "permanent";
 };
 
 export function getPendingPhotoImport(): PendingPhotoImportData | null {

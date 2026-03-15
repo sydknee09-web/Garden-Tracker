@@ -1119,7 +1119,7 @@ export default function ReviewImportPage() {
         fetch("/api/seed/fill-blanks-for-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ profileId, useGemini: true }),
+          body: JSON.stringify({ profileId, useGemini: true, backgroundEnrich: true }),
         }).catch(() => {});
       });
     }
@@ -1208,7 +1208,7 @@ export default function ReviewImportPage() {
         </p>
       )}
 
-      {addPlantMode && importSource === "purchase_order" && (
+      {addPlantMode && (importSource === "purchase_order" || importSource === "photo") && (
         <div className="flex gap-2 mb-4">
           <button
             type="button"

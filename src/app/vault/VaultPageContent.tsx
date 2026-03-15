@@ -156,6 +156,7 @@ function VaultPageInner() {
     setAddMenuOpen,
     activeModal,
     addPlantDefaultType,
+    setAddPlantDefaultType,
     openMenu,
     closeMenu,
     openSeed,
@@ -1676,6 +1677,8 @@ function VaultPageInner() {
           open={addMenuOpen}
           onClose={closeMenu}
           pathname={pathname ?? "/vault"}
+          addPlantDefaultType={addPlantDefaultType}
+          setAddPlantDefaultType={setAddPlantDefaultType}
           onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
@@ -1794,6 +1797,7 @@ function VaultPageInner() {
             router.push("/vault/import/photos/hero");
           }}
           addPlantMode={batchAddPlantMode}
+          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
         />
       )}
 
@@ -1802,7 +1806,7 @@ function VaultPageInner() {
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
         mode={purchaseOrderMode}
-        defaultProfileType={purchaseOrderMode === "seed" ? "seed" : undefined}
+        defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
         addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
       )}
