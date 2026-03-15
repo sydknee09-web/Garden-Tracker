@@ -87,6 +87,7 @@ export interface GrowInstance {
 // ---------------------------------------------------------------------------
 export type JournalEntryType =
   | "planting"
+  | "vault_add"
   | "growth"
   | "harvest"
   | "note"

@@ -302,8 +302,8 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: i === 0 ? (plantType === "permanent" ? "Planted (permanent plant)." : "Planted (store-bought).") : null,
-            entry_type: i === 0 ? "planting" : "growth",
+            note: i === 0 ? (plantType === "permanent" ? "Added to Vault (permanent plant)." : "Added to Vault (store-bought).") : null,
+            entry_type: i === 0 ? "vault_add" : "growth",
             image_file_path: path,
           });
         }
@@ -437,16 +437,16 @@ export function AddPlantModal({
               .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
             if (uploadErr) continue;
             if (i === 0) heroPath = path;
-            const plantingNote = i === 0 && displayName
-              ? (notes.trim() ? `Planted ${displayName}. ${notes.trim()}` : `Planted ${displayName}`)
+            const vaultAddNote = i === 0 && displayName
+              ? (notes.trim() ? `Added ${displayName} to vault. ${notes.trim()}` : `Added ${displayName} to vault`)
               : null;
             await supabase.from("journal_entries").insert({
               user_id: user.id,
               plant_profile_id: profileId,
               grow_instance_id: growId,
               seed_packet_id: null,
-              note: plantingNote,
-              entry_type: i === 0 ? "planting" : "growth",
+              note: vaultAddNote,
+              entry_type: i === 0 ? "vault_add" : "growth",
               image_file_path: path,
               weather_snapshot: i === 0 ? weather ?? undefined : undefined,
             });
@@ -455,13 +455,13 @@ export function AddPlantModal({
             await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
           }
         } else {
-          const plantingNote = notes.trim() ? `Planted ${displayName}. ${notes.trim()}` : `Planted ${displayName}`;
+          const vaultAddNote = notes.trim() ? `Added ${displayName} to vault. ${notes.trim()}` : `Added ${displayName} to vault`;
           await supabase.from("journal_entries").insert({
             user_id: user.id,
             plant_profile_id: profileId,
             grow_instance_id: growId,
-            note: plantingNote,
-            entry_type: "planting",
+            note: vaultAddNote,
+            entry_type: "vault_add",
             weather_snapshot: weather ?? undefined,
           });
         }

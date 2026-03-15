@@ -83,7 +83,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
   const streamRef = useRef<MediaStream | null>(null);
   const trapRef = useFocusTrap(true);
 
-  const isPlantingEntry = (entry.entry_type ?? "").toLowerCase() === "planting";
+  const isPlantingOrVaultAdd = ["planting", "vault_add"].includes((entry.entry_type ?? "").toLowerCase());
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
@@ -200,7 +200,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
   }, [webcamActive]);
 
   const toggleProfile = (id: string) => {
-    if (isPlantingEntry) return;
+    if (isPlantingOrVaultAdd) return;
     setSelectedProfileIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -298,7 +298,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         }
       }
 
-      if (!isPlantingEntry) {
+      if (!isPlantingOrVaultAdd) {
         const { error: delJepErr } = await supabase
           .from("journal_entry_plants")
           .delete()
@@ -475,9 +475,9 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
 
               <div>
                 <label className="block text-sm font-medium text-black/80 mb-2">
-                  {isPlantingEntry ? "Plants (linked at planting — read-only)" : "Plants (optional — link this entry to one or more)"}
+                  {isPlantingOrVaultAdd ? "Plants (linked at planting — read-only)" : "Plants (optional — link this entry to one or more)"}
                 </label>
-                {isPlantingEntry ? (
+                {isPlantingOrVaultAdd ? (
                   <div className="flex flex-wrap gap-1">
                     {plantDisplayNames.map((name, i) => (
                       <span

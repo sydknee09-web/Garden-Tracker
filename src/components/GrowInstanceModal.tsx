@@ -108,6 +108,7 @@ function TASK_CATEGORY_LABELS(cat: string): string {
 function ENTRY_TYPE_LABELS(type: string | null | undefined): string {
   const map: Record<string, string> = {
     planting: "Planted",
+    vault_add: "Added to Vault",
     growth: "Growth update",
     harvest: "Harvested",
     note: "Note",

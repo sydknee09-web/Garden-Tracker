@@ -69,7 +69,7 @@ type JournalEntryWithPlant = JournalEntry & {
   weather_snapshot?: JournalEntry["weather_snapshot"];
 };
 
-type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" };
+type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" | "archive" };
 
 function getActionFromNote(note: string | null, entryType?: string | null): ActionInfo {
   const n = (note ?? "").toLowerCase();
@@ -79,6 +79,7 @@ function getActionFromNote(note: string | null, entryType?: string | null): Acti
     if (n.includes("sprayed")) return { label: "Spray", icon: "spray" };
     return { label: "Care", icon: "care" };
   }
+  if (n.includes("added") && n.includes("vault")) return { label: "Added to Vault", icon: "archive" };
   if (n.includes("planted") || n.includes("sown") || n.includes("sow")) return { label: "Planted", icon: "plant" };
   if (n.includes("harvest")) return { label: "Harvest", icon: "harvest" };
   if (n.includes("growth") || n.includes("transplant") || n.includes("progress")) return { label: "Growth", icon: "growth" };
@@ -101,11 +102,12 @@ function combineNotes(notes: (string | null)[]): string {
     .join(", ");
 }
 
-/** Pick display action for a group: harvest > planting > care > growth > note. */
+/** Pick display action for a group: harvest > planting > vault_add > care > growth > note. */
 function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
   const has = (type: string) => group.some((e) => (e.entry_type ?? "").toLowerCase() === type);
   if (has("harvest")) return { label: "Harvest", icon: "harvest" };
   if (has("planting")) return { label: "Planted", icon: "plant" };
+  if (has("vault_add")) return { label: "Added to Vault", icon: "archive" };
   if (has("quick") || has("care")) return { label: "Care", icon: "care" };
   if (has("growth")) return { label: "Growth", icon: "growth" };
   const first = group[0];
@@ -199,6 +201,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
     case "plant": return <ICON_MAP.Plant className={className} />;
     case "harvest": return <ICON_MAP.Harvest className={className} />;
     case "growth": return <ICON_MAP.Plant className={className} />;
+    case "archive": return <ICON_MAP.Archive className={className} />;
     case "water": return <ICON_MAP.Water className={className} />;
     case "fertilize": return <ICON_MAP.Fertilize className={className} />;
     case "spray": return <ICON_MAP.Spray className={className} />;

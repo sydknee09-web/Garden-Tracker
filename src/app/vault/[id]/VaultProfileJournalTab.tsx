@@ -47,7 +47,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                                         : "bg-emerald-900/10 text-emerald-900"
                               }`}
                             >
-                              {j.entry_type}
+                              {j.entry_type === "vault_add" ? "Added to Vault" : j.entry_type}
                             </span>
                           )}
                         </div>

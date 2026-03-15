@@ -851,7 +851,7 @@ export default function ReviewImportPage() {
         const growId = (growRow as { id: string })?.id;
         if (addPlantMode && growId) {
           const displayName = varietyName ? `${name} (${varietyName})` : name;
-          const noteParts: string[] = [`Planted ${displayName}`];
+          const noteParts: string[] = [`Added ${displayName} to vault`];
           if ((item.user_notes ?? "").trim()) noteParts.push((item.user_notes ?? "").trim());
           const note = noteParts.join(". ");
           await supabase.from("journal_entries").insert({
@@ -860,7 +860,7 @@ export default function ReviewImportPage() {
             grow_instance_id: growId,
             seed_packet_id: null,
             note: note || null,
-            entry_type: "planting",
+            entry_type: "vault_add",
             ...(journalPhotoPath && { image_file_path: journalPhotoPath }),
           });
           if (journalPhotoPath && item.useStockPhotoAsHero !== false) {
