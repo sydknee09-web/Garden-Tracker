@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
 
 export const maxDuration = 30;
+
+const ROUTE_ID = "ocr-extract";
 
 export type OcrExtractResponse = {
   vendor: string | null;
@@ -23,12 +26,15 @@ const VISION_SYSTEM_PROMPT = `You are a seed packet label parser. Look at the se
 - purchaseYear: A 4-digit year number if visible (e.g. 2025, 2026). Look for "Packed for", "Sell by", or "Packed for season" followed by a year, or a year printed on the packet. Use 0 if no year is found.`;
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  let statusCode = 500;
   try {
     const body = await req.json();
     const ocrText = typeof body?.ocrText === "string" ? body.ocrText.trim() : "";
     const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl.trim() : "";
 
     if (!ocrText && !imageUrl) {
+      statusCode = 200;
       return NextResponse.json(
         { vendor: null, plantType: null, variety: null, purchaseDate: null },
         { status: 200 }
@@ -37,6 +43,7 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) {
+      statusCode = 503;
       return NextResponse.json(
         { error: "OPENAI_API_KEY not configured" },
         { status: 503 }
@@ -77,6 +84,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const errText = await res.text();
       console.error("OpenAI OCR extract error:", res.status, errText);
+      statusCode = 502;
       return NextResponse.json(
         { error: "Extraction service unavailable" },
         { status: 502 }
@@ -88,6 +96,7 @@ export async function POST(req: Request) {
     };
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
+      statusCode = 200;
       return NextResponse.json(
         { vendor: null, plantType: null, variety: null, purchaseDate: null },
         { status: 200 }
@@ -110,6 +119,7 @@ export async function POST(req: Request) {
           : null;
     const purchaseDate = year != null ? `${year}-01-01` : null;
 
+    statusCode = 200;
     return NextResponse.json({
       vendor: vendor ?? null,
       plantType: plantType ?? null,
@@ -118,9 +128,12 @@ export async function POST(req: Request) {
     } satisfies OcrExtractResponse);
   } catch (e) {
     console.error("OCR extract route error:", e);
+    statusCode = 500;
     return NextResponse.json(
       { error: "Extraction failed" },
       { status: 500 }
     );
+  } finally {
+    logRequestMetrics(ROUTE_ID, Date.now() - startTime, statusCode);
   }
 }

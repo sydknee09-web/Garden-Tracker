@@ -4,8 +4,11 @@ import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
 
 export const maxDuration = 30;
+
+const ROUTE_ID = "supply-extract-from-url";
 
 const SUPPLY_EXTRACT_PROMPT = `You are a garden supply inventory expert. Using Google Search Grounding, visit the given URL (a garden product page: fertilizer, pesticide, soil amendment, etc.) and extract information.
 
@@ -171,31 +174,45 @@ async function fetchAndUploadImage(
 }
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  let statusCode = 500;
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth) return unauthorized();
+    if (!auth) {
+      const res = unauthorized();
+      statusCode = res.status;
+      return res;
+    }
     if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      statusCode = 429;
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
     const { user } = auth;
 
     const bodySizeErr = checkContentLength(req);
-    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
+    if (bodySizeErr) {
+      statusCode = 400;
+      return NextResponse.json(bodySizeErr, { status: 400 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const url = typeof body?.url === "string" ? body.url.trim() : "";
     if (!url || !url.startsWith("http")) {
+      statusCode = 400;
       return NextResponse.json({ error: "url required and must be http(s)" }, { status: 400 });
     }
     if (url.length > MAX_URL_LENGTH) {
+      statusCode = 400;
       return NextResponse.json({ error: "URL too long" }, { status: 400 });
     }
     if (isUrlBlockedForSSRF(url)) {
+      statusCode = 400;
       return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
     if (!apiKey) {
+      statusCode = 503;
       return NextResponse.json(
         { error: "GOOGLE_GENERATIVE_AI_API_KEY not configured" },
         { status: 503 }
@@ -212,11 +229,13 @@ export async function POST(req: Request) {
 
     const text = response?.text?.trim();
     if (!text) {
+      statusCode = 422;
       return NextResponse.json({ error: "Could not extract data from link" }, { status: 422 });
     }
 
     const result = parseExtractJson(text, url);
     if (!result) {
+      statusCode = 422;
       return NextResponse.json({ error: "Could not parse extracted data" }, { status: 422 });
     }
 
@@ -231,12 +250,16 @@ export async function POST(req: Request) {
     const { logApiUsageAsync } = await import("@/lib/logApiUsage");
     logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "supply-extract-from-url" });
 
+    statusCode = 200;
     return NextResponse.json(result);
   } catch (e) {
     console.error("[supply/extract-from-url]", e);
+    statusCode = 500;
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Extraction failed" },
       { status: 500 }
     );
+  } finally {
+    logRequestMetrics(ROUTE_ID, Date.now() - startTime, statusCode);
   }
 }

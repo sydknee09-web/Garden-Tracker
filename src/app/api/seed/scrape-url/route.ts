@@ -4,6 +4,7 @@ import { getSupabaseUser } from "@/app/api/import/auth";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
 import { PLANT_CATEGORY_DEFAULTS, type PlantCategoryKey } from "@/constants/plantDefaults";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import {
@@ -3486,18 +3487,28 @@ export async function GET() {
   });
 }
 
+const SCRAPE_URL_ROUTE_ID = "scrape-url";
+
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  let statusCode = 500;
+  try {
   const auth = await getSupabaseUser(request);
   const key = auth?.user?.id ?? "anon";
   if (!checkRateLimit(key, DEFAULT_RATE_LIMIT)) {
+    statusCode = 429;
     return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
   }
   const bodySizeErr = checkContentLength(request);
-  if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
+  if (bodySizeErr) {
+    statusCode = 400;
+    return NextResponse.json(bodySizeErr, { status: 400 });
+  }
   let body: { url?: string; knownPlantTypes?: string[] };
   try {
     body = await request.json();
   } catch {
+    statusCode = 400;
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
@@ -3509,10 +3520,12 @@ export async function POST(request: Request) {
       ? body.knownPlantTypes
       : undefined;
   if (!urlString) {
+    statusCode = 400;
     return NextResponse.json({ error: "url is required." }, { status: 400 });
   }
 
   if (urlString.length > MAX_URL_LENGTH) {
+    statusCode = 400;
     return NextResponse.json({ error: "URL too long" }, { status: 400 });
   }
 
@@ -3520,10 +3533,12 @@ export async function POST(request: Request) {
   try {
     url = new URL(urlString.startsWith("http") ? urlString : "https://" + urlString);
   } catch {
+    statusCode = 400;
     return NextResponse.json({ error: "Invalid URL." }, { status: 400 });
   }
 
   if (!isAllowedUrl(url)) {
+    statusCode = 400;
     return NextResponse.json(
       { error: "URL domain is not allowed for scraping." },
       { status: 400 }
@@ -4349,15 +4364,19 @@ export async function POST(request: Request) {
   });
 
   try {
-    return await Promise.race([scrapePromise, timeoutPromise]);
+    const result = await Promise.race([scrapePromise, timeoutPromise]);
+    statusCode = result.status;
+    return result;
   } catch (e) {
     const isTimeout = e instanceof Error && e.message === "SCRAPER_TIMEOUT";
     const isAbort = e instanceof Error && e.name === "AbortError";
-    if (isTimeout || isAbort) {
+      if (isTimeout || isAbort) {
       if (skipAiFallback) {
         if (fallbackMetadata && fallbackOrigin) {
+          statusCode = 200;
           return safetyMetadataResponse(fallbackMetadata, fallbackOrigin, url, "Request timed out (15s).");
         }
+        statusCode = 200;
         return NextResponse.json(
           {
             error: "Request timed out (15s).",
@@ -4396,8 +4415,10 @@ export async function POST(request: Request) {
         });
       }
       if (fallbackMetadata && fallbackOrigin) {
+        statusCode = 200;
         return safetyMetadataResponse(fallbackMetadata, fallbackOrigin, url, "Request timed out (15s).");
       }
+      statusCode = 200;
       return NextResponse.json(
         {
           error: "Request timed out (15s).",
@@ -4415,6 +4436,10 @@ export async function POST(request: Request) {
     }
     console.log("Scraper failed for:", url.href, e);
     const message = e instanceof Error ? e.message : "Failed to fetch URL.";
+    statusCode = 502;
     return NextResponse.json({ error: message, scrape_status: "Failed", scrape_error_log: message }, { status: 502 });
+  }
+  } finally {
+    logRequestMetrics(SCRAPE_URL_ROUTE_ID, Date.now() - startTime, statusCode);
   }
 }

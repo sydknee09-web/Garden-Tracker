@@ -478,7 +478,7 @@ export default function JournalNewPage() {
             <p className="text-sm text-black/50">Loading supplies…</p>
           ) : (
             <SearchableMultiSelect
-              options={supplies.map((s) => ({ id: s.id, label: `${s.name}${s.brand?.trim() ? ` (${s.brand})` : ""}`))}
+              options={supplies.map((s) => ({ id: s.id, label: s.brand?.trim() ? `${s.name} (${s.brand})` : s.name }))}
               selectedIds={selectedSupplyIds}
               onChange={setSelectedSupplyIds}
               placeholder="Type to search supplies…"
@@ -495,7 +495,7 @@ export default function JournalNewPage() {
             <p className="text-sm text-black/50">No varieties in vault. Add seeds first.</p>
           ) : (
             <SearchableMultiSelect
-              options={profiles.map((p) => ({ id: p.id, label: `${p.name}${p.variety_name?.trim() ? ` (${p.variety_name})` : ""}` }))}
+              options={profiles.map((p) => ({ id: p.id, label: p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name }))}
               selectedIds={selectedProfileIds}
               onChange={setSelectedProfileIds}
               placeholder="Type to search plants…"

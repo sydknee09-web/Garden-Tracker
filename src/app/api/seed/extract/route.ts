@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
@@ -446,25 +447,39 @@ async function researchVarietyForExtract(
   return out;
 }
 
+const ROUTE_ID = "seed-extract";
+
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  let statusCode = 500;
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth) return unauthorized();
+    if (!auth) {
+      const res = unauthorized();
+      statusCode = res.status;
+      return res;
+    }
     if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      statusCode = 429;
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
     const bodySizeErr = checkContentLength(req);
-    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
+    if (bodySizeErr) {
+      statusCode = 400;
+      return NextResponse.json(bodySizeErr, { status: 400 });
+    }
     const body = await req.json();
     const url = typeof body?.url === "string" ? body.url.trim() : "";
 
     if (url) {
       if (url.length > MAX_URL_LENGTH) {
+        statusCode = 400;
         return NextResponse.json({ error: "URL too long" }, { status: 400 });
       }
       console.log("[extract] URL branch: request received for", url?.slice(0, 60) + "...");
       const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
       if (!apiKey) {
+        statusCode = 503;
         return NextResponse.json(
           { error: "GOOGLE_GENERATIVE_AI_API_KEY not configured" },
           { status: 503 }
@@ -512,6 +527,7 @@ export async function POST(req: Request) {
           controller.close();
         },
       });
+      statusCode = 200;
       return new NextResponse(stream, {
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
       });
@@ -520,6 +536,7 @@ export async function POST(req: Request) {
     console.log("[extract] Image path: Starting (photo extraction)");
     let imageBase64 = typeof body?.imageBase64 === "string" ? body.imageBase64.trim() : "";
     if (!imageBase64) {
+      statusCode = 400;
       return NextResponse.json(
         { error: "imageBase64 or url required" },
         { status: 400 }
@@ -532,6 +549,7 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
     if (!apiKey) {
+      statusCode = 503;
       return NextResponse.json(
         { error: "GOOGLE_GENERATIVE_AI_API_KEY not configured" },
         { status: 503 }
@@ -557,6 +575,7 @@ export async function POST(req: Request) {
         });
         const text = result.text;
         if (!text) {
+          statusCode = 200;
           return NextResponse.json(
             { vendor: "", type: "", variety: "", tags: [] } satisfies ExtractResponse,
             { status: 200 }
@@ -627,6 +646,7 @@ export async function POST(req: Request) {
           }
         }
 
+        statusCode = 200;
         return NextResponse.json(base);
       } catch (e) {
         lastError = e;
@@ -649,6 +669,7 @@ export async function POST(req: Request) {
     const status = (e as { status?: number }).status;
     const message = e instanceof Error ? e.message : "Extraction failed";
     const isRateLimit = status === 429 || message.toLowerCase().includes("quota") || message.includes("429");
+    statusCode = isRateLimit ? 429 : 500;
     const userMessage = isRateLimit
       ? "Gemini API rate limit exceeded. Please try again in a minute or check your quota at https://ai.google.dev/gemini-api/docs/rate-limits"
       : message.includes("API key") || message.includes("403") || message.includes("401")
@@ -660,5 +681,7 @@ export async function POST(req: Request) {
       { error: userMessage },
       { status: isRateLimit ? 429 : 500 }
     );
+  } finally {
+    logRequestMetrics(ROUTE_ID, Date.now() - startTime, statusCode);
   }
 }

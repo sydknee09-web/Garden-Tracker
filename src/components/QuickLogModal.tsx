@@ -93,7 +93,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     setSubmitError(null);
     setSelectedSupplyIds(preSelectedSupplyId?.trim() ? new Set([preSelectedSupplyId.trim()]) : new Set());
     if (defaultActionType && QUICK_ACTIONS.some((a) => a.id === defaultActionType)) {
-      setSelectedQuickAction(defaultActionType);
+      setSelectedQuickAction(defaultActionType as QuickActionType);
     } else {
       setSelectedQuickAction("note");
     }
@@ -307,8 +307,17 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
 
   if (!open) return null;
 
-  return (
-    <>
+  const supplyOptions = supplies.map((s) => ({
+    id: s.id,
+    label: s.brand?.trim() ? `${s.name} (${s.brand})` : s.name,
+  }));
+  const profileOptions = profiles.map((p) => ({
+    id: p.id,
+    label: p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name,
+  }));
+
+  const modalContent = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
       <div
         ref={trapRef}
@@ -393,7 +402,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
 
           <div>
             <SearchableMultiSelect
-              options={supplies.map((s) => ({ id: s.id, label: `${s.name}${s.brand?.trim() ? ` (${s.brand})` : ""}`))}
+              options={supplyOptions}
               selectedIds={selectedSupplyIds}
               onChange={setSelectedSupplyIds}
               placeholder="Type to search supplies…"
@@ -466,7 +475,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               <p className="text-sm text-neutral-500">Loading plants…</p>
             ) : (
               <SearchableMultiSelect
-                options={profiles.map((p) => ({ id: p.id, label: `${p.name}${p.variety_name?.trim() ? ` (${p.variety_name})` : ""}` }))}
+                options={profileOptions}
                 selectedIds={selectedProfileIds}
                 onChange={setSelectedProfileIds}
                 placeholder="Type to search plants…"
@@ -497,6 +506,8 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           </p>
         </form>
       </div>
-    </>
+    </div>
   );
+
+  return modalContent;
 }

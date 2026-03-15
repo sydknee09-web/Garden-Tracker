@@ -5,8 +5,11 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkContentLength } from "@/lib/requestValidation";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
 
 export const maxDuration = 30;
+
+const ROUTE_ID = "supply-extract-from-photo";
 
 export type SupplyPhotoExtractResult = {
   name: string;
@@ -73,19 +76,30 @@ function parseExtractJson(jsonStr: string): SupplyPhotoExtractResult | null {
 }
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  let statusCode = 500;
   try {
     const auth = await getSupabaseUser(req);
-    if (!auth) return unauthorized();
+    if (!auth) {
+      const res = unauthorized();
+      statusCode = res.status;
+      return res;
+    }
     if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
+      statusCode = 429;
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
     const { user } = auth;
     const bodySizeErr = checkContentLength(req);
-    if (bodySizeErr) return NextResponse.json(bodySizeErr, { status: 400 });
+    if (bodySizeErr) {
+      statusCode = 400;
+      return NextResponse.json(bodySizeErr, { status: 400 });
+    }
     const body = (await req.json()) as { imageBase64?: string; mimeType?: string };
     const { imageBase64, mimeType } = body;
 
     if (!imageBase64) {
+      statusCode = 400;
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
@@ -95,6 +109,7 @@ export async function POST(req: Request) {
       process.env.GOOGLE_AI_KEY?.trim() ??
       "";
     if (!apiKey) {
+      statusCode = 503;
       return NextResponse.json(
         { error: "GOOGLE_GENERATIVE_AI_API_KEY not configured" },
         { status: 503 }
@@ -117,11 +132,13 @@ export async function POST(req: Request) {
 
     const text = result.text?.trim();
     if (!text) {
+      statusCode = 422;
       return NextResponse.json({ error: "Could not extract data from image" }, { status: 422 });
     }
 
     const parsed = parseExtractJson(text);
     if (!parsed) {
+      statusCode = 422;
       return NextResponse.json({ error: "Could not parse extracted data" }, { status: 422 });
     }
 
@@ -147,12 +164,16 @@ export async function POST(req: Request) {
 
     logApiUsageAsync({ userId: user.id, provider: "gemini", operation: "supply-extract-from-photo" });
 
+    statusCode = 200;
     return NextResponse.json(parsed);
   } catch (e) {
     console.error("[supply/extract-from-photo]", e);
+    statusCode = 500;
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Extraction failed" },
       { status: 500 }
     );
+  } finally {
+    logRequestMetrics(ROUTE_ID, Date.now() - startTime, statusCode);
   }
 }
