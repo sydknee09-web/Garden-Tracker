@@ -69,6 +69,7 @@ export function useVaultEditHandlers({
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
+  const [fillBlanksAttempted, setFillBlanksAttempted] = useState(false);
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [editForm, setEditForm] = useState<VaultEditForm>(EDIT_FORM_DEFAULTS);
@@ -209,6 +210,7 @@ export function useVaultEditHandlers({
       setFillBlanksError(e instanceof Error ? e.message : "Could not fill blanks");
     } finally {
       setFillBlanksRunning(false);
+      setFillBlanksAttempted(true);
     }
   }, [profileId, session?.access_token, profile, fillBlanksRunning, loadProfile]);
 
@@ -230,6 +232,7 @@ export function useVaultEditHandlers({
       setFillBlanksError(e instanceof Error ? e.message : "Could not overwrite with AI");
     } finally {
       setFillBlanksRunning(false);
+      setFillBlanksAttempted(true);
     }
   }, [profileId, session?.access_token, fillBlanksRunning, loadProfile]);
 
@@ -256,6 +259,7 @@ export function useVaultEditHandlers({
     deletingProfile,
     fillBlanksRunning,
     fillBlanksError, setFillBlanksError,
+    fillBlanksAttempted,
     aiMenuOpen, setAiMenuOpen,
     overwriteConfirmOpen, setOverwriteConfirmOpen,
     editForm, setEditForm,

@@ -30,6 +30,7 @@ export interface VaultProfileAboutTabProps {
   vendorDetailsOpen: boolean;
   setVendorDetailsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   setImageLightbox: (v: { urls: string[]; index: number } | null) => void;
+  fillBlanksAttempted?: boolean;
 }
 
 export function VaultProfileAboutTab({
@@ -51,6 +52,7 @@ export function VaultProfileAboutTab({
   vendorDetailsOpen,
   setVendorDetailsOpen,
   setImageLightbox,
+  fillBlanksAttempted = false,
 }: VaultProfileAboutTabProps) {
   if (!profile) return null;
 
@@ -187,6 +189,8 @@ export function VaultProfileAboutTab({
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to propagate</p>
                 {profile?.propagation_notes?.trim() ? (
                   <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
+                ) : fillBlanksAttempted ? (
+                  <p className="text-sm text-neutral-500">—</p>
                 ) : (
                   <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
                 )}
@@ -195,6 +199,8 @@ export function VaultProfileAboutTab({
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to harvest / save seeds</p>
                 {profile?.seed_saving_notes?.trim() ? (
                   <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.seed_saving_notes}</p>
+                ) : fillBlanksAttempted ? (
+                  <p className="text-sm text-neutral-500">—</p>
                 ) : (
                   <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
                 )}

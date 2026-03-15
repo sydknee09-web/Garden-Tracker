@@ -512,6 +512,7 @@ export default function VaultSeedPage() {
     deletingProfile,
     fillBlanksRunning,
     fillBlanksError, setFillBlanksError,
+    fillBlanksAttempted,
     aiMenuOpen, setAiMenuOpen,
     overwriteConfirmOpen, setOverwriteConfirmOpen,
     editForm, setEditForm,
@@ -1307,6 +1308,7 @@ export default function VaultSeedPage() {
             vendorDetailsOpen={vendorDetailsOpen}
             setVendorDetailsOpen={setVendorDetailsOpen}
             setImageLightbox={setImageLightbox}
+            fillBlanksAttempted={fillBlanksAttempted}
           />
         )}
 
