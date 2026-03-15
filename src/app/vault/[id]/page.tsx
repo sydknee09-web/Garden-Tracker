@@ -43,6 +43,10 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
+const QuickAddSupply = dynamic(
+  () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
+  { ssr: false }
+);
 
 import { VaultProfileAboutTab } from "./VaultProfileAboutTab";
 import { VaultProfileCareTab } from "./VaultProfileCareTab";
@@ -124,6 +128,9 @@ export default function VaultSeedPage() {
   const [plantAgainAddPlantOpen, setPlantAgainAddPlantOpen] = useState(false);
   const [plantAgainQuickAddOpen, setPlantAgainQuickAddOpen] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [addFromQuickLogOpen, setAddFromQuickLogOpen] = useState(false);
+  const [addFromQuickLogInitialName, setAddFromQuickLogInitialName] = useState("");
+  const [suppliesRefreshKey, setSuppliesRefreshKey] = useState(0);
   const [quickLogGrowInstanceId, setQuickLogGrowInstanceId] = useState<string | null>(null);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
@@ -1409,12 +1416,27 @@ export default function VaultSeedPage() {
         profileOwnerId={profileOwnerId || undefined}
       />
 
+      <QuickAddSupply
+        open={addFromQuickLogOpen}
+        onClose={() => setAddFromQuickLogOpen(false)}
+        onSuccess={() => {
+          setAddFromQuickLogOpen(false);
+          setSuppliesRefreshKey((k) => k + 1);
+        }}
+        initialName={addFromQuickLogInitialName}
+      />
       <QuickLogModal
         open={quickLogOpen}
         onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}
         preSelectedGrowInstanceId={quickLogGrowInstanceId ?? undefined}
         preSelectedProfileId={quickLogGrowInstanceId ? id : undefined}
         onJournalAdded={loadProfile}
+        onAddSupplyFromEmptyState={(searchString) => {
+          setQuickLogOpen(false);
+          setAddFromQuickLogInitialName(searchString ?? "");
+          setAddFromQuickLogOpen(true);
+        }}
+        suppliesRefreshKey={suppliesRefreshKey}
       />
 
       {/* Edit grow instance modal — full-screen on mobile, centered on desktop */}
