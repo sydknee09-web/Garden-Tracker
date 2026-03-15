@@ -12,21 +12,26 @@ import { localDateString } from "@/lib/calendarDate";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "note" | "growth" | "planting" | "harvest" | "water" | "fertilize" | "spray" | "pest";
+type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "note";
 
-const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string }[] = [
+const QUICK_ACTIONS: {
+  id: QuickActionType;
+  label: string;
+  icon: keyof typeof ICON_MAP;
+  entryType: string;
+  /** When set, used as note when user leaves memo empty (seed-starting milestones). */
+  defaultNote?: string;
+}[] = [
+  { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
+  { id: "sprout", label: "Sprout", icon: "Plant", entryType: "growth", defaultNote: "First sprouts" },
+  { id: "pot_up", label: "Pot Up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
+  { id: "plant_out", label: "Plant Out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
   { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
-  { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
-  { id: "planting", label: "Planting", icon: "Plant", entryType: "planting" },
-  { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
-  { id: "water", label: "Water", icon: "Water", entryType: "quick" },
-  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick" },
-  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick" },
-  { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
 ];
 
 function isMobileDevice(): boolean {
@@ -40,23 +45,25 @@ function isMobileDevice(): boolean {
 export interface QuickLogModalProps {
   open: boolean;
   onClose: () => void;
-  /** When set (e.g. from vault/[id]), pre-select this plant and hide search. */
+  /** When set (e.g. from vault/[id] Plantings tab), pre-select this plant. */
   preSelectedProfileId?: string | null;
+  /** When set (e.g. from Plantings tab), attach journal entry to this grow instance for Life Story. */
+  preSelectedGrowInstanceId?: string | null;
   /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
-  /** When opening with a supply, default quick action (e.g. fertilize, spray). */
-  defaultActionType?: QuickActionType;
+  /** When opening with a supply, default quick action. Legacy values (fertilize, spray, etc.) fall back to "note" when not in the current milestone set. */
+  defaultActionType?: QuickActionType | "fertilize" | "spray" | "water" | "pest" | "harvest" | "growth" | "planting";
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
   onJournalAdded?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedSupplyId, defaultActionType, onJournalAdded }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded }: QuickLogModalProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [supplies, setSupplies] = useState<SupplyOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [suppliesLoading, setSuppliesLoading] = useState(false);
-  const [selectedSupplyId, setSelectedSupplyId] = useState<string | null>(null);
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set());
@@ -65,7 +72,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionType>("note");
   const [entryDate, setEntryDate] = useState(() => localDateString());
-  const [plantSearch, setPlantSearch] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
@@ -85,7 +91,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     setNote("");
     setPhotos([]);
     setSubmitError(null);
-    setSelectedSupplyId(preSelectedSupplyId?.trim() || null);
+    setSelectedSupplyIds(preSelectedSupplyId?.trim() ? new Set([preSelectedSupplyId.trim()]) : new Set());
     if (defaultActionType && QUICK_ACTIONS.some((a) => a.id === defaultActionType)) {
       setSelectedQuickAction(defaultActionType);
     } else {
@@ -96,7 +102,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     } else {
       setSelectedProfileIds(new Set());
     }
-  }, [open, preSelectedProfileId, preSelectedSupplyId, defaultActionType]);
+  }, [open, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType]);
 
   useEffect(() => {
     if (!open || !user?.id) {
@@ -139,12 +145,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     })();
     return () => { cancelled = true; };
   }, [open, user?.id]);
-
-  useEffect(() => {
-    if (!open || !preSelectedProfileId || profiles.length === 0) return;
-    const exists = profiles.some((p) => p.id === preSelectedProfileId);
-    if (exists) setSelectedProfileIds(new Set([preSelectedProfileId]));
-  }, [open, preSelectedProfileId, profiles]);
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -211,22 +211,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     );
   }, [handleImageSelected]);
 
-  const toggleProfile = useCallback((id: string) => {
-    setSelectedProfileIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const filteredProfiles = profiles.filter(
-    (p) =>
-      !plantSearch.trim() ||
-      (p.name?.toLowerCase().includes(plantSearch.toLowerCase()) ?? false) ||
-      (p.variety_name?.toLowerCase().includes(plantSearch.toLowerCase()) ?? false)
-  );
-
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -237,7 +221,9 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         return;
       }
       const noteTrim = note.trim() || null;
-      if (!noteTrim && photos.length === 0) {
+      const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
+      const hasDefaultNote = quickAction?.defaultNote != null;
+      if (!noteTrim && photos.length === 0 && !hasDefaultNote) {
         setSubmitError("Add a note or photo.");
         hapticError();
         return;
@@ -264,21 +250,18 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           firstPath = path;
           setUploadingPhoto(false);
         }
-        const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
         const entryType = (quickAction?.entryType ?? "note") as string;
-        const isQuickCare = entryType === "quick";
-        const noteForEntry = isQuickCare
-          ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
-          : noteTrim;
-        const supplyId = selectedSupplyId?.trim() || null;
+        const noteForEntry = noteTrim ?? quickAction?.defaultNote ?? null;
+        const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
+        const singleSupplyId = supplyIds.length === 1 ? supplyIds[0]! : supplyIds.length > 0 ? supplyIds[0]! : null;
         const { data: entry, error: insertErr } = await supabase
           .from("journal_entries")
           .insert({
             user_id: sessionUserId,
             plant_profile_id: plantProfileId,
-            grow_instance_id: null,
+            grow_instance_id: preSelectedGrowInstanceId ?? null,
             seed_packet_id: null,
-            supply_profile_id: supplyId ?? undefined,
+            supply_profile_id: singleSupplyId ?? undefined,
             note: noteForEntry || null,
             entry_type: entryType,
             image_file_path: firstPath,
@@ -301,6 +284,14 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           }));
           await supabase.from("journal_entry_plants").insert(jepRows);
         }
+        if (entryId && supplyIds.length > 0) {
+          const jesRows = supplyIds.map((sid) => ({
+            journal_entry_id: entryId,
+            supply_profile_id: sid,
+            user_id: sessionUserId,
+          }));
+          await supabase.from("journal_entry_supplies").insert(jesRows);
+        }
         hapticSuccess();
         onJournalAdded?.();
         onClose();
@@ -311,12 +302,10 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         setSaving(false);
       }
     },
-    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyId, onJournalAdded, onClose]
+    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyIds, preSelectedGrowInstanceId, onJournalAdded, onClose]
   );
 
   if (!open) return null;
-
-  const hidePlantSearch = !!preSelectedProfileId && selectedProfileIds.size > 0;
 
   return (
     <>
@@ -403,21 +392,15 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           </div>
 
           <div>
-            <label htmlFor="quicklog-supply" className="block text-sm font-medium text-black/80 mb-1">Supply Used</label>
-            <select
-              id="quicklog-supply"
-              value={selectedSupplyId ?? ""}
-              onChange={(e) => setSelectedSupplyId(e.target.value.trim() || null)}
-              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px] bg-white"
-              aria-label="Supply used"
-            >
-              <option value="">None</option>
-              {supplies.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}{s.brand?.trim() ? ` (${s.brand})` : ""}
-                </option>
-              ))}
-            </select>
+            <SearchableMultiSelect
+              options={supplies.map((s) => ({ id: s.id, label: `${s.name}${s.brand?.trim() ? ` (${s.brand})` : ""}`))}
+              selectedIds={selectedSupplyIds}
+              onChange={setSelectedSupplyIds}
+              placeholder="Type to search supplies…"
+              label="Supply Used"
+              preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
+              dropdownZIndex={110}
+            />
             {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
           </div>
 
@@ -479,42 +462,18 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black/80 mb-2">Linked plants</label>
             {profilesLoading ? (
-              <p className="text-sm text-neutral-500">Loading…</p>
-            ) : hidePlantSearch ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-3 py-2">
-                {profiles.filter((p) => selectedProfileIds.has(p.id)).map((p) => (
-                  <p key={p.id} className="text-sm text-emerald-900">
-                    {p.name}{p.variety_name?.trim() ? ` (${p.variety_name})` : ""}
-                  </p>
-                ))}
-              </div>
+              <p className="text-sm text-neutral-500">Loading plants…</p>
             ) : (
-              <>
-                <input
-                  type="search"
-                  value={plantSearch}
-                  onChange={(e) => setPlantSearch(e.target.value)}
-                  placeholder="Search plants…"
-                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm mb-2 min-h-[44px]"
-                  aria-label="Search plants"
-                />
-                <div className="max-h-[160px] overflow-y-auto rounded-xl border border-black/10 divide-y divide-black/5">
-                  {filteredProfiles.map((p) => (
-                    <label key={p.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-black/5 min-h-[44px]">
-                      <input
-                        type="checkbox"
-                        checked={selectedProfileIds.has(p.id)}
-                        onChange={() => toggleProfile(p.id)}
-                        className="rounded border-black/20 w-5 h-5"
-                      />
-                      <span className="text-sm text-black">{p.name}{p.variety_name?.trim() ? ` — ${p.variety_name}` : ""}</span>
-                    </label>
-                  ))}
-                  {filteredProfiles.length === 0 && plantSearch.trim() && <p className="px-3 py-3 text-sm text-neutral-500">No plants match.</p>}
-                </div>
-              </>
+              <SearchableMultiSelect
+                options={profiles.map((p) => ({ id: p.id, label: `${p.name}${p.variety_name?.trim() ? ` (${p.variety_name})` : ""}` }))}
+                selectedIds={selectedProfileIds}
+                onChange={setSelectedProfileIds}
+                placeholder="Type to search plants…"
+                label="Linked plants"
+                preSelectedIds={preSelectedProfileId ? [preSelectedProfileId] : undefined}
+                dropdownZIndex={110}
+              />
             )}
           </div>
 

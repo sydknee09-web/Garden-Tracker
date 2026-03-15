@@ -39,6 +39,10 @@ const QuickAddSeed = dynamic(
   () => import("@/components/QuickAddSeed").then((m) => ({ default: m.QuickAddSeed })),
   { ssr: false }
 );
+const QuickLogModal = dynamic(
+  () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
+  { ssr: false }
+);
 
 import { VaultProfileAboutTab } from "./VaultProfileAboutTab";
 import { VaultProfileCareTab } from "./VaultProfileCareTab";
@@ -119,6 +123,8 @@ export default function VaultSeedPage() {
   const [imageLightbox, setImageLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [plantAgainAddPlantOpen, setPlantAgainAddPlantOpen] = useState(false);
   const [plantAgainQuickAddOpen, setPlantAgainQuickAddOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [quickLogGrowInstanceId, setQuickLogGrowInstanceId] = useState<string | null>(null);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
@@ -1372,9 +1378,9 @@ export default function VaultSeedPage() {
             canEditPage={canEditPage}
             onPlantAgain={handlePlantAgain}
             onEditGrow={handleEditGrowOpen}
-            onOpenJournal={() => {
-              setActiveTab("journal");
-              setTimeout(() => journalTabRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+            onOpenJournal={(gi) => {
+              setQuickLogGrowInstanceId(gi.id);
+              setQuickLogOpen(true);
             }}
           />
         )}
@@ -1401,6 +1407,14 @@ export default function VaultSeedPage() {
         onSuccess={loadProfile}
         profileId={id}
         profileOwnerId={profileOwnerId || undefined}
+      />
+
+      <QuickLogModal
+        open={quickLogOpen}
+        onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}
+        preSelectedGrowInstanceId={quickLogGrowInstanceId ?? undefined}
+        preSelectedProfileId={quickLogGrowInstanceId ? id : undefined}
+        onJournalAdded={loadProfile}
       />
 
       {/* Edit grow instance modal — full-screen on mobile, centered on desktop */}

@@ -147,6 +147,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [tasks, setTasks] = useState<(Task & { plant_name?: string })[]>([]);
   const [supplyMap, setSupplyMap] = useState<Record<string, SupplyProfile>>({});
+  const [entrySupplyIds, setEntrySupplyIds] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -224,6 +225,23 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       const entries = (journalData ?? []) as JournalEntry[];
       setJournalEntries(entries);
 
+      // journal_entry_supplies for multi-supply (read when present, else fall back to supply_profile_id)
+      const entryIds = entries.map((e) => e.id);
+      let entrySupplyIds: Record<string, string[]> = {};
+      if (entryIds.length > 0) {
+        const { data: jesData } = await supabase
+          .from("journal_entry_supplies")
+          .select("journal_entry_id, supply_profile_id")
+          .in("journal_entry_id", entryIds);
+        for (const row of jesData ?? []) {
+          const eid = (row as { journal_entry_id: string }).journal_entry_id;
+          const sid = (row as { supply_profile_id: string }).supply_profile_id;
+          if (!entrySupplyIds[eid]) entrySupplyIds[eid] = [];
+          entrySupplyIds[eid].push(sid);
+        }
+      }
+      setEntrySupplyIds(entrySupplyIds);
+
       // Tasks for this grow
       const { data: taskData } = await supabase
         .from("tasks")
@@ -233,8 +251,13 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
         .order("due_date", { ascending: true });
       setTasks((taskData ?? []) as (Task & { plant_name?: string })[]);
 
-      // Supply profiles referenced by journal entries
-      const supplyIds = [...new Set(entries.map((e) => e.supply_profile_id).filter(Boolean) as string[])];
+      // Supply profiles referenced by journal entries (from journal_entry_supplies or supply_profile_id)
+      const supplyIdsFromEntries = entries.flatMap((e) => {
+        const fromJes = entrySupplyIds[e.id];
+        if (fromJes?.length) return fromJes;
+        return e.supply_profile_id ? [e.supply_profile_id] : [];
+      });
+      const supplyIds = [...new Set(supplyIdsFromEntries)];
       if (supplyIds.length > 0) {
         const { data: supplyData } = await supabase
           .from("supply_profiles")
@@ -321,13 +344,15 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
   // Last fertilized
   // ---------------------------------------------------------------------------
   function lastFertilized(): { date: string; productName: string | null } | null {
-    const fertEntry = journalEntries.find(
-      (e) =>
-        e.entry_type === "care" ||
-        (e.supply_profile_id && supplyMap[e.supply_profile_id]?.category === "fertilizer")
-    );
+    const fertEntry = journalEntries.find((e) => {
+      const ids = entrySupplyIds[e.id] ?? (e.supply_profile_id ? [e.supply_profile_id] : []);
+      const hasFert = ids.some((sid) => supplyMap[sid]?.category === "fertilizer");
+      return e.entry_type === "care" || hasFert;
+    });
     if (!fertEntry) return null;
-    const supply = fertEntry.supply_profile_id ? supplyMap[fertEntry.supply_profile_id] : null;
+    const ids = entrySupplyIds[fertEntry.id] ?? (fertEntry.supply_profile_id ? [fertEntry.supply_profile_id] : []);
+    const fertSupply = ids.find((sid) => supplyMap[sid]?.category === "fertilizer") ?? ids[0];
+    const supply = fertSupply ? supplyMap[fertSupply] : null;
     const productName = supply ? [supply.brand, supply.name].filter(Boolean).join(" ") || supply.name : null;
     return { date: fertEntry.created_at, productName };
   }
@@ -824,8 +849,12 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
                     if (item.kind === "journal") {
                       const e = item.entry;
                       const imgUrl = getJournalImageUrl(e);
-                      const supply = e.supply_profile_id ? supplyMap[e.supply_profile_id] : null;
-                      const supplyName = supply ? [supply.brand, supply.name].filter(Boolean).join(" ") || supply.name : null;
+                      const supplyIdsForEntry = entrySupplyIds[e.id] ?? (e.supply_profile_id ? [e.supply_profile_id] : []);
+                      const supplyNames = supplyIdsForEntry
+                        .map((sid) => supplyMap[sid])
+                        .filter(Boolean)
+                        .map((s) => [s!.brand, s!.name].filter(Boolean).join(" ") || s!.name);
+                      const supplyName = supplyNames.length > 0 ? supplyNames.join(", ") : null;
                       return (
                         <li key={`j-${e.id}`} className="flex gap-3 pl-1">
                           {/* dot */}

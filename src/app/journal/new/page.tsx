@@ -9,9 +9,11 @@ import { useSync } from "@/contexts/SyncContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { ICON_MAP } from "@/lib/styleDictionary";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
+type SupplyOption = { id: string; name: string; brand: string | null };
 
 type QuickActionType = "note" | "growth" | "planting" | "harvest" | "water" | "fertilize" | "spray" | "pest";
 
@@ -42,18 +44,20 @@ export default function JournalNewPage() {
   const { user } = useAuth();
   const { setSyncing } = useSync();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [supplies, setSupplies] = useState<SupplyOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
+  const [suppliesLoading, setSuppliesLoading] = useState(false);
   const [note, setNote] = useState("");
   type PhotoItem = { id: string; file: File; previewUrl: string };
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set());
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
-  const [plantSearch, setPlantSearch] = useState("");
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionType>("note");
   const cameraMobileRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +90,27 @@ export default function JournalNewPage() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setSupplies([]);
+      setSuppliesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setSuppliesLoading(true);
+      const { data } = await supabase
+        .from("supply_profiles")
+        .select("id, name, brand")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("name");
+      if (!cancelled && data) setSupplies(data as SupplyOption[]);
+      if (!cancelled) setSuppliesLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const plantIdFromUrl = searchParams.get("plant_id") ?? searchParams.get("profile") ?? null;
 
   useEffect(() => {
@@ -93,8 +118,6 @@ export default function JournalNewPage() {
     const exists = profiles.some((p) => p.id === plantIdFromUrl);
     if (exists) setSelectedProfileIds(new Set([plantIdFromUrl]));
   }, [plantIdFromUrl, profiles]);
-
-  const isPlantSpecific = !!plantIdFromUrl && selectedProfileIds.size > 0;
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -172,23 +195,6 @@ export default function JournalNewPage() {
     };
   }, [webcamActive]);
 
-  const toggleProfile = (id: string) => {
-    setSelectedProfileIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const filteredProfiles = plantSearch.trim()
-    ? profiles.filter(
-        (p) =>
-          p.name.toLowerCase().includes(plantSearch.trim().toLowerCase()) ||
-          (p.variety_name ?? "").toLowerCase().includes(plantSearch.trim().toLowerCase())
-      )
-    : profiles;
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -239,6 +245,8 @@ export default function JournalNewPage() {
       const noteForEntry = isQuickCare
         ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
         : noteTrim;
+      const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
+      const singleSupplyId = supplyIds.length === 1 ? supplyIds[0]! : supplyIds.length > 0 ? supplyIds[0]! : null;
       const { data: entry, error: insertErr } = await supabase
         .from("journal_entries")
         .insert({
@@ -246,6 +254,7 @@ export default function JournalNewPage() {
           plant_profile_id: plantProfileId,
           grow_instance_id: null,
           seed_packet_id: null,
+          supply_profile_id: singleSupplyId ?? undefined,
           note: noteForEntry || null,
           entry_type: entryType,
           image_file_path: firstPath,
@@ -267,6 +276,18 @@ export default function JournalNewPage() {
         const { error: jepErr } = await supabase.from("journal_entry_plants").insert(jepRows);
         if (jepErr) {
           setSubmitError(jepErr.message);
+          return;
+        }
+      }
+      if (entryId && supplyIds.length > 0) {
+        const jesRows = supplyIds.map((sid) => ({
+          journal_entry_id: entryId,
+          supply_profile_id: sid,
+          user_id: sessionUserId,
+        }));
+        const { error: jesErr } = await supabase.from("journal_entry_supplies").insert(jesRows);
+        if (jesErr) {
+          setSubmitError(jesErr.message);
           return;
         }
       }
@@ -451,60 +472,36 @@ export default function JournalNewPage() {
           {webcamError && <p className="text-xs text-citrus mt-1">{webcamError}</p>}
         </div>
 
-        {/* 4. Linked Plants (at bottom) */}
+        {/* 4. Supply Used */}
         <div>
-          <label className="block text-sm font-medium text-black/80 mb-2">Linked plants (optional)</label>
+          {suppliesLoading && supplies.length === 0 ? (
+            <p className="text-sm text-black/50">Loading supplies…</p>
+          ) : (
+            <SearchableMultiSelect
+              options={supplies.map((s) => ({ id: s.id, label: `${s.name}${s.brand?.trim() ? ` (${s.brand})` : ""}`))}
+              selectedIds={selectedSupplyIds}
+              onChange={setSelectedSupplyIds}
+              placeholder="Type to search supplies…"
+              label="Supply Used (optional)"
+            />
+          )}
+        </div>
+
+        {/* 5. Linked Plants */}
+        <div>
           {profilesLoading ? (
             <p className="text-sm text-black/50">Loading plants…</p>
           ) : profiles.length === 0 ? (
             <p className="text-sm text-black/50">No varieties in vault. Add seeds first.</p>
-          ) : isPlantSpecific ? (
-            <div className="rounded-xl border border-black/10 px-3 py-2 bg-black/[0.02]">
-              {profiles.filter((p) => selectedProfileIds.has(p.id)).map((p) => (
-                <p key={p.id} className="text-sm text-black">
-                  Linked: {p.name}{p.variety_name?.trim() ? ` (${p.variety_name})` : ""}
-                </p>
-              ))}
-            </div>
           ) : (
-            <>
-              <input
-                type="search"
-                value={plantSearch}
-                onChange={(e) => setPlantSearch(e.target.value)}
-                placeholder="Search plants…"
-                className="w-full rounded-xl border border-black/10 px-3 py-2 text-base mb-2 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
-                aria-label="Search plants"
-              />
-              <div className="max-h-[220px] overflow-y-auto overscroll-behavior-contain rounded-xl border border-black/10 divide-y divide-black/5">
-                {filteredProfiles.map((p) => (
-                  <label
-                    key={p.id}
-                    className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-black/5 min-h-[44px]"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedProfileIds.has(p.id)}
-                      onChange={() => toggleProfile(p.id)}
-                      className="rounded border-black/20 w-5 h-5"
-                      aria-label={`Link to ${p.name}${p.variety_name ? ` ${p.variety_name}` : ""}`}
-                    />
-                    <span className="text-sm text-black">
-                      {p.name}
-                      {p.variety_name?.trim() ? ` — ${p.variety_name}` : ""}
-                    </span>
-                  </label>
-                ))}
-                {filteredProfiles.length === 0 && plantSearch.trim() && (
-                  <p className="px-3 py-3 text-sm text-black/50">No plants match.</p>
-                )}
-              </div>
-              {selectedProfileIds.size > 0 && (
-                <p className="text-xs text-black/50 mt-1">
-                  {selectedProfileIds.size} plant{selectedProfileIds.size !== 1 ? "s" : ""} selected — one entry will tag all plants.
-                </p>
-              )}
-            </>
+            <SearchableMultiSelect
+              options={profiles.map((p) => ({ id: p.id, label: `${p.name}${p.variety_name?.trim() ? ` (${p.variety_name})` : ""}` }))}
+              selectedIds={selectedProfileIds}
+              onChange={setSelectedProfileIds}
+              placeholder="Type to search plants…"
+              label="Linked plants (optional)"
+              preSelectedIds={plantIdFromUrl && profiles.some((p) => p.id === plantIdFromUrl) ? [plantIdFromUrl] : undefined}
+            />
           )}
         </div>
 

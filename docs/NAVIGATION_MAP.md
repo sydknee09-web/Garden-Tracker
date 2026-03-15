@@ -2,6 +2,8 @@
 
 **Reference guide for app navigation flows.** Do not change these flows without explicit request/approval. When a flow is changed, update this document to reflect the new behavior.
 
+**Related:** [AI Flows](AI_FLOWS.md) — when and how AI runs for new plant profiles and fill-empty-cells.
+
 ---
 
 ## Governance
@@ -217,6 +219,10 @@ QuickAddSupply internal screens: `"choose"` | `"link"` | `"form"`. Back from **c
 | **Permanent** (trees, perennials) | All plants | `/garden?grow=[grow_id]&from=profile&profile=[profile_id]` — Grow Instance popup on Garden |
 | **Seasonal** (active) | Active plantings only | `/garden?grow=[grow_id]&from=profile&profile=[profile_id]` — Grow Instance popup on Garden |
 | **Seasonal** (harvested/dead) | No link | Card displays only (no navigation) |
+
+| Action | Destination |
+|--------|-------------|
+| **Journal button** (per planting card) | Opens Quick Log modal with current plant pre-selected (no tab switch) |
 
 Add plant / Add planting: Removed from profile page. Users add plants via the Universal Add Menu (FAB) from Home, Vault, Garden, Journal, or Calendar.
 
@@ -435,3 +441,4 @@ See **docs/WHERE_DO_I.md** for the user-facing "Where do I…?" guide.
 | 2025-03-12 | Added **Data input map** section (input type → entry → redirect). User-facing guide: docs/WHERE_DO_I.md. Garden page: FAB state renamed from `fabMenuOpen` to `universalAddMenuOpen` for consistency. |
 | 2025-03-12 | Added **When Back goes where** table (back behavior reference for modals, profile, grow popup, journal new, shopping list). |
 | 2026-03-13 | My Plants planting card short tap: fixed to navigate to `/vault/[plant_profile_id]?from=garden&gardenTab=plants` (vault profile). Was incorrectly navigating to `/garden?tab=plants&grow=[id]` (grow popup). Back link on vault profile already handles `gardenTab=plants` → returns to My Plants. |
+| 2025-03-14 | Plantings tab journal button: Opens Quick Log modal with plant pre-selected (no tab switch). Passes grow instance ID for Life Story timeline. |

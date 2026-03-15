@@ -151,14 +151,23 @@ export function ShedView({
     const rows = (data ?? []) as (SupplyProfile & { last_used_at?: string | null })[];
     const ids = rows.map((r) => r.id);
     if (ids.length > 0) {
-      const { data: lastUsed } = await supabase
+      const bySupply = new Map<string, string>();
+      const { data: lastUsedLegacy } = await supabase
         .from("journal_entries")
         .select("supply_profile_id, created_at")
         .in("supply_profile_id", ids)
         .not("supply_profile_id", "is", null)
         .order("created_at", { ascending: false });
-      const bySupply = new Map<string, string>();
-      for (const r of lastUsed ?? []) {
+      for (const r of lastUsedLegacy ?? []) {
+        const sid = (r as { supply_profile_id: string }).supply_profile_id;
+        if (sid && !bySupply.has(sid)) bySupply.set(sid, (r as { created_at: string }).created_at);
+      }
+      const { data: lastUsedJes } = await supabase
+        .from("journal_entry_supplies")
+        .select("supply_profile_id, created_at")
+        .in("supply_profile_id", ids)
+        .order("created_at", { ascending: false });
+      for (const r of lastUsedJes ?? []) {
         const sid = (r as { supply_profile_id: string }).supply_profile_id;
         if (sid && !bySupply.has(sid)) bySupply.set(sid, (r as { created_at: string }).created_at);
       }

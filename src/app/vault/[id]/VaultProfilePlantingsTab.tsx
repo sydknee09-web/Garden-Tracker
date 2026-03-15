@@ -14,7 +14,7 @@ export interface VaultProfilePlantingsTabProps {
   canEditPage: (userId: string, permission: PageKey) => boolean;
   onPlantAgain: () => void;
   onEditGrow: (gi: GrowInstance) => void;
-  onOpenJournal: () => void;
+  onOpenJournal: (gi: GrowInstance) => void;
 }
 
 export function VaultProfilePlantingsTab({
@@ -112,9 +112,9 @@ export function VaultProfilePlantingsTab({
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpenJournal(); }}
+                        onClick={(e) => { e.stopPropagation(); onOpenJournal(gi); }}
                         className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
-                        aria-label="View journal"
+                        aria-label="Add journal entry"
                       >
                         <ICON_MAP.Journal className="w-4 h-4" />
                       </button>

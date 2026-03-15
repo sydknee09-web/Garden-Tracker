@@ -14,6 +14,7 @@ import { ShedSupplyIcon } from "@/components/ShedView";
 import { compressImage } from "@/lib/compressImage";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { hapticSuccess } from "@/lib/haptics";
 import { useToast } from "@/hooks/useToast";
 import type { SupplyProfile, JournalEntry } from "@/types/garden";
@@ -41,6 +42,7 @@ export default function VaultShedDetailPage() {
 
   const [orderedSupplyIds, setOrderedSupplyIds] = useState<string[]>([]);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const shedCameraInputRef = useRef<HTMLInputElement>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const [showSetPhotoModal, setShowSetPhotoModal] = useState(false);
   useEscapeKey(showSetPhotoModal, () => setShowSetPhotoModal(false));
@@ -79,18 +81,37 @@ export default function VaultShedDetailPage() {
 
   const fetchHistory = useCallback(async () => {
     if (!id || !user?.id) return;
-    const { data, error } = await supabase
+    const entryIdsFromJes = new Set<string>();
+    const { data: jesData } = await supabase
+      .from("journal_entry_supplies")
+      .select("journal_entry_id")
+      .eq("supply_profile_id", id);
+    for (const row of jesData ?? []) {
+      entryIdsFromJes.add((row as { journal_entry_id: string }).journal_entry_id);
+    }
+    const { data: legacyData } = await supabase
       .from("journal_entries")
       .select("id, plant_profile_id, grow_instance_id, note, created_at, entry_type")
       .eq("supply_profile_id", id)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50);
-    if (error || !data) {
-      setHistory([]);
-      return;
+    const legacyEntries = (legacyData ?? []) as (JournalEntry & { plant_name?: string })[];
+    const seen = new Set(legacyEntries.map((e) => e.id));
+    let entries = [...legacyEntries];
+    if (entryIdsFromJes.size > 0) {
+      const idsToFetch = Array.from(entryIdsFromJes).filter((eid) => !seen.has(eid));
+      if (idsToFetch.length > 0) {
+        const { data: jesEntries } = await supabase
+          .from("journal_entries")
+          .select("id, plant_profile_id, grow_instance_id, note, created_at, entry_type")
+          .in("id", idsToFetch)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        const extra = (jesEntries ?? []) as (JournalEntry & { plant_name?: string })[];
+        entries = [...entries, ...extra].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 50);
+      }
     }
-    const entries = data as (JournalEntry & { plant_name?: string })[];
     const profileIds = [...new Set(entries.map((e) => e.plant_profile_id).filter(Boolean))] as string[];
     if (profileIds.length > 0) {
       const { data: profiles } = await supabase
@@ -276,11 +297,9 @@ export default function VaultShedDetailPage() {
     }
   }, [user?.id, supply, session?.access_token, fetchSupply]);
 
-  const handleAddPhoto = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = "";
-      if (!file?.type.startsWith("image/") || !user?.id || !supply?.id) return;
+  const handleAddPhotoFromFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith("image/") || !user?.id || !supply?.id) return;
       setPhotoSaving(true);
       try {
         const { blob } = await compressImage(file);
@@ -307,6 +326,17 @@ export default function VaultShedDetailPage() {
       }
     },
     [user?.id, supply?.id, fetchSupply]
+  );
+
+  const { startWebcam: startShedPhotoWebcam, isMobile: isMobileShedPhoto } = useDesktopPhotoCapture(handleAddPhotoFromFile);
+
+  const handleAddPhoto = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (file) void handleAddPhotoFromFile(file);
+    },
+    [handleAddPhotoFromFile]
   );
 
   const handleRemovePhoto = useCallback(async () => {
@@ -390,15 +420,21 @@ export default function VaultShedDetailPage() {
                 </div>
               )}
               <div className="flex flex-col gap-2">
-                <label htmlFor={photoSaving ? undefined : "shed-photo-camera"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                <button
+                  type="button"
+                  disabled={photoSaving}
+                  onClick={() => { if (isMobileShedPhoto) shedCameraInputRef.current?.click(); else startShedPhotoWebcam(); }}
+                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : ""}`}
+                >
                   Take photo
-                </label>
+                </button>
                 <input
-                  id="shed-photo-camera"
+                  ref={shedCameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
                   className="sr-only"
+                  aria-hidden
                   onChange={handleAddPhoto}
                 />
                 <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>

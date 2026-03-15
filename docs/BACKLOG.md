@@ -25,6 +25,7 @@ Preliminary issues and earlier notes captured for when you're ready. Not part of
 - **FAB delay** (if any perceived lag when opening FAB menu).
 - **QuickAddSeed link-existing:** sort + search improvements.
 - **Journal icon** (on planting card) → Add Journal Entry modal (or confirm vs "go to Journal tab" per Phase 4).
-- **Multi-supply per journal entry** (e.g. multiple supplies used in one care entry).
+- **Multi-supply per journal entry** (e.g. multiple supplies used in one care entry). *(In progress: journal_entry_supplies table + Quick Log UX plan.)*
+- **BatchLogSheet → SearchableMultiSelect:** Migrate BatchLogSheet plant selection to use SearchableMultiSelect for consistency with Quick Log and journal/new. Every multi-select in the Vault should follow this pattern.
 - **Quick-action submit** without photo/note (allow minimal submit).
 - **Care tab on all profiles** (or keep Care only on permanent; document decision).
