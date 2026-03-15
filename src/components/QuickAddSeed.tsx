@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
@@ -71,6 +72,7 @@ function applyPrefillToForm(
 
 export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
   const { user, session } = useAuth();
+  const onboardingCtx = useOnboardingContextOptional();
   const [screen, setScreen] = useState<QuickAddScreen>("choose");
   const [plantName, setPlantName] = useState("");
   const [varietyCultivar, setVarietyCultivar] = useState("");
@@ -255,6 +257,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
         setPacketsForProfile([]);
         setSelectedPacketId(null);
         setAddedToVault(false);
+        onboardingCtx?.reportAction("seed_added");
         onSuccess();
         onClose();
       }, 400);
@@ -304,6 +307,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       setPriceToSave("");
       setSelectedProfileIdForLink("");
       setAddedToVault(false);
+      onboardingCtx?.reportAction("seed_added");
       onSuccess();
       onClose();
     }, 1500);
@@ -379,6 +383,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     setVendor("");
     setTagsToSave([]);
     setSourceUrlToSave("");
+    onboardingCtx?.reportAction("seed_added");
     onSuccess(createdProfileId ? { newProfileId: createdProfileId } : undefined);
     onClose();
   }
@@ -450,6 +455,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
         setNotesToSave("");
         setPriceToSave("");
         setAddedToVault(false);
+        onboardingCtx?.reportAction("seed_added");
         onSuccess();
         onClose();
       }, 1500);

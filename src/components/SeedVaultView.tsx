@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { useAnnouncer } from "@/contexts/AnnouncerContext";
 import { useVaultOptional } from "@/contexts/VaultContext";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -346,6 +347,8 @@ export function SeedVaultView({
   const router = useRouter();
   const { user } = useAuth();
   const { viewMode: householdViewMode, householdMembers, getShorthandForUser, canEditPage } = useHousehold();
+  const onboardingCtx = useOnboardingContextOptional();
+  const isNewUser = onboardingCtx && !onboardingCtx.completed;
   const [seeds, setSeeds] = useState<VaultCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pullRefetch, setPullRefetch] = useState(0);
@@ -1106,8 +1109,8 @@ export function SeedVaultView({
   if (seeds.length === 0) {
     return (
       <EmptyStateCard
-        title="Your vault is empty"
-        body="Add a packet or scan one with your camera to get started."
+        title={isNewUser ? "Your Vault is the heart of your garden" : "Your vault is empty"}
+        body={isNewUser ? "Scan a seed packet or upload a photo to start your inventory." : "Add a packet or scan one with your camera to get started."}
         actionLabel={onAddFirst ? "Add your first packet" : undefined}
         onAction={onAddFirst}
         illustration={<EmptyStateVault />}
@@ -1130,12 +1133,12 @@ export function SeedVaultView({
       );
     }
     const emptyVaultMessage = mode === "grid"
-      ? "No plant profiles yet. Add your first variety to get started."
-      : "No seeds yet. Add your first packet to get started.";
+      ? (isNewUser ? "Your Vault is the heart of your garden" : "No plant profiles yet. Add your first variety to get started.")
+      : (isNewUser ? "Scan a seed packet to start your inventory" : "No seeds yet. Add your first packet to get started.");
     return (
       <EmptyStateCard
         title={emptyVaultMessage}
-        body="Tap + to add a seed packet or plant profile."
+        body={isNewUser ? "Scan a seed packet or upload a photo to start your inventory." : "Tap + to add a seed packet or plant profile."}
         actionLabel={onAddFirst ? (mode === "grid" ? "Add your first plant" : "Add your first packet") : undefined}
         onAction={onAddFirst}
         illustration={mode === "grid" ? <EmptyStateSprout /> : <EmptyStateVault />}

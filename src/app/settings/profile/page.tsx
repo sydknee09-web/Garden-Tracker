@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import type { UserSettings } from "@/types/garden";
 import { LoadingState } from "@/components/LoadingState";
 
@@ -31,6 +32,7 @@ function formatFrostDate(d: string | null | undefined): string {
 export default function SettingsProfilePage() {
   const { user, signOut } = useAuth();
   const { tapVersion } = useDeveloperUnlock();
+  const onboardingCtx = useOnboardingContextOptional();
   const router = useRouter();
 
   // Garden settings
@@ -128,11 +130,12 @@ export default function SettingsProfilePage() {
       setGardenSaved(true);
       setGardenEditing(false);
       setGardenSaveError(null);
+      onboardingCtx?.reportAction("zone_set");
       setTimeout(() => setGardenSaved(false), 2500);
     } else {
       setGardenSaveError(error.message || "Could not save settings. Please try again.");
     }
-  }, [user?.id, gardenSettings]);
+  }, [user?.id, gardenSettings, onboardingCtx]);
 
   const handleUseMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;

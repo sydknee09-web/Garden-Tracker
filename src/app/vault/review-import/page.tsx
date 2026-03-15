@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import {
   getReviewImportData,
   setReviewImportData,
@@ -201,6 +202,7 @@ type ProfileMatch = {
 export default function ReviewImportPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const onboardingCtx = useOnboardingContextOptional();
   const [items, setItems] = useState<ReviewImportItem[]>([]);
   const [importSource, setImportSource] = useState<ReviewImportSource | undefined>(undefined);
   const [defaultProfileType, setDefaultProfileType] = useState<"seed" | "permanent">("seed");
@@ -1139,6 +1141,7 @@ export default function ReviewImportPage() {
     }
 
     setSaving(false);
+    onboardingCtx?.reportAction("seed_added");
     hapticSuccess();
     setSaveSuccess(true);
     const t = setTimeout(() => {
@@ -1147,7 +1150,7 @@ export default function ReviewImportPage() {
       router.replace(goToGarden ? "/garden?tab=plants" : "/vault?status=vault&added=1");
     }, 1500);
     saveSuccessTimeoutRef.current = t;
-  }, [user?.id, items, router, defaultProfileType, addPlantMode]);
+  }, [user?.id, items, router, defaultProfileType, addPlantMode, onboardingCtx]);
 
   if (!user) return null;
   if (items.length === 0) {

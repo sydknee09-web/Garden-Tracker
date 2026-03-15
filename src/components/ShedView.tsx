@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { useVaultOptional } from "@/contexts/VaultContext";
 import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { BatchAddSupply } from "@/components/BatchAddSupply";
@@ -111,6 +112,8 @@ export function ShedView({
   const effectiveScrollContainerRef = vault?.scrollContainerRef ?? scrollContainerRef;
   const { user } = useAuth();
   const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
+  const onboardingCtx = useOnboardingContextOptional();
+  const isNewUser = onboardingCtx && !onboardingCtx.completed;
   const router = useRouter();
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,8 +371,8 @@ export function ShedView({
       ) : filteredSupplies.length === 0 ? (
         supplies.length === 0 ? (
           <EmptyStateCard
-            title="No supplies yet"
-            body="Add fertilizers, pesticides, or other products to track usage and instructions."
+            title={isNewUser ? "Your Shed holds your supplies" : "No supplies yet"}
+            body={isNewUser ? "Log fertilizers and tools. The app will suggest the right products based on your plants." : "Add fertilizers, pesticides, or other products to track usage and instructions."}
             actionLabel="Add your first supply"
             onAction={() => setQuickAddOpen(true)}
             illustration={<ShedSupplyIcon className="w-16 h-16 text-neutral-300" />}

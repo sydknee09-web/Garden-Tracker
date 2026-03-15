@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
@@ -153,6 +154,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 }, ref) => {
   const { user } = useAuth();
   const { viewMode, getShorthandForUser, canEditPage } = useHousehold();
+  const onboardingCtx = useOnboardingContextOptional();
+  const isNewUser = onboardingCtx && !onboardingCtx.completed;
   const highlightBatchRef = useRef<HTMLElement | null>(null);
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [growing, setGrowing] = useState<GrowingBatch[]>([]);
@@ -1007,7 +1010,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             </button>
           </div>
         ) : sortedBatches.length === 0 ? (
-          <p className="text-black/50 text-sm py-4">No active batches. Plant from the Seed Vault to see them here.</p>
+          <p className="text-black/50 text-sm py-4">
+            {isNewUser ? "Map your hillside. Place your first plant from the Vault to begin its life story." : "No active batches. Plant from the Seed Vault to see them here."}
+          </p>
         ) : displayStyle === "grid" ? (
           <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {

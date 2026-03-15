@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { supabase } from "@/lib/supabase";
 import { rareseedsAutotreatment, slugToSpaced } from "@/lib/rareseedsAutotreatment";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
@@ -85,6 +86,7 @@ interface BatchAddSeedProps {
 export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPlantMode = false, defaultProfileType }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
+  const onboardingCtx = useOnboardingContextOptional();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
   const [cropQueue, setCropQueue] = useState<CropQueueItem[]>([]);
   const [step, setStep] = useState<"capture" | "extracting" | "review">("capture");
@@ -666,6 +668,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         }).catch(() => {});
       });
     }
+    onboardingCtx?.reportAction("seed_added");
     onSuccess();
   }
 

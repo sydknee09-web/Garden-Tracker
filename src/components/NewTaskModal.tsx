@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
@@ -24,14 +25,17 @@ export interface NewTaskModalProps {
   onSuccess?: () => void;
   /** Optional initial due date (YYYY-MM-DD) */
   initialDueDate?: string;
+  /** Optional initial title (e.g. from onboarding "Observe Hillside") */
+  initialTitle?: string;
   /** When provided, show back arrow to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
   onBackToMenu?: () => void;
   /** When provided, edit this task (title, due date, category only) instead of creating */
   editTask?: (Task & { user_id?: string | null }) | null;
 }
 
-export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackToMenu, editTask }: NewTaskModalProps) {
+export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, initialTitle, onBackToMenu, editTask }: NewTaskModalProps) {
   const { user } = useAuth();
+  const onboardingCtx = useOnboardingContextOptional();
   const [title, setTitle] = useState("");
   const [due, setDue] = useState(() => new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState<TaskType>("maintenance");
@@ -57,9 +61,14 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
         setGrowId(editTask.grow_instance_id ?? "");
       } else {
         setDue(initialDueDate ?? new Date().toISOString().slice(0, 10));
+        const titleFromOnboarding = onboardingCtx?.initialTaskTitle ?? initialTitle;
+        if (titleFromOnboarding?.trim()) {
+          setTitle(titleFromOnboarding.trim());
+          onboardingCtx?.clearInitialTaskTitle();
+        }
       }
     }
-  }, [open, initialDueDate, editTask]);
+  }, [open, initialDueDate, initialTitle, editTask]);
 
   useEffect(() => {
     if (!open || !user?.id) return;
@@ -148,6 +157,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
           hapticSuccess();
           resetForm();
           onClose();
+          onboardingCtx?.reportAction("task_added");
           onSuccess?.();
           return;
         }
@@ -203,6 +213,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
         hapticSuccess();
         resetForm();
         onClose();
+        onboardingCtx?.reportAction("task_added");
         onSuccess?.();
       } finally {
         setSaving(false);
@@ -211,6 +222,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, onBackT
     [
       user?.id,
       editTask,
+      onboardingCtx,
       title,
       due,
       category,

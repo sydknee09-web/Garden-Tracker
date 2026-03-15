@@ -9,6 +9,7 @@ import { DeveloperUnlockProvider } from "@/contexts/DeveloperUnlockContext";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UniversalAddProvider } from "@/contexts/UniversalAddContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
@@ -54,9 +55,11 @@ export default function RootLayout({
               <SyncProvider>
                 <DeveloperUnlockProvider>
                   <UniversalAddProvider>
-                    <ErrorBoundary>
-                      <AuthGuard>{children}</AuthGuard>
-                    </ErrorBoundary>
+                    <OnboardingProvider>
+                      <ErrorBoundary>
+                        <AuthGuard>{children}</AuthGuard>
+                      </ErrorBoundary>
+                    </OnboardingProvider>
                   </UniversalAddProvider>
                 </DeveloperUnlockProvider>
               </SyncProvider>

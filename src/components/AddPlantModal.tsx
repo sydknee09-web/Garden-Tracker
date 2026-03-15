@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { compressImage } from "@/lib/compressImage";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
@@ -46,6 +47,7 @@ export function AddPlantModal({
 }) {
   const addToExistingProfile = !!profileIdProp;
   const { user, session } = useAuth();
+  const onboardingCtx = useOnboardingContextOptional();
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useFocusTrap(open);
@@ -495,6 +497,7 @@ export function AddPlantModal({
       }
 
       hapticSuccess();
+      onboardingCtx?.reportAction("seed_added");
       onSuccess?.();
       if (enrichmentFailed) {
         setSubmitting(false);
