@@ -8,6 +8,9 @@ import {
   writeEnrichToGlobalCache,
   type EnrichDataForCache,
 } from "@/lib/fillBlanksCache";
+import { logRequestMetrics } from "@/lib/logRequestMetrics";
+
+const BACKGROUND_ENRICH_ROUTE_ID = "background-enrich";
 
 export const maxDuration = 60;
 
@@ -61,7 +64,12 @@ export async function POST(req: Request) {
     const skipHero = Boolean(body?.skipHero);
     /** When true, skip cache and run AI (hero + enrich), overwriting all AI-fillable fields. */
     const overwrite = Boolean(body?.overwrite);
+    /** When true, log request metrics with routeId background-enrich for observability. */
+    const backgroundEnrich = Boolean(body?.backgroundEnrich);
+    const startTime = Date.now();
+
     if (!profileId) {
+      if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 400);
       return NextResponse.json({ error: "profileId required" }, { status: 400 });
     }
 
@@ -75,6 +83,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (profileError || !profile) {
+      if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 404);
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
@@ -93,6 +102,7 @@ export async function POST(req: Request) {
     const variety = (profile.variety_name ?? "").trim();
     const identityKey = identityKeyFromVariety(name, variety);
     if (!identityKey) {
+      if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 400);
       return NextResponse.json({ error: "Could not derive identity key from name/variety" }, { status: 400 });
     }
 
@@ -128,7 +138,12 @@ export async function POST(req: Request) {
       hadNoDescription &&
       !(updates as Record<string, unknown>).plant_description &&
       !(updates as Record<string, unknown>).growing_notes;
-    const needAi = (useGemini && (stillMissingHero || stillMissingDescription)) || overwrite;
+    const u = updates as Record<string, unknown>;
+    const stillMissingSowingDepth = !(profile.sowing_depth ?? "").trim() && !u.sowing_depth;
+    const stillMissingPropagation = !(profile.propagation_notes ?? "").trim() && !u.propagation_notes;
+    const stillMissingSeedSaving = !(profile.seed_saving_notes ?? "").trim() && !u.seed_saving_notes;
+    const hasOtherBlanks = stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving;
+    const needAi = (useGemini && (stillMissingHero || stillMissingDescription || hasOtherBlanks)) || overwrite;
 
     if (needAi) {
       const token = req.headers.get("authorization")?.startsWith("Bearer ") ? req.headers.get("authorization")!.slice(7).trim() : null;
@@ -153,7 +168,7 @@ export async function POST(req: Request) {
         }
       }
 
-      if (stillMissingDescription || overwrite || (!fromCache && (profile.plant_description ?? "").trim() === "")) {
+      if (stillMissingDescription || overwrite || hasOtherBlanks || (!fromCache && (profile.plant_description ?? "").trim() === "")) {
         const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const origin = base.startsWith("http") ? base : `https://${base}`;
         try {
@@ -254,6 +269,7 @@ export async function POST(req: Request) {
       }
     }
 
+    if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 200);
     return NextResponse.json({
       ok: true,
       fromCache,
