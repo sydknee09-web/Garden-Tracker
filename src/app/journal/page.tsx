@@ -1007,6 +1007,10 @@ export default function JournalPage() {
             closeActiveModal();
             setRefetchTrigger((t) => t + 1);
           }}
+          onAddSupplyFromEmptyState={() => {
+            closeActiveModal();
+            openShed();
+          }}
         />
       )}
 

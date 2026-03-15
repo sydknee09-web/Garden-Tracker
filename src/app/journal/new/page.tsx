@@ -10,6 +10,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
+import { logClientMetrics } from "@/lib/logClientMetrics";
 import { ICON_MAP } from "@/lib/styleDictionary";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
@@ -285,7 +286,9 @@ export default function JournalNewPage() {
           supply_profile_id: sid,
           user_id: sessionUserId,
         }));
+        const jesStart = performance.now();
         const { error: jesErr } = await supabase.from("journal_entry_supplies").insert(jesRows);
+        logClientMetrics("journal_entry_supplies_insert", performance.now() - jesStart, { row_count: jesRows.length });
         if (jesErr) {
           setSubmitError(jesErr.message);
           return;

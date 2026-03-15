@@ -1712,6 +1712,10 @@ function VaultPageInner() {
             closeActiveModal();
             refetch();
           }}
+          onAddSupplyFromEmptyState={() => {
+            closeActiveModal();
+            openShed();
+          }}
         />
       )}
 

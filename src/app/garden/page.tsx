@@ -1279,6 +1279,10 @@ function GardenPageInner() {
             closeActiveModal();
             setRefetchTrigger((t) => t + 1);
           }}
+          onAddSupplyFromEmptyState={() => {
+            closeActiveModal();
+            openShed();
+          }}
         />
       )}
 

@@ -1465,6 +1465,10 @@ export default function CalendarPage() {
             router.refresh();
             closeActiveModal();
           }}
+          onAddSupplyFromEmptyState={() => {
+            closeActiveModal();
+            openShed();
+          }}
         />
       )}
 

@@ -704,6 +704,10 @@ export default function HomePage() {
             router.refresh();
             closeActiveModal();
           }}
+          onAddSupplyFromEmptyState={() => {
+            closeActiveModal();
+            openShed();
+          }}
         />
       )}
 

@@ -13,6 +13,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
+import { logClientMetrics } from "@/lib/logClientMetrics";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
@@ -55,9 +56,13 @@ export interface QuickLogModalProps {
   defaultActionType?: QuickActionType | "fertilize" | "spray" | "water" | "pest" | "harvest" | "growth" | "planting";
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
   onJournalAdded?: () => void;
+  /** When supply search has no results, show "+ Add New Supply" and call this. Parent opens QuickAddSupply. */
+  onAddSupplyFromEmptyState?: () => void;
+  /** When this changes, refetch supplies (e.g. after user adds a supply via QuickAddSupply). */
+  suppliesRefreshKey?: number;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey }: QuickLogModalProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [supplies, setSupplies] = useState<SupplyOption[]>([]);
@@ -144,7 +149,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
       if (!cancelled) setSuppliesLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, user?.id]);
+  }, [open, user?.id, suppliesRefreshKey]);
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -290,7 +295,9 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
             supply_profile_id: sid,
             user_id: sessionUserId,
           }));
+          const jesStart = performance.now();
           await supabase.from("journal_entry_supplies").insert(jesRows);
+          logClientMetrics("journal_entry_supplies_insert", performance.now() - jesStart, { row_count: jesRows.length });
         }
         hapticSuccess();
         onJournalAdded?.();
@@ -408,7 +415,8 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               placeholder="Type to search supplies…"
               label="Supply Used"
               preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
-              dropdownZIndex={110}
+              dropdownZIndex={120}
+              emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: onAddSupplyFromEmptyState } : undefined}
             />
             {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
           </div>

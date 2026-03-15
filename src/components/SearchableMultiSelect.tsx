@@ -15,6 +15,8 @@ export interface SearchableMultiSelectProps {
   id?: string;
   /** Optional: when used inside a modal, pass higher z-index so dropdown sits above modal. */
   dropdownZIndex?: number;
+  /** Optional: when search has no results, show this action (e.g. "+ Add New Supply"). */
+  emptyStateAction?: { label: string; onClick: () => void };
 }
 
 export function SearchableMultiSelect({
@@ -26,6 +28,7 @@ export function SearchableMultiSelect({
   preSelectedIds,
   id: propId,
   dropdownZIndex = 110,
+  emptyStateAction,
 }: SearchableMultiSelectProps) {
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
@@ -170,8 +173,20 @@ export function SearchableMultiSelect({
           style={{ zIndex: dropdownZIndex }}
         >
           {filtered.length === 0 ? (
-            <li className="px-3 py-3 text-sm text-neutral-500" role="option">
-              No results found
+            <li className="px-3 py-3" role="option">
+              <p className="text-sm text-neutral-500 mb-2">No results found</p>
+              {emptyStateAction && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    emptyStateAction.onClick();
+                  }}
+                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                >
+                  {emptyStateAction.label}
+                </button>
+              )}
             </li>
           ) : (
             filtered.map((opt, i) => {
