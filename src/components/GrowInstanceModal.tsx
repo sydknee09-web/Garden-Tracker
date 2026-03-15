@@ -40,7 +40,6 @@ interface PlantProfileSummary {
   hero_image_url?: string | null;
   hero_image_path?: string | null;
   primary_image_path?: string | null;
-  plant_type?: string | null;
 }
 
 type ActiveTab = "overview" | "history";
@@ -209,7 +208,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       if (growData.plant_profile_id) {
         const { data: profileData } = await supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, hero_image_url, hero_image_path, primary_image_path, plant_type")
+          .select("id, name, variety_name, hero_image_url, hero_image_path, primary_image_path")
           .eq("id", growData.plant_profile_id)
           .single();
         if (profileData) setProfile(profileData as PlantProfileSummary);
@@ -382,6 +381,58 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
     }
   }
 
+  const handleQuickCare = useCallback(
+    async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
+      if (!user?.id) return;
+      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
+      const weather = await fetchWeatherSnapshot();
+      const { error: err } = await insertWithOfflineQueue("journal_entries", {
+        user_id: user.id,
+        plant_profile_id: batch.plant_profile_id,
+        grow_instance_id: batch.id,
+        note: notes[action],
+        entry_type: "quick",
+        weather_snapshot: weather ?? undefined,
+      });
+      if (!err) {
+        showToast(notes[action]);
+        loadData();
+      }
+    },
+    [user?.id, showToast, loadData]
+  );
+
+  const handleBatchLogSaved = useCallback(() => {
+    showToast("Saved");
+    loadData();
+  }, [showToast, loadData]);
+
+  const handleDeleteJournalEntry = useCallback(
+    async (entryId: string) => {
+      if (!user?.id) return;
+      const now = new Date().toISOString();
+      const { error: err } = await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { id: entryId, user_id: user.id });
+      if (!err) {
+        setJournalEntries((prev) => prev.filter((x) => x.id !== entryId));
+        showToast("Entry deleted");
+      }
+    },
+    [user?.id, showToast]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (taskId: string, taskUserId: string) => {
+      if (!user?.id) return;
+      const now = new Date().toISOString();
+      const { error: err } = await updateWithOfflineQueue("tasks", { deleted_at: now }, { id: taskId, user_id: taskUserId });
+      if (!err) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        showToast("Task deleted");
+      }
+    },
+    [user?.id, showToast]
+  );
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -448,58 +499,6 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
     user_id: grow.user_id ?? null,
   });
 
-  const handleQuickCare = useCallback(
-    async (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => {
-      if (!user?.id) return;
-      const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
-      const weather = await fetchWeatherSnapshot();
-      const { error } = await insertWithOfflineQueue("journal_entries", {
-        user_id: user.id,
-        plant_profile_id: batch.plant_profile_id,
-        grow_instance_id: batch.id,
-        note: notes[action],
-        entry_type: "quick",
-        weather_snapshot: weather ?? undefined,
-      });
-      if (!error) {
-        showToast(notes[action]);
-        loadData();
-      }
-    },
-    [user?.id, showToast, loadData]
-  );
-
-  const handleBatchLogSaved = useCallback(() => {
-    showToast("Saved");
-    loadData();
-  }, [showToast, loadData]);
-
-  const handleDeleteJournalEntry = useCallback(
-    async (entryId: string) => {
-      if (!user?.id) return;
-      const now = new Date().toISOString();
-      const { error } = await updateWithOfflineQueue("journal_entries", { deleted_at: now }, { id: entryId, user_id: user.id });
-      if (!error) {
-        setJournalEntries((prev) => prev.filter((x) => x.id !== entryId));
-        showToast("Entry deleted");
-      }
-    },
-    [user?.id, showToast]
-  );
-
-  const handleDeleteTask = useCallback(
-    async (taskId: string, taskUserId: string) => {
-      if (!user?.id) return;
-      const now = new Date().toISOString();
-      const { error } = await updateWithOfflineQueue("tasks", { deleted_at: now }, { id: taskId, user_id: taskUserId });
-      if (!error) {
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
-        showToast("Task deleted");
-      }
-    },
-    [user?.id, showToast]
-  );
-
   const displayTitle = profile
     ? (profile.variety_name?.trim() ? `${profile.name} (${profile.variety_name})` : profile.name)
     : "Plant";
@@ -538,50 +537,42 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       <div ref={trapRef} className="fixed inset-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
         <div className="flex-1 overflow-auto pb-28 min-h-0">
       {/* ------------------------------------------------------------------ */}
-      {/* HEADER                                                              */}
+      {/* HERO — full-bleed from top; minimal controls overlay; serif name + age */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-20">
-        <div className="flex items-center gap-2 px-4 py-3">
+      <div className="relative w-full h-[240px] bg-neutral-100 overflow-hidden shrink-0">
+        {heroUrl ? (
+          <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <PlantPlaceholderIcon size="lg" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+        {/* Minimal header overlay: back, About variety, Log, Archive */}
+        <div className="absolute top-0 left-0 right-0 flex items-center gap-1 px-2 py-2 z-10">
           <button
             type="button"
             onClick={handleBack}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-emerald-700 hover:bg-emerald-50 -ml-2"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20 -ml-1"
             aria-label="Back"
           >
             <ICON_MAP.ChevronDown className="w-5 h-5 rotate-90" />
           </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-base leading-tight truncate">
-              {profile ? (
-                <Link
-                  href={`/vault/${profile.id}`}
-                  className="text-emerald-700 hover:text-emerald-800 hover:underline truncate block min-h-[44px] flex items-center"
-                  aria-label={`View plant profile: ${displayTitle}`}
-                >
-                  {displayTitle}
-                </Link>
-              ) : (
-                <span className="text-neutral-900">{displayTitle}</span>
-              )}
-              {grow.location?.trim() ? (
-                <span className="font-normal text-neutral-500 text-sm"> · {grow.location.trim()}</span>
-              ) : null}
-            </h1>
-          </div>
+          <div className="flex-1 min-w-0" />
           {profile && (
             <Link
               href={`/vault/${profile.id}`}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 text-xs font-medium px-2 shrink-0"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20 text-xs font-medium shrink-0"
               aria-label="View plant profile"
             >
-              About variety
+              About
             </Link>
           )}
           {canEdit && (
             <button
               type="button"
               onClick={() => setBatchLogOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 px-3 shrink-0"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
               aria-label="Log care, germination, or harvest"
             >
               Log
@@ -591,34 +582,25 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
             <button
               type="button"
               onClick={() => setArchiveOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20"
               aria-label="Archive this plant"
             >
               <ICON_MAP.Trash className="w-5 h-5" />
             </button>
           )}
         </div>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* HERO IMAGE — full-bleed 220px with name + age overlay */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="relative w-full h-[220px] bg-neutral-100 overflow-hidden shrink-0">
-        {heroUrl ? (
-          <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <PlantPlaceholderIcon size="lg" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-4 pb-3">
-          <h2 className="text-white font-semibold text-lg leading-tight" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
+        <div className="absolute bottom-0 left-0 right-0 p-4 pb-4">
+          <h1 className="font-serif text-white text-xl leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
             {displayTitle}
-          </h2>
-          <p className="text-white/95 text-sm mt-0.5 font-medium" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
+          </h1>
+          <p className="font-serif text-white/95 text-sm mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
             {formatAge(grow.sown_date, grow.ended_at)}
           </p>
+          {grow.location?.trim() ? (
+            <p className="font-serif text-white/80 text-xs mt-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+              {grow.location.trim()}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -703,7 +685,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       {/* ------------------------------------------------------------------ */}
       {/* TABS                                                                */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border-b border-neutral-100 sticky top-[57px] z-10">
+      <div className="bg-white border-b border-neutral-100 sticky top-0 z-10">
         <div className="flex">
           {(["overview", "history"] as const).map((tab) => (
             <button
