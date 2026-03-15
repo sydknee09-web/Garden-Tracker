@@ -939,7 +939,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
             <button
               type="button"
               onClick={handleGoToVault}
-              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100"
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
             >
               <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
               To Vault
