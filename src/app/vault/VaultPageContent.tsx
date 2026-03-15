@@ -161,6 +161,7 @@ function VaultPageInner() {
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,
@@ -1712,9 +1713,9 @@ function VaultPageInner() {
             closeActiveModal();
             refetch();
           }}
-          onAddSupplyFromEmptyState={() => {
+          onAddSupplyFromEmptyState={(searchString) => {
             closeActiveModal();
-            openShed();
+            openShed(searchString);
           }}
         />
       )}
@@ -1776,6 +1777,7 @@ function VaultPageInner() {
           onClose={closeActiveModal}
           onSuccess={() => refetch()}
           onBackToMenu={backToMenu}
+          initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             closeActiveModal();

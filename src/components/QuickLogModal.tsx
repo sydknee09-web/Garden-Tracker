@@ -56,8 +56,8 @@ export interface QuickLogModalProps {
   defaultActionType?: QuickActionType | "fertilize" | "spray" | "water" | "pest" | "harvest" | "growth" | "planting";
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
   onJournalAdded?: () => void;
-  /** When supply search has no results, show "+ Add New Supply" and call this. Parent opens QuickAddSupply. */
-  onAddSupplyFromEmptyState?: () => void;
+  /** When supply search has no results, show "+ Add New Supply" and call this with current search string for pre-fill. Parent opens QuickAddSupply. */
+  onAddSupplyFromEmptyState?: (searchString?: string) => void;
   /** When this changes, refetch supplies (e.g. after user adds a supply via QuickAddSupply). */
   suppliesRefreshKey?: number;
 }
@@ -416,7 +416,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               label="Supply Used"
               preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
               dropdownZIndex={120}
-              emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: onAddSupplyFromEmptyState } : undefined}
+              emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
             />
             {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
           </div>

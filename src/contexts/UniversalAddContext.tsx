@@ -13,7 +13,9 @@ type UniversalAddContextValue = {
   openMenu: () => void;
   closeMenu: () => void;
   openSeed: () => void;
-  openShed: () => void;
+  /** Open shed modal. Pass search string to pre-fill QuickAddSupply name (e.g. from QuickLog "+ Add New Supply"). */
+  openShed: (initialName?: string) => void;
+  shedInitialName: string;
   openPlant: (type?: "permanent" | "seasonal") => void;
   openTask: () => void;
   openJournal: () => void;
@@ -30,6 +32,7 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<UniversalAddModal>(null);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
+  const [shedInitialName, setShedInitialName] = useState("");
 
   const closeMenu = useCallback(() => setAddMenuOpen(false), []);
   const openMenu = useCallback(() => setAddMenuOpen(true), []);
@@ -40,8 +43,9 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
     setActiveModal("seed");
   }, []);
 
-  const openShed = useCallback(() => {
+  const openShed = useCallback((initialName?: string) => {
     setAddMenuOpen(false);
+    setShedInitialName(initialName ?? "");
     setActiveModal("shed");
   }, []);
 
@@ -81,6 +85,7 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,

@@ -145,6 +145,7 @@ export default function HomePage() {
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,
@@ -704,9 +705,9 @@ export default function HomePage() {
             router.refresh();
             closeActiveModal();
           }}
-          onAddSupplyFromEmptyState={() => {
+          onAddSupplyFromEmptyState={(searchString) => {
             closeActiveModal();
-            openShed();
+            openShed(searchString);
           }}
         />
       )}
@@ -779,6 +780,7 @@ export default function HomePage() {
           onClose={closeActiveModal}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
           onBackToMenu={backToMenu}
+          initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             closeActiveModal();

@@ -129,6 +129,7 @@ export default function CalendarPage() {
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,
@@ -1465,9 +1466,9 @@ export default function CalendarPage() {
             router.refresh();
             closeActiveModal();
           }}
-          onAddSupplyFromEmptyState={() => {
+          onAddSupplyFromEmptyState={(searchString) => {
             closeActiveModal();
-            openShed();
+            openShed(searchString);
           }}
         />
       )}
@@ -1540,6 +1541,7 @@ export default function CalendarPage() {
           onClose={closeActiveModal}
           onSuccess={() => setRefetch((r) => r + 1)}
           onBackToMenu={backToMenu}
+          initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             closeActiveModal();

@@ -247,6 +247,7 @@ export default function JournalPage() {
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,
@@ -1007,9 +1008,9 @@ export default function JournalPage() {
             closeActiveModal();
             setRefetchTrigger((t) => t + 1);
           }}
-          onAddSupplyFromEmptyState={() => {
+          onAddSupplyFromEmptyState={(searchString) => {
             closeActiveModal();
-            openShed();
+            openShed(searchString);
           }}
         />
       )}
@@ -1081,6 +1082,7 @@ export default function JournalPage() {
           onClose={closeActiveModal}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onBackToMenu={backToMenu}
+          initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             closeActiveModal();

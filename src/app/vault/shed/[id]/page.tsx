@@ -54,6 +54,8 @@ export default function VaultShedDetailPage() {
   const [addingToList, setAddingToList] = useState(false);
   const [usedTodaySaving, setUsedTodaySaving] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [addFromQuickLogOpen, setAddFromQuickLogOpen] = useState(false);
+  const [addFromQuickLogInitialName, setAddFromQuickLogInitialName] = useState("");
   const [enriching, setEnriching] = useState(false);
   const { toast: toastMessage, showToast: setToastMessage } = useToast();
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
@@ -676,6 +678,15 @@ export default function VaultShedDetailPage() {
         }}
         initialData={supply}
       />
+      <QuickAddSupply
+        open={addFromQuickLogOpen}
+        onClose={() => setAddFromQuickLogOpen(false)}
+        onSuccess={() => {
+          setAddFromQuickLogOpen(false);
+          router.refresh();
+        }}
+        initialName={addFromQuickLogInitialName}
+      />
       <QuickLogModal
         open={quickLogOpen}
         onClose={() => setQuickLogOpen(false)}
@@ -684,6 +695,11 @@ export default function VaultShedDetailPage() {
         onJournalAdded={() => {
           fetchHistory();
           setToastMessage("Usage logged");
+        }}
+        onAddSupplyFromEmptyState={(searchString) => {
+          setQuickLogOpen(false);
+          setAddFromQuickLogInitialName(searchString ?? "");
+          setAddFromQuickLogOpen(true);
         }}
       />
       </div>

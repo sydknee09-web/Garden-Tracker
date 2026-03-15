@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 export type SearchableMultiSelectOption = { id: string; label: string };
 
@@ -15,8 +16,8 @@ export interface SearchableMultiSelectProps {
   id?: string;
   /** Optional: when used inside a modal, pass higher z-index so dropdown sits above modal. */
   dropdownZIndex?: number;
-  /** Optional: when search has no results, show this action (e.g. "+ Add New Supply"). */
-  emptyStateAction?: { label: string; onClick: () => void };
+  /** Optional: when search has no results, show this action (e.g. "+ Add New Supply"). Receives current search string for pre-fill. */
+  emptyStateAction?: { label: string; onClick: (searchString: string) => void };
 }
 
 export function SearchableMultiSelect({
@@ -33,9 +34,41 @@ export function SearchableMultiSelect({
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+
+  const updateDropdownRect = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const rect = input.getBoundingClientRect();
+    setDropdownRect({ top: rect.bottom, left: rect.left, width: rect.width });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setDropdownRect(null);
+      return;
+    }
+    updateDropdownRect();
+  }, [open, updateDropdownRect]);
+
+  useEffect(() => {
+    if (!open) return;
+    const input = inputRef.current;
+    if (!input) return;
+    const resizeObserver = new ResizeObserver(updateDropdownRect);
+    resizeObserver.observe(input);
+    const vv = typeof window !== "undefined" && window.visualViewport;
+    if (vv) vv.addEventListener("resize", updateDropdownRect);
+    window.addEventListener("scroll", updateDropdownRect, true);
+    return () => {
+      resizeObserver.disconnect();
+      if (vv) vv.removeEventListener("resize", updateDropdownRect);
+      window.removeEventListener("scroll", updateDropdownRect, true);
+    };
+  }, [open, updateDropdownRect]);
 
   const filtered = options.filter(
     (o) =>
@@ -164,57 +197,123 @@ export function SearchableMultiSelect({
         role="combobox"
       />
       {open && (
-        <ul
-          ref={listRef}
-          id={`${genId}-listbox`}
-          role="listbox"
-          aria-label={label}
-          className="absolute left-0 right-0 mt-1 max-h-[200px] overflow-y-auto rounded-xl border border-black/10 bg-white shadow-lg z-[110]"
-          style={{ zIndex: dropdownZIndex }}
-        >
-          {filtered.length === 0 ? (
-            <li className="px-3 py-3" role="option">
-              <p className="text-sm text-neutral-500 mb-2">No results found</p>
-              {emptyStateAction && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    emptyStateAction.onClick();
+        <>
+          {dropdownRect && typeof document !== "undefined"
+            ? createPortal(
+                <ul
+                  ref={listRef}
+                  id={`${genId}-listbox`}
+                  role="listbox"
+                  aria-label={label}
+                  className="mt-1 max-h-[200px] overflow-y-auto rounded-xl border border-black/10 bg-white shadow-lg"
+                  style={{
+                    position: "fixed",
+                    top: dropdownRect.top,
+                    left: dropdownRect.left,
+                    width: dropdownRect.width,
+                    zIndex: dropdownZIndex,
                   }}
-                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
                 >
-                  {emptyStateAction.label}
-                </button>
-              )}
-            </li>
-          ) : (
-            filtered.map((opt, i) => {
-              const isSelected = selectedIds.has(opt.id);
-              const isHighlighted = i === highlightIndex;
-              return (
-                <li
-                  key={opt.id}
-                  role="option"
-                  aria-selected={isSelected}
-                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer min-h-[44px] ${
-                    isHighlighted ? "bg-neutral-100" : "hover:bg-neutral-50"
-                  }`}
-                  onClick={() => toggle(opt)}
-                >
-                  <span
-                    className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                      isSelected ? "bg-[#064e3b] border-[#064e3b] text-white" : "border-black/20"
-                    }`}
-                  >
-                    {isSelected && "✓"}
-                  </span>
-                  <span className="text-sm text-black truncate">{opt.label}</span>
+                  {filtered.length === 0 ? (
+                    <li className="px-3 py-3" role="option">
+                      <p className="text-sm text-neutral-500 mb-2">No results found</p>
+                      {emptyStateAction && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            emptyStateAction.onClick(filter);
+                          }}
+                          className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                        >
+                          {emptyStateAction.label}
+                        </button>
+                      )}
+                    </li>
+                  ) : (
+                    filtered.map((opt, i) => {
+                      const isSelected = selectedIds.has(opt.id);
+                      const isHighlighted = i === highlightIndex;
+                      return (
+                        <li
+                          key={opt.id}
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer min-h-[44px] ${
+                            isHighlighted ? "bg-neutral-100" : "hover:bg-neutral-50"
+                          }`}
+                          onClick={() => toggle(opt)}
+                        >
+                          <span
+                            className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                              isSelected ? "bg-[#064e3b] border-[#064e3b] text-white" : "border-black/20"
+                            }`}
+                          >
+                            {isSelected && "✓"}
+                          </span>
+                          <span className="text-sm text-black truncate">{opt.label}</span>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>,
+                document.body
+              )
+            : null}
+          {!dropdownRect && (
+            <ul
+              ref={listRef}
+              id={`${genId}-listbox`}
+              role="listbox"
+              aria-label={label}
+              className="absolute left-0 right-0 mt-1 max-h-[200px] overflow-y-auto rounded-xl border border-black/10 bg-white shadow-lg z-[110]"
+              style={{ zIndex: dropdownZIndex }}
+            >
+              {filtered.length === 0 ? (
+                <li className="px-3 py-3" role="option">
+                  <p className="text-sm text-neutral-500 mb-2">No results found</p>
+                  {emptyStateAction && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        emptyStateAction.onClick(filter);
+                      }}
+                      className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                    >
+                      {emptyStateAction.label}
+                    </button>
+                  )}
                 </li>
-              );
-            })
+              ) : (
+                filtered.map((opt, i) => {
+                  const isSelected = selectedIds.has(opt.id);
+                  const isHighlighted = i === highlightIndex;
+                  return (
+                    <li
+                      key={opt.id}
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer min-h-[44px] ${
+                        isHighlighted ? "bg-neutral-100" : "hover:bg-neutral-50"
+                      }`}
+                      onClick={() => toggle(opt)}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                          isSelected ? "bg-[#064e3b] border-[#064e3b] text-white" : "border-black/20"
+                        }`}
+                      >
+                        {isSelected && "✓"}
+                      </span>
+                      <span className="text-sm text-black truncate">{opt.label}</span>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
           )}
-        </ul>
+        </>
       )}
     </div>
   );

@@ -10,6 +10,7 @@ import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ImageCropModal } from "@/components/ImageCropModal";
+import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -22,6 +23,8 @@ interface QuickAddSupplyProps {
   onSuccess: () => void;
   /** When set, modal is in Edit mode. */
   initialData?: SupplyProfile | null;
+  /** When set (e.g. from QuickLog "+ Add New Supply"), pre-fill name and open directly to form. */
+  initialName?: string;
   /** Open Purchase Order import (screenshot of cart/order with supplies); parent should close this and open PurchaseOrderImport with mode="supply". */
   onOpenPurchaseOrder?: () => void;
   /** Open batch photo import (multiple photos, extract each, review all); parent should close this and open BatchAddSupply. */
@@ -30,7 +33,7 @@ interface QuickAddSupplyProps {
   onBackToMenu?: () => void;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialName, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
   const { user, session } = useAuth();
   const [screen, setScreen] = useState<QuickAddSupplyScreen>("choose");
   const [name, setName] = useState("");
@@ -56,6 +59,12 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
   const [added, setAdded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const addPhotoFromFile = useCallback((file: File) => {
+    setPhotoFile(file);
+    setPhotoPreviewUrl(URL.createObjectURL(file));
+  }, []);
+  const { startWebcam: startSupplyWebcam, isMobile: isMobileDeviceSupply } = useDesktopPhotoCapture(addPhotoFromFile);
 
   const isEdit = !!initialData?.id;
   const storedImagePath = importedImagePath ?? initialData?.primary_image_path?.trim();
@@ -86,6 +95,18 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         setSize(initialData.size ?? "");
         setSizeUom(initialData.size_uom ?? "");
         setScreen("form");
+      } else if (initialName?.trim()) {
+        setName(initialName.trim());
+        setBrand("");
+        setCategory("fertilizer");
+        setUsageInstructions("");
+        setApplicationRate("");
+        setNpk("");
+        setNotes("");
+        setSourceUrl("");
+        setSize("");
+        setSizeUom("");
+        setScreen("form");
       } else {
         setName("");
         setBrand("");
@@ -100,7 +121,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
         setScreen("choose");
       }
     }
-  }, [open, initialData]);
+  }, [open, initialData, initialName]);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -510,7 +531,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, onOpenPu
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { if (isMobileDeviceSupply) fileInputRef.current?.click(); else startSupplyWebcam(); }}
                   className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
                 >
                   Take photo

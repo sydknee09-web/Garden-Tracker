@@ -163,6 +163,7 @@ function GardenPageInner() {
     closeMenu,
     openSeed,
     openShed,
+    shedInitialName,
     openPlant,
     openTask,
     openJournal,
@@ -1279,9 +1280,9 @@ function GardenPageInner() {
             closeActiveModal();
             setRefetchTrigger((t) => t + 1);
           }}
-          onAddSupplyFromEmptyState={() => {
+          onAddSupplyFromEmptyState={(searchString) => {
             closeActiveModal();
-            openShed();
+            openShed(searchString);
           }}
         />
       )}
@@ -1353,6 +1354,7 @@ function GardenPageInner() {
           onClose={closeActiveModal}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onBackToMenu={backToMenu}
+          initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
             closeActiveModal();
