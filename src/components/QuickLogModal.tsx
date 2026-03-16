@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
-import { ICON_MAP } from "@/lib/styleDictionary";
+import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 import { localDateString } from "@/lib/calendarDate";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -18,21 +18,31 @@ import { logClientMetrics } from "@/lib/logClientMetrics";
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "note";
+type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "planting" | "harvest" | "pest";
 
 const QUICK_ACTIONS: {
   id: QuickActionType;
   label: string;
   icon: keyof typeof ICON_MAP;
   entryType: string;
-  /** When set, used as note when user leaves memo empty (seed-starting milestones). */
+  /** When set, used as note when user leaves memo empty (seed-starting milestones) or prefixed with user input. */
   defaultNote?: string;
 }[] = [
+  // Row 1: Milestones (Creation)
   { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
   { id: "sprout", label: "Sprout", icon: "Plant", entryType: "growth", defaultNote: "First sprouts" },
   { id: "pot_up", label: "Pot Up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
   { id: "plant_out", label: "Plant Out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
+  // Row 2: Routine (Maintenance)
+  { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
+  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
+  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
   { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+  // Row 3: Status (Outcome/Health) — Pest has no defaultNote, requires custom note
+  { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
+  { id: "planting", label: "Planting", icon: "Plant", entryType: "planting" },
+  { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
+  { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
 ];
 
 function isMobileDevice(): boolean {
@@ -52,8 +62,8 @@ export interface QuickLogModalProps {
   preSelectedGrowInstanceId?: string | null;
   /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
-  /** When opening with a supply, default quick action. Legacy values (fertilize, spray, etc.) fall back to "note" when not in the current milestone set. */
-  defaultActionType?: QuickActionType | "fertilize" | "spray" | "water" | "pest" | "harvest" | "growth" | "planting";
+  /** When opening with a supply, default quick action (e.g. fertilize, spray). */
+  defaultActionType?: QuickActionType;
   /** Called after a journal entry is saved successfully; parent can router.refresh(). */
   onJournalAdded?: () => void;
   /** When supply search has no results, show "+ Add New Supply" and call this with current search string for pre-fill. Parent opens QuickAddSupply. */
@@ -216,6 +226,13 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     );
   }, [handleImageSelected]);
 
+  function buildNoteForEntry(quickAction: { defaultNote?: string } | undefined, noteTrim: string | null): string | null {
+    const base = quickAction?.defaultNote;
+    if (base && noteTrim) return `${base}. ${noteTrim}`;
+    if (base) return base;
+    return noteTrim ?? null;
+  }
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -256,7 +273,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           setUploadingPhoto(false);
         }
         const entryType = (quickAction?.entryType ?? "note") as string;
-        const noteForEntry = noteTrim ?? quickAction?.defaultNote ?? null;
+        const noteForEntry = buildNoteForEntry(quickAction, noteTrim);
         const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
         const singleSupplyId = supplyIds.length === 1 ? supplyIds[0]! : supplyIds.length > 0 ? supplyIds[0]! : null;
         const { data: entry, error: insertErr } = await supabase
@@ -386,7 +403,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
 
           <div>
             <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
-            <div className="grid grid-cols-4 gap-2">
+            <div className={QUICK_ACTIONS_GRID_CLASS}>
               {QUICK_ACTIONS.map((action) => {
                 const Icon = ICON_MAP[action.icon];
                 const isSelected = selectedQuickAction === action.id;
@@ -427,7 +444,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               id="quicklog-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Transplants, progress, weather…"
+              placeholder={selectedQuickAction === "pest" ? "Identify pest (e.g., Aphids, Scale) and severity..." : "Aphids, harvest notes, or weather (e.g., Potted up to 5gal, morning mist)..."}
               rows={3}
               className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
             />
