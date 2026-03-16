@@ -28,6 +28,9 @@ function iconProps(props?: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
 /** Standard soft shadow for FAB menu container. Use className="shadow-float". */
 export const FAB_MENU_SHADOW_CLASS = "shadow-float";
 
+/** Quick Actions row grid (journal/new, BatchLogSheet, QuickLogModal). */
+export const QUICK_ACTIONS_GRID_CLASS = "grid grid-cols-4 gap-2";
+
 function AddIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
