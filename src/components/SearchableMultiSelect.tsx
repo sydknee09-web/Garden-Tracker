@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 export type SearchableMultiSelectOption = { id: string; label: string };
 
@@ -92,7 +93,9 @@ export function SearchableMultiSelect({
     setHighlightIndex(0);
   }, [filter]);
 
-  const handleBlur = useCallback(() => {
+  const handleBlur = useCallback((e: React.FocusEvent) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && containerRef.current?.contains(next)) return;
     setTimeout(() => setOpen(false), 150);
   }, []);
 
@@ -143,6 +146,17 @@ export function SearchableMultiSelect({
     [selectedIds, onChange]
   );
 
+  const toggleDropdown = useCallback(() => {
+    setOpen((prev) => {
+      if (prev) {
+        inputRef.current?.blur();
+        return false;
+      }
+      inputRef.current?.focus();
+      return true;
+    });
+  }, []);
+
   const remove = useCallback(
     (id: string) => {
       const next = new Set(selectedIds);
@@ -179,23 +193,39 @@ export function SearchableMultiSelect({
           ))}
         </div>
       )}
-      <input
-        ref={inputRef}
-        id={genId}
-        type="text"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        onFocus={() => setOpen(true)}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px] bg-white"
-        aria-label={label}
-        aria-expanded={open}
-        aria-autocomplete="list"
-        aria-controls={`${genId}-listbox`}
-        role="combobox"
-      />
+      <div className="relative flex">
+        <input
+          ref={inputRef}
+          id={genId}
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-black/10 px-3 py-2 pr-12 text-sm min-h-[44px] bg-white"
+          aria-label={label}
+          aria-expanded={open}
+          aria-autocomplete="list"
+          aria-controls={`${genId}-listbox`}
+          role="combobox"
+        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            toggleDropdown();
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:text-black hover:bg-black/5 transition-colors"
+          aria-label={open ? "Close dropdown" : "Open dropdown"}
+          tabIndex={-1}
+        >
+          <ICON_MAP.ChevronDown
+            className={`w-5 h-5 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
       {open && (
         <>
           {dropdownRect && typeof document !== "undefined"

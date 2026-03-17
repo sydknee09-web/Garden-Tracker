@@ -11,12 +11,12 @@ import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { logClientMetrics } from "@/lib/logClientMetrics";
-import { ICON_MAP } from "@/lib/styleDictionary";
+import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "note" | "growth" | "planting" | "harvest" | "water" | "fertilize" | "spray" | "pest";
+type QuickActionType = "note" | "growth" | "prune" | "harvest" | "water" | "fertilize" | "spray" | "pest";
 
 function isMobileDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -30,7 +30,7 @@ function isMobileDevice(): boolean {
 const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string }[] = [
   { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
-  { id: "planting", label: "Planting", icon: "Plant", entryType: "planting" },
+  { id: "prune", label: "Prune", icon: "Prune", entryType: "prune" },
   { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
   { id: "water", label: "Water", icon: "Water", entryType: "quick" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick" },
@@ -372,7 +372,7 @@ export default function JournalNewPage() {
         {/* 1. Quick Actions row — 2-row grid so all icons visible on mobile without scroll */}
         <div>
           <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
-          <div className="grid grid-cols-4 gap-2">
+          <div className={QUICK_ACTIONS_GRID_CLASS}>
             {QUICK_ACTIONS.map((action) => {
               const Icon = ICON_MAP[action.icon];
               const isSelected = selectedQuickAction === action.id;

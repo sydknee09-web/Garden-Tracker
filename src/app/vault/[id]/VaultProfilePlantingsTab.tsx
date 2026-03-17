@@ -38,10 +38,10 @@ export function VaultProfilePlantingsTab({
             type="button"
             onClick={onPlantAgain}
             className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 text-sm"
-            aria-label="Plant again"
+            aria-label="Add plant"
           >
             <ICON_MAP.Add className="w-4 h-4" />
-            Plant Again
+            Add Plant
           </button>
         </div>
       )}
@@ -55,10 +55,10 @@ export function VaultProfilePlantingsTab({
             type="button"
             onClick={onPlantAgain}
             className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 text-sm"
-            aria-label={nonEmptyPacketsCount === 0 ? "Add seed packet" : "Plant again"}
+            aria-label="Add plant"
           >
             <ICON_MAP.Add className="w-4 h-4" />
-            {nonEmptyPacketsCount === 0 ? "Add Seed Packet" : "Plant Again"}
+            Add Plant
           </button>
         </div>
       ) : (

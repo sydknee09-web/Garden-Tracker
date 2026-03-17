@@ -452,6 +452,19 @@ function SearchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Prune / scissors (1.5 stroke). */
+function PruneIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <path d="M8.5 8.5l7 7" />
+      <path d="M8.5 15.5l7-7" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Close: CloseIcon,
@@ -494,6 +507,7 @@ export const ICON_MAP = {
   CondensedGrid: CondensedGridIcon,
   Filter: FilterIcon,
   Search: SearchIcon,
+  Prune: PruneIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

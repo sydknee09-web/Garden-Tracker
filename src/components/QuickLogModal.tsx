@@ -18,7 +18,7 @@ import { logClientMetrics } from "@/lib/logClientMetrics";
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "planting" | "harvest" | "pest";
+type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "prune" | "harvest" | "pest";
 
 const QUICK_ACTIONS: {
   id: QuickActionType;
@@ -40,7 +40,7 @@ const QUICK_ACTIONS: {
   { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
   // Row 3: Status (Outcome/Health) — Pest has no defaultNote, requires custom note
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
-  { id: "planting", label: "Planting", icon: "Plant", entryType: "planting" },
+  { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
   { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
   { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
 ];
@@ -425,6 +425,22 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           </div>
 
           <div>
+            {profilesLoading ? (
+              <p className="text-sm text-neutral-500">Loading plants…</p>
+            ) : (
+              <SearchableMultiSelect
+                options={profileOptions}
+                selectedIds={selectedProfileIds}
+                onChange={setSelectedProfileIds}
+                placeholder="Type to search plants…"
+                label="Linked plants"
+                preSelectedIds={preSelectedProfileId ? [preSelectedProfileId] : undefined}
+                dropdownZIndex={110}
+              />
+            )}
+          </div>
+
+          <div>
             <SearchableMultiSelect
               options={supplyOptions}
               selectedIds={selectedSupplyIds}
@@ -493,22 +509,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               </>
             )}
             {webcamError && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
-          </div>
-
-          <div>
-            {profilesLoading ? (
-              <p className="text-sm text-neutral-500">Loading plants…</p>
-            ) : (
-              <SearchableMultiSelect
-                options={profileOptions}
-                selectedIds={selectedProfileIds}
-                onChange={setSelectedProfileIds}
-                placeholder="Type to search plants…"
-                label="Linked plants"
-                preSelectedIds={preSelectedProfileId ? [preSelectedProfileId] : undefined}
-                dropdownZIndex={110}
-              />
-            )}
           </div>
 
           {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}

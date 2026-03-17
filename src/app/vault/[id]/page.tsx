@@ -1400,6 +1400,11 @@ export default function VaultSeedPage() {
             ref={journalTabRef}
             journalEntries={journalEntries}
             entryIdToPhotoPaths={entryIdToPhotoPaths}
+            onAddJournal={() => {
+              setQuickLogGrowInstanceId(null);
+              setQuickLogOpen(true);
+            }}
+            canEdit={canEdit}
           />
         )}
 
@@ -1429,7 +1434,7 @@ export default function VaultSeedPage() {
         open={quickLogOpen}
         onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}
         preSelectedGrowInstanceId={quickLogGrowInstanceId ?? undefined}
-        preSelectedProfileId={quickLogGrowInstanceId ? id : undefined}
+        preSelectedProfileId={quickLogOpen ? id : undefined}
         onJournalAdded={loadProfile}
         onAddSupplyFromEmptyState={(searchString) => {
           setQuickLogOpen(false);

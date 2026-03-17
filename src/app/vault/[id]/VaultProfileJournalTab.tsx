@@ -3,21 +3,48 @@
 import { forwardRef } from "react";
 import { supabase } from "@/lib/supabase";
 import type { JournalEntry } from "@/types/garden";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatDisplayDate } from "./vaultProfileUtils";
 
 export interface VaultProfileJournalTabProps {
   journalEntries: JournalEntry[];
   entryIdToPhotoPaths: Record<string, string[]>;
+  onAddJournal?: () => void;
+  canEdit?: boolean;
 }
 
 export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJournalTabProps>(
-  function VaultProfileJournalTab({ journalEntries, entryIdToPhotoPaths }, ref) {
+  function VaultProfileJournalTab({ journalEntries, entryIdToPhotoPaths, onAddJournal, canEdit }, ref) {
     return (
       <div ref={ref} className="scroll-mt-4">
+        {canEdit && onAddJournal && (
+          <div className="flex items-center justify-end mb-3">
+            <button
+              type="button"
+              onClick={onAddJournal}
+              className="inline-flex items-center gap-1.5 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 text-sm"
+              aria-label="Add journal entry"
+            >
+              <ICON_MAP.Journal className="w-4 h-4" />
+              Add journal
+            </button>
+          </div>
+        )}
         {journalEntries.length === 0 ? (
           <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
             <p className="text-neutral-500 text-sm">No journal entries yet.</p>
-            <p className="text-neutral-400 text-xs mt-1">Entries appear here as you plant, care for, and harvest this variety.</p>
+            <p className="text-neutral-400 text-xs mt-1 mb-4">Entries appear here as you plant, care for, and harvest this variety.</p>
+            {canEdit && onAddJournal && (
+              <button
+                type="button"
+                onClick={onAddJournal}
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 text-sm"
+                aria-label="Add journal entry"
+              >
+                <ICON_MAP.Journal className="w-4 h-4" />
+                Add journal
+              </button>
+            )}
           </div>
         ) : (
           <div className="relative pl-8">
@@ -47,7 +74,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                                         : "bg-emerald-900/10 text-emerald-900"
                               }`}
                             >
-                              {j.entry_type === "vault_add" ? "Added to Vault" : j.entry_type}
+                              {j.entry_type === "vault_add" ? "Added to Vault" : j.entry_type === "prune" ? "Pruned" : j.entry_type}
                             </span>
                           )}
                         </div>

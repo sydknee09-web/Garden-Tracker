@@ -116,6 +116,7 @@ function ENTRY_TYPE_LABELS(type: string | null | undefined): string {
     pest: "Pest treatment",
     death: "Plant died",
     quick: "Quick log",
+    prune: "Pruned",
   };
   return map[type ?? ""] ?? "Journal entry";
 }

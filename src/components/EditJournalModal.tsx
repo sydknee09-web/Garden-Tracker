@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ICON_MAP } from "@/lib/styleDictionary";
+import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
@@ -10,9 +10,51 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
+import { localDateString } from "@/lib/calendarDate";
 import type { JournalEntry } from "@/types/garden";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
+type SupplyOption = { id: string; name: string; brand: string | null };
+
+type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "prune" | "harvest" | "pest";
+
+const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string; defaultNote?: string }[] = [
+  { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
+  { id: "sprout", label: "Sprout", icon: "Plant", entryType: "growth", defaultNote: "First sprouts" },
+  { id: "pot_up", label: "Pot Up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
+  { id: "plant_out", label: "Plant Out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
+  { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
+  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
+  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
+  { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+  { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
+  { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
+  { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
+  { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
+];
+
+function deriveQuickActionFromEntry(entry: EditJournalEntry): QuickActionType {
+  const et = (entry.entry_type ?? "").toLowerCase();
+  const n = (entry.note ?? "").toLowerCase();
+  if (et === "prune") return "prune";
+  if (et === "harvest") return "harvest";
+  if (et === "pest") return "pest";
+  if (et === "planting") return n.includes("sow") ? "sow" : "sow";
+  if (et === "growth") return n.includes("sprout") ? "sprout" : "growth";
+  if (et === "care") {
+    if (n.includes("potted") || n.includes("pot up")) return "pot_up";
+    if (n.includes("planted out") || n.includes("plant out")) return "plant_out";
+    return "note";
+  }
+  if (et === "quick" || et === "care") {
+    if (n.includes("watered")) return "water";
+    if (n.includes("fertilized")) return "fertilize";
+    if (n.includes("sprayed")) return "spray";
+    if (n.includes("pruned")) return "prune";
+  }
+  return "note";
+}
 
 export type EditJournalEntry = JournalEntry & {
   plant_display_name?: string;
@@ -55,6 +97,12 @@ type EditJournalModalProps = {
 export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJournalModalProps) {
   const { user } = useAuth();
   const { setSyncing } = useSync();
+  const [entryDate, setEntryDate] = useState(() =>
+    entry.created_at ? localDateString(new Date(entry.created_at)) : localDateString()
+  );
+  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionType>(() =>
+    deriveQuickActionFromEntry(entry)
+  );
   const [note, setNote] = useState(entry.note ?? "");
   const [photos, setPhotos] = useState<PhotoItem[]>(() => {
     const paths = entry.photo_paths ?? (entry.image_file_path ? [entry.image_file_path] : []);
@@ -70,13 +118,15 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
   });
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
+  const [supplies, setSupplies] = useState<SupplyOption[]>([]);
+  const [suppliesLoading, setSuppliesLoading] = useState(false);
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
-  const [plantSearch, setPlantSearch] = useState("");
   const cameraMobileRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -110,6 +160,25 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
       cancelled = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !entry.id) return;
+    let cancelled = false;
+    (async () => {
+      setSuppliesLoading(true);
+      const [suppRes, jesRes] = await Promise.all([
+        supabase.from("supply_profiles").select("id, name, brand").eq("user_id", user.id).is("deleted_at", null).order("name"),
+        supabase.from("journal_entry_supplies").select("supply_profile_id").eq("journal_entry_id", entry.id).eq("user_id", entry.user_id ?? user.id),
+      ]);
+      if (!cancelled && suppRes.data) setSupplies(suppRes.data as SupplyOption[]);
+      if (!cancelled && jesRes.data) {
+        const ids = new Set((jesRes.data as { supply_profile_id: string }[]).map((r) => r.supply_profile_id));
+        setSelectedSupplyIds(ids);
+      }
+      if (!cancelled) setSuppliesLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, entry.id, entry.user_id]);
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -199,24 +268,6 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
     };
   }, [webcamActive]);
 
-  const toggleProfile = (id: string) => {
-    if (isPlantingOrVaultAdd) return;
-    setSelectedProfileIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const filteredProfiles = plantSearch.trim()
-    ? profiles.filter(
-        (p) =>
-          p.name.toLowerCase().includes(plantSearch.trim().toLowerCase()) ||
-          (p.variety_name ?? "").toLowerCase().includes(plantSearch.trim().toLowerCase())
-      )
-    : profiles;
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !canEdit) return;
@@ -238,10 +289,13 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
 
     setSaving(true);
     setSyncing(true);
+    const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
+    const entryType = quickAction?.entryType ?? "note";
+    const createdAtIso = new Date(`${entryDate}T12:00:00Z`).toISOString();
     try {
       const { error: updateErr } = await updateWithOfflineQueue(
         "journal_entries",
-        { note: noteTrim },
+        { note: noteTrim, entry_type: entryType, created_at: createdAtIso },
         { id: entry.id, user_id: entry.user_id }
       );
       if (updateErr) {
@@ -294,6 +348,29 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         const { error: photoErr } = await supabase.from("journal_entry_photos").insert(photoRows);
         if (photoErr) {
           setSubmitError(formatAddFlowError(photoErr));
+          return;
+        }
+      }
+
+      const { error: delJesErr } = await supabase
+        .from("journal_entry_supplies")
+        .delete()
+        .eq("journal_entry_id", entry.id)
+        .eq("user_id", entry.user_id);
+      if (delJesErr) {
+        setSubmitError(formatAddFlowError(delJesErr));
+        return;
+      }
+      const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
+      if (supplyIds.length > 0) {
+        const jesRows = supplyIds.map((sid) => ({
+          journal_entry_id: entry.id,
+          supply_profile_id: sid,
+          user_id: entry.user_id,
+        }));
+        const { error: jesErr } = await supabase.from("journal_entry_supplies").insert(jesRows);
+        if (jesErr) {
+          setSubmitError(formatAddFlowError(jesErr));
           return;
         }
       }
@@ -366,6 +443,91 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
           <div className="relative">
             <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
             <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  disabled={!canEdit}
+                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px] disabled:opacity-70"
+                />
+              </div>
+
+              <div>
+                <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
+                <div className={QUICK_ACTIONS_GRID_CLASS}>
+                  {QUICK_ACTIONS.map((action) => {
+                    const Icon = ICON_MAP[action.icon];
+                    const isSelected = selectedQuickAction === action.id;
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => canEdit && setSelectedQuickAction(action.id)}
+                        disabled={!canEdit}
+                        className={`min-w-[44px] min-h-[44px] shrink-0 inline-flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-xl border text-sm font-medium transition-colors disabled:opacity-70 ${
+                          isSelected ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+                        }`}
+                      >
+                        {Icon && <Icon className="w-5 h-5" />}
+                        <span className="text-[10px] leading-tight">{action.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                {isPlantingOrVaultAdd ? (
+                  <>
+                    <label className="block text-sm font-medium text-black/80 mb-2">Plants (linked at planting — read-only)</label>
+                    <div className="flex flex-wrap gap-1">
+                      {plantDisplayNames.map((name, i) => (
+                        <span
+                          key={plantProfileIds[i] ?? i}
+                          className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium min-h-[44px]"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : profilesLoading ? (
+                  <p className="text-sm text-black/50">Loading plants…</p>
+                ) : (
+                  <SearchableMultiSelect
+                    options={profiles.map((p) => ({
+                      id: p.id,
+                      label: p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name,
+                    }))}
+                    selectedIds={selectedProfileIds}
+                    onChange={setSelectedProfileIds}
+                    placeholder="Type to search plants…"
+                    label="Linked plants"
+                    dropdownZIndex={120}
+                  />
+                )}
+              </div>
+
+              <div>
+                {suppliesLoading && supplies.length === 0 ? (
+                  <p className="text-sm text-black/50">Loading supplies…</p>
+                ) : (
+                  <SearchableMultiSelect
+                    options={supplies.map((s) => ({
+                      id: s.id,
+                      label: s.brand?.trim() ? `${s.name} (${s.brand})` : s.name,
+                    }))}
+                    selectedIds={selectedSupplyIds}
+                    onChange={setSelectedSupplyIds}
+                    placeholder="Type to search supplies…"
+                    label="Supply Used"
+                    dropdownZIndex={120}
+                  />
+                )}
+              </div>
+
               <input
                 ref={cameraMobileRef}
                 type="file"
@@ -461,7 +623,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
               </div>
 
               <div>
-                <label htmlFor="edit-journal-note" className="block text-sm font-medium text-black/80 mb-1">Note</label>
+                <label htmlFor="edit-journal-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
                 <textarea
                   id="edit-journal-note"
                   value={note}
@@ -471,69 +633,6 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                   disabled={!canEdit}
                   className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] disabled:opacity-70 disabled:cursor-not-allowed"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-black/80 mb-2">
-                  {isPlantingOrVaultAdd ? "Plants (linked at planting — read-only)" : "Plants (optional — link this entry to one or more)"}
-                </label>
-                {isPlantingOrVaultAdd ? (
-                  <div className="flex flex-wrap gap-1">
-                    {plantDisplayNames.map((name, i) => (
-                      <span
-                        key={plantProfileIds[i] ?? i}
-                        className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-emerald/10 text-emerald-800 text-xs font-medium min-h-[44px]"
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                ) : profilesLoading ? (
-                  <p className="text-sm text-black/50">Loading plants…</p>
-                ) : profiles.length === 0 ? (
-                  <p className="text-sm text-black/50">No varieties in vault.</p>
-                ) : (
-                  <>
-                    <input
-                      type="search"
-                      value={plantSearch}
-                      onChange={(e) => setPlantSearch(e.target.value)}
-                      placeholder="Search plants…"
-                      disabled={!canEdit}
-                      className="w-full rounded-xl border border-black/10 px-3 py-2 text-base mb-2 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald disabled:opacity-70"
-                      aria-label="Search plants"
-                    />
-                    <div className="max-h-[220px] overflow-y-auto overscroll-behavior-contain rounded-xl border border-black/10 divide-y divide-black/5">
-                      {filteredProfiles.map((p) => (
-                        <label
-                          key={p.id}
-                          className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-black/5 min-h-[44px]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedProfileIds.has(p.id)}
-                            onChange={() => toggleProfile(p.id)}
-                            disabled={!canEdit}
-                            className="rounded border-black/20 w-5 h-5 disabled:opacity-70"
-                            aria-label={`Link to ${p.name}${p.variety_name ? ` ${p.variety_name}` : ""}`}
-                          />
-                          <span className="text-sm text-black">
-                            {p.name}
-                            {p.variety_name?.trim() ? ` — ${p.variety_name}` : ""}
-                          </span>
-                        </label>
-                      ))}
-                      {filteredProfiles.length === 0 && plantSearch.trim() && (
-                        <p className="px-3 py-3 text-sm text-black/50">No plants match.</p>
-                      )}
-                    </div>
-                    {selectedProfileIds.size > 0 && (
-                      <p className="text-xs text-black/50 mt-1">
-                        {selectedProfileIds.size} plant{selectedProfileIds.size !== 1 ? "s" : ""} selected.
-                      </p>
-                    )}
-                  </>
-                )}
               </div>
 
               {submitError && <p className="text-sm text-citrus font-medium">{submitError}</p>}
