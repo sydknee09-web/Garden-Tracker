@@ -16,6 +16,7 @@
     "test:ci": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:synthetic": "playwright test synthetic-user.authenticated.spec.ts --project=chromium-authenticated",
     "test:all": "npm run test:ci && npm run test:e2e",
     "test:scrapers": "ts-node scripts/test-scrapers.ts",
     "discover-urls": "ts-node scripts/discover-urls.ts",

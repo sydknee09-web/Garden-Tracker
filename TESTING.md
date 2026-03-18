@@ -21,6 +21,7 @@ Do not merge or ship code with failing tests. If you're in a hurry, at minimum r
 | `npm run test:ci` | Run tests once **with coverage** (for CI or local report) |
 | `npm run test:e2e` | Run **E2E tests** (Playwright). Auto-starts dev server, or run `npm run dev` first |
 | `npm run test:e2e:ui` | Run E2E tests with **Playwright UI** |
+| `npm run test:synthetic` | Run **synthetic user procedure** — single sequential user journey (see [docs/SYNTHETIC_USER_PROCEDURE.md](docs/SYNTHETIC_USER_PROCEDURE.md)) |
 | `npm run test:all` | Run unit tests + coverage + E2E (full suite before push) |
 
 ## What's included
@@ -79,6 +80,7 @@ Do not merge or ship code with failing tests. If you're in a hurry, at minimum r
 **Authenticated (critical paths — run when `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` are set):**
 - **`e2e/auth.setup.ts`** — Signs in via Supabase REST API, injects session into localStorage, saves `storageState` to `.auth/user.json`
 - **`e2e/smoke.authenticated.spec.ts`** — Smoke test: all main app pages load without redirecting to `/login` (Home, Vault, Garden, Calendar, Journal, Schedule, Shopping List, Settings, Shed)
+- **`e2e/synthetic-user.authenticated.spec.ts`** — Synthetic user procedure: single sequential journey (home → vault add seed → journal → calendar → shopping list → garden → settings → shed). See [docs/SYNTHETIC_USER_PROCEDURE.md](docs/SYNTHETIC_USER_PROCEDURE.md).
 - **`e2e/vault-add-seed.authenticated.spec.ts`** — FAB → Add Seed Packet: menu opens, QuickAddSeed modal opens, manual add flow completes on `/vault`
 - **`e2e/shopping-list.authenticated.spec.ts`** — Shopping list page renders heading and content; add-from-vault flow (skips gracefully if no eligible profile)
 

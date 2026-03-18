@@ -185,12 +185,17 @@ export async function generateCareTasks(userId: string): Promise<number> {
       const taskTitle = effectiveIds && effectiveIds.length > 1 ? `${s.title} (${effectiveIds.length} plants)` : s.title;
 
       const isRecurringInterval = s.recurrence_type === "interval" && s.interval_days != null && s.interval_days > 0;
+      const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
+      // If there's any overdue pending task for this schedule, don't create new tasks.
+      // Leave the overdue task in the outstanding section until the user completes it.
+      const hasOverduePending = [...existingDates].some((d) => d < today);
+      if (hasOverduePending) continue;
+
       const startFrom = s.next_due_date < today ? today : s.next_due_date;
 
       if (isRecurringInterval) {
         // Pre-populate next RECURRING_WINDOW_DAYS of task rows for this schedule
         const intervalDays: number = s.interval_days ?? 1;
-        const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
         const toInsert: { due_date: string }[] = [];
         let cursor = startFrom;
         const windowEnd = addDays(today, RECURRING_WINDOW_DAYS);
@@ -213,7 +218,6 @@ export async function generateCareTasks(userId: string): Promise<number> {
         }
       } else {
         // One-off or non-interval: create single task at next_due_date if missing
-        const existingDates = existingByScheduleAndDate.get(s.id) ?? new Set();
         if (existingDates.has(startFrom)) continue;
         const taskDueDate = startFrom;
         const { error } = await supabase.from("tasks").insert({
