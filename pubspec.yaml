@@ -2,7 +2,7 @@ name: voyager_sanctuary
 description: "Voyager Sanctuary — Goal execution app. Refined Architectural Luxury."
 publish_to: 'none'
 
-version: 0.1.0+1
+version: 0.1.1+7
 
 environment:
   sdk: ^3.11.1
@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
 
   # Backend
+  firebase_core: ^3.8.1             # Firebase initialization (FlutterFire)
   supabase_flutter: ^2.8.4          # Supabase client: Auth, DB, realtime
 
   # State management
@@ -29,9 +30,12 @@ dependencies:
   shared_preferences: ^2.3.3        # Local state (time-of-day cache, etc.)
 
   # UI utilities
+  path_provider: ^2.1.5
   cupertino_icons: ^1.0.8
   uuid: ^4.5.3
   flutter_slidable: ^3.1.1
+  audioplayers: ^6.0.0
+  just_audio: ^0.9.40
 
 dev_dependencies:
   flutter_test:
@@ -48,5 +52,9 @@ flutter:
   assets:
     - assets/backgrounds/
     - assets/elias/
+    - assets/hearth/
     - assets/satchel/
     - assets/mallet/
+    - assets/sounds/
+    - assets/images/
+    - assets/stones/
