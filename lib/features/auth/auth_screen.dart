@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../app.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/supabase_service.dart';
 
@@ -189,7 +191,7 @@ class _AuthScreenState extends State<AuthScreen> {
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 24, MediaQuery.of(context).padding.top + 60,
-                24, MediaQuery.of(context).padding.bottom + 24,
+                24, MediaQuery.of(context).padding.bottom + 24 + MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: _FormCard(
                 mode: _mode,
@@ -218,8 +220,17 @@ class _AuthScreenState extends State<AuthScreen> {
 // BACKGROUND
 // ─────────────────────────────────────────────────────────────
 
+/// Japandi warm palette: forest edge at the gate before the sanctuary.
+/// Ties auth to Forest Threshold aesthetic (ELIAS_INTRODUCTION_SPEC).
 class _AuthBackground extends StatelessWidget {
   const _AuthBackground();
+
+  static const _authGradient = [
+    Color(0xFF0A1410), // deep forest
+    Color(0xFF0D2818),
+    Color(0xFF1B4332),
+    Color(0xFF152520), // warm dark
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +239,7 @@ class _AuthBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: AppColors.nightGradient,
+          colors: _authGradient,
         ),
       ),
     );
@@ -353,10 +364,10 @@ class _FormCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: AppColors.charcoal.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.charcoal.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.gold.withValues(alpha: 0.25),
+          color: AppColors.whetLine.withValues(alpha: 0.4),
           width: 0.5,
         ),
         boxShadow: [
@@ -551,7 +562,7 @@ class _ModeToggle extends StatelessWidget {
 // AUTH TEXT FIELD
 // ─────────────────────────────────────────────────────────────
 
-class _AuthField extends StatelessWidget {
+class _AuthField extends StatefulWidget {
   const _AuthField({
     required this.controller,
     required this.label,
@@ -571,12 +582,25 @@ class _AuthField extends StatelessWidget {
   final void Function(String)? onSubmit;
 
   @override
+  State<_AuthField> createState() => _AuthFieldState();
+}
+
+class _AuthFieldState extends State<_AuthField> {
+  late bool _obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscureText = widget.obscure;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          widget.label,
           style: const TextStyle(
             fontFamily: 'Georgia',
             fontSize: 9,
@@ -586,12 +610,12 @@ class _AuthField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          obscureText: obscure,
-          autofillHints: autofillHint != null ? [autofillHint!] : null,
-          onFieldSubmitted: onSubmit,
-          validator: validator,
+          controller: widget.controller,
+          keyboardType: widget.keyboardType,
+          obscureText: _obscureText,
+          autofillHints: widget.autofillHint != null ? [widget.autofillHint!] : null,
+          onFieldSubmitted: widget.onSubmit,
+          validator: widget.validator,
           style: const TextStyle(
             fontFamily: 'Georgia',
             fontSize: 14,
@@ -619,6 +643,19 @@ class _AuthField extends StatelessWidget {
               fontSize: 10,
               color: AppColors.ember,
             ),
+            suffixIcon: widget.obscure
+                ? IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.ashGrey,
+                      size: 22,
+                    ),
+                    onPressed: () => setState(() => _obscureText = !_obscureText),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    tooltip: _obscureText ? 'Show password' : 'Hide password',
+                  )
+                : null,
           ),
         ),
       ],

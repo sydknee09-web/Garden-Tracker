@@ -21,10 +21,10 @@ extension ScenePeriodExtension on ScenePeriod {
   /// Asset path for the period-specific Elias pose image.
   String get eliasAssetPath {
     switch (this) {
-      case ScenePeriod.dawn:   return 'assets/elias/elias_dawn.png';
-      case ScenePeriod.midday: return 'assets/elias/elias_midday.png';
-      case ScenePeriod.sunset: return 'assets/elias/elias_sunset.png';
-      case ScenePeriod.night:  return 'assets/elias/elias_night.png';
+      case ScenePeriod.dawn:   return 'assets/elias/Elias_Dawn.png';
+      case ScenePeriod.midday: return 'assets/elias/Elias_Midday.png';
+      case ScenePeriod.sunset: return 'assets/elias/Elias_Sunset.png';
+      case ScenePeriod.night:  return 'assets/elias/Elias_Night.png';
     }
   }
 

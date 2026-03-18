@@ -16,9 +16,20 @@ Stream<ScenePeriod> _scenePeriodStream() async* {
   while (true) {
     final now = DateTime.now();
     // Wait until the start of the next minute, then re-evaluate.
-    // Checking every minute is sufficient — period boundaries are on the hour.
     final nextMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
     await Future.delayed(nextMinute.difference(now));
     yield DateTime.now().dayPeriod;
   }
 }
+
+/// Yields current time every minute. Used by sanctuary background to compute
+/// opacity blend between the four time-of-day layers (smooth 30-min transition).
+final currentTimeForBackgroundProvider = StreamProvider<DateTime>((ref) async* {
+  yield DateTime.now();
+  while (true) {
+    final now = DateTime.now();
+    final nextMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    await Future.delayed(nextMinute.difference(now));
+    yield DateTime.now();
+  }
+});

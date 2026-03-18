@@ -1,9 +1,54 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:go_router/go_router.dart';
+import '../../app.dart';
+import '../../providers/active_pebbles_provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../providers/mountain_provider.dart';
 import '../../providers/satchel_provider.dart';
+import '../../providers/node_provider.dart';
+import '../../providers/whetstone_provider.dart';
+import '../../providers/first_run_provider.dart';
 import '../../data/models/satchel_slot.dart';
+import '../../widgets/hearth_spark_painter.dart';
+import '../scroll_map/edit_flow_overlay.dart';
+import 'whetstone_choice_overlay.dart';
+
+final _whetstoneTileKey = GlobalKey();
+
+/// Slot IDs currently playing remove (fade-out) animation; cleared after delay.
+final _removingSlotIdsProvider = StateProvider<Set<String>>((ref) => {});
+
+Future<void> _onSlotRemove(BuildContext context, WidgetRef ref, SatchelSlot slot) async {
+  final notifier = ref.read(satchelProvider.notifier);
+  ref.read(_removingSlotIdsProvider.notifier).update((s) => {...s, slot.id});
+  await Future.delayed(const Duration(milliseconds: 180));
+  await notifier.removeFromSatchel(slot.id);
+  if (context.mounted) {
+    ref.read(_removingSlotIdsProvider.notifier).update((s) => s..remove(slot.id));
+    final title = slot.node?.title.isEmpty == true
+        ? '(untitled)'
+        : (slot.node?.title ?? 'This task');
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '"$title" removed. Still on your peak.',
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            color: AppColors.parchment,
+          ),
+        ),
+        backgroundColor: AppColors.charcoal,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
 
 class SatchelScreen extends ConsumerWidget {
   const SatchelScreen({super.key});
@@ -11,140 +56,418 @@ class SatchelScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final satchel = ref.watch(satchelProvider);
+    final mountains = ref.watch(mountainListProvider).valueOrNull ?? [];
+    final activePebbles = ref.watch(packCandidatesProvider).valueOrNull ?? [];
+    final hasReadyToBurn = satchel.slots.any((s) => s.readyToBurn);
+    final showAscension = hasReadyToBurn || activePebbles.isNotEmpty;
+    final seenQuestStep1 = ref.watch(hasSeenQuestStep1Provider).valueOrNull ?? false;
+    final seenScrollTooltip = ref.watch(hasSeenScrollTooltipProvider).valueOrNull ?? false;
+    final showScrollTooltip = mountains.isEmpty && seenQuestStep1 && !seenScrollTooltip;
 
-    return Scaffold(
-      backgroundColor: AppColors.inkBlack,
-      appBar: AppBar(
+    return PopScope(
+      canPop: !showAscension,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && showAscension && context.mounted) {
+          context.go('/sanctuary?focusOnHearth=true');
+        }
+      },
+      child: Scaffold(
+        key: const ValueKey('screen_satchel'),
         backgroundColor: AppColors.inkBlack,
-        elevation: 0,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Sanctuary ›',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 10,
-                letterSpacing: 1,
-                color: AppColors.ashGrey,
+        appBar: AppBar(
+          backgroundColor: AppColors.inkBlack,
+          elevation: 0,
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sanctuary ›',
+                style: TextStyle(
+                  fontFamily: 'Georgia',
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  color: AppColors.ashGrey,
+                ),
               ),
-            ),
-            const Text(
-              'YOUR SATCHEL',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 14,
-                letterSpacing: 3,
-                color: AppColors.parchment,
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1.5),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, spacing, _) => Text(
+                  'YOUR SATCHEL',
+                  style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 14,
+                    letterSpacing: spacing,
+                    color: AppColors.parchment,
+                  ),
+                ),
               ),
-            ),
+            ],
+          ),
+          iconTheme: const IconThemeData(color: AppColors.parchment),
+          actions: [
+            if (!satchel.isFull)
+              Semantics(
+                label: 'Pack ${activePebbles.length} pebbles into your satchel',
+                button: true,
+                child: TextButton(
+                  onPressed: () async {
+                    final message =
+                        await ref.read(satchelProvider.notifier).packSatchel();
+                    ref.read(hearthDropCountProvider.notifier).state = 0; // reset weighted-hearth sequence
+                    HapticFeedback.mediumImpact(); // pack satchel
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            message,
+                            style: const TextStyle(
+                              fontFamily: 'Georgia',
+                              color: AppColors.parchment,
+                            ),
+                          ),
+                          backgroundColor: AppColors.charcoal,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text(
+                    'Pack',
+                    style: TextStyle(
+                      color: AppColors.ember,
+                      fontFamily: 'Georgia',
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
           ],
-        ),
-        iconTheme: const IconThemeData(color: AppColors.parchment),
-        actions: [
-          if (!satchel.isFull)
-            TextButton(
-              onPressed: () async {
-                final message =
-                    await ref.read(satchelProvider.notifier).packSatchel();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        message,
+      ),
+      body: satchel.isLoading
+          ? const _WaitingPulseWidget()
+          : Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.inkBlack,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppColors.ember.withValues(alpha: 0.10),
+                          AppColors.inkBlack,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                // Quest Step 2: vellum tooltip when empty, points to Map
+                if (showScrollTooltip)
+                  GestureDetector(
+                    onTap: () async {
+                      await markScrollTooltipSeen();
+                      ref.invalidate(hasSeenScrollTooltipProvider);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.whetPaper.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.slotBorder.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'Cast your first Peak here to define your journey.',
                         style: const TextStyle(
                           fontFamily: 'Georgia',
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
                           color: AppColors.parchment,
                         ),
                       ),
-                      backgroundColor: AppColors.charcoal,
-                      behavior: SnackBarBehavior.floating,
                     ),
-                  );
-                }
-              },
-              child: const Text(
-                'Pack',
-                style: TextStyle(
-                  color: AppColors.ember,
-                  fontFamily: 'Georgia',
-                  letterSpacing: 1,
+                  ),
+                // Tools row: Scroll + Whetstone (distinct from item slots)
+                _ToolsSection(
+                  whetstoneKey: _whetstoneTileKey,
+                  showWhetstoneSpark: !ref.watch(hasCompletedAnyHabitTodayProvider),
+                  onScrollTap: () {
+                    ref.read(refineModeProvider.notifier).state = false;
+                    context.push(AppRoutes.scroll);
+                  },
+                  onWhetstoneTap: (BuildContext tileContext) {
+                    final box = tileContext.findRenderObject() as RenderBox?;
+                    if (box == null || !box.hasSize) return;
+                    final offset = box.localToGlobal(Offset.zero);
+                    final size = box.size;
+                    _showWhetstoneOverlay(context, ref, offset, size);
+                  },
                 ),
-              ),
-            ),
-        ],
-      ),
-      body: satchel.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.ember),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
+                const SizedBox(height: 16),
                 Center(
                   child: Container(
-                    color: Colors.black,
+                    color: AppColors.satchelSlotFilled,
                     child: Image.asset(
                       'assets/satchel/satchel_open.png',
-                      height: 100,
+                      height: 80,
                       fit: BoxFit.contain,
+                      // ignore: unnecessary_underscores
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.backpack_outlined,
+                        color: AppColors.ember,
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...List.generate(6, (i) {
-                  final slot = i < satchel.slots.length
-                      ? satchel.slots[i]
-                      : null;
-                  final notifier = ref.read(satchelProvider.notifier);
-                  return _SatchelSlotRow(
-                    key: ValueKey(slot?.id ?? 'empty-$i'),
-                    slotIndex: i + 1,
-                    slot: slot,
-                    onCheckOff: slot != null && slot.isFilled && !slot.readyToBurn
-                        ? () => notifier.markReadyToBurn(slot.id)
-                        : null,
-                    onRemove: slot != null && slot.isFilled
-                        ? () async {
-                            final title = slot.node?.title.isEmpty == true
-                                ? '(untitled)'
-                                : (slot.node?.title ?? 'This task');
-                            await notifier.removeFromSatchel(slot.id);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '"$title" removed. Still on your mountain.',
-                                    style: const TextStyle(
-                                      fontFamily: 'Georgia',
-                                      color: AppColors.parchment,
-                                    ),
-                                  ),
-                                  backgroundColor: AppColors.charcoal,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          }
-                        : null,
-                  );
-                }),
+                Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        'assets/images/wood_plank.png',
+                        fit: BoxFit.cover,
+                        // ignore: unnecessary_underscores
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.satchelSlotEmpty,
+                        ),
+                      ),
+                    ),
+                    Column(
+                      children: List.generate(6, (i) {
+                        final slot = i < satchel.slots.length
+                            ? satchel.slots[i]
+                            : null;
+                        return _SatchelSlotRow(
+                          key: ValueKey(slot?.id ?? 'empty-$i'),
+                          slotIndex: i + 1,
+                          slot: slot,
+                          onCheckOff: slot != null && slot.isFilled
+                              ? () {
+                                  HapticFeedback.lightImpact(); // pebble check
+                                  ref.read(satchelProvider.notifier).toggleReadyToBurn(slot.id);
+                                }
+                              : null,
+                          onRemove: slot != null && slot.isFilled
+                              ? () => _onSlotRemove(context, ref, slot)
+                              : null,
+                          onHammerTap: slot != null && slot.isFilled && slot.node != null
+                              ? () {
+                                  HapticFeedback.mediumImpact();
+                                  _showHammerEditOverlay(context, ref, slot);
+                                }
+                              : null,
+                        );
+                      }),
+                    ),
+                  ],
+                ),
               ],
             ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _SatchelSlotRow extends StatelessWidget {
+Future<void> _showHammerEditOverlay(
+  BuildContext context,
+  WidgetRef ref,
+  SatchelSlot slot,
+) async {
+  final node = slot.node;
+  if (node == null) return;
+  final mountain = await ref.read(mountainProvider(node.mountainId).future);
+  if (mountain == null || !context.mounted) return;
+  showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black54,
+    pageBuilder: (_, __, ___) => EditFlowOverlay(
+      target: EditTargetNode(mountain: mountain, node: node),
+      onClose: () => Navigator.of(context).pop(),
+    ),
+  );
+}
+
+void _showWhetstoneOverlay(
+  BuildContext context,
+  WidgetRef ref,
+  Offset globalOffset,
+  Size tileSize,
+) {
+  showGeneralDialog<void>(
+    context: context,
+    barrierColor: Colors.transparent,
+    barrierDismissible: true,
+    barrierLabel: 'Whetstone choice',
+    // ignore: unnecessary_underscores
+    pageBuilder: (dialogContext, _, __) {
+      return SafeArea(
+        child: WhetstoneChoiceOverlay(
+          whetstoneKey: _whetstoneTileKey,
+          anchorOffset: globalOffset,
+          tileSize: tileSize,
+          onDismiss: () => Navigator.of(dialogContext).pop(),
+        ),
+      );
+    },
+  );
+}
+
+/// Map + Whetstone tiles at top of Satchel (Option B: all-in-one hub).
+class _ToolsSection extends StatelessWidget {
+  const _ToolsSection({
+    required this.whetstoneKey,
+    required this.showWhetstoneSpark,
+    required this.onScrollTap,
+    required this.onWhetstoneTap,
+  });
+
+  final GlobalKey whetstoneKey;
+  final bool showWhetstoneSpark;
+  final VoidCallback onScrollTap;
+  final void Function(BuildContext tileContext) onWhetstoneTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            label: 'The Map',
+            button: true,
+            child: _ToolTile(
+              icon: Icons.map_outlined,
+              label: 'The Map',
+              subtitle: 'View your peaks',
+              onTap: onScrollTap,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Builder(
+            builder: (ctx) => Semantics(
+              label: 'The Whetstone',
+              button: true,
+              child: _ToolTile(
+                key: whetstoneKey,
+                icon: Icons.auto_fix_high,
+                label: 'The Whetstone',
+                subtitle: 'Sharpen your daily habits',
+                showSpark: showWhetstoneSpark,
+                onTap: () => onWhetstoneTap(ctx),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  const _ToolTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.showSpark = false,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final bool showSpark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget iconWidget = Icon(icon, size: 32, color: AppColors.ember);
+    if (showSpark) {
+      iconWidget = iconWidget
+          .animate(onPlay: (c) => c.repeat())
+          .shimmer(
+            color: AppColors.ember.withValues(alpha: 0.3),
+            duration: 2000.ms,
+          )
+          .then()
+          .scale(
+            begin: const Offset(1, 1),
+            end: const Offset(1.02, 1.02),
+            duration: 2500.ms,
+            curve: Curves.easeInOut,
+          );
+    }
+
+    return Material(
+      color: AppColors.satchelTileBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.satchelSlotBorder, width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              iconWidget,
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Georgia',
+                  fontSize: 12,
+                  letterSpacing: 0.5,
+                  color: AppColors.parchment,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 10,
+                    color: AppColors.ashGrey,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SatchelSlotRow extends ConsumerWidget {
   const _SatchelSlotRow({
     super.key,
     required this.slotIndex,
     this.slot,
     this.onCheckOff,
     this.onRemove,
+    this.onHammerTap,
   });
 
   final int slotIndex;
@@ -156,27 +479,31 @@ class _SatchelSlotRow extends StatelessWidget {
   /// Called when the user swipes left to remove the task from the satchel.
   final VoidCallback? onRemove;
 
+  /// Called when the user taps the Hammer icon to refine (shatter) the stone.
+  final VoidCallback? onHammerTap;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isEmpty = slot?.isEmpty ?? true;
     final isReady = slot?.readyToBurn ?? false;
+    final isRemoving = ref.watch(_removingSlotIdsProvider).contains(slot?.id ?? '');
 
     final content = Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: isEmpty
-            ? AppColors.slotEmpty
+            ? AppColors.satchelSlotEmpty
             : isReady
-                ? AppColors.slotFilled.withValues(alpha: 0.95)
-                : AppColors.slotFilled,
+                ? AppColors.satchelSlotFilled.withValues(alpha: 0.95)
+                : AppColors.satchelSlotFilled,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isReady
               ? AppColors.ember
               : slot?.node?.isStarred == true
                   ? AppColors.gold
-                  : AppColors.slotBorder,
+                  : AppColors.satchelSlotBorder,
           width: isEmpty ? 0.5 : (isReady ? 1.5 : 1),
         ),
       ),
@@ -188,7 +515,7 @@ class _SatchelSlotRow extends StatelessWidget {
             child: Text(
               '$slotIndex',
               style: TextStyle(
-                color: isEmpty ? AppColors.slotBorder : AppColors.ashGrey,
+                color: isEmpty ? AppColors.satchelSlotBorder : AppColors.ashGrey,
                 fontSize: 11,
                 fontFamily: 'Georgia',
               ),
@@ -201,7 +528,7 @@ class _SatchelSlotRow extends StatelessWidget {
               child: Text(
                 '— empty —',
                 style: TextStyle(
-                  color: AppColors.slotBorder,
+                  color: AppColors.satchelSlotBorder,
                   fontFamily: 'Georgia',
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
@@ -261,31 +588,87 @@ class _SatchelSlotRow extends StatelessWidget {
                 padding: EdgeInsets.only(right: 6),
                 child: Icon(Icons.star, size: 14, color: AppColors.gold),
               ),
-            // Flame icon when ready to burn
             if (isReady)
-              const Icon(Icons.local_fire_department, size: 16, color: AppColors.ember),
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Image.asset(
+                  'assets/stones/stone_large.png',
+                  fit: BoxFit.contain,
+                  // ignore: unnecessary_underscores
+                  errorBuilder: (_, __, ___) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.darkWalnut,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const SizedBox(width: 16, height: 16),
+                  ),
+                ),
+              ),
+            if (onHammerTap != null)
+              IconButton(
+                icon: Icon(
+                  Icons.gavel,
+                  size: 20,
+                  color: const Color(0xFFB87333),
+                ),
+                tooltip: 'Refine',
+                onPressed: onHammerTap,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+              ),
           ],
         ],
       ),
     );
 
+    // Slot-level animations: fill-in scale-up, remove fade-out
+    Widget visualContent = content;
+    if (!isEmpty) {
+      visualContent = TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.85, end: 1.0),
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        builder: (context, scale, child) => Transform.scale(
+          scale: scale,
+          alignment: Alignment.centerLeft,
+          child: child,
+        ),
+        child: visualContent,
+      );
+    }
+    if (isRemoving) {
+      visualContent = AnimatedOpacity(
+        opacity: 0,
+        duration: const Duration(milliseconds: 180),
+        child: AnimatedScale(
+          scale: 0.8,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeIn,
+          child: visualContent,
+        ),
+      );
+    }
+
     if (isEmpty || onRemove == null) {
-      return content;
+      return visualContent;
     }
 
     return Slidable(
       key: ValueKey(slot!.id),
-      startActionPane: onCheckOff != null && !isReady
+      startActionPane: onCheckOff != null
           ? ActionPane(
               motion: const DrawerMotion(),
               extentRatio: 0.35,
               children: [
                 SlidableAction(
                   onPressed: (context) => onCheckOff!(),
-                  backgroundColor: AppColors.ember.withValues(alpha: 0.85),
+                  backgroundColor: isReady
+                      ? AppColors.satchelSlotFilled.withValues(alpha: 0.9)
+                      : AppColors.ember.withValues(alpha: 0.85),
                   foregroundColor: AppColors.parchment,
-                  icon: Icons.check_circle_outline,
-                  label: 'Done',
+                  icon: isReady ? Icons.reply_outlined : Icons.check_circle_outline,
+                  label: isReady ? 'Return' : 'Done',
                 ),
               ],
             )
@@ -296,17 +679,99 @@ class _SatchelSlotRow extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (context) => onRemove!(),
-            backgroundColor: AppColors.charcoal,
+            backgroundColor: AppColors.satchelSlotFilled,
             foregroundColor: AppColors.parchment,
             icon: Icons.remove_circle_outline,
             label: 'Remove',
           ),
         ],
       ),
-      child: content,
+      child: visualContent,
     );
   }
 
   String _formatDate(DateTime date) =>
       '${date.month}/${date.day}/${date.year}';
+}
+
+/// "Waiting" state for Satchel loading: dimmed HearthSparkPainter with sparkTime × 0.3
+/// so the Sanctuary feels like it is "inhaling" data. POST_V1_ROADMAP § 4.3.
+class _WaitingPulseWidget extends StatefulWidget {
+  const _WaitingPulseWidget();
+
+  @override
+  State<_WaitingPulseWidget> createState() => _WaitingPulseWidgetState();
+}
+
+class _WaitingPulseWidgetState extends State<_WaitingPulseWidget> {
+  double _sparkTime = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (mounted) {
+        setState(() => _sparkTime = DateTime.now().millisecondsSinceEpoch / 1000.0);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final origin = Offset(size.width / 2, size.height * 0.85);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.inkBlack,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.ember.withValues(alpha: 0.06),
+                  AppColors.inkBlack,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: ExcludeSemantics(
+            child: AnimatedOpacity(
+              opacity: 0.4,
+              duration: const Duration(milliseconds: 300),
+              child: CustomPaint(
+                painter: HearthSparkPainter(
+                  streak: 1,
+                  timeSeconds: _sparkTime * 0.3,
+                  origin: origin,
+                  brightnessBoost: 0.6,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const Center(
+          child: Text(
+            'Waiting',
+            style: TextStyle(
+              fontFamily: 'Georgia',
+              fontSize: 14,
+              letterSpacing: 1,
+              color: AppColors.ashGrey,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

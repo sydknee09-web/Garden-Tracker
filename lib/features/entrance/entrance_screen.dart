@@ -1,13 +1,21 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../app.dart';
+import '../../core/config/supabase_config.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/elias_typography.dart';
 import '../../core/enums/day_period.dart' show ScenePeriod, ScenePeriodExtension;
 import '../../providers/auth_provider.dart';
+import '../../providers/sound_settings_provider.dart';
 import '../../providers/time_of_day_provider.dart';
 import '../../widgets/elias_silhouette.dart';
+import '../../widgets/sanctuary_background.dart';
+
+/// Shared player for app-open snap so playback continues after navigating off splash.
+final AudioPlayer _appOpenPlayer = AudioPlayer();
 
 class EntranceScreen extends ConsumerStatefulWidget {
   const EntranceScreen({super.key});
@@ -20,15 +28,20 @@ class _EntranceScreenState extends ConsumerState<EntranceScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to Sanctuary after entrance animation completes.
+    // Navigate after splash. Play parchment snap at exact moment splash finishes and Sanctuary fades in.
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
-      // Route based on auth state. go_router redirect handles the guard
-      // for protected routes, but we need to manually decide the target here
-      // because the entrance is a public route.
-      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      final isAuthenticated = kSkipAuthForTesting || ref.read(isAuthenticatedProvider);
+      if (isAuthenticated) {
+        _appOpenPlayer.stop();
+        if (ref.read(soundEnabledProvider)) {
+          _appOpenPlayer.play(AssetSource('sounds/app_open.mp3')).catchError((_) {
+            _appOpenPlayer.play(AssetSource('sounds/app_open.wav')).ignore();
+          });
+        }
+      }
       context.go(
-        isAuthenticated ? AppRoutes.sanctuary : AppRoutes.auth,
+        isAuthenticated ? AppRoutes.profileGate : AppRoutes.auth,
       );
     });
   }
@@ -51,10 +64,10 @@ class _EntranceScreenState extends ConsumerState<EntranceScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Watercolor background + multiply overlay (same as Sanctuary)
-          _DayPeriodBackground(period: period),
+          // Layer 1 (Environment): Background — single source of truth (time-of-day blend)
+          const SanctuaryBackground(),
 
-          // Elias placeholder — centered, fades in
+          // Layer 2 (Character): Elias
           Positioned(
             left: 0,
             right: 0,
@@ -62,80 +75,35 @@ class _EntranceScreenState extends ConsumerState<EntranceScreen> {
             child: _EliasPlaceholder(period: period),
           ),
 
-          // Period label — for Test #1 verification
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Text(
-                period.label.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11,
-                  letterSpacing: 3,
-                  fontFamily: 'Georgia',
+          // Layer 3 (UI): SafeArea — Period label, dialogue (Thumb Zone)
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      period.label.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        letterSpacing: 3,
+                        fontFamily: 'Georgia',
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const Spacer(),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-String _backgroundAssetFor(ScenePeriod period) => switch (period) {
-      ScenePeriod.dawn   => 'assets/backgrounds/sunrise.jfif',
-      ScenePeriod.midday => 'assets/backgrounds/midday.jfif',
-      ScenePeriod.sunset => 'assets/backgrounds/dusk.jfif',
-      ScenePeriod.night  => 'assets/backgrounds/night.jfif',
-    };
-
-class _DayPeriodBackground extends StatelessWidget {
-  const _DayPeriodBackground({required this.period});
-  final ScenePeriod period;
-
-  List<Color> get _fallbackGradient => switch (period) {
-        ScenePeriod.dawn   => AppColors.dawnGradient,
-        ScenePeriod.midday => AppColors.middayGradient,
-        ScenePeriod.sunset => AppColors.sunsetGradient,
-        ScenePeriod.night  => AppColors.nightGradient,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          _backgroundAssetFor(period),
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: _fallbackGradient,
-              ),
-            ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black26,
-                Colors.transparent,
-                Colors.transparent,
-                Colors.black12,
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -152,21 +120,33 @@ class _EliasPlaceholder extends StatelessWidget {
         Center(
           child: EliasWidget(
             period: period,
-            width: 80,
-            height: 120,
+            width: 200,
+            height: 300,
             showGreeting: false,
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          period.eliasGreeting,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-            fontFamily: 'Georgia',
-            fontStyle: FontStyle.italic,
-            letterSpacing: 0.3,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.whetPaper.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.whetLine, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              period.eliasGreeting,
+              textAlign: TextAlign.center,
+              style: EliasTypography.style(color: AppColors.whetInk),
+            ),
           ),
         ),
       ],

@@ -29,7 +29,7 @@ class ArchiveScreen extends ConsumerWidget {
               ),
             ),
             const Text(
-              'ARCHIVE',
+              'CHRONICLED PEAKS',
               style: TextStyle(
                 fontFamily: 'Georgia',
                 fontSize: 14,
@@ -46,7 +46,7 @@ class ArchiveScreen extends ConsumerWidget {
           if (mountains.isEmpty) {
             return const Center(
               child: Text(
-                'No archived mountains.',
+                'No chronicled peaks.',
                 style: TextStyle(
                   color: AppColors.ashGrey,
                   fontFamily: 'Georgia',
@@ -137,7 +137,7 @@ class ArchiveScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  "Can't load archive. Check your connection.",
+                  "Can't load the chronicles. Check your connection.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.ashGrey,

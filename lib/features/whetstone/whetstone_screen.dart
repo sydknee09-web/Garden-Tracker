@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/content/elias_dialogue.dart';
 import '../../core/enums/day_offset.dart';
+import '../../providers/first_run_provider.dart';
+import '../../providers/streak_provider.dart';
 import '../../providers/whetstone_provider.dart';
 import '../../data/models/whetstone_item.dart';
 
@@ -13,7 +16,20 @@ class WhetstoneScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(whetstoneProvider);
 
+    ref.listen(whetstoneStreakProvider, (prev, next) {
+      next.whenData((r) {
+        final streak = r.currentStreak;
+        if (streak == 7 || streak == 30 || streak == 100) {
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          if (messenger != null) {
+            Future.microtask(() => _showMilestoneIfNeeded(messenger, streak));
+          }
+        }
+      });
+    });
+
     return Scaffold(
+      key: const ValueKey('screen_whetstone'),
       backgroundColor: AppColors.whetPaper,
       appBar: AppBar(
         backgroundColor: AppColors.whetPaper,
@@ -31,14 +47,21 @@ class WhetstoneScreen extends ConsumerWidget {
                 color: AppColors.warmGrey,
               ),
             ),
-            const Text(
-              'THE WHETSTONE',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 14,
-                letterSpacing: 3,
-                color: AppColors.whetInk,
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'THE WHETSTONE',
+                    style: TextStyle(
+                      fontFamily: 'Georgia',
+                      fontSize: 14,
+                      letterSpacing: 3,
+                      color: AppColors.whetInk,
+                    ),
+                  ),
+                ),
+                _StreakBadge(),
+              ],
             ),
           ],
         ),
@@ -62,10 +85,29 @@ class WhetstoneScreen extends ConsumerWidget {
                     child: CircularProgressIndicator(color: AppColors.warmGrey),
                   )
                 : state.items.isEmpty
-                    ? _emptyState(context)
+                    ? _emptyState(context, ref)
                     : _habitList(ref, state.items, state),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showMilestoneIfNeeded(ScaffoldMessengerState messenger, int streak) async {
+    final last = await getLastStreakMilestoneShown();
+    if (last >= streak) return;
+    await markStreakMilestoneShown(streak); // Claim before show to avoid race
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          EliasDialogue.habitStreakMilestone(streak),
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            color: AppColors.parchment,
+          ),
+        ),
+        backgroundColor: AppColors.charcoal,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -98,7 +140,10 @@ class WhetstoneScreen extends ConsumerWidget {
             extentRatio: 0.35,
             children: [
               SlidableAction(
-                onPressed: (_) => notifier.toggleItem(item.id),
+                onPressed: (_) async {
+                  await notifier.toggleItem(item.id);
+                  ref.invalidate(whetstoneStreakProvider);
+                },
                 backgroundColor: AppColors.whetInk.withValues(alpha: 0.85),
                 foregroundColor: AppColors.parchment,
                 icon: isComplete ? Icons.radio_button_unchecked : Icons.check_circle_outline,
@@ -122,22 +167,44 @@ class WhetstoneScreen extends ConsumerWidget {
           child: _HabitRow(
             item: item,
             isComplete: isComplete,
-            onToggle: () => notifier.toggleItem(item.id),
+            onToggle: () async {
+              await notifier.toggleItem(item.id);
+              ref.invalidate(whetstoneStreakProvider);
+            },
           ),
         );
       },
     );
   }
 
-  Widget _emptyState(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Add a daily habit to begin sharpening.',
-        style: TextStyle(
-          color: AppColors.warmGrey,
-          fontFamily: 'Georgia',
-          fontStyle: FontStyle.italic,
-          fontSize: 14,
+  Widget _emptyState(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Add a daily habit to begin sharpening.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.warmGrey,
+                fontFamily: 'Georgia',
+                fontStyle: FontStyle.italic,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => _showAddHabitSheet(context, ref),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add habit'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.ember,
+                foregroundColor: AppColors.parchment,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -307,6 +374,48 @@ class WhetstoneScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Streak Badge ─────────────────────────────────────────────
+
+class _StreakBadge extends ConsumerWidget {
+  const _StreakBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(whetstoneStreakProvider);
+    return async.when(
+      data: (result) {
+        if (result.currentStreak < 1) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.ember.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppColors.ember.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              '${result.currentStreak}-day streak',
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                fontSize: 11,
+                letterSpacing: 0.5,
+                color: AppColors.ember,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

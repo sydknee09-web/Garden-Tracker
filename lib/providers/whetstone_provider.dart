@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/enums/day_offset.dart';
 import '../data/models/whetstone_item.dart';
 import '../data/repositories/whetstone_repository.dart';
+import 'repository_providers.dart';
 
 // ── State ────────────────────────────────────────────────────
 
@@ -191,5 +192,12 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
 
 final whetstoneProvider =
     StateNotifierProvider<WhetstoneNotifier, WhetstoneState>((ref) {
-  return WhetstoneNotifier(WhetstoneRepository());
+  return WhetstoneNotifier(ref.watch(whetstoneRepositoryProvider));
+});
+
+/// True when user has completed at least one habit today (for Satchel Whetstone spark).
+final hasCompletedAnyHabitTodayProvider = Provider<bool>((ref) {
+  final state = ref.watch(whetstoneProvider);
+  if (state.selectedOffset != DayOffset.today) return true;
+  return state.completedItemIds.isNotEmpty;
 });

@@ -1,10 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/config/demo_mode.dart';
 import '../data/supabase_service.dart';
 
+/// Fake user for demo/offline mode. Supabase is never initialized in demo mode.
+User get _demoUser => User(
+      id: 'demo-user-id',
+      appMetadata: {},
+      userMetadata: {},
+      aud: 'authenticated',
+      createdAt: DateTime.now().toIso8601String(),
+    );
+
 /// Emits the current Supabase [User] or null if not authenticated.
-/// Drives go_router auth guards — every protected route reads this.
+/// In demo mode, emits a fake user so the app runs without Supabase.
 final authProvider = StreamProvider<User?>((ref) {
+  if (isDemoMode) {
+    return Stream.value(_demoUser);
+  }
   return SupabaseService.client.auth.onAuthStateChange
       .map((event) => event.session?.user);
 });

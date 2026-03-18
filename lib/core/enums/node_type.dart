@@ -1,7 +1,7 @@
 enum NodeType {
   boulder, // Landmark milestone. Created by Mallet on Mountain path.
-  pebble,  // Actionable task. Goes into the Satchel.
-  shard,   // Visual-only sub-task. Never enters Satchel. Never independently completable.
+  pebble,  // Actionable task. When leaf, packable and burnable.
+  shard,   // Sub-task. When leaf, packable and burnable. Logic & Leaf: leaves = unit of work.
 }
 
 extension NodeTypeExtension on NodeType {
@@ -22,7 +22,9 @@ extension NodeTypeExtension on NodeType {
     }
   }
 
-  bool get isCompletable => this == NodeType.pebble;
-  bool get canEnterSatchel => this == NodeType.pebble;
-  bool get isVisualOnly => this == NodeType.shard;
+  /// Logic & Leaf: packability = leaf status. Pebbles and shards can be leaves; boulders are containers.
+  bool get canEnterSatchel => this == NodeType.pebble || this == NodeType.shard;
+
+  /// Logic & Leaf: leaves are the unit of work. Both pebbles and shards complete when burned.
+  bool get isCompletable => this == NodeType.pebble || this == NodeType.shard;
 }

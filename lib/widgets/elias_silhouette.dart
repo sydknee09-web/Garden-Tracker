@@ -16,6 +16,7 @@ class EliasWidget extends StatelessWidget {
     this.height = 96.0,
     this.showGreeting = true,
     this.greetingWidth = 160.0,
+    this.assetPathOverride,
   });
 
   final ScenePeriod period;
@@ -23,6 +24,8 @@ class EliasWidget extends StatelessWidget {
   final double height;
   final bool showGreeting;
   final double greetingWidth;
+  /// When set, use this asset path instead of [period].eliasAssetPath. Falls back to period pose on load error.
+  final String? assetPathOverride;
 
   Color get _glowColor => switch (period) {
         ScenePeriod.dawn   => const Color(0xFFD4813A),
@@ -37,13 +40,19 @@ class EliasWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Elias figure: real asset or silhouette fallback ──
+        // ── Elias figure: fully opaque Image.asset; silhouette fallback only on error ──
         SizedBox(
           width: width,
           height: height,
+          key: ValueKey(assetPathOverride ?? period.eliasAssetPath),
           child: Image.asset(
-            period.eliasAssetPath,
+            assetPathOverride ?? period.eliasAssetPath,
             fit: BoxFit.contain,
+            opacity: const AlwaysStoppedAnimation<double>(1.0),
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (frame == null) return const SizedBox.shrink();
+              return child;
+            },
             errorBuilder: (_, __, ___) => CustomPaint(
               painter: _EliasPainter(
                 glowColor: _glowColor,

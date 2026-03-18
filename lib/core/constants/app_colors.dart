@@ -37,8 +37,23 @@ class AppColors {
   static const Color slotEmpty   = Color(0xFF231E1A);
   static const Color slotBorder  = Color(0xFF5C4F3F);
 
+  /// Warm brown variants for Satchel (matches wood plank background).
+  static const Color satchelSlotEmpty  = Color(0xFF2E2419); // dark warm brown
+  static const Color satchelSlotFilled = Color(0xFF4A3D2E); // warm wood brown
+  static const Color satchelSlotBorder = Color(0xFF6B5A45); // warm brown border
+  static const Color satchelTileBg    = Color(0xFF4A3D2E); // Map/Whetstone tiles
+
   // Whetstone parchment
   static const Color whetPaper   = Color(0xFFE8DAC5);
   static const Color whetInk     = Color(0xFF2C2010);
   static const Color whetLine    = Color(0xFFBFAD94);
+
+  /// Deep warm espresso for Sanctuary icon/label legibility on pale watercolor.
+  static const Color sanctuaryIcon = Color(0xFF2E2419);
+
+  /// Semantic alias for interactive text and button labels. Avoid ashGrey on cream.
+  static const Color darkWalnut = sanctuaryIcon;
+
+  /// Night period: soft amber glow (candlelight-on-parchment).
+  static const Color candlelightTint = Color(0x15FFB300);
 }

@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/mountain.dart';
 import '../data/repositories/mountain_repository.dart';
+import 'repository_providers.dart';
 
-final _mountainRepoProvider = Provider<MountainRepository>(
-  (ref) => MountainRepository(),
-);
+final _mountainRepoProvider = Provider<MountainRepository>((ref) {
+  return ref.watch(mountainRepositoryProvider);
+});
 
 /// Live stream of the user's active (non-archived) mountains.
 /// Updates in real-time when any mountain is created, renamed, or archived.
@@ -25,6 +26,12 @@ final activeMountainCountProvider = Provider<int>((ref) {
 /// Whether the user can create a new mountain (under the cap of 3).
 final canAddMountainProvider = Provider<bool>((ref) {
   return ref.watch(activeMountainCountProvider) < MountainRepository.maxActive;
+});
+
+/// Single mountain by ID. Use for Edit overlay when node has mountainId.
+final mountainProvider = FutureProvider.family<Mountain?, String>((ref, mountainId) async {
+  final repo = ref.watch(_mountainRepoProvider);
+  return repo.getById(mountainId);
 });
 
 /// Progress (0.0–1.0) for a single mountain, keyed by mountainId.

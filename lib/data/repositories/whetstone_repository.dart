@@ -30,14 +30,14 @@ class WhetstoneRepository {
   }
 
   Future<WhetstoneItem> addItem(String title) async {
-    final existing = await SupabaseService.client
+    final existing = await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
         .select('id')
         .eq('user_id', SupabaseService.userId)
-        .eq('is_active', true);
+        .eq('is_active', true));
     final orderIndex = (existing as List).length;
 
-    final row = await SupabaseService.client
+    final row = await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
         .insert({
           'user_id': SupabaseService.userId,
@@ -45,24 +45,24 @@ class WhetstoneRepository {
           'order_index': orderIndex,
         })
         .select()
-        .single();
+        .single());
     return WhetstoneItem.fromJson(row);
   }
 
   Future<void> updateTitle(String id, String title) async {
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
         .update({'title': title})
         .eq('id', id)
-        .eq('user_id', SupabaseService.userId);
+        .eq('user_id', SupabaseService.userId));
   }
 
   Future<void> deleteItem(String id) async {
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
         .update({'is_active': false})
         .eq('id', id)
-        .eq('user_id', SupabaseService.userId);
+        .eq('user_id', SupabaseService.userId));
   }
 
   Future<void> reorder(List<String> orderedIds) async {
@@ -71,9 +71,9 @@ class WhetstoneRepository {
       'user_id': SupabaseService.userId,
       'order_index': e.key,
     }).toList();
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
-        .upsert(updates, onConflict: 'id');
+        .upsert(updates, onConflict: 'id'));
   }
 
   /// Seeds 5 starter habits for a new user. Called once after signup.
@@ -84,20 +84,20 @@ class WhetstoneRepository {
       'title': e.value,
       'order_index': e.key,
     }).toList();
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_itemsTable)
-        .insert(inserts);
+        .insert(inserts));
   }
 
   // ── COMPLETIONS ────────────────────────────────────────────
 
   /// Fetch all completion item IDs for a given local date string (YYYY-MM-DD).
   Future<Set<String>> fetchCompletedItemIds(String dateString) async {
-    final rows = await SupabaseService.client
+    final rows = await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_completionsTable)
         .select('item_id')
         .eq('user_id', SupabaseService.userId)
-        .eq('completed_date', dateString);
+        .eq('completed_date', dateString));
     return (rows as List).map((r) => r['item_id'] as String).toSet();
   }
 
@@ -106,14 +106,14 @@ class WhetstoneRepository {
     required String itemId,
     required DateTime localDate,
   }) async {
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_completionsTable)
         .upsert({
           'user_id': SupabaseService.userId,
           'item_id': itemId,
           'completed_date': localDate.toDateString(),
           'completed_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'user_id,item_id,completed_date');
+        }, onConflict: 'user_id,item_id,completed_date'));
   }
 
   /// Removes the completion for an item on a given date (uncheck).
@@ -121,12 +121,12 @@ class WhetstoneRepository {
     required String itemId,
     required DateTime localDate,
   }) async {
-    await SupabaseService.client
+    await SupabaseService.executeWithRetry(() => SupabaseService.client
         .from(_completionsTable)
         .delete()
         .eq('user_id', SupabaseService.userId)
         .eq('item_id', itemId)
-        .eq('completed_date', localDate.toDateString());
+        .eq('completed_date', localDate.toDateString()));
   }
 
   /// Toggles completion. Returns the new checked state.
@@ -142,5 +142,20 @@ class WhetstoneRepository {
       await markComplete(itemId: itemId, localDate: localDate);
       return true;
     }
+  }
+
+  /// Fetches all completion timestamps for streak computation.
+  Future<List<DateTime>> fetchAllCompletionTimestamps() async {
+    final rows = await SupabaseService.executeWithRetryAndCache(
+      () => SupabaseService.client
+          .from(_completionsTable)
+          .select('completed_at')
+          .eq('user_id', SupabaseService.userId)
+          .then((r) => r as List),
+      'whetstone_completions',
+    );
+    return rows
+        .map((r) => DateTime.parse(r['completed_at'] as String).toLocal())
+        .toList();
   }
 }
