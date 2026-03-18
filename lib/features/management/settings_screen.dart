@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app.dart';
+import '../../bootstrap.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/supabase_cache.dart';
 import '../../data/supabase_service.dart';
@@ -327,15 +329,45 @@ class SettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              final userId = SupabaseService.currentUser?.id;
-              await SupabaseService.client.auth.signOut();
-              ref.invalidate(mountainListProvider);
-              ref.invalidate(archivedMountainListProvider);
-              ref.invalidate(nodeListProvider);
-              if (userId != null) {
-                await SupabaseCache.instance.clearForUser(userId);
+              try {
+                final userId = SupabaseService.currentUser?.id;
+                await SupabaseService.client.auth.signOut();
+                ref.invalidate(mountainListProvider);
+                ref.invalidate(archivedMountainListProvider);
+                ref.invalidate(nodeListProvider);
+                if (userId != null) {
+                  await SupabaseCache.instance.clearForUser(userId);
+                }
+                if (context.mounted) context.go('/');
+              } catch (e) {
+                // Supabase not initialized (e.g. demo/skip-auth in debug) — exit demo and restart so user sees login
+                final isDemoOrNotInit = e.toString().contains('initialize') ||
+                    e.toString().contains('Supabase.instance') ||
+                    isDemoMode;
+                if (context.mounted && isDemoOrNotInit) {
+                  await setDemoMode(false);
+                  final ok = await retrySupabaseInit();
+                  if (context.mounted) {
+                    if (ok) {
+                      restartVoyagerSanctuary();
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not connect. Restart the app to sign in.',
+                          ),
+                        ),
+                      );
+                      if (context.mounted) context.go('/');
+                    }
+                  }
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Sign out failed: ${e.toString().split('\n').first}')),
+                  );
+                  context.go('/');
+                }
               }
-              if (context.mounted) context.go('/');
             },
             child: const Text(
               'Sign Out',

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -59,9 +60,25 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       // go_router redirect fires automatically on auth state change
     } on AuthException catch (e) {
+      debugPrint('[Auth] AuthException: ${e.message}');
       if (mounted) _showError(_friendlyAuthMessage(e.message));
-    } catch (e) {
-      if (mounted) _showError(_friendlyAuthMessage(e.toString()));
+    } catch (e, stackTrace) {
+      debugPrint('[Auth] sign-in error: $e');
+      debugPrint('[Auth] $stackTrace');
+      if (mounted) {
+        _showError(_friendlyAuthMessage(e.toString()));
+        // In debug, show raw error on device so we can see it without console
+        if (kDebugMode) {
+          final raw = e.toString().replaceAll('\n', ' ').trim();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Debug: ${raw.length > 100 ? "${raw.substring(0, 100)}…" : raw}'),
+              backgroundColor: Colors.black87,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -96,6 +113,14 @@ class _AuthScreenState extends State<AuthScreen> {
   /// Maps raw auth/network errors to user-friendly messages.
   static String _friendlyAuthMessage(String raw) {
     final lower = raw.toLowerCase();
+    // Quota / plan limit (Supabase "EXCEEDING USAGE LIMITS")
+    if (lower.contains('402') ||
+        lower.contains('quota') ||
+        lower.contains('exceeded') ||
+        lower.contains('usage limit') ||
+        lower.contains('payment required')) {
+      return 'Plan limit reached. Check Supabase billing or try again later.';
+    }
     // Network / connectivity
     if (lower.contains('host lookup') ||
         lower.contains('socketexception') ||
