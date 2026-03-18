@@ -19,8 +19,8 @@ export async function completeTask(
   userId: string,
   /** Optional overrides from PacketPickerModal -- when provided, skip auto-packet logic */
   packetUsage?: { packetId: string; percentUsed: number }[],
-): Promise<void> {
-  if (task.completed_at) return;
+): Promise<boolean> {
+  if (task.completed_at) return true;
 
   try {
     const now = new Date().toISOString();
@@ -127,8 +127,10 @@ export async function completeTask(
     if (careScheduleId) {
       await advanceCareSchedule(careScheduleId, userId);
     }
+    return true;
   } catch (err) {
     console.error("completeTask: unexpected error", err);
+    return false;
   }
 }
 
@@ -167,8 +169,9 @@ async function decrementPacket(packetId: string, userId: string, percentToUse: n
 /**
  * After planting, check if all packets for a profile are archived/empty.
  * If so, set profile status to out_of_stock and add to shopping list.
+ * Exported for use in VaultPageContent plant flow.
  */
-async function checkProfileStockStatus(profileId: string, userId: string): Promise<void> {
+export async function checkProfileStockStatus(profileId: string, userId: string): Promise<void> {
   try {
     const { data: remaining } = await supabase
       .from("seed_packets")

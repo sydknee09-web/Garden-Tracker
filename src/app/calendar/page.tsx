@@ -465,10 +465,41 @@ export default function CalendarPage() {
       if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    await completeTask(t, (t as Task & { user_id?: string | null }).user_id ?? user.id);
-    setRefetch((r) => r + 1);
+    // Optimistic update: remove from list and add to completed so UI updates immediately
+    const now = new Date().toISOString();
+    const completedTask = { ...t, completed_at: now, due_date: todayStr };
+    const wasOverdue = t.due_date < todayStr;
+    if (wasOverdue) {
+      setOverdueTasks((prev) => prev.filter((x) => x.id !== t.id));
+    } else {
+      const newTasks = tasks.filter((x) => x.id !== t.id);
+      setTasks(newTasks);
+      setCachedTasks(user.id, householdViewMode ?? "personal", newTasks);
+    }
+    setCompletedTasksForMonth((prev) => [...prev, completedTask]);
+    if (selectedDate === todayStr) {
+      setCompletedTasksForSelectedDay((prev) => [...prev, completedTask]);
+    }
     hapticSuccess();
     showToast("Task completed");
+
+    const ok = await completeTask(t, (t as Task & { user_id?: string | null }).user_id ?? user.id);
+    if (!ok) {
+      // Revert on error
+      if (wasOverdue) {
+        setOverdueTasks((prev) => [...prev, t]);
+      } else {
+        setTasks((prev) => [...prev, t]);
+        setCachedTasks(user.id, householdViewMode ?? "personal", tasks);
+      }
+      setCompletedTasksForMonth((prev) => prev.filter((x) => x.id !== t.id));
+      if (selectedDate === todayStr) {
+        setCompletedTasksForSelectedDay((prev) => prev.filter((x) => x.id !== t.id));
+      }
+      showToast("Could not complete task");
+      return;
+    }
+    setRefetch((r) => r + 1);
 
     if (isHarvest) {
       setHarvestCelebration(plantLabel);
