@@ -89,6 +89,26 @@ If you don’t have a user yet, run only Test 1. If that fails, the app will als
 
 ---
 
+## App works in browser but not on phone (same WiFi)
+
+If login works on desktop/browser but fails on the phone with "can't reach the server":
+
+1. **Test from the phone’s browser**  
+   On the phone, open **Chrome** (or any browser) and go to:
+   ```
+   https://ibfkeovmgnvfdnrpvoxg.supabase.co/auth/v1/health
+   ```
+   - If you see JSON (e.g. `{"version":"v2...","name":"GoTrue",...}`), the phone can reach Supabase. The issue is likely the **app’s HTTP stack** (e.g. Android network stack, DNS in app, or something blocking the app but not the browser).
+   - If the page doesn’t load or times out, the **phone’s network** (WiFi, carrier, or firewall) is blocking or failing to reach Supabase. Try another WiFi or mobile data to compare.
+
+2. **See the exact error on the phone**  
+   After a failed login, the app shows a second SnackBar starting with **"Error: …"** (release) or **"Debug: …"** (debug) with a short snippet of the real exception. Note or screenshot that line (e.g. `SocketException`, `Connection refused`, `Connection timed out`, `HandshakeException`) and use it to narrow down the cause.
+
+3. **Android**  
+   The app manifest includes `INTERNET`. If you’re on a locked-down network (corporate/school WiFi), the app might still be blocked while the browser is allowed; try mobile data or another network.
+
+---
+
 ## Run app with real auth (no demo)
 
 Debug builds default to **demo/skip-auth**. To test the real sign-in flow locally:

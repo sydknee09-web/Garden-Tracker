@@ -67,14 +67,17 @@ class _AuthScreenState extends State<AuthScreen> {
       debugPrint('[Auth] $stackTrace');
       if (mounted) {
         _showError(_friendlyAuthMessage(e.toString()));
-        // In debug, show raw error on device so we can see it without console
-        if (kDebugMode) {
-          final raw = e.toString().replaceAll('\n', ' ').trim();
+        // Show raw error hint on device (debug: longer, release: short) so we can diagnose phone vs browser
+        final raw = e.toString().replaceAll('\n', ' ').trim();
+        final hint = raw.length > (kDebugMode ? 120 : 60)
+            ? '${raw.substring(0, kDebugMode ? 120 : 60)}…'
+            : raw;
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Debug: ${raw.length > 100 ? "${raw.substring(0, 100)}…" : raw}'),
+              content: Text(kDebugMode ? 'Debug: $hint' : 'Error: $hint'),
               backgroundColor: Colors.black87,
-              duration: const Duration(seconds: 5),
+              duration: const Duration(seconds: 6),
             ),
           );
         }
