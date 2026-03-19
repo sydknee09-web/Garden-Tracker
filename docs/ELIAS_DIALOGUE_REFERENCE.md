@@ -6,6 +6,8 @@
 **Elias docs:** [ELIAS_VOICE_GUIDE.md](ELIAS_VOICE_GUIDE.md) — voice bible, tone rules, AI prompt, `scripts/generate_elias_dialogue.py`  
 **Related:** [MASTER_PLAN.md](MASTER_PLAN.md) — Build Out section references this doc for Elias prompts (Intro, Wizard, Satchel Pack, Whetstone overlay, Refine).
 
+**Wiring:** `saveFailed()` is used on save/delete failure in `climb_flow_overlay.dart` and `edit_flow_overlay.dart`. `peakJournalArrival()` is shown once on Mountain Detail open in `mountain_detail_screen.dart`. Catalogue below matches `elias_dialogue.dart` (audit applied).
+
 ---
 
 ## Quick Map: Context → Pool → Type
@@ -62,6 +64,9 @@
 | 4 | Each stone burned is ground covered. |
 | 5 | Patience and progress are the same thing. |
 | 6 | You returned. That is enough for now. |
+| 7 | The path waits. So do I. |
+| 8 | Every return is a kind of burn. |
+| 9 | You are here. That is the step that matters. |
 
 ---
 
@@ -74,6 +79,8 @@
 | # | Line |
 |---|------|
 | 1 | The embers are whispering for more wood. |
+| 2 | No stone on the fire yet. When you are ready. |
+| 3 | The hearth is patient. Bring a stone when it serves you. |
 
 ---
 
@@ -90,7 +97,9 @@
 | 3 | Progress is quiet work. |
 | 4 | The peak remembers. |
 | 5 | Well done. Rest, then return. |
-| 6 | A task completed is a debt paid to yourself. |
+| 6 | A stone burned is a debt paid to yourself. |
+| 7 | One less weight. The path remembers. |
+| 8 | Ash to earth. The fire is fed. |
 
 ---
 
@@ -144,7 +153,7 @@
 | Step | Accessor | Line |
 |------|----------|------|
 | 0 Satchel | `sanctuaryHomeIntroSatchel` | Your satchel is heavy with intent. Carry only what you mean to finish. |
-| 1 Path Ahead | `sanctuaryHomeIntroPathAhead` | These slots hold the stones for your current climb. Keep them close to your heart—and the fire. |
+| 1 Path Ahead | `sanctuaryHomeIntroPathAhead` | These slots hold the stones for your climb. Keep them close to your heart—and the fire. |
 | 2 Firepit | `sanctuaryHomeIntroFirepit` | The hearth transforms effort into peace. Feed the fire when a stone has served its purpose. |
 
 ---
@@ -192,7 +201,7 @@
 | Step | Line |
 |------|------|
 | 0 (Satchel) | Your satchel is heavy with intent. Carry only what you mean to finish. |
-| 1 (Path Ahead) | These slots hold the stones for your current climb. Keep them close to your heart—and the fire. |
+| 1 (Path Ahead) | These slots hold the stones for your climb. Keep them close to your heart—and the fire. |
 | 2 (Firepit) | The hearth transforms effort into peace. Feed the fire when a stone has served its purpose. |
 
 ---
@@ -219,7 +228,7 @@
 |----------|------|---------|
 | Satchel full | `_satchelFull` | Your satchel is full. Burn a stone before you add more. / Six stones is the limit. Feed the fire first. |
 | First pack | `_firstPack` | Your satchel is packed. Drag a stone to the fire when it's done. |
-| After pack | `_afterPack` | Your stones are chosen. Make them count. / The satchel is packed. The climb begins. / Carry only what matters. / A full bag and a clear head. / Begin. / These tasks are yours. See them through. |
+| After pack | `_afterPack` | Your stones are chosen. Make them count. / The satchel is packed. The climb begins. / Carry only what matters. / A full bag and a clear head. / Begin. / These stones are yours. See them through. |
 
 ---
 
@@ -231,8 +240,8 @@
 
 | # | Line |
 |---|------|
-| 1 | You've got three peaks. Finish one before you start another. |
-| 2 | Three peaks at once is the cap. Archive one to open a new path. |
+| 1 | Three peaks at once. Chronicle one to open a new path. |
+| 2 | Three peaks at once is the cap. Chronicle one to open a new path. |
 
 ---
 
@@ -269,11 +278,9 @@
 
 | # | Line |
 |---|------|
-| 1 | Before we map the terrain, what are we reaching for, and why does this journey matter? |
-| 2 | What calls you to this peak? Speak the intent. |
+| 1 | What is your intent for this climb? |
+| 2 | What brings you to this peak? |
 | 3 | Every journey has a purpose. What is yours? |
-| 4 | Why does this matter? Name the why before the what. |
-| 5 | The path begins with clarity. What are we climbing toward? |
 
 ---
 
@@ -314,7 +321,7 @@
 
 | # | Line |
 |---|------|
-| 1 | How does this journey unfold? The Climb is step-by-step. The Survey is a collection of areas. |
+| 1 | How does this journey unfold? Climb: step-by-step. Survey: areas to explore. |
 | 2 | Choose the path: sequential steps or distinct regions? |
 | 3 | The Climb: one milestone after another. The Survey: areas to explore. |
 | 4 | Step-by-step or by region? Choose. |
@@ -440,14 +447,33 @@
 
 ---
 
-### Unused / Available Pools
+### Empty Satchel & Return After Idle (pools)
 
-These exist in `elias_dialogue.dart`. Whetstone overlay wires `emptySatchel()` and `returnAfterIdle()` — add Whetstone-specific line to `returnAfterIdle`: *"The stone stays blunt until the hand moves."*
+**Empty satchel** — `emptySatchel()`. Wired: Whetstone overlay when satchel empty. Pool now includes Map nudge.
 
-| Pool | Accessor | Lines | Wired To |
-|------|----------|-------|----------|
-| Empty satchel | `emptySatchel()` | Nothing packed yet. / The bag is empty. Pack your stones. / An empty satchel is a question. Answer it. / No stones chosen. Visit the Map. **Nudge to Map (preferred when empty):** *An empty bag is a quiet path. Visit the map to find a stone worth carrying.* | Whetstone overlay (Satchel empty) |
-| Return after idle | `returnAfterIdle()` | The stone stays blunt until the hand moves. / The fire's still here. Whenever you're ready. / You returned. That is enough for now. | Whetstone overlay (idle 30s) |
+| # | Line |
+|---|------|
+| 1 | Nothing packed yet. |
+| 2 | The bag is empty. Pack your stones. |
+| 3 | An empty satchel is a question. Answer it. |
+| 4 | No stones chosen. Visit the Map. |
+| 5 | An empty bag is a quiet path. Visit the map to find a stone worth carrying. |
+
+**Return after idle** — `returnAfterIdle()`. Wired: Whetstone overlay (idle ~30s).
+
+| # | Line |
+|---|------|
+| 1 | The fire's still here. Whenever you're ready. |
+| 2 | You returned. That is enough for now. |
+| 3 | The stone stays blunt until the hand moves. |
+
+---
+
+### Unused / Available Pools (other)
+
+| Pool | Accessor | Notes |
+|------|----------|--------|
+| (see above) | `emptySatchel()`, `returnAfterIdle()` | Both wired; full lines listed in preceding sections. |
 
 ---
 

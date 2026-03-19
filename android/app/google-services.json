@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "826880639726",
+    "project_id": "voyager-sanctuary",
+    "storage_bucket": "voyager-sanctuary.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:826880639726:android:095964bfe47ee3945aa9ff",
+        "android_client_info": {
+          "package_name": "com.voyagersanctuary.voyager_sanctuary"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDshv_QlRzYPSgqoFAsbb2pUQ83nn16Cok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
