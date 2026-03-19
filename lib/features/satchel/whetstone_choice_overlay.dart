@@ -93,7 +93,7 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
     const double buttonHeight = 44;
     const double bubbleVerticalPadding = 20;
     const double totalBubbleHeight = 80 + bubbleVerticalPadding * 2 + buttonHeight + 12 + 36;
-    const double totalContentHeight = eliasHeight + 8 + totalBubbleHeight;
+    const double totalContentHeight = eliasHeight + bubbleSpacing + totalBubbleHeight;
 
     double left = widget.anchorOffset.dx + (widget.tileSize.width / 2) - (contentWidth / 2);
     left = left.clamp(16.0, screenSize.width - contentWidth - 16);

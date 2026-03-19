@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/content/elias_dialogue.dart';
 import '../../core/enums/node_type.dart';
 import '../../data/models/mountain.dart';
 import '../../data/models/node.dart';
@@ -30,6 +31,7 @@ class MountainDetailScreen extends ConsumerStatefulWidget {
 
 class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
   bool _malletActive = false;
+  bool _hasShownPeakArrival = false;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +105,28 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
       ..sort((a, b) => a.path.compareTo(b.path));
     final progress = progressAsync.valueOrNull ?? 0.0;
 
+    if (!_hasShownPeakArrival) {
+      _hasShownPeakArrival = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                EliasDialogue.peakJournalArrival(),
+                style: const TextStyle(
+                  fontFamily: 'Georgia',
+                  color: AppColors.parchment,
+                ),
+              ),
+              backgroundColor: AppColors.charcoal,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: AppColors.parchment,
       appBar: AppBar(
@@ -141,7 +165,12 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          100 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

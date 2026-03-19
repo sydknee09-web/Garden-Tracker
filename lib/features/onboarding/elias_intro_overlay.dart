@@ -352,19 +352,6 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
     }
 
     final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
-    final isHearthBeat = _step == _lastStep;
-    final gradientColors = isHearthBeat
-        ? [
-            const Color(0xFF0D2818),
-            const Color(0xFF1B4332),
-            const Color(0xFF2D6A4F),
-            AppColors.ember.withValues(alpha: 0.15),
-          ]
-        : [
-            const Color(0xFF0D2818),
-            const Color(0xFF1B4332),
-            const Color(0xFF2D6A4F),
-          ];
 
     return PopScope(
       canPop: false,

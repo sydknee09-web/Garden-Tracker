@@ -21,7 +21,9 @@ class EliasDialogue {
     'Progress is quiet work.',
     'The peak remembers.',
     'Well done. Rest, then return.',
-    'A task completed is a debt paid to yourself.',
+    'A stone burned is a debt paid to yourself.',
+    'One less weight. The path remembers.',
+    'Ash to earth. The fire is fed.',
   ];
 
   static const List<String> _afterPack = [
@@ -30,7 +32,7 @@ class EliasDialogue {
     'Carry only what matters.',
     'A full bag and a clear head.',
     'Begin.',
-    'These tasks are yours. See them through.',
+    'These stones are yours. See them through.',
   ];
 
   static const List<String> _emptySatchel = [
@@ -38,6 +40,7 @@ class EliasDialogue {
     'The bag is empty. Pack your stones.',
     'An empty satchel is a question. Answer it.',
     'No stones chosen. Visit the Map.',
+    'An empty bag is a quiet path. Visit the map to find a stone worth carrying.',
   ];
 
   static const List<String> _mountainSummit = [
@@ -60,13 +63,14 @@ class EliasDialogue {
   ];
 
   static const List<String> _atMountainCap = [
-    "You've got three peaks. Finish one before you start another.",
+    'Three peaks at once. Chronicle one to open a new path.',
     'Three peaks at once is the cap. Chronicle one to open a new path.',
   ];
 
   static const List<String> _returnAfterIdle = [
     "The fire's still here. Whenever you're ready.",
     'You returned. That is enough for now.',
+    'The stone stays blunt until the hand moves.',
   ];
 
   static const List<String> _streakFrozen = [
@@ -82,8 +86,8 @@ class EliasDialogue {
   /// When user tries to drop a not-done stone into the hearth.
   static const List<String> _markDoneToDrop = [
     'Mark the stone as done in your Satchel before dropping it into the fire.',
-    'Complete the task in your Satchel first. Then the stone is ready to burn.',
-    'Open your Satchel and mark that task done. Then you may drop it here.',
+    'Mark the stone done in your Satchel first. Then it is ready to burn.',
+    'Open your Satchel and mark the stone done. Then you may drop it here.',
   ];
 
   static const List<String> _firstBurn = [
@@ -134,11 +138,19 @@ class EliasDialogue {
   static const String stowTheMapClosing =
       'The path is set. Let\'s find our footing and begin the climb.';
 
+  /// Save failed (404, timeout, or generic persist error). Show in Elias bubble or toast for in-world recovery.
+  static const String _saveFailed =
+      'The mountain mist is thick right now—let\'s try that choice again.';
+
+  /// Peak Journal / Mountain Detail arrival (when Hero Zoom completes). Elias appears from the side.
+  static const String _peakJournalArrival =
+      'Welcome to the base of this peak. Let us look at the path you\'ve carved.';
+
   // ── Sanctuary home intro (first landing: Satchel → Path Ahead → Firepit) ──
   static const String sanctuaryHomeIntroSatchel =
       'Your satchel is heavy with intent. Carry only what you mean to finish.';
   static const String sanctuaryHomeIntroPathAhead =
-      'These slots hold the stones for your current climb. Keep them close to your heart—and the fire.';
+      'These slots hold the stones for your climb. Keep them close to your heart—and the fire.';
   static const String sanctuaryHomeIntroFirepit =
       'The hearth transforms effort into peace. Feed the fire when a stone has served its purpose.';
 
@@ -156,6 +168,8 @@ class EliasDialogue {
 
   static const List<String> _coldHearth = [
     'The embers are whispering for more wood.',
+    'No stone on the fire yet. When you are ready.',
+    'The hearth is patient. Bring a stone when it serves you.',
   ];
 
   static const List<String> _onTap = [
@@ -165,6 +179,9 @@ class EliasDialogue {
     'Each stone burned is ground covered.',
     'Patience and progress are the same thing.',
     'You returned. That is enough for now.',
+    'The path waits. So do I.',
+    'Every return is a kind of burn.',
+    'You are here. That is the step that matters.',
   ];
 
   /// Friend-like lines when user pans/drags on Sanctuary.
@@ -202,7 +219,7 @@ class EliasDialogue {
   ];
 
   static const List<String> _climbLogicPrompt = [
-    "How does this journey unfold? The Climb is step-by-step. The Survey is a collection of areas.",
+    "How does this journey unfold? Climb: step-by-step. Survey: areas to explore.",
     "Choose the path: sequential steps or distinct regions?",
     "The Climb: one milestone after another. The Survey: areas to explore.",
     "Step-by-step or by region? Choose.",
@@ -210,7 +227,7 @@ class EliasDialogue {
 
   static const List<String> _climbPeakPrompt = [
     'Which peak has caught your eye today, traveler?',
-    "Mighty fine one you've got your eyes set on. What do they call this peak?",
+    'A fine peak. What do they call it?',
     'Every journey starts with a name. What shall we call this peak?',
     'A peak without a name is a path without a start. Name it.',
     'Speak the peak into being. What do you see at the top?',
@@ -283,26 +300,31 @@ class EliasDialogue {
   ];
 
   // ── Edit (Refine) flow ──────────────────────────────────────
+  // Preferred ritual lines at start of each pool (Option B from ELIAS_DIALOGUE_AUDIT_RECOMMENDATIONS).
 
   static const List<String> _openEdit = [
+    'Let us look closer at this weight. Where shall we strike?',
     'What would you change?',
     'Refine the path.',
     'Speak the change.',
   ];
 
   static const List<String> _afterRename = [
+    'A new name, a new path. It feels lighter already.',
     'Done. The path remembers.',
     'Renamed. As you will it.',
     'It is so.',
   ];
 
   static const List<String> _afterAddPebble = [
+    'A fine fragment. That is one less burden for the spirit.',
     'Another stone on the path.',
     'Added. Break it down when you are ready.',
     'One more pebble.',
   ];
 
   static const List<String> _afterDelete = [
+    'Let the dust return to the earth. We only carry what is useful.',
     'Cleared. The path adjusts.',
     'It is gone. Move forward.',
     'Removed. The peak remains.',
@@ -319,7 +341,7 @@ class EliasDialogue {
 
   static const List<String> _managementGreetingsWithName = [
     'What would you like to do, %s?',
-    'How can I help you today, %s?',
+    'What needs tending, %s?',
     'Where shall we go from here, %s?',
     'What calls to you, %s?',
   ];
@@ -427,8 +449,14 @@ class EliasDialogue {
   /// Context-aware: at mountain cap (3 active) when user tries to climb.
   static String atMountainCap() => _pick(_atMountainCap);
 
-  /// Context-aware: return after long idle (no burn in 3+ days).
+  /// Context-aware: return after long idle (no burn in 3+ days). Whetstone overlay: 30s idle.
   static String returnAfterIdle() => _pick(_returnAfterIdle);
+
+  /// Save failed (404, timeout, generic persist). Wire from save-error handling.
+  static String saveFailed() => _saveFailed;
+
+  /// Peak Journal / Mountain Detail arrival when Hero Zoom completes.
+  static String peakJournalArrival() => _peakJournalArrival;
 
   /// Spoken when a user returns during a "Grace Day" (first miss).
   static String streakFrozen() => _pick(_streakFrozen);

@@ -291,7 +291,7 @@ class _SanctuarySpotlightPainter extends CustomPainter {
     canvas.drawPath(mainScrimPath, scrimPaint);
 
     final Paint ringPaint = Paint()
-      ..color = glowColor.withOpacity(pulseValue)
+      ..color = glowColor.withValues(alpha: pulseValue)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 3.0);

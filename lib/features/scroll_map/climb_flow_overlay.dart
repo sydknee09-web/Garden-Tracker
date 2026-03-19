@@ -484,22 +484,18 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
       debugPrint('Theme step save failed: $e');
       debugPrint(stackTrace.toString());
       if (mounted) {
-        // Show error hint in all builds so user can report it without running debug
-        final errStr = e.toString().split('\n').first;
-        final hint = errStr.length > 100 ? '${errStr.substring(0, 100)}…' : errStr;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Couldn't save. Try again.\n$hint",
+              EliasDialogue.saveFailed(),
               style: const TextStyle(
                 fontFamily: 'Georgia',
                 color: AppColors.parchment,
-                fontSize: 12,
               ),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 6),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -525,9 +521,9 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              "Couldn't save. Try again.",
-              style: TextStyle(
+            content: Text(
+              EliasDialogue.saveFailed(),
+              style: const TextStyle(
                 fontFamily: 'Georgia',
                 color: AppColors.parchment,
               ),
@@ -604,9 +600,9 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              "Couldn't save. Try again.",
-              style: TextStyle(
+            content: Text(
+              EliasDialogue.saveFailed(),
+              style: const TextStyle(
                 fontFamily: 'Georgia',
                 color: AppColors.parchment,
               ),
@@ -679,7 +675,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Couldn't save. Try again.",
+              EliasDialogue.saveFailed(),
               style: const TextStyle(
                 fontFamily: 'Georgia',
                 color: AppColors.parchment,

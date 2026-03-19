@@ -61,6 +61,7 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
   String? _eliasLine;
   bool _addChildNamingActive = false;
   _AddChildMode? _addChildMode;
+  bool _showActions = false;
   late final TextEditingController _addChildController;
   late final FocusNode _addChildFocusNode;
 
@@ -70,6 +71,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
     _eliasLine = EliasDialogue.openEdit();
     _addChildController = TextEditingController();
     _addChildFocusNode = FocusNode();
+    Future<void>.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _showActions = true);
+    });
   }
 
   @override
@@ -128,10 +132,10 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              "Couldn't save. Try again.",
-              style: TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              EliasDialogue.saveFailed(),
+              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
@@ -189,12 +193,15 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
                   24,
                   56,
                   24,
-                  24 + MediaQuery.viewInsetsOf(context).bottom,
+                  24 + MediaQuery.viewInsetsOf(context).bottom + MediaQuery.paddingOf(context).bottom,
                 ),
                 child: Center(
-                  child: SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 400,
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+                    ),
+                    child: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,6 +244,7 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
                                       key: const ValueKey('edit'),
                                       eliasLine: _eliasLine ?? EliasDialogue.openEdit(),
                                       target: widget.target,
+                                      showActions: _showActions,
                                       onRenameDone: (msg) {
                                         if (msg != null) {
                                           setState(() => _eliasLine = msg);
@@ -286,6 +294,7 @@ class _EditDefaultCard extends StatelessWidget {
     super.key,
     required this.eliasLine,
     required this.target,
+    required this.showActions,
     required this.onRenameDone,
     required this.onAddPebbleTap,
     required this.onRefineShardsTap,
@@ -295,6 +304,7 @@ class _EditDefaultCard extends StatelessWidget {
 
   final String eliasLine;
   final EditTarget target;
+  final bool showActions;
   final void Function(String? msg) onRenameDone;
   final VoidCallback onAddPebbleTap;
   final VoidCallback onRefineShardsTap;
@@ -326,52 +336,54 @@ class _EditDefaultCard extends StatelessWidget {
           style: const TextStyle(
             fontFamily: 'Georgia',
             fontSize: 14,
-            color: AppColors.darkWalnut,
+            color: AppColors.whetInk,
             fontStyle: FontStyle.italic,
           ),
         ),
-        const SizedBox(height: 24),
-        _RenameButton(
-          target: target,
-          onDone: onRenameDone,
-          ref: ref,
-        ),
-        if (isBoulder) ...[
+        if (showActions) ...[
+          const SizedBox(height: 24),
+          _RenameButton(
+            target: target,
+            onDone: onRenameDone,
+            ref: ref,
+          ),
+          if (isBoulder) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onAddPebbleTap,
+              icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.whetInk),
+              label: const Text(
+                'Shatter into Pebbles',
+                style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
+              ),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                side: const BorderSide(color: AppColors.whetLine),
+              ),
+            ),
+          ],
+          if (isPebble) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRefineShardsTap,
+              icon: const Icon(Icons.diamond_outlined, size: 18, color: AppColors.whetInk),
+              label: const Text(
+                'Refine into Shards',
+                style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
+              ),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                side: const BorderSide(color: AppColors.whetLine),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onAddPebbleTap,
-            icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.whetInk),
-            label: const Text(
-              'Shatter into Pebbles',
-              style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
-            ),
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              side: const BorderSide(color: AppColors.whetLine),
-            ),
+          _DeleteButton(
+            target: target,
+            onClose: onClose,
+            ref: ref,
           ),
         ],
-        if (isPebble) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRefineShardsTap,
-            icon: const Icon(Icons.diamond_outlined, size: 18, color: AppColors.whetInk),
-            label: const Text(
-              'Refine into Shards',
-              style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
-            ),
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              side: const BorderSide(color: AppColors.whetLine),
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        _DeleteButton(
-          target: target,
-          onClose: onClose,
-          ref: ref,
-        ),
       ],
     );
   }
@@ -410,7 +422,7 @@ class _EditAddChildCard extends StatelessWidget {
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 12,
-            color: AppColors.darkWalnut.withValues(alpha: 0.9),
+            color: AppColors.whetInk.withValues(alpha: 0.9),
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -430,7 +442,7 @@ class _EditAddChildCard extends StatelessWidget {
           style: const TextStyle(
             fontFamily: 'Georgia',
             fontSize: 14,
-            color: AppColors.darkWalnut,
+            color: AppColors.whetInk,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -446,7 +458,7 @@ class _EditAddChildCard extends StatelessWidget {
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.darkWalnut),
+            hintStyle: const TextStyle(color: AppColors.whetInk),
             enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: AppColors.whetLine),
             ),
@@ -467,7 +479,7 @@ class _EditAddChildCard extends StatelessWidget {
                 'Cancel',
                 style: TextStyle(
                   fontFamily: 'Georgia',
-                  color: AppColors.darkWalnut,
+                  color: AppColors.whetInk,
                 ),
               ),
             ),
@@ -542,7 +554,7 @@ class _RenameButton extends StatelessWidget {
           style: const TextStyle(color: AppColors.parchment, fontFamily: 'Georgia'),
           decoration: const InputDecoration(
             hintText: 'New name',
-            hintStyle: TextStyle(color: AppColors.darkWalnut),
+            hintStyle: TextStyle(color: AppColors.whetInk),
           ),
         ),
         actions: [
@@ -592,10 +604,10 @@ class _RenameButton extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              "Couldn't save. Try again.",
-              style: TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              EliasDialogue.saveFailed(),
+              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
@@ -715,10 +727,10 @@ class _DeleteButton extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              "Couldn't complete. Try again.",
-              style: TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              EliasDialogue.saveFailed(),
+              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,

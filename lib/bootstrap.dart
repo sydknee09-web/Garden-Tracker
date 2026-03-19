@@ -9,7 +9,6 @@ import 'core/config/supabase_config.dart';
 import 'core/utils/retry.dart';
 import 'data/demo/demo_storage.dart';
 import 'features/onboarding/forest_threshold.dart';
-import 'providers/demo_mode_provider.dart';
 import 'app.dart';
 
 /// True if Supabase initialized successfully. False if init timed out or threw.
