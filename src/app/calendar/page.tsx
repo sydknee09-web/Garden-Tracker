@@ -482,6 +482,7 @@ export default function CalendarPage() {
     }
     hapticSuccess();
     showToast("Task completed");
+    if (taskDetailTask?.id === t.id) setTaskDetailTask(null);
 
     const ok = await completeTask(t, (t as Task & { user_id?: string | null }).user_id ?? user.id);
     if (!ok) {
@@ -499,7 +500,8 @@ export default function CalendarPage() {
       showToast("Could not complete task");
       return;
     }
-    setRefetch((r) => r + 1);
+    // Defer refetch so optimistic UI paints first
+    setTimeout(() => setRefetch((r) => r + 1), 0);
 
     if (isHarvest) {
       setHarvestCelebration(plantLabel);
@@ -513,6 +515,24 @@ export default function CalendarPage() {
     if (!user || t.completed_at) return;
     const taskOwner = t.user_id ?? user.id;
     const oldDate = t.due_date;
+    const wasOverdue = oldDate < todayStr;
+    const snoozedTask = { ...t, due_date: newDueDate };
+
+    if (taskDetailTask?.id === t.id) setTaskDetailTask(null);
+    // Optimistic update: move task from overdue/current to new date
+    if (wasOverdue) {
+      setOverdueTasks((prev) => prev.filter((x) => x.id !== t.id));
+    }
+    setTasks((prev) => {
+      const without = prev.filter((x) => x.id !== t.id);
+      return [...without, snoozedTask].sort((a, b) => a.due_date.localeCompare(b.due_date));
+    });
+    setCachedTasks(
+      user.id,
+      householdViewMode ?? "personal",
+      [...tasks.filter((x) => x.id !== t.id), snoozedTask].sort((a, b) => a.due_date.localeCompare(b.due_date))
+    );
+
     const deltaDays = Math.round((new Date(newDueDate).getTime() - new Date(oldDate).getTime()) / (24 * 60 * 60 * 1000));
     await supabase.from("tasks").update({ due_date: newDueDate }).eq("id", t.id).eq("user_id", taskOwner);
     if (t.category === "transplant" && t.grow_instance_id && deltaDays !== 0) {
@@ -530,7 +550,7 @@ export default function CalendarPage() {
         await supabase.from("grow_instances").update({ expected_harvest_date: newHarvestDate }).eq("id", t.grow_instance_id).eq("user_id", taskOwner);
       }
     }
-    setRefetch((r) => r + 1);
+    setTimeout(() => setRefetch((r) => r + 1), 0);
   }
 
   const prevMonth = () => {
@@ -620,68 +640,104 @@ export default function CalendarPage() {
 
   const handleBatchReschedule = useCallback(async (newDate: string) => {
     if (!user) return;
-    setBatchSaving(true);
     const ids = Array.from(selectedIds);
-    await Promise.all(ids.map((id) => {
-      const task = tasks.find((t) => t.id === id);
-      const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
-      return supabase.from("tasks").update({ due_date: newDate }).eq("id", id).eq("user_id", ownerId);
-    }));
+    const allTasks = [...tasks, ...overdueTasks];
+    const toReschedule = ids.map((id) => allTasks.find((t) => t.id === id)).filter(Boolean) as (Task & { user_id?: string | null })[];
+
+    // Optimistic update: move tasks to new date immediately
+    const updatedTasks = toReschedule.map((t) => ({ ...t, due_date: newDate }));
+    setOverdueTasks((prev) => prev.filter((t) => !ids.includes(t.id)));
+    setTasks((prev) => {
+      const without = prev.filter((t) => !ids.includes(t.id));
+      return [...without, ...updatedTasks].sort((a, b) => a.due_date.localeCompare(b.due_date));
+    });
+    setCachedTasks(
+      user.id,
+      householdViewMode ?? "personal",
+      [...tasks.filter((t) => !ids.includes(t.id)), ...updatedTasks].sort((a, b) => a.due_date.localeCompare(b.due_date))
+    );
     setBatchSaving(false);
-    hapticSuccess();
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
-    setRefetch((r) => r + 1);
-  }, [user, selectedIds, tasks]);
+    hapticSuccess();
+
+    await Promise.all(ids.map((id) => {
+      const task = allTasks.find((t) => t.id === id);
+      const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+      return supabase.from("tasks").update({ due_date: newDate }).eq("id", id).eq("user_id", ownerId);
+    }));
+    setTimeout(() => setRefetch((r) => r + 1), 0);
+  }, [user, selectedIds, tasks, overdueTasks, householdViewMode]);
 
   const handleBatchDelete = useCallback(async () => {
     if (!user) return;
-    setBatchSaving(true);
-    const now = new Date().toISOString();
     const ids = Array.from(selectedIds);
-    const selectedTasks = ids.map((id) => tasks.find((t) => t.id === id)).filter(Boolean) as (Task & { user_id?: string | null; care_schedule_id?: string | null })[];
+    const allTasks = [...tasks, ...overdueTasks];
+    const selectedTasks = ids.map((id) => allTasks.find((t) => t.id === id)).filter(Boolean) as (Task & { user_id?: string | null; care_schedule_id?: string | null })[];
     const careScheduleIds = deleteScope === "all_future"
       ? [...new Set(selectedTasks.map((t) => t.care_schedule_id).filter(Boolean))] as string[]
       : [];
 
+    // Determine which task IDs we're deleting (selected only, or all for schedule)
+    const idsToDelete = new Set<string>(ids);
     if (careScheduleIds.length > 0) {
-      for (const scheduleId of careScheduleIds) {
-        const taskWithSchedule = selectedTasks.find((t) => t.care_schedule_id === scheduleId);
-        const ownerId = taskWithSchedule?.user_id ?? user.id;
-        await supabase
-          .from("care_schedules")
-          .update({ is_active: false, deleted_at: now })
-          .eq("id", scheduleId)
-          .eq("user_id", ownerId);
-        await supabase
-          .from("tasks")
-          .update({ deleted_at: now })
-          .eq("care_schedule_id", scheduleId)
-          .eq("user_id", ownerId);
+      for (const t of allTasks) {
+        const sid = (t as { care_schedule_id?: string | null }).care_schedule_id;
+        if (sid && careScheduleIds.includes(sid)) idsToDelete.add(t.id);
       }
-      const idsFromSchedules = new Set(selectedTasks.filter((t) => t.care_schedule_id && careScheduleIds.includes(t.care_schedule_id)).map((t) => t.id));
-      const remainingIds = ids.filter((id) => !idsFromSchedules.has(id));
-      await Promise.all(remainingIds.map((id) => {
-        const task = tasks.find((t) => t.id === id);
-        const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
-        return supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
-      }));
-    } else {
-      await Promise.all(ids.map((id) => {
-        const task = tasks.find((t) => t.id === id);
-        const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
-        return supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
-      }));
     }
+
+    // Optimistic update: remove from UI immediately
+    if (taskDetailTask && idsToDelete.has(taskDetailTask.id)) setTaskDetailTask(null);
+    setTasks((prev) => prev.filter((t) => !idsToDelete.has(t.id)));
+    setOverdueTasks((prev) => prev.filter((t) => !idsToDelete.has(t.id)));
+    setCachedTasks(user.id, householdViewMode ?? "personal", tasks.filter((t) => !idsToDelete.has(t.id)));
     setBatchSaving(false);
-    hapticSuccess();
     setSelectMode(false);
     setSelectedIds(new Set());
     setBatchActionOpen(null);
     setDeleteScope("selected");
-    setRefetch((r) => r + 1);
-  }, [user, selectedIds, tasks, deleteScope]);
+    hapticSuccess();
+
+    const now = new Date().toISOString();
+    try {
+      if (careScheduleIds.length > 0) {
+        for (const scheduleId of careScheduleIds) {
+          const taskWithSchedule = selectedTasks.find((t) => t.care_schedule_id === scheduleId);
+          const ownerId = taskWithSchedule?.user_id ?? user.id;
+          await supabase
+            .from("care_schedules")
+            .update({ is_active: false, deleted_at: now })
+            .eq("id", scheduleId)
+            .eq("user_id", ownerId);
+          await supabase
+            .from("tasks")
+            .update({ deleted_at: now })
+            .eq("care_schedule_id", scheduleId)
+            .eq("user_id", ownerId);
+        }
+        const idsFromSchedules = new Set(selectedTasks.filter((t) => t.care_schedule_id && careScheduleIds.includes(t.care_schedule_id)).map((t) => t.id));
+        const remainingIds = ids.filter((id) => !idsFromSchedules.has(id));
+        for (const id of remainingIds) {
+          const task = allTasks.find((t) => t.id === id);
+          const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+          await supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
+        }
+      } else {
+        for (const id of ids) {
+          const task = allTasks.find((t) => t.id === id);
+          const ownerId = (task as { user_id?: string | null })?.user_id ?? user.id;
+          await supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
+        }
+      }
+      setRefetch((r) => r + 1);
+    } catch (err) {
+      console.error("Batch delete failed:", err);
+      showToast("Could not delete tasks");
+      setRefetch((r) => r + 1); // Revert by refetching
+    }
+  }, [user, selectedIds, tasks, overdueTasks, deleteScope, householdViewMode, taskDetailTask]);
 
   const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
   const firstDayOfWeek = new Date(month.year, month.month, 1).getDay();

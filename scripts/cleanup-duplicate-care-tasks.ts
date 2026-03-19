@@ -1,10 +1,10 @@
 /**
  * One-time cleanup: remove duplicate care tasks.
  *
- * When a care schedule has an overdue pending task (due_date < today, not completed),
- * this script soft-deletes any future pending tasks for that same schedule.
- * Those future tasks were created by the old generateCareTasks logic before we fixed
- * the "don't create new tasks when overdue exists" behavior.
+ * 1. OVERDUE duplicates: For each care schedule, keep only the EARLIEST overdue task
+ *    (due_date closest to past). Soft-delete the rest.
+ * 2. FUTURE duplicates: When a schedule has an overdue pending task, soft-delete
+ *    any future pending tasks for that same schedule.
  *
  * Prerequisites: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY in .env.local
  *
@@ -64,9 +64,9 @@ async function main(): Promise<void> {
   const today = localDateString();
   console.log("\n🧹 Cleanup duplicate care tasks (one-time)\n");
   console.log("Today:", today);
-  console.log("Logic: For schedules with an overdue pending task, soft-delete future pending tasks.\n");
+  console.log("Logic: (1) Keep only earliest overdue per schedule; (2) Remove future when overdue exists.\n");
 
-  // 1. Find care_schedule_ids that have at least one overdue pending task
+  // 1. Fetch all overdue pending tasks
   const { data: overdueTasks, error: overdueErr } = await admin
     .from("tasks")
     .select("id, care_schedule_id, due_date, title, user_id")
@@ -80,13 +80,27 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const scheduleIdsWithOverdue = [...new Set((overdueTasks ?? []).map((t) => (t as TaskRow).care_schedule_id!).filter(Boolean))] as string[];
-  if (scheduleIdsWithOverdue.length === 0) {
-    console.log("No schedules with overdue pending tasks. Nothing to clean up.");
+  const overdueRows = (overdueTasks ?? []) as TaskRow[];
+  if (overdueRows.length === 0) {
+    console.log("No overdue pending tasks. Nothing to clean up.");
     return;
   }
 
-  // 2. Find future pending tasks for those schedules
+  // 2. Overdue duplicates: per schedule, keep earliest (due_date asc), delete the rest
+  const overdueBySchedule = new Map<string, TaskRow[]>();
+  for (const t of overdueRows) {
+    const sid = t.care_schedule_id!;
+    if (!overdueBySchedule.has(sid)) overdueBySchedule.set(sid, []);
+    overdueBySchedule.get(sid)!.push(t);
+  }
+  const overdueToDelete: TaskRow[] = [];
+  for (const [, arr] of overdueBySchedule) {
+    arr.sort((a, b) => a.due_date.localeCompare(b.due_date));
+    overdueToDelete.push(...arr.slice(1)); // keep first (earliest), delete rest
+  }
+
+  // 3. Future duplicates: for schedules with overdue, delete all future pending tasks
+  const scheduleIdsWithOverdue = [...overdueBySchedule.keys()];
   const { data: futureTasks, error: futureErr } = await admin
     .from("tasks")
     .select("id, care_schedule_id, due_date, title, user_id")
@@ -100,19 +114,28 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const toDelete = (futureTasks ?? []) as TaskRow[];
-  if (toDelete.length === 0) {
-    console.log("No duplicate future tasks found. Nothing to clean up.");
+  const futureToDelete = (futureTasks ?? []) as TaskRow[];
+  const allToDelete = [...overdueToDelete, ...futureToDelete];
+
+  if (allToDelete.length === 0) {
+    console.log("No duplicate tasks found. Nothing to clean up.");
     return;
   }
 
   console.log(`Found ${scheduleIdsWithOverdue.length} schedule(s) with overdue pending tasks.`);
-  console.log(`Found ${toDelete.length} future pending task(s) to remove (duplicates):\n`);
-  toDelete.slice(0, 15).forEach((t) => {
-    console.log(`  - ${t.due_date} | ${t.title ?? "—"} | schedule ${t.care_schedule_id}`);
+  if (overdueToDelete.length > 0) {
+    console.log(`Overdue duplicates to remove (keep earliest per schedule): ${overdueToDelete.length}`);
+  }
+  if (futureToDelete.length > 0) {
+    console.log(`Future duplicates to remove: ${futureToDelete.length}`);
+  }
+  console.log(`Total to remove: ${allToDelete.length}\n`);
+  allToDelete.slice(0, 20).forEach((t) => {
+    const kind = t.due_date < today ? "overdue" : "future";
+    console.log(`  - ${t.due_date} | ${t.title ?? "—"} | ${kind} | schedule ${t.care_schedule_id}`);
   });
-  if (toDelete.length > 15) {
-    console.log(`  ... and ${toDelete.length - 15} more.`);
+  if (allToDelete.length > 20) {
+    console.log(`  ... and ${allToDelete.length - 20} more.`);
   }
 
   if (!confirm) {
@@ -123,7 +146,7 @@ async function main(): Promise<void> {
   }
 
   const now = new Date().toISOString();
-  const ids = toDelete.map((t) => t.id);
+  const ids = allToDelete.map((t) => t.id);
   const BATCH = 100;
   let deleted = 0;
   for (let i = 0; i < ids.length; i += BATCH) {
