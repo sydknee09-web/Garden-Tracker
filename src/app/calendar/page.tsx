@@ -141,6 +141,8 @@ export default function CalendarPage() {
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
+  /** When true, next fetch skips generateCareTasks (e.g. after delete — otherwise it recreates deleted tasks) */
+  const skipGenerateCareTasksRef = useRef(false);
   const [harvestCelebration, setHarvestCelebration] = useState<string | null>(null);
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
@@ -277,8 +279,12 @@ export default function CalendarPage() {
     let cancelled = false;
 
     async function fetchTasks() {
-      // Generate any newly-due care tasks before fetching
-      await generateCareTasks(userId);
+      // Generate any newly-due care tasks before fetching (skip after delete — would recreate deleted tasks)
+      if (!skipGenerateCareTasksRef.current) {
+        await generateCareTasks(userId);
+      } else {
+        skipGenerateCareTasksRef.current = false;
+      }
 
       if (cancelled) return;
 
@@ -731,6 +737,7 @@ export default function CalendarPage() {
           await supabase.from("tasks").update({ deleted_at: now }).eq("id", id).eq("user_id", ownerId);
         }
       }
+      skipGenerateCareTasksRef.current = true; // Prevent generateCareTasks from recreating deleted tasks
       setRefetch((r) => r + 1);
     } catch (err) {
       console.error("Batch delete failed:", err);
