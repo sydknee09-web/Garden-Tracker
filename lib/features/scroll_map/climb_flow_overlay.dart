@@ -25,12 +25,18 @@ class ClimbFlowOverlay extends ConsumerStatefulWidget {
     super.key,
     required this.onClose,
     this.onComplete,
+    this.onAscension,
     this.returnLabel = 'Stow the Map',
+    this.showCompassClose = true,
   });
 
   final VoidCallback onClose;
+  /// When false, the top-right compass close button is hidden (e.g. when opened from management "Plot New Path" so only one "Stow the Map" shows).
+  final bool showCompassClose;
   /// Called only when the wizard is closed from step 5 (success). Intro uses this to show "mountain carved" dialog; other callers leave it null.
   final VoidCallback? onComplete;
+  /// When set (e.g. intro flow), called when user taps "Stow the Map" on step 5 instead of going straight to sanctuary. Use to show [EliasDialogue.stowTheMapClosing] then continue.
+  final VoidCallback? onAscension;
   /// Shown on exit-to-Map control (Center/Right). Use 'Stow the Map' when opened from Elias (dialog).
   final String returnLabel;
 
@@ -168,19 +174,20 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
         body: SafeArea(
           child: Stack(
             children: [
-              // Compass — top-right
-              Positioned(
-                top: 8,
-                right: 16,
-                child: IconButton(
-                  icon: const Icon(Icons.explore, color: AppColors.parchment),
-                  tooltip: widget.returnLabel,
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    widget.onClose();
-                  },
+              // Compass — top-right (hidden when showCompassClose is false to avoid duplicate "Stow the Map")
+              if (widget.showCompassClose)
+                Positioned(
+                  top: 8,
+                  right: 16,
+                  child: IconButton(
+                    icon: const Icon(Icons.explore, color: AppColors.parchment),
+                    tooltip: widget.returnLabel,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      widget.onClose();
+                    },
+                  ),
                 ),
-              ),
               // Mallet strike overlay (when pebble created)
               if (_showMalletStrike)
                 const Center(
@@ -355,7 +362,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
             widget.onClose();
           },
           returnLabel: widget.returnLabel,
-          onAscension: () => context.go('/sanctuary?focusOnHearth=true'),
+          onAscension: widget.onAscension ?? () => context.go('/sanctuary?focusOnHearth=true'),
           onBack: () {
             HapticFeedback.lightImpact();
             ref.read(climbFlowProvider.notifier).setStep(4);
@@ -722,19 +729,19 @@ class _WizardNavRow extends StatelessWidget {
     final onPrimary = useReturnMode ? onPrimaryPressed! : onContinue;
     final enabled = useReturnMode ? primaryEnabled! : continueEnabled;
 
-    return Row(
+    final row = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         if (onBack != null) ...[
           TextButton.icon(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.darkWalnut),
+            icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.whetInk),
             label: Text(
               _backLabel,
               style: const TextStyle(
                 fontFamily: 'Georgia',
-                color: AppColors.darkWalnut,
+                color: AppColors.whetInk,
               ),
             ),
           ),
@@ -754,7 +761,7 @@ class _WizardNavRow extends StatelessWidget {
                   overflow: TextOverflow.visible,
                   style: const TextStyle(
                     fontFamily: 'Georgia',
-                    color: AppColors.darkWalnut,
+                    color: AppColors.whetInk,
                   ),
                 ),
               ),
@@ -774,6 +781,20 @@ class _WizardNavRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+
+    // Cream/scroll style container so nav row matches campsite intro aesthetic
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.whetPaper.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.slotBorder.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: row,
     );
   }
 }
@@ -2222,7 +2243,7 @@ class _LandmarkChipsCard extends StatelessWidget {
         if (!allDone) const SizedBox(height: 24),
         if (showAscension) ...[
           Semantics(
-            label: 'Stow the Map',
+            label: 'Pack this Journey',
             button: true,
             child: FilledButton(
               onPressed: onAscension,
@@ -2242,7 +2263,7 @@ class _LandmarkChipsCard extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: const Text(
-                          'Stow the Map',
+                          'Pack this Journey',
                           softWrap: false,
                           overflow: TextOverflow.visible,
                           style: TextStyle(fontFamily: 'Georgia'),
@@ -2304,13 +2325,7 @@ class _LandmarkChipsCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (allDone)
-              Expanded(
-                child: _PackJourneyButton(
-                  onPressed: onClose,
-                ),
-              )
-            else
+            if (!allDone)
               Expanded(
                 child: Semantics(
                   label: idx >= boulderCount - 1

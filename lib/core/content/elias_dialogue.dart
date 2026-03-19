@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../enums/day_period.dart';
+
 // ─────────────────────────────────────────────────────────────
 // ELIAS DIALOGUE
 // All speech copy organised by context.
@@ -77,6 +79,13 @@ class EliasDialogue {
     'Your satchel is packed. Drag a stone to the fire when it\'s done.',
   ];
 
+  /// When user tries to drop a not-done stone into the hearth.
+  static const List<String> _markDoneToDrop = [
+    'Mark the stone as done in your Satchel before dropping it into the fire.',
+    'Complete the task in your Satchel first. Then the stone is ready to burn.',
+    'Open your Satchel and mark that task done. Then you may drop it here.',
+  ];
+
   static const List<String> _firstBurn = [
     'One stone burned. The path opens.',
   ];
@@ -120,6 +129,18 @@ class EliasDialogue {
   /// Post–Whetstone (final line before Sanctuary).
   static const String introPostWhetstone =
       'Your edge is sharp. Go to the Campsite when you are ready.';
+
+  /// Stow the Map closing: after save success, before landing on Sanctuary. Narrative bridge.
+  static const String stowTheMapClosing =
+      'The path is set. Let\'s find our footing and begin the climb.';
+
+  // ── Sanctuary home intro (first landing: Satchel → Path Ahead → Firepit) ──
+  static const String sanctuaryHomeIntroSatchel =
+      'Your satchel is heavy with intent. Carry only what you mean to finish.';
+  static const String sanctuaryHomeIntroPathAhead =
+      'These slots hold the stones for your current climb. Keep them close to your heart—and the fire.';
+  static const String sanctuaryHomeIntroFirepit =
+      'The hearth transforms effort into peace. Feed the fire when a stone has served its purpose.';
 
   // ── First-run Quest (Guide's Whisper) ─────────────────────
 
@@ -313,6 +334,47 @@ class EliasDialogue {
     return _pick(_managementGreetings);
   }
 
+  /// Period-based greeting for Sanctuary (campsite). If [displayName] is present, uses personalized line.
+  static String sanctuaryPeriodGreeting(ScenePeriod period, String? displayName) {
+    final name = displayName?.trim();
+    final pools = _sanctuaryPeriodPools(period);
+    final i = DateTime.now().millisecondsSinceEpoch % pools.length;
+    final line = pools[i];
+    if (name != null && name.isNotEmpty && line.contains('%s')) {
+      return line.replaceAll('%s', name);
+    }
+    return line.replaceAll(', %s', '').replaceAll('%s', '').trim();
+  }
+
+  static List<String> _sanctuaryPeriodPools(ScenePeriod period) {
+    switch (period) {
+      case ScenePeriod.dawn:
+        return const [
+          'The mountain awaits, %s.',
+          'Another day on the path. Good morning, %s.',
+          'The fire held through the night. Begin, %s.',
+        ];
+      case ScenePeriod.midday:
+        return const [
+          'The climb continues, %s.',
+          'Midday. Keep your footing, %s.',
+          'How goes the ascent, %s?',
+        ];
+      case ScenePeriod.sunset:
+        return const [
+          'The light is fading. Finish strong, %s.',
+          'A good day\'s climb. Rest is earned, %s.',
+          'The summit does not move. Return tomorrow, %s.',
+        ];
+      case ScenePeriod.night:
+        return const [
+          'The Sanctuary holds. Rest well, %s.',
+          'The fire is yours. Take the quiet, %s.',
+          'Tomorrow\'s path begins in tonight\'s stillness, %s.',
+        ];
+    }
+  }
+
   // ── Whetstone choice overlay (bubble tail) ──────────────────
 
   static const String _whetstoneEntry =
@@ -376,6 +438,9 @@ class EliasDialogue {
 
   /// First-run: after first Pack with slots filled.
   static String firstPackLine() => _firstPack.first;
+
+  /// When user tries to drop a not-done stone into the hearth.
+  static String markDoneToDrop() => _pick(_markDoneToDrop);
 
   /// First-run: after first Burn.
   static String firstBurnLine() => _firstBurn.first;

@@ -33,10 +33,12 @@ class ManagementMenuSheet extends ConsumerWidget {
             24, 12, 24, MediaQuery.of(context).padding.bottom + 24,
           ),
           decoration: BoxDecoration(
-            color: AppColors.charcoal,
+            color: AppColors.whetPaper,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             border: const Border(
-              top: BorderSide(color: AppColors.slotBorder, width: 0.5),
+              top: BorderSide(color: AppColors.whetLine, width: 1),
+              left: BorderSide(color: AppColors.whetLine, width: 0.5),
+              right: BorderSide(color: AppColors.whetLine, width: 0.5),
             ),
           ),
           child: SingleChildScrollView(
@@ -49,11 +51,11 @@ class ManagementMenuSheet extends ConsumerWidget {
             height: 4,
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: AppColors.ashGrey,
+              color: AppColors.whetLine,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Chat-bubble header with Elias head
+          // Chat-bubble header with Elias head (cream scroll style)
           Padding(
             padding: const EdgeInsets.only(bottom: 20),
             child: Row(
@@ -73,20 +75,20 @@ class ManagementMenuSheet extends ConsumerWidget {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.whetPaper.withValues(alpha: 0.15),
+                      color: AppColors.parchment.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.slotBorder.withValues(alpha: 0.5),
+                        color: AppColors.whetLine,
                         width: 1,
                       ),
                     ),
                     child: Text(
                       EliasDialogue.managementGreeting(ref.watch(profileProvider).valueOrNull?.displayName),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 14,
                         fontStyle: FontStyle.italic,
-                        color: AppColors.parchment.withValues(alpha: 0.95),
+                        color: AppColors.whetInk,
                       ),
                     ),
                   ),
@@ -109,6 +111,7 @@ class ManagementMenuSheet extends ConsumerWidget {
                   child: ClimbFlowOverlay(
                     onClose: () => Navigator.of(dialogContext).pop(),
                     returnLabel: 'Stow the Map',
+                    showCompassClose: false,
                   ),
                 ),
               );
@@ -161,7 +164,7 @@ class ManagementMenuSheet extends ConsumerWidget {
                         color: AppColors.parchment,
                       ),
                     ),
-                    backgroundColor: AppColors.charcoal,
+                    backgroundColor: AppColors.whetInk,
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(seconds: 2),
                   ),
@@ -225,23 +228,29 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.parchment),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.parchment,
-                    letterSpacing: 0.5,
-                  ),
-            ),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        splashColor: AppColors.ember.withValues(alpha: 0.12),
+        highlightColor: AppColors.ember.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.whetInk),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.whetInk,
+                      letterSpacing: 0.5,
+                      fontFamily: 'Georgia',
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

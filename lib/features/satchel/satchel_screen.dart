@@ -244,14 +244,19 @@ class SatchelScreen extends ConsumerWidget {
                       ),
                     ),
                     Column(
-                      children: List.generate(6, (i) {
-                        final slot = i < satchel.slots.length
-                            ? satchel.slots[i]
-                            : null;
-                        return _SatchelSlotRow(
-                          key: ValueKey(slot?.id ?? 'empty-$i'),
-                          slotIndex: i + 1,
-                          slot: slot,
+                      children: () {
+                        // Display order: filled slots first (by slotIndex), then empty (by slotIndex), so burning row 1 compacts rows.
+                        final filled = satchel.slots.where((s) => s.isFilled).toList()
+                          ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
+                        final empty = satchel.slots.where((s) => s.isEmpty).toList()
+                          ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
+                        final displaySlots = <SatchelSlot?>[...filled, ...empty];
+                        return List.generate(6, (i) {
+                          final slot = i < displaySlots.length ? displaySlots[i] : null;
+                          return _SatchelSlotRow(
+                            key: ValueKey(slot?.id ?? 'empty-$i'),
+                            slotIndex: i + 1,
+                            slot: slot,
                           onCheckOff: slot != null && slot.isFilled
                               ? () {
                                   HapticFeedback.lightImpact(); // pebble check
@@ -267,8 +272,9 @@ class SatchelScreen extends ConsumerWidget {
                                   _showHammerEditOverlay(context, ref, slot);
                                 }
                               : null,
-                        );
-                      }),
+                          );
+                        });
+                      }(),
                     ),
                   ],
                 ),
@@ -493,7 +499,7 @@ class _SatchelSlotRow extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: isEmpty
-            ? AppColors.satchelSlotEmpty
+            ? AppColors.satchelSlotEmpty // parchment-tinted; blends with wood
             : isReady
                 ? AppColors.satchelSlotFilled.withValues(alpha: 0.95)
                 : AppColors.satchelSlotFilled,
@@ -503,7 +509,9 @@ class _SatchelSlotRow extends ConsumerWidget {
               ? AppColors.ember
               : slot?.node?.isStarred == true
                   ? AppColors.gold
-                  : AppColors.satchelSlotBorder,
+                  : isEmpty
+                      ? AppColors.satchelSlotEmptyInk.withValues(alpha: 0.7)
+                      : AppColors.satchelSlotBorder,
           width: isEmpty ? 0.5 : (isReady ? 1.5 : 1),
         ),
       ),
@@ -515,7 +523,7 @@ class _SatchelSlotRow extends ConsumerWidget {
             child: Text(
               '$slotIndex',
               style: TextStyle(
-                color: isEmpty ? AppColors.satchelSlotBorder : AppColors.ashGrey,
+                color: isEmpty ? AppColors.satchelSlotEmptyInk : AppColors.ashGrey,
                 fontSize: 11,
                 fontFamily: 'Georgia',
               ),
@@ -523,12 +531,33 @@ class _SatchelSlotRow extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
 
+          // Stone icon: always show for filled slots; muted when not ready, ember when ready (activated/rune).
+          if (!isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: Image.asset(
+                  'assets/stones/stone_medium.png',
+                  fit: BoxFit.contain,
+                  color: isReady ? null : AppColors.ashGrey.withValues(alpha: 0.85),
+                  colorBlendMode: isReady ? null : BlendMode.modulate,
+                  errorBuilder: (_, __, ___) => Icon(
+                    isReady ? Icons.local_fire_department : Icons.radio_button_unchecked,
+                    size: 24,
+                    color: isReady ? AppColors.ember : AppColors.satchelSlotBorder,
+                  ),
+                ),
+              ),
+            ),
+
           if (isEmpty)
-            const Expanded(
+            Expanded(
               child: Text(
                 '— empty —',
                 style: TextStyle(
-                  color: AppColors.satchelSlotBorder,
+                  color: AppColors.satchelSlotEmptyInk,
                   fontFamily: 'Georgia',
                   fontStyle: FontStyle.italic,
                   fontSize: 13,

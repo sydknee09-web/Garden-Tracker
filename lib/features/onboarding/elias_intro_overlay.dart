@@ -39,6 +39,7 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
   int _step = 0;
   int _visibleLength = 0;
   bool _typewriterComplete = false;
+  bool _typewriterSkipped = false; // true when user tapped to skip; stops _runTypewriter loop
   Timer? _typewriterTimer;
   /// Set from profile.displayName when present, or from name prompt (user input or default "traveler").
   String? _travelerName;
@@ -136,13 +137,14 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
   Future<void> _runTypewriter() async {
     _typewriterTimer?.cancel();
     _typewriterComplete = false;
+    _typewriterSkipped = false;
     setState(() => _visibleLength = 0);
 
     final text = _currentText;
     if (text.isEmpty) return;
 
     for (var i = 0; i <= text.length && mounted; i++) {
-      if (!mounted) return;
+      if (!mounted || _typewriterSkipped) return;
       setState(() {
         _visibleLength = i;
         if (i >= text.length) _typewriterComplete = true;
@@ -176,6 +178,7 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
     }
 
     if (!_typewriterComplete) {
+      _typewriterSkipped = true;
       setState(() {
         _visibleLength = _currentText.length;
         _typewriterComplete = true;
@@ -234,6 +237,10 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
         child: ClimbFlowOverlay(
           onClose: () => Navigator.of(dialogContext).pop(),
           onComplete: _onWizardComplete,
+          onAscension: () {
+            Navigator.of(dialogContext).pop();
+            _showStowTheMapClosingThenContinue();
+          },
           returnLabel: 'Stow the Map',
         ),
       ),
@@ -242,6 +249,22 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
 
   void _onWizardComplete() {
     _showClosingLineThenWhetstone();
+  }
+
+  /// Map Bridge: show "The path is set..." immediately after user taps "Stow the Map",
+  /// then continue to post-first-mountain and Whetstone. Gives the line screen time before transition.
+  void _showStowTheMapClosingThenContinue() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _EliasParchmentDialog(
+        message: EliasDialogue.stowTheMapClosing,
+        onContinue: () async {
+          Navigator.of(ctx).pop();
+          _showClosingLineThenWhetstone();
+        },
+      ),
+    );
   }
 
   void _showClosingLineThenWhetstone() {

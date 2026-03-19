@@ -8,7 +8,7 @@ import '../../app.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/elias_typography.dart';
 import '../../core/state/data_freshness.dart';
-import '../../core/enums/day_period.dart' show ScenePeriod, ScenePeriodExtension;
+import '../../core/enums/day_period.dart' show ScenePeriod;
 import '../../providers/time_of_day_provider.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -25,6 +25,7 @@ import '../../providers/hearth_fuel_provider.dart';
 import '../../providers/first_run_provider.dart';
 import '../../providers/sound_settings_provider.dart';
 import '../../providers/whetstone_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../data/models/mountain.dart';
 import '../../data/models/satchel_slot.dart';
 import '../../widgets/elias_silhouette.dart';
@@ -36,11 +37,15 @@ class SanctuaryScreen extends ConsumerWidget {
   const SanctuaryScreen({super.key, this.focusOnHearth = false});
   final bool focusOnHearth;
 
+  static const String _eliasGuidePose = 'assets/elias/elias_guide_pose.png';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(sanctuaryInitializationProvider);
     final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
     final satchel = ref.watch(satchelProvider);
+    final hasSeenHomeIntro = ref.watch(hasSeenSanctuaryHomeIntroProvider).valueOrNull;
+    final showHomeIntro = hasSeenHomeIntro == false;
 
     final size = MediaQuery.sizeOf(context);
     final pivotX = size.width * 0.5;
@@ -48,10 +53,12 @@ class SanctuaryScreen extends ConsumerWidget {
 
     return Scaffold(
       key: const ValueKey('screen_sanctuary'),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          _HearthFuelTimer(),
+      body: _SanctuaryOnMovementLayer(
+        overlayActive: showHomeIntro,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _HearthFuelTimer(),
           // Layer 1 (Environment): Background — ignores SafeArea for bleed
           const SanctuaryBackground(),
 
@@ -86,9 +93,11 @@ class SanctuaryScreen extends ConsumerWidget {
                       child: Semantics(
                         label: 'Elias',
                         button: true,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          child: _EliasWidget(period: period, showGreeting: false),
+                        child: _EliasTapTarget(
+                          period: period,
+                          showHomeIntro: showHomeIntro,
+                          eliasGuidePose: _eliasGuidePose,
+                          onTap: () => _openManagement(context, ref),
                         ),
                       ),
                     ),
@@ -142,6 +151,15 @@ class SanctuaryScreen extends ConsumerWidget {
                               ref.read(hearthCelebrationProvider.notifier).state = false,
                         ),
                       ),
+                    if (showHomeIntro)
+                      Positioned.fill(
+                        child: _SanctuaryHomeIntroOverlay(
+                          onComplete: () async {
+                            await markSanctuaryHomeIntroSeen();
+                            ref.invalidate(hasSeenSanctuaryHomeIntroProvider);
+                          },
+                        ),
+                      ),
                     Positioned(
                       left: 0,
                       right: 0,
@@ -164,6 +182,9 @@ class SanctuaryScreen extends ConsumerWidget {
                                 context.push(AppRoutes.satchel);
                               },
                               onEmptySlotTap: () => _openManagement(context, ref),
+                              onDragStartedWhenLocked: () {
+                                ref.read(eliasMessageProvider.notifier).state = EliasDialogue.markDoneToDrop();
+                              },
                               mountains: ref.watch(mountainListProvider).valueOrNull ?? [],
                             ),
                           ),
@@ -176,6 +197,7 @@ class SanctuaryScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -234,6 +256,208 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay> {
   }
 }
 
+// ── Sanctuary Home Intro (spotlight + gold ring) ─────────────────────────────
+
+class _SanctuarySpotlightPainter extends CustomPainter {
+  _SanctuarySpotlightPainter({
+    required this.targetRect,
+    required this.isCircle,
+    required this.pulseValue,
+    this.glowColor = AppColors.gold,
+  });
+
+  final Rect targetRect;
+  final bool isCircle;
+  final double pulseValue;
+  final Color glowColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint scrimPaint = Paint()..color = Colors.black54;
+    final Path screenPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final Path cutoutPath = Path();
+    if (isCircle) {
+      cutoutPath.addOval(targetRect);
+    } else {
+      cutoutPath.addRRect(
+        RRect.fromRectAndRadius(targetRect, const Radius.circular(12)),
+      );
+    }
+    final Path mainScrimPath = Path.combine(
+      PathOperation.difference,
+      screenPath,
+      cutoutPath,
+    );
+    canvas.drawPath(mainScrimPath, scrimPaint);
+
+    final Paint ringPaint = Paint()
+      ..color = glowColor.withOpacity(pulseValue)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 3.0);
+    if (isCircle) {
+      canvas.drawOval(targetRect, ringPaint);
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(targetRect, const Radius.circular(12)),
+        ringPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SanctuarySpotlightPainter oldDelegate) {
+    return oldDelegate.targetRect != targetRect ||
+        oldDelegate.pulseValue != pulseValue;
+  }
+}
+
+Rect _homeIntroTargetRect(int step, Size size, EdgeInsets padding) {
+  switch (step) {
+    case 0:
+      return Rect.fromLTWH(
+        size.width * 0.78,
+        size.height - padding.bottom - (size.height * 0.17),
+        size.width * 0.18,
+        size.height * 0.12,
+      );
+    case 1:
+      return Rect.fromLTWH(
+        size.width * 0.04,
+        size.height - padding.bottom - (size.height * 0.17),
+        size.width * 0.72,
+        size.height * 0.12,
+      );
+    case 2:
+      return Rect.fromCenter(
+        center: Offset(size.width * 0.5, size.height * 0.62),
+        width: size.width * 0.3,
+        height: size.height * 0.2,
+      );
+    default:
+      return Rect.zero;
+  }
+}
+
+class _SanctuaryHomeIntroOverlay extends StatefulWidget {
+  const _SanctuaryHomeIntroOverlay({required this.onComplete});
+  final Future<void> Function() onComplete;
+
+  @override
+  State<_SanctuaryHomeIntroOverlay> createState() =>
+      _SanctuaryHomeIntroOverlayState();
+}
+
+class _SanctuaryHomeIntroOverlayState extends State<_SanctuaryHomeIntroOverlay>
+    with SingleTickerProviderStateMixin {
+  int _step = 0;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  bool _fadeInComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _fadeInComplete = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _onContinue() {
+    if (_step < 2) {
+      setState(() => _step++);
+      return;
+    }
+    widget.onComplete();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.viewPaddingOf(context);
+    final rect = _homeIntroTargetRect(_step, size, padding);
+    final isCircle = _step == 2;
+    final line = _step == 0
+        ? EliasDialogue.sanctuaryHomeIntroSatchel
+        : _step == 1
+            ? EliasDialogue.sanctuaryHomeIntroPathAhead
+            : EliasDialogue.sanctuaryHomeIntroFirepit;
+
+    return AnimatedOpacity(
+      opacity: _fadeInComplete ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _SanctuarySpotlightPainter(
+                    targetRect: rect,
+                    isCircle: isCircle,
+                    pulseValue: _pulseAnimation.value,
+                    glowColor: AppColors.gold,
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              left: _step == 0 ? size.width * 0.08 : size.width * 0.2,
+              top: _step == 2 ? null : size.height * (_step == 0 ? 0.12 : 0.1),
+              bottom: _step == 2 ? size.height * 0.32 : null,
+              right: _step == 0 ? size.width * 0.4 : size.width * (_step == 1 ? 0.2 : 0.5),
+              child: Text(
+                line,
+                style: EliasTypography.style(color: AppColors.parchment),
+                textAlign: _step == 1 ? TextAlign.center : TextAlign.left,
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: padding.bottom + 16),
+                  child: FilledButton(
+                    onPressed: _onContinue,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.ember,
+                      foregroundColor: AppColors.parchment,
+                    ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontFamily: 'Georgia',
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Invalidates hearthFuelProvider every 60s while Sanctuary is mounted (fuel decay).
 class _HearthFuelTimer extends ConsumerStatefulWidget {
   const _HearthFuelTimer();
@@ -265,41 +489,100 @@ class _HearthFuelTimerState extends ConsumerState<_HearthFuelTimer> {
 
 // ── Elias ────────────────────────────────────────────────────
 
+/// Wraps Elias with a single, reliable tap target (min 80x80) so the menu opens consistently.
+class _EliasTapTarget extends StatelessWidget {
+  const _EliasTapTarget({
+    required this.period,
+    required this.showHomeIntro,
+    required this.eliasGuidePose,
+    required this.onTap,
+  });
+  final ScenePeriod period;
+  final bool showHomeIntro;
+  final String? eliasGuidePose;
+  final VoidCallback onTap;
+
+  static const double _minTapSize = 80;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: _minTapSize, minHeight: _minTapSize),
+        child: _EliasWidget(
+          period: period,
+          showGreeting: false,
+          assetPathOverride: showHomeIntro ? eliasGuidePose : null,
+        ),
+      ),
+    ).animate().fadeIn(duration: 600.ms, delay: 200.ms);
+  }
+}
+
 class _EliasWidget extends ConsumerWidget {
-  const _EliasWidget({required this.period, this.showGreeting = true});
+  const _EliasWidget({
+    required this.period,
+    this.showGreeting = true,
+    this.assetPathOverride,
+  });
   final ScenePeriod period;
   final bool showGreeting;
+  /// When set (e.g. during Sanctuary home intro), use this pose instead of time-of-day.
+  final String? assetPathOverride;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () {
-        // Open menu on first tap. Do not set eliasMessageProvider here: it triggers
-        // a rebuild that re-runs the tray's slideY animation (tray "bounce") and
-        // can make the menu feel like it needs a second tap.
-        if (context.mounted) {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => const ManagementMenuSheet(),
-          );
-        }
-      },
-      child: Builder(
-        builder: (context) {
-          final size = MediaQuery.sizeOf(context);
-          final w = ((size.width * 0.65).clamp(120.0, 320.0)) * 0.75;
-          final h = ((size.height * 0.5).clamp(180.0, 480.0)) * 0.75;
-          return EliasWidget(
-            period: period,
-            width: w,
-            height: h,
-            showGreeting: showGreeting,
-            greetingWidth: (w * 0.85).clamp(160.0, 280.0),
-          );
-        },
-      ),
-    ).animate().fadeIn(duration: 600.ms, delay: 200.ms);
+    final size = MediaQuery.sizeOf(context);
+    final w = ((size.width * 0.65).clamp(120.0, 320.0)) * 0.75;
+    final h = ((size.height * 0.5).clamp(180.0, 480.0)) * 0.75;
+    return EliasWidget(
+      period: period,
+      width: w,
+      height: h,
+      showGreeting: showGreeting,
+      greetingWidth: (w * 0.85).clamp(160.0, 280.0),
+      assetPathOverride: assetPathOverride,
+    );
+  }
+}
+
+/// Listener for pan/drag on Sanctuary. Triggers [EliasDialogue.onMovement] only when
+/// [overlayActive] is false (no Spotlight Scrim / Home Intro / Tutorial), so the
+/// "Look at" guidance is not overwritten. Throttled to avoid spam.
+class _SanctuaryOnMovementLayer extends ConsumerStatefulWidget {
+  const _SanctuaryOnMovementLayer({
+    required this.overlayActive,
+    required this.child,
+  });
+  final bool overlayActive;
+  final Widget child;
+
+  @override
+  ConsumerState<_SanctuaryOnMovementLayer> createState() =>
+      _SanctuaryOnMovementLayerState();
+}
+
+class _SanctuaryOnMovementLayerState extends ConsumerState<_SanctuaryOnMovementLayer> {
+  static const _throttleMs = 5000;
+  int _lastTriggerTime = 0;
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (widget.overlayActive) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastTriggerTime < _throttleMs) return;
+    _lastTriggerTime = now;
+    ref.read(eliasMessageProvider.notifier).state = EliasDialogue.onMovement();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerMove: _onPointerMove,
+      behavior: HitTestBehavior.translucent,
+      child: widget.child,
+    );
   }
 }
 
@@ -387,7 +670,17 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
-      onWillAcceptWithDetails: (details) => true,
+      onWillAcceptWithDetails: (details) {
+        final nodeId = (details.data ?? '').trim();
+        if (nodeId.isEmpty) return false;
+        final satchel = ref.read(satchelProvider.notifier).state;
+        if (satchel.isBurnInProgress) return false;
+        SatchelSlot? slot;
+        for (final s in satchel.slots) {
+          if ((s.nodeId ?? '').trim() == nodeId) { slot = s; break; }
+        }
+        return slot?.readyToBurn ?? false;
+      },
       onAcceptWithDetails: (details) async {
         final nodeId = details.data;
         final nextCount = (ref.read(hearthDropCountProvider) >= 5)
@@ -766,6 +1059,7 @@ class _CompactSatchelTray extends StatelessWidget {
     required this.overflowCount,
     required this.onBagTap,
     required this.onEmptySlotTap,
+    this.onDragStartedWhenLocked,
     required this.mountains,
   });
 
@@ -774,6 +1068,7 @@ class _CompactSatchelTray extends StatelessWidget {
   final int overflowCount;
   final VoidCallback onBagTap;
   final VoidCallback onEmptySlotTap;
+  final VoidCallback? onDragStartedWhenLocked;
   final List<Mountain> mountains;
 
   bool get _showPulseOfPurpose => mountains.isEmpty;
@@ -818,6 +1113,7 @@ class _CompactSatchelTray extends StatelessWidget {
                             slot: slot,
                             focusOnHearth: focusOnHearth,
                             onEmptyTap: onEmptySlotTap,
+                            onDragStartedWhenLocked: onDragStartedWhenLocked,
                           ),
                         ),
                       ))
@@ -998,10 +1294,12 @@ class _CompactSlot extends StatelessWidget {
     required this.slot,
     required this.focusOnHearth,
     required this.onEmptyTap,
+    this.onDragStartedWhenLocked,
   });
   final SatchelSlot slot;
   final bool focusOnHearth;
   final VoidCallback onEmptyTap;
+  final VoidCallback? onDragStartedWhenLocked;
 
   @override
   Widget build(BuildContext context) {
@@ -1029,6 +1327,7 @@ class _CompactSlot extends StatelessWidget {
     }
 
     final showEmberPulse = focusOnHearth && slot.readyToBurn;
+    // Stones always visible: neutral (no ring/bg) when not ready, ember ring when ready.
     final stoneVisual = Container(
       width: 56,
       height: 56,
@@ -1036,44 +1335,32 @@ class _CompactSlot extends StatelessWidget {
       decoration: BoxDecoration(
         color: slot.readyToBurn
             ? AppColors.slotFilled
-            : AppColors.slotFilled.withValues(alpha: 0.45),
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: slot.readyToBurn
               ? AppColors.ember
               : slot.node?.isStarred == true
-                  ? AppColors.gold
-                  : AppColors.slotBorder.withValues(alpha: 0.5),
+                  ? AppColors.gold.withValues(alpha: 0.6)
+                  : AppColors.slotBorder.withValues(alpha: 0.4),
           width: slot.readyToBurn ? 1.5 : 1,
         ),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (slot.readyToBurn)
-              SizedBox(
-                width: 50,
-                height: 50,
-                child: Image.asset(
-                  'assets/stones/stone_medium.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.local_fire_department,
-                    size: 10,
-                    color: AppColors.ember,
-                  ),
-                ),
-              )
-            else ...[
-              const Icon(Icons.lock_outline, size: 9, color: AppColors.slotBorder),
-              if (slot.node?.isStarred == true)
-                const Icon(Icons.star, size: 8, color: AppColors.gold),
-              if (slot.node?.dueDate != null)
-                const Icon(Icons.calendar_today, size: 8, color: AppColors.ember),
-            ],
-          ],
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Image.asset(
+            'assets/stones/stone_medium.png',
+            fit: BoxFit.contain,
+            opacity: AlwaysStoppedAnimation(slot.readyToBurn ? 1.0 : 0.7),
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.local_fire_department,
+              size: 24,
+              color: slot.readyToBurn ? AppColors.ember : AppColors.slotBorder,
+            ),
+          ),
         ),
       ),
     );
@@ -1084,26 +1371,17 @@ class _CompactSlot extends StatelessWidget {
     }
 
     if (!slot.readyToBurn) {
-      return GestureDetector(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Open your Satchel and mark this task Done before dropping it in the Hearth.',
-                style: TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
-              ),
-              backgroundColor: AppColors.charcoal,
-              behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        },
-        child: wrapped,
+      return Semantics(
+        label: 'SatchelStoneLocked',
+        child: _LockedStoneDrag(
+          child: wrapped,
+          onSnapBack: onDragStartedWhenLocked,
+        ),
       );
     }
 
     return Semantics(
-      label: 'SatchelStone',
+      label: 'SatchelStoneReady',
       child: Draggable<String>(
         data: slot.nodeId!,
         feedback: _StoneFeedback(title: slot.node?.title ?? ''),
@@ -1120,6 +1398,95 @@ class _CompactSlot extends StatelessWidget {
           ),
         ),
         child: wrapped,
+      ),
+    );
+  }
+}
+
+/// Locked stone: user can only drag a little (clamped to [kMaxLockedDragPx]) then it snaps back and [onSnapBack] is called (Elias message).
+class _LockedStoneDrag extends StatefulWidget {
+  const _LockedStoneDrag({
+    required this.child,
+    this.onSnapBack,
+  });
+  final Widget child;
+  final VoidCallback? onSnapBack;
+
+  static const double kMaxLockedDragPx = 44;
+
+  @override
+  State<_LockedStoneDrag> createState() => _LockedStoneDragState();
+}
+
+class _LockedStoneDragState extends State<_LockedStoneDrag>
+    with SingleTickerProviderStateMixin {
+  Offset _offset = Offset.zero;
+  late AnimationController _snapController;
+  late Animation<Offset> _snapAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _snapAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _snapController,
+      curve: Curves.easeOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    super.dispose();
+  }
+
+  void _snapBack() {
+    if (_offset == Offset.zero) return;
+    final from = _offset;
+    final didDragEnough = from.distance >= 8;
+    _snapAnimation = Tween<Offset>(begin: from, end: Offset.zero).animate(
+      CurvedAnimation(parent: _snapController, curve: Curves.easeOut),
+    );
+    _snapController.reset();
+    _snapController.forward().then((_) {
+      if (didDragEnough) widget.onSnapBack?.call();
+    });
+    setState(() => _offset = Offset.zero);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onPanStart: (_) {},
+      onPanUpdate: (details) {
+        setState(() {
+          _offset += details.delta;
+          final d = _offset.distance;
+          if (d > _LockedStoneDrag.kMaxLockedDragPx) {
+            _offset = Offset.fromDirection(
+              _offset.direction,
+              _LockedStoneDrag.kMaxLockedDragPx,
+            );
+          }
+        });
+      },
+      onPanEnd: (_) => _snapBack(),
+      child: AnimatedBuilder(
+        animation: _snapController,
+        builder: (context, child) {
+          final offset = _snapController.isAnimating ? _snapAnimation.value : _offset;
+          return Transform.translate(
+            offset: offset,
+            child: child,
+          );
+        },
+        child: widget.child,
       ),
     );
   }
@@ -1249,8 +1616,9 @@ class _EliasBubbleState extends ConsumerState<_EliasBubble> {
               EliasDialogue.firstLandQuestStep1();
           await markQuestStep1Seen();
         } else {
+          final displayName = ref.read(profileProvider).valueOrNull?.displayName;
           ref.read(eliasMessageProvider.notifier).state =
-              widget.period.eliasGreeting;
+              EliasDialogue.sanctuaryPeriodGreeting(widget.period, displayName);
         }
         if (mounted) {
           ref.read(hasShownSessionGreetingProvider.notifier).state = true;

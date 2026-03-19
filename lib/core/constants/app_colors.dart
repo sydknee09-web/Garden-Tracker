@@ -38,10 +38,12 @@ class AppColors {
   static const Color slotBorder  = Color(0xFF5C4F3F);
 
   /// Warm brown variants for Satchel (matches wood plank background).
-  static const Color satchelSlotEmpty  = Color(0xFF2E2419); // dark warm brown
-  static const Color satchelSlotFilled = Color(0xFF4A3D2E); // warm wood brown
-  static const Color satchelSlotBorder = Color(0xFF6B5A45); // warm brown border
-  static const Color satchelTileBg    = Color(0xFF4A3D2E); // Map/Whetstone tiles
+  /// Empty slots: parchment-tinted background so they blend with wood (not harsh dark).
+  static const Color satchelSlotEmpty    = Color(0xFFB8A890); // warm parchment / light tan
+  static const Color satchelSlotEmptyInk = Color(0xFF5C4F3F); // readable label on parchment
+  static const Color satchelSlotFilled   = Color(0xFF4A3D2E); // warm wood brown
+  static const Color satchelSlotBorder   = Color(0xFF6B5A45); // warm brown border
+  static const Color satchelTileBg       = Color(0xFF4A3D2E); // Map/Whetstone tiles
 
   // Whetstone parchment
   static const Color whetPaper   = Color(0xFFE8DAC5);

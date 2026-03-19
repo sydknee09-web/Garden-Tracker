@@ -270,7 +270,7 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
           title: 'New milestone',
         );
     invalidateAfterNodeMutation(ref, widget.mountainId);
-    setState(() => _malletActive = false);
+    // Keep Architect on so user can add/split more without re-enabling.
   }
 
   Future<void> _malletOnBoulder(Mountain mountain, Node boulder) async {
@@ -284,19 +284,19 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
         );
     await ref.read(satchelProvider.notifier).movePebbleToReady(node.id);
     ref.invalidate(nodeListProvider(widget.mountainId));
-    setState(() => _malletActive = false);
+    // Keep Architect on so user can add/split more without re-enabling.
   }
 
   Future<void> _malletOnPebble(Mountain mountain, Node pebble) async {
     await ref.read(nodeActionsProvider).split(pebble);
     invalidateAfterNodeMutation(ref, widget.mountainId);
-    setState(() => _malletActive = false);
+    // Keep Architect on so user can add/split more without re-enabling.
   }
 
   Future<void> _malletOnShard(Mountain mountain, Node shard) async {
     await ref.read(nodeActionsProvider).split(shard);
     invalidateAfterNodeMutation(ref, widget.mountainId);
-    setState(() => _malletActive = false);
+    // Keep Architect on so user can add/split more without re-enabling.
   }
 
   void _showArchiveConfirm(BuildContext context, Mountain mountain) {
