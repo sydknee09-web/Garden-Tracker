@@ -91,7 +91,7 @@ Always save the original vendor link in the `source_url` / `purchase_url` column
 
 ## Law 9: Entry Types Are Explicit
 
-Journal entries must set `entry_type` explicitly on insert. Valid types: `planting`, `vault_add`, `growth`, `harvest`, `note`, `care`, `pest`, `death`, `quick`. Never rely on text-matching the `note` field for new entries.
+Journal entries must set `entry_type` explicitly on insert. Valid types: `planting`, `vault_add`, `growth`, `harvest`, `note`, `care`, `pest`, `death`, `quick`, `prune`, `cold_stratify`. Never rely on text-matching the `note` field for new entries.
 
 - **vault_add** — Inventory acquisition: plant added to Vault (purchased, received, gifted). Use for Add Plant flows (Purchase Order, Photo import, AddPlantModal). Do not use `planting` or `note` for acquisition; reserve `planting` for actual sowing/planting events.
 

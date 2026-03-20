@@ -69,10 +69,25 @@ type JournalEntryWithPlant = JournalEntry & {
   weather_snapshot?: JournalEntry["weather_snapshot"];
 };
 
-type ActionInfo = { label: string; icon: "plant" | "harvest" | "growth" | "note" | "water" | "fertilize" | "spray" | "care" | "archive" | "prune" };
+type ActionInfo = {
+  label: string;
+  icon:
+    | "plant"
+    | "harvest"
+    | "growth"
+    | "note"
+    | "water"
+    | "fertilize"
+    | "spray"
+    | "care"
+    | "archive"
+    | "prune"
+    | "cold_stratify";
+};
 
 function getActionFromNote(note: string | null, entryType?: string | null): ActionInfo {
   const n = (note ?? "").toLowerCase();
+  if (entryType === "cold_stratify") return { label: "Cold stratify", icon: "cold_stratify" };
   if (entryType === "prune") return { label: "Pruned", icon: "prune" };
   if (entryType === "quick" || entryType === "care") {
     if (n.includes("watered")) return { label: "Water", icon: "water" };
@@ -110,6 +125,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
   if (has("harvest")) return { label: "Harvest", icon: "harvest" };
   if (has("planting")) return { label: "Planted", icon: "plant" };
   if (has("prune")) return { label: "Pruned", icon: "prune" };
+  if (has("cold_stratify")) return { label: "Cold stratify", icon: "cold_stratify" };
   if (has("vault_add")) return { label: "Added to Vault", icon: "archive" };
   if (has("quick") || has("care")) return { label: "Care", icon: "care" };
   if (has("growth")) return { label: "Growth", icon: "growth" };
@@ -210,6 +226,7 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
     case "fertilize": return <ICON_MAP.Fertilize className={className} />;
     case "spray": return <ICON_MAP.Spray className={className} />;
     case "care": return <ICON_MAP.JournalCareHands className={className} />;
+    case "cold_stratify": return <ICON_MAP.ColdStratify className={className} />;
     default: return <ICON_MAP.ManualEntry className={className} />;
   }
 }

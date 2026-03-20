@@ -17,7 +17,20 @@ import type { JournalEntry } from "@/types/garden";
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "prune" | "harvest" | "pest";
+type QuickActionType =
+  | "sow"
+  | "sprout"
+  | "pot_up"
+  | "plant_out"
+  | "water"
+  | "fertilize"
+  | "spray"
+  | "cold_stratify"
+  | "note"
+  | "growth"
+  | "prune"
+  | "harvest"
+  | "pest";
 
 const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string; defaultNote?: string }[] = [
   { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
@@ -27,7 +40,7 @@ const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof IC
   { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
   { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
-  { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+  { id: "cold_stratify", label: "Cold Stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
   { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
   { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
@@ -37,6 +50,7 @@ const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof IC
 function deriveQuickActionFromEntry(entry: EditJournalEntry): QuickActionType {
   const et = (entry.entry_type ?? "").toLowerCase();
   const n = (entry.note ?? "").toLowerCase();
+  if (et === "cold_stratify") return "cold_stratify";
   if (et === "prune") return "prune";
   if (et === "harvest") return "harvest";
   if (et === "pest") return "pest";
@@ -281,21 +295,22 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
     }
 
     const noteTrim = note.trim() || null;
-
-    if (!noteTrim && photos.length === 0) {
+    const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
+    const entryType =
+      selectedQuickAction === "note" ? "note" : (quickAction?.entryType ?? "note");
+    const noteToSave = noteTrim ?? quickAction?.defaultNote ?? null;
+    if (!noteToSave && photos.length === 0) {
       setSubmitError("Add a note or photo.");
       return;
     }
 
     setSaving(true);
     setSyncing(true);
-    const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
-    const entryType = quickAction?.entryType ?? "note";
     const createdAtIso = new Date(`${entryDate}T12:00:00Z`).toISOString();
     try {
       const { error: updateErr } = await updateWithOfflineQueue(
         "journal_entries",
-        { note: noteTrim, entry_type: entryType, created_at: createdAtIso },
+        { note: noteToSave, entry_type: entryType, created_at: createdAtIso },
         { id: entry.id, user_id: entry.user_id }
       );
       if (updateErr) {
@@ -479,6 +494,25 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
               </div>
 
               <div>
+                <label htmlFor="edit-journal-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
+                <textarea
+                  id="edit-journal-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={
+                    selectedQuickAction === "pest"
+                      ? "Identify pest (e.g., Aphids) and severity…"
+                      : selectedQuickAction === "cold_stratify"
+                        ? "Optional: duration, location (e.g., fridge, 6 weeks)…"
+                        : "Your note (optional if this quick action has a default)…"
+                  }
+                  rows={3}
+                  disabled={!canEdit}
+                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] disabled:opacity-70 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div>
                 {isPlantingOrVaultAdd ? (
                   <>
                     <label className="block text-sm font-medium text-black/80 mb-2">Plants (linked at planting — read-only)</label>
@@ -620,19 +654,6 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                   </>
                 )}
                 {webcamError && <p className="text-xs text-citrus mt-1">{webcamError}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="edit-journal-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
-                <textarea
-                  id="edit-journal-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Transplants, slope progress, weather…"
-                  rows={3}
-                  disabled={!canEdit}
-                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px] disabled:opacity-70 disabled:cursor-not-allowed"
-                />
               </div>
 
               {submitError && <p className="text-sm text-citrus font-medium">{submitError}</p>}

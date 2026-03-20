@@ -465,6 +465,19 @@ function PruneIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Snowflake — cold stratify / winter prep (1.2 stroke). */
+function ColdStratifyIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <line x1="12" y1="2" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <line x1="4.64" y1="4.64" x2="19.36" y2="19.36" />
+      <line x1="19.36" y1="4.64" x2="4.64" y2="19.36" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Close: CloseIcon,
@@ -508,6 +521,7 @@ export const ICON_MAP = {
   Filter: FilterIcon,
   Search: SearchIcon,
   Prune: PruneIcon,
+  ColdStratify: ColdStratifyIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

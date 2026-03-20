@@ -71,10 +71,18 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                                       ? "bg-red-50 text-red-700"
                                       : j.entry_type === "death"
                                         ? "bg-red-100 text-red-800"
-                                        : "bg-emerald-900/10 text-emerald-900"
+                                        : j.entry_type === "cold_stratify"
+                                          ? "bg-sky-50 text-sky-800"
+                                          : "bg-emerald-900/10 text-emerald-900"
                               }`}
                             >
-                              {j.entry_type === "vault_add" ? "Added to Vault" : j.entry_type === "prune" ? "Pruned" : j.entry_type}
+                              {j.entry_type === "vault_add"
+                                ? "Added to Vault"
+                                : j.entry_type === "prune"
+                                  ? "Pruned"
+                                  : j.entry_type === "cold_stratify"
+                                    ? "Cold stratified"
+                                    : j.entry_type}
                             </span>
                           )}
                         </div>

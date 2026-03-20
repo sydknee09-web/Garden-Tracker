@@ -16,7 +16,7 @@ import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "note" | "growth" | "prune" | "harvest" | "water" | "fertilize" | "spray" | "pest";
+type QuickActionType = "note" | "growth" | "prune" | "harvest" | "water" | "fertilize" | "spray" | "cold_stratify" | "pest";
 
 function isMobileDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -27,16 +27,29 @@ function isMobileDevice(): boolean {
   return (hasTouch && mobileKeywords.test(ua)) || narrowScreen || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string }[] = [
-  { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+const QUICK_ACTIONS: {
+  id: QuickActionType;
+  label: string;
+  icon: keyof typeof ICON_MAP;
+  entryType: string;
+  defaultNote?: string;
+}[] = [
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
-  { id: "prune", label: "Prune", icon: "Prune", entryType: "prune" },
+  { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
   { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
-  { id: "water", label: "Water", icon: "Water", entryType: "quick" },
-  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick" },
-  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick" },
+  { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
+  { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
+  { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
+  { id: "cold_stratify", label: "Cold Stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
   { id: "pest", label: "Pest", icon: "Pest", entryType: "pest" },
 ];
+
+function buildNoteForEntry(quickAction: { defaultNote?: string } | undefined, noteTrim: string | null): string | null {
+  const base = quickAction?.defaultNote;
+  if (base && noteTrim) return `${base}. ${noteTrim}`;
+  if (base) return base;
+  return noteTrim ?? null;
+}
 
 export default function JournalNewPage() {
   const router = useRouter();
@@ -209,8 +222,10 @@ export default function JournalNewPage() {
     }
 
     const noteTrim = note.trim() || null;
-
-    if (!noteTrim && photos.length === 0) {
+    const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
+    const hasDefaultNote = quickAction?.defaultNote != null;
+    const noteForEntry = buildNoteForEntry(quickAction, noteTrim);
+    if (!noteForEntry && photos.length === 0 && !hasDefaultNote) {
       setSubmitError("Add a note or photo.");
       return;
     }
@@ -240,12 +255,7 @@ export default function JournalNewPage() {
         setUploadingPhoto(false);
       }
       const firstPath = uploadedPaths[0] ?? null;
-      const quickAction = QUICK_ACTIONS.find((a) => a.id === selectedQuickAction);
       const entryType = (quickAction?.entryType ?? "note") as string;
-      const isQuickCare = entryType === "quick";
-      const noteForEntry = isQuickCare
-        ? (selectedQuickAction === "water" ? "Watered" : selectedQuickAction === "fertilize" ? "Fertilized" : "Sprayed") + (noteTrim ? `. ${noteTrim}` : "")
-        : noteTrim;
       const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
       const singleSupplyId = supplyIds.length === 1 ? supplyIds[0]! : supplyIds.length > 0 ? supplyIds[0]! : null;
       const { data: entry, error: insertErr } = await supabase
@@ -256,7 +266,7 @@ export default function JournalNewPage() {
           grow_instance_id: null,
           seed_packet_id: null,
           supply_profile_id: singleSupplyId ?? undefined,
-          note: noteForEntry || null,
+          note: noteForEntry ?? null,
           entry_type: entryType,
           image_file_path: firstPath,
           weather_snapshot: weatherSnapshot ?? undefined,
@@ -402,7 +412,13 @@ export default function JournalNewPage() {
             id="journal-note-new"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Transplants, slope progress, weather…"
+            placeholder={
+              selectedQuickAction === "pest"
+                ? "Identify pest (e.g., Aphids) and severity…"
+                : selectedQuickAction === "cold_stratify"
+                  ? "Optional: duration, location (e.g., fridge, 6 weeks)…"
+                  : "Your note (required unless you pick a quick action with a default, or add a photo)…"
+            }
             rows={3}
             className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
           />

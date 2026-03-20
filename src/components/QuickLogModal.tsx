@@ -18,7 +18,20 @@ import { logClientMetrics } from "@/lib/logClientMetrics";
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
 
-type QuickActionType = "sow" | "sprout" | "pot_up" | "plant_out" | "water" | "fertilize" | "spray" | "note" | "growth" | "prune" | "harvest" | "pest";
+type QuickActionType =
+  | "sow"
+  | "sprout"
+  | "pot_up"
+  | "plant_out"
+  | "water"
+  | "fertilize"
+  | "spray"
+  | "cold_stratify"
+  | "note"
+  | "growth"
+  | "prune"
+  | "harvest"
+  | "pest";
 
 const QUICK_ACTIONS: {
   id: QuickActionType;
@@ -37,7 +50,7 @@ const QUICK_ACTIONS: {
   { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
   { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
-  { id: "note", label: "Note", icon: "ManualEntry", entryType: "note" },
+  { id: "cold_stratify", label: "Cold Stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
   // Row 3: Status (Outcome/Health) — Pest has no defaultNote, requires custom note
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
   { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
@@ -107,7 +120,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     setPhotos([]);
     setSubmitError(null);
     setSelectedSupplyIds(preSelectedSupplyId?.trim() ? new Set([preSelectedSupplyId.trim()]) : new Set());
-    if (defaultActionType && QUICK_ACTIONS.some((a) => a.id === defaultActionType)) {
+    if (defaultActionType && (defaultActionType === "note" || QUICK_ACTIONS.some((a) => a.id === defaultActionType))) {
       setSelectedQuickAction(defaultActionType as QuickActionType);
     } else {
       setSelectedQuickAction("note");
@@ -425,6 +438,24 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           </div>
 
           <div>
+            <label htmlFor="quicklog-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
+            <textarea
+              id="quicklog-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={
+                selectedQuickAction === "pest"
+                  ? "Identify pest (e.g., Aphids, Scale) and severity..."
+                  : selectedQuickAction === "cold_stratify"
+                    ? "Optional: duration, location (e.g., fridge, 6 weeks)…"
+                    : "Notes for your entry (optional for most quick actions)…"
+              }
+              rows={3}
+              className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+            />
+          </div>
+
+          <div>
             {profilesLoading ? (
               <p className="text-sm text-neutral-500">Loading plants…</p>
             ) : (
@@ -452,18 +483,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
             />
             {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
-          </div>
-
-          <div>
-            <label htmlFor="quicklog-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
-            <textarea
-              id="quicklog-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={selectedQuickAction === "pest" ? "Identify pest (e.g., Aphids, Scale) and severity..." : "Aphids, harvest notes, or weather (e.g., Potted up to 5gal, morning mist)..."}
-              rows={3}
-              className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
-            />
           </div>
 
           <div>

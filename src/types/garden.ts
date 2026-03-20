@@ -95,7 +95,8 @@ export type JournalEntryType =
   | "pest"
   | "death"
   | "quick"
-  | "prune";
+  | "prune"
+  | "cold_stratify";
 
 export type WeatherSnapshotData = {
   temp?: number;
