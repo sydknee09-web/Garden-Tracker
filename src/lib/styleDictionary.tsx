@@ -51,15 +51,15 @@ function EditIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Lined paper: sheet outline + horizontal rules only (no folded corner). */
 function JournalIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 12h8" />
-      <path d="M8 16h8" />
-      <path d="M8 8h4" />
+      <rect x="5" y="3" width="14" height="18" rx="2" ry="2" />
+      <line x1="8" y1="8" x2="16" y2="8" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <line x1="8" y1="16" x2="14" y2="16" />
     </svg>
   );
 }
@@ -97,21 +97,23 @@ function TrashIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Seed packet: sharp rectangle + center plus (stroke-only). */
 function SeedIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <rect x="5" y="5" width="14" height="14" rx="1.5" ry="1.5" />
-      <path d="M12 9v6M9 12h6" />
+      <rect x="5" y="5" width="14" height="14" rx="0.75" ry="0.75" />
+      <path d="M12 8.5v7M8.5 12h7" />
     </svg>
   );
 }
 
+/** Single leaf outline (teardrop leaf, stroke-only). */
 function PlantIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M11 20c-2.5-2-4-6-4-9a4 4 0 1 1 8 0c0 3-1.5 7-4 9" />
+      <path d="M12 22c-1.5 0-4-2.5-4-8 0-6 2.5-11 4-12 1.5 1 4 6 4 12 0 5.5-2.5 8-4 8z" />
     </svg>
   );
 }
@@ -134,13 +136,13 @@ function BackIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Minimal basket + fruit (stroke-only, no fill). */
 function HarvestIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M5 8h14l-1.5 10H6.5L5 8z" />
-      <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-      <path d="M4 10h16" />
+      <path d="M5 10h14l-1.2 9H6.2L5 10z" />
+      <circle cx="12" cy="7" r="2.25" />
     </svg>
   );
 }
@@ -267,13 +269,16 @@ function SprayIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Minimal bug silhouette (stroke-only). */
 function PestIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <path d="M12 9v4" />
-      <path d="M12 17h.01" />
+      <ellipse cx="12" cy="15" rx="5" ry="3.25" />
+      <circle cx="12" cy="9" r="2.5" />
+      <path d="M9.5 7L8 4M14.5 7L16 4" />
+      <path d="M7 15H4M20 15h-3" />
+      <path d="M7.5 17.2l-2.2 2.3M16.5 17.2l2.2 2.3" />
     </svg>
   );
 }
@@ -319,7 +324,7 @@ function CancelIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Plain X for modal close / dismiss (1.5 stroke). */
+/** Plain X for modal close / dismiss (1.2 stroke). */
 function CloseIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -329,7 +334,7 @@ function CloseIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Sprout/seedling for plant profile fallback (1.5 stroke). */
+/** Sprout/seedling for plant profile fallback (1.2 stroke). */
 function SeedlingIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -342,7 +347,7 @@ function SeedlingIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Shovel/spade for plant/sow actions (1.5 stroke). */
+/** Shovel/spade for plant/sow actions (1.2 stroke). */
 function ShovelIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -352,7 +357,7 @@ function ShovelIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Trash can (alternate style, 1.5 stroke). */
+/** Trash can (alternate style, 1.2 stroke). */
 function Trash2Icon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -362,7 +367,7 @@ function Trash2Icon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Calendar for schedule/task actions (1.5 stroke). */
+/** Calendar for schedule/task actions (1.2 stroke). */
 function CalendarIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -372,7 +377,7 @@ function CalendarIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Pencil for edit (1.5 stroke). Same as Edit. */
+/** Pencil for edit (1.2 stroke). Same as Edit. */
 function PencilIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -383,7 +388,7 @@ function PencilIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Merge profiles icon (1.5 stroke). */
+/** Merge profiles icon (1.2 stroke). */
 function MergeIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -395,7 +400,7 @@ function MergeIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Shopping list / box with handle (1.5 stroke). */
+/** Shopping list / box with handle (1.2 stroke). */
 function ShoppingListIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -407,7 +412,7 @@ function ShoppingListIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Photo cards grid = 2x2 quadrants (1.5 stroke). */
+/** Photo cards grid = 2x2 quadrants (1.2 stroke). */
 function PhotoCardsGridIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -417,7 +422,7 @@ function PhotoCardsGridIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Condensed grid = 3x2 denser cells (1.5 stroke). */
+/** Condensed grid = 3x2 denser cells (1.2 stroke). */
 function CondensedGridIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -432,7 +437,7 @@ function CondensedGridIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Filter funnel (1.5 stroke). */
+/** Filter funnel (1.2 stroke). */
 function FilterIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -442,7 +447,7 @@ function FilterIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Search magnifier (1.5 stroke). */
+/** Search magnifier (1.2 stroke). */
 function SearchIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -452,7 +457,7 @@ function SearchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Prune / scissors (1.5 stroke). */
+/** Prune / scissors (1.2 stroke). */
 function PruneIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (

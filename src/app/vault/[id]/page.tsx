@@ -47,6 +47,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const GrowInstanceModal = dynamic(
+  () => import("@/components/GrowInstanceModal").then((m) => ({ default: m.GrowInstanceModal })),
+  { ssr: false }
+);
 
 import { VaultProfileAboutTab } from "./VaultProfileAboutTab";
 import { VaultProfileCareTab } from "./VaultProfileCareTab";
@@ -132,6 +136,9 @@ export default function VaultSeedPage() {
   const [addFromQuickLogInitialName, setAddFromQuickLogInitialName] = useState("");
   const [suppliesRefreshKey, setSuppliesRefreshKey] = useState(0);
   const [quickLogGrowInstanceId, setQuickLogGrowInstanceId] = useState<string | null>(null);
+  /** Read-only planting detail overlay from Plantings tab (replaces navigating away to Garden). */
+  const [growViewId, setGrowViewId] = useState<string | null>(null);
+  const skipGrowViewHistoryPopRef = useRef(false);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
@@ -175,6 +182,7 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(addPlantManualOpen, () => setAddPlantManualOpen(false));
+  useModalBackClose(!!growViewId, () => setGrowViewId(null), skipGrowViewHistoryPopRef);
 
   // =========================================================================
   // Load data
@@ -642,7 +650,7 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget || !!growViewId;
   const nonEmptyPackets = useMemo(() => packets.filter((p) => (p.qty_status ?? 0) > 0 && !p.is_archived), [packets]);
 
   const handlePlantAgain = useCallback(() => {
@@ -891,19 +899,20 @@ export default function VaultSeedPage() {
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[calc(100dvh-6rem)] sm:max-h-[90vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[min(85vh,100dvh-5rem)] sm:max-h-[85vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
             <div className="flex-shrink-0 p-4 pb-2 flex items-start justify-between gap-3">
               <h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2>
               <button type="button" onClick={() => setShowEditModal(false)} disabled={savingEdit} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" aria-label="Close">
                 <ICON_MAP.Close className="w-6 h-6" />
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 border-t border-neutral-100 space-y-4">
+            <div className="px-6 py-4 border-t border-neutral-100 space-y-4">
               {canEdit && (
                 <div>
                   <p className="text-sm font-medium text-neutral-700 mb-2">Photo</p>
                   <button type="button" onClick={() => setShowSetPhotoModal(true)} className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Add or change photo">
-                    <ICON_MAP.Camera className="w-5 h-5" />
+                    <ICON_MAP.Camera className="w-4 h-4" />
                     {profile?.hero_image_path || profile?.hero_image_url ? "Change Photo" : "Add Photo"}
                   </button>
                 </div>
@@ -986,7 +995,7 @@ export default function VaultSeedPage() {
                 </>
               )}
             </div>
-            <div className="flex-shrink-0 p-4 pb-4 border-t border-neutral-200 bg-white space-y-3" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+            <div className="p-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-200 bg-white space-y-3 mt-auto">
               {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <ICON_MAP.Save className="w-4 h-4" />
@@ -995,6 +1004,7 @@ export default function VaultSeedPage() {
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 disabled:opacity-50">Delete Plant Profile</button>
               )}
+            </div>
             </div>
           </div>
         </div>
@@ -1132,7 +1142,7 @@ export default function VaultSeedPage() {
                 aria-label="Add to shopping list"
                 title="Add to shopping list"
               >
-                <ICON_MAP.Shopping className="w-[18px] h-[18px]" />
+                <ICON_MAP.Shopping className="w-4 h-4" />
               </button>
             )}
             {isOwnProfile && (
@@ -1149,9 +1159,9 @@ export default function VaultSeedPage() {
                     aria-haspopup="true"
                   >
                     {fillBlanksRunning ? (
-                      <span className="w-[18px] h-[18px] border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
+                      <span className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" aria-hidden />
                     ) : (
-                      <ICON_MAP.Sparkle className="w-[18px] h-[18px]" />
+                      <ICON_MAP.Sparkle className="w-4 h-4" />
                     )}
                   </button>
                 )}
@@ -1258,7 +1268,7 @@ export default function VaultSeedPage() {
               )}
               {canEdit && heroImageLoaded && (
                 <div className="absolute bottom-3 right-3">
-                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-5 h-5" /></button>
+                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-4 h-4" /></button>
                 </div>
               )}
             </>
@@ -1389,6 +1399,7 @@ export default function VaultSeedPage() {
               setQuickLogGrowInstanceId(gi.id);
               setQuickLogOpen(true);
             }}
+            onViewGrow={(gi) => setGrowViewId(gi.id)}
           />
         )}
 
@@ -1430,6 +1441,22 @@ export default function VaultSeedPage() {
         }}
         initialName={addFromQuickLogInitialName}
       />
+      {growViewId && (
+        <GrowInstanceModal
+          key={growViewId}
+          growId={growViewId}
+          readOnly
+          initialTab="history"
+          onClose={() => setGrowViewId(null)}
+          onOpenInGarden={() => {
+            skipGrowViewHistoryPopRef.current = true;
+            const gid = growViewId;
+            setGrowViewId(null);
+            router.push(`/garden?grow=${gid}&from=profile&profile=${id}`);
+          }}
+        />
+      )}
+
       <QuickLogModal
         open={quickLogOpen}
         onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}

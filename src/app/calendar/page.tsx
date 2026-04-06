@@ -164,6 +164,8 @@ export default function CalendarPage() {
   /** Task shown in detail popup (tap task → popup instead of navigating) */
   const [taskDetailTask, setTaskDetailTask] = useState<(Task & { plant_name?: string; user_id?: string | null; supply_profile_id?: string | null }) | null>(null);
   const [taskDetailSupplyName, setTaskDetailSupplyName] = useState<string | null>(null);
+  /** True while generateCareTasks runs after first paint (calendar lists already shown). */
+  const [careTasksSyncing, setCareTasksSyncing] = useState(false);
   /** When selectMode, FAB opens this menu (Reschedule / Delete / Edit / Exit) instead of add menu */
   const [batchMenuOpen, setBatchMenuOpen] = useState(false);
   /** Task to edit in NewTaskModal (set when user chooses Edit from batch menu with one task selected) */
@@ -278,16 +280,7 @@ export default function CalendarPage() {
     const viewMode = householdViewMode ?? "personal";
     let cancelled = false;
 
-    async function fetchTasks() {
-      // Generate any newly-due care tasks before fetching (skip after delete — would recreate deleted tasks)
-      if (!skipGenerateCareTasksRef.current) {
-        await generateCareTasks(userId);
-      } else {
-        skipGenerateCareTasksRef.current = false;
-      }
-
-      if (cancelled) return;
-
+    async function loadTaskRows(): Promise<boolean> {
       // Fetch overdue tasks (due_date < today, completed_at = null)
       let overdueQuery = supabase
         .from("tasks")
@@ -314,13 +307,13 @@ export default function CalendarPage() {
       if (viewMode !== "family") tasksQuery = tasksQuery.eq("user_id", userId);
       const { data: taskRows, error: e } = await tasksQuery;
 
-      if (cancelled) return;
+      if (cancelled) return false;
       if (e) {
         setError(e.message);
         setTasks([]);
         setOverdueTasks([]);
         setLoading(false);
-        return;
+        return false;
       }
 
       const allProfileIds = [
@@ -351,6 +344,28 @@ export default function CalendarPage() {
       setTasks(upcoming);
       setCachedTasks(userId, viewMode, upcoming);
       setLoading(false);
+      return true;
+    }
+
+    async function fetchTasks() {
+      // 1) Load lists immediately (overdue + upcoming) so UI is not blocked by generateCareTasks
+      const ok = await loadTaskRows();
+      if (!ok || cancelled) return;
+
+      // 2) Generate/regenerate care tasks, then refresh lists so new rows and cleanups appear
+      if (!skipGenerateCareTasksRef.current) {
+        setCareTasksSyncing(true);
+        try {
+          await generateCareTasks(userId);
+        } finally {
+          setCareTasksSyncing(false);
+        }
+      } else {
+        skipGenerateCareTasksRef.current = false;
+      }
+
+      if (cancelled) return;
+      await loadTaskRows();
     }
 
     fetchTasks();
@@ -441,24 +456,34 @@ export default function CalendarPage() {
     return () => { cancelled = true; };
   }, [user?.id, refetch, householdViewMode, selectedDate]);
 
-  // Fetch linked supply name when task detail popup opens with a task that has supply_profile_id
+  // Fetch linked supply name: from task row, or from care_schedules when legacy tasks lack supply_profile_id
   useEffect(() => {
-    if (!taskDetailTask?.supply_profile_id) {
+    if (!taskDetailTask) {
       setTaskDetailSupplyName(null);
       return;
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("supply_profiles")
-        .select("name")
-        .eq("id", taskDetailTask.supply_profile_id!)
-        .maybeSingle();
+      let supplyId = taskDetailTask.supply_profile_id?.trim() || null;
+      if (!supplyId && taskDetailTask.care_schedule_id) {
+        const { data: sched } = await supabase
+          .from("care_schedules")
+          .select("supply_profile_id")
+          .eq("id", taskDetailTask.care_schedule_id)
+          .maybeSingle();
+        const sid = (sched as { supply_profile_id?: string | null } | null)?.supply_profile_id?.trim();
+        if (sid) supplyId = sid;
+      }
+      if (!supplyId) {
+        if (!cancelled) setTaskDetailSupplyName(null);
+        return;
+      }
+      const { data } = await supabase.from("supply_profiles").select("name").eq("id", supplyId).maybeSingle();
       if (!cancelled && data) setTaskDetailSupplyName((data as { name?: string }).name ?? null);
       else if (!cancelled) setTaskDetailSupplyName(null);
     })();
     return () => { cancelled = true; };
-  }, [taskDetailTask?.id, taskDetailTask?.supply_profile_id]);
+  }, [taskDetailTask?.id, taskDetailTask?.supply_profile_id, taskDetailTask?.care_schedule_id]);
 
   async function handleComplete(t: Task & { plant_name?: string }) {
     if (!user || t.completed_at) return;
@@ -946,6 +971,12 @@ export default function CalendarPage() {
             else if (delta > SWIPE_THRESHOLD) prevMonth();
           }}
         >
+          {careTasksSyncing && (
+            <div className="-mx-6 px-4 py-2 text-xs text-emerald-900 bg-emerald-50/90 border-b border-emerald-100 flex items-center gap-2" role="status">
+              <span className="inline-block w-3.5 h-3.5 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin shrink-0" aria-hidden />
+              Updating care tasks…
+            </div>
+          )}
           <div className="grid grid-cols-7 border-b border-black/10">
             {WEEKDAY_LABELS.map((label, i) => (
               <div key={i} className="p-1.5 text-center text-xs font-medium text-black/60 border-r border-black/5 last:border-r-0">
@@ -1415,7 +1446,7 @@ export default function CalendarPage() {
                   <dd>{taskDetailTask.plant_name}</dd>
                 </div>
               )}
-              {taskDetailTask.supply_profile_id && (
+              {(taskDetailTask.supply_profile_id || taskDetailTask.care_schedule_id) && (
                 <div>
                   <dt className="text-neutral-500">Linked product</dt>
                   <dd>{taskDetailSupplyName ?? "—"}</dd>

@@ -33,10 +33,8 @@ export function fakeUser(overrides: Partial<User> = {}): User {
  * Awaiting the chain resolves to { data, error } per the result argument.
  * Override `.maybeSingle` / `.single` per-test to return specific row data.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function makeSbChain(result: { data?: any; error?: any } = {}): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chain: any = {
+export function makeSbChain(result: { data?: unknown; error?: unknown } = {}) {
+  const chain = {
     select: vi.fn(() => chain),
     insert: vi.fn(() => chain),
     update: vi.fn(() => chain),
@@ -58,7 +56,8 @@ export function makeSbChain(result: { data?: any; error?: any } = {}): any {
     ),
   };
   // Make the chain itself thenable so `await supabase.from(...).update(...).eq(...)` resolves.
-  chain.then = (
+  type Thenable = { then: (resolve: (v: { data: unknown; error: unknown }) => void) => Promise<void> };
+  (chain as unknown as Thenable).then = (
     resolve: (v: { data: unknown; error: unknown }) => void
   ) =>
     Promise.resolve({
@@ -72,8 +71,7 @@ export function makeSbChain(result: { data?: any; error?: any } = {}): any {
  * Creates a lightweight Supabase client mock.
  * `from` returns a fresh chainable mock per call; override `fromResult` for specific row data.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function makeSbMock(fromResult: { data?: any; error?: any } = {}) {
+export function makeSbMock(fromResult: { data?: unknown; error?: unknown } = {}) {
   return {
     from: vi.fn(() => makeSbChain(fromResult)),
     auth: {

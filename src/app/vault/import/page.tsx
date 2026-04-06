@@ -170,6 +170,22 @@ function normalizedSpecFromScrapeData(d: Record<string, unknown>): {
   };
 }
 
+/**
+ * True when scrape has less than 40% of required fields filled → fire background fill-blanks to save AI tokens when URL is already data-rich.
+ */
+function shouldEnrichFromScrape(scrapeData: Record<string, unknown>): boolean {
+  let filled = 0;
+  const d = scrapeData;
+  if ((d.sun ?? d.sun_requirement) != null && String(d.sun ?? d.sun_requirement).trim()) filled++;
+  if ((d.plant_spacing ?? d.spacing) != null && String(d.plant_spacing ?? d.spacing).trim()) filled++;
+  if (d.days_to_germination != null && String(d.days_to_germination).trim()) filled++;
+  if (d.harvest_days != null || (d.days_to_maturity != null && String(d.days_to_maturity).trim())) filled++;
+  if (d.plant_description != null && String(d.plant_description).trim()) filled++;
+  if (d.growing_notes != null && String(d.growing_notes).trim()) filled++;
+  const total = 6;
+  return filled / total < 0.4;
+}
+
 /** Parse streamed result line; return partial ExtractResponse with empty strings for missing fields so we can still show Import Review. */
 function parseStreamedExtractResult(payload: string, url: string): ExtractResponse | null {
   let raw: Record<string, unknown>;
@@ -272,7 +288,7 @@ export default function VaultImportPage() {
       scrapeData: Record<string, unknown>,
       zone10bMerged: ReturnType<typeof applyZone10bToProfile>,
       opts?: { fromSaveToBrain?: boolean }
-    ): Promise<{ ok: boolean; dataSource?: DataSource; brainStatus?: BrainStatus; newTypeAddedToBrain?: boolean }> => {
+    ): Promise<{ ok: boolean; dataSource?: DataSource; brainStatus?: BrainStatus; newTypeAddedToBrain?: boolean; newProfileId?: string }> => {
       const uid = user!.id;
       const safePlantName = (plantName ?? "").trim() || "Imported seed";
       const nameKey = getCanonicalKey(safePlantName);
@@ -389,7 +405,13 @@ export default function VaultImportPage() {
         brainStatus,
         newTypeAddedToBrain,
       });
-      return { ok: true, dataSource, brainStatus, newTypeAddedToBrain };
+      return {
+        ok: true,
+        dataSource,
+        brainStatus,
+        newTypeAddedToBrain,
+        ...(!matchedExisting && { newProfileId: profileId }),
+      };
     },
     [user, updateItem]
   );
@@ -536,10 +558,17 @@ export default function VaultImportPage() {
         processOneItem(i + 1, null);
         return;
       }
+      if (result.newProfileId && authSession?.access_token && shouldEnrichFromScrape(scrapeData)) {
+        fetch("/api/seed/fill-blanks-for-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ profileId: result.newProfileId, useGemini: true, backgroundEnrich: true }),
+        }).catch(() => {});
+      }
 
       processOneItem(i + 1, null);
     },
-    [urlText, user, updateItem, knownPlantTypesFromProfiles, runCreateProfileAndPacket]
+    [urlText, user, updateItem, knownPlantTypesFromProfiles, runCreateProfileAndPacket, authSession?.access_token]
   );
 
   const handleCancel = useCallback(() => {
@@ -1150,7 +1179,7 @@ export default function VaultImportPage() {
       harvest_days: maturityNum != null && !Number.isNaN(maturityNum) ? maturityNum : zone10b.harvest_days,
     };
 
-    await runCreateProfileAndPacket(
+    const result = await runCreateProfileAndPacket(
       pending.index,
       pending.url,
       pending.plantName,
@@ -1163,8 +1192,15 @@ export default function VaultImportPage() {
       { fromSaveToBrain: true } // legacy param name; creates profile with form values
     );
     setSavingBrain(false);
+    if (result.ok && result.newProfileId && authSession?.access_token && shouldEnrichFromScrape(pending.scrapeData as Record<string, unknown>)) {
+      fetch("/api/seed/fill-blanks-for-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+        body: JSON.stringify({ profileId: result.newProfileId, useGemini: true, backgroundEnrich: true }),
+      }).catch(() => {});
+    }
     processOneItem(pending.index + 1, null);
-  }, [user?.id, newPlantName, newPlantForm, pendingImportItem, processOneItem, runCreateProfileAndPacket]);
+  }, [user?.id, newPlantName, newPlantForm, pendingImportItem, processOneItem, runCreateProfileAndPacket, authSession?.access_token]);
 
   const completed = items.filter(
     (i) => i.status === "success" || i.status === "error" || i.status === "skipped"

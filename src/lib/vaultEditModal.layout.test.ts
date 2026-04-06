@@ -81,14 +81,16 @@ describe("Edit Plant Profile modal — backdrop clearance for bottom nav (Bug 2 
     expect(vaultPage).not.toMatch(badPattern);
   });
 
-  it("modal card uses max-h-[calc(100dvh-6rem)] to fit within the padded backdrop", () => {
-    // 6rem = 1rem (p-4 top) + 5rem (pb-20 bottom).
-    // Removing this causes the modal to overflow and push the Save button off-screen.
-    expect(vaultPage).toContain("max-h-[calc(100dvh-6rem)]");
+  it("modal card uses max-h cap so Save/Delete stay scrollable (85vh / dvh)", () => {
+    expect(vaultPage).toContain("max-h-[min(85vh,100dvh-5rem)]");
   });
 
-  it("desktop modal card retains sm:max-h-[90vh] for larger screens", () => {
-    expect(vaultPage).toContain("sm:max-h-[90vh]");
+  it("desktop modal card uses sm:max-h-[85vh] (vault modal law)", () => {
+    expect(vaultPage).toContain("sm:max-h-[85vh]");
+  });
+
+  it("edit modal body is one scroll region with overflow-y-auto for long forms", () => {
+    expect(vaultPage).toContain("overflow-y-auto overscroll-contain");
   });
 });
 

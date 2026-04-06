@@ -14,6 +14,10 @@ Short reference for the next AI assistant or developer.
 - **Interactions:** Column **resize** = drag the right edge of a data column header; **reorder** = drag a data column header to a new position. Fixed columns: optional batch checkbox, then icon; then the seven data columns in `listColumnOrder`.
 - **Rendering:** `<colgroup>` + `tableLayout: "fixed"`; headers and cells built from `listTable.getHeaderGroups()` and `listTable.getRowModel().rows` via `renderHeader(colId, header)` and `renderCell(colId, seed)`.
 
+## All My Packets design choice
+
+The blueprint originally specified a standalone "All My Packets" page. The implementation uses the **Seed Vault tab** as the packet list (one row per packet). The route `/vault/packets` redirects to `/vault?tab=list` for backward compatibility. This is an intentional design choice: packet list is integrated into the main vault rather than a separate page.
+
 ## Database relationships (Variety vs Packet)
 
 - **Parent (Variety):** `plant_profiles` — one row per variety; list view shows one row per `plant_profile`.

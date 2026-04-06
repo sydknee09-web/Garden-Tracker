@@ -6,7 +6,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Re-enabling ESLint will fail the build until lint warnings are addressed (see docs/Outstanding_Audit_Notes.md).
-  eslint: { ignoreDuringBuilds: true },
+  eslint: { ignoreDuringBuilds: false },
   async headers() {
     return [
       {

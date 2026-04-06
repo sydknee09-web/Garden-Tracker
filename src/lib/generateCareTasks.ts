@@ -6,6 +6,25 @@ type ScheduleForEffectiveIds = {
   grow_instance_id?: string | null;
 };
 
+/** Map care_schedules.category to tasks.category (DB CHECK allows a fixed set). */
+function taskCategoryFromSchedule(category: string): "maintenance" | "fertilize" | "prune" | "general" | "sow" | "harvest" | "start_seed" | "transplant" | "direct_sow" {
+  const c = (category ?? "").toLowerCase();
+  const allowed = new Set([
+    "sow",
+    "harvest",
+    "start_seed",
+    "transplant",
+    "direct_sow",
+    "maintenance",
+    "fertilize",
+    "prune",
+    "general",
+  ]);
+  if (allowed.has(c)) return c as "maintenance" | "fertilize" | "prune" | "general" | "sow" | "harvest" | "start_seed" | "transplant" | "direct_sow";
+  if (c === "water" || c === "spray" || c === "repot" || c === "mulch") return "maintenance";
+  return "general";
+}
+
 /**
  * Returns effective instance IDs for a schedule.
  * - grow_instance_ids non-empty -> those IDs (deduped)
@@ -41,7 +60,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
     // showed on Home (from care_schedules) but not on Calendar (which only shows tasks).
     const { data: allSchedules, error: fetchErr } = await supabase
       .from("care_schedules")
-      .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template")
+      .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, next_due_date, end_date, recurrence_type, interval_days, is_template, supply_profile_id")
       .eq("user_id", userId)
       .eq("is_active", true)
       .is("deleted_at", null)
@@ -141,6 +160,35 @@ export async function generateCareTasks(userId: string): Promise<number> {
         .is("deleted_at", null);
     }
 
+    // Pending tasks for dead, archived, or soft-deleted grow instances should not stay on calendar
+    const { data: deadOrArchived } = await supabase
+      .from("grow_instances")
+      .select("id")
+      .eq("user_id", userId)
+      .in("status", ["dead", "archived"])
+      .is("deleted_at", null);
+    const { data: trashedGrows } = await supabase
+      .from("grow_instances")
+      .select("id")
+      .eq("user_id", userId)
+      .not("deleted_at", "is", null);
+    const badGrowIds = [
+      ...new Set([
+        ...(deadOrArchived ?? []).map((r: { id: string }) => r.id),
+        ...(trashedGrows ?? []).map((r: { id: string }) => r.id),
+      ]),
+    ];
+    if (badGrowIds.length > 0) {
+      const nowTomb = new Date().toISOString();
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: nowTomb })
+        .eq("user_id", userId)
+        .in("grow_instance_id", badGrowIds)
+        .is("completed_at", null)
+        .is("deleted_at", null);
+    }
+
     // Batch fetch existing tasks for all due schedules: (care_schedule_id, due_date) for pending tasks
     const scheduleIds = dueSchedules.map((s) => (s as { id: string }).id);
     const { data: existingTasks } = await supabase
@@ -171,7 +219,10 @@ export async function generateCareTasks(userId: string): Promise<number> {
         recurrence_type: string;
         interval_days: number | null;
         end_date: string | null;
+        supply_profile_id?: string | null;
       };
+      const taskCategory = taskCategoryFromSchedule(s.category);
+      const supplyId = s.supply_profile_id?.trim() ? s.supply_profile_id.trim() : null;
 
       // For permanent with grow_instance_ids: skip if any instance is stale (archived/deleted)
       const effectiveIds = getEffectiveInstanceIds(s);
@@ -209,10 +260,11 @@ export async function generateCareTasks(userId: string): Promise<number> {
             user_id: userId,
             plant_profile_id: s.plant_profile_id,
             grow_instance_id: taskGrowInstanceId,
-            category: s.category as "maintenance" | "fertilize" | "prune" | "general",
+            category: taskCategory,
             due_date: taskDueDate,
             title: taskTitle,
             care_schedule_id: s.id,
+            ...(supplyId ? { supply_profile_id: supplyId } : {}),
           });
           if (!error) created++;
         }
@@ -224,10 +276,11 @@ export async function generateCareTasks(userId: string): Promise<number> {
           user_id: userId,
           plant_profile_id: s.plant_profile_id,
           grow_instance_id: taskGrowInstanceId,
-          category: s.category as "maintenance" | "fertilize" | "prune" | "general",
+          category: taskCategory,
           due_date: taskDueDate,
           title: taskTitle,
           care_schedule_id: s.id,
+          ...(supplyId ? { supply_profile_id: supplyId } : {}),
         });
         if (!error) created++;
       }

@@ -44,6 +44,7 @@ const GrowInstanceModal = dynamic(
 );
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
+import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
@@ -378,27 +379,7 @@ function GardenPageInner() {
     if (error) return;
     await softDeleteTasksForGrowInstance(endCropConfirmBatch.id, user.id);
 
-    // Revert profile status when no active grows remain
-    const profileId = endCropConfirmBatch.plant_profile_id;
-    const { data: activeGrows } = await supabase
-      .from("grow_instances")
-      .select("id")
-      .eq("plant_profile_id", profileId)
-      .eq("user_id", user.id)
-      .in("status", ["growing", "pending"])
-      .is("deleted_at", null);
-    if (!activeGrows?.length) {
-      const { data: stockedPackets } = await supabase
-        .from("seed_packets")
-        .select("id")
-        .eq("plant_profile_id", profileId)
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-        .or("is_archived.is.null,is_archived.eq.false")
-        .gt("qty_status", 0);
-      const revertStatus = stockedPackets?.length ? "in_stock" : "out_of_stock";
-      await supabase.from("plant_profiles").update({ status: revertStatus }).eq("id", profileId).eq("user_id", user.id);
-    }
+    await revertProfileStatusIfNoActiveGrows(supabase, endCropConfirmBatch.plant_profile_id);
 
     setEndCropConfirmBatch(null);
     setRefetchTrigger((t) => t + 1);
@@ -1292,6 +1273,10 @@ function GardenPageInner() {
           open
           onClose={closeActiveModal}
           onBackToMenu={backToMenu}
+          onSuccess={() => {
+            showToast("Task added");
+            setRefetchTrigger((t) => t + 1);
+          }}
         />
       )}
 

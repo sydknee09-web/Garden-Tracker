@@ -176,6 +176,21 @@ export function VaultProfileAboutTab({
         )}
       </div>
 
+      {/* Tags */}
+      {profile?.tags && profile.tags.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden">
+          <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("tags")}>
+            <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
+            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
+          </button>
+          {isAboutOpen("tags") && (
+            <div className="px-4 pb-4 pt-0">
+              <TagBadges tags={profile.tags} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Propagate & Harvest seeds */}
       {!isLegacy && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4">

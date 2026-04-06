@@ -3,7 +3,6 @@
 import type { PlantProfile, CareSchedule, CareScheduleSuggestion, GrowInstance } from "@/types/garden";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
 import { CareSuggestions, GetAiSuggestionsButton } from "@/components/CareSuggestions";
-import { TagBadges } from "@/components/TagBadges";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 
@@ -102,21 +101,6 @@ export function VaultProfileCareTab({
                   ))}
                 </ul>
               )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tags */}
-      {profile?.tags && profile.tags.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("tags")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("tags") && (
-            <div className="px-4 pb-4 pt-0">
-              <TagBadges tags={profile.tags} />
             </div>
           )}
         </div>

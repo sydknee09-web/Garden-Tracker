@@ -57,6 +57,7 @@ const QRScannerModal = dynamic(
   { ssr: false }
 );
 import { supabase } from "@/lib/supabase";
+import { checkProfileStockStatus } from "@/lib/completeSowTask";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
@@ -671,31 +672,36 @@ function VaultPageInner() {
     return () => { cancelled = true; };
   }, [plantModalOpen, user?.id, selectedVarietyIds]);
 
-  const consumePackets = useCallback(async (profileId: string, toUse: number, packets: SeedPacketRow[]) => {
-    if (!user?.id || toUse <= 0) return true;
-    const now = new Date().toISOString();
-    let need = toUse;
-    for (const pk of packets) {
-      const packetValue = pk.qty_status / 100;
-      if (need >= packetValue - 1e-6) {
-        // Law 2 & 3: soft delete and archive when qty reaches 0
-        await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
-        need -= packetValue;
-      } else {
-        const remaining = Math.round((packetValue - need) * 100);
-        const newQty = Math.max(0, Math.min(100, remaining));
-        if (newQty <= 0) {
-          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", user.id);
+  /** Consume packet quantity. toUse is in "packet units" (1 = full packet). qty_status 0-100 = percent remaining; packetValue = qty_status/100. */
+  const consumePackets = useCallback(
+    async (profileId: string, toUse: number, packets: SeedPacketRow[], packetOwnerId?: string) => {
+      if (!user?.id || toUse <= 0) return true;
+      const ownerId = packetOwnerId ?? user.id;
+      const now = new Date().toISOString();
+      let need = toUse;
+      for (const pk of packets) {
+        const packetValue = pk.qty_status / 100;
+        if (need >= packetValue - 1e-6) {
+          // Law 2 & 3: soft delete and archive when qty reaches 0
+          await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", ownerId);
+          need -= packetValue;
         } else {
-          await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", user.id);
+          const remaining = Math.round((packetValue - need) * 100);
+          const newQty = Math.max(0, Math.min(100, remaining));
+          if (newQty <= 0) {
+            await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true, deleted_at: now }).eq("id", pk.id).eq("user_id", ownerId);
+          } else {
+            await supabase.from("seed_packets").update({ qty_status: newQty }).eq("id", pk.id).eq("user_id", ownerId);
+          }
+          need = 0;
+          break;
         }
-        need = 0;
-        break;
+        if (need <= 0) break;
       }
-      if (need <= 0) break;
-    }
-    return true;
-  }, [user?.id]);
+      return true;
+    },
+    [user?.id]
+  );
 
   const handleConfirmPlant = useCallback(async (plantAllSeeds?: boolean) => {
     if (!user?.id || plantModalRows.length === 0) return;
@@ -706,6 +712,7 @@ function VaultPageInner() {
     let errMsg: string | null = null;
     for (const row of plantModalRows) {
       const p = row.profile;
+      const profileOwnerId = (p as { user_id?: string }).user_id ?? user.id;
       const effectiveTotal = row.packets.reduce((s, pk) => s + pk.qty_status / 100, 0);
       const choice = plantAllSeeds ? "All" : row.quantityChoice;
       const toUse = choice === "All" ? effectiveTotal : choice === "One packet" ? 1 : effectiveTotal * 0.5;
@@ -796,17 +803,15 @@ function VaultPageInner() {
 
       const used = Math.min(toUse, effectiveTotal);
       if (used > 0 && row.packets.length > 0) {
-        await consumePackets(p.id, used, row.packets);
+        await consumePackets(p.id, used, row.packets, profileOwnerId);
       }
 
       const remainingAfter = effectiveTotal - used;
       if (remainingAfter <= 0) {
-        await supabase.from("shopping_list").upsert(
-          { user_id: user.id, plant_profile_id: p.id, is_purchased: false },
-          { onConflict: "user_id,plant_profile_id", ignoreDuplicates: false }
-        );
+        await checkProfileStockStatus(p.id, profileOwnerId);
+      } else {
+        await supabase.from("plant_profiles").update({ status: "active" }).eq("id", p.id).eq("user_id", profileOwnerId);
       }
-      await supabase.from("plant_profiles").update({ status: "active" }).eq("id", p.id).eq("user_id", user.id);
     }
     setPlantConfirming(false);
     if (errMsg) {
@@ -1725,6 +1730,11 @@ function VaultPageInner() {
           open
           onClose={closeActiveModal}
           onBackToMenu={backToMenu}
+          onSuccess={() => {
+            setSaveToastMessage("Task added");
+            refetch();
+            router.refresh();
+          }}
         />
       )}
 

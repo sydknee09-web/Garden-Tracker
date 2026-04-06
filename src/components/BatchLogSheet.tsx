@@ -8,7 +8,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
-import { ICON_MAP } from "@/lib/styleDictionary";
+import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 
 export type BatchLogBatch = {
   id: string;
@@ -388,7 +388,7 @@ export function BatchLogSheet({
           {/* 1. Quick Actions row — 2-row grid so all icons visible on mobile without scroll */}
           <div>
             <span className="block text-xs font-medium text-black/60 mb-2">Quick action</span>
-            <div className="grid grid-cols-4 gap-2">
+            <div className={QUICK_ACTIONS_GRID_CLASS}>
               <button
                 type="button"
                 onClick={() => handleQuickCareTap("water")}

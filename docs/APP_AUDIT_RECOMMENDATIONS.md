@@ -80,6 +80,8 @@ All items below have been implemented and can be considered closed.
 | **Law 5 desktop webcam** | deviceUtils.ts + useDesktopPhotoCapture hook. Applied to HarvestModal, AddPlantModal, vault/[id] hero, garden (Log Growth + Quick Add), BatchLogSheet. Outstanding #6 updated. |
 | **Empty-state illustrations** | EmptyStateIllustrations.tsx with inline SVG components (journal, vault, sprout, cart, perennial). Wired to Journal, Shopping list, Seed Vault, My Plants. Shed keeps ShedSupplyIcon. |
 | **Gemini SDK migration** | All Gemini usage migrated to `@google/genai`; `@google/generative-ai` removed. Routes: supply extract-from-photo, extract-order; seed extract, extract-order, scrape-url; importPdfCatalog. |
+| **Getting started in README** | Prerequisites, clone, install, env vars, migrations, npm run dev; cross-reference from Running locally (FULL_APP_AUDIT §2.3). |
+| **grow_instances user_id scope** | vault/[id] repair/orphan updates, BatchLogSheet, useVaultPlantingsHandlers, GrowInstanceModal, garden confirmEndCrop already use `.eq("user_id", user.id)`; errors surfaced via showErrorToast (Outstanding #3). |
 
 ---
 
@@ -169,11 +171,9 @@ Below are **all** tasks from the app audits that were (or are) **medium effort**
 | **Audit every save/complete for success toast** | Medium | FULL_APP_AUDIT §1.3 | Ensure every “save” / “complete” / “archive” shows toast or clear inline success. Main flows already use useToast; a full pass would catch edge cases. |
 | **Error toasts in distinct style (e.g. red/amber)** | Low–Medium | FULL_APP_AUDIT §1.3 | useToast variant for errors so they’re clearly different from success. |
 | **Document CONTRIBUTING or ARCHITECTURE** | Medium | FULL_APP_AUDIT §2.1 | “Where to put new X”; which page owns modals, which context holds state. |
-| **Getting started in README** | Low–Medium | FULL_APP_AUDIT §2.3 | Required env vars, first-run commands for new devs. |
 | **Optional “Quick start” onboarding (3 steps)** | Medium–High | FULL_APP_AUDIT §3.2 | e.g. set zone → add first seed → add first task. Product decision. |
-| **Law 5: Photo inputs — desktop webcam path** | **High** | Outstanding #6 | All photo-taking components (HarvestModal, AddPlantModal, QuickAddSupply, vault hero, garden, review-import, shed, etc.) should use `isMobileDevice()` + `getUserMedia` on desktop. Several components already do; rest need the same pattern. |
-| **ESLint re-enabled in builds** | **High** | Outstanding #8 | 50+ existing warnings + 2 errors; fix then set `ignoreDuringBuilds: false`. |
-| **grow_instances mutations: add user_id scope + error handling** | Medium | Outstanding #3 | vault/[id], BatchLogSheet; add `.eq("user_id", user.id)` and surface DB failures. |
+| **Law 5: Photo inputs — desktop webcam (remaining)** | **High** | Outstanding #6 | Main flows + QuickAddSupply + vault/shed/[id] done. Remaining: vault/review-import, shed/review-import (multi-item photo flows). |
+| **ESLint re-enabled in builds** | **High** | Outstanding #8 | Fix rules-of-hooks errors + test config; then set `ignoreDuringBuilds: false`. Warnings (exhaustive-deps, no-img-element) can be addressed incrementally. |
 | **SeedVaultView: journal photo in hierarchy (Law 7)** | Medium | Outstanding #14 | Optional; cards could show first journal photo; currently skipped for performance. |
 
 ### Summary for final polish

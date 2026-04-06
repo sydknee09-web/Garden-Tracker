@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -412,6 +413,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
       });
     }
 
+    await revertProfileStatusIfNoActiveGrows(supabase, endBatchTarget.plant_profile_id);
+
     setEndSaving(false);
     setEndBatchTarget(null);
     setEndReason("other");
@@ -428,6 +431,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     const batchUserId = deleteBatchTarget.user_id ?? user.id;
     const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batchId, user_id: batchUserId });
     if (!error) await softDeleteTasksForGrowInstance(batchId, batchUserId);
+    if (!error) await revertProfileStatusIfNoActiveGrows(supabase, deleteBatchTarget.plant_profile_id);
     setDeleteSaving(false);
     setDeleteBatchTarget(null);
     if (error) {
@@ -444,6 +448,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     setBulkDeleteSaving(true);
     const now = new Date().toISOString();
     const selectedBatches = plants.filter((p) => selectedGrowIds.has(p.id));
+    const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
@@ -451,6 +456,11 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
       const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batch.id, user_id: batchUserId });
       if (error) hadError = true;
+    }
+    if (!hadError) {
+      for (const profileId of profileIds) {
+        await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+      }
     }
     setBulkDeleteSaving(false);
     setBulkDeleteConfirmOpen(false);
@@ -469,11 +479,15 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     if (!user?.id || selectedGrowIds.size === 0) return;
     setBulkEndBatchSaving(true);
     const selectedBatches = plants.filter((p) => selectedGrowIds.has(p.id));
+    const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     const now = new Date().toISOString();
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
       await updateWithOfflineQueue("grow_instances", { status: "archived", ended_at: now }, { id: batch.id, user_id: batchUserId });
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
+    }
+    for (const profileId of profileIds) {
+      await revertProfileStatusIfNoActiveGrows(supabase, profileId);
     }
     setBulkEndBatchSaving(false);
     setBulkEndBatchConfirmOpen(false);

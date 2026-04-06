@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -750,30 +751,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     setBulkEndBatchSaving(true);
     const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
     const now = new Date().toISOString();
+    const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
       await supabase.from("grow_instances").update({ status: "archived", ended_at: now }).eq("id", batch.id).eq("user_id", batchUserId);
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
-      const profileId = batch.plant_profile_id;
-      const { data: activeGrows } = await supabase
-        .from("grow_instances")
-        .select("id")
-        .eq("plant_profile_id", profileId)
-        .eq("user_id", batchUserId)
-        .in("status", ["growing", "pending"])
-        .is("deleted_at", null);
-      if (!activeGrows?.length) {
-        const { data: stockedPackets } = await supabase
-          .from("seed_packets")
-          .select("id")
-          .eq("plant_profile_id", profileId)
-          .eq("user_id", batchUserId)
-          .is("deleted_at", null)
-          .or("is_archived.is.null,is_archived.eq.false")
-          .gt("qty_status", 0);
-        const revertStatus = stockedPackets?.length ? "in_stock" : "out_of_stock";
-        await supabase.from("plant_profiles").update({ status: revertStatus }).eq("id", profileId).eq("user_id", batchUserId);
-      }
+    }
+    for (const profileId of profileIds) {
+      await revertProfileStatusIfNoActiveGrows(supabase, profileId);
     }
     setBulkEndBatchSaving(false);
     setBulkEndBatchConfirmOpen(false);

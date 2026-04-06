@@ -1041,6 +1041,10 @@ export default function JournalPage() {
           open
           onClose={closeActiveModal}
           onBackToMenu={backToMenu}
+          onSuccess={() => {
+            showToast("Task added");
+            setRefetchTrigger((t) => t + 1);
+          }}
         />
       )}
 

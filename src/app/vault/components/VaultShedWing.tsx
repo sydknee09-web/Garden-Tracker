@@ -441,6 +441,12 @@ export function VaultShedWingToolbar() {
 
 export function VaultShedWingContent() {
   const ctx = useContext(VaultShedWingContext);
+  const clearShedFilters = useCallback(() => {
+    if (ctx) {
+      ctx.setShedSearchQuery("");
+      ctx.setShedCategoryFilter(null);
+    }
+  }, [ctx]);
   if (!ctx || ctx.viewMode !== "shed") return null;
   const {
     refetchTrigger,
@@ -458,10 +464,6 @@ export function VaultShedWingContent() {
     setFilteredSupplyIds,
     shedCategoryFromUrl,
   } = ctx;
-  const clearShedFilters = useCallback(() => {
-    setShedSearchQuery("");
-    setShedCategoryFilter(null);
-  }, [setShedSearchQuery, setShedCategoryFilter]);
   return (
     <div className="relative z-10 pt-2 pointer-events-auto">
       <ShedView

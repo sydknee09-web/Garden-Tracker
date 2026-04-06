@@ -28,6 +28,15 @@ export interface GrowInstanceModalProps {
   backHref?: string | null;
   /** When user taps Harvest in BatchLogSheet, close modal and open HarvestModal for this batch. */
   onLogHarvest?: (batch: BatchLogBatch) => void;
+  /** Hide logging, editing, archive, and deletes — browse-only (e.g. opened from Vault profile). */
+  readOnly?: boolean;
+  /** Which tab to show first when the modal opens. */
+  initialTab?: "overview" | "history";
+  /**
+   * When set (e.g. from Vault profile), used for "Open in Garden" so the host can
+   * navigate without double back-stack issues with modal history.pushState.
+   */
+  onOpenInGarden?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +146,7 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
-export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: GrowInstanceModalProps) {
+export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, onOpenInGarden }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast, showToast } = useToast();
@@ -153,7 +162,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab ?? "overview");
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState("");
   const [savingLocation, setSavingLocation] = useState(false);
@@ -277,6 +286,9 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
   }, [user, instanceId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    setActiveTab(initialTab ?? "overview");
+  }, [growId, initialTab]);
   useEffect(() => { if (editingLocation && locationInputRef.current) locationInputRef.current.focus(); }, [editingLocation]);
 
   // ---------------------------------------------------------------------------
@@ -494,6 +506,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
   const fertInfo = lastFertilized();
   const lastWateredAt = lastWatered();
   const canEdit = grow.user_id === user?.id;
+  const allowEdits = canEdit && !readOnly;
   const germinationLabel =
     grow.seeds_sown != null && grow.seeds_sown > 0
       ? grow.seeds_sprouted != null
@@ -557,6 +570,10 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
     return toTime(bDate) - toTime(aDate);
   });
 
+  const upcomingTasks = tasks
+    .filter((t) => !t.completed_at)
+    .sort((a, b) => toTime(a.due_date) - toTime(b.due_date));
+
   return (
     <>
       {toast}
@@ -595,7 +612,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
               About
             </Link>
           )}
-          {canEdit && (
+          {allowEdits && (
             <button
               type="button"
               onClick={() => setBatchLogOpen(true)}
@@ -605,7 +622,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
               Log
             </button>
           )}
-          {canEdit && (
+          {allowEdits && (
             <button
               type="button"
               onClick={() => setArchiveOpen(true)}
@@ -679,7 +696,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
           {/* Location */}
           <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
             <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Location</span>
-            {canEdit && editingLocation ? (
+            {allowEdits && editingLocation ? (
               <div className="flex items-center gap-1 mt-0.5">
                 <input
                   ref={locationInputRef}
@@ -698,11 +715,11 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
             ) : (
               <button
                 type="button"
-                onClick={canEdit ? () => { setLocationDraft(grow.location ?? ""); setEditingLocation(true); } : undefined}
-                className={`text-xs font-medium mt-0.5 text-center min-h-[24px] ${canEdit ? "text-emerald-700 hover:text-emerald-900 hover:underline" : "text-neutral-700"}`}
-                aria-label={canEdit ? "Edit location" : undefined}
+                onClick={allowEdits ? () => { setLocationDraft(grow.location ?? ""); setEditingLocation(true); } : undefined}
+                className={`text-xs font-medium mt-0.5 text-center min-h-[24px] ${allowEdits ? "text-emerald-700 hover:text-emerald-900 hover:underline" : "text-neutral-700"}`}
+                aria-label={allowEdits ? "Edit location" : undefined}
               >
-                {grow.location?.trim() || (canEdit ? "Add location" : "—")}
+                {grow.location?.trim() || (allowEdits ? "Add location" : "—")}
               </button>
             )}
           </div>
@@ -805,7 +822,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
                 <div className="text-center py-4">
                   <p className="text-sm text-neutral-500">No photos yet.</p>
                   <p className="text-xs text-neutral-400 mt-1">Photos from journal entries linked to this plant will appear here.</p>
-                  {canEdit && (
+                  {allowEdits && (
                     <button
                       type="button"
                       onClick={() => setBatchLogOpen(true)}
@@ -837,11 +854,32 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
               </div>
             )}
 
-            {timelineItems.length === 0 ? (
-              <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-                <p className="text-neutral-500 text-sm">No history yet.</p>
-                <p className="text-neutral-400 text-xs mt-1">Journal entries and completed tasks will appear here.</p>
+            {upcomingTasks.length > 0 && (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4">
+                <p className="text-xs font-semibold uppercase text-neutral-500 mb-2">Scheduled care</p>
+                <ul className="space-y-2">
+                  {upcomingTasks.map((t) => {
+                    const label = (t.title ?? TASK_CATEGORY_LABELS(t.category)).trim() || TASK_CATEGORY_LABELS(t.category);
+                    return (
+                      <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="font-medium text-neutral-800">{label}</span>
+                        <span className="text-xs text-neutral-500 shrink-0">{t.due_date ? `Due ${formatShortDate(t.due_date)}` : "No due date"}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
+            )}
+
+            {timelineItems.length === 0 ? (
+              upcomingTasks.length === 0 ? (
+                <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+                  <p className="text-neutral-500 text-sm">No history yet.</p>
+                  <p className="text-neutral-400 text-xs mt-1">Journal entries and completed tasks will appear here.</p>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500 text-center py-2 px-2">No journal entries or completed tasks yet.</p>
+              )
             ) : (
               <div className="relative">
                 {/* Vertical timeline line */}
@@ -875,7 +913,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
                                 <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-40 object-cover" />
                               )}
                             </div>
-                            {canEdit && e.user_id === user?.id && (
+                            {allowEdits && e.user_id === user?.id && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteJournalEntry(e.id)}
@@ -908,7 +946,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
                                 <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">completed</span>
                               </div>
                             </div>
-                            {canEdit && (t as Task & { user_id?: string }).user_id === user?.id && (
+                            {allowEdits && (t as Task & { user_id?: string }).user_id === user?.id && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(t.id, (t as Task & { user_id?: string }).user_id ?? user!.id)}
@@ -936,24 +974,55 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest }: G
       {/* ------------------------------------------------------------------ */}
       <div className="px-4 pb-8 pt-4 border-t border-neutral-100 bg-white">
         <div className="flex gap-2">
-          {profile && (
-            <button
-              type="button"
-              onClick={handleGoToVault}
-              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-            >
-              <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
-              To Vault
-            </button>
+          {readOnly ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenInGarden) {
+                    onOpenInGarden();
+                    return;
+                  }
+                  onClose();
+                  if (profile?.id && grow?.id) {
+                    router.push(`/garden?grow=${grow.id}&from=profile&profile=${profile.id}`);
+                  }
+                }}
+                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-emerald-900 text-white text-sm font-medium hover:opacity-90"
+              >
+                <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
+                Open in Garden
+              </button>
+            </>
+          ) : (
+            <>
+              {profile && (
+                <button
+                  type="button"
+                  onClick={handleGoToVault}
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
+                >
+                  <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
+                  To Vault
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
+              >
+                <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
+                To Garden
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-          >
-            <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-            To Garden
-          </button>
         </div>
       </div>
 

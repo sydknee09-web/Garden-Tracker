@@ -18,7 +18,6 @@ import {
 } from "@/lib/reviewImportStorage";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { buildPlantProfileInsertPayload } from "@/lib/reviewImportSave";
-import { getCanonicalKey } from "@/lib/canonicalKey";
 import { findExistingProfileByCanonical } from "@/lib/matchExistingProfile";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { compressImage } from "@/lib/compressImage";
@@ -710,6 +709,18 @@ export default function ReviewImportPage() {
       return;
     }
 
+    // Same universe as review UI (getExistingProfile / findExistingProfileByCanonical): all non-deleted
+    // profiles for the user — no profile_type filter. Saving with .eq("profile_type", …) caused duplicates
+    // when the UI matched an existing profile but the save path did not (e.g. type skew or legacy rows).
+    const { data: profilesForMatchRows } = await supabase
+      .from("plant_profiles")
+      .select("id, name, variety_name")
+      .eq("user_id", user.id)
+      .is("deleted_at", null);
+    const profilesForMatch: { id: string; name: string | null; variety_name: string | null }[] = [
+      ...((profilesForMatchRows ?? []) as { id: string; name: string | null; variety_name: string | null }[]),
+    ];
+
     const newProfileIds: string[] = [];
     const savedItems: { item: ReviewImportItem; profileId: string; packetImagePath?: string; skipPacketAsHero?: boolean }[] = [];
     for (const item of items) {
@@ -753,18 +764,7 @@ export default function ReviewImportPage() {
       const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety);
       const coreVarietyName = coreVariety || varietyName;
       const zone10b = applyZone10bToProfile(name, {});
-      const nameKey = getCanonicalKey(name);
-      const varietyKey = getCanonicalKey(coreVarietyName ?? "");
-      const { data: allProfiles } = await supabase
-        .from("plant_profiles")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id)
-        .eq("profile_type", defaultProfileType)
-        .is("deleted_at", null);
-      const exact = (allProfiles ?? []).find(
-        (p: { name: string; variety_name: string | null }) =>
-          getCanonicalKey(p.name ?? "") === nameKey && getCanonicalKey(p.variety_name ?? "") === varietyKey
-      );
+      const exact = findExistingProfileByCanonical(profilesForMatch, name, item.variety);
       let profileId: string;
       let profileAlreadyHadHero = false;
       if (exact) {
@@ -814,6 +814,11 @@ export default function ReviewImportPage() {
         }
         profileId = (newProfile as { id: string }).id;
         newProfileIds.push(profileId);
+        profilesForMatch.push({
+          id: profileId,
+          name: payload.name,
+          variety_name: payload.variety_name ?? null,
+        });
       }
       const purchaseDate = (item.purchaseDate ?? "").trim() || todayISO();
       const tagsToSave = packetTags?.length ? packetTags : (item.tags ?? []);

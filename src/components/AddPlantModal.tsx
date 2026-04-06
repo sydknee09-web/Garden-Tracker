@@ -17,6 +17,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
 type PacketOption = { id: string; vendor_name: string | null; qty_status: number; is_archived?: boolean };
@@ -49,7 +50,9 @@ export function AddPlantModal({
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
   const router = useRouter();
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  /** Mobile: opens camera (Law 5). Separate from gallery so users can pick existing photos. */
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useFocusTrap(open);
   useEscapeKey(open, onClose);
 
@@ -148,8 +151,11 @@ export function AddPlantModal({
 
   const addPhoto = useCallback((files: FileList | null) => {
     if (!files?.length) return;
-    setPhotoFiles((prev) => [...prev, ...Array.from(files)]);
-    if (photoInputRef.current) photoInputRef.current.value = "";
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    setPhotoFiles((prev) => [...prev, ...imageFiles]);
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
   }, []);
 
   const addOnePhoto = useCallback((file: File) => {
@@ -522,11 +528,11 @@ export function AddPlantModal({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-cream rounded-3xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
-          <div className="flex-shrink-0 p-3.5 border-b border-neutral-200">
+          <div className="flex-shrink-0 p-3 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
             <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
             {!hidePlantTypeToggle && (
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 mt-2.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -550,7 +556,7 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 relative">
             <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
             {!addToExistingProfile && (
               <div className="flex gap-2">
@@ -571,8 +577,33 @@ export function AddPlantModal({
               </div>
             )}
 
-            {mode === "existing" && !addToExistingProfile ? (
-              <div className="space-y-3">
+            {addToExistingProfile ? (
+              <div className="space-y-2.5">
+                {profileDisplayName?.trim() && (
+                  <p className="text-sm text-neutral-700">
+                    <span className="font-medium text-neutral-800">Plant: </span>
+                    {profileDisplayName.trim()}
+                  </p>
+                )}
+                {plantType === "permanent" && (
+                  <div>
+                    <label htmlFor="add-plant-vendor-existing" className="block text-sm font-medium text-neutral-700 mb-1">
+                      Vendor / Nursery <span className="text-neutral-500 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="add-plant-vendor-existing"
+                      type="text"
+                      value={vendorNursery}
+                      onChange={(e) => setVendorNursery(e.target.value)}
+                      placeholder="e.g. Briggs Tree Nursery, Home Depot"
+                      className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                      aria-label="Vendor or nursery"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : mode === "existing" ? (
+              <div className="space-y-2.5">
                 <div>
                   <label htmlFor="add-plant-profile" className="block text-sm font-medium text-neutral-700 mb-1">
                     {plantType === "permanent" ? "Plant profile *" : "Variety *"}
@@ -581,7 +612,7 @@ export function AddPlantModal({
                     id="add-plant-profile"
                     value={selectedProfileId}
                     onChange={(e) => setSelectedProfileId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
                   >
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -662,6 +693,22 @@ export function AddPlantModal({
                     )}
                   </div>
                 )}
+                {plantType === "permanent" && (
+                  <div>
+                    <label htmlFor="add-plant-vendor-link-existing" className="block text-sm font-medium text-neutral-700 mb-1">
+                      Vendor / Nursery <span className="text-neutral-500 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="add-plant-vendor-link-existing"
+                      type="text"
+                      value={vendorNursery}
+                      onChange={(e) => setVendorNursery(e.target.value)}
+                      placeholder="e.g. Briggs Tree Nursery, Home Depot"
+                      className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                      aria-label="Vendor or nursery"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -727,20 +774,6 @@ export function AddPlantModal({
               </>
             )}
 
-            {mode === "existing" && plantType === "permanent" && (
-              <div>
-                <label htmlFor="add-plant-vendor-existing" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
-                <input
-                  id="add-plant-vendor-existing"
-                  type="text"
-                  value={vendorNursery}
-                  onChange={(e) => setVendorNursery(e.target.value)}
-                  placeholder="e.g. Briggs Tree Nursery, Home Depot"
-                  className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Vendor or nursery"
-                />
-              </div>
-            )}
             <div>
               <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
               <input
@@ -748,10 +781,10 @@ export function AddPlantModal({
                 type="date"
                 value={plantedDate}
                 onChange={(e) => setPlantedDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
               />
             </div>
-            {mode === "existing" && (
+            {(mode === "existing" || addToExistingProfile) && (
               <>
                 <div>
                   <label htmlFor="add-plant-price-existing" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
@@ -795,13 +828,21 @@ export function AddPlantModal({
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
                 <input
-                  ref={photoInputRef}
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  className="hidden"
+                  aria-label="Take photo with camera"
+                  onChange={(e) => addPhoto(e.target.files)}
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
                   multiple
                   className="hidden"
-                  aria-label="Take or add photo (mobile)"
+                  aria-label="Choose photos from gallery"
                   onChange={(e) => addPhoto(e.target.files)}
                 />
                 {webcamActive ? (
@@ -809,34 +850,73 @@ export function AddPlantModal({
                     <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-w-xs">
                       <video ref={webcamVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-3xl bg-emerald-600 text-white text-sm font-medium">Capture</button>
                       <button type="button" onClick={stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-3xl border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {photoPreviews.map((url, i) => (
-                      <div key={i} className="relative">
-                        <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(i)}
-                          className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
-                          aria-label="Remove photo"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => { if (isMobileDevice) photoInputRef.current?.click(); else startWebcam(); }}
-                      className="min-h-[80px] w-20 flex items-center justify-center rounded-3xl border-2 border-dashed border-neutral-300 text-neutral-500 hover:border-emerald-500 hover:text-emerald-600 text-2xl min-w-[44px]"
-                      aria-label="Take or add another photo"
-                    >
-                      +
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {photoPreviews.map((url, i) => (
+                        <div key={i} className="relative">
+                          <img src={url} alt="" className="h-20 w-20 object-cover rounded-lg border border-neutral-200" />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(i)}
+                            className="absolute -top-1 -right-1 min-w-[44px] min-h-[44px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none -m-2 p-2"
+                            aria-label="Remove photo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {isMobileDevice ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white text-sm font-medium inline-flex items-center justify-center gap-2"
+                            aria-label="Take photo with camera"
+                          >
+                            <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
+                            Take photo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-neutral-300 text-neutral-800 text-sm font-medium hover:bg-neutral-50 inline-flex items-center justify-center gap-2"
+                            aria-label="Choose photos from gallery"
+                          >
+                            <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
+                            From gallery
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={startWebcam}
+                            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white text-sm font-medium inline-flex items-center justify-center gap-2"
+                            aria-label="Use webcam"
+                          >
+                            <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
+                            Use camera
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-neutral-300 text-neutral-800 text-sm font-medium hover:bg-neutral-50 inline-flex items-center justify-center gap-2"
+                            aria-label="Choose photos from gallery"
+                          >
+                            <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
+                            From gallery
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 {webcamError && !webcamActive && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
@@ -857,7 +937,7 @@ export function AddPlantModal({
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>
-          <div className="flex-shrink-0 p-3.5 border-t border-neutral-200 flex gap-3 justify-end">
+          <div className="flex-shrink-0 p-3 border-t border-neutral-200 flex gap-2.5 justify-end">
             <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
               Cancel
             </button>
