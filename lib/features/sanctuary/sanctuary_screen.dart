@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,7 @@ import '../../providers/time_of_day_provider.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../../core/content/elias_dialogue.dart';
-import '../../providers/active_pebbles_provider.dart';
+import '../../core/services/streak_service.dart';
 import '../../providers/sanctuary_initialization_provider.dart';
 import '../../providers/satchel_provider.dart';
 import '../../providers/mountain_provider.dart';
@@ -21,14 +22,18 @@ import '../../providers/narrow_invalidation.dart';
 import '../../providers/node_provider.dart';
 import '../../providers/elias_provider.dart';
 import '../../providers/streak_provider.dart';
+import '../../providers/pending_burn_undo_provider.dart';
 import '../../providers/hearth_fuel_provider.dart';
-import '../../providers/first_run_provider.dart';
 import '../../providers/sound_settings_provider.dart';
 import '../../providers/whetstone_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/repository_providers.dart';
+import '../../providers/first_run_provider.dart';
+import '../../core/utils/satchel_stone_assets.dart';
 import '../../data/models/mountain.dart';
 import '../../data/models/satchel_slot.dart';
 import '../../widgets/elias_silhouette.dart';
+import '../../widgets/hearth_burn_widget.dart';
 import '../../widgets/hearth_spark_painter.dart';
 import '../../widgets/sanctuary_background.dart';
 import '../management/management_menu_sheet.dart';
@@ -37,15 +42,13 @@ class SanctuaryScreen extends ConsumerWidget {
   const SanctuaryScreen({super.key, this.focusOnHearth = false});
   final bool focusOnHearth;
 
-  static const String _eliasGuidePose = 'assets/elias/elias_guide_pose.png';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(sanctuaryInitializationProvider);
-    final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final period =
+        ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final isNight = period == ScenePeriod.night;
     final satchel = ref.watch(satchelProvider);
-    final hasSeenHomeIntro = ref.watch(hasSeenSanctuaryHomeIntroProvider).valueOrNull;
-    final showHomeIntro = hasSeenHomeIntro == false;
 
     final size = MediaQuery.sizeOf(context);
     final pivotX = size.width * 0.5;
@@ -54,159 +57,337 @@ class SanctuaryScreen extends ConsumerWidget {
     return Scaffold(
       key: const ValueKey('screen_sanctuary'),
       body: _SanctuaryOnMovementLayer(
-        overlayActive: showHomeIntro,
         child: Stack(
           fit: StackFit.expand,
           children: [
+            const _SanctuaryHomeIntroCoordinator(),
+            const _FirstRunQuestBridge(),
             _HearthFuelTimer(),
-          // Layer 1 (Environment): Background — ignores SafeArea for bleed
-          const SanctuaryBackground(),
+            // Layer 1 (Environment): Background — ignores SafeArea for bleed
+            const SanctuaryBackground(),
 
-          // Layer 2 (Character): Elias first (behind), Hearth second (on top). Zoom pivot (0.5, 0.65), 1.15x, 800ms
-          RepaintBoundary(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey(focusOnHearth),
-              tween: Tween<double>(
-                begin: focusOnHearth ? 1.0 : 1.15,
-                end: focusOnHearth ? 1.15 : 1.0,
-              ),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.easeInOutCubic,
-              builder: (context, value, child) {
-                return Transform(
-                  transform: Matrix4.identity()
-                    ..translateByDouble(pivotX, pivotY, 0, 1)
-                    ..scaleByDouble(value, value, 1.0, 1.0)
-                    ..translateByDouble(-pivotX, -pivotY, 0, 1),
-                  child: child,
-                );
-              },
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned(
-                    left: size.width * 0.55,
-                    right: size.width * 0.02,
-                    bottom: size.height * 0.28,
-                    child: Align(
-                      alignment: Alignment.bottomRight,
-                      child: Semantics(
-                        label: 'Elias',
-                        button: true,
-                        child: _EliasTapTarget(
-                          period: period,
-                          showHomeIntro: showHomeIntro,
-                          eliasGuidePose: _eliasGuidePose,
-                          onTap: () => _openManagement(context, ref),
+            // Layer 2 (Character): Elias first (behind), Hearth second (on top). Zoom pivot (0.5, 0.65), 1.15x, 800ms
+            RepaintBoundary(
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(focusOnHearth),
+                tween: Tween<double>(
+                  begin: focusOnHearth ? 1.0 : 1.15,
+                  end: focusOnHearth ? 1.15 : 1.0,
+                ),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeInOutCubic,
+                builder: (context, value, child) {
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..translateByDouble(pivotX, pivotY, 0, 1)
+                      ..scaleByDouble(value, value, 1.0, 1.0)
+                      ..translateByDouble(-pivotX, -pivotY, 0, 1),
+                    child: child,
+                  );
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: size.width * 0.38,
+                      right: size.width * 0.07,
+                      bottom: size.height * 0.31,
+                      child: Align(
+                        alignment: Alignment.bottomRight,
+                        child: Semantics(
+                          label: 'Elias, your guide',
+                          hint:
+                              'Counsel and tools — same menu as the Guide button below.',
+                          button: true,
+                          child: Tooltip(
+                            message:
+                                'Tap for counsel — plot a path, pack your satchel, and more.',
+                            child: _EliasTapTarget(
+                              period: period,
+                              onTap: () => _openManagement(context, ref),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: size.width * 0.06,
-                    right: size.width * 0.06,
-                    bottom: size.height * 0.26,
-                    child: Semantics(
-                      label: 'Hearth',
-                      child: _HearthWidget(),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: size.height * 0.245,
+                      child: Semantics(
+                        label: 'Hearth',
+                        child: Center(
+                          child: Transform.translate(
+                            offset: Offset(0, -size.height * 0.02),
+                            child: _HearthWidget(period: period),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: size.width * 0.38,
+                      right: size.width * 0.10,
+                      bottom:
+                          size.height * 0.31 +
+                          (size.height * 0.5).clamp(180.0, 480.0) +
+                          12.0,
+                      child: Align(
+                        alignment: Alignment.bottomRight,
+                        child: _EliasBubble(period: period, isNight: isNight),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isNight)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A1020).withValues(alpha: 0.18),
+                    ),
+                    child: ColoredBox(
+                      color: const Color(0xFFC26D2B).withValues(alpha: 0.05),
                     ),
                   ),
-                  Positioned(
-                    left: size.width * 0.5,
-                    right: size.width * 0.06,
-                    bottom: size.height * 0.28 +
-                        (size.height * 0.5).clamp(180.0, 480.0) +
-                        12.0,
-                    child: Align(
-                      alignment: Alignment.bottomRight,
-                      child: _EliasBubble(period: period),
+                ),
+              ),
+
+            // Layer 3 (UI): SafeArea — dismiss overlay, celebration, camp dock
+            Opacity(
+              opacity: isNight ? 0.93 : 1.0,
+              child: SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, layerConstraints) {
+                    // Shorter footer (~40% less than prior 26% cap); fade zone stacks upward into art.
+                    final dockContentHeight = (layerConstraints.maxHeight * 0.155)
+                        .clamp(76.0, 124.0);
+                    const dockSceneFade = 44.0;
+                    final dockTotalHeight = dockContentHeight + dockSceneFade;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const _BurnUndoSnackBarHost(),
+                        Positioned(
+                          top: 4,
+                          left: 0,
+                          right: 0,
+                          child: const Center(child: _BurnStreakBanner()),
+                        ),
+                        if (ref.watch(hearthCelebrationProvider))
+                          Positioned.fill(
+                            child: _CelebrationOverlay(
+                              onComplete: () =>
+                                  ref
+                                          .read(
+                                            hearthCelebrationProvider.notifier,
+                                          )
+                                          .state =
+                                      false,
+                            ),
+                          ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: MediaQuery.viewPaddingOf(context).bottom + 8,
+                          height: dockTotalHeight,
+                          child: _SanctuaryCampDock(
+                            sceneFadeHeight: dockSceneFade,
+                            contentHeight: dockContentHeight,
+                            satchelState: satchel,
+                            focusOnHearth: focusOnHearth,
+                            onEmptySlotTap: () =>
+                                _openManagement(context, ref),
+                            onDragStartedWhenLocked: () {
+                              ref.read(eliasMessageProvider.notifier).state =
+                                  EliasDialogue.markDoneToDrop();
+                            },
+                            mountains:
+                                ref.watch(mountainListProvider).valueOrNull ??
+                                [],
+                            onMapTap: () => context.push(AppRoutes.scroll),
+                            onSatchelTap: () {
+                              context.go('/sanctuary');
+                              context.push(AppRoutes.satchel);
+                            },
+                            onWhetstoneTap: () {
+                              context.go('/sanctuary');
+                              context.push(AppRoutes.whetstone);
+                            },
+                            onGuideTap: () => _openManagement(context, ref),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openManagement(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final h = MediaQuery.sizeOf(sheetContext).height;
+        return SizedBox(
+          height: h,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.52,
+            minChildSize: 0.34,
+            maxChildSize: 0.92,
+            snap: true,
+            snapSizes: const [0.34, 0.52, 0.78, 0.92],
+            expand: true,
+            builder: (ctx, scrollController) {
+              return ManagementMenuSheet(scrollController: scrollController);
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Listens for [pendingBurnUndoProvider] and shows an undo SnackBar on Sanctuary.
+class _BurnUndoSnackBarHost extends ConsumerWidget {
+  const _BurnUndoSnackBarHost();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<BurnUndoToken?>(pendingBurnUndoProvider, (prev, next) {
+      if (next == null) return;
+      final t = next;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ref.read(pendingBurnUndoProvider.notifier).state = null;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        final barWidth = (MediaQuery.sizeOf(context).width - 24.0).clamp(
+          280.0,
+          560.0,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            width: barWidth,
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            content: Text(
+              'Stone burned — "${t.title}".',
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
+            ),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.charcoal,
+            dismissDirection: DismissDirection.horizontal,
+            showCloseIcon: true,
+            closeIconColor: AppColors.parchment.withValues(alpha: 0.75),
+            action: SnackBarAction(
+              label: 'UNDO',
+              textColor: AppColors.ember,
+              onPressed: () async {
+                await ref.read(satchelProvider.notifier).undoBurn(
+                      slotId: t.slotId,
+                      nodeId: t.nodeId,
+                      mountainId: t.mountainId,
+                    );
+              },
+            ),
+          ),
+        );
+      });
+    });
+    return const SizedBox.shrink();
+  }
+}
+
+/// Current burn streak chip (flame + day count).
+class _BurnStreakBanner extends ConsumerWidget {
+  const _BurnStreakBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(burnStreakProvider);
+    return async.when(
+      data: (r) {
+        final streak = r.currentStreak;
+        if (streak < 1) return const SizedBox.shrink();
+        final scale = (0.85 + (streak.clamp(1, 14) / 14) * 0.35).clamp(
+          0.85,
+          1.2,
+        );
+        return Tooltip(
+          message: EliasDialogue.burnStreakGraceTooltip,
+          preferBelow: false,
+          verticalOffset: 8,
+          textStyle: const TextStyle(
+            fontFamily: 'Georgia',
+            fontSize: 13,
+            color: AppColors.parchment,
+            height: 1.35,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.charcoal.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.ember.withValues(alpha: 0.45)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          waitDuration: const Duration(milliseconds: 400),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.charcoal.withValues(alpha: 0.42),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: AppColors.ember.withValues(alpha: 0.55),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform.scale(
+                    scale: scale,
+                    child: Icon(
+                      Icons.local_fire_department,
+                      color: AppColors.ember,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: AppColors.parchment.withValues(alpha: 0.65),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$streak day${streak == 1 ? '' : 's'} burning',
+                    style: const TextStyle(
+                      fontFamily: 'Georgia',
+                      fontSize: 12,
+                      color: AppColors.parchment,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Layer 3 (UI): SafeArea — EliasBubble, Dismiss, CompactSatchelTray
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, layerConstraints) {
-                final trayMaxHeight = (layerConstraints.maxHeight * 0.10).clamp(55.0, 80.0);
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (ref.watch(eliasMessageProvider) != null)
-                      Positioned.fill(
-                        child: GestureDetector(
-                          onTap: () =>
-                              ref.read(eliasMessageProvider.notifier).state = null,
-                          behavior: HitTestBehavior.translucent,
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    if (ref.watch(hearthCelebrationProvider))
-                      Positioned.fill(
-                        child: _CelebrationOverlay(
-                          onComplete: () =>
-                              ref.read(hearthCelebrationProvider.notifier).state = false,
-                        ),
-                      ),
-                    if (showHomeIntro)
-                      Positioned.fill(
-                        child: _SanctuaryHomeIntroOverlay(
-                          onComplete: () async {
-                            await markSanctuaryHomeIntroSeen();
-                            ref.invalidate(hasSeenSanctuaryHomeIntroProvider);
-                          },
-                        ),
-                      ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: MediaQuery.viewPaddingOf(context).bottom + 40,
-                      height: trayMaxHeight,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: trayMaxHeight),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.bottomCenter,
-                          child: SizedBox(
-                            width: layerConstraints.maxWidth,
-                            height: 70,
-                            child: _CompactSatchelTray(
-                              satchelState: satchel,
-                              focusOnHearth: focusOnHearth,
-                              overflowCount: ref.watch(packCandidatesProvider).valueOrNull?.length ?? 0,
-                              onBagTap: () {
-                                context.go('/sanctuary');
-                                context.push(AppRoutes.satchel);
-                              },
-                              onEmptySlotTap: () => _openManagement(context, ref),
-                              onDragStartedWhenLocked: () {
-                                ref.read(eliasMessageProvider.notifier).state = EliasDialogue.markDoneToDrop();
-                              },
-                              mountains: ref.watch(mountainListProvider).valueOrNull ?? [],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
-  }
-
-  void _openManagement(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const ManagementMenuSheet(),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
@@ -245,213 +426,27 @@ class _CelebrationOverlayState extends State<_CelebrationOverlay> {
           ),
         ),
         child: Center(
-          child: Text(
-            'The fire roars. Well done.',
-            style: EliasTypography.style(color: AppColors.parchment),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Sanctuary Home Intro (spotlight + gold ring) ─────────────────────────────
-
-class _SanctuarySpotlightPainter extends CustomPainter {
-  _SanctuarySpotlightPainter({
-    required this.targetRect,
-    required this.isCircle,
-    required this.pulseValue,
-    this.glowColor = AppColors.gold,
-  });
-
-  final Rect targetRect;
-  final bool isCircle;
-  final double pulseValue;
-  final Color glowColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint scrimPaint = Paint()..color = Colors.black54;
-    final Path screenPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final Path cutoutPath = Path();
-    if (isCircle) {
-      cutoutPath.addOval(targetRect);
-    } else {
-      cutoutPath.addRRect(
-        RRect.fromRectAndRadius(targetRect, const Radius.circular(12)),
-      );
-    }
-    final Path mainScrimPath = Path.combine(
-      PathOperation.difference,
-      screenPath,
-      cutoutPath,
-    );
-    canvas.drawPath(mainScrimPath, scrimPaint);
-
-    final Paint ringPaint = Paint()
-      ..color = glowColor.withValues(alpha: pulseValue)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 3.0);
-    if (isCircle) {
-      canvas.drawOval(targetRect, ringPaint);
-    } else {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(targetRect, const Radius.circular(12)),
-        ringPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SanctuarySpotlightPainter oldDelegate) {
-    return oldDelegate.targetRect != targetRect ||
-        oldDelegate.pulseValue != pulseValue;
-  }
-}
-
-Rect _homeIntroTargetRect(int step, Size size, EdgeInsets padding) {
-  switch (step) {
-    case 0:
-      return Rect.fromLTWH(
-        size.width * 0.78,
-        size.height - padding.bottom - (size.height * 0.17),
-        size.width * 0.18,
-        size.height * 0.12,
-      );
-    case 1:
-      return Rect.fromLTWH(
-        size.width * 0.04,
-        size.height - padding.bottom - (size.height * 0.17),
-        size.width * 0.72,
-        size.height * 0.12,
-      );
-    case 2:
-      return Rect.fromCenter(
-        center: Offset(size.width * 0.5, size.height * 0.62),
-        width: size.width * 0.3,
-        height: size.height * 0.2,
-      );
-    default:
-      return Rect.zero;
-  }
-}
-
-class _SanctuaryHomeIntroOverlay extends StatefulWidget {
-  const _SanctuaryHomeIntroOverlay({required this.onComplete});
-  final Future<void> Function() onComplete;
-
-  @override
-  State<_SanctuaryHomeIntroOverlay> createState() =>
-      _SanctuaryHomeIntroOverlayState();
-}
-
-class _SanctuaryHomeIntroOverlayState extends State<_SanctuaryHomeIntroOverlay>
-    with SingleTickerProviderStateMixin {
-  int _step = 0;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-  bool _fadeInComplete = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) setState(() => _fadeInComplete = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  void _onContinue() {
-    if (_step < 2) {
-      setState(() => _step++);
-      return;
-    }
-    widget.onComplete();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final padding = MediaQuery.viewPaddingOf(context);
-    final rect = _homeIntroTargetRect(_step, size, padding);
-    final isCircle = _step == 2;
-    final line = _step == 0
-        ? EliasDialogue.sanctuaryHomeIntroSatchel
-        : _step == 1
-            ? EliasDialogue.sanctuaryHomeIntroPathAhead
-            : EliasDialogue.sanctuaryHomeIntroFirepit;
-
-    return AnimatedOpacity(
-      opacity: _fadeInComplete ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 200),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {},
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _SanctuarySpotlightPainter(
-                    targetRect: rect,
-                    isCircle: isCircle,
-                    pulseValue: _pulseAnimation.value,
-                    glowColor: AppColors.gold,
-                  ),
-                );
-              },
-            ),
-            Positioned(
-              left: _step == 0 ? size.width * 0.08 : size.width * 0.2,
-              top: _step == 2 ? null : size.height * (_step == 0 ? 0.12 : 0.1),
-              bottom: _step == 2 ? size.height * 0.32 : null,
-              right: _step == 0 ? size.width * 0.4 : size.width * (_step == 1 ? 0.2 : 0.5),
-              child: Text(
-                line,
-                style: EliasTypography.style(color: AppColors.parchment),
-                textAlign: _step == 1 ? TextAlign.center : TextAlign.left,
-              ),
-            ),
-            SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: padding.bottom + 16),
-                  child: FilledButton(
-                    onPressed: _onContinue,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ember,
-                      foregroundColor: AppColors.parchment,
-                    ),
-                    child: const Text(
-                      'Continue',
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/elias/elias_cheering.png',
+                height: 220,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.celebration,
+                  size: 84,
+                  color: AppColors.parchment,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                'The fire roars. Well done.',
+                style: EliasTypography.style(color: AppColors.parchment),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -487,19 +482,101 @@ class _HearthFuelTimerState extends ConsumerState<_HearthFuelTimer> {
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
+/// One-time home intro bubble (then [markSanctuaryHomeIntroSeen]); empty state skips straight to quest/greeting flow.
+class _SanctuaryHomeIntroCoordinator extends ConsumerStatefulWidget {
+  const _SanctuaryHomeIntroCoordinator();
+
+  @override
+  ConsumerState<_SanctuaryHomeIntroCoordinator> createState() =>
+      _SanctuaryHomeIntroCoordinatorState();
+}
+
+class _SanctuaryHomeIntroCoordinatorState
+    extends ConsumerState<_SanctuaryHomeIntroCoordinator> {
+  bool _postFrameScheduled = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<String?>(eliasMessageProvider, (prev, next) async {
+      if (next != null) return;
+      if (prev != EliasDialogue.sanctuaryHomeIntroCombined) return;
+      await markSanctuaryHomeIntroSeen();
+      if (mounted) ref.invalidate(hasSeenSanctuaryHomeIntroProvider);
+    });
+
+    if (_postFrameScheduled) return const SizedBox.shrink();
+    _postFrameScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final seen = await ref.read(hasSeenSanctuaryHomeIntroProvider.future);
+      if (seen) return;
+
+      final mountains = ref.read(mountainListProvider).valueOrNull ?? [];
+      final whetstone = ref.read(whetstoneProvider);
+      final isEmpty = mountains.isEmpty && whetstone.items.isEmpty;
+      if (isEmpty) {
+        await markSanctuaryHomeIntroSeen();
+        if (mounted) ref.invalidate(hasSeenSanctuaryHomeIntroProvider);
+        return;
+      }
+
+      final current = ref.read(eliasMessageProvider);
+      if (current != null) return;
+
+      ref.read(eliasMessageProvider.notifier).state =
+          EliasDialogue.sanctuaryHomeIntroCombined;
+    });
+
+    return const SizedBox.shrink();
+  }
+}
+
+/// First-run quest handoff:
+/// once the traveler marks at least one stone "ready", guide them to the Hearth.
+class _FirstRunQuestBridge extends ConsumerStatefulWidget {
+  const _FirstRunQuestBridge();
+
+  @override
+  ConsumerState<_FirstRunQuestBridge> createState() =>
+      _FirstRunQuestBridgeState();
+}
+
+class _FirstRunQuestBridgeState extends ConsumerState<_FirstRunQuestBridge> {
+  bool _hasScheduledCheck = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasScheduledCheck) {
+      _hasScheduledCheck = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final seenStep1 = await ref.read(hasSeenQuestStep1Provider.future);
+        final seenStep3 = await ref.read(hasSeenQuestStep3Provider.future);
+        final seenFirstBurn = await ref.read(hasSeenFirstBurnProvider.future);
+        if (!seenStep1 || seenStep3 || seenFirstBurn) return;
+
+        final satchel = ref.read(satchelProvider);
+        final hasReadyStone = satchel.slots.any((s) => s.readyToBurn);
+        if (!hasReadyStone) return;
+
+        ref.read(eliasMessageProvider.notifier).state =
+            EliasDialogue.firstLandQuestStep3();
+        await markQuestStep3Seen();
+        if (mounted) {
+          ref.invalidate(hasSeenQuestStep3Provider);
+        }
+      });
+    }
+    return const SizedBox.shrink();
+  }
+}
+
 // ── Elias ────────────────────────────────────────────────────
 
 /// Wraps Elias with a single, reliable tap target (min 80x80) so the menu opens consistently.
 class _EliasTapTarget extends StatelessWidget {
-  const _EliasTapTarget({
-    required this.period,
-    required this.showHomeIntro,
-    required this.eliasGuidePose,
-    required this.onTap,
-  });
+  const _EliasTapTarget({required this.period, required this.onTap});
   final ScenePeriod period;
-  final bool showHomeIntro;
-  final String? eliasGuidePose;
   final VoidCallback onTap;
 
   static const double _minTapSize = 80;
@@ -507,56 +584,46 @@ class _EliasTapTarget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       behavior: HitTestBehavior.opaque,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: _minTapSize, minHeight: _minTapSize),
-        child: _EliasWidget(
-          period: period,
-          showGreeting: false,
-          assetPathOverride: showHomeIntro ? eliasGuidePose : null,
+        constraints: const BoxConstraints(
+          minWidth: _minTapSize,
+          minHeight: _minTapSize,
         ),
+        child: _EliasWidget(period: period, showGreeting: false),
       ),
     ).animate().fadeIn(duration: 600.ms, delay: 200.ms);
   }
 }
 
 class _EliasWidget extends ConsumerWidget {
-  const _EliasWidget({
-    required this.period,
-    this.showGreeting = true,
-    this.assetPathOverride,
-  });
+  const _EliasWidget({required this.period, this.showGreeting = true});
   final ScenePeriod period;
   final bool showGreeting;
-  /// When set (e.g. during Sanctuary home intro), use this pose instead of time-of-day.
-  final String? assetPathOverride;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.sizeOf(context);
-    final w = ((size.width * 0.65).clamp(120.0, 320.0)) * 0.75;
-    final h = ((size.height * 0.5).clamp(180.0, 480.0)) * 0.75;
+    final w = ((size.width * 0.62).clamp(120.0, 300.0)) * 0.72;
+    final h = ((size.height * 0.48).clamp(170.0, 460.0)) * 0.72;
     return EliasWidget(
       period: period,
       width: w,
       height: h,
       showGreeting: showGreeting,
       greetingWidth: (w * 0.85).clamp(160.0, 280.0),
-      assetPathOverride: assetPathOverride,
     );
   }
 }
 
-/// Listener for pan/drag on Sanctuary. Triggers [EliasDialogue.onMovement] only when
-/// [overlayActive] is false (no Spotlight Scrim / Home Intro / Tutorial), so the
-/// "Look at" guidance is not overwritten. Throttled to avoid spam.
+/// Listener for pan/drag on Sanctuary. Triggers [EliasDialogue.onMovement]
+/// (throttled) so movement-based guidance is not spammed.
 class _SanctuaryOnMovementLayer extends ConsumerStatefulWidget {
-  const _SanctuaryOnMovementLayer({
-    required this.overlayActive,
-    required this.child,
-  });
-  final bool overlayActive;
+  const _SanctuaryOnMovementLayer({required this.child});
   final Widget child;
 
   @override
@@ -564,12 +631,12 @@ class _SanctuaryOnMovementLayer extends ConsumerStatefulWidget {
       _SanctuaryOnMovementLayerState();
 }
 
-class _SanctuaryOnMovementLayerState extends ConsumerState<_SanctuaryOnMovementLayer> {
+class _SanctuaryOnMovementLayerState
+    extends ConsumerState<_SanctuaryOnMovementLayer> {
   static const _throttleMs = 5000;
   int _lastTriggerTime = 0;
 
   void _onPointerMove(PointerMoveEvent event) {
-    if (widget.overlayActive) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastTriggerTime < _throttleMs) return;
     _lastTriggerTime = now;
@@ -589,7 +656,8 @@ class _SanctuaryOnMovementLayerState extends ConsumerState<_SanctuaryOnMovementL
 // ── Hearth ───────────────────────────────────────────────────
 
 class _HearthWidget extends ConsumerStatefulWidget {
-  const _HearthWidget();
+  const _HearthWidget({required this.period});
+  final ScenePeriod period;
 
   @override
   ConsumerState<_HearthWidget> createState() => _HearthWidgetState();
@@ -604,19 +672,26 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
   final AudioPlayer _stoneDropAudio = AudioPlayer();
   final AudioPlayer _weightAudio = AudioPlayer();
   late AnimationController _brightnessController;
+  _PendingBurnContext? _pendingBurn;
+  bool _isFinalizingBurn = false;
 
   @override
   void initState() {
     super.initState();
     _sparkTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (mounted) setState(() => _sparkTime = DateTime.now().millisecondsSinceEpoch / 1000.0);
+      if (mounted) {
+        setState(
+          () => _sparkTime = DateTime.now().millisecondsSinceEpoch / 1000.0,
+        );
+      }
     });
-    _brightnessController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    )..addListener(() {
-        if (mounted) setState(() {});
-      });
+    _brightnessController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 200),
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
   }
 
   @override
@@ -632,9 +707,9 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
   void _showEmberBurst(BuildContext context) {
     final overlay = Overlay.of(context);
     final size = MediaQuery.sizeOf(context);
-    // Center burst over Hearth area (bottom ~26%, center of screen)
+    // Burst over Hearth (horizontally centered)
     final originX = size.width * 0.5;
-    final originY = size.height * 0.62;
+    final originY = size.height * 0.66;
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -659,7 +734,8 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
     }).ignore();
     // Weight: 30% (1–2), 60% (3–4), 100% (5). Pitch 1.0 down to 0.92.
     final weightVolume = stoneCount <= 2 ? 0.3 : (stoneCount <= 4 ? 0.6 : 1.0);
-    final weightPitch = 1.0 - (stoneCount - 1) * 0.02; // 1.0, 0.98, 0.96, 0.94, 0.92
+    final weightPitch =
+        1.0 - (stoneCount - 1) * 0.02; // 1.0, 0.98, 0.96, 0.94, 0.92
     _weightAudio.setVolume(weightVolume);
     _weightAudio.setPlaybackRate(weightPitch);
     _weightAudio.play(AssetSource('sounds/weight.wav')).catchError((_) {
@@ -667,26 +743,127 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
     }).ignore();
   }
 
+  Future<void> _finalizeBurnAfterShader() async {
+    if (!mounted || _isFinalizingBurn) return;
+    final pending = _pendingBurn;
+    if (pending == null) return;
+    _isFinalizingBurn = true;
+
+    try {
+      final burnedMountainId = await ref
+          .read(satchelProvider.notifier)
+          .burnStone(pending.nodeId);
+      if (burnedMountainId != null) {
+        invalidateAfterBurn(ref, burnedMountainId);
+        final c = ref.read(hearthDropCountProvider);
+        ref.read(hearthDropCountProvider.notifier).state = c >= 5 ? 5 : c + 1;
+      }
+
+      ref.invalidate(burnStreakProvider);
+      ref.invalidate(hearthFuelProvider);
+
+      if (mounted &&
+          pending.slotId.isNotEmpty &&
+          pending.mountainId.isNotEmpty) {
+        HapticFeedback.mediumImpact();
+        ref.read(pendingBurnUndoProvider.notifier).state = BurnUndoToken(
+          nodeId: pending.nodeId,
+          slotId: pending.slotId,
+          mountainId: pending.mountainId,
+          title: pending.title,
+        );
+      }
+
+      // Avoid context.go('/sanctuary') when already here — it rebuilds the whole
+      // route (TweenAnimationBuilder + hearth state reset) and looks like a
+      // refresh with the fire briefly misplaced. Only strip ?focusOnHearth= when needed.
+      if (mounted) {
+        final uri = GoRouterState.of(context).uri;
+        if (uri.queryParameters['focusOnHearth'] == 'true') {
+          context.go(AppRoutes.sanctuary);
+        }
+      }
+
+      final fuelState = await ref.read(hearthFuelProvider.future);
+      if (fuelState.shouldCelebrate && context.mounted) {
+        ref.read(hearthCelebrationProvider.notifier).state = true;
+      }
+
+      final seenFirstBurn = await ref.read(hasSeenFirstBurnProvider.future);
+      final prefs = await SharedPreferences.getInstance();
+      final d = DateTime.now();
+      final dk = '${d.year}-${d.month}-${d.day}';
+      final burnCountKey = 'vs_burn_count_$dk';
+      final burnN = (prefs.getInt(burnCountKey) ?? 0) + 1;
+      await prefs.setInt(burnCountKey, burnN);
+
+      late String eliasLine;
+      if (!seenFirstBurn) {
+        eliasLine = EliasDialogue.firstStoneBurnedMilestone;
+        await markFirstBurnSeen();
+      } else if (burnN == 10 &&
+          prefs.getBool('vs_elias_ten_burns_$dk') != true) {
+        await prefs.setBool('vs_elias_ten_burns_$dk', true);
+        eliasLine = EliasDialogue.milestoneTenBurnsOneDay;
+      } else if (pending.isLastInMountain &&
+          prefs.getBool('vs_elias_first_summit_shown') != true) {
+        await prefs.setBool('vs_elias_first_summit_shown', true);
+        eliasLine = EliasDialogue.milestoneFirstSummit;
+      } else {
+        final timestamps = await ref
+            .read(nodeRepositoryProvider)
+            .fetchBurnTimestamps();
+        final streak = computeStreak(timestamps).currentStreak;
+        if (streak == 7 && prefs.getBool('vs_elias_burn_streak_7') != true) {
+          await prefs.setBool('vs_elias_burn_streak_7', true);
+          eliasLine = EliasDialogue.milestoneBurnStreak7;
+        } else {
+          eliasLine = EliasBurnReflections.getReaction(
+            isStarred: pending.isStarred,
+            isLast: pending.isLastInMountain,
+          );
+        }
+      }
+      ref.read(eliasMessageProvider.notifier).state = eliasLine;
+
+      if (mounted) {
+        _showEmberBurst(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _burning = false;
+          _pendingBurn = null;
+        });
+      }
+      _isFinalizingBurn = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) {
-        final nodeId = (details.data ?? '').trim();
+        final nodeId = details.data.trim();
         if (nodeId.isEmpty) return false;
-        final satchel = ref.read(satchelProvider.notifier).state;
+        final satchel = ref.read(satchelProvider);
         if (satchel.isBurnInProgress) return false;
         SatchelSlot? slot;
         for (final s in satchel.slots) {
-          if ((s.nodeId ?? '').trim() == nodeId) { slot = s; break; }
+          if ((s.nodeId ?? '').trim() == nodeId) {
+            slot = s;
+            break;
+          }
         }
         return slot?.readyToBurn ?? false;
       },
       onAcceptWithDetails: (details) async {
         final nodeId = details.data;
+        // Session intensity for SFX only; hearth art bumps after burn succeeds
+        // so the dissolve plays on the current flame, then the stronger fire cross-fades in.
         final nextCount = (ref.read(hearthDropCountProvider) >= 5)
             ? 5
             : ref.read(hearthDropCountProvider) + 1;
-        ref.read(hearthDropCountProvider.notifier).state = nextCount;
         if (ref.read(soundEnabledProvider)) _playStoneDrop(nextCount);
         setState(() => _burning = true);
 
@@ -700,54 +877,22 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
           }
         }
         final mountainId = slot?.node?.mountainId;
-        final node = slot?.node;
-        final isLastPebble = mountainId != null &&
-            (await ref.read(mountainActionsProvider).countIncompleteLeaves(mountainId)) == 1;
-        final isLastInBoulder = node?.parentPath != null &&
-            (await ref.read(nodeActionsProvider).countIncompleteLeavesForBoulder(node!.parentPath!)) == 1;
+        final isLastPebble =
+            mountainId != null &&
+            (await ref
+                    .read(mountainActionsProvider)
+                    .countIncompleteLeaves(mountainId)) ==
+                1;
 
-        if (isLastPebble) {
-          HapticFeedback.heavyImpact();
-        } else if (isLastInBoulder) {
-          HapticFeedback.mediumImpact();
-          Future.delayed(const Duration(milliseconds: 100), () {
-            HapticFeedback.mediumImpact();
-          });
-        } else {
-          HapticFeedback.lightImpact();
-        }
-
-        final burnedMountainId =
-            await ref.read(satchelProvider.notifier).burnStone(nodeId);
-        if (burnedMountainId != null) {
-          invalidateAfterBurn(ref, burnedMountainId);
-        }
-        ref.invalidate(burnStreakProvider);
-        ref.invalidate(hearthFuelProvider);
-        if (context.mounted) context.go('/sanctuary');
-        final fuelState = await ref.read(hearthFuelProvider.future);
-        if (fuelState.shouldCelebrate && context.mounted) {
-          ref.read(hearthCelebrationProvider.notifier).state = true;
-        }
-        final streakResult = await ref.read(burnStreakProvider.future);
-        final seenFirstBurn = await ref.read(hasSeenFirstBurnProvider.future);
-
-        final eliasLine = isLastPebble
-            ? EliasDialogue.mountainSummit()
-            : (!seenFirstBurn
-                ? EliasDialogue.firstBurnLine()
-                : (streakResult.currentStreak >= 2
-                    ? EliasDialogue.burnStreakLine(streakResult.currentStreak)
-                    : EliasDialogue.afterBurn()));
-        ref.read(eliasMessageProvider.notifier).state = eliasLine;
-        if (!seenFirstBurn) await markFirstBurnSeen();
-
-        if (context.mounted) {
-          _showEmberBurst(context);
-        }
-
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) setState(() => _burning = false);
+        final rawTitle = (slot?.node?.title ?? '').trim();
+        _pendingBurn = _PendingBurnContext(
+          nodeId: nodeId,
+          slotId: slot?.id ?? '',
+          mountainId: mountainId ?? '',
+          title: rawTitle.isEmpty ? 'Stone' : rawTitle,
+          isStarred: slot?.node?.isStarred == true,
+          isLastInMountain: isLastPebble,
+        );
       },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty || _burning;
@@ -763,40 +908,60 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
         }
 
         // Brightness: animate to 1.5x over 200ms when hovering
-        if (isHovering && !_brightnessController.isAnimating && _brightnessController.value < 1) {
+        if (isHovering &&
+            !_brightnessController.isAnimating &&
+            _brightnessController.value < 1) {
           _brightnessController.forward();
         } else if (!isHovering && _brightnessController.value > 0) {
           _brightnessController.reverse();
         }
         final brightnessBoost = 1.0 + 0.5 * _brightnessController.value;
 
-        const double hearthWidth = 200;
+        const double hearthWidth = 286;
         final hearthHeight = hearthWidth * 0.9;
-        final fuelState = ref.watch(hearthFuelProvider).valueOrNull;
-        final fireLevel = (fuelState?.fireLevel ?? 3).clamp(0, 3);
+        final fuelAsync = ref.watch(hearthFuelProvider);
+        final fuelState = fuelAsync.when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          data: (s) => s,
+          error: (_, __) => const HearthFuelState(effectiveFuel: 0, fireLevel: 0),
+          loading: () {
+            if (fuelAsync.hasValue) return fuelAsync.requireValue;
+            return const HearthFuelState(effectiveFuel: 0, fireLevel: 3);
+          },
+        );
+        final fireLevel = fuelState.fireLevel.clamp(0, 3);
         final scale = _burning ? 1.12 : 1.0;
-        final streak = ref.watch(burnStreakProvider).valueOrNull?.currentStreak ?? 0;
+        final streak =
+            ref.watch(burnStreakProvider).valueOrNull?.currentStreak ?? 0;
         final sparkIntensity = math.max(streak, fireLevel);
 
         final isColdHearth = fireLevel == 0;
-        return Center(
-          child: AnimatedScale(
-            scale: scale,
-            duration: _burning
-                ? const Duration(milliseconds: 120)
-                : const Duration(milliseconds: 200),
-            curve: _burning ? Curves.easeOut : Curves.easeInOut,
-            child: _buildHearthStack(
-              hearthWidth: hearthWidth,
-              hearthHeight: hearthHeight,
-              fireLevel: fireLevel,
-              hearthDropCount: ref.watch(hearthDropCountProvider),
-              isHovering: isHovering,
-              burning: _burning,
-              sparkIntensity: sparkIntensity,
-              sparkTime: _sparkTime,
-              brightnessBoost: brightnessBoost,
-              isColdHearth: isColdHearth,
+        return Semantics(
+          label: 'Hearth. Drop stones here to burn.',
+          child: Center(
+            child: AnimatedScale(
+              scale: scale,
+              duration: _burning
+                  ? const Duration(milliseconds: 120)
+                  : const Duration(milliseconds: 200),
+              curve: _burning ? Curves.easeOut : Curves.easeInOut,
+              child: HearthBurnWidget(
+                isBurning: _burning,
+                onComplete: _finalizeBurnAfterShader,
+                child: _buildHearthStack(
+                  hearthWidth: hearthWidth,
+                  hearthHeight: hearthHeight,
+                  fireLevel: fireLevel,
+                  hearthDropCount: ref.watch(hearthDropCountProvider),
+                  isHovering: isHovering,
+                  burning: _burning,
+                  sparkIntensity: sparkIntensity,
+                  sparkTime: _sparkTime,
+                  brightnessBoost: brightnessBoost,
+                  isColdHearth: isColdHearth,
+                ),
+              ),
             ),
           ),
         );
@@ -816,6 +981,7 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
     required double brightnessBoost,
     required bool isColdHearth,
   }) {
+    final isNight = widget.period == ScenePeriod.night;
     final content = Container(
       width: hearthWidth,
       height: hearthHeight,
@@ -823,7 +989,7 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
         boxShadow: [
           BoxShadow(
             color: AppColors.ember.withValues(alpha: 0.15),
-            blurRadius: 40,
+            blurRadius: isNight ? 60 : 40,
             spreadRadius: -8,
             offset: const Offset(0, 20),
           ),
@@ -832,11 +998,15 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          _HearthLevelImage(
-            fireLevel: fireLevel,
-            hearthDropCount: hearthDropCount,
-            isHovering: isHovering,
-            burning: burning,
+          Positioned.fill(
+            child: _HearthLevelImage(
+              width: hearthWidth,
+              height: hearthHeight,
+              fireLevel: fireLevel,
+              hearthDropCount: hearthDropCount,
+              isHovering: isHovering,
+              burning: burning,
+            ),
           ),
           Positioned.fill(
             child: ExcludeSemantics(
@@ -858,10 +1028,26 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
     if (isColdHearth) {
       return ColorFiltered(
         colorFilter: const ColorFilter.matrix([
-          0.882, 0.107, 0.011, 0.0, 0.0,
-          0.032, 0.957, 0.011, 0.0, 0.0,
-          0.032, 0.107, 0.911, 0.0, 0.0,
-          0.0, 0.0, 0.0, 1.0, 0.0,
+          0.882,
+          0.107,
+          0.011,
+          0.0,
+          0.0,
+          0.032,
+          0.957,
+          0.011,
+          0.0,
+          0.0,
+          0.032,
+          0.107,
+          0.911,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
         ]),
         child: content,
       );
@@ -870,12 +1056,27 @@ class _HearthWidgetState extends ConsumerState<_HearthWidget>
   }
 }
 
+class _PendingBurnContext {
+  const _PendingBurnContext({
+    required this.nodeId,
+    required this.slotId,
+    required this.mountainId,
+    required this.title,
+    required this.isStarred,
+    required this.isLastInMountain,
+  });
+
+  final String nodeId;
+  final String slotId;
+  final String mountainId;
+  final String title;
+  final bool isStarred;
+  final bool isLastInMountain;
+}
+
 /// Gold ember burst overlay for mountain summit celebration.
 class _EmberBurstOverlay extends StatefulWidget {
-  const _EmberBurstOverlay({
-    required this.origin,
-    required this.onComplete,
-  });
+  const _EmberBurstOverlay({required this.origin, required this.onComplete});
 
   final Offset origin;
   final VoidCallback onComplete;
@@ -957,12 +1158,16 @@ class _EmberParticle {
 /// Hearth image: asset by drop count (Sizzle / High / extra_high), AnimatedSwitcher for smooth transitions.
 class _HearthLevelImage extends StatelessWidget {
   const _HearthLevelImage({
+    required this.width,
+    required this.height,
     required this.fireLevel,
     required this.hearthDropCount,
     required this.isHovering,
     required this.burning,
   });
 
+  final double width;
+  final double height;
   final int fireLevel;
   final int hearthDropCount;
   final bool isHovering;
@@ -977,15 +1182,47 @@ class _HearthLevelImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final assetPath = _assetForDropCount(hearthDropCount);
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      child: Image.asset(
-        assetPath,
-        key: ValueKey(assetPath),
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _HearthFallback(
-          isHovering: isHovering,
-          burning: burning,
+    return SizedBox(
+      width: width,
+      height: height,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 700),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            fit: StackFit.expand,
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              ...previousChildren,
+              ?currentChild,
+            ],
+          );
+        },
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.88, end: 1.0).animate(curved),
+              child: child,
+            ),
+          );
+        },
+        child: Image.asset(
+          assetPath,
+          key: ValueKey(assetPath),
+          width: width,
+          height: height,
+          fit: BoxFit.contain,
+          alignment: Alignment.bottomCenter,
+          errorBuilder: (_, __, ___) =>
+              _HearthFallback(isHovering: isHovering, burning: burning),
         ),
       ),
     );
@@ -994,10 +1231,7 @@ class _HearthLevelImage extends StatelessWidget {
 
 /// Fallback when watercolor hearth assets are missing.
 class _HearthFallback extends StatelessWidget {
-  const _HearthFallback({
-    required this.isHovering,
-    required this.burning,
-  });
+  const _HearthFallback({required this.isHovering, required this.burning});
   final bool isHovering;
   final bool burning;
 
@@ -1022,7 +1256,7 @@ class _HearthFallback extends StatelessWidget {
                   color: AppColors.ember.withValues(alpha: burning ? 0.7 : 0.4),
                   blurRadius: burning ? 32 : 24,
                   spreadRadius: burning ? 8 : 4,
-                )
+                ),
               ]
             : null,
       ),
@@ -1050,195 +1284,351 @@ class _HearthFallback extends StatelessWidget {
   }
 }
 
-// ── Compact Satchel Tray ─────────────────────────────────────
+// ── Sanctuary bottom dock: stones + nav (Guide / Whetstone / Map / Satchel — frequent pair on the right for thumb reach).
 
-class _CompactSatchelTray extends StatelessWidget {
-  const _CompactSatchelTray({
+class _SanctuaryCampDock extends StatelessWidget {
+  const _SanctuaryCampDock({
+    required this.sceneFadeHeight,
+    required this.contentHeight,
     required this.satchelState,
     required this.focusOnHearth,
-    required this.overflowCount,
-    required this.onBagTap,
     required this.onEmptySlotTap,
     this.onDragStartedWhenLocked,
     required this.mountains,
+    required this.onMapTap,
+    required this.onSatchelTap,
+    required this.onWhetstoneTap,
+    required this.onGuideTap,
   });
 
+  /// Soft vertical bleed painted over the illustration so the dock is not a hard cut.
+  final double sceneFadeHeight;
+  /// Slots + nav tiles (excludes [sceneFadeHeight]).
+  final double contentHeight;
   final SatchelState satchelState;
   final bool focusOnHearth;
-  final int overflowCount;
-  final VoidCallback onBagTap;
   final VoidCallback onEmptySlotTap;
   final VoidCallback? onDragStartedWhenLocked;
   final List<Mountain> mountains;
-
-  bool get _showPulseOfPurpose => mountains.isEmpty;
+  final VoidCallback onMapTap;
+  final VoidCallback onSatchelTap;
+  final VoidCallback onWhetstoneTap;
+  final VoidCallback onGuideTap;
 
   @override
   Widget build(BuildContext context) {
-    final filledCount = satchelState.slots.where((s) => !s.isEmpty).length;
-    final slotCapacity = 6;
+    // All six tray positions: show locked rocks for packed-not-ready, runes when ready, empty cells otherwise.
+    final homeTraySlots = List<SatchelSlot>.from(satchelState.slots)
+      ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
+    final filledCount = homeTraySlots.where((s) => !s.isEmpty).length;
+    const slotCapacity = 6;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        border: Border(
-          top: BorderSide(
-            color: AppColors.slotBorder.withValues(alpha: 0.4),
-            width: 0.5,
+    return Stack(
+      clipBehavior: Clip.none,
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.18, 0.42, 0.72, 1.0],
+                colors: [
+                  AppColors.parchment.withValues(alpha: 0.0),
+                  const Color(0xFFC4A574).withValues(alpha: 0.14),
+                  const Color.fromRGBO(80, 52, 28, 0.42),
+                  const Color.fromRGBO(60, 35, 10, 0.72),
+                  const Color.fromRGBO(48, 28, 8, 0.9),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          if (filledCount < slotCapacity) ...[
-            Text(
-              '$filledCount/$slotCapacity',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 11,
-                color: AppColors.slotBorder.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: satchelState.slots
-                  .map((slot) => Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: _CompactSlot(
-                            slot: slot,
-                            focusOnHearth: focusOnHearth,
-                            onEmptyTap: onEmptySlotTap,
-                            onDragStartedWhenLocked: onDragStartedWhenLocked,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: contentHeight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.parchment.withValues(alpha: 0.06),
+                        AppColors.parchment.withValues(alpha: 0.22),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.whetLine.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (filledCount < slotCapacity) ...[
+                          Text(
+                            '$filledCount/$slotCapacity',
+                            style: TextStyle(
+                              fontFamily: 'Georgia',
+                              fontSize: 9,
+                              color: AppColors.whetPaper.withValues(alpha: 0.85),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        ...homeTraySlots.map(
+                          (slot) => Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 1),
+                            child: _CompactSlot(
+                              slot: slot,
+                              focusOnHearth: focusOnHearth,
+                              onEmptyTap: onEmptySlotTap,
+                              onDragStartedWhenLocked:
+                                  onDragStartedWhenLocked,
+                              forDock: true,
+                            ),
                           ),
                         ),
-                      ))
-                  .toList(),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.ember.withValues(alpha: 0.0),
+                        AppColors.ember.withValues(alpha: 0.55),
+                        AppColors.goldenLight.withValues(alpha: 0.35),
+                        AppColors.ember.withValues(alpha: 0.55),
+                        AppColors.ember.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Expanded(
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      // Least-used on the left; Map + Satchel on the right for thumb reach (typical one-hand grip).
+                      children: [
+                      _CampNavTile(
+                        icon: Icons.menu_book_outlined,
+                        label: 'Guide',
+                        compact: true,
+                        selected: false,
+                        semanticsHint:
+                            'Same counsel as tapping Elias — path, pack, guidance, archive, settings.',
+                        tooltip: 'Same menu as tapping Elias on screen.',
+                        onTap: onGuideTap,
+                      ),
+                      _CampNavTile(
+                        icon: Icons.auto_fix_high,
+                        label: 'Whetstone',
+                        compact: true,
+                        selected: false,
+                        semanticsHint: 'Sharpen daily habits.',
+                        tooltip: 'Open the whetstone.',
+                        onTap: onWhetstoneTap,
+                      ),
+                      _CampNavTile(
+                        icon: Icons.map_outlined,
+                        label: 'Map',
+                        compact: true,
+                        selected: false,
+                        semanticsHint: 'Your peaks and climbing paths.',
+                        tooltip: 'Open the map of your peaks.',
+                        onTap: onMapTap,
+                      ),
+                      _CampNavTile(
+                        icon: Icons.backpack_outlined,
+                        label: 'Satchel',
+                        compact: true,
+                        selected: false,
+                        semanticsHint: 'Stones you carry for the hearth.',
+                        tooltip: 'Open your satchel.',
+                        onTap: onSatchelTap,
+                      ),
+                    ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          if (overflowCount > 0) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.darkWalnut,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$overflowCount',
-                style: const TextStyle(
-                  color: AppColors.parchment,
-                  fontSize: 12,
-                  fontFamily: 'Georgia',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-          ],
-          const SizedBox(width: 8),
-          ListenableBuilder(
+        ),
+        Positioned(
+          top: sceneFadeHeight + 2,
+          right: 6,
+          child: ListenableBuilder(
             listenable: DataFreshness.instance,
             builder: (context, _) {
               final showingCached = DataFreshness.instance.isShowingCachedData;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Semantics(
-                    label: 'Satchel',
-                    button: true,
-                    child: GestureDetector(
-                      key: const ValueKey('satchel_tap_target'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onBagTap,
-                      child: SizedBox(
-                        width: 48,
-                        height: 56,
-                        child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _SatchelIconWithPulse(
-                              showPulse: _showPulseOfPurpose,
-                              child: Container(
-                                width: 36,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.black,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.slotBorder, width: 1),
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6),
-                                  child: Image.asset(
-                                    'assets/satchel/satchel_closed.png',
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.backpack_outlined,
-                                      color: AppColors.ember,
-                                      size: 24,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                            'Satchel',
-                            style: TextStyle(
-                              fontSize: 8,
-                              letterSpacing: 0.8,
-                              fontFamily: 'Georgia',
-                              color: AppColors.sanctuaryIcon.withValues(alpha: 0.9),
-                            ),
-                          ),
-                        ],
-                        ),
-                      ),
-                    ),
+              return IgnorePointer(
+                ignoring: !showingCached,
+                child: Tooltip(
+                  message: 'Showing saved data',
+                  child: AnimatedOpacity(
+                    opacity: showingCached ? 1 : 0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Icon(
+                      Icons.auto_stories,
+                      size: 16,
+                      color: AppColors.whetPaper.withValues(alpha: 0.75),
                     ),
                   ),
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: IgnorePointer(
-                      ignoring: !showingCached,
-                      child: Tooltip(
-                        message: 'Showing saved data',
-                        child: AnimatedOpacity(
-                          opacity: showingCached ? 1 : 0,
-                          duration: const Duration(milliseconds: 500),
-                          child: Icon(
-                            Icons.auto_stories,
-                            size: 14,
-                            color: AppColors.whetPaper.withValues(alpha: 0.65),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               );
             },
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CampNavTile extends StatelessWidget {
+  const _CampNavTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.semanticsHint,
+    this.tooltip,
+    this.compact = false,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final String? semanticsHint;
+  final String? tooltip;
+  final bool compact;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconSize = compact ? 17.0 : 20.0;
+    final fontSize = compact ? 8.0 : 9.0;
+    final vPad = compact ? 3.0 : 5.0;
+    final surface = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(10),
+        splashColor: AppColors.ember.withValues(alpha: 0.15),
+        highlightColor: AppColors.ember.withValues(alpha: 0.08),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.whetPaper.withValues(alpha: selected ? 0.98 : 0.88),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? AppColors.ember.withValues(alpha: 0.55)
+                  : AppColors.whetLine.withValues(alpha: 0.65),
+              width: selected ? 1.25 : 1,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppColors.ember.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          padding: EdgeInsets.symmetric(vertical: vPad, horizontal: 2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  icon,
+                  size: iconSize,
+                  color: AppColors.darkWalnut.withValues(
+                    alpha: selected ? 1.0 : 0.94,
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 2 : 3),
+              ExcludeSemantics(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.15,
+                    color: AppColors.whetInk.withValues(
+                      alpha: selected ? 0.98 : 0.88,
+                    ),
+                    height: 1.0,
+                    decoration: selected
+                        ? TextDecoration.underline
+                        : TextDecoration.none,
+                    decorationColor: AppColors.ember.withValues(alpha: 0.75),
+                    decorationThickness: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    ).animate().slideY(begin: 1, end: 0, duration: 400.ms, delay: 300.ms);
+    );
+
+    final wrapped = tooltip != null && tooltip!.isNotEmpty
+        ? Tooltip(message: tooltip!, child: surface)
+        : surface;
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Semantics(
+          button: true,
+          label: label,
+          hint: semanticsHint,
+          child: wrapped,
+        ),
+      ),
+    );
   }
 }
 
 /// Wraps the Satchel icon with a gold breathing pulse (BoxShadow) when empty state.
 /// Uses sine wave for organic "breath" — firelight from Hearth reaching the bag.
 class _SatchelIconWithPulse extends StatefulWidget {
-  const _SatchelIconWithPulse({
-    required this.showPulse,
-    required this.child,
-  });
+  const _SatchelIconWithPulse({required this.showPulse, required this.child});
 
   final bool showPulse;
   final Widget child;
@@ -1295,32 +1685,40 @@ class _CompactSlot extends StatelessWidget {
     required this.focusOnHearth,
     required this.onEmptyTap,
     this.onDragStartedWhenLocked,
+    this.forDock = false,
   });
   final SatchelSlot slot;
   final bool focusOnHearth;
   final VoidCallback onEmptyTap;
   final VoidCallback? onDragStartedWhenLocked;
+  /// Smaller, lighter stones on the sanctuary dock (avoids a heavy dark strip).
+  final bool forDock;
 
   @override
   Widget build(BuildContext context) {
+    final dim = forDock ? 40.0 : 56.0;
+    final innerStone = forDock ? 34.0 : 48.0;
     if (slot.isEmpty) {
-      return GestureDetector(
-        onTap: onEmptyTap,
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: AppColors.slotEmpty,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: AppColors.slotBorder.withValues(alpha: 0.85),
-              width: 1.5,
+      return Semantics(
+        label: 'Empty satchel slot, opens guide menu',
+        button: true,
+        child: GestureDetector(
+          onTap: onEmptyTap,
+          child: Container(
+            width: dim,
+            height: dim,
+            decoration: BoxDecoration(
+              color: forDock
+                  ? AppColors.satchelSlotEmpty.withValues(alpha: 0.22)
+                  : AppColors.slotEmpty,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: forDock
+                    ? AppColors.whetLine.withValues(alpha: 0.22)
+                    : AppColors.slotBorder.withValues(alpha: 0.65),
+                width: forDock ? 0.5 : 1,
+              ),
             ),
-          ),
-          child: Icon(
-            Icons.lock_outline,
-            size: 16,
-            color: AppColors.slotBorder.withValues(alpha: 0.9),
           ),
         ),
       );
@@ -1329,35 +1727,33 @@ class _CompactSlot extends StatelessWidget {
     final showEmberPulse = focusOnHearth && slot.readyToBurn;
     // Stones always visible: neutral (no ring/bg) when not ready, ember ring when ready.
     final stoneVisual = Container(
-      width: 56,
-      height: 56,
+      width: dim,
+      height: dim,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: slot.readyToBurn
-            ? AppColors.slotFilled
-            : Colors.transparent,
+        color: slot.readyToBurn ? AppColors.slotFilled : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: slot.readyToBurn
               ? AppColors.ember
               : slot.node?.isStarred == true
-                  ? AppColors.gold.withValues(alpha: 0.6)
-                  : AppColors.slotBorder.withValues(alpha: 0.4),
+              ? AppColors.gold.withValues(alpha: 0.6)
+              : AppColors.slotBorder.withValues(alpha: 0.4),
           width: slot.readyToBurn ? 1.5 : 1,
         ),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: SizedBox(
-          width: 48,
-          height: 48,
+          width: innerStone,
+          height: innerStone,
           child: Image.asset(
-            'assets/stones/stone_medium.png',
+            satchelStoneImagePath(slot.node, readyToBurn: slot.readyToBurn),
             fit: BoxFit.contain,
-            opacity: AlwaysStoppedAnimation(slot.readyToBurn ? 1.0 : 0.7),
+            opacity: const AlwaysStoppedAnimation(1),
             errorBuilder: (_, __, ___) => Icon(
               Icons.local_fire_department,
-              size: 24,
+              size: forDock ? 18 : 24,
               color: slot.readyToBurn ? AppColors.ember : AppColors.slotBorder,
             ),
           ),
@@ -1374,8 +1770,8 @@ class _CompactSlot extends StatelessWidget {
       return Semantics(
         label: 'SatchelStoneLocked',
         child: _LockedStoneDrag(
-          child: wrapped,
           onSnapBack: onDragStartedWhenLocked,
+          child: wrapped,
         ),
       );
     }
@@ -1384,12 +1780,17 @@ class _CompactSlot extends StatelessWidget {
       label: 'SatchelStoneReady',
       child: Draggable<String>(
         data: slot.nodeId!,
-        feedback: _StoneFeedback(title: slot.node?.title ?? ''),
+        feedback: _StoneFeedback(
+          title: slot.node?.title ?? '',
+          imagePath: satchelStoneImagePath(slot.node, readyToBurn: true),
+        ),
         childWhenDragging: Container(
-          width: 56,
-          height: 56,
+          width: dim,
+          height: dim,
           decoration: BoxDecoration(
-            color: AppColors.slotEmpty,
+            color: forDock
+                ? AppColors.satchelSlotEmpty.withValues(alpha: 0.35)
+                : AppColors.slotEmpty,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: AppColors.slotBorder.withValues(alpha: 0.3),
@@ -1405,10 +1806,7 @@ class _CompactSlot extends StatelessWidget {
 
 /// Locked stone: user can only drag a little (clamped to [kMaxLockedDragPx]) then it snaps back and [onSnapBack] is called (Elias message).
 class _LockedStoneDrag extends StatefulWidget {
-  const _LockedStoneDrag({
-    required this.child,
-    this.onSnapBack,
-  });
+  const _LockedStoneDrag({required this.child, this.onSnapBack});
   final Widget child;
   final VoidCallback? onSnapBack;
 
@@ -1434,10 +1832,7 @@ class _LockedStoneDragState extends State<_LockedStoneDrag>
     _snapAnimation = Tween<Offset>(
       begin: Offset.zero,
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _snapController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _snapController, curve: Curves.easeOut));
   }
 
   @override
@@ -1450,9 +1845,10 @@ class _LockedStoneDragState extends State<_LockedStoneDrag>
     if (_offset == Offset.zero) return;
     final from = _offset;
     final didDragEnough = from.distance >= 8;
-    _snapAnimation = Tween<Offset>(begin: from, end: Offset.zero).animate(
-      CurvedAnimation(parent: _snapController, curve: Curves.easeOut),
-    );
+    _snapAnimation = Tween<Offset>(
+      begin: from,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _snapController, curve: Curves.easeOut));
     _snapController.reset();
     _snapController.forward().then((_) {
       if (didDragEnough) widget.onSnapBack?.call();
@@ -1480,11 +1876,10 @@ class _LockedStoneDragState extends State<_LockedStoneDrag>
       child: AnimatedBuilder(
         animation: _snapController,
         builder: (context, child) {
-          final offset = _snapController.isAnimating ? _snapAnimation.value : _offset;
-          return Transform.translate(
-            offset: offset,
-            child: child,
-          );
+          final offset = _snapController.isAnimating
+              ? _snapAnimation.value
+              : _offset;
+          return Transform.translate(offset: offset, child: child);
         },
         child: widget.child,
       ),
@@ -1513,9 +1908,10 @@ class _EmberPulseSlotState extends State<_EmberPulseSlot>
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     )..repeat(reverse: true);
-    _blurAnimation = Tween<double>(begin: 4.0, end: 12.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _blurAnimation = Tween<double>(
+      begin: 4.0,
+      end: 12.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -1548,8 +1944,9 @@ class _EmberPulseSlotState extends State<_EmberPulseSlot>
 }
 
 class _StoneFeedback extends StatelessWidget {
-  const _StoneFeedback({required this.title});
+  const _StoneFeedback({required this.title, required this.imagePath});
   final String title;
+  final String imagePath;
 
   @override
   Widget build(BuildContext context) {
@@ -1559,7 +1956,7 @@ class _StoneFeedback extends StatelessWidget {
         width: 56,
         height: 56,
         child: Image.asset(
-          'assets/stones/stone_large.png',
+          imagePath,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => DecoratedBox(
             decoration: BoxDecoration(
@@ -1582,8 +1979,9 @@ class _StoneFeedback extends StatelessWidget {
 // when a message is set. Auto-clears after 4 seconds.
 
 class _EliasBubble extends ConsumerStatefulWidget {
-  const _EliasBubble({required this.period});
+  const _EliasBubble({required this.period, required this.isNight});
   final ScenePeriod period;
+  final bool isNight;
 
   @override
   ConsumerState<_EliasBubble> createState() => _EliasBubbleState();
@@ -1591,7 +1989,6 @@ class _EliasBubble extends ConsumerStatefulWidget {
 
 class _EliasBubbleState extends ConsumerState<_EliasBubble> {
   Timer? _timer;
-  bool _hasScheduledGreeting = false;
 
   @override
   void dispose() {
@@ -1599,32 +1996,46 @@ class _EliasBubbleState extends ConsumerState<_EliasBubble> {
     super.dispose();
   }
 
+  /// Session greeting / quest step 1 — only after home intro is done ([hasSeenSanctuaryHomeIntroProvider] true).
+  Future<void> _emitSessionGreeting() async {
+    if (!mounted || ref.read(hasShownSessionGreetingProvider)) return;
+    final mountains = ref.read(mountainListProvider).valueOrNull ?? [];
+    final whetstone = ref.read(whetstoneProvider);
+    final isEmpty = mountains.isEmpty && whetstone.items.isEmpty;
+    if (isEmpty) {
+      ref.read(eliasMessageProvider.notifier).state =
+          EliasDialogue.firstLandQuestStep1();
+      await markQuestStep1Seen();
+    } else {
+      final displayName = ref.read(profileProvider).valueOrNull?.displayName;
+      ref.read(eliasMessageProvider.notifier).state = math.Random().nextBool()
+          ? EliasDialogue.timeOfDayGreeting(widget.period)
+          : EliasDialogue.sanctuaryPeriodGreeting(
+              widget.period,
+              displayName,
+            );
+    }
+    if (mounted) {
+      ref.read(hasShownSessionGreetingProvider.notifier).state = true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // One-time: show greeting on first Sanctuary load this session
-    // If empty state (0 mountains, 0 habits), show Quest Step 1 instead of period greeting
-    if (!_hasScheduledGreeting &&
-        !ref.read(hasShownSessionGreetingProvider)) {
-      _hasScheduledGreeting = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
+    ref.listen<AsyncValue<bool>>(hasSeenSanctuaryHomeIntroProvider, (
+      AsyncValue<bool>? prev,
+      AsyncValue<bool> next,
+    ) {
+      final now = next.valueOrNull;
+      if (now != true) return;
+      final was = prev?.valueOrNull;
+      if (was == true) return;
+      if (ref.read(hasShownSessionGreetingProvider)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || ref.read(hasShownSessionGreetingProvider)) return;
-        final mountains = ref.read(mountainListProvider).valueOrNull ?? [];
-        final whetstone = ref.read(whetstoneProvider);
-        final isEmpty = mountains.isEmpty && whetstone.items.isEmpty;
-        if (isEmpty) {
-          ref.read(eliasMessageProvider.notifier).state =
-              EliasDialogue.firstLandQuestStep1();
-          await markQuestStep1Seen();
-        } else {
-          final displayName = ref.read(profileProvider).valueOrNull?.displayName;
-          ref.read(eliasMessageProvider.notifier).state =
-              EliasDialogue.sanctuaryPeriodGreeting(widget.period, displayName);
-        }
-        if (mounted) {
-          ref.read(hasShownSessionGreetingProvider.notifier).state = true;
-        }
+        _emitSessionGreeting();
       });
-    }
+    });
 
     ref.listen<String?>(eliasMessageProvider, (prev, next) {
       if (next != null) {
@@ -1640,13 +2051,25 @@ class _EliasBubbleState extends ConsumerState<_EliasBubble> {
     final message = ref.watch(eliasMessageProvider);
     if (message == null) return const SizedBox.shrink();
 
-    return _SpeechBubble(message: message);
+    return _SpeechBubble(
+      message: message,
+      isNight: widget.isNight,
+      onDismiss: () {
+        ref.read(eliasMessageProvider.notifier).state = null;
+      },
+    );
   }
 }
 
 class _SpeechBubble extends StatefulWidget {
-  const _SpeechBubble({required this.message});
+  const _SpeechBubble({
+    required this.message,
+    required this.isNight,
+    required this.onDismiss,
+  });
   final String message;
+  final bool isNight;
+  final VoidCallback onDismiss;
 
   @override
   State<_SpeechBubble> createState() => _SpeechBubbleState();
@@ -1680,9 +2103,10 @@ class _SpeechBubbleState extends State<_SpeechBubble>
         milliseconds: (widget.message.length * 25).clamp(300, 3000),
       ),
     );
-    _charCount = StepTween(begin: 0, end: widget.message.length).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.linear),
-    );
+    _charCount = StepTween(
+      begin: 0,
+      end: widget.message.length,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.linear));
     _controller.forward();
   }
 
@@ -1695,91 +2119,128 @@ class _SpeechBubbleState extends State<_SpeechBubble>
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      liveRegion: true,
-      label: widget.message,
-      child: AnimatedBuilder(
-        animation: _charCount,
-        builder: (context, _) {
-          final n = _charCount.value.clamp(0, widget.message.length);
-          final visible = widget.message.substring(0, n);
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: math.min(MediaQuery.sizeOf(context).width * 0.75, 320),
-                  minWidth: 160,
-                ),
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                decoration: BoxDecoration(
-                  color: AppColors.whetPaper,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    topRight: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                    bottomLeft: Radius.circular(8),
-                  ),
-                  border: Border.all(
-                    color: AppColors.whetLine,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+          liveRegion: true,
+          label: widget.message,
+          child: AnimatedBuilder(
+            animation: _charCount,
+            builder: (context, _) {
+              final n = _charCount.value.clamp(0, widget.message.length);
+              final visible = widget.message.substring(0, n);
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(
+                        MediaQuery.sizeOf(context).width * 0.75,
+                        320,
+                      ),
+                      minWidth: 160,
                     ),
-                  ],
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 150),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      visible,
-                      style: EliasTypography.style(color: AppColors.whetInk),
-                      softWrap: true,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 16,
-                bottom: -6,
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.rotationY(3.14159),
-                  child: CustomPaint(
-                    size: const Size(12, 8),
-                    painter: _SpeechBubbleTailPainter(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+                    decoration: BoxDecoration(
                       color: AppColors.whetPaper,
-                      borderColor: AppColors.whetLine,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(2),
+                        topRight: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                        bottomLeft: Radius.circular(8),
+                      ),
+                      border: Border.all(color: AppColors.whetLine, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Semantics(
+                            label: 'Dismiss Elias message',
+                            button: true,
+                            child: IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 32,
+                              ),
+                              icon: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: AppColors.whetInk.withValues(
+                                  alpha: 0.65,
+                                ),
+                              ),
+                              tooltip: 'Dismiss',
+                              onPressed: widget.onDismiss,
+                            ),
+                          ),
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 150),
+                          child: SingleChildScrollView(
+                            child: SelectionContainer.disabled(
+                              child: Text(
+                                visible,
+                                style: EliasTypography.style(
+                                  color: widget.isNight
+                                      ? AppColors.whetInk.withValues(
+                                          alpha: 0.86,
+                                        )
+                                      : AppColors.whetInk,
+                                ),
+                                softWrap: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    )
+                  Positioned(
+                    right: 4,
+                    bottom: -14,
+                    child: CustomPaint(
+                      size: const Size(40, 16),
+                      painter: _SpeechBubbleTailToEliasPainter(
+                        color: AppColors.whetPaper,
+                        borderColor: AppColors.whetLine,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        )
         .animate()
         .fadeIn(duration: 350.ms, curve: Curves.easeInOut)
         .slideY(begin: 0.08, end: 0, duration: 350.ms, curve: Curves.easeInOut);
   }
 }
 
-/// Triangle tail pointing down from bottom-left of speech bubble toward Elias.
-class _SpeechBubbleTailPainter extends CustomPainter {
-  _SpeechBubbleTailPainter({required this.color, required this.borderColor});
+/// Tail from the bubble’s bottom-right toward Elias (below / slightly left).
+class _SpeechBubbleTailToEliasPainter extends CustomPainter {
+  _SpeechBubbleTailToEliasPainter({
+    required this.color,
+    required this.borderColor,
+  });
   final Color color;
   final Color borderColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final path = Path()
-      ..moveTo(size.width * 0.5, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width - 26, 0)
+      ..lineTo(size.width - 6, size.height)
       ..close();
     canvas.drawPath(path, Paint()..color = color);
     canvas.drawPath(
@@ -1792,7 +2253,6 @@ class _SpeechBubbleTailPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SpeechBubbleTailPainter oldDelegate) =>
+  bool shouldRepaint(covariant _SpeechBubbleTailToEliasPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.borderColor != borderColor;
 }
-

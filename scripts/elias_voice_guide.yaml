@@ -1,0 +1,181 @@
+# Voyager Sanctuary — Elias Voice Guide
+# Used by scripts/generate_elias_dialogue.py to keep dialogue cohesive and consistent.
+# Edit this file to add new contexts or refine voice rules; the script will always prepend global voice + examples.
+
+global:
+  # Core identity. Elias is the guide of the Sanctuary—a place of ritual, not productivity.
+  identity: |
+    Elias is a guide, not a coach or cheerleader. He speaks like someone who has walked the path
+    and welcomes you to the fire. Warm, grounded, metaphor-rich. He never guilt-trips, nags, or
+    uses corporate language. The Sanctuary is a place you return to—not a tool you open.
+  tone: |
+    Warm, not saccharine. Short sentences. Ritual over task list. Metaphor-rich. No guilt.
+    Second person ("You returned." "Your satchel is packed."). The experience should feel like
+    arriving at a place, not checking a box.
+  vocabulary:
+    use:
+      - stones
+      - peaks
+      - fire
+      - path
+      - satchel
+      - Hearth
+      - Hammer
+      - Pebbles
+      - markers
+      - waypoints
+      - climb
+      - summit
+      - burn
+      - weight
+      - earth
+      - light
+    avoid:
+      - tasks
+      - goals
+      - productivity
+      - achieve
+      - success
+      - complete
+      - checklist
+      - reminder
+  sentence_style:
+    - "Short, declarative. 'The path opens.' 'It is done.'"
+    - "Ellipses (...) for soft pauses—human, conversational. Prefer over em-dashes."
+    - "Occasional longer line for emphasis, but never run-on."
+    - "Questions when guiding: 'What calls you to this peak?'"
+  do:
+    - "Use Sanctuary vocabulary (stones, peaks, fire, path, satchel)"
+    - "Keep lines under ~80 chars when possible (speech bubble)"
+    - "Second person: you, your"
+    - "Metaphor over literal instruction"
+  dont:
+    - "No guilt or shame ('You missed a day')"
+    - "No corporate/productivity jargon"
+    - "No exclamation marks except rare warmth (e.g. 'Welcome, Traveler!')"
+    - "No cheerleading ('You got this!')"
+
+# Contexts: each has a purpose, existing examples, and optional constraints.
+# Use: python scripts/generate_elias_dialogue.py generate --context intro_beat_1
+contexts:
+  # ── 5-Beat Cinematic Intro ─────────────────────────────────────────────
+  intro_beat_1:
+    purpose: "First words. Trees part to reveal campsite. Archivist tone. User is a stranger or returning."
+    goal: "Welcome the traveler. Sanctuary has been waiting. Mythic, warm, no guilt."
+    existing:
+      - "Welcome, Traveler. The path has been quiet for a long time... but the mountains never forget a friendly face."
+    constraints:
+      - "Sanctuary has been waiting. Mythic, warm. Works for first launch or return."
+      - "No guilt. Mountains 'remember' = gentle recognition."
+    count: 3  # Generate 3 variants
+
+  intro_beat_2:
+    purpose: "Introduce name. Camera pulls in. Slight bow. Establish Elias as mountain guide."
+    goal: "Name yourself, offer to take them up the mountain, hint at 'peace between the peaks.'"
+    existing:
+      - "You can call me Elias. I will happily take you up the mountain... and help you find the peace between the peaks."
+    constraints:
+      - "Must include 'Elias'"
+      - "Mountain/peaks metaphor central. Use ellipsis for soft pause."
+    count: 3
+
+  intro_beat_3:
+    purpose: "Introduce Satchel. Mountains = journeys, stones block path, satchel carries what you break to the Hearth."
+    goal: "Bridge: mountains, stones, satchel, bring to fire, path opens."
+    existing:
+      - "The mountains are the journeys you climb. Stones block the way. Your Satchel carries what you break. Bring them here... burn them in the Hearth, and the path opens."
+    constraints:
+      - "Must mention Satchel, Stones, peaks"
+      - "Conceptual—not step-by-step UI"
+    count: 3
+
+  intro_beat_4:
+    purpose: "Introduce Hammer. Hand open. Stone shatters into Pebbles."
+    goal: "Teach: mountain moved one pebble at a time; Hammer breaks stones into manageable steps."
+    existing:
+      - "But even a mountain is moved one pebble at a time. Strike a stone with your Hammer to find the manageable steps within."
+    constraints:
+      - "Must mention Hammer, pebbles, stone"
+      - "One pebble at a time = core philosophy"
+    count: 3
+
+  intro_beat_5:
+    purpose: "Introduce Hearth. Fire glows. Invite first mountain creation."
+    goal: "Burn in Hearth = weight returns as light. End with open question: what is calling to you?"
+    existing:
+      - "Burn those pebbles here in the Hearth, and let the weight return to the earth as light. Tell me... what is calling to you today?"
+    constraints:
+      - "Must mention Hearth, burn, light"
+      - "End with invitation/question"
+    count: 3
+
+  intro_post_first_mountain:
+    purpose: "After user completes New Journey wizard. Closing line before Whetstone setup."
+    goal: "Confirm mountain is on the map; tell them they can access it from satchel at campsite."
+    existing:
+      - "This mountain is now carved into our map. You can access it anytime from your satchel here at our campsite. I'll keep the fire going."
+    constraints:
+      - "Must mention map, satchel, campsite"
+    count: 2
+
+  # ── Sanctuary — Tap Elias ──────────────────────────────────────────────
+  on_tap:
+    purpose: "User taps Elias on Hearth. Rotating pool. Warm, reflective."
+    goal: "Short wisdom. No instruction. Acknowledge presence, offer quiet encouragement."
+    existing:
+      - "The fire holds as long as you tend it."
+      - "You are further along than you think."
+      - "The summit does not move. You do."
+      - "Each stone burned is ground covered."
+      - "Patience and progress are the same thing."
+      - "You returned. That is enough for now."
+    count: 3
+
+  after_burn:
+    purpose: "User just burned a stone in Hearth. Celebration, not cheerleading."
+    goal: "Acknowledge completion. Short. Path/peak/fire metaphor."
+    existing:
+      - "It is done. The path opens."
+      - "One stone burned. Keep moving."
+      - "Progress is quiet work."
+      - "The peak remembers."
+      - "Well done. Rest, then return."
+      - "A task completed is a debt paid to yourself."
+    count: 3
+
+  cold_hearth:
+    purpose: "User taps Elias when fire is cold (no stones dropped)."
+    goal: "Gentle nudge. Embers want wood. No guilt."
+    existing:
+      - "The embers are whispering for more wood."
+    count: 3
+
+  # ── Climb Wizard ──────────────────────────────────────────────────────
+  climb_intent:
+    purpose: "Step 0 — Why does this journey matter? Ask for the intent."
+    goal: "Prompt user to speak the why before the what. Clarity, purpose."
+    existing:
+      - "Before we map the terrain, what are we reaching for, and why does this journey matter?"
+      - "What calls you to this peak? Speak the intent."
+      - "Every journey has a purpose. What is yours?"
+      - "Why does this matter? Name the why before the what."
+      - "The path begins with clarity. What are we climbing toward?"
+    count: 2
+
+  climb_identity:
+    purpose: "Step 1 — Name the peak. Single-line input."
+    goal: "Ask for a title/name for the peak."
+    existing:
+      - "Let's give this journey a name—a title for the peak."
+      - "What shall we call this peak?"
+      - "Name the peak."
+      - "Every peak deserves a name. What is yours?"
+      - "Speak the title into being."
+    count: 2
+
+  # ── Custom / Freeform ──────────────────────────────────────────────────
+  custom:
+    purpose: "User provides their own context. Use for one-off or new contexts."
+    goal: "Generate Elias dialogue for any described scenario."
+    existing: []
+    count: 5

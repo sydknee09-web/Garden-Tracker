@@ -10,8 +10,11 @@ import 'providers/node_provider.dart';
 import 'providers/sound_settings_provider.dart';
 import 'providers/streak_provider.dart';
 import 'providers/whetstone_provider.dart';
+import 'providers/elias_provider.dart';
+import 'providers/hearth_fuel_provider.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/entrance/entrance_screen.dart';
+import 'features/intro/forest_crossroads_welcome_screen.dart';
 import 'features/intro/intro_screen.dart';
 import 'features/intro/profile_gate_screen.dart';
 import 'features/sanctuary/sanctuary_screen.dart';
@@ -26,20 +29,30 @@ import 'features/management/credits_view.dart';
 // ── Routes ───────────────────────────────────────────────────
 
 abstract class AppRoutes {
-  static const entrance     = '/';
-  static const auth         = '/auth';
-  static const profileGate  = '/profile-gate';
-  static const intro        = '/intro';
-  static const sanctuary   = '/sanctuary';
-  static const scroll       = '/scroll';
-  static const satchel      = '/satchel';
-  static const whetstone    = '/whetstone';
-  static const archive      = '/archive';
-  static const settings     = '/settings';
-  static const credits      = '/credits';
+  static const entrance = '/';
+  static const auth = '/auth';
+  static const profileGate = '/profile-gate';
+  static const forestWelcome = '/forest-welcome';
+  static const intro = '/intro';
+  static const sanctuary = '/sanctuary';
+  static const scroll = '/scroll';
+  static const satchel = '/satchel';
+  static const whetstone = '/whetstone';
+  static const archive = '/archive';
+  static const settings = '/settings';
+  static const credits = '/credits';
 
   static const _protected = [
-    profileGate, intro, sanctuary, scroll, satchel, whetstone, archive, settings, credits,
+    profileGate,
+    forestWelcome,
+    intro,
+    sanctuary,
+    scroll,
+    satchel,
+    whetstone,
+    archive,
+    settings,
+    credits,
   ];
 
   static bool isProtected(String location) =>
@@ -84,7 +97,8 @@ class _RouterNotifier extends ChangeNotifier {
     }
 
     // Authenticated user on auth or entrance → profile gate (fetches profile, then intro or sanctuary)
-    if (isAuthenticated && (location == AppRoutes.auth || location == AppRoutes.entrance)) {
+    if (isAuthenticated &&
+        (location == AppRoutes.auth || location == AppRoutes.entrance)) {
       return AppRoutes.profileGate;
     }
 
@@ -102,8 +116,7 @@ class VoyagerSanctuaryApp extends ConsumerStatefulWidget {
       _VoyagerSanctuaryAppState();
 }
 
-class _VoyagerSanctuaryAppState
-    extends ConsumerState<VoyagerSanctuaryApp>
+class _VoyagerSanctuaryAppState extends ConsumerState<VoyagerSanctuaryApp>
     with WidgetsBindingObserver {
   late final _RouterNotifier _notifier;
   late final GoRouter _router;
@@ -114,7 +127,9 @@ class _VoyagerSanctuaryAppState
     WidgetsBinding.instance.addObserver(this);
     _notifier = _RouterNotifier();
     _router = GoRouter(
-      initialLocation: kSkipAuthForTesting ? AppRoutes.sanctuary : AppRoutes.entrance,
+      initialLocation: kSkipAuthForTesting
+          ? AppRoutes.sanctuary
+          : AppRoutes.entrance,
       refreshListenable: _notifier,
       redirect: (context, state) => _notifier.redirect(context, state, ref),
       routes: [
@@ -131,6 +146,10 @@ class _VoyagerSanctuaryAppState
           builder: (context, state) => const ProfileGateScreen(),
         ),
         GoRoute(
+          path: AppRoutes.forestWelcome,
+          builder: (context, state) => const ForestCrossroadsWelcomeScreen(),
+        ),
+        GoRoute(
           path: AppRoutes.intro,
           builder: (context, state) => const IntroScreen(),
         ),
@@ -145,19 +164,21 @@ class _VoyagerSanctuaryAppState
           pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: ScrollMapScreen(
-              openClimbOnMount: state.uri.queryParameters['openClimb'] == 'true',
+              openClimbOnMount:
+                  state.uri.queryParameters['openClimb'] == 'true',
             ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return SizeTransition(
-                sizeFactor: CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOut,
-                ),
-                axis: Axis.vertical,
-                axisAlignment: 0,
-                child: child,
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return SizeTransition(
+                    sizeFactor: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOut,
+                    ),
+                    axis: Axis.vertical,
+                    axisAlignment: 0,
+                    child: child,
+                  );
+                },
             transitionDuration: const Duration(milliseconds: 800),
           ),
           routes: [
@@ -200,6 +221,8 @@ class _VoyagerSanctuaryAppState
       ref.read(whetstoneProvider.notifier).onAppResume();
       ref.invalidate(whetstoneStreakProvider);
       ref.invalidate(burnStreakProvider);
+      ref.invalidate(hearthFuelProvider);
+      ref.read(hasShownSessionGreetingProvider.notifier).state = false;
     }
   }
 
@@ -221,10 +244,25 @@ class _VoyagerSanctuaryAppState
     ref.listen<bool>(refineModeProvider, (previous, next) {
       if (next == true && ref.read(soundEnabledProvider)) {
         _refineWhetstonePlayer.setPlaybackRate(1.2);
-        final source = _usePlaceholderRefineSound
-            ? AssetSource('sounds/scroll_open.wav')
-            : AssetSource('sounds/whetstone.wav');
-        _refineWhetstonePlayer.play(source).ignore();
+        if (_usePlaceholderRefineSound) {
+          _refineWhetstonePlayer
+              .play(AssetSource('sounds/scroll_open.wav'))
+              .catchError(
+                (_) => _refineWhetstonePlayer
+                    .play(AssetSource('sounds/scroll_open.mp3'))
+                    .ignore(),
+              )
+              .ignore();
+        } else {
+          _refineWhetstonePlayer
+              .play(AssetSource('sounds/whetstone.wav'))
+              .catchError(
+                (_) => _refineWhetstonePlayer
+                    .play(AssetSource('sounds/whetstone.mp3'))
+                    .ignore(),
+              )
+              .ignore();
+        }
       }
     });
     return MaterialApp.router(
@@ -240,9 +278,18 @@ class _VoyagerSanctuaryAppState
               for (final p in ScenePeriod.values) {
                 precacheImage(AssetImage(p.eliasAssetPath), context);
               }
-              precacheImage(const AssetImage('assets/hearth/Hearth_Sizzle.png'), context);
-              precacheImage(const AssetImage('assets/hearth/Hearth_High.png'), context);
-              precacheImage(const AssetImage('assets/hearth/hearth_extra_high.png'), context);
+              precacheImage(
+                const AssetImage('assets/hearth/Hearth_Sizzle.png'),
+                context,
+              );
+              precacheImage(
+                const AssetImage('assets/hearth/Hearth_High.png'),
+                context,
+              );
+              precacheImage(
+                const AssetImage('assets/hearth/hearth_extra_high.png'),
+                context,
+              );
             }
           });
         }

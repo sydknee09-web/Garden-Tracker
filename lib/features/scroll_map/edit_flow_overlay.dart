@@ -28,10 +28,7 @@ class EditTargetPeak extends EditTarget {
 }
 
 class EditTargetNode extends EditTarget {
-  const EditTargetNode({
-    required this.mountain,
-    required this.node,
-  });
+  const EditTargetNode({required this.mountain, required this.node});
   final Mountain mountain;
   final Node node;
   @override
@@ -90,7 +87,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
     try {
       final Node node;
       if (mode == _AddChildMode.pebble) {
-        node = await ref.read(nodeActionsProvider).createNodeUnderParent(
+        node = await ref
+            .read(nodeActionsProvider)
+            .createNodeUnderParent(
               parentPath: target.node.path,
               mountainId: target.mountain.id,
               nodeType: NodeType.pebble,
@@ -98,7 +97,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
               isPendingRitual: true,
             );
       } else {
-        node = await ref.read(nodeActionsProvider).createShard(
+        node = await ref
+            .read(nodeActionsProvider)
+            .createShard(
               parentPebblePath: target.node.path,
               mountainId: target.mountain.id,
               title: title.isNotEmpty ? title : 'New shard',
@@ -135,7 +136,10 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
           SnackBar(
             content: Text(
               EliasDialogue.saveFailed(),
-              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
@@ -155,7 +159,8 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final period =
+        ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
 
     return PopScope(
       canPop: true,
@@ -171,9 +176,7 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
               if (period == ScenePeriod.night)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: Container(
-                      color: AppColors.candlelightTint,
-                    ),
+                    child: Container(color: AppColors.candlelightTint),
                   ),
                 ),
               Positioned(
@@ -193,7 +196,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
                   24,
                   56,
                   24,
-                  24 + MediaQuery.viewInsetsOf(context).bottom + MediaQuery.paddingOf(context).bottom,
+                  24 +
+                      MediaQuery.viewInsetsOf(context).bottom +
+                      MediaQuery.paddingOf(context).bottom,
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -222,7 +227,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: AppColors.whetPaper.withValues(alpha: 0.95),
+                              color: AppColors.whetPaper.withValues(
+                                alpha: 0.95,
+                              ),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.whetLine),
                             ),
@@ -242,7 +249,9 @@ class _EditFlowOverlayState extends ConsumerState<EditFlowOverlay> {
                                     )
                                   : _EditDefaultCard(
                                       key: const ValueKey('edit'),
-                                      eliasLine: _eliasLine ?? EliasDialogue.openEdit(),
+                                      eliasLine:
+                                          _eliasLine ??
+                                          EliasDialogue.openEdit(),
                                       target: widget.target,
                                       showActions: _showActions,
                                       onRenameDone: (msg) {
@@ -313,7 +322,9 @@ class _EditDefaultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nodeTarget = target is EditTargetNode ? (target as EditTargetNode).node : null;
+    final nodeTarget = target is EditTargetNode
+        ? (target as EditTargetNode).node
+        : null;
     final isBoulder = nodeTarget?.nodeType == NodeType.boulder;
     final isPebble = nodeTarget?.nodeType == NodeType.pebble;
 
@@ -342,19 +353,22 @@ class _EditDefaultCard extends StatelessWidget {
         ),
         if (showActions) ...[
           const SizedBox(height: 24),
-          _RenameButton(
-            target: target,
-            onDone: onRenameDone,
-            ref: ref,
-          ),
+          _RenameButton(target: target, onDone: onRenameDone, ref: ref),
           if (isBoulder) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: onAddPebbleTap,
-              icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.whetInk),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                size: 18,
+                color: AppColors.whetInk,
+              ),
               label: const Text(
                 'Shatter into Pebbles',
-                style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
+                style: TextStyle(
+                  fontFamily: 'Georgia',
+                  color: AppColors.whetInk,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 alignment: Alignment.centerLeft,
@@ -366,10 +380,17 @@ class _EditDefaultCard extends StatelessWidget {
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: onRefineShardsTap,
-              icon: const Icon(Icons.diamond_outlined, size: 18, color: AppColors.whetInk),
+              icon: const Icon(
+                Icons.diamond_outlined,
+                size: 18,
+                color: AppColors.whetInk,
+              ),
               label: const Text(
                 'Refine into Shards',
-                style: TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
+                style: TextStyle(
+                  fontFamily: 'Georgia',
+                  color: AppColors.whetInk,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 alignment: Alignment.centerLeft,
@@ -378,11 +399,7 @@ class _EditDefaultCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          _DeleteButton(
-            target: target,
-            onClose: onClose,
-            ref: ref,
-          ),
+          _DeleteButton(target: target, onClose: onClose, ref: ref),
         ],
       ],
     );
@@ -486,14 +503,7 @@ class _EditAddChildCard extends StatelessWidget {
             const SizedBox(width: 12),
             FilledButton(
               onPressed: () async => await onAdd(),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.ember,
-                foregroundColor: AppColors.parchment,
-              ),
-              child: Text(
-                isPebble ? 'Add' : 'Refine',
-                style: const TextStyle(fontFamily: 'Georgia'),
-              ),
+              child: Text(isPebble ? 'Add' : 'Refine'),
             ),
           ],
         ),
@@ -521,10 +531,7 @@ class _RenameButton extends StatelessWidget {
       icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.whetInk),
       label: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Georgia',
-          color: AppColors.whetInk,
-        ),
+        style: const TextStyle(fontFamily: 'Georgia', color: AppColors.whetInk),
       ),
       style: OutlinedButton.styleFrom(
         alignment: Alignment.centerLeft,
@@ -551,7 +558,10 @@ class _RenameButton extends StatelessWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: AppColors.parchment, fontFamily: 'Georgia'),
+          style: const TextStyle(
+            color: AppColors.parchment,
+            fontFamily: 'Georgia',
+          ),
           decoration: const InputDecoration(
             hintText: 'New name',
             hintStyle: TextStyle(color: AppColors.whetInk),
@@ -560,7 +570,10 @@ class _RenameButton extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.ashGrey)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.ashGrey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -575,10 +588,9 @@ class _RenameButton extends StatelessWidget {
     if (name.isEmpty) return;
     try {
       if (target is EditTargetPeak) {
-        await ref.read(mountainActionsProvider).rename(
-              id: (target as EditTargetPeak).mountain.id,
-              name: name,
-            );
+        await ref
+            .read(mountainActionsProvider)
+            .rename(id: (target as EditTargetPeak).mountain.id, name: name);
         ref.invalidate(mountainListProvider);
       } else {
         final n = (target as EditTargetNode).node;
@@ -607,7 +619,10 @@ class _RenameButton extends StatelessWidget {
           SnackBar(
             content: Text(
               EliasDialogue.saveFailed(),
-              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
@@ -638,7 +653,9 @@ class _DeleteButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () => _confirmAndDelete(context),
       icon: Icon(
-        target is EditTargetPeak ? Icons.archive_outlined : Icons.delete_outline,
+        target is EditTargetPeak
+            ? Icons.archive_outlined
+            : Icons.delete_outline,
         size: 18,
         color: color,
       ),
@@ -682,7 +699,10 @@ class _DeleteButton extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.ashGrey)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.ashGrey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -701,12 +721,19 @@ class _DeleteButton extends StatelessWidget {
     if (!context.mounted || confirmed != true) return;
     try {
       if (target is EditTargetPeak) {
-        await ref.read(mountainActionsProvider).archive((target as EditTargetPeak).mountain.id);
+        await ref
+            .read(mountainActionsProvider)
+            .archive((target as EditTargetPeak).mountain.id);
         ref.invalidate(mountainListProvider);
         ref.invalidate(archivedMountainListProvider);
       } else {
-        await ref.read(nodeActionsProvider).deleteSubtree((target as EditTargetNode).node);
-        invalidateAfterNodeMutation(ref, (target as EditTargetNode).mountain.id);
+        await ref
+            .read(nodeActionsProvider)
+            .deleteSubtree((target as EditTargetNode).node);
+        invalidateAfterNodeMutation(
+          ref,
+          (target as EditTargetNode).mountain.id,
+        );
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -730,7 +757,10 @@ class _DeleteButton extends StatelessWidget {
           SnackBar(
             content: Text(
               EliasDialogue.saveFailed(),
-              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,

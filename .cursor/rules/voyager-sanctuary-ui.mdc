@@ -1,0 +1,22 @@
+---
+description: Voyager Sanctuary UI and layout rules. Prevents overflow, ghosting, and aesthetic breaks.
+alwaysApply: true
+---
+
+# VOYAGER SANCTUARY ARCHITECTURE RULES
+
+1. **Flexible Layouts:** NEVER use fixed pixel widths for horizontal elements. Always use `Flexible` or `Expanded` in `Row` widgets to prevent 234px overflows.
+
+2. **Layering Protocol:** Elias (Character) must be the last child in the World `Stack`. Background filters must NEVER be applied to the Elias widget.
+
+3. **Smooth Movement:** Replace `showDialog` with in-place state morphing using `AnimatedSwitcher` for ritual flows. Use `ValueKey(stateEnum)` — never `UniqueKey` (causes flicker).
+
+4. **Ritual Flow vs System Action:**
+   - **Ritual Flow:** Any interaction that advances the user's narrative journey or handles sacred items (Pebbles, Stones, Whetstones). MUST use in-world, card-based morphs.
+   - **System Action:** Technical settings, deletion confirmations, data exports. MAY use standard `showDialog`.
+
+5. **Contrast Standards:** Use `AppColors.darkWalnut` for all interactive text and button labels. Avoid `ashGrey` on cream.
+
+6. **SafeArea:** Backgrounds must bleed; UI must be constrained. Apply `SafeArea` to Layer 3 (UI Layer) only.
+
+7. **Terminology:** See Sanctuary Lexicon for terminology (forbidden words, Primary terms, Back/Return nuance).

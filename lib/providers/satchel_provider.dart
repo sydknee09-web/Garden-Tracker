@@ -1,10 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/services/streak_service.dart';
+import '../core/services/streak_prefs.dart';
 import '../data/models/satchel_slot.dart';
 import '../data/repositories/node_repository.dart';
 import '../data/repositories/satchel_repository.dart';
 import 'active_pebbles_provider.dart';
 import 'repository_providers.dart';
+import 'hearth_fuel_provider.dart';
+import 'mountain_provider.dart';
+import 'node_provider.dart';
+import 'streak_provider.dart';
 
 // ── State ────────────────────────────────────────────────────
 
@@ -24,6 +31,7 @@ class SatchelState {
 
   int get emptySlotCount => slots.where((s) => s.isEmpty).length;
   int get filledSlotCount => slots.where((s) => s.isFilled).length;
+
   /// Full only when we have 6 slots AND all are filled. Empty slots = not full.
   bool get isFull => slots.length >= 6 && emptySlotCount == 0;
   bool get isEmpty => filledSlotCount == 0;
@@ -34,25 +42,24 @@ class SatchelState {
     String? errorMessage,
     bool clearError = false,
     bool? isBurnInProgress,
-  }) =>
-      SatchelState(
-        slots: slots ?? this.slots,
-        isLoading: isLoading ?? this.isLoading,
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-        isBurnInProgress: isBurnInProgress ?? this.isBurnInProgress,
-      );
+  }) => SatchelState(
+    slots: slots ?? this.slots,
+    isLoading: isLoading ?? this.isLoading,
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    isBurnInProgress: isBurnInProgress ?? this.isBurnInProgress,
+  );
 
   static SatchelState empty() => SatchelState(
-        slots: List.generate(
-          6,
-          (i) => SatchelSlot(
-            id: 'empty-${i + 1}',
-            userId: '',
-            slotIndex: i + 1,
-            packedAt: DateTime.now(),
-          ),
-        ),
-      );
+    slots: List.generate(
+      6,
+      (i) => SatchelSlot(
+        id: 'empty-${i + 1}',
+        userId: '',
+        slotIndex: i + 1,
+        packedAt: DateTime.now(),
+      ),
+    ),
+  );
 }
 
 // ── Notifier ─────────────────────────────────────────────────
@@ -62,10 +69,10 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
     required SatchelRepository satchelRepo,
     required NodeRepository nodeRepo,
     required Ref ref,
-  })  : _satchelRepo = satchelRepo,
-        _nodeRepo = nodeRepo,
-        _ref = ref,
-        super(SatchelState.empty()) {
+  }) : _satchelRepo = satchelRepo,
+       _nodeRepo = nodeRepo,
+       _ref = ref,
+       super(SatchelState.empty()) {
     _load();
   }
 
@@ -101,7 +108,9 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
         ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
       final remaining = emptySlots.length;
 
-      final candidates = await _satchelRepo.fetchPackCandidates(limit: remaining);
+      final candidates = await _satchelRepo.fetchPackCandidates(
+        limit: remaining,
+      );
       if (candidates.isEmpty) {
         state = state.copyWith(isLoading: false);
         return 'No tasks waiting on your mountains.';
@@ -117,6 +126,64 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
       return 'Could not pack satchel.';
+    }
+  }
+
+  Future<void> _maybeBumpLongestBurnStreak() async {
+    try {
+      final timestamps = await _nodeRepo.fetchBurnTimestamps();
+      final r = computeStreak(timestamps);
+      final prefs = await SharedPreferences.getInstance();
+      final prev = prefs.getInt(kLongestBurnStreakPrefsKey) ?? 0;
+      if (r.currentStreak > prev) {
+        await prefs.setInt(kLongestBurnStreakPrefsKey, r.currentStreak);
+      }
+    } catch (_) {
+      // Non-blocking
+    }
+  }
+
+  /// Undo last hearth burn: restore node, evict auto-packed replacement if any, mark slot ready.
+  Future<void> undoBurn({
+    required String slotId,
+    required String nodeId,
+    required String mountainId,
+  }) async {
+    try {
+      state = state.copyWith(isLoading: true, clearError: true);
+      await _nodeRepo.revertBurn(nodeId);
+
+      final slots = await _satchelRepo.fetchSlotsRaw();
+      SatchelSlot? current;
+      for (final s in slots) {
+        if (s.id == slotId) {
+          current = s;
+          break;
+        }
+      }
+      final intruder = current?.nodeId;
+      if (intruder != null &&
+          intruder.isNotEmpty &&
+          intruder != nodeId) {
+        await _satchelRepo.clearSlot(slotId);
+        await _nodeRepo.setIsPendingRitual(intruder, value: false);
+      }
+
+      await _satchelRepo.assignPebbleToSlot(nodeId, slotId);
+      await _satchelRepo.markReadyToBurn(slotId);
+
+      _ref.invalidate(packCandidatesProvider);
+      _ref.invalidate(hearthFuelProvider);
+      _ref.invalidate(burnStreakProvider);
+      _ref.invalidate(longestBurnStreakProvider);
+      _ref.invalidate(nodeListProvider(mountainId));
+      _ref.invalidate(mountainProgressProvider(mountainId));
+      _ref.invalidate(mountainMomentumProvider(mountainId));
+      await _load();
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    } finally {
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -163,11 +230,15 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
       final didDrain = await _performPostBurnCleanup(slot.id);
 
       if (!didDrain) {
-        final updatedSlots = state.slots.map((s) =>
-            s.id == slot.id ? s.copyWith(clearNode: true) : s).toList();
+        final updatedSlots = state.slots
+            .map((s) => s.id == slot.id ? s.copyWith(clearNode: true) : s)
+            .toList();
         state = state.copyWith(slots: updatedSlots);
       }
       await _load();
+      await _maybeBumpLongestBurnStreak();
+      _ref.invalidate(longestBurnStreakProvider);
+      _ref.invalidate(hearthFuelProvider);
       return mountainId;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -200,9 +271,12 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
 
   /// Toggle ready-to-burn: if ready, lock; if locked, mark done.
   Future<void> toggleReadyToBurn(String slotId) async {
-    await _satchelRepo.toggleReadyToBurn(slotId);
+    final updatedSlot = await _satchelRepo.toggleReadyToBurn(slotId);
+    if (updatedSlot == null) return;
     final updatedSlots = state.slots.map((s) {
-      if (s.id == slotId) return s.copyWith(readyToBurn: !s.readyToBurn);
+      if (s.id == slotId) {
+        return s.copyWith(readyToBurn: updatedSlot.readyToBurn);
+      }
       return s;
     }).toList();
     state = state.copyWith(slots: updatedSlots);
@@ -233,8 +307,9 @@ class SatchelNotifier extends StateNotifier<SatchelState> {
 
 // ── Provider ─────────────────────────────────────────────────
 
-final satchelProvider =
-    StateNotifierProvider<SatchelNotifier, SatchelState>((ref) {
+final satchelProvider = StateNotifierProvider<SatchelNotifier, SatchelState>((
+  ref,
+) {
   return SatchelNotifier(
     satchelRepo: ref.watch(satchelRepositoryProvider),
     nodeRepo: ref.watch(nodeRepositoryProvider),

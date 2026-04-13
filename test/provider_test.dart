@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voyager_sanctuary/core/enums/day_offset.dart';
+import 'package:voyager_sanctuary/data/models/satchel_slot.dart';
 import 'package:voyager_sanctuary/providers/satchel_provider.dart';
 import 'package:voyager_sanctuary/providers/whetstone_provider.dart';
 
@@ -102,6 +103,16 @@ void main() {
       final updated = state.copyWith(selectedOffset: DayOffset.yesterday);
       expect(updated.selectedOffset, DayOffset.yesterday);
     });
+
+    // First Five Test #5: midnight sweep uses current date for Today
+    test('Today date string is current calendar day (midnight boundary)', () {
+      final now = DateTime.now();
+      final todayStr = DayOffset.today.toDateString();
+      final parts = todayStr.split('-').map(int.parse).toList();
+      expect(parts[0], now.year);
+      expect(parts[1], now.month);
+      expect(parts[2], now.day);
+    });
   });
 
   // ── Midnight reset (date boundary) ──────────────────────────
@@ -128,6 +139,50 @@ void main() {
       final expectedTomorrow =
           '${nextDay.year}-${nextDay.month.toString().padLeft(2, '0')}-${nextDay.day.toString().padLeft(2, '0')}';
       expect(tomorrow, expectedTomorrow);
+    });
+  });
+
+  // ── First Five Test #4: Burned slot stays empty (no auto-refill) ───────
+
+  group('Burned slot stays empty (First Five Test #4)', () {
+    test('clearing one slot via copyWith(clearNode: true) leaves slot empty', () {
+      final filledSlot = SatchelSlot(
+        id: 'slot-1',
+        userId: 'user-1',
+        slotIndex: 1,
+        nodeId: 'node-1',
+        node: null,
+        packedAt: DateTime(2026, 1, 1),
+        readyToBurn: true,
+      );
+      expect(filledSlot.isFilled, isTrue);
+      final cleared = filledSlot.copyWith(clearNode: true);
+      expect(cleared.isEmpty, isTrue);
+      expect(cleared.nodeId, isNull);
+    });
+
+    test('state with one filled slot then cleared has 6 empty slots', () {
+      final slots = List.generate(
+        6,
+        (i) => SatchelSlot(
+          id: 'slot-${i + 1}',
+          userId: 'u',
+          slotIndex: i + 1,
+          nodeId: i == 0 ? 'node-1' : null,
+          packedAt: DateTime(2026, 1, 1),
+        ),
+      );
+      final stateWithOneFilled = SatchelState(slots: slots);
+      expect(stateWithOneFilled.filledSlotCount, 1);
+      expect(stateWithOneFilled.emptySlotCount, 5);
+
+      final clearedSlots = stateWithOneFilled.slots.map((s) {
+        if (s.slotIndex == 1) return s.copyWith(clearNode: true);
+        return s;
+      }).toList();
+      final stateAfterBurn = stateWithOneFilled.copyWith(slots: clearedSlots);
+      expect(stateAfterBurn.filledSlotCount, 0);
+      expect(stateAfterBurn.emptySlotCount, 6);
     });
   });
 }

@@ -1,0 +1,15 @@
+---
+description: Final check required for all plans
+alwaysApply: true
+---
+
+# Plan Final Check
+
+Every plan must end with a **Questions / Concerns / Inconsistencies** section before the plan is considered complete.
+
+Include:
+- **Questions**: Open questions or uncertainties that need answers
+- **Concerns**: Potential risks, edge cases, or things that could go wrong
+- **Inconsistencies**: Conflicts with existing code, docs, or assumptions
+
+Do not skip this section. Add it even when there are none—state "None identified" rather than omitting the section.

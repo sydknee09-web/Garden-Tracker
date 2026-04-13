@@ -22,7 +22,7 @@
 | **Sanctuary — First Burn** | `firstBurnLine()` | Fixed | `sanctuary_screen.dart` |
 | **Sanctuary — On Movement** | `onMovement()` | Rotating | `sanctuary_screen.dart` |
 | **Sanctuary — First Land Quest** | `firstLandQuestStep1()`, `firstLandQuestStep3()` | Fixed | `sanctuary_screen.dart` |
-| **Sanctuary — Home Intro (first run)** | `sanctuaryHomeIntroSatchel`, `sanctuaryHomeIntroPathAhead`, `sanctuaryHomeIntroFirepit` | Fixed | `sanctuary_screen.dart` (_SanctuaryHomeIntroOverlay) |
+| **Sanctuary — Home Intro (legacy copy)** | `sanctuaryHomeIntroSatchel`, `sanctuaryHomeIntroPathAhead`, `sanctuaryHomeIntroFirepit` | Fixed | **Unused in UI** (beta: Elias intro + bubbles only; strings kept for reference / tooling) |
 | **Stow the Map closing** | `stowTheMapClosing` | Fixed | After save success, before landing on Sanctuary (narrative bridge) |
 | **Intro — Name Confirmation (Map Bridge)** | — | Fixed | Elias intro → map close |
 | **Intro — Map Closing (Map Bridge)** | — | Fixed | Map close → Sanctuary landing |
@@ -191,12 +191,12 @@
 
 ---
 
-### Sanctuary — Home Intro (First Run)
+### Sanctuary — Home Intro (legacy; overlay removed)
 
-**Context:** First-run "User Manual" moment on Sanctuary landing. Fixed overlay steps.  
+**Context:** Former 3-step spotlight on first Sanctuary entry. **Beta:** Not shown; Elias intro + bubbles carry tutorial. Strings remain in `elias_dialogue.dart` for reference.  
 **Type:** Fixed  
 **Pool:** `sanctuaryHomeIntroStep(index)`  
-**Where:** `Fixed_SanctuaryHomeIntroOverlay`
+**Where:** *(no UI widget — was `_SanctuaryHomeIntroOverlay`, removed)*
 
 | Step | Line |
 |------|------|

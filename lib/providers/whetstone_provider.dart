@@ -4,6 +4,8 @@ import '../core/enums/day_offset.dart';
 import '../data/models/whetstone_item.dart';
 import '../data/repositories/whetstone_repository.dart';
 import 'repository_providers.dart';
+import 'streak_provider.dart';
+import 'hearth_fuel_provider.dart';
 
 // ── State ────────────────────────────────────────────────────
 
@@ -33,34 +35,34 @@ class WhetstoneState {
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
-  }) =>
-      WhetstoneState(
-        selectedOffset: selectedOffset ?? this.selectedOffset,
-        items: items ?? this.items,
-        completedItemIds: completedItemIds ?? this.completedItemIds,
-        isLoading: isLoading ?? this.isLoading,
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      );
+  }) => WhetstoneState(
+    selectedOffset: selectedOffset ?? this.selectedOffset,
+    items: items ?? this.items,
+    completedItemIds: completedItemIds ?? this.completedItemIds,
+    isLoading: isLoading ?? this.isLoading,
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+  );
 
   static WhetstoneState initial() => const WhetstoneState(
-        selectedOffset: DayOffset.today,
-        items: [],
-        completedItemIds: {},
-      );
+    selectedOffset: DayOffset.today,
+    items: [],
+    completedItemIds: {},
+  );
 }
 
 // ── Notifier ─────────────────────────────────────────────────
 
 class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
-  WhetstoneNotifier(this._repo) : super(WhetstoneState.initial()) {
+  WhetstoneNotifier(this._repo, this._ref) : super(WhetstoneState.initial()) {
     _itemSubscription = _repo.watchItems().listen(_onItemsUpdated);
     _loadCompletions(DayOffset.today);
-    _scheduleMidnightRefresh();
+    _scheduleDayBoundaryRefresh();
   }
 
   final WhetstoneRepository _repo;
+  final Ref _ref;
   StreamSubscription<List<WhetstoneItem>>? _itemSubscription;
-  Timer? _midnightTimer;
+  Timer? _dayBoundaryTimer;
 
   // ── Public actions ───────────────────────────────────────
 
@@ -89,6 +91,7 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
         localDate: _dateForOffset(state.selectedOffset),
         currentlyComplete: wasComplete,
       );
+      _ref.invalidate(hearthFuelProvider);
     } catch (e) {
       // Revert on failure
       final reverted = Set<String>.from(state.completedItemIds);
@@ -97,7 +100,10 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
       } else {
         reverted.remove(itemId);
       }
-      state = state.copyWith(completedItemIds: reverted, errorMessage: e.toString());
+      state = state.copyWith(
+        completedItemIds: reverted,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -123,28 +129,33 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
 
   /// Called when the app returns to foreground — checks for date change.
   void onAppResume() {
-    _scheduleMidnightRefresh();
+    _scheduleDayBoundaryRefresh();
     // If we were on Today and the date has changed, refresh completions
     if (state.selectedOffset == DayOffset.today) {
       _loadCompletions(DayOffset.today);
     }
+    _ref.invalidate(whetstoneStreakProvider);
   }
 
-  // ── Midnight detection ───────────────────────────────────
+  // ── 4:00 AM day-boundary detection ──────────────────────
 
-  /// Schedules a timer that fires just after midnight local time.
-  /// If the Whetstone is on "Today", it refreshes to show a blank slate.
-  void _scheduleMidnightRefresh() {
-    _midnightTimer?.cancel();
+  /// Schedules a timer that fires just after local 4:00 AM.
+  /// If the Whetstone is on "Today", it refreshes to show the new effective day.
+  void _scheduleDayBoundaryRefresh() {
+    _dayBoundaryTimer?.cancel();
     final now = DateTime.now();
-    final midnight = DateTime(now.year, now.month, now.day + 1);
-    final untilMidnight = midnight.difference(now) + const Duration(seconds: 2);
+    var nextReset = DateTime(now.year, now.month, now.day, 4);
+    if (!now.isBefore(nextReset)) {
+      nextReset = nextReset.add(const Duration(days: 1));
+    }
+    final untilReset = nextReset.difference(now) + const Duration(seconds: 2);
 
-    _midnightTimer = Timer(untilMidnight, () {
+    _dayBoundaryTimer = Timer(untilReset, () {
       if (state.selectedOffset == DayOffset.today) {
         _loadCompletions(DayOffset.today);
       }
-      _scheduleMidnightRefresh(); // reschedule for next midnight
+      _ref.invalidate(whetstoneStreakProvider);
+      _scheduleDayBoundaryRefresh(); // re-arm for next 4:00 AM
     });
   }
 
@@ -172,18 +183,21 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
   }
 
   DateTime _dateForOffset(DayOffset offset) {
-    final now = DateTime.now();
+    final now = _repo.sanctuaryEffectiveDate;
     switch (offset) {
-      case DayOffset.yesterday: return DateTime(now.year, now.month, now.day - 1);
-      case DayOffset.today:     return DateTime(now.year, now.month, now.day);
-      case DayOffset.tomorrow:  return DateTime(now.year, now.month, now.day + 1);
+      case DayOffset.yesterday:
+        return DateTime(now.year, now.month, now.day - 1);
+      case DayOffset.today:
+        return DateTime(now.year, now.month, now.day);
+      case DayOffset.tomorrow:
+        return DateTime(now.year, now.month, now.day + 1);
     }
   }
 
   @override
   void dispose() {
     _itemSubscription?.cancel();
-    _midnightTimer?.cancel();
+    _dayBoundaryTimer?.cancel();
     super.dispose();
   }
 }
@@ -192,8 +206,8 @@ class WhetstoneNotifier extends StateNotifier<WhetstoneState> {
 
 final whetstoneProvider =
     StateNotifierProvider<WhetstoneNotifier, WhetstoneState>((ref) {
-  return WhetstoneNotifier(ref.watch(whetstoneRepositoryProvider));
-});
+      return WhetstoneNotifier(ref.watch(whetstoneRepositoryProvider), ref);
+    });
 
 /// True when user has completed at least one habit today (for Satchel Whetstone spark).
 final hasCompletedAnyHabitTodayProvider = Provider<bool>((ref) {

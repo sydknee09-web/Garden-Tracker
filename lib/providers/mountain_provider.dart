@@ -29,14 +29,19 @@ final canAddMountainProvider = Provider<bool>((ref) {
 });
 
 /// Single mountain by ID. Use for Edit overlay when node has mountainId.
-final mountainProvider = FutureProvider.family<Mountain?, String>((ref, mountainId) async {
+final mountainProvider = FutureProvider.family<Mountain?, String>((
+  ref,
+  mountainId,
+) async {
   final repo = ref.watch(_mountainRepoProvider);
   return repo.getById(mountainId);
 });
 
 /// Progress (0.0–1.0) for a single mountain, keyed by mountainId.
-final mountainProgressProvider =
-    FutureProvider.family<double, String>((ref, mountainId) {
+final mountainProgressProvider = FutureProvider.family<double, String>((
+  ref,
+  mountainId,
+) {
   return ref.watch(_mountainRepoProvider).getProgress(mountainId);
 });
 

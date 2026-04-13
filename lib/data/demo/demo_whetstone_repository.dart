@@ -2,12 +2,22 @@ import 'dart:async';
 
 import '../models/whetstone_item.dart';
 import '../repositories/whetstone_repository.dart';
+import '../../core/services/streak_service.dart';
 import '../../core/extensions/datetime_extensions.dart';
 import 'demo_storage.dart';
 
 /// Demo implementation of WhetstoneRepository using local storage.
 class DemoWhetstoneRepository implements WhetstoneRepository {
   final DemoStorage _storage = DemoStorage.instance;
+
+  @override
+  DateTime get sanctuaryEffectiveDate {
+    final now = DateTime.now();
+    if (now.hour < 4) {
+      return now.subtract(const Duration(days: 1));
+    }
+    return now;
+  }
 
   @override
   Stream<List<WhetstoneItem>> watchItems() async* {
@@ -114,4 +124,13 @@ class DemoWhetstoneRepository implements WhetstoneRepository {
   @override
   Future<List<DateTime>> fetchAllCompletionTimestamps() async =>
       _storage.whetstoneCompletionTimestamps;
+
+  @override
+  Future<WhetstoneStreakStatus> fetchStreakStatus() async {
+    final result = computeStreak(_storage.whetstoneCompletionTimestamps);
+    return WhetstoneStreakStatus(
+      streak: result.currentStreak,
+      graceActive: result.graceUsed,
+    );
+  }
 }

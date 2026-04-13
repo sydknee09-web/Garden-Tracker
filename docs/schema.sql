@@ -17,9 +17,10 @@ CREATE EXTENSION IF NOT EXISTS ltree;
 -- Extends auth.users. Auto-created on signup via trigger below.
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS profiles (
-  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username    TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  id                    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username              TEXT,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  has_seen_elias_intro  BOOLEAN DEFAULT FALSE  -- Elias intro sequence on first login
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -98,11 +99,10 @@ CREATE POLICY "User owns their mountains"
 --   Pebble:   {mountain_id}.{boulder_id}.{pebble_id}
 --   Shard:    {mountain_id}.{boulder_id}.{pebble_id}.{shard_id}
 --
--- RULES (enforced at app layer):
---   - is_complete is only ever set TRUE on pebbles.
---   - Shards are visual-only: is_complete always stays FALSE.
---   - Only pebbles can enter the Satchel.
---   - Burning a pebble cascades a delete of its child shards.
+-- RULES (enforced at app layer + trigger):
+--   - is_complete: pebbles and shards. Shards "extinguish" (complete); trigger cascades to pebble when all shards done.
+--   - Only leaves enter the Satchel (Logic & Leaf): boulders without pebbles, pebbles without shards, or shards when pebble has shards.
+--   - Burn shard: set is_complete=true; trigger marks pebble complete when all siblings done. No cascade delete.
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS nodes (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -230,6 +230,26 @@ CREATE POLICY "User owns their completions"
   USING (auth.uid() = user_id);
 
 
+-- -------------------------------------------------------------
+-- 7. USER STREAKS (Grace Day — Whetstone ritual)
+-- One row per user. Option A: one miss = freeze, two consecutive = reset.
+-- See docs/GRACE_DAY_STREAK_SPEC.md
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_streaks (
+  user_id               UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  current_streak        INT NOT NULL DEFAULT 0,
+  last_completion_date  DATE,
+  grace_used            BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "User owns their streak" ON user_streaks;
+CREATE POLICY "User owns their streak"
+  ON user_streaks FOR ALL
+  USING (auth.uid() = user_id);
+
+
 -- =============================================================
 -- VERIFICATION QUERIES
 -- Run these after the schema to confirm everything is in place.
@@ -241,7 +261,7 @@ FROM information_schema.tables
 WHERE table_schema = 'public'
   AND table_name IN (
     'profiles', 'mountains', 'nodes',
-    'satchel_slots', 'whetstone_items', 'whetstone_completions'
+    'satchel_slots', 'whetstone_items', 'whetstone_completions', 'user_streaks'
   )
 ORDER BY table_name;
 
@@ -254,6 +274,6 @@ FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename IN (
     'profiles', 'mountains', 'nodes',
-    'satchel_slots', 'whetstone_items', 'whetstone_completions'
+    'satchel_slots', 'whetstone_items', 'whetstone_completions', 'user_streaks'
   )
 ORDER BY tablename;

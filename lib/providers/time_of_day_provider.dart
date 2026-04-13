@@ -16,7 +16,13 @@ Stream<ScenePeriod> _scenePeriodStream() async* {
   while (true) {
     final now = DateTime.now();
     // Wait until the start of the next minute, then re-evaluate.
-    final nextMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    final nextMinute = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute + 1,
+    );
     await Future.delayed(nextMinute.difference(now));
     yield DateTime.now().dayPeriod;
   }
@@ -28,7 +34,13 @@ final currentTimeForBackgroundProvider = StreamProvider<DateTime>((ref) async* {
   yield DateTime.now();
   while (true) {
     final now = DateTime.now();
-    final nextMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    final nextMinute = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute + 1,
+    );
     await Future.delayed(nextMinute.difference(now));
     yield DateTime.now();
   }

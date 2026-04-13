@@ -31,7 +31,7 @@ class DemoSatchelRepository extends SatchelRepository {
       Node? node;
       if (nodeId != null && nodeId.toString().trim().isNotEmpty) {
         final found = _storage.nodes.where((n) => n.id == nodeId);
-      node = found.isEmpty ? null : found.first;
+        node = found.isEmpty ? null : found.first;
       }
       result.add(_slotFromMap(Map<String, dynamic>.from(map), node));
     }
@@ -42,13 +42,19 @@ class DemoSatchelRepository extends SatchelRepository {
   @override
   Future<List<SatchelSlot>> fetchSlotsRaw() async {
     final raw = _storage.satchelSlotsRaw;
-    return raw.map((m) => _slotFromMap(Map<String, dynamic>.from(m), null)).toList()
+    return raw
+        .map((m) => _slotFromMap(Map<String, dynamic>.from(m), null))
+        .toList()
       ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
   }
 
   @override
   Future<void> assignPebbleToSlot(String nodeId, String slotId) async {
-    await _storage.updateSatchelSlot(slotId, nodeId: nodeId, readyToBurn: false);
+    await _storage.updateSatchelSlot(
+      slotId,
+      nodeId: nodeId,
+      readyToBurn: false,
+    );
   }
 
   @override
@@ -64,11 +70,13 @@ class DemoSatchelRepository extends SatchelRepository {
 
     final nodes = _storage.nodes;
     var candidates = nodes
-        .where((n) =>
-            !n.isComplete &&
-            !n.isArchived &&
-            !packedIds.contains(n.id) &&
-            _isLeaf(n, nodes))
+        .where(
+          (n) =>
+              !n.isComplete &&
+              !n.isArchived &&
+              !packedIds.contains(n.id) &&
+              _isLeaf(n, nodes),
+        )
         .toList();
 
     if (excludeIds != null && excludeIds.isNotEmpty) {
@@ -117,7 +125,9 @@ class DemoSatchelRepository extends SatchelRepository {
     final emptySlots = slots.where((s) => s.isEmpty).toList()
       ..sort((a, b) => a.slotIndex.compareTo(b.slotIndex));
 
-    final raw = _storage.satchelSlotsRaw.map((m) => Map<String, dynamic>.from(m)).toList();
+    final raw = _storage.satchelSlotsRaw
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
     for (var i = 0; i < nodes.length && i < emptySlots.length; i++) {
       final slot = emptySlots[i];
       final slotMap = raw.firstWhere((r) => r['id'] == slot.id);
@@ -139,12 +149,14 @@ class DemoSatchelRepository extends SatchelRepository {
   }
 
   @override
-  Future<void> toggleReadyToBurn(String slotId) async {
+  Future<SatchelSlot?> toggleReadyToBurn(String slotId) async {
     final slots = await fetchSlotsRaw();
     final list = slots.where((s) => s.id == slotId).toList();
-    if (list.isEmpty) return;
+    if (list.isEmpty) return null;
     final slot = list.first;
-    await _storage.updateSatchelSlot(slotId, readyToBurn: !slot.readyToBurn);
+    final newValue = !slot.readyToBurn;
+    await _storage.updateSatchelSlot(slotId, readyToBurn: newValue);
+    return slot.copyWith(readyToBurn: newValue);
   }
 
   @override

@@ -1,24 +1,45 @@
 # VOYAGER SANCTUARY — NAVIGATION MAP
-**Version:** 1.2 — LOCKED  
-**Date:** March 11, 2026  
-**Last Updated:** Mallet tap-to-reveal, Satchel compact tray, Mountain cap at 3
+**Version:** 1.3 — LOCKED  
+**Date:** March 2026  
+**Last Updated:** Mountain Detail kept; user-facing "The Map"; Hammer in Satchel
+
+---
+
+## Terminology
+
+| Internal | User-Facing |
+|----------|-------------|
+| Scroll / ScrollMapScreen | **The Map** |
+| Mountain | **Peak** |
+
+---
+
+## Conceptual Loop: Campsite → Satchel → Map
+
+Three pillars form the user's home base:
+
+- **Campsite** (`/sanctuary`): Where you talk to Elias and burn stones at the Hearth.
+- **Satchel** (`/satchel`): Your "workbench"—6 stones, the Hammer, and access to the Map. *"You can access it anytime from your satchel here at our campsite."*
+- **Map** (`/scroll`): Long-term vision; tucked inside the Satchel view or accessed through it (e.g. via Map icon in tray).
 
 ---
 
 ## ROUTE TABLE
 
-| Route | Screen | Auth Required |
-|---|---|---|
-| `/` | EntranceScreen (splash/redirect) | No |
-| `/login` | LoginScreen | No |
-| `/sanctuary` | SanctuaryScreen (main hub) | Yes |
-| `/scroll` | ScrollMapScreen | Yes |
-| `/scroll/:mountainId` | MountainDetailScreen (nodes view) | Yes |
-| `/satchel` | SatchelScreen | Yes |
-| `/whetstone` | WhetstoneScreen | Yes |
-| `/management` | ManagementMenuSheet (bottom sheet) | Yes |
-| `/archive` | ArchiveRecoveryScreen | Yes |
-| `/settings` | SettingsScreen | Yes |
+| Route | Screen | Auth Required | User-Facing |
+|---|---|---|---|
+| `/` | EntranceScreen (splash/redirect) | No | — |
+| `/auth` | AuthScreen (sign-in / sign-up) | No | — |
+| `/sanctuary` | SanctuaryScreen (main hub) | Yes | Sanctuary |
+| `/scroll` | ScrollMapScreen (The Map) | Yes | **The Map** |
+| `/scroll/:mountainId` | MountainDetailScreen (peak journal) | Yes | Peak Detail |
+| `/satchel` | SatchelScreen | Yes | Your Satchel |
+| `/whetstone` | WhetstoneScreen | Yes | The Whetstone |
+| `/management` | ManagementMenuSheet (bottom sheet) | Yes | — |
+| `/archive` | ArchiveRecoveryScreen | Yes | Archive |
+| `/settings` | SettingsScreen | Yes | Settings |
+
+**Note:** `/scroll/:mountainId` (MountainDetailScreen) is planned; route not yet in app. Implement when building Map → Detail flow.
 
 ---
 
@@ -48,7 +69,7 @@ Show background + Elias (correct pose) for ~1.5s
 Check Supabase auth state
      │
      ├── Authenticated  → Navigate to /sanctuary
-     └── Not authed     → Navigate to /login
+     └── Not authed     → Navigate to /auth
 ```
 
 **Assets used:** `assets/backgrounds/dawn.png`, `midday.png`, `sunset.png`, `night.png`  
@@ -56,12 +77,12 @@ Check Supabase auth state
 
 ---
 
-### 2. LOGIN SCREEN (`/login`)
-**Type:** Full screen  
+### 2. AUTH SCREEN (`/auth`)
+**Type:** Full screen (sign-in / sign-up with mode toggle)  
 **Auth guard:** Redirect to `/sanctuary` if already logged in
 
 ```
-[LoginScreen]
+[AuthScreen]
   Email + Password fields
   [Sign In] button → Supabase signInWithPassword
   [Sign Up] link → toggle to signup form
@@ -74,7 +95,7 @@ Check Supabase auth state
 
 ### 3. SANCTUARY SCREEN (`/sanctuary`) ⭐ MAIN HUB
 **Type:** Full screen, static campsite scene  
-**Auth guard:** Yes — redirect to /login if not authenticated
+**Auth guard:** Yes — redirect to /auth if not authenticated
 
 ```
 ┌─────────────────────────────────────┐
@@ -86,12 +107,12 @@ Check Supabase auth state
 │         [ THE HEARTH 🔥 ]           │  ← DragTarget: accepts stones from compact tray
 │         (center campfire)           │     On drop: burn animation → complete task
 │                                     │
-│  [WHETSTONE 🪨]     [SCROLL 📜]    │  ← Tap Whetstone → /whetstone
-│  (bottom-left)      (bottom-right)  │     Tap Scroll    → /scroll
+│  [WHETSTONE 🪨]     [THE MAP 📜]   │  ← Tap Whetstone → /whetstone
+│  (bottom-left)      (bottom-right)  │     Tap Map       → /scroll
 │                                     │
 │ ┌─────────────────────────────────┐ │
 │ │ [S1][S2][S3][S4][S5][S6]  🎒   │ │  ← COMPACT SATCHEL TRAY (always visible)
-│ └─────────────────────────────────┘ │     Each slot: draggable stone
+│ └─────────────────────────────────┘ │     Each slot: draggable rune stone (packable leaf)
 └─────────────────────────────────────┘     Tapping 🎒 icon → /satchel (full detail)
                                             Tapping empty slot → ManagementMenuSheet
                                             Drag stone up to Hearth → burns it
@@ -111,7 +132,7 @@ Check Supabase auth state
 | Hearth | — | — | **Receives** stones from compact tray → burns task |
 | Whetstone icon | → /whetstone | — | — |
 | Scroll icon | → /scroll | — | — |
-| Compact tray stone | — | — | **Source** — drag to Hearth |
+| Compact tray stone (rune) | — | — | **Source** — drag to Hearth |
 | Compact tray 🎒 icon | → /satchel (full view) | — | — |
 | Compact tray empty slot | Opens ManagementMenuSheet (Pack Satchel focused) | — | — |
 
@@ -125,13 +146,17 @@ Check Supabase auth state
 ┌─────────────────────────────────────┐
 │  ▬  (drag handle)                   │
 │                                     │
-│  🎒  Pack Satchel                   │  ← runs priority query → fills empty slots
-│  ⚙️  Settings                       │  ← → /settings
-│  📦  Archive Recovery               │  ← → /archive
+│  🧭  New Journey                    │  ← The Start; opens 6-step creation wizard
+│  💬  Seek Guidance                  │  ← The Lore/Elias; "What would you like to do?" pool
+│  🎒  Pack Satchel                   │  ← The Preparation; runs priority query → fills slots
+│  📦  Archive Recovery               │  ← The History; → /archive
+│  ⚙️  Settings                       │  ← The System; → /settings
 │  🚪  Sign Out                       │  ← Supabase signOut
 │                                     │
 └─────────────────────────────────────┘
 ```
+
+**Hierarchy:** Ascent over maintenance. New Journey first; Seek Guidance (lore) before Pack Satchel (preparation).
 
 **Pack Satchel flow:**
 ```
@@ -146,6 +171,7 @@ Count empty satchel slots (0–6)
                    animate stones flying into satchel
                    dismiss sheet
 ```
+*Logic & Leaf (planned): Validity Filter—pack only packable leaves; respect sequentiality (Climb parents). See MASTER_PLAN § Logic & Leaf Protocol.*
 
 ---
 
@@ -154,18 +180,22 @@ Count empty satchel slots (0–6)
 
 ```
 ┌─────────────────────────────────────┐
-│  ← Back          YOUR SATCHEL       │
+│  ← Back          YOUR SATCHEL   🪨  │  ← 🪨 Whetstone tile: tap → Phase 8 overlay (Sharpen Habits only)
 ├─────────────────────────────────────┤
-│  [SLOT 1: Stone Title ⭐ 📅 Mar 15] │  ← Draggable (drag to Hearth on Sanctuary)
-│  [SLOT 2: Stone Title              ]│
+│  [SLOT 1: Stone Title ⭐ 📅 Mar 15] 🔨│  ← Hammer icon: tap → Refine modal (split into pebbles)
+│  [SLOT 2: Stone Title              ]🔨│
 │  [SLOT 3: ─────── empty ──────────]│  ← Tap empty slot → ManagementMenuSheet
-│  [SLOT 4: Stone Title              ]│
+│  [SLOT 4: Stone Title              ]🔨│
 │  [SLOT 5: ─────── empty ──────────]│
-│  [SLOT 6: Stone Title 📅 Mar 20   ]│
+│  [SLOT 6: Stone Title 📅 Mar 20   ]🔨│
 ├─────────────────────────────────────┤
 │  [⚔️ Pack Satchel]                  │  ← shortcut to Pack Satchel
 └─────────────────────────────────────┘
 ```
+
+**Whetstone tile (header):** Tap → Phase 8 overlay. Elias + "Sharpen Habits" with bubble tail anchored to icon. Refine/Edit is on the Map (Peak Detail, tap node). See [WHETSTONE_CHOICE_OVERLAY_SPEC.md](WHETSTONE_CHOICE_OVERLAY_SPEC.md).
+
+**Hammer (trailing icon):** On each Rune stone or container. Tap → Refine modal to split container (Rune Boulder or Rune Pebble) into Pebbles or Shards. Elias: *"A heavy stone is just a collection of pebbles waiting for a strike."* User breaks down stones that feel too heavy when working in satchel.
 
 **Stone metadata displayed per slot:**
 - Title
@@ -177,13 +207,17 @@ Count empty satchel slots (0–6)
 
 ---
 
-### 6. SCROLL MAP SCREEN (`/scroll`)
-**Type:** Full screen, vertically scrollable  
+### 6. THE MAP (`/scroll`)
+**Type:** Full screen, vertically scrollable. User-facing: **The Map**.  
 **Mountain cap:** Maximum 3 active mountains. `[+]` is disabled when count = 3.
+
+**Flow:** Tap a peak → navigate to `/scroll/:mountainId` (Mountain Detail) for journal, pebbles, accomplishments. Map stays clean; Detail is the dive.
+
+**⚠️ PRE-REFACTOR:** The diagram below shows the current full-tree view. Post-Phase 10 (Peak Journal), this view transitions to **summary cards** (Icon, Name, Progress Bar) to prioritize visual calm over data depth. Tap card → push to Detail. See [PEAK_JOURNAL_SPEC.md](PEAK_JOURNAL_SPEC.md).
 
 ```
 ┌─────────────────────────────────────┐
-│  ← Back     THE SCROLL MAP   [+ 🏔️] │  ← [+] disabled if 3 active mountains exist
+│  ← Back        THE MAP      [+ 🏔️]  │  ← [+] disabled if 3 active mountains exist
 ├─────────────────────────────────────┤
 │                                     │
 │  🏔️ MOUNTAIN 1                      │  ← Long-press → (Rename / Archive)
@@ -251,6 +285,35 @@ ARCHITECTURE MODE — MALLET TARGETS:
 
 ---
 
+### 6b. MOUNTAIN DETAIL SCREEN (`/scroll/:mountainId`) — Peak Journal
+
+**Type:** Full screen. The "Journal" for a single peak.  
+**Entry:** Tap a peak on The Map.
+
+**Purpose:** Deep dive into one peak. Shows full hierarchy (boulders, pebbles, shards), progress, burned pebbles, accomplishments. Keeps The Map clean; Detail holds the logbook.
+
+```
+┌─────────────────────────────────────┐
+│  ← Back     [Peak Name]              │
+├─────────────────────────────────────┤
+│  Intent: [editable or view]          │
+│  ████████░░░░ 65%                   │
+│                                     │
+│  🪨 Boulder A (Milestone 1)         │
+│     ├── 🌑 Pebble 1 ⭐  [burned]    │
+│     ├── 🌑 Pebble 2 📅              │
+│     └── · Shard 1a                  │
+│  🪨 Boulder B (Milestone 2)         │
+│     └── ...                         │
+│                                     │
+│  [Bones] [Archive]                  │
+└─────────────────────────────────────┘
+```
+
+**Note:** Route not yet implemented. Add when building Map → Detail flow.
+
+---
+
 ### 7. WHETSTONE SCREEN (`/whetstone`)
 **Type:** Full screen, parchment aesthetic
 
@@ -310,14 +373,14 @@ Restore: sets `is_archived = false` on the mountain.
 final router = GoRouter(
   redirect: (context, state) {
     final isLoggedIn = ref.read(authProvider) != null;
-    final isOnLogin = state.matchedLocation == '/login';
-    if (!isLoggedIn && !isOnLogin) return '/login';
-    if (isLoggedIn && isOnLogin) return '/sanctuary';
+    final isOnAuth = state.matchedLocation == '/auth';
+    if (!isLoggedIn && !isOnAuth) return '/auth';
+    if (isLoggedIn && isOnAuth) return '/sanctuary';
     return null;
   },
   routes: [
     GoRoute(path: '/',          builder: (_, __) => const EntranceScreen()),
-    GoRoute(path: '/login',     builder: (_, __) => const LoginScreen()),
+    GoRoute(path: '/auth',      builder: (_, __) => const AuthScreen()),
     GoRoute(path: '/sanctuary', builder: (_, __) => const SanctuaryScreen()),
     GoRoute(path: '/scroll',    builder: (_, __) => const ScrollMapScreen()),
     GoRoute(path: '/satchel',   builder: (_, __) => const SatchelScreen()),

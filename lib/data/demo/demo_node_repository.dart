@@ -15,10 +15,23 @@ class DemoNodeRepository implements NodeRepository {
 
   @override
   Stream<List<Node>> watchByMountain(String mountainId) async* {
-    yield _storage.nodesForMountain(mountainId).where((n) => !n.isArchived).toList();
+    yield _storage
+        .nodesForMountain(mountainId)
+        .where((n) => !n.isArchived)
+        .toList();
     await for (final _ in _storage.onChange) {
-      yield _storage.nodesForMountain(mountainId).where((n) => !n.isArchived).toList();
+      yield _storage
+          .nodesForMountain(mountainId)
+          .where((n) => !n.isArchived)
+          .toList();
     }
+  }
+
+  @override
+  Future<List<Node>> fetchMountainLedger(String mountainId) async {
+    final nodes = _storage.nodesForMountain(mountainId).toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    return nodes;
   }
 
   @override
@@ -75,14 +88,13 @@ class DemoNodeRepository implements NodeRepository {
     required String mountainId,
     String title = '',
     String? id,
-  }) =>
-      createNodeUnderParent(
-        parentPath: parentPath,
-        mountainId: mountainId,
-        nodeType: NodeType.boulder,
-        title: title,
-        id: id,
-      );
+  }) => createNodeUnderParent(
+    parentPath: parentPath,
+    mountainId: mountainId,
+    nodeType: NodeType.boulder,
+    title: title,
+    id: id,
+  );
 
   @override
   Future<Node> createPebble({
@@ -91,15 +103,14 @@ class DemoNodeRepository implements NodeRepository {
     String title = '',
     bool isPendingRitual = false,
     String? id,
-  }) =>
-      createNodeUnderParent(
-        parentPath: buildBoulderPath(mountainId, boulderId),
-        mountainId: mountainId,
-        nodeType: NodeType.pebble,
-        title: title,
-        isPendingRitual: isPendingRitual,
-        id: id,
-      );
+  }) => createNodeUnderParent(
+    parentPath: buildBoulderPath(mountainId, boulderId),
+    mountainId: mountainId,
+    nodeType: NodeType.pebble,
+    title: title,
+    isPendingRitual: isPendingRitual,
+    id: id,
+  );
 
   @override
   Future<Node> split(Node source) async {
@@ -120,14 +131,61 @@ class DemoNodeRepository implements NodeRepository {
     required String mountainId,
     String title = '',
     String? id,
-  }) =>
-      createNodeUnderParent(
-        parentPath: parentPebblePath,
-        mountainId: mountainId,
-        nodeType: NodeType.shard,
-        title: title,
+  }) => createNodeUnderParent(
+    parentPath: parentPebblePath,
+    mountainId: mountainId,
+    nodeType: NodeType.shard,
+    title: title,
+    id: id,
+  );
+
+  @override
+  Future<List<String>> refineStoneIntoShards({
+    required String parentId,
+    required List<String> shardNames,
+    bool returnToSatchel = true,
+  }) async {
+    final source = _storage.nodes.where((n) => n.id == parentId).toList();
+    if (source.isEmpty) return const [];
+    final parent = source.first;
+
+    final cleaned = shardNames
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return const [];
+
+    // Leaf-only guardrail: do not refine containers.
+    final hasChildren = _storage.nodes.any(
+      (n) =>
+          n.id != parent.id &&
+          n.path.startsWith('${parent.path}.') &&
+          n.mountainId == parent.mountainId,
+    );
+    if (hasChildren) return const [];
+
+    final created = <String>[];
+    for (final name in cleaned) {
+      final id = _uuid.v4();
+      final path = buildChildPath(parent.path, id);
+      final shard = Node(
         id: id,
+        userId: parent.userId,
+        mountainId: parent.mountainId,
+        path: path,
+        nodeType: NodeType.shard,
+        title: name,
+        isStarred: parent.isStarred,
+        dueDate: parent.dueDate,
+        isPendingRitual: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
+      await _storage.addNode(shard);
+      created.add(id);
+    }
+    return created;
+  }
 
   @override
   Future<void> updateTitle({required String id, required String title}) async {
@@ -161,19 +219,58 @@ class DemoNodeRepository implements NodeRepository {
     await _cascadeParentCompletion(nodeId);
   }
 
+  @override
+  Future<void> revertBurn(String nodeId) async {
+    await _storage.updateNode(
+      nodeId,
+      isComplete: false,
+      completedAt: null,
+      isArchived: false,
+      isPendingRitual: false,
+    );
+    var current = _storage.nodes.where((n) => n.id == nodeId).toList();
+    if (current.isEmpty) return;
+    var node = current.first;
+    while (true) {
+      final pp = node.parentPath;
+      if (pp == null) break;
+      final parents = _storage.nodes.where((n) => n.path == pp).toList();
+      if (parents.isEmpty) break;
+      final p = parents.first;
+      if (p.isComplete && p.isArchived) {
+        await _storage.updateNode(
+          p.id,
+          isComplete: false,
+          completedAt: null,
+          isArchived: false,
+          isPendingRitual: false,
+        );
+        node = p;
+      } else {
+        break;
+      }
+    }
+  }
+
   /// Simulates Postgres trigger: when a node completes, check if parent should complete.
   Future<void> _cascadeParentCompletion(String completedNodeId) async {
-    final completed = _storage.nodes.where((n) => n.id == completedNodeId).toList();
+    final completed = _storage.nodes
+        .where((n) => n.id == completedNodeId)
+        .toList();
     if (completed.isEmpty) return;
     final parentPath = completed.first.parentPath;
     if (parentPath == null) return;
-    final parentList = _storage.nodes.where((n) => n.path == parentPath).toList();
+    final parentList = _storage.nodes
+        .where((n) => n.path == parentPath)
+        .toList();
     if (parentList.isEmpty) return;
     final parent = parentList.first;
     final depth = parentPath.split('.').length;
-    final siblings = _storage.nodes.where((n) =>
-        n.path.startsWith('$parentPath.') &&
-        n.path.split('.').length == depth + 1);
+    final siblings = _storage.nodes.where(
+      (n) =>
+          n.path.startsWith('$parentPath.') &&
+          n.path.split('.').length == depth + 1,
+    );
     final allComplete = siblings.every((n) => n.isComplete);
     if (allComplete) {
       await _storage.updateNode(
@@ -193,20 +290,22 @@ class DemoNodeRepository implements NodeRepository {
   }
 
   @override
-  Future<List<DateTime>> fetchBurnTimestamps() async =>
-      _storage.burnTimestamps;
+  Future<List<DateTime>> fetchBurnTimestamps() async => _storage.burnTimestamps;
 
   @override
   Future<int> countIncompleteLeavesForBoulder(String boulderPath) async {
     final under = _storage.nodes
         .where((n) => !n.isComplete && n.path.startsWith('$boulderPath.'))
         .toList();
-    return under.where((n) => !_storage.nodes.any((c) => c.parentPath == n.path)).length;
+    return under
+        .where((n) => !_storage.nodes.any((c) => c.parentPath == n.path))
+        .length;
   }
 
   @override
-  Future<List<DateTime>> fetchBurnTimestampsForMountain(String mountainId) async =>
-      _storage.burnTimestampsForMountain(mountainId);
+  Future<List<DateTime>> fetchBurnTimestampsForMountain(
+    String mountainId,
+  ) async => _storage.burnTimestampsForMountain(mountainId);
 
   @override
   Future<void> deleteSubtree(Node node) async {

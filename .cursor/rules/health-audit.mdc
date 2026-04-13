@@ -1,0 +1,22 @@
+---
+description: Run regular health checks and audits so the project stays clean, consistent, and sane. Use docs/HEALTH_AUDIT_RUNBOOK.md as the checklist.
+alwaysApply: false
+---
+
+# Health Audit
+
+When the user asks for a **health check**, **audit**, or **project manager review**, or when starting a substantial session, use [docs/HEALTH_AUDIT_RUNBOOK.md](docs/HEALTH_AUDIT_RUNBOOK.md) as the checklist.
+
+## Quick pass (session start or light audit)
+
+1. Run `flutter analyze lib/` — expect 0 errors, 0 warnings.
+2. Grep `lib/` for TODO, FIXME, HACK — expect zero in lib.
+3. Confirm MASTER_PLAN is canonical; derived docs (HEALTH_AND_IMPROVEMENTS, BUILD_ALIGNMENT_PLAN, PROJECT_PLAN_REFINE_AND_POLISH) do not contradict it. ARCHITECTURE § DESIGN AESTHETIC aligns with MASTER_PLAN (Japandi, Ghibli; "Hotel Executive" evicted).
+
+## Full run (before release or on demand)
+
+- Execute all sections of HEALTH_AUDIT_RUNBOOK: Code health (§2), Doc consistency (§3), File hygiene & sanity (§4).
+- Update the runbook "Last Run" table and, if needed, HEALTH_AND_IMPROVEMENTS §2 (analyzer result).
+- Report: Pass/Fail per section and any actions taken or deferred.
+
+Do not introduce changes that contradict CONVENTIONS or VISION_AND_AUTOMATION. If the audit finds a conflict, fix it or document it in MASTER_PLAN Part G / BUGS_DEFERRED and note in the runbook.

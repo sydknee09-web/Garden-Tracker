@@ -31,6 +31,12 @@ class SupabaseCache {
     }
   }
 
+  /// Drops a single resource key so the next fetch is not served stale data.
+  Future<void> remove(String userId, String resource) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(userId, resource));
+  }
+
   /// Clears all cache for a user (e.g. on sign out).
   Future<void> clearForUser(String userId) async {
     final prefs = await SharedPreferences.getInstance();

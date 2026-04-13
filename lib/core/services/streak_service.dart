@@ -4,8 +4,11 @@
 /// computing the calendar day. Activity at 1:00 AM counts as "previous day"
 /// until 4:00 AM, preserving momentum for late-night workers.
 ///
-/// **Grace Day (Option A):** One missed day freezes the streak (no change).
-/// Two consecutive missed days reset streak to 0.
+/// **Grace Day (Option A):** One missed *streak-day* freezes the counted streak
+/// when walking backward through history (the ember holds). Two consecutive
+/// empty streak-days without activity reset the streak to 0. This matches the
+/// product goal of "miss a day, return soon and the path remembers" without
+/// requiring wall-clock 24h tracking in v0.1.2.
 library;
 
 /// Hours to subtract from a timestamp to get the "streak day".
@@ -45,15 +48,16 @@ class StreakResult {
 /// **Grace Day (Option A):** One missed day freezes (streak stops, does not reset).
 /// Two consecutive missed days reset streak to 0.
 StreakResult computeStreak(List<DateTime> timestamps) {
-  if (timestamps.isEmpty) return const StreakResult(currentStreak: 0, lastActivityDay: null);
+  if (timestamps.isEmpty) {
+    return const StreakResult(currentStreak: 0, lastActivityDay: null);
+  }
 
-  final distinctDays = timestamps
-      .map((t) => _toStreakDay(t))
-      .toSet()
-      .toList()
+  final distinctDays = timestamps.map((t) => _toStreakDay(t)).toSet().toList()
     ..sort((a, b) => b.compareTo(a)); // newest first
 
-  if (distinctDays.isEmpty) return const StreakResult(currentStreak: 0, lastActivityDay: null);
+  if (distinctDays.isEmpty) {
+    return const StreakResult(currentStreak: 0, lastActivityDay: null);
+  }
 
   final today = currentStreakDay();
   final lastDay = distinctDays.first;
@@ -103,4 +107,3 @@ String _prevDay(String day) {
   final prev = d.subtract(const Duration(days: 1));
   return '${prev.year}-${prev.month.toString().padLeft(2, '0')}-${prev.day.toString().padLeft(2, '0')}';
 }
-

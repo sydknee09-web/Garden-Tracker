@@ -11,10 +11,7 @@ import '../../providers/whetstone_provider.dart';
 
 /// Intro Whetstone setup: add 1–3 habits, no skip. Min 1 required.
 class WhetstoneIntroSetupSheet extends ConsumerStatefulWidget {
-  const WhetstoneIntroSetupSheet({
-    super.key,
-    required this.onComplete,
-  });
+  const WhetstoneIntroSetupSheet({super.key, required this.onComplete});
 
   final VoidCallback onComplete;
 
@@ -30,6 +27,7 @@ class _WhetstoneIntroSetupSheetState
   final List<FocusNode> _focusNodes = [];
   static const int _minHabits = 1;
   static const int _maxHabits = 3;
+
   /// Stagger: show Elias + prompt first, then fade in inputs after 1.2s.
   bool _showInputArea = false;
   Timer? _staggerTimer;
@@ -206,115 +204,139 @@ class _WhetstoneIntroSetupSheetState
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-          TextButton.icon(
-            onPressed: _letEliasPick,
-            icon: const Icon(Icons.auto_awesome, size: 18, color: AppColors.ember),
-            label: const Text(
-              'Let Elias pick for me',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                color: AppColors.ember,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...List.generate(_controllers.length, (i) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controllers[i],
-                      focusNode: _focusNodes[i],
-                      decoration: InputDecoration(
-                        hintText: 'e.g. Morning meditation',
-                        hintStyle: const TextStyle(
-                          color: AppColors.ashGrey,
+                    TextButton.icon(
+                      onPressed: _letEliasPick,
+                      icon: const Icon(
+                        Icons.auto_awesome,
+                        size: 18,
+                        color: AppColors.ember,
+                      ),
+                      label: const Text(
+                        'Let Elias pick for me',
+                        style: TextStyle(
                           fontFamily: 'Georgia',
+                          color: AppColors.ember,
                           fontStyle: FontStyle.italic,
                         ),
-                        filled: true,
-                        fillColor: AppColors.parchment.withValues(alpha: 0.5),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: AppColors.whetLine),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...List.generate(_controllers.length, (i) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controllers[i],
+                                focusNode: _focusNodes[i],
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. Morning meditation',
+                                  hintStyle: const TextStyle(
+                                    color: AppColors.ashGrey,
+                                    fontFamily: 'Georgia',
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                  filled: true,
+                                  fillColor: AppColors.parchment.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.whetLine,
+                                    ),
+                                  ),
+                                  enabledBorder: const OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(8),
+                                    ),
+                                    borderSide: BorderSide(
+                                      color: AppColors.whetLine,
+                                    ),
+                                  ),
+                                  focusedBorder: const OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(8),
+                                    ),
+                                    borderSide: BorderSide(
+                                      color: AppColors.ember,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'Georgia',
+                                  color: AppColors.whetInk,
+                                ),
+                                onSubmitted: (_) {
+                                  if (i == _controllers.length - 1 &&
+                                      _controllers.length < _maxHabits) {
+                                    _addAnother();
+                                  } else {
+                                    _onContinue();
+                                  }
+                                },
+                              ),
+                            ),
+                            if (_controllers.length > _minHabits)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  color: AppColors.warmGrey,
+                                ),
+                                onPressed: () => _removeAt(i),
+                              ),
+                          ],
                         ),
-                        enabledBorder: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(color: AppColors.whetLine),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(color: AppColors.ember, width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                      );
+                    }),
+                    if (_controllers.length < _maxHabits)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: TextButton.icon(
+                          onPressed: _addAnother,
+                          icon: const Icon(
+                            Icons.add,
+                            size: 18,
+                            color: AppColors.ember,
+                          ),
+                          label: const Text(
+                            'Add another',
+                            style: TextStyle(
+                              fontFamily: 'Georgia',
+                              color: AppColors.ember,
+                            ),
+                          ),
                         ),
                       ),
-                      style: const TextStyle(
-                        fontFamily: 'Georgia',
-                        color: AppColors.whetInk,
+                    // Return = dismiss keyboard when any field focused; Continue = save when blurred and valid
+                    Tooltip(
+                      message: _anyFieldFocused
+                          ? 'Dismiss keyboard'
+                          : (_hasAtLeastOneHabit
+                                ? 'Continue'
+                                : 'Add at least one habit to sharpen your resolve.'),
+                      child: FilledButton(
+                        onPressed: _anyFieldFocused
+                            ? () => FocusScope.of(context).unfocus()
+                            : (_hasAtLeastOneHabit ? _onContinue : null),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          _anyFieldFocused ? 'Return' : 'Continue',
+                          style: const TextStyle(
+                            fontFamily: 'Georgia',
+                            letterSpacing: 1,
+                          ),
+                        ),
                       ),
-                      onSubmitted: (_) {
-                        if (i == _controllers.length - 1 && _controllers.length < _maxHabits) {
-                          _addAnother();
-                        } else {
-                          _onContinue();
-                        }
-                      },
                     ),
-                  ),
-                  if (_controllers.length > _minHabits)
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline, color: AppColors.warmGrey),
-                      onPressed: () => _removeAt(i),
-                    ),
-                ],
-              ),
-            );
-          }),
-          if (_controllers.length < _maxHabits)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: TextButton.icon(
-                onPressed: _addAnother,
-                icon: const Icon(Icons.add, size: 18, color: AppColors.ember),
-                label: const Text(
-                  'Add another',
-                  style: TextStyle(
-                    fontFamily: 'Georgia',
-                    color: AppColors.ember,
-                  ),
-                ),
-              ),
-            ),
-          // Return = dismiss keyboard when any field focused; Continue = save when blurred and valid
-          Tooltip(
-            message: _anyFieldFocused
-                ? 'Dismiss keyboard'
-                : (_hasAtLeastOneHabit
-                    ? 'Continue'
-                    : 'Add at least one habit to sharpen your resolve.'),
-            child: FilledButton(
-              onPressed: _anyFieldFocused
-                  ? () => FocusScope.of(context).unfocus()
-                  : (_hasAtLeastOneHabit ? _onContinue : null),
-              style: FilledButton.styleFrom(
-                backgroundColor: _anyFieldFocused || _hasAtLeastOneHabit
-                    ? AppColors.ember
-                    : AppColors.ashGrey,
-                foregroundColor: AppColors.parchment,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: Text(
-                _anyFieldFocused ? 'Return' : 'Continue',
-                style: const TextStyle(fontFamily: 'Georgia', letterSpacing: 1),
-              ),
-            ),
-          ),
                   ],
                 ),
               ),

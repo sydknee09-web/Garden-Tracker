@@ -16,6 +16,7 @@ class TypewriterText extends StatefulWidget {
   final TextStyle style;
   final Duration duration;
   final Curve curve;
+
   /// When user taps and animation is complete, this is called. Omit to not handle taps.
   final VoidCallback? onTap;
 
@@ -39,7 +40,8 @@ class _TypewriterTextState extends State<TypewriterText>
   @override
   void didUpdateWidget(TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text || oldWidget.duration != widget.duration) {
+    if (oldWidget.text != widget.text ||
+        oldWidget.duration != widget.duration) {
       _controller.duration = widget.duration;
       _controller.reset();
       _controller.forward();
@@ -66,8 +68,7 @@ class _TypewriterTextState extends State<TypewriterText>
       animation: _animation,
       builder: (context, _) {
         final len = widget.text.length;
-        final visible =
-            (_animation.value * len).round().clamp(0, len);
+        final visible = (_animation.value * len).round().clamp(0, len);
         return Text(
           widget.text.substring(0, visible),
           style: widget.style,

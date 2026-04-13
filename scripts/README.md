@@ -1,6 +1,39 @@
-# Voyager Sanctuary — Asset generation
+# Voyager Sanctuary — Scripts
 
-Scripts and config for generating character/assets with **locked POV and design style** via the Gemini API.
+## Android deploy (Firebase App Distribution)
+
+One-click build and push to testers:
+
+**PowerShell (Windows):**
+```powershell
+# From repo root (voyager_sanctuary)
+.\scripts\deploy_android.ps1
+.\scripts\deploy_android.ps1 "Display name in Settings; First Blockage verified."
+```
+
+**Bash (macOS/Linux):**
+```bash
+./scripts/deploy_android.sh
+./scripts/deploy_android.sh "Fixed Whetstone ritual error and onboarding focus."
+```
+
+**First-time setup:** `firebase login`. See [.cursor/rules/firebase-deploy.mdc](../.cursor/rules/firebase-deploy.mdc) for when to send a build to testers.
+
+---
+
+## Gemini–Cursor decision bridge
+
+**`gemini_decision.py`** — Lets Cursor get Gemini’s decisions without the user as middleman. Cursor writes context to `docs/gemini_request.md`, runs the script; Gemini returns structured JSON to `docs/gemini_response.json`. When Gemini sets `needs_human` to `"debug"` or `"vision"`, the script appends to `docs/HUMAN_INPUT_NEEDED.md` and the user steps in. Same `GEMINI_API_KEY` as below. See [docs/GEMINI_CURSOR_PROTOCOL.md](../docs/GEMINI_CURSOR_PROTOCOL.md).
+
+```bash
+python scripts/gemini_decision.py --request-file docs/gemini_request.md
+```
+
+---
+
+## Asset & Dialogue generation
+
+Scripts and config for generating character/assets and Elias dialogue with **locked POV and style** via the Gemini API.
 
 ## Setup
 
@@ -69,3 +102,43 @@ Output directory for each subject is set in `art_direction.yaml` under `subjects
 4. Run `generate --subject <key>` or `--pose <pose>` as above.
 
 This keeps POV and design style consistent across all future images.
+
+---
+
+## Elias Dialogue Generation
+
+Generate Elias dialogue that matches his voice and tone. Uses `elias_voice_guide.yaml` for style lock.
+
+### Setup
+
+Same as asset generation (Python venv, `pip install -r scripts/requirements.txt`, `GEMINI_API_KEY`).
+
+### Commands
+
+```bash
+# List all dialogue contexts (intro beats, onTap, afterBurn, etc.)
+python scripts/generate_elias_dialogue.py list
+
+# Generate intro variants (e.g. Beat 1 — first greeting)
+python scripts/generate_elias_dialogue.py generate --context intro_beat_1
+
+# Generate for a specific context
+python scripts/generate_elias_dialogue.py generate --context on_tap --count 5
+
+# Custom scenario (describe your own)
+python scripts/generate_elias_dialogue.py generate --context custom --prompt "Elias greets user at night after 3 days away"
+
+# Dry run (see prompts only, no API call)
+python scripts/generate_elias_dialogue.py generate --context intro_beat_1 --dry-run
+
+# Save to file
+python scripts/generate_elias_dialogue.py generate --context intro_beat_5 --output docs/elias_intro5_suggestions.md
+```
+
+### Output
+
+Output is a list of dialogue lines in quotes. Copy into `lib/core/content/elias_dialogue.dart` or review in `docs/ELIAS_DIALOGUE_REFERENCE.md`.
+
+### Voice Guide
+
+See [docs/ELIAS_VOICE_GUIDE.md](../docs/ELIAS_VOICE_GUIDE.md) for the full voice bible, tone rules, and a copy-paste prompt for Cursor/AI when writing dialogue manually.

@@ -27,10 +27,10 @@ class WhetstoneCompletion {
       );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'user_id': userId,
-        'item_id': itemId,
-        'completed_date': completedDate,
-        'completed_at': completedAt.toIso8601String(),
-      };
+    'id': id,
+    'user_id': userId,
+    'item_id': itemId,
+    'completed_date': completedDate,
+    'completed_at': completedAt.toIso8601String(),
+  };
 }

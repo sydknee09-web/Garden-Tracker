@@ -77,12 +77,30 @@ class DemoMountainRepository implements MountainRepository {
     String? layoutType,
     String? appearanceStyle,
   }) async {
-    await _storage.updateMountain(id, intentStatement: intentStatement, layoutType: layoutType, appearanceStyle: appearanceStyle);
+    await _storage.updateMountain(
+      id,
+      intentStatement: intentStatement,
+      layoutType: layoutType,
+      appearanceStyle: appearanceStyle,
+    );
   }
 
   @override
   Future<void> rename({required String id, required String name}) async {
     await _storage.updateMountain(id, name: name);
+  }
+
+  @override
+  Future<void> updateJournalReflections({
+    required String id,
+    String? reflectionWhyPeak,
+    String? reflectionPackJourney,
+  }) async {
+    await _storage.updateMountain(
+      id,
+      reflectionWhyPeak: reflectionWhyPeak,
+      reflectionPackJourney: reflectionPackJourney,
+    );
   }
 
   @override
@@ -105,8 +123,9 @@ class DemoMountainRepository implements MountainRepository {
     final nodes = _storage.nodes
         .where((n) => n.mountainId == mountainId && !n.isComplete)
         .toList();
-    final leaves = nodes.where((n) =>
-        !_storage.nodes.any((c) => c.parentPath == n.path));
+    final leaves = nodes.where(
+      (n) => !_storage.nodes.any((c) => c.parentPath == n.path),
+    );
     return leaves.length;
   }
 
@@ -115,8 +134,9 @@ class DemoMountainRepository implements MountainRepository {
     final nodes = _storage.nodes
         .where((n) => n.mountainId == mountainId)
         .toList();
-    final leaves = nodes.where((n) =>
-        !nodes.any((c) => c.parentPath == n.path));
+    final leaves = nodes.where(
+      (n) => !nodes.any((c) => c.parentPath == n.path),
+    );
     if (leaves.isEmpty) return 0.0;
     final complete = leaves.where((l) => l.isComplete).length;
     return complete / leaves.length;

@@ -31,11 +31,12 @@ class MountainRepository {
     yield initial;
 
     try {
-      await for (final rows in SupabaseService.client
-          .from(_table)
-          .stream(primaryKey: ['id'])
-          .eq('user_id', SupabaseService.userId)
-          .order('order_index')) {
+      await for (final rows
+          in SupabaseService.client
+              .from(_table)
+              .stream(primaryKey: ['id'])
+              .eq('user_id', SupabaseService.userId)
+              .order('order_index')) {
         yield _parseActive(rows as List);
       }
     } catch (_) {
@@ -63,11 +64,12 @@ class MountainRepository {
     yield initial;
 
     try {
-      await for (final rows in SupabaseService.client
-          .from(_table)
-          .stream(primaryKey: ['id'])
-          .eq('user_id', SupabaseService.userId)
-          .order('created_at', ascending: false)) {
+      await for (final rows
+          in SupabaseService.client
+              .from(_table)
+              .stream(primaryKey: ['id'])
+              .eq('user_id', SupabaseService.userId)
+              .order('created_at', ascending: false)) {
         yield _parseArchived(rows as List);
       }
     } catch (_) {
@@ -75,11 +77,15 @@ class MountainRepository {
     }
   }
 
-  List<Mountain> _parseActive(List<dynamic> rows) =>
-      rows.map((r) => Mountain.fromJson(r as Map<String, dynamic>)).where((m) => !m.isArchived).toList();
+  List<Mountain> _parseActive(List<dynamic> rows) => rows
+      .map((r) => Mountain.fromJson(r as Map<String, dynamic>))
+      .where((m) => !m.isArchived)
+      .toList();
 
-  List<Mountain> _parseArchived(List<dynamic> rows) =>
-      rows.map((r) => Mountain.fromJson(r as Map<String, dynamic>)).where((m) => m.isArchived).toList();
+  List<Mountain> _parseArchived(List<dynamic> rows) => rows
+      .map((r) => Mountain.fromJson(r as Map<String, dynamic>))
+      .where((m) => m.isArchived)
+      .toList();
 
   /// Fetch a single mountain by ID. Returns null if not found.
   Future<Mountain?> getById(String id) async {
@@ -101,11 +107,13 @@ class MountainRepository {
 
   /// Count of currently active mountains. Used to enforce the cap of 3.
   Future<int> countActive() async {
-    final result = await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .select('id')
-        .eq('user_id', SupabaseService.userId)
-        .eq('is_archived', false));
+    final result = await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .select('id')
+          .eq('user_id', SupabaseService.userId)
+          .eq('is_archived', false),
+    );
     return (result as List).length;
   }
 
@@ -119,7 +127,9 @@ class MountainRepository {
     try {
       await _ensureProfile();
     } catch (e, st) {
-      debugPrint('MountainRepository.create: ensure_profile failed (non-blocking): $e');
+      debugPrint(
+        'MountainRepository.create: ensure_profile failed (non-blocking): $e',
+      );
       debugPrint(st.toString());
     }
     final count = await countActive();
@@ -140,11 +150,9 @@ class MountainRepository {
       data['intent_statement'] = intentStatement;
     }
 
-    final row = await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .insert(data)
-        .select()
-        .single());
+    final row = await SupabaseService.executeWithRetry(
+      () => SupabaseService.client.from(_table).insert(data).select().single(),
+    );
     return Mountain.fromJson(row);
   }
 
@@ -155,33 +163,73 @@ class MountainRepository {
     String? layoutType,
     String? appearanceStyle,
   }) async {
-    final updates = <String, dynamic>{'updated_at': DateTime.now().toIso8601String()};
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
     if (intentStatement != null) updates['intent_statement'] = intentStatement;
     if (layoutType != null) updates['layout_type'] = layoutType;
     if (appearanceStyle != null) updates['appearance_style'] = appearanceStyle;
     if (updates.length <= 1) return;
 
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .update(updates)
+          .eq('id', id)
+          .eq('user_id', SupabaseService.userId),
+    );
+  }
+
+  /// Optional journal lines from Elias reflection prompts (v0.1.2).
+  Future<void> updateJournalReflections({
+    required String id,
+    String? reflectionWhyPeak,
+    String? reflectionPackJourney,
+  }) async {
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (reflectionWhyPeak != null) {
+      updates['reflection_why'] = reflectionWhyPeak;
+    }
+    if (reflectionPackJourney != null) {
+      updates['reflection_pack'] = reflectionPackJourney;
+    }
+    if (updates.length <= 1) return;
+
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .update(updates)
+          .eq('id', id)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   Future<void> rename({required String id, required String name}) async {
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .update({'name': name, 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', id)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .update({
+            'name': name,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   Future<void> archive(String id) async {
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .update({'is_archived': true, 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', id)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .update({
+            'is_archived': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   Future<void> restore(String id) async {
@@ -191,22 +239,28 @@ class MountainRepository {
         'You are already climbing $maxActive mountains. Chronicle one peak before restoring another.',
       );
     }
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_table)
-        .update({'is_archived': false, 'updated_at': DateTime.now().toIso8601String()})
-        .eq('id', id)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_table)
+          .update({
+            'is_archived': false,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   /// Count of incomplete leaves for a mountain. Leaf-only; accurate for haptic feedback.
   /// RPC safety: returns 0 if get_peak_progress is unavailable (migration not applied).
   Future<int> countIncompleteLeaves(String mountainId) async {
     try {
-      final rows = await SupabaseService.executeWithRetry(() =>
-          SupabaseService.client.rpc(
-            'get_peak_progress',
-            params: {'p_mountain_id': mountainId},
-          ));
+      final rows = await SupabaseService.executeWithRetry(
+        () => SupabaseService.client.rpc(
+          'get_peak_progress',
+          params: {'p_mountain_id': mountainId},
+        ),
+      );
       final list = rows as List;
       if (list.isEmpty) return 0;
       final row = list.first as Map<String, dynamic>;

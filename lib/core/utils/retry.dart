@@ -21,9 +21,7 @@ Future<T> retryWithBackoff<T>(
       if (!_isRetryable(e)) rethrow;
 
       await Future.delayed(delay);
-      delay = Duration(
-        milliseconds: delay.inMilliseconds * 2,
-      );
+      delay = Duration(milliseconds: delay.inMilliseconds * 2);
     }
   }
 }

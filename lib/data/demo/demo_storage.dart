@@ -21,7 +21,8 @@ class DemoStorage {
   static final DemoStorage _instance = DemoStorage._();
   static DemoStorage get instance => _instance;
 
-  final StreamController<void> _changeController = StreamController<void>.broadcast();
+  final StreamController<void> _changeController =
+      StreamController<void>.broadcast();
   Stream<void> get onChange => _changeController.stream;
 
   void _notify() => _changeController.add(null);
@@ -29,7 +30,8 @@ class DemoStorage {
   List<Mountain> _mountains = [];
   List<Node> _nodes = [];
   List<WhetstoneItem> _whetstoneItems = [];
-  List<Map<String, String>> _whetstoneCompletions = []; // item_id, completed_date, completed_at
+  List<Map<String, String>> _whetstoneCompletions =
+      []; // item_id, completed_date, completed_at
   List<Map<String, dynamic>> _satchelSlots = [];
 
   static const String demoUserId = 'demo-user-id';
@@ -40,7 +42,9 @@ class DemoStorage {
     _mountains = _parseMountains(prefs.getString(_keyMountains));
     _nodes = _parseNodes(prefs.getString(_keyNodes));
     _whetstoneItems = _parseWhetstoneItems(prefs.getString(_keyWhetstoneItems));
-    _whetstoneCompletions = _parseCompletions(prefs.getString(_keyWhetstoneCompletions));
+    _whetstoneCompletions = _parseCompletions(
+      prefs.getString(_keyWhetstoneCompletions),
+    );
     _satchelSlots = _parseSlots(prefs.getString(_keySatchelSlots));
 
     if (_mountains.isEmpty && _nodes.isEmpty) {
@@ -52,30 +56,51 @@ class DemoStorage {
   /// (e.g. escape hatch, SKIP_AUTH). Caller must ensure demoModeProvider is updated.
   void seedInMemoryOnly() {
     if (_mountains.isNotEmpty || _nodes.isNotEmpty) return;
-    _whetstoneItems = WhetstoneRepository.starterHabits.asMap().entries.map((e) => WhetstoneItem(
-      id: 'wh-${e.key}',
-      userId: demoUserId,
-      title: e.value,
-      orderIndex: e.key,
-      isActive: true,
-      createdAt: DateTime.now(),
-    )).toList();
-    _satchelSlots = List.generate(6, (i) => {
-      'id': 'slot-${i + 1}',
-      'user_id': demoUserId,
-      'slot_index': i + 1,
-      'node_id': null,
-      'packed_at': DateTime.now().toIso8601String(),
-      'ready_to_burn': false,
-    });
+    _whetstoneItems = WhetstoneRepository.starterHabits
+        .asMap()
+        .entries
+        .map(
+          (e) => WhetstoneItem(
+            id: 'wh-${e.key}',
+            userId: demoUserId,
+            title: e.value,
+            orderIndex: e.key,
+            isActive: true,
+            createdAt: DateTime.now(),
+          ),
+        )
+        .toList();
+    _satchelSlots = List.generate(
+      6,
+      (i) => {
+        'id': 'slot-${i + 1}',
+        'user_id': demoUserId,
+        'slot_index': i + 1,
+        'node_id': null,
+        'packed_at': DateTime.now().toIso8601String(),
+        'ready_to_burn': false,
+      },
+    );
   }
 
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyMountains, jsonEncode(_mountains.map((m) => m.toJson()).toList()));
-    await prefs.setString(_keyNodes, jsonEncode(_nodes.map((n) => n.toJson()).toList()));
-    await prefs.setString(_keyWhetstoneItems, jsonEncode(_whetstoneItems.map((w) => w.toJson()).toList()));
-    await prefs.setString(_keyWhetstoneCompletions, jsonEncode(_whetstoneCompletions));
+    await prefs.setString(
+      _keyMountains,
+      jsonEncode(_mountains.map((m) => m.toJson()).toList()),
+    );
+    await prefs.setString(
+      _keyNodes,
+      jsonEncode(_nodes.map((n) => n.toJson()).toList()),
+    );
+    await prefs.setString(
+      _keyWhetstoneItems,
+      jsonEncode(_whetstoneItems.map((w) => w.toJson()).toList()),
+    );
+    await prefs.setString(
+      _keyWhetstoneCompletions,
+      jsonEncode(_whetstoneCompletions),
+    );
     await prefs.setString(_keySatchelSlots, jsonEncode(_satchelSlots));
   }
 
@@ -83,7 +108,9 @@ class DemoStorage {
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List;
-      return list.map((e) => Mountain.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => Mountain.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -103,7 +130,9 @@ class DemoStorage {
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List;
-      return list.map((e) => WhetstoneItem.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => WhetstoneItem.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -130,23 +159,32 @@ class DemoStorage {
   }
 
   Future<void> _seedInitialData() async {
-    _whetstoneItems = WhetstoneRepository.starterHabits.asMap().entries.map((e) => WhetstoneItem(
-      id: 'wh-${e.key}',
-      userId: demoUserId,
-      title: e.value,
-      orderIndex: e.key,
-      isActive: true,
-      createdAt: DateTime.now(),
-    )).toList();
+    _whetstoneItems = WhetstoneRepository.starterHabits
+        .asMap()
+        .entries
+        .map(
+          (e) => WhetstoneItem(
+            id: 'wh-${e.key}',
+            userId: demoUserId,
+            title: e.value,
+            orderIndex: e.key,
+            isActive: true,
+            createdAt: DateTime.now(),
+          ),
+        )
+        .toList();
 
-    _satchelSlots = List.generate(6, (i) => {
-      'id': 'slot-${i + 1}',
-      'user_id': demoUserId,
-      'slot_index': i + 1,
-      'node_id': null,
-      'packed_at': DateTime.now().toIso8601String(),
-      'ready_to_burn': false,
-    });
+    _satchelSlots = List.generate(
+      6,
+      (i) => {
+        'id': 'slot-${i + 1}',
+        'user_id': demoUserId,
+        'slot_index': i + 1,
+        'node_id': null,
+        'packed_at': DateTime.now().toIso8601String(),
+        'ready_to_burn': false,
+      },
+    );
 
     await _persist();
   }
@@ -161,10 +199,13 @@ class DemoStorage {
     _notify();
   }
 
-  Future<void> updateMountain(String id, {
+  Future<void> updateMountain(
+    String id, {
     String? name,
     bool? isArchived,
     String? intentStatement,
+    String? reflectionWhyPeak,
+    String? reflectionPackJourney,
     String? layoutType,
     String? appearanceStyle,
   }) async {
@@ -173,9 +214,19 @@ class DemoStorage {
     var m = _mountains[i];
     if (name != null) m = m.copyWith(name: name);
     if (isArchived != null) m = m.copyWith(isArchived: isArchived);
-    if (intentStatement != null) m = m.copyWith(intentStatement: intentStatement);
+    if (intentStatement != null) {
+      m = m.copyWith(intentStatement: intentStatement);
+    }
+    if (reflectionWhyPeak != null) {
+      m = m.copyWith(reflectionWhyPeak: reflectionWhyPeak);
+    }
+    if (reflectionPackJourney != null) {
+      m = m.copyWith(reflectionPackJourney: reflectionPackJourney);
+    }
     if (layoutType != null) m = m.copyWith(layoutType: layoutType);
-    if (appearanceStyle != null) m = m.copyWith(appearanceStyle: appearanceStyle);
+    if (appearanceStyle != null) {
+      m = m.copyWith(appearanceStyle: appearanceStyle);
+    }
     _mountains[i] = m;
     await _persist();
     _notify();
@@ -188,7 +239,8 @@ class DemoStorage {
   List<Node> get nodes => List.unmodifiable(_nodes);
 
   List<Node> nodesForMountain(String mountainId) =>
-      _nodes.where((n) => n.mountainId == mountainId).toList()..sort((a, b) => a.path.compareTo(b.path));
+      _nodes.where((n) => n.mountainId == mountainId).toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
 
   Future<void> addNode(Node n) async {
     _nodes.add(n);
@@ -196,7 +248,8 @@ class DemoStorage {
     _notify();
   }
 
-  Future<void> updateNode(String id, {
+  Future<void> updateNode(
+    String id, {
     String? title,
     bool? isStarred,
     DateTime? dueDate,
@@ -211,8 +264,12 @@ class DemoStorage {
     if (title != null) n = n.copyWith(title: title);
     if (isStarred != null) n = n.copyWith(isStarred: isStarred);
     if (dueDate != null) n = n.copyWith(dueDate: dueDate);
-    if (isComplete != null) n = n.copyWith(isComplete: isComplete, completedAt: completedAt);
-    if (isPendingRitual != null) n = n.copyWith(isPendingRitual: isPendingRitual);
+    if (isComplete != null) {
+      n = n.copyWith(isComplete: isComplete, completedAt: completedAt);
+    }
+    if (isPendingRitual != null) {
+      n = n.copyWith(isPendingRitual: isPendingRitual);
+    }
     if (isArchived != null) n = n.copyWith(isArchived: isArchived);
     _nodes[i] = n;
     await _persist();
@@ -231,26 +288,31 @@ class DemoStorage {
     _notify();
   }
 
-  List<DateTime> get burnTimestamps =>
-      _nodes.where((n) =>
-              (n.nodeType == NodeType.pebble || n.nodeType == NodeType.shard) &&
-              n.isComplete &&
-              n.completedAt != null)
-          .map((n) => n.completedAt!)
-          .toList();
+  List<DateTime> get burnTimestamps => _nodes
+      .where(
+        (n) =>
+            (n.nodeType == NodeType.pebble || n.nodeType == NodeType.shard) &&
+            n.isComplete &&
+            n.completedAt != null,
+      )
+      .map((n) => n.completedAt!)
+      .toList();
 
-  List<DateTime> burnTimestampsForMountain(String mountainId) =>
-      _nodes.where((n) =>
-              n.mountainId == mountainId &&
-              (n.nodeType == NodeType.pebble || n.nodeType == NodeType.shard) &&
-              n.isComplete &&
-              n.completedAt != null)
-          .map((n) => n.completedAt!)
-          .toList();
+  List<DateTime> burnTimestampsForMountain(String mountainId) => _nodes
+      .where(
+        (n) =>
+            n.mountainId == mountainId &&
+            (n.nodeType == NodeType.pebble || n.nodeType == NodeType.shard) &&
+            n.isComplete &&
+            n.completedAt != null,
+      )
+      .map((n) => n.completedAt!)
+      .toList();
 
   // ── Whetstone ───────────────────────────────────────────────
 
-  List<WhetstoneItem> get whetstoneItems => List.unmodifiable(_whetstoneItems.where((w) => w.isActive));
+  List<WhetstoneItem> get whetstoneItems =>
+      List.unmodifiable(_whetstoneItems.where((w) => w.isActive));
 
   Future<void> addWhetstoneItem(WhetstoneItem w) async {
     _whetstoneItems.add(w);
@@ -258,7 +320,12 @@ class DemoStorage {
     _notify();
   }
 
-  Future<void> updateWhetstoneItem(String id, {String? title, int? orderIndex, bool? isActive}) async {
+  Future<void> updateWhetstoneItem(
+    String id, {
+    String? title,
+    int? orderIndex,
+    bool? isActive,
+  }) async {
     final i = _whetstoneItems.indexWhere((w) => w.id == id);
     if (i < 0) return;
     var w = _whetstoneItems[i];
@@ -289,27 +356,39 @@ class DemoStorage {
         .toSet();
   }
 
-  Future<void> addCompletion(String itemId, String dateString, String completedAt) async {
-    _whetstoneCompletions.removeWhere((c) => c['item_id'] == itemId && c['completed_date'] == dateString);
-    _whetstoneCompletions.add({'item_id': itemId, 'completed_date': dateString, 'completed_at': completedAt});
+  Future<void> addCompletion(
+    String itemId,
+    String dateString,
+    String completedAt,
+  ) async {
+    _whetstoneCompletions.removeWhere(
+      (c) => c['item_id'] == itemId && c['completed_date'] == dateString,
+    );
+    _whetstoneCompletions.add({
+      'item_id': itemId,
+      'completed_date': dateString,
+      'completed_at': completedAt,
+    });
     await _persist();
     _notify();
   }
 
   Future<void> removeCompletion(String itemId, String dateString) async {
-    _whetstoneCompletions.removeWhere((c) => c['item_id'] == itemId && c['completed_date'] == dateString);
+    _whetstoneCompletions.removeWhere(
+      (c) => c['item_id'] == itemId && c['completed_date'] == dateString,
+    );
     await _persist();
     _notify();
   }
 
-  List<DateTime> get whetstoneCompletionTimestamps =>
-      _whetstoneCompletions
-          .map((c) => DateTime.parse(c['completed_at']!).toLocal())
-          .toList();
+  List<DateTime> get whetstoneCompletionTimestamps => _whetstoneCompletions
+      .map((c) => DateTime.parse(c['completed_at']!).toLocal())
+      .toList();
 
   // ── Satchel ──────────────────────────────────────────────────
 
-  List<Map<String, dynamic>> get satchelSlotsRaw => List.unmodifiable(_satchelSlots);
+  List<Map<String, dynamic>> get satchelSlotsRaw =>
+      List.unmodifiable(_satchelSlots);
 
   Future<void> setSatchelSlots(List<Map<String, dynamic>> slots) async {
     _satchelSlots = slots;
@@ -317,7 +396,11 @@ class DemoStorage {
     _notify();
   }
 
-  Future<void> updateSatchelSlot(String slotId, {String? nodeId, bool? readyToBurn}) async {
+  Future<void> updateSatchelSlot(
+    String slotId, {
+    String? nodeId,
+    bool? readyToBurn,
+  }) async {
     final i = _satchelSlots.indexWhere((s) => s['id'] == slotId);
     if (i < 0) return;
     if (nodeId != null) _satchelSlots[i]['node_id'] = nodeId;

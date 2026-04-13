@@ -28,6 +28,7 @@ class WhetstoneChoiceOverlay extends ConsumerStatefulWidget {
 
   /// GlobalKey on the Whetstone tile for tail anchor (post-frame position).
   final GlobalKey whetstoneKey;
+
   /// Global offset of the Whetstone tile (top-left) so Elias + bubble sit near it.
   final Offset anchorOffset;
   final Size tileSize;
@@ -38,14 +39,17 @@ class WhetstoneChoiceOverlay extends ConsumerStatefulWidget {
       _WhetstoneChoiceOverlayState();
 }
 
-class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay> {
+class _WhetstoneChoiceOverlayState
+    extends ConsumerState<WhetstoneChoiceOverlay> {
   Offset? _tailTipOffset;
   Timer? _idleTimer;
 
   @override
   void initState() {
     super.initState();
-    SchedulerBinding.instance.addPostFrameCallback((_) => _updateTailPosition());
+    SchedulerBinding.instance.addPostFrameCallback(
+      (_) => _updateTailPosition(),
+    );
     _idleTimer = Timer(const Duration(seconds: 30), () {
       if (mounted) {
         widget.onDismiss();
@@ -53,7 +57,10 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
           SnackBar(
             content: Text(
               EliasDialogue.returnAfterIdle(),
-              style: const TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
             ),
             backgroundColor: AppColors.charcoal,
             behavior: SnackBarBehavior.floating,
@@ -70,7 +77,8 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
   }
 
   void _updateTailPosition() {
-    final box = widget.whetstoneKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        widget.whetstoneKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final topLeft = box.localToGlobal(Offset.zero);
     final center = Offset(
@@ -92,10 +100,15 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
     const double bubbleSpacing = 8;
     const double buttonHeight = 44;
     const double bubbleVerticalPadding = 20;
-    const double totalBubbleHeight = 80 + bubbleVerticalPadding * 2 + buttonHeight + 12 + 36;
-    const double totalContentHeight = eliasHeight + bubbleSpacing + totalBubbleHeight;
+    const double totalBubbleHeight =
+        80 + bubbleVerticalPadding * 2 + buttonHeight + 12 + 36;
+    const double totalContentHeight =
+        eliasHeight + bubbleSpacing + totalBubbleHeight;
 
-    double left = widget.anchorOffset.dx + (widget.tileSize.width / 2) - (contentWidth / 2);
+    double left =
+        widget.anchorOffset.dx +
+        (widget.tileSize.width / 2) -
+        (contentWidth / 2);
     left = left.clamp(16.0, screenSize.width - contentWidth - 16);
     double top = widget.anchorOffset.dy - totalContentHeight - 24;
     if (top < 40) top = 40;
@@ -123,9 +136,7 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
         if (isNight)
           Positioned.fill(
             child: IgnorePointer(
-              child: Container(
-                color: AppColors.candlelightTint,
-              ),
+              child: Container(color: AppColors.candlelightTint),
             ),
           ),
         // 2. Bubble tail (points at Whetstone icon center)
@@ -133,7 +144,10 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
           Positioned.fill(
             child: CustomPaint(
               painter: _BubbleTailPainter(
-                bubbleBottomCenter: Offset(left + contentWidth / 2, top + totalContentHeight),
+                bubbleBottomCenter: Offset(
+                  left + contentWidth / 2,
+                  top + totalContentHeight,
+                ),
                 tailTip: _tailTipOffset!,
               ),
             ),
@@ -167,10 +181,7 @@ class _WhetstoneChoiceOverlayState extends ConsumerState<WhetstoneChoiceOverlay>
 /// Draws a parchment-colored bubble tail pointing at the Whetstone icon.
 /// Tip has slight rounding for organic feel.
 class _BubbleTailPainter extends CustomPainter {
-  _BubbleTailPainter({
-    required this.bubbleBottomCenter,
-    required this.tailTip,
-  });
+  _BubbleTailPainter({required this.bubbleBottomCenter, required this.tailTip});
 
   final Offset bubbleBottomCenter;
   final Offset tailTip;
@@ -228,16 +239,16 @@ class _PopContent extends StatelessWidget {
       children: [
         // Elias head/shoulders — pop scale 0.95 → 1.05 → 1.0
         SizedBox(
-          height: 100,
-          child: Center(
-            child: EliasWidget(
-              period: period,
-              width: 80,
               height: 100,
-              showGreeting: false,
-            ),
-          ),
-        )
+              child: Center(
+                child: EliasWidget(
+                  period: period,
+                  width: 80,
+                  height: 100,
+                  showGreeting: false,
+                ),
+              ),
+            )
             .animate()
             .scale(
               begin: const Offset(0.95, 0.95),
@@ -260,71 +271,61 @@ class _PopContent extends StatelessWidget {
         const SizedBox(height: 8),
         // Parchment bubble with copy + Sharpen Habits + Close
         Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          decoration: BoxDecoration(
-            color: AppColors.whetPaper,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.whetLine, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.inkBlack.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                EliasDialogue.whetstoneEntry(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Georgia',
-                  fontSize: 15,
-                  color: AppColors.whetInk,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 44,
-                child: FilledButton(
-                  onPressed: onSharpenHabits,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.ember,
-                    foregroundColor: AppColors.parchment,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: BoxDecoration(
+                color: AppColors.whetPaper,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.whetLine, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.inkBlack.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  child: const Text(
-                    'Sharpen Habits',
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    EliasDialogue.whetstoneEntry(),
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Georgia',
-                      letterSpacing: 0.5,
+                      fontSize: 15,
+                      color: AppColors.whetInk,
+                      height: 1.35,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: onDismiss,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.ashGrey,
-                ),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    fontFamily: 'Georgia',
-                    letterSpacing: 0.5,
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 44,
+                    child: FilledButton(
+                      onPressed: onSharpenHabits,
+                      child: const Text(
+                        'Sharpen Habits',
+                        style: TextStyle(letterSpacing: 0.5),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: onDismiss,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.darkWalnut,
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontFamily: 'Georgia',
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        )
+            )
             .animate()
             .scale(
               begin: const Offset(0.95, 0.95),

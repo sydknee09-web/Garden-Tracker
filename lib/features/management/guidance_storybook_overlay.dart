@@ -6,7 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/sound_settings_provider.dart';
 
 /// 3-page Storybook overlay explaining Peak → Satchel → Hearth.
-/// Shown from Management menu "Seek Guidance".
+/// Shown from Management menu "How the journey works".
 class GuidanceStorybookOverlay extends ConsumerStatefulWidget {
   const GuidanceStorybookOverlay({super.key});
 
@@ -15,7 +15,8 @@ class GuidanceStorybookOverlay extends ConsumerStatefulWidget {
       _GuidanceStorybookOverlayState();
 }
 
-class _GuidanceStorybookOverlayState extends ConsumerState<GuidanceStorybookOverlay> {
+class _GuidanceStorybookOverlayState
+    extends ConsumerState<GuidanceStorybookOverlay> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final AudioPlayer _weightPlayer = AudioPlayer();
@@ -169,11 +170,7 @@ class _StoryPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: AppColors.ember,
-            ),
+            Icon(icon, size: 64, color: AppColors.ember),
             const SizedBox(height: 24),
             Text(
               title,

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models/climb_draft.dart';
+
 /// Flow state for the guided "New Journey" overlay.
 /// autoDispose: when overlay closes, state is disposed so next open = fresh slate.
 class ClimbFlowState {
@@ -23,10 +25,13 @@ class ClimbFlowState {
   final List<String> landmarkNames;
   final int pebbleStepBoulderIndex;
   final int lastEliasIndex;
+
   /// When non-null, parchment card shows "Name this pebble" (morphing) instead of landmark chips.
   final int? namingStoneIndex;
+
   /// 'climb' = sequential (Milestones) | 'survey' = categorical (Regions).
   final String layoutType;
+
   /// Peak appearance: dark_walnut, navy, slate, charcoal, burgundy, forest.
   final String appearanceStyle;
 
@@ -49,9 +54,12 @@ class ClimbFlowState {
       mountainName: mountainName ?? this.mountainName,
       boulderIds: boulderIds ?? this.boulderIds,
       landmarkNames: landmarkNames ?? this.landmarkNames,
-      pebbleStepBoulderIndex: pebbleStepBoulderIndex ?? this.pebbleStepBoulderIndex,
+      pebbleStepBoulderIndex:
+          pebbleStepBoulderIndex ?? this.pebbleStepBoulderIndex,
       lastEliasIndex: lastEliasIndex ?? this.lastEliasIndex,
-      namingStoneIndex: clearNamingStoneIndex ? null : (namingStoneIndex ?? this.namingStoneIndex),
+      namingStoneIndex: clearNamingStoneIndex
+          ? null
+          : (namingStoneIndex ?? this.namingStoneIndex),
       layoutType: layoutType ?? this.layoutType,
       appearanceStyle: appearanceStyle ?? this.appearanceStyle,
     );
@@ -83,7 +91,10 @@ class ClimbFlowNotifier extends Notifier<ClimbFlowState> {
   }
 
   void setNamingStoneIndex(int? index) {
-    state = state.copyWith(namingStoneIndex: index, clearNamingStoneIndex: index == null);
+    state = state.copyWith(
+      namingStoneIndex: index,
+      clearNamingStoneIndex: index == null,
+    );
   }
 
   void setLayoutType(String layoutType) {
@@ -94,6 +105,22 @@ class ClimbFlowNotifier extends Notifier<ClimbFlowState> {
     state = state.copyWith(appearanceStyle: appearanceStyle);
   }
 
+  /// Restore wizard from a local [ClimbDraft] (SharedPreferences).
+  void hydrateFromDraft(ClimbDraft d) {
+    state = ClimbFlowState(
+      step: d.step.clamp(0, 5),
+      mountainId: d.mountainId,
+      mountainName: d.peakName,
+      boulderIds: List<String>.from(d.boulderIds),
+      landmarkNames: List<String>.from(d.landmarkNames),
+      pebbleStepBoulderIndex: d.pebbleStepBoulderIndex,
+      lastEliasIndex: d.lastEliasIndex,
+      namingStoneIndex: d.namingStoneIndex,
+      layoutType: d.layoutType,
+      appearanceStyle: d.appearanceStyle,
+    );
+  }
+
   void close() {
     // Provider will autoDispose when no longer watched.
     // Caller pops the overlay; we don't need to reset here.
@@ -101,7 +128,6 @@ class ClimbFlowNotifier extends Notifier<ClimbFlowState> {
 }
 
 /// Non-auto-dispose so state persists while overlay is open. Invalidated on overlay dispose for fresh slate on reopen.
-final climbFlowProvider =
-    NotifierProvider<ClimbFlowNotifier, ClimbFlowState>(
+final climbFlowProvider = NotifierProvider<ClimbFlowNotifier, ClimbFlowState>(
   ClimbFlowNotifier.new,
 );

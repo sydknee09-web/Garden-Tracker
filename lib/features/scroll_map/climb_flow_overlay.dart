@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/content/elias_dialogue.dart';
 import '../../core/enums/day_period.dart' show ScenePeriod;
+import '../../data/models/climb_draft.dart';
+import '../../providers/climb_draft_provider.dart';
 import '../../providers/climb_flow_provider.dart';
 import '../../providers/mountain_provider.dart';
 import '../../providers/narrow_invalidation.dart';
@@ -17,8 +19,9 @@ import '../../providers/satchel_provider.dart';
 import '../../providers/time_of_day_provider.dart';
 import '../../widgets/elias_silhouette.dart';
 import '../../widgets/typewriter_text.dart';
+import '../../widgets/voyager_surface.dart';
 
-/// Full-screen guided Climb overlay. 6-step wizard (0–5): Intent, Identity, Appearance, Logic, Markers, Placing stones.
+/// Full-screen guided Climb overlay. 6-step wizard (0–5): Identity, Intent, Appearance, Logic, Markers, Placing stones.
 /// Uses Stack so Elias slightly overlaps content (luxury depth).
 class ClimbFlowOverlay extends ConsumerStatefulWidget {
   const ClimbFlowOverlay({
@@ -28,15 +31,27 @@ class ClimbFlowOverlay extends ConsumerStatefulWidget {
     this.onAscension,
     this.returnLabel = 'Stow the Map',
     this.showCompassClose = true,
+    this.initialDraft,
+    this.persistDraftOnClose = true,
   });
 
   final VoidCallback onClose;
-  /// When false, the top-right compass close button is hidden (e.g. when opened from management "Plot New Path" so only one "Stow the Map" shows).
+
+  /// When set, restores step, fields, and optional [ClimbDraft.mountainId].
+  final ClimbDraft? initialDraft;
+
+  /// When false, closing the overlay does not read/write SharedPreferences drafts (e.g. Elias intro).
+  final bool persistDraftOnClose;
+
+  /// When false, the top-right close (X) button is hidden.
   final bool showCompassClose;
+
   /// Called only when the wizard is closed from step 5 (success). Intro uses this to show "mountain carved" dialog; other callers leave it null.
   final VoidCallback? onComplete;
+
   /// When set (e.g. intro flow), called when user taps "Stow the Map" on step 5 instead of going straight to sanctuary. Use to show [EliasDialogue.stowTheMapClosing] then continue.
   final VoidCallback? onAscension;
+
   /// Shown on exit-to-Map control (Center/Right). Use 'Stow the Map' when opened from Elias (dialog).
   final String returnLabel;
 
@@ -49,6 +64,10 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
   late final TextEditingController _peakController;
   final List<TextEditingController> _landmarkControllers = [];
   final List<FocusNode> _landmarkFocusNodes = [];
+
+  /// Stable id for this session (resume uses [ClimbDraft.id]).
+  late final String _draftSessionId;
+  bool _appliedInitialDraft = false;
   String? _cachedIntentLine;
   String? _cachedIdentityLine;
   String? _cachedLogicLine;
@@ -58,6 +77,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
   int? _lastBuiltStep;
   int? _lastBuiltEliasIndex;
   bool _showMalletStrike = false;
+
   /// Stagger: show Elias + dialogue first, then fade in input after 1.2s.
   bool _showStepInput = false;
   Timer? _stepInputTimer;
@@ -66,17 +86,279 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
   static const int _minLandmarks = 1;
   static const int _maxLandmarks = 10;
   static const int _intentCap = 1000;
+
   /// Head/bust asset for wizard (one per menu); full-body is intro-only.
   static const String _eliasHeadAsset = 'assets/elias/EliasFloatingSmile.png';
 
   @override
   void initState() {
     super.initState();
+    _draftSessionId = widget.initialDraft?.id ?? Uuid().v4();
     // climbFlowProvider is non-autoDispose; ref.watch(climbFlowProvider) in build keeps it alive while overlay is mounted.
     _intentController = TextEditingController();
     _peakController = TextEditingController();
     _landmarkControllers.add(TextEditingController());
     _landmarkFocusNodes.add(FocusNode());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.initialDraft == null || _appliedInitialDraft) {
+        return;
+      }
+      _appliedInitialDraft = true;
+      _applyDraft(widget.initialDraft!);
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _applyDraft(ClimbDraft d) {
+    ref.read(climbFlowProvider.notifier).hydrateFromDraft(d);
+    _intentController.text = d.intentText;
+    _peakController.text = d.peakName;
+    final names = d.landmarkNames;
+    while (_landmarkControllers.length < names.length &&
+        _landmarkControllers.length < _maxLandmarks) {
+      _landmarkControllers.add(TextEditingController());
+      _landmarkFocusNodes.add(FocusNode());
+    }
+    while (_landmarkControllers.length > names.length &&
+        _landmarkControllers.length > _minLandmarks) {
+      _landmarkControllers.removeLast().dispose();
+      _landmarkFocusNodes.removeLast().dispose();
+    }
+    if (names.isEmpty) {
+      if (_landmarkControllers.isEmpty) {
+        _landmarkControllers.add(TextEditingController());
+        _landmarkFocusNodes.add(FocusNode());
+      }
+      return;
+    }
+    for (var i = 0; i < names.length && i < _landmarkControllers.length; i++) {
+      _landmarkControllers[i].text = names[i];
+    }
+  }
+
+  ClimbDraft _snapshotDraft(ClimbFlowState state) {
+    return ClimbDraft(
+      id: _draftSessionId,
+      updatedAt: DateTime.now(),
+      step: state.step,
+      intentText: _intentController.text,
+      peakName: _peakController.text,
+      appearanceStyle: state.appearanceStyle,
+      layoutType: state.layoutType,
+      landmarkNames: _landmarkControllers.map((c) => c.text).toList(),
+      boulderIds: List<String>.from(state.boulderIds),
+      pebbleStepBoulderIndex: state.pebbleStepBoulderIndex,
+      namingStoneIndex: state.namingStoneIndex,
+      lastEliasIndex: state.lastEliasIndex,
+      mountainId: state.mountainId,
+    );
+  }
+
+  Future<void> _deleteActiveDraft() async {
+    await ref.read(climbDraftRepositoryProvider).delete(_draftSessionId);
+    ref.invalidate(climbDraftListProvider);
+  }
+
+  Future<void> _persistDraftIfNeeded() async {
+    if (!widget.persistDraftOnClose) return;
+    final state = ref.read(climbFlowProvider);
+    final draft = _snapshotDraft(state);
+    if (!draft.hasMeaningfulProgress) return;
+    await ref.read(climbDraftRepositoryProvider).upsert(draft);
+    ref.invalidate(climbDraftListProvider);
+  }
+
+  Future<void> _exitOverlay() async {
+    await _persistDraftIfNeeded();
+    if (!mounted) return;
+    widget.onClose();
+  }
+
+  Future<void> _packJourneyAndExit() async {
+    final state = ref.read(climbFlowProvider);
+    final mid = state.mountainId;
+    final peakName = state.mountainName.trim().isEmpty
+        ? 'this peak'
+        : state.mountainName.trim();
+    await _deleteActiveDraft();
+    if (!mounted) return;
+    if (mid != null) {
+      await _maybeAskPackReflection(mid, peakName);
+    }
+    if (!mounted) return;
+    if (widget.onAscension != null) {
+      widget.onAscension!();
+    } else {
+      context.go('/sanctuary?focusOnHearth=true');
+      widget.onClose();
+    }
+  }
+
+  Future<void> _maybeAskWhyPeakReflection(
+    String mountainId,
+    String peakName,
+  ) async {
+    final controller = TextEditingController();
+    final save = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.parchment,
+        title: Text(
+          EliasDialogue.reflectionWhyPeakPrompt(peakName),
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            fontSize: 15,
+            color: AppColors.charcoal,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '(optional)',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppColors.ashGrey.withValues(alpha: 0.95),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.charcoal,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Share what this peak means to you, or leave blank',
+                hintStyle: TextStyle(
+                  fontFamily: 'Georgia',
+                  color: AppColors.ashGrey,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Skip', style: TextStyle(fontFamily: 'Georgia')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Tell Elias',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final text = controller.text.trim();
+    controller.dispose();
+    if (save == true &&
+        text.isNotEmpty &&
+        mounted) {
+      await ref.read(mountainActionsProvider).updateJournalReflections(
+            id: mountainId,
+            reflectionWhyPeak: text,
+          );
+      ref.invalidate(mountainListProvider);
+      ref.invalidate(mountainProvider(mountainId));
+    }
+  }
+
+  Future<void> _maybeAskPackReflection(
+    String mountainId,
+    String peakName,
+  ) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.parchment,
+        title: Text(
+          EliasDialogue.reflectionPackPrompt(peakName),
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            fontSize: 15,
+            color: AppColors.charcoal,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '(optional)',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppColors.ashGrey.withValues(alpha: 0.95),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.charcoal,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'A few words on what this meant, or leave blank',
+                hintStyle: TextStyle(
+                  fontFamily: 'Georgia',
+                  color: AppColors.ashGrey,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Skip', style: TextStyle(fontFamily: 'Georgia')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text(
+              'Reflect',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted) return;
+    if ((result ?? '').isNotEmpty) {
+      await ref.read(mountainActionsProvider).updateJournalReflections(
+            id: mountainId,
+            reflectionPackJourney: result,
+          );
+      ref.invalidate(mountainListProvider);
+      ref.invalidate(mountainProvider(mountainId));
+    }
+  }
+
+  Future<void> _step5StowAndExit() async {
+    await _persistDraftIfNeeded();
+    if (!mounted) return;
+    widget.onComplete?.call();
+    widget.onClose();
   }
 
   @override
@@ -140,7 +422,11 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
       _landmarkControllers.add(TextEditingController());
       _landmarkFocusNodes.add(FocusNode());
     }
-    for (var i = 0; i < template.length && i < _landmarkControllers.length; i++) {
+    for (
+      var i = 0;
+      i < template.length && i < _landmarkControllers.length;
+      i++
+    ) {
       _landmarkControllers[i].text = template[i];
     }
     setState(() {});
@@ -149,7 +435,8 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(climbFlowProvider);
-    final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final period =
+        ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
 
     // Stagger: when step changes, hide input then show after delay. Shorter for non-input steps (2, 3) to keep momentum.
     if (state.step != _lastStepForStagger) {
@@ -163,10 +450,10 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     }
 
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _handleBack(state);
+        unawaited(_handleExitWithOptionalSnackbar());
       },
       child: Scaffold(
         backgroundColor: AppColors.inkBlack.withValues(alpha: 0.85),
@@ -174,35 +461,34 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
         body: SafeArea(
           child: Stack(
             children: [
-              // Compass — top-right (hidden when showCompassClose is false to avoid duplicate "Stow the Map")
+              // Close — top-right (same as return row; subtle so parchment art stays calm)
               if (widget.showCompassClose)
                 Positioned(
-                  top: 8,
-                  right: 16,
+                  top: 4,
+                  right: 8,
                   child: IconButton(
-                    icon: const Icon(Icons.explore, color: AppColors.parchment),
-                    tooltip: widget.returnLabel,
+                    icon: const Icon(Icons.close, color: AppColors.emberMuted),
+                    tooltip: 'Close',
                     onPressed: () {
                       HapticFeedback.lightImpact();
-                      widget.onClose();
+                      unawaited(_exitOverlay());
                     },
                   ),
                 ),
               // Mallet strike overlay (when pebble created)
               if (_showMalletStrike)
-                const Center(
-                  child: _MalletStrikeOverlay(),
-                ),
+                const Center(child: _MalletStrikeOverlay()),
               // Step content: top-aligned so when keyboard opens the menu stays reachable by scrolling
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: SingleChildScrollView(
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     child: Padding(
                       padding: EdgeInsets.only(
-                        bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                        bottom: MediaQuery.viewInsetsOf(context).bottom + 40,
                       ),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 400),
@@ -219,38 +505,41 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     );
   }
 
-  void _handleBack(ClimbFlowState state) {
-    // Step 5 (Placing stones): wizard completed; notify then close
-    if (state.step == 5) {
-      widget.onComplete?.call();
-      widget.onClose();
-      return;
-    }
-    final hasInput = switch (state.step) {
-      0 => _intentController.text.trim().isNotEmpty,
-      1 => _peakController.text.trim().isNotEmpty,
-      2 => true, // Appearance has selection
-      3 => true, // Logic has selection
-      4 => _landmarkControllers.any((c) => c.text.trim().isNotEmpty),
-      _ => false,
-    };
-    if (hasInput) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            "Leaving so soon? Your progress here will be lost.",
-            style: TextStyle(fontFamily: 'Georgia', color: AppColors.parchment),
+  Future<void> _handleExitWithOptionalSnackbar() async {
+    final state = ref.read(climbFlowProvider);
+    if (state.step < 5) {
+      final hasInput = switch (state.step) {
+        0 => _peakController.text.trim().isNotEmpty,
+        1 => _intentController.text.trim().isNotEmpty,
+        2 => true,
+        3 => true,
+        4 => _landmarkControllers.any((c) => c.text.trim().isNotEmpty),
+        _ => false,
+      };
+      if (hasInput && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.persistDraftOnClose
+                  ? 'Progress saved. Resume anytime from Chronicled Peaks.'
+                  : 'Leaving so soon? Your progress here will be lost.',
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
+            ),
+            backgroundColor: AppColors.charcoal,
+            behavior: SnackBarBehavior.floating,
           ),
-          backgroundColor: AppColors.charcoal,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      }
     }
-    widget.onClose();
+    await _exitOverlay();
   }
 
   Widget _buildStep(ClimbFlowState state, ScenePeriod period) {
-    if (_lastBuiltStep != state.step || _lastBuiltEliasIndex != state.lastEliasIndex) {
+    if (_lastBuiltStep != state.step ||
+        _lastBuiltEliasIndex != state.lastEliasIndex) {
       _lastBuiltStep = state.step;
       _lastBuiltEliasIndex = state.lastEliasIndex;
       _cachedIntentLine = null;
@@ -262,26 +551,30 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     }
     switch (state.step) {
       case 0:
-        _cachedIntentLine ??= EliasDialogue.climbIntentPromptWithIndex(state.lastEliasIndex).$1;
-        return _Step1Intent(
+        _cachedIdentityLine ??= EliasDialogue.climbIdentityPromptWithIndex(
+          state.lastEliasIndex,
+        ).$1;
+        return _Step2Identity(
           period: period,
-          controller: _intentController,
-          eliasLine: _cachedIntentLine!,
-          maxChars: _intentCap,
-          onContinue: _onStep0Continue,
-          onReturnToMap: widget.onClose,
+          controller: _peakController,
+          eliasLine: _cachedIdentityLine!,
+          onContinue: _onIdentityContinue,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
           onBack: null,
           showInput: _showStepInput,
         );
       case 1:
-        _cachedIdentityLine ??= EliasDialogue.climbIdentityPromptWithIndex(state.lastEliasIndex).$1;
-        return _Step2Identity(
+        _cachedIntentLine ??= EliasDialogue.climbIntentPromptWithIndex(
+          state.lastEliasIndex,
+        ).$1;
+        return _Step1Intent(
           period: period,
-          controller: _peakController,
-          eliasLine: _cachedIdentityLine!,
-          onContinue: _onStep1Continue,
-          onReturnToMap: widget.onClose,
+          controller: _intentController,
+          eliasLine: _cachedIntentLine!,
+          maxChars: _intentCap,
+          onContinue: _onIntentContinue,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
           onBack: () {
             HapticFeedback.lightImpact();
@@ -290,15 +583,17 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
           showInput: _showStepInput,
         );
       case 2:
-        _cachedAppearanceLine ??= 'Every mountain has a spirit. How shall we visualize this journey?';
+        _cachedAppearanceLine ??=
+            'Every mountain has a spirit. How shall we visualize this journey?';
         return _Step2Appearance(
           period: period,
           appearanceStyle: state.appearanceStyle,
           eliasLine: _cachedAppearanceLine!,
           onContinue: _onStep2AppearanceContinue,
-          onReturnToMap: widget.onClose,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
-          onSelectStyle: (s) => ref.read(climbFlowProvider.notifier).setAppearanceStyle(s),
+          onSelectStyle: (s) =>
+              ref.read(climbFlowProvider.notifier).setAppearanceStyle(s),
           onBack: () {
             HapticFeedback.lightImpact();
             ref.read(climbFlowProvider.notifier).setStep(1);
@@ -306,15 +601,18 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
           showInput: _showStepInput,
         );
       case 3:
-        _cachedLogicLine ??= EliasDialogue.climbLogicPromptWithIndex(state.lastEliasIndex).$1;
+        _cachedLogicLine ??= EliasDialogue.climbLogicPromptWithIndex(
+          state.lastEliasIndex,
+        ).$1;
         return _Step3Logic(
           period: period,
           layoutType: state.layoutType,
           eliasLine: _cachedLogicLine!,
           onContinue: _onStep3Continue,
-          onReturnToMap: widget.onClose,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
-          onSelectLayout: (t) => ref.read(climbFlowProvider.notifier).setLayoutType(t),
+          onSelectLayout: (t) =>
+              ref.read(climbFlowProvider.notifier).setLayoutType(t),
           onBack: () {
             HapticFeedback.lightImpact();
             ref.read(climbFlowProvider.notifier).setStep(2);
@@ -322,8 +620,12 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
           showInput: _showStepInput,
         );
       case 4:
-        _cachedLandmarksLine ??= EliasDialogue.climbLandmarksPromptWithIndex(state.lastEliasIndex).$1;
-        final markerLabel = state.layoutType == 'survey' ? 'Region' : 'Milestone';
+        _cachedLandmarksLine ??= EliasDialogue.climbLandmarksPromptWithIndex(
+          state.lastEliasIndex,
+        ).$1;
+        final markerLabel = state.layoutType == 'survey'
+            ? 'Region'
+            : 'Milestone';
         return _Step4Markers(
           period: period,
           controllers: _landmarkControllers,
@@ -335,7 +637,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
             HapticFeedback.lightImpact();
             ref.read(climbFlowProvider.notifier).setStep(3);
           },
-          onReturnToMap: widget.onClose,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
           onAddLandmark: _addLandmark,
           onRemoveLandmark: _removeLandmark,
@@ -345,8 +647,12 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
           showInput: _showStepInput,
         );
       case 5:
-        _cachedPebblesLine ??= EliasDialogue.climbPebblesPromptWithIndex(state.lastEliasIndex).$1;
-        final markerLabel = state.layoutType == 'survey' ? 'Region' : 'Milestone';
+        _cachedPebblesLine ??= EliasDialogue.climbPebblesPromptWithIndex(
+          state.lastEliasIndex,
+        ).$1;
+        final markerLabel = state.layoutType == 'survey'
+            ? 'Region'
+            : 'Milestone';
         return _Step5Pebbles(
           period: period,
           state: state,
@@ -354,29 +660,26 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
           eliasLine: _cachedPebblesLine!,
           onStoneTap: _onStoneTap,
           onCreatePebble: _createPebbleAndAnimate,
-          onCancelNaming: () => ref.read(climbFlowProvider.notifier).setNamingStoneIndex(null),
+          onCancelNaming: () =>
+              ref.read(climbFlowProvider.notifier).setNamingStoneIndex(null),
           onDoneWithLandmark: _onDoneWithLandmark,
           onNextStone: _onNextStone,
-          onClose: () {
-            widget.onComplete?.call();
-            widget.onClose();
-          },
+          onClose: () => unawaited(_step5StowAndExit()),
           returnLabel: widget.returnLabel,
-          onAscension: widget.onAscension ?? () => context.go('/sanctuary?focusOnHearth=true'),
+          onAscension: () => unawaited(_packJourneyAndExit()),
           onBack: () {
             HapticFeedback.lightImpact();
             ref.read(climbFlowProvider.notifier).setStep(4);
           },
         );
       default:
-        _cachedIntentLine ??= EliasDialogue.climbIntentPromptWithIndex(-1).$1;
-        return _Step1Intent(
+        _cachedIdentityLine ??= EliasDialogue.climbIdentityPromptWithIndex(-1).$1;
+        return _Step2Identity(
           period: period,
-          controller: _intentController,
-          eliasLine: _cachedIntentLine!,
-          maxChars: _intentCap,
-          onContinue: _onStep0Continue,
-          onReturnToMap: widget.onClose,
+          controller: _peakController,
+          eliasLine: _cachedIdentityLine!,
+          onContinue: _onIdentityContinue,
+          onReturnToMap: () => unawaited(_exitOverlay()),
           returnLabel: widget.returnLabel,
           onBack: null,
           showInput: _showStepInput,
@@ -384,7 +687,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     }
   }
 
-  Future<void> _onStep0Continue() async {
+  Future<void> _onIntentContinue() async {
     final intent = _intentController.text.trim();
     if (intent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -417,11 +720,11 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     }
     HapticFeedback.mediumImpact();
     ref.read(climbFlowProvider.notifier)
-      ..setStep(1)
+      ..setStep(2)
       ..setLastEliasIndex(-1);
   }
 
-  Future<void> _onStep1Continue() async {
+  Future<void> _onIdentityContinue() async {
     final name = _peakController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -438,7 +741,7 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     }
     HapticFeedback.mediumImpact();
     ref.read(climbFlowProvider.notifier)
-      ..setStep(2)
+      ..setStep(1)
       ..setLastEliasIndex(-1);
   }
 
@@ -450,27 +753,38 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     try {
       if (state.mountainId != null) {
         // Edit Appearance mode: update existing mountain
-        await ref.read(mountainActionsProvider).updateBlueprint(
-          id: state.mountainId!,
-          appearanceStyle: state.appearanceStyle,
-        );
+        await ref
+            .read(mountainActionsProvider)
+            .updateBlueprint(
+              id: state.mountainId!,
+              appearanceStyle: state.appearanceStyle,
+            );
         if (name != state.mountainName) {
-          await ref.read(mountainActionsProvider).rename(id: state.mountainId!, name: name);
-          ref.read(climbFlowProvider.notifier).setMountain(state.mountainId!, name);
+          await ref
+              .read(mountainActionsProvider)
+              .rename(id: state.mountainId!, name: name);
+          ref
+              .read(climbFlowProvider.notifier)
+              .setMountain(state.mountainId!, name);
         }
         ref.invalidate(mountainListProvider);
       } else {
         // Create mountain atomically (name + appearance in hand)
-        final mountain = await ref.read(mountainActionsProvider).create(
-          name: name,
-          intentStatement: intent.isNotEmpty ? intent : null,
-          layoutType: state.layoutType,
-          appearanceStyle: state.appearanceStyle,
-        );
+        final mountain = await ref
+            .read(mountainActionsProvider)
+            .create(
+              name: name,
+              intentStatement: intent.isNotEmpty ? intent : null,
+              layoutType: state.layoutType,
+              appearanceStyle: state.appearanceStyle,
+            );
         ref.invalidate(mountainListProvider);
         ref.read(climbFlowProvider.notifier)
           ..setMountain(mountain.id, mountain.name)
           ..setLastEliasIndex(-1);
+        if (mounted) {
+          await _maybeAskWhyPeakReflection(mountain.id, mountain.name);
+        }
       }
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -507,10 +821,12 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
     HapticFeedback.mediumImpact();
     try {
       if (state.mountainId != null) {
-        await ref.read(mountainActionsProvider).updateBlueprint(
-          id: state.mountainId!,
-          layoutType: state.layoutType,
-        );
+        await ref
+            .read(mountainActionsProvider)
+            .updateBlueprint(
+              id: state.mountainId!,
+              layoutType: state.layoutType,
+            );
         ref.invalidate(mountainListProvider);
       }
       ref.read(climbFlowProvider.notifier)
@@ -538,32 +854,44 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
 
   void _onDoneWithLandmark() {
     HapticFeedback.mediumImpact();
-    ref.read(climbFlowProvider.notifier).setPebbleStepBoulderIndex(
-      ref.read(climbFlowProvider).pebbleStepBoulderIndex + 1,
-    );
+    ref
+        .read(climbFlowProvider.notifier)
+        .setPebbleStepBoulderIndex(
+          ref.read(climbFlowProvider).pebbleStepBoulderIndex + 1,
+        );
   }
 
   void _onNextStone() => _onDoneWithLandmark();
 
   void _onStoneTap(int stoneIndex) {
     final state = ref.read(climbFlowProvider);
-    if (state.mountainId == null || state.boulderIds.length <= stoneIndex) return;
+    if (state.mountainId == null || state.boulderIds.length <= stoneIndex) {
+      return;
+    }
     ref.read(climbFlowProvider.notifier).setNamingStoneIndex(stoneIndex);
   }
 
   /// Creates a pebble. [moveToNext] = true: close card and advance to next marker.
   /// [moveToNext] = false: stay on current marker, clear field (batch entry). Never dismiss keyboard.
-  Future<void> _createPebbleAndAnimate(int stoneIndex, String title, {bool moveToNext = false}) async {
+  Future<void> _createPebbleAndAnimate(
+    int stoneIndex,
+    String title, {
+    bool moveToNext = false,
+  }) async {
     final state = ref.read(climbFlowProvider);
-    if (state.mountainId == null || state.boulderIds.length <= stoneIndex) return;
+    if (state.mountainId == null || state.boulderIds.length <= stoneIndex) {
+      return;
+    }
     HapticFeedback.mediumImpact();
     try {
-      final node = await ref.read(nodeActionsProvider).createPebble(
-        mountainId: state.mountainId!,
-        boulderId: state.boulderIds[stoneIndex],
-        title: title.isNotEmpty ? title : 'New pebble',
-        isPendingRitual: true,
-      );
+      final node = await ref
+          .read(nodeActionsProvider)
+          .createPebble(
+            mountainId: state.mountainId!,
+            boulderId: state.boulderIds[stoneIndex],
+            title: title.isNotEmpty ? title : 'New pebble',
+            isPendingRitual: true,
+          );
       await ref.read(satchelProvider.notifier).movePebbleToReady(node.id);
       invalidateAfterNodeMutation(ref, state.mountainId!);
       final notifier = ref.read(climbFlowProvider.notifier);
@@ -664,8 +992,8 @@ class _ClimbFlowOverlayState extends ConsumerState<ClimbFlowOverlay> {
         );
         ids.add(node.id);
       }
-    invalidateAfterNodeMutation(ref, mountainId);
-    ref.read(climbFlowProvider.notifier)
+      invalidateAfterNodeMutation(ref, mountainId);
+      ref.read(climbFlowProvider.notifier)
         ..setLandmarks(ids, names)
         ..setStep(5)
         ..setPebbleStepBoulderIndex(0)
@@ -699,40 +1027,34 @@ class _WizardNavRow extends StatelessWidget {
     required this.onContinue,
     this.onBack,
     this.continueEnabled = true,
-    this.primaryLabel,
-    this.onPrimaryPressed,
-    this.primaryEnabled,
   });
 
   final VoidCallback? onBack;
   final VoidCallback onReturnToMap;
   final String returnLabel;
   final VoidCallback onContinue;
+
   /// When false, the primary Continue button is disabled (e.g. until intent has text).
   final bool continueEnabled;
-  /// When set, overrides the primary button label and action (e.g. "Return" to dismiss keyboard).
-  final String? primaryLabel;
-  final VoidCallback? onPrimaryPressed;
-  final bool? primaryEnabled;
 
-  static const String _backLabel = 'Previous Step';
+  static const String _backLabel = 'Back';
   static const String _defaultPrimaryLabel = 'Continue';
 
   @override
   Widget build(BuildContext context) {
-    final useReturnMode = primaryLabel != null && onPrimaryPressed != null && primaryEnabled != null;
-    final label = useReturnMode ? primaryLabel! : _defaultPrimaryLabel;
-    final onPrimary = useReturnMode ? onPrimaryPressed! : onContinue;
-    final enabled = useReturnMode ? primaryEnabled! : continueEnabled;
-
     final row = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         if (onBack != null) ...[
           TextButton.icon(
+            style: VoyagerSurface.secondaryOnParchmentStyle(),
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.whetInk),
+            icon: const Icon(
+              Icons.arrow_back,
+              size: 18,
+              color: AppColors.whetInk,
+            ),
             label: Text(
               _backLabel,
               style: const TextStyle(
@@ -745,6 +1067,7 @@ class _WizardNavRow extends StatelessWidget {
         ],
         Flexible(
           child: TextButton(
+            style: VoyagerSurface.secondaryOnParchmentStyle(),
             onPressed: onReturnToMap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 120),
@@ -766,22 +1089,15 @@ class _WizardNavRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         FilledButton(
-          onPressed: enabled ? onPrimary : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: enabled ? AppColors.ember : AppColors.ashGrey,
-            foregroundColor: AppColors.parchment,
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(fontFamily: 'Georgia'),
-          ),
+          onPressed: continueEnabled ? onContinue : null,
+          child: const Text(_defaultPrimaryLabel),
         ),
       ],
     );
 
     // Cream/scroll style container so nav row matches campsite intro aesthetic
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       decoration: BoxDecoration(
         color: AppColors.whetPaper.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
@@ -954,7 +1270,9 @@ class _Step1IntentState extends State<_Step1Intent> {
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOut,
                   child: AnimatedSlide(
-                    offset: widget.showInput ? Offset.zero : const Offset(0, 0.05),
+                    offset: widget.showInput
+                        ? Offset.zero
+                        : const Offset(0, 0.05),
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeOutCubic,
                     child: Column(
@@ -982,8 +1300,12 @@ class _Step1IntentState extends State<_Step1Intent> {
                             color: AppColors.whetInk,
                           ),
                           decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
-                            hintText: 'e.g., To find stillness in my daily work...',
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 0,
+                            ),
+                            hintText:
+                                'e.g., To find stillness in my daily work...',
                             hintStyle: const TextStyle(
                               fontFamily: 'Georgia',
                               fontSize: 14,
@@ -996,14 +1318,16 @@ class _Step1IntentState extends State<_Step1Intent> {
                             counterStyle: TextStyle(
                               fontFamily: 'Georgia',
                               fontSize: 12,
-                              color: widget.controller.text.length >= widget.maxChars
+                              color:
+                                  widget.controller.text.length >=
+                                      widget.maxChars
                                   ? AppColors.ember
                                   : AppColors.darkWalnut,
                             ),
                             enabledBorder: const UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.whetLine),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
+                            focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.whetLine),
                             ),
                           ),
@@ -1018,7 +1342,9 @@ class _Step1IntentState extends State<_Step1Intent> {
                             if (_focusNode.hasFocus) _focusNode.unfocus();
                             widget.onContinue();
                           },
-                          continueEnabled: widget.controller.text.trim().isNotEmpty,
+                          continueEnabled: widget.controller.text
+                              .trim()
+                              .isNotEmpty,
                         ),
                       ],
                     ),
@@ -1138,7 +1464,9 @@ class _Step2IdentityState extends State<_Step2Identity> {
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOut,
                   child: AnimatedSlide(
-                    offset: widget.showInput ? Offset.zero : const Offset(0, 0.05),
+                    offset: widget.showInput
+                        ? Offset.zero
+                        : const Offset(0, 0.05),
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeOutCubic,
                     child: Column(
@@ -1173,7 +1501,7 @@ class _Step2IdentityState extends State<_Step2Identity> {
                             enabledBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.whetLine),
                             ),
-                            focusedBorder: const UnderlineInputBorder(
+                            focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(color: AppColors.whetLine),
                             ),
                           ),
@@ -1198,7 +1526,9 @@ class _Step2IdentityState extends State<_Step2Identity> {
                             if (_focusNode.hasFocus) _focusNode.unfocus();
                             widget.onContinue();
                           },
-                          continueEnabled: widget.controller.text.trim().isNotEmpty,
+                          continueEnabled: widget.controller.text
+                              .trim()
+                              .isNotEmpty,
                         ),
                       ],
                     ),
@@ -1258,7 +1588,11 @@ class _Step2Appearance extends StatelessWidget {
   final bool showInput;
 
   String _labelFor(String style) {
-    return style.replaceAll('_', ' ').split(' ').map((s) => s.isEmpty ? '' : '${s[0].toUpperCase()}${s.substring(1)}').join(' ');
+    return style
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((s) => s.isEmpty ? '' : '${s[0].toUpperCase()}${s.substring(1)}')
+        .join(' ');
   }
 
   @override
@@ -1335,7 +1669,9 @@ class _Step2Appearance extends StatelessWidget {
                           runSpacing: 12,
                           children: _appearanceStyles.map((style) {
                             final isSelected = appearanceStyle == style;
-                            final swatchColor = Color(_appearanceColors[style] ?? 0xFF263238);
+                            final swatchColor = Color(
+                              _appearanceColors[style] ?? 0xFF263238,
+                            );
                             return Material(
                               color: isSelected
                                   ? AppColors.ember.withValues(alpha: 0.15)
@@ -1345,11 +1681,16 @@ class _Step2Appearance extends StatelessWidget {
                                 onTap: () => onSelectStyle(style),
                                 borderRadius: BorderRadius.circular(8),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: isSelected ? AppColors.ember : AppColors.slotBorder,
+                                      color: isSelected
+                                          ? AppColors.ember
+                                          : AppColors.slotBorder,
                                       width: isSelected ? 2 : 1,
                                     ),
                                   ),
@@ -1361,7 +1702,9 @@ class _Step2Appearance extends StatelessWidget {
                                         height: 16,
                                         decoration: BoxDecoration(
                                           color: swatchColor,
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           border: Border.all(
                                             color: AppColors.slotBorder,
                                             width: 1,
@@ -1374,8 +1717,12 @@ class _Step2Appearance extends StatelessWidget {
                                         style: TextStyle(
                                           fontFamily: 'Georgia',
                                           fontSize: 14,
-                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                          color: isSelected ? AppColors.ember : AppColors.parchment,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? AppColors.ember
+                                              : AppColors.parchment,
                                         ),
                                       ),
                                     ],
@@ -1508,10 +1855,22 @@ class _Step3Logic extends StatelessWidget {
                             height: 1.3,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          EliasDialogue.climbLayoutPackHint,
+                          style: TextStyle(
+                            fontFamily: 'Georgia',
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: AppColors.darkWalnut.withValues(alpha: 0.82),
+                            height: 1.35,
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         _LogicOption(
                           title: 'The Climb',
-                          subtitle: 'Step-by-step. One milestone after another.',
+                          subtitle:
+                              'Step-by-step. One milestone after another.',
                           isSelected: layoutType == 'climb',
                           onTap: () => onSelectLayout('climb'),
                         ),
@@ -1660,7 +2019,11 @@ class _Step4MarkersState extends State<_Step4Markers> {
   void didUpdateWidget(_Step4Markers oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.focusNodes.length > oldWidget.focusNodes.length) {
-      for (var i = oldWidget.focusNodes.length; i < widget.focusNodes.length; i++) {
+      for (
+        var i = oldWidget.focusNodes.length;
+        i < widget.focusNodes.length;
+        i++
+      ) {
         widget.focusNodes[i].addListener(() => setState(() {}));
       }
     }
@@ -1670,7 +2033,9 @@ class _Step4MarkersState extends State<_Step4Markers> {
   Widget build(BuildContext context) {
     final count = widget.controllers.length;
     final anyFocused = widget.focusNodes.any((n) => n.hasFocus);
-    final allNonEmpty = widget.controllers.every((c) => c.text.trim().isNotEmpty);
+    final allNonEmpty = widget.controllers.every(
+      (c) => c.text.trim().isNotEmpty,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1732,120 +2097,148 @@ class _Step4MarkersState extends State<_Step4Markers> {
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOut,
                   child: AnimatedSlide(
-                    offset: widget.showInput ? Offset.zero : const Offset(0, 0.05),
+                    offset: widget.showInput
+                        ? Offset.zero
+                        : const Offset(0, 0.05),
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeOutCubic,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-              Text(
-                'Phases are the major stages of your journey—e.g. Research, Plan, Execute. Define one to ten. Each name must be unique.',
-                style: const TextStyle(
-                  fontFamily: 'Georgia',
-                  fontSize: 12,
-                  color: AppColors.darkWalnut,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: List.generate(2, (i) => Semantics(
-                  label: 'Template ${i + 1}',
-                  child: TextButton(
-                    onPressed: () => widget.onApplyTemplate(i),
-                    child: Text(
-                      'Use template ${i + 1}',
-                      style: const TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 12,
-                        color: AppColors.ember,
-                      ),
-                    ),
-                  ),
-                )),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final useGrid = constraints.maxWidth > 400 && count > 2;
-                  return useGrid
-                      ? GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 3,
-                          children: List.generate(
-                            count,
-                            (i) => _LandmarkField(
-                              controller: widget.controllers[i],
-                              focusNode: i < widget.focusNodes.length ? widget.focusNodes[i] : null,
-                              label: '${widget.markerLabel} ${i + 1}',
-                              onSubmitted: (_) => widget.onContinue(),
-                            ),
+                        Text(
+                          'Phases are the major stages of your journey—e.g. Research, Plan, Execute. Define one to ten. Each name must be unique.',
+                          style: const TextStyle(
+                            fontFamily: 'Georgia',
+                            fontSize: 12,
+                            color: AppColors.darkWalnut,
                           ),
-                        )
-                      : Column(
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
                           children: List.generate(
-                            count,
-                            (i) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _LandmarkField(
-                                controller: widget.controllers[i],
-                                focusNode: i < widget.focusNodes.length ? widget.focusNodes[i] : null,
-                                label: '${widget.markerLabel} ${i + 1}',
-                                onSubmitted: (_) => widget.onContinue(),
+                            2,
+                            (i) => Semantics(
+                              label: 'Template ${i + 1}',
+                              child: TextButton(
+                                onPressed: () => widget.onApplyTemplate(i),
+                                child: Text(
+                                  'Use template ${i + 1}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Georgia',
+                                    fontSize: 12,
+                                    color: AppColors.ember,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        );
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (widget.canRemove)
-                    TextButton.icon(
-                      onPressed: widget.onRemoveLandmark,
-                      icon: const Icon(Icons.remove_circle_outline, size: 18, color: AppColors.darkWalnut),
-                      label: const Text(
-                        'Remove',
-                        style: TextStyle(
-                          fontFamily: 'Georgia',
-                          color: AppColors.darkWalnut,
                         ),
-                      ),
-                    ),
-                  if (widget.canAdd) ...[
-                    if (widget.canRemove) const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: widget.onAddLandmark,
-                      icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.ember),
-                      label: Text(
-                        'Add ${widget.markerLabel}',
-                        style: const TextStyle(
-                          fontFamily: 'Georgia',
-                          color: AppColors.ember,
+                        const SizedBox(height: 16),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final useGrid =
+                                constraints.maxWidth > 400 && count > 2;
+                            return useGrid
+                                ? GridView.count(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 3,
+                                    children: List.generate(
+                                      count,
+                                      (i) => _LandmarkField(
+                                        controller: widget.controllers[i],
+                                        focusNode: i < widget.focusNodes.length
+                                            ? widget.focusNodes[i]
+                                            : null,
+                                        label: '${widget.markerLabel} ${i + 1}',
+                                        onSubmitted: (_) => widget.onContinue(),
+                                      ),
+                                    ),
+                                  )
+                                : Column(
+                                    children: List.generate(
+                                      count,
+                                      (i) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        child: _LandmarkField(
+                                          controller: widget.controllers[i],
+                                          focusNode:
+                                              i < widget.focusNodes.length
+                                              ? widget.focusNodes[i]
+                                              : null,
+                                          label:
+                                              '${widget.markerLabel} ${i + 1}',
+                                          onSubmitted: (_) =>
+                                              widget.onContinue(),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                          },
                         ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 40),
-              Divider(color: AppColors.whetLine, height: 1, thickness: 1),
-              const SizedBox(height: 16),
-              _WizardNavRow(
-                onBack: widget.onBack,
-                onReturnToMap: widget.onReturnToMap,
-                returnLabel: widget.returnLabel,
-                onContinue: () {
-                  if (anyFocused) FocusScope.of(context).unfocus();
-                  widget.onContinue();
-                },
-                continueEnabled: allNonEmpty,
-              ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            if (widget.canRemove)
+                              TextButton.icon(
+                                onPressed: widget.onRemoveLandmark,
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  size: 18,
+                                  color: AppColors.darkWalnut,
+                                ),
+                                label: const Text(
+                                  'Remove',
+                                  style: TextStyle(
+                                    fontFamily: 'Georgia',
+                                    color: AppColors.darkWalnut,
+                                  ),
+                                ),
+                              ),
+                            if (widget.canAdd) ...[
+                              if (widget.canRemove) const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: widget.onAddLandmark,
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                  size: 18,
+                                  color: AppColors.ember,
+                                ),
+                                label: Text(
+                                  'Add ${widget.markerLabel}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Georgia',
+                                    color: AppColors.ember,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+                        Divider(
+                          color: AppColors.whetLine,
+                          height: 1,
+                          thickness: 1,
+                        ),
+                        const SizedBox(height: 16),
+                        _WizardNavRow(
+                          onBack: widget.onBack,
+                          onReturnToMap: widget.onReturnToMap,
+                          returnLabel: widget.returnLabel,
+                          onContinue: () {
+                            if (anyFocused) FocusScope.of(context).unfocus();
+                            widget.onContinue();
+                          },
+                          continueEnabled: allNonEmpty,
+                        ),
                       ],
                     ),
                   ),
@@ -1893,7 +2286,7 @@ class _LandmarkField extends StatelessWidget {
         enabledBorder: const UnderlineInputBorder(
           borderSide: BorderSide(color: AppColors.whetLine),
         ),
-        focusedBorder: const UnderlineInputBorder(
+        focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: AppColors.whetLine),
         ),
       ),
@@ -1928,21 +2321,27 @@ class _MalletStrikeOverlayState extends State<_MalletStrikeOverlay>
     );
     _rotation = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: -15 * _deg)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 0.0,
+          end: -15 * _deg,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 1,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: -15 * _deg, end: 10 * _deg)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: -15 * _deg,
+          end: 10 * _deg,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 1,
       ),
     ]).animate(_controller);
     _opacity = TweenSequence<double>([
       TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 2),
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 1,
       ),
     ]).animate(_controller);
@@ -1965,15 +2364,12 @@ class _MalletStrikeOverlayState extends State<_MalletStrikeOverlay>
           child: Transform.rotate(
             angle: _rotation.value,
             child: Image.asset(
-              'assets/mallet/mallet.png',
+              'assets/ui/mallet.png',
               width: 48,
               height: 48,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.handyman,
-                size: 48,
-                color: AppColors.ember,
-              ),
+              errorBuilder: (context, error, stackTrace) =>
+                  Icon(Icons.handyman, size: 48, color: AppColors.ember),
             ),
           ),
         );
@@ -2006,7 +2402,8 @@ class _Step5Pebbles extends ConsumerStatefulWidget {
   final String markerLabel;
   final String eliasLine;
   final void Function(int stoneIndex) onStoneTap;
-  final Future<void> Function(int stoneIndex, String title, {bool moveToNext}) onCreatePebble;
+  final Future<void> Function(int stoneIndex, String title, {bool moveToNext})
+  onCreatePebble;
   final VoidCallback onCancelNaming;
   final VoidCallback onDoneWithLandmark;
   final VoidCallback onNextStone;
@@ -2243,10 +2640,6 @@ class _LandmarkChipsCard extends StatelessWidget {
             button: true,
             child: FilledButton(
               onPressed: onAscension,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.ember,
-                foregroundColor: AppColors.parchment,
-              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 120),
                 child: Row(
@@ -2280,7 +2673,11 @@ class _LandmarkChipsCard extends StatelessWidget {
             if (onBack != null) ...[
               TextButton.icon(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.darkWalnut),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  size: 18,
+                  color: AppColors.darkWalnut,
+                ),
                 label: const Text(
                   'Back',
                   style: TextStyle(
@@ -2330,10 +2727,6 @@ class _LandmarkChipsCard extends StatelessWidget {
                   button: true,
                   child: FilledButton(
                     onPressed: onDoneWithLandmark,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ember,
-                      foregroundColor: AppColors.parchment,
-                    ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -2377,13 +2770,17 @@ class _PackJourneyButtonState extends State<_PackJourneyButton>
     );
     _pulse = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.06)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 1.0,
+          end: 1.06,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 1,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.06, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: 1.06,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 1,
       ),
     ]).animate(_controller);
@@ -2404,16 +2801,11 @@ class _PackJourneyButtonState extends State<_PackJourneyButton>
       child: AnimatedBuilder(
         animation: _pulse,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _pulse.value,
-            child: child,
-          );
+          return Transform.scale(scale: _pulse.value, child: child);
         },
         child: FilledButton(
           onPressed: widget.onPressed,
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.ember,
-            foregroundColor: AppColors.parchment,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           ),
           child: FittedBox(
@@ -2523,14 +2915,7 @@ class _NamePebbleCard extends StatelessWidget {
                 button: true,
                 child: FilledButton(
                   onPressed: () async => await onPlantPebble(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.ember,
-                    foregroundColor: AppColors.parchment,
-                  ),
-                  child: const Text(
-                    'Set Pebble',
-                    style: TextStyle(fontFamily: 'Georgia'),
-                  ),
+                  child: const Text('Set Pebble'),
                 ),
               ),
             ),
@@ -2606,4 +2991,3 @@ class _StoneChip extends StatelessWidget {
     );
   }
 }
-

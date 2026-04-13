@@ -10,6 +10,7 @@ import 'core/utils/retry.dart';
 import 'data/demo/demo_storage.dart';
 import 'features/onboarding/forest_threshold.dart';
 import 'app.dart';
+import 'core/constants/app_colors.dart';
 
 /// True if Supabase initialized successfully. False if init timed out or threw.
 /// When false, the app shows a connection-error screen with Retry or "Try Demo Mode".
@@ -46,10 +47,12 @@ Future<void> initVoyagerSanctuary() async {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
     return;
   }
 
@@ -59,14 +62,18 @@ Future<void> initVoyagerSanctuary() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
 }
 
 Future<void> _initVoyagerSanctuaryImpl() async {
-  debugPrint('[Bootstrap] _initVoyagerSanctuaryImpl start, kSkipAuthForTesting=$kSkipAuthForTesting');
+  debugPrint(
+    '[Bootstrap] _initVoyagerSanctuaryImpl start, kSkipAuthForTesting=$kSkipAuthForTesting',
+  );
   // When testing without auth, skip SharedPreferences entirely — default to demo.
   // Avoids loadDemoMode() which can block the platform thread on first launch.
   if (kSkipAuthForTesting) {
@@ -79,7 +86,9 @@ Future<void> _initVoyagerSanctuaryImpl() async {
   if (isDemoMode) {
     _supabaseInitSucceeded = true;
     if (kSkipAuthForTesting) {
-      debugPrint('[Bootstrap] SKIP_AUTH: seedInMemoryOnly (no SharedPreferences)');
+      debugPrint(
+        '[Bootstrap] SKIP_AUTH: seedInMemoryOnly (no SharedPreferences)',
+      );
       DemoStorage.instance.seedInMemoryOnly();
     } else {
       debugPrint('[Bootstrap] DemoStorage.load (SharedPreferences)...');
@@ -87,7 +96,9 @@ Future<void> _initVoyagerSanctuaryImpl() async {
         await DemoStorage.instance.load().timeout(
           const Duration(seconds: 5),
           onTimeout: () {
-            debugPrint('DemoStorage.load timed out — proceeding with empty storage');
+            debugPrint(
+              'DemoStorage.load timed out — proceeding with empty storage',
+            );
             throw TimeoutException('DemoStorage load timed out');
           },
         );
@@ -98,15 +109,16 @@ Future<void> _initVoyagerSanctuaryImpl() async {
   } else {
     try {
       await retryWithBackoff(
-        () => Supabase.initialize(
-          url: SupabaseConfig.url,
-          anonKey: SupabaseConfig.anonKey,
-        ).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw TimeoutException('Supabase init timed out');
-          },
-        ),
+        () =>
+            Supabase.initialize(
+              url: SupabaseConfig.url,
+              anonKey: SupabaseConfig.anonKey,
+            ).timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                throw TimeoutException('Supabase init timed out');
+              },
+            ),
         maxAttempts: 2,
         initialDelay: const Duration(milliseconds: 500),
       );
@@ -126,15 +138,16 @@ Future<void> _initVoyagerSanctuaryImpl() async {
 Future<bool> retrySupabaseInit() async {
   try {
     await retryWithBackoff(
-      () => Supabase.initialize(
-        url: SupabaseConfig.url,
-        anonKey: SupabaseConfig.anonKey,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Supabase init timed out');
-        },
-      ),
+      () =>
+          Supabase.initialize(
+            url: SupabaseConfig.url,
+            anonKey: SupabaseConfig.anonKey,
+          ).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('Supabase init timed out');
+            },
+          ),
       maxAttempts: 3,
       initialDelay: const Duration(milliseconds: 500),
     );
@@ -149,20 +162,12 @@ Future<bool> retrySupabaseInit() async {
 /// Runs the app. Call after [initVoyagerSanctuary].
 /// If Supabase init failed (timeout/error), shows a connection-error screen with Retry.
 void runVoyagerSanctuary() {
-  runApp(
-    const ProviderScope(
-      child: _AppLoader(),
-    ),
-  );
+  runApp(const ProviderScope(child: _AppLoader()));
 }
 
 /// Restarts the app (e.g. after exiting demo mode). Re-runs the loader.
 void restartVoyagerSanctuary() {
-  runApp(
-    const ProviderScope(
-      child: _AppLoader(),
-    ),
-  );
+  runApp(const ProviderScope(child: _AppLoader()));
 }
 
 /// Shows VoyagerSanctuaryApp or a connection-error screen when init failed.
@@ -216,15 +221,18 @@ class _AppLoaderState extends State<_AppLoader> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData.dark().copyWith(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB8621A), brightness: Brightness.dark),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFB8621A),
+            brightness: Brightness.dark,
+          ),
         ),
         home: Scaffold(
           body: Stack(
             fit: StackFit.expand,
             children: [
               const ForestThreshold(
-                message: 'Descending into the sanctuary...',
-                assetPath: 'assets/backgrounds/night.jfif',
+                message: '',
+                assetPath: 'assets/backgrounds/forest_threshold.png',
               ),
             ],
           ),
@@ -235,7 +243,10 @@ class _AppLoaderState extends State<_AppLoader> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData.dark().copyWith(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB8621A), brightness: Brightness.dark),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFFB8621A),
+            brightness: Brightness.dark,
+          ),
         ),
         home: _ConnectionErrorScreen(onRetry: _onRetry),
       );
@@ -307,15 +318,16 @@ class _ConnectionErrorScreenState extends State<_ConnectionErrorScreen> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppColors.parchment,
                         ),
                       )
                     : const Icon(Icons.refresh_rounded, size: 20),
                 label: Text(_isRetrying ? 'Connecting...' : 'Try again'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFB8621A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ],

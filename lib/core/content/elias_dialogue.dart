@@ -35,12 +35,17 @@ class EliasDialogue {
     'These stones are yours. See them through.',
   ];
 
-  static const List<String> _emptySatchel = [
+  /// EDGE E1 — empty satchel / caught up / nudge toward Map or next action.
+  /// See `docs/CORE_LOOP_SOURCE_OF_TRUTH.md` §14. (Auto-pack is framed as Elias in product copy.)
+  static const List<String> _edgeE1EmptySatchelCaughtUp = [
+    'Your satchel awaits. Break a stone to begin.',
     'Nothing packed yet.',
     'The bag is empty. Pack your stones.',
     'An empty satchel is a question. Answer it.',
     'No stones chosen. Visit the Map.',
     'An empty bag is a quiet path. Visit the map to find a stone worth carrying.',
+    'The path is clear for the moment. Shall we plan the next climb—or tend the blade?',
+    "I've set out what needs doing today. The rest waits on your hand.",
   ];
 
   static const List<String> _mountainSummit = [
@@ -90,9 +95,7 @@ class EliasDialogue {
     'Open your Satchel and mark the stone done. Then you may drop it here.',
   ];
 
-  static const List<String> _firstBurn = [
-    'One stone burned. The path opens.',
-  ];
+  static const List<String> _firstBurn = ['One stone burned. The path opens.'];
 
   // ── 5-Beat Cinematic Intro ("The Forest Threshold") ─────────
   // Archivist tone. Ellipses (...) = soft pause for typewriter.
@@ -153,6 +156,10 @@ class EliasDialogue {
       'These slots hold the stones for your climb. Keep them close to your heart—and the fire.';
   static const String sanctuaryHomeIntroFirepit =
       'The hearth transforms effort into peace. Feed the fire when a stone has served its purpose.';
+
+  /// Single first-visit bubble (non-empty sanctuary): map, satchel row, hearth, then counsel.
+  static const String sanctuaryHomeIntroCombined =
+      'Three anchors here: the Map holds your peaks. The stone row is your Satchel—pack work you intend to finish. The Hearth accepts what is done. Tap me anytime for counsel.';
 
   // ── First-run Quest (Guide's Whisper) ─────────────────────
 
@@ -357,10 +364,18 @@ class EliasDialogue {
   }
 
   /// Period-based greeting for Sanctuary (campsite). If [displayName] is present, uses personalized line.
-  static String sanctuaryPeriodGreeting(ScenePeriod period, String? displayName) {
+  static String sanctuaryPeriodGreeting(
+    ScenePeriod period,
+    String? displayName,
+  ) {
+    if (period == ScenePeriod.night && DateTime.now().hour < 4) {
+      final blueHour =
+          'Still awake, Keeper? The ledger can wait for the sun, but the fire is warm if you must stay.';
+      return blueHour;
+    }
     final name = displayName?.trim();
     final pools = _sanctuaryPeriodPools(period);
-    final i = DateTime.now().millisecondsSinceEpoch % pools.length;
+    final i = _rng.nextInt(pools.length);
     final line = pools[i];
     if (name != null && name.isNotEmpty && line.contains('%s')) {
       return line.replaceAll('%s', name);
@@ -375,24 +390,32 @@ class EliasDialogue {
           'The mountain awaits, %s.',
           'Another day on the path. Good morning, %s.',
           'The fire held through the night. Begin, %s.',
+          'First light finds the faithful. Walk with me, %s.',
+          'The trail is long; the first step is now, %s.',
         ];
       case ScenePeriod.midday:
         return const [
           'The climb continues, %s.',
           'Midday. Keep your footing, %s.',
           'How goes the ascent, %s?',
+          'Heat tests the traveler. Steady breath, %s.',
+          'What you tend at noon shapes the evening fire, %s.',
         ];
       case ScenePeriod.sunset:
         return const [
           'The light is fading. Finish strong, %s.',
           'A good day\'s climb. Rest is earned, %s.',
           'The summit does not move. Return tomorrow, %s.',
+          'Gold on the ridge — honor what you moved today, %s.',
+          'Let the hearth receive what you are ready to release, %s.',
         ];
       case ScenePeriod.night:
         return const [
           'The Sanctuary holds. Rest well, %s.',
           'The fire is yours. Take the quiet, %s.',
           'Tomorrow\'s path begins in tonight\'s stillness, %s.',
+          'The ledger can sleep. You need not, %s — only breathe.',
+          'Darkness keeps its own counsel. So may you, %s.',
         ];
     }
   }
@@ -408,8 +431,7 @@ class EliasDialogue {
 
   // ── Private helper ─────────────────────────────────────────
 
-  static String _pick(List<String> pool) =>
-      pool[_rng.nextInt(pool.length)];
+  static String _pick(List<String> pool) => pool[_rng.nextInt(pool.length)];
 
   /// Pick from pool, avoiding the same index twice in a row. Returns (line, index).
   /// Pass -1 for lastIndex on first call.
@@ -431,8 +453,12 @@ class EliasDialogue {
   /// Spoken after the Satchel is packed.
   static String afterPack() => _pick(_afterPack);
 
-  /// Spoken when the user opens the Satchel and it is empty.
-  static String emptySatchel() => _pick(_emptySatchel);
+  /// Spoken when the user opens the Satchel and it is empty (pool = EDGE E1).
+  static String emptySatchel() => edgeEmptySatchelCaughtUp();
+
+  /// EDGE E1 — canonical accessor for empty / caught-up satchel copy.
+  static String edgeEmptySatchelCaughtUp() =>
+      _pick(_edgeE1EmptySatchelCaughtUp);
 
   /// Spoken when the user taps Elias and fire is cold (fuel 0, no stones dropped).
   static String coldHearth() => _pick(_coldHearth);
@@ -443,8 +469,14 @@ class EliasDialogue {
   /// Spoken when the last pebble of a mountain is burned (summit celebration).
   static String mountainSummit() => _pick(_mountainSummit);
 
-  /// Context-aware: satchel full when user tries to pack.
+  /// Context-aware: satchel full when user tries to pack (EDGE E7).
   static String satchelFull() => _pick(_satchelFull);
+
+  /// EDGE E7 — alias for `satchelFull()` (source-of-truth id).
+  static String edgeSatchelFull() => satchelFull();
+
+  /// EDGE E2 — fire reads cold / low fuel (alias of [coldHearth]).
+  static String edgeFireCold() => coldHearth();
 
   /// Context-aware: at mountain cap (3 active) when user tries to climb.
   static String atMountainCap() => _pick(_atMountainCap);
@@ -526,6 +558,10 @@ class EliasDialogue {
   static (String, int) climbLogicPromptWithIndex(int lastEliasIndex) =>
       _pickNoRepeat(_climbLogicPrompt, lastEliasIndex);
 
+  /// Subcopy under the Climb / Survey chips: how this relates to the map and packing.
+  static const String climbLayoutPackHint =
+      'Climb reads as a path—Survey as regions on the map. Pack Satchel still pulls from what is ready to move today.';
+
   /// Peak prompt (legacy / fallback).
   static (String, int) climbPeakPromptWithIndex(int lastEliasIndex) =>
       _pickNoRepeat(_climbPeakPrompt, lastEliasIndex);
@@ -572,4 +608,202 @@ class EliasDialogue {
 
   /// Whetstone overlay: tooltip for Refine Path (Hammer).
   static String whetstoneRefineNudge() => _whetstoneRefineNudge;
+
+  // ── EDGE E3 — Map with no active Peaks ──────────────────────
+
+  static const List<String> _edgeE3NoActivePeaks = [
+    'Plant your first peak.',
+    'Every summit begins with a single step from camp.',
+    'The map is quiet. Plot one path — the mountains will answer.',
+    'No peaks yet. Name the climb that matters most today.',
+  ];
+
+  /// EDGE E3 — scroll / map empty state (rotating pool).
+  static String edgeNoActivePeaks() => _pick(_edgeE3NoActivePeaks);
+
+  /// Legacy name — use [edgeNoActivePeaks] in new code.
+  static String scrollMapEmptyLine() => edgeNoActivePeaks();
+
+  /// EDGE E4 — long absence / hearth cooled (vision: lighter pack; wire UI later).
+  static const List<String> _edgeE4LongAbsenceReturn = [
+    'The hearth has cooled. Let\'s start small.',
+    'You\'ve been away. The path is still here — one stone at a time.',
+    'The embers remember. When you are ready, we begin again.',
+  ];
+
+  static String edgeLongAbsenceReturn() => _pick(_edgeE4LongAbsenceReturn);
+
+  // ── v0.1.2: Empty states (fixed copy) ───────────────────────
+
+  /// Satchel body when all slots empty (same pool as EDGE E1).
+  static String satchelEmptyEliasLine() => edgeEmptySatchelCaughtUp();
+
+  static const String _whetstoneEmptyV012 =
+      'Sharp habits sharpen the climb.';
+
+  static String whetstoneEmptyLine() => _whetstoneEmptyV012;
+
+  // ── v0.1.2: Journal / reflection prompts ────────────────────
+
+  static String reflectionWhyPeakPrompt(String mountainName) =>
+      'You\'ve named it $mountainName. But what does this peak represent in your life?';
+
+  static String reflectionPackPrompt(String mountainName) =>
+      'You carried the stone to the hearth. What does this achievement mean to you?';
+
+  static const String whetstoneStrugglePrompt =
+      'The sharpening isn\'t happening today. Is the stone too heavy, or have you set it down intentionally?';
+
+  static const String whetstoneStruggleOverwhelmed =
+      'Then we lighten the pack. One stone at a time. I am here.';
+
+  static const String whetstoneStruggleIntentional =
+      'A chosen pause is still part of the climb. Return when the edge calls.';
+
+  // ── v0.1.2: Time-of-day greetings (stoic knight tone) ───────
+
+  static String timeOfDayGreeting(ScenePeriod period) {
+    switch (period) {
+      case ScenePeriod.dawn:
+        return _pick(const [
+          'The light returns. So do you.',
+          'Dawn breaks. The path remembers those who return.',
+          'The mist lifts. Take the step that is yours today.',
+          'Birdsong is brief; the climb is long. Begin anyway.',
+          'Cool air, clear head — gift yourself one honest hour.',
+        ]);
+      case ScenePeriod.midday:
+        return _pick(const [
+          'The sun is high. Your shadow grows short.',
+          'Midday clarity. Use it while it lasts.',
+          'The slope is steep; pace is its own discipline.',
+          'Noon does not ask for drama. It asks for presence.',
+          'Half the sky behind you. Half still yours to earn.',
+        ]);
+      case ScenePeriod.sunset:
+        return _pick(const [
+          'The light fades but the fire grows. Feed it.',
+          'Dusk. The embers reward honest work.',
+          'Day\'s labor ends. Let the weight you shed stay shed.',
+          'The horizon forgives what the hour could not finish.',
+          'Orange on the stones — a soft verdict on the day.',
+        ]);
+      case ScenePeriod.night:
+        return _pick(const [
+          'The stars are your map now. The hearth is your anchor.',
+          'Night holds the mountain. Rest is not surrender.',
+          'The camp is still. What you carried today was enough.',
+          'Silence is not empty. It is full of answers you are not ready to hear.',
+          'The fire knows your name without you speaking it.',
+        ]);
+    }
+  }
+
+  // ── v0.1.2: Habit-specific encouragement ───────────────────
+
+  static String habitCompleteEncouragement(String habitTitle) {
+    final t = habitTitle.toLowerCase();
+    if (t.contains('run') ||
+        t.contains('walk') ||
+        t.contains('gym') ||
+        t.contains('exercise') ||
+        t.contains('move')) {
+      return 'The body wakes before the mind. You\'ve learned this.';
+    }
+    if (t.contains('read') || t.contains('book')) {
+      return 'Knowledge is a tool as valuable as the whetstone.';
+    }
+    if (t.contains('meditat') ||
+        t.contains('still') ||
+        t.contains('breathe')) {
+      return 'Stillness sharpens. Rest is work.';
+    }
+    return 'Well tended. The edge holds.';
+  }
+
+  static const String setbackThreeHabitsMissed =
+      'The blade grows dull. It happens. That\'s why we have the whetstone.';
+
+  static const String setbackDraftDeleted =
+      'Not every path leads up the mountain. That\'s wisdom, not failure.';
+
+  /// Shown on Sanctuary streak chip (tooltip) — explains 4 AM streak-day + freeze.
+  static const String burnStreakGraceTooltip =
+      'Streak freezes when you miss a day. Burn by 4 AM tomorrow = it lives.';
+
+  // ── v0.1.2: Milestones & context (one-shot lines) ───────────
+
+  static const String milestoneFirstSummit =
+      'The first summit is always the heaviest. You\'ve proven you can climb.';
+
+  static const String milestoneBurnStreak7 =
+      'Seven days of tending. The hearth does not forget a faithful hand.';
+
+  static const String milestoneTenBurnsOneDay =
+      'Such urgency. The mountain doesn\'t demand speed, only presence.';
+
+  static const String revisitCompletedMountain =
+      'You return to familiar peaks. Wisdom lies there.';
+
+  static const String struggleBrokenStreakReturn =
+      'The path grows quiet when we leave it. But quiet isn\'t the end—it\'s just waiting.';
+
+  static const String struggleManyIncomplete =
+      'Some days, the edge grows dull. That\'s when we sharpen.';
+
+  static const String encouragementDeepWork =
+      'Deep work. The mountains reward those who linger.';
+
+  static const String encouragementImpatientSeed =
+      'Impatience can be a guide. Strike while the fire burns.';
+
+  static const String encouragementWeekAway =
+      'The sanctuary waits. I wait. Return when you\'re ready.';
+
+  static const String firstPeakCreated =
+      'A new peak on the map. Name it well—it will remember you.';
+
+  static const String firstStoneBurnedMilestone =
+      'The first burn is a vow kept. The path has begun.';
+
+  static const String firstHabitCompleteMilestone =
+      'The first edge you sharpen is always the hardest. The path takes note.';
+}
+
+/// Ritual reflections for Hearth completion.
+/// Prioritization: last-in-mountain > starred > short burn.
+class EliasBurnReflections {
+  EliasBurnReflections._();
+
+  static final Random _rng = Random();
+
+  static const List<String> _shortBurn = [
+    'One more ember for the hearth.',
+    'The path is a little clearer now.',
+    'A small stone, but it burned bright.',
+    'A fine strike. The mountain feels the weight lift.',
+  ];
+
+  static const List<String> _starredBurn = [
+    'A star falls, and the fire grows warmer for it.',
+    'This was a heavy one. Rest by the fire a moment.',
+    'You carried that stone a long way. Let it rest now.',
+    'The spirit of your journey is bright tonight.',
+  ];
+
+  static const List<String> _lastInMountain = [
+    'The peak is reached. Look back at the trail you have carved.',
+    'No more stones for this journey. The summit is yours.',
+    'A mountain conquered. The stars bear witness to your ritual.',
+  ];
+
+  static String getReaction({bool isStarred = false, bool isLast = false}) {
+    if (isLast) {
+      return _lastInMountain[_rng.nextInt(_lastInMountain.length)];
+    }
+    if (isStarred) {
+      return _starredBurn[_rng.nextInt(_starredBurn.length)];
+    }
+    return _shortBurn[_rng.nextInt(_shortBurn.length)];
+  }
 }

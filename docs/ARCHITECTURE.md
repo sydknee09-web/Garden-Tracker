@@ -16,7 +16,7 @@
 | Mallet | Tap to reveal (Option B). | The Scroll Map should look like art until the user chooses to architect. |
 | Mountain cap | 3 active mountains max. | "Rule of Three." Subtraction for focus. Archive to open new paths. |
 | Satchel UX | Compact tray on Sanctuary + full-screen detail. | Tray enables drag-to-hearth. Full screen shows metadata. |
-| Whetstone | 5 seeded starter habits. Reorderable. | Blank first screen is disorienting. Starters show intent. |
+| Whetstone | 5 starter habits (pre-loaded). Reorderable. | Blank first screen is disorienting. Starters show intent. |
 | Realtime sync | Supabase realtime ON from day one. | Trivial to enable. Painful to retrofit. |
 | Notifications | None for MVP. | Elias is a Silent Operator. Notifications feel like nagging. |
 | Art assets | Placeholder gradients + labeled rectangles. | Build around the asset slot, not the art. |
@@ -25,20 +25,20 @@
 
 ## DESIGN AESTHETIC — THE NORTH STAR
 
-> **"Refined Architectural Luxury meets Hotel Executive."**
+> **Cozy. Smooth. Gamified. Polished. Fun.** (Aligned with [MASTER_PLAN.md](MASTER_PLAN.md) § Design Aesthetic.)
 
-Every UI decision is filtered through this lens. The app should feel like a high-end leather-bound planner, not a colorful productivity tool.
+A Studio Ghibli–esque retreat—tactile, whimsical, satisfying. Japandi: minimal entry points, calm over chaos, "less is more." Ritual over task list. The Sanctuary is a place you want to return to, not a productivity tool you open out of obligation. *Evicted:* "Hotel Executive" / high-end office vibes; status over satisfaction.
 
 | Element | Aesthetic Direction |
 |---|---|
-| **Textures** | Marble, aged leather, boucle fabric, worn parchment |
-| **Color palette** | Deep neutrals (charcoal, warm black, off-white ivory), accents in gold or ember |
+| **Textures** | Worn parchment, vellum for overlays and bubbles; tactile, hand-crafted feel |
+| **Color palette** | Dark Walnut, Cream Parchment, warm orange accents (`#C26D2B`). Charcoal Stone or Misty Navy instead of flat grey; Warm Parchment or Soft Linen instead of pure white. Organic, muted tones. |
 | **Typography** | Serif or refined sans-serif. No playful rounded fonts. |
 | **Iconography** | Weighty, intentional. Stone and fire metaphors. No flat emoji-style icons. |
 | **Animations** | Slow, deliberate, physical. Stone weight. Fire warmth. No bouncy spring physics. |
 | **Whitespace** | Generous. The Sanctuary should feel like a room, not a dashboard. |
 
-**Elias specifically:** He is a *Grounded Presence*, not an assistant. He does not lecture, nag, or offer project advice. He greets warmly, holds the space, and gatekeeps the Satchel refill. He is a Silent Operator.
+**Elias specifically:** He is a *Grounded Presence*, not an assistant. He speaks like a guide, not a coach. He does not lecture, nag, or offer project advice. He greets warmly, holds the space, and gatekeeps the Satchel refill. He is a Silent Operator.
 
 ---
 

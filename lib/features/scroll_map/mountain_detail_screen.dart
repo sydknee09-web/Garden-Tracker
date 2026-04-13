@@ -1,43 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/content/elias_dialogue.dart';
-import '../../core/enums/node_type.dart';
 import '../../data/models/mountain.dart';
 import '../../data/models/node.dart';
 import '../../providers/mountain_provider.dart';
 import '../../providers/narrow_invalidation.dart';
 import '../../providers/node_provider.dart';
-import '../../providers/satchel_provider.dart';
 import 'edit_flow_overlay.dart';
 
 /// Peak Journal — technical ledger for a single mountain.
 /// Architect Mode (Mallet) lives here; Map shows summary cards only.
 class MountainDetailScreen extends ConsumerStatefulWidget {
-  const MountainDetailScreen({
-    super.key,
-    required this.mountainId,
-  });
+  const MountainDetailScreen({super.key, required this.mountainId});
 
   final String mountainId;
 
   @override
-  ConsumerState<MountainDetailScreen> createState() => _MountainDetailScreenState();
+  ConsumerState<MountainDetailScreen> createState() =>
+      _MountainDetailScreenState();
 }
 
 class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
-  bool _malletActive = false;
   bool _hasShownPeakArrival = false;
 
   @override
   Widget build(BuildContext context) {
     final mountainAsync = ref.watch(mountainProvider(widget.mountainId));
-    final nodesAsync = ref.watch(nodeListProvider(widget.mountainId));
-    final progressAsync = ref.watch(mountainProgressProvider(widget.mountainId));
+    final ledgerAsync = ref.watch(mountainLedgerProvider(widget.mountainId));
 
     return mountainAsync.when(
       data: (mountain) {
@@ -49,12 +42,15 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
                 tooltip: 'Stow the Map',
                 onPressed: () => context.go(AppRoutes.scroll),
               ),
-              title: const Text('Peak not found', style: TextStyle(fontFamily: 'Georgia')),
+              title: const Text(
+                'Peak not found',
+                style: TextStyle(fontFamily: 'Georgia'),
+              ),
             ),
             body: const Center(child: Text('This peak could not be found.')),
           );
         }
-        return _buildDetail(context, mountain, nodesAsync, progressAsync);
+        return _buildDetail(context, mountain, ledgerAsync);
       },
       loading: () => Scaffold(
         backgroundColor: AppColors.parchment,
@@ -82,9 +78,13 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Something went wrong', style: TextStyle(color: AppColors.ashGrey)),
+              Text(
+                'Something went wrong',
+                style: TextStyle(color: AppColors.ashGrey),
+              ),
               TextButton(
-                onPressed: () => ref.invalidate(mountainProvider(widget.mountainId)),
+                onPressed: () =>
+                    ref.invalidate(mountainProvider(widget.mountainId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -97,13 +97,11 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
   Widget _buildDetail(
     BuildContext context,
     Mountain mountain,
-    AsyncValue<List<Node>> nodesAsync,
-    AsyncValue<double> progressAsync,
+    AsyncValue<MountainLedgerData> ledgerAsync,
   ) {
-    final nodes = nodesAsync.valueOrNull ?? [];
-    final boulders = nodes.where((n) => n.nodeType == NodeType.boulder).toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
-    final progress = progressAsync.valueOrNull ?? 0.0;
+    final ledger = ledgerAsync.valueOrNull;
+    final nodes = ledger?.nodes ?? const <Node>[];
+    final progress = ledger?.progress ?? 0.0;
 
     if (!_hasShownPeakArrival) {
       _hasShownPeakArrival = true;
@@ -147,39 +145,51 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
         ),
         iconTheme: const IconThemeData(color: AppColors.charcoal),
         actions: [
-          IconButton(
-            icon: Text(
-              _malletActive ? 'ARCHITECT ✕' : 'ARCHITECT',
-              style: const TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 11,
-                letterSpacing: 1,
-                color: AppColors.ember,
-              ),
-            ),
-            onPressed: () {
-              setState(() => _malletActive = !_malletActive);
-              HapticFeedback.selectionClick();
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: AppColors.charcoal),
+            onSelected: (value) {
+              if (value == 'rename') {
+                _openEditOverlay(EditTargetPeak(mountain));
+              } else if (value == 'chronicle') {
+                _showArchiveConfirm(context, mountain);
+              }
             },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'rename',
+                child: Text(
+                  'Rename peak',
+                  style: TextStyle(fontFamily: 'Georgia'),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'chronicle',
+                child: Text(
+                  'Chronicle this peak',
+                  style: TextStyle(fontFamily: 'Georgia'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
-          24,
           16,
-          24,
-          100 + MediaQuery.paddingOf(context).bottom,
+          16,
+          16,
+          96 + MediaQuery.paddingOf(context).bottom,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (mountain.intentStatement != null && mountain.intentStatement!.isNotEmpty)
+            if (mountain.intentStatement != null &&
+                mountain.intentStatement!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   '"${mountain.intentStatement}"',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Georgia',
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
@@ -188,92 +198,130 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
                   ),
                 ),
               ),
+            if (mountain.reflectionWhyPeak != null &&
+                mountain.reflectionWhyPeak!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Why I climb ${mountain.name}:',
+                      style: TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                        color: AppColors.ashGrey.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      mountain.reflectionWhyPeak!.trim(),
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.charcoal,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (mountain.reflectionPackJourney != null &&
+                mountain.reflectionPackJourney!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Reflection after the journey:',
+                      style: TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                        color: AppColors.ashGrey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      mountain.reflectionPackJourney!.trim(),
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.charcoal,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             LinearProgressIndicator(
               value: progress,
               backgroundColor: AppColors.slotBorder.withValues(alpha: 0.5),
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.ember),
-              minHeight: 4,
+              minHeight: 5,
             ),
             const SizedBox(height: 8),
             Text(
-              '${(progress * 100).round()}% complete',
-              style: TextStyle(
+              '${(progress * 100).round()}% extinguished',
+              style: const TextStyle(
                 fontFamily: 'Georgia',
                 fontSize: 12,
                 color: AppColors.ashGrey,
               ),
             ),
-            ref.watch(mountainMomentumProvider(widget.mountainId)).when(
-              data: (momentum) {
-                if (momentum.burnsThisWeek == 0 && momentum.daysSinceLastBurn == null) {
-                  return const SizedBox.shrink();
-                }
-                final text = momentum.burnsThisWeek > 0
-                    ? '${momentum.burnsThisWeek} pebbles burned this week'
-                    : 'Last burn: ${momentum.daysSinceLastBurn} days ago';
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    text,
-                    style: const TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: AppColors.ashGrey,
-                    ),
+            const SizedBox(height: 12),
+            if (ledgerAsync.isLoading)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.ember),
+                ),
+              )
+            else if (nodes.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'The ledger is quiet. Chart a boulder to begin this ascent.',
+                  style: TextStyle(
+                    color: AppColors.ashGrey,
+                    fontFamily: 'Georgia',
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13,
                   ),
-                );
-              },
-              loading: () => const SizedBox(height: 16),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 24),
-            if (boulders.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: _malletActive
-                    ? OutlinedButton.icon(
-                        onPressed: () => _malletOnMountain(mountain),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add boulder', style: TextStyle(fontFamily: 'Georgia')),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.ember,
-                          side: const BorderSide(color: AppColors.ember),
-                        ),
-                      )
-                    : Text(
-                        'No boulders yet — activate Architect Mode to build.',
-                        style: const TextStyle(
-                          color: AppColors.ashGrey,
-                          fontFamily: 'Georgia',
-                          fontStyle: FontStyle.italic,
-                          fontSize: 12,
-                        ),
-                      ),
+                ),
               )
             else
-              ...boulders.map((b) => _BoulderTile(
-                    boulder: b,
-                    nodes: nodes,
-                    mountain: mountain,
-                    malletActive: _malletActive,
-                    onOpenEdit: _openEditOverlay,
-                    onMalletOnBoulder: _malletOnBoulder,
-                    onMalletOnPebble: _malletOnPebble,
-                    onMalletOnShard: _malletOnShard,
-                  )),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () => _showArchiveConfirm(context, mountain),
-              icon: const Icon(Icons.menu_book_outlined, size: 18),
-              label: const Text('Chronicle this Peak', style: TextStyle(fontFamily: 'Georgia')),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.ember,
-                side: const BorderSide(color: AppColors.ember),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: nodes.length,
+                itemBuilder: (context, index) {
+                  final node = nodes[index];
+                  final depth = (node.path.split('.').length - 1).clamp(0, 8);
+                  return _LedgerRowWidget(
+                    node: node,
+                    leftInset: depth * 20.0,
+                    onTap: () => _openEditOverlay(
+                      EditTargetNode(mountain: mountain, node: node),
+                    ),
+                  );
+                },
               ),
-            ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showChartPathModal(mountain),
+        backgroundColor: AppColors.ember,
+        foregroundColor: AppColors.parchment,
+        tooltip: 'Chart Path',
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -288,51 +336,90 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
         onClose: () {
           Navigator.of(context).pop();
           invalidateAfterNodeMutation(ref, widget.mountainId);
+          ref.invalidate(mountainProvider(widget.mountainId));
+          ref.invalidate(mountainListProvider);
         },
       ),
     );
   }
 
-  Future<void> _malletOnMountain(Mountain mountain) async {
-    await ref.read(nodeActionsProvider).createBoulder(
-          mountainId: mountain.id,
-          title: 'New milestone',
-        );
+  Future<void> _malletOnMountain(
+    Mountain mountain, {
+    String title = 'New boulder',
+  }) async {
+    await ref
+        .read(nodeActionsProvider)
+        .createBoulder(mountainId: mountain.id, title: title);
     invalidateAfterNodeMutation(ref, widget.mountainId);
-    // Keep Architect on so user can add/split more without re-enabling.
   }
 
-  Future<void> _malletOnBoulder(Mountain mountain, Node boulder) async {
-    // Create pebble under boulder
-    final node = await ref.read(nodeActionsProvider).createNodeUnderParent(
-          parentPath: boulder.path,
-          mountainId: mountain.id,
-          nodeType: NodeType.pebble,
-          title: 'New pebble',
-          isPendingRitual: true,
-        );
-    await ref.read(satchelProvider.notifier).movePebbleToReady(node.id);
-    ref.invalidate(nodeListProvider(widget.mountainId));
-    // Keep Architect on so user can add/split more without re-enabling.
-  }
-
-  Future<void> _malletOnPebble(Mountain mountain, Node pebble) async {
-    await ref.read(nodeActionsProvider).split(pebble);
-    invalidateAfterNodeMutation(ref, widget.mountainId);
-    // Keep Architect on so user can add/split more without re-enabling.
-  }
-
-  Future<void> _malletOnShard(Mountain mountain, Node shard) async {
-    await ref.read(nodeActionsProvider).split(shard);
-    invalidateAfterNodeMutation(ref, widget.mountainId);
-    // Keep Architect on so user can add/split more without re-enabling.
+  Future<void> _showChartPathModal(Mountain mountain) async {
+    final controller = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.parchment,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Chart Path',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontSize: 16,
+                color: AppColors.charcoal,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Name this boulder'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    final title = controller.text.trim();
+                    Navigator.of(ctx).pop();
+                    await _malletOnMountain(
+                      mountain,
+                      title: title.isEmpty ? 'New boulder' : title,
+                    );
+                  },
+                  child: const Text('Chart'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showArchiveConfirm(BuildContext context, Mountain mountain) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Chronicle this peak?', style: TextStyle(fontFamily: 'Georgia')),
+        title: const Text(
+          'Chronicle this peak?',
+          style: TextStyle(fontFamily: 'Georgia'),
+        ),
         content: const Text(
           'The peak will move to the Chronicled Peaks. You can restore it from Elias when you wish.',
           style: TextStyle(fontFamily: 'Georgia'),
@@ -357,93 +444,77 @@ class _MountainDetailScreenState extends ConsumerState<MountainDetailScreen> {
   }
 }
 
-class _BoulderTile extends StatelessWidget {
-  const _BoulderTile({
-    required this.boulder,
-    required this.nodes,
-    required this.mountain,
-    required this.malletActive,
-    required this.onOpenEdit,
-    required this.onMalletOnBoulder,
-    required this.onMalletOnPebble,
-    required this.onMalletOnShard,
+class _LedgerRowWidget extends StatelessWidget {
+  const _LedgerRowWidget({
+    required this.node,
+    required this.leftInset,
+    required this.onTap,
   });
 
-  final Node boulder;
-  final List<Node> nodes;
-  final Mountain mountain;
-  final bool malletActive;
-  final void Function(EditTarget) onOpenEdit;
-  final Future<void> Function(Mountain, Node) onMalletOnBoulder;
-  final Future<void> Function(Mountain, Node) onMalletOnPebble;
-  final Future<void> Function(Mountain, Node) onMalletOnShard;
+  final Node node;
+  final double leftInset;
+  final VoidCallback onTap;
+
+  String _dueText(DateTime dueDate) {
+    final mm = dueDate.month.toString().padLeft(2, '0');
+    final dd = dueDate.day.toString().padLeft(2, '0');
+    return 'due $mm/$dd';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pebbles = nodes
-        .where((n) => n.nodeType == NodeType.pebble && n.parentPath == boulder.path && !n.isComplete)
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: AppColors.whetPaper.withValues(alpha: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final title = node.title.isEmpty ? '(unnamed stone)' : node.title;
+    final isExtinguished = node.isComplete;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(leftInset, 6, 8, 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Opacity(
+          opacity: isExtinguished ? 0.5 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.whetPaper.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.whetLine.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => onOpenEdit(EditTargetNode(mountain: mountain, node: boulder)),
-                    child: Text(
-                      boulder.title.isEmpty ? '(unnamed boulder)' : boulder.title,
-                      style: const TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.charcoal,
-                      ),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Georgia',
+                      color: AppColors.charcoal,
+                      decoration: isExtinguished
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                 ),
-                if (malletActive)
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 20, color: AppColors.ember),
-                    onPressed: () => onMalletOnBoulder(mountain, boulder),
-                    tooltip: 'Add pebble',
+                if (node.isStarred)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Icon(Icons.star, size: 16, color: AppColors.ember),
+                  ),
+                if (node.dueDate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      _dueText(node.dueDate!),
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 11,
+                        color: AppColors.ashGrey,
+                      ),
+                    ),
                   ),
               ],
             ),
-            ...pebbles.map((p) => Padding(
-                  padding: const EdgeInsets.only(left: 16, top: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => onOpenEdit(EditTargetNode(mountain: mountain, node: p)),
-                          child: Text(
-                            p.title.isEmpty ? '(unnamed task)' : p.title,
-                            style: const TextStyle(
-                              fontFamily: 'Georgia',
-                              fontSize: 14,
-                              color: AppColors.charcoal,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (malletActive)
-                        IconButton(
-                          icon: const Icon(Icons.gavel, size: 18, color: Color(0xFFB87333)),
-                          onPressed: () => onMalletOnPebble(mountain, p),
-                          tooltip: 'Split',
-                        ),
-                    ],
-                  ),
-                )),
-          ],
+          ),
         ),
       ),
     );

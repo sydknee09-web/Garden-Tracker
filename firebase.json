@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"voyager-sanctuary","appId":"1:826880639726:android:095964bfe47ee3945aa9ff","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"voyager-sanctuary","configurations":{"android":"1:826880639726:android:095964bfe47ee3945aa9ff","ios":"1:826880639726:ios:9078bc56097568535aa9ff","web":"1:826880639726:web:962bc3e206a29a4f5aa9ff"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "voyager-sanctuary",
+          "appId": "1:826880639726:android:095964bfe47ee3945aa9ff",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "voyager-sanctuary",
+          "configurations": {
+            "android": "1:826880639726:android:095964bfe47ee3945aa9ff",
+            "ios": "1:826880639726:ios:9078bc56097568535aa9ff",
+            "web": "1:826880639726:web:962bc3e206a29a4f5aa9ff"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "firebase_public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "cleanUrls": true
+  }
+}

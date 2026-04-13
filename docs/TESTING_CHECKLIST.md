@@ -2,7 +2,38 @@
 
 Use this when doing manual testing or regression checks. Assumes Supabase is configured and `ready_to_burn` + `ensure_profile` are applied (see README / schema.sql).
 
-**When the app is ready for testing:** Always send a build to testers. Windows: `.\scripts\deploy_android.ps1` from voyager_sanctuary. macOS/Linux: `./scripts/deploy_android.sh`. Do not wait for the user to ask. See [.cursor/rules/firebase-deploy.mdc](../.cursor/rules/firebase-deploy.mdc).
+**When the app is ready for testing:** Always send a build to testers. From the `voyager_sanctuary` directory:
+
+```powershell
+.\deploy.ps1 -DemoMode -ReleaseNotes "v0.1.2+19 demo: no login, try features freely"
+```
+
+(Optional: `.\deploy.ps1 -Clean -DemoMode` to run `flutter clean` first.)
+
+**Demo builds (`SKIP_AUTH=true` via `-DemoMode`):**
+
+- App boots directly to **Sanctuary** (no auth screen).
+- No account needed.
+- Data is **in-memory**; resets on app restart (intentional for testing).
+- Omit **`-DemoMode`** only when you want a **production-style** build (Supabase login required).
+
+macOS/Linux: run `flutter build apk --release --dart-define=SKIP_AUTH=true` then `firebase appdistribution:distribute` with your app ID, or use PowerShell Core: `pwsh ./deploy.ps1 -DemoMode ...` if available.
+
+Do not wait for the user to ask. See [.cursor/rules/firebase-deploy.mdc](../.cursor/rules/firebase-deploy.mdc) if present.
+
+### Manual vs automated (what can't be "tested by AI")
+
+- **Gatekeeper checklists (§8)** and **First Five** require a **human on a physical device**: sign-in, tap through Intro, create two accounts for RLS, complete pebbles for shard completion, etc. An AI or CI cannot do this end-to-end without a real session and device.
+- **Smoke tests** = the **integration tests** in `integration_test/`. They *can* be run by you or CI, but they need a **connected device or emulator** (e.g. Android). From the project root:
+  - **With a device/emulator:** `flutter test integration_test -d <deviceId>` (use `flutter devices` to get IDs). Sign in once on that device so tests use the persisted session.
+  - **Without a device:** These tests will not run (they launch the app and drive the UI). Run them before release when you have a device attached.
+- **Summary:** You run the gatekeepers and First Five manually; you run the smoke tests with `flutter test integration_test -d <deviceId>` when a device is available.
+
+---
+
+## How to run the gatekeeper checklists (for testers)
+
+Before release, run the **four gatekeeper checklists** in **§ Release-readiness / gatekeeper checklist** below on a **physical device** with the latest tester build (e.g. from Firebase App Distribution). For each checklist: work through the steps in order, check the boxes as you go, then **document** the result where the checklist says (e.g. "Document in row 3b" → fill the Pass/Fail column in the **First Five** table for that row, with date and build version). Suggested order: **3b (Satchel verify)** → **5 (RLS)** → **(a) Display name** → **(b) Shard completion**.
 
 ---
 
@@ -35,6 +66,66 @@ Run these on a **physical device** (e.g. SM S918U) before implementing Semantics
 
 ---
 
+## Draft peaks (local persistence, v0.1.2)
+
+Drafts are stored in **SharedPreferences** (`climb_drafts_v1`); not synced to Supabase.
+
+- [ ] Open **New Journey** from the Map, enter a **name**, close with **X** (or system back) → SnackBar mentions saving; open **Chronicled Peaks** → row shows **In progress**, muted card, step hint.
+- [ ] **Tap** the draft → wizard opens at the saved step with **name / intent / choices** restored.
+- [ ] Reach **Pack this Journey** and complete → draft row **disappears**; mountain is on the Map as usual.
+- [ ] **Swipe left** on a draft → **Delete** removes it; **kill and relaunch** app → other drafts still listed.
+
+---
+
+## Release-readiness / gatekeeper checklist (§8)
+
+Run these on a **physical device** with a release-candidate or tester build (e.g. Firebase v0.1.1+15). Source: [GEMINI_RECOMMENDATIONS_BUILD.md](GEMINI_RECOMMENDATIONS_BUILD.md) §8. Record results in the tables below or in the First Five success log.
+
+### (a) Display name
+
+Elias must use the user's display name in intro Beats 3 & 5, management greeting, and Sanctuary greeting; skip or empty must yield "traveler" (no crash, no blank).
+
+- [ ] **Step 1:** New account or clear app data; go through Intro. At Beat 3 (name prompt), enter a name (e.g. "River") and continue. Confirm Beat 5 uses that name (e.g. "River, the path ahead…").
+- [ ] **Step 2:** Same run or new: at Beat 3, tap **Continue** without typing (skip). Confirm Beat 5 uses "traveler" or equivalent generic wording, and no crash.
+- [ ] **Step 3:** At Beat 3, enter only spaces and tap **Continue**. Confirm Beat 5 uses "traveler" or equivalent.
+- [ ] **Step 4:** After intro, open **Elias → Management** (tap Elias, management sheet). Confirm greeting uses the name you set (e.g. "River") or "traveler" if skipped/empty.
+- [ ] **Step 5:** From Sanctuary home, confirm period greeting (e.g. "Good morning, River" or "Good morning, traveler") uses profile display name or "traveler".
+- [ ] **Step 6:** Go to **Settings** → change "What Elias calls you" to empty, save. Re-open Management and Sanctuary. Confirm "traveler" (or generic) is used.
+- **Document:** Record result in First Five success log or add a "Display name" row below. Pass = all steps show correct personalization or "traveler" with no crash.
+
+### (b) Shard completion
+
+When the last leaf (shard) under a boulder is completed, the parent boulder's completion state must update so the UI reflects "all done" for that marker.
+
+- [ ] **Step 1:** On the Scroll, pick a mountain and open **Mountain Detail**. Ensure you have a boulder with at least two pebbles (or pebble + shards).
+- [ ] **Step 2:** Complete all but one pebble/shard under that boulder (tap to complete or use Satchel Done then burn). Confirm parent still shows incomplete (e.g. open circle or "in progress").
+- [ ] **Step 3:** Complete the **last** pebble/shard under that boulder (e.g. last leaf under the boulder).
+- [ ] **Step 4:** Confirm the **parent boulder** now shows complete (e.g. checkmark, filled state) without needing to leave and re-enter the screen or pull-to-refresh.
+- [ ] **Step 5:** If the mountain uses Climb logic, confirm the **next** boulder (or next pebble) becomes available/unlocked as expected.
+- **Document:** Record result in First Five success log or add a "Shard completion" row. Pass = last leaf complete → parent updates immediately (or after expected refresh).
+
+### (c) RLS
+
+Two accounts must not see each other's data. Use [RLS_VERIFICATION.md](RLS_VERIFICATION.md) as the authoritative procedure.
+
+- [ ] **Step 1:** Follow RLS_VERIFICATION.md **Steps 1–3**: Create and use Account A (create mountain, boulder, pebble; pack Satchel; add Whetstone habit). Note what you see.
+- [ ] **Step 2:** Sign out. Create or sign in as Account B. Confirm Scroll shows no mountains (or only B's). Satchel shows empty slots (or only B's). Whetstone shows no habits/completions from A.
+- [ ] **Step 3:** (Optional) Run **Poison-record test** (RLS_VERIFICATION.md §4): insert a row in `mountains` with User B's UUID, sign in as User A, confirm User A does **not** see "Poison Peak (User B)". Clean up the poison row.
+- **Document:** In **row 5** (RLS) in the First Five table above, fill **Pass** or **Fail** and date. Reference: "Per RLS_VERIFICATION.md; poison test [done/omitted]."
+
+### (d) Satchel verify
+
+Fresh UID must see 6 empty slots; Pack must show candidates or "No tasks waiting." Confirms placement logic and no blank/error for new users.
+
+- [ ] **Step 1:** Use a **fresh account** (new sign-up) or a test account that has never opened Satchel. Do **not** use an account that already has mountains/pebbles unless you first clear satchel_slots in DB for that user.
+- [ ] **Step 2:** Open the **Satchel** tab/screen immediately after reaching Sanctuary (or after intro).
+- [ ] **Step 3:** Confirm **6 empty slots** are visible (no blank screen, no crash, no "loading" hang).
+- [ ] **Step 4:** Tap **Pack**. If the account has no incomplete pebbles on any mountain, confirm message "No tasks waiting" (or equivalent). If there are packable candidates, confirm they fill empty slots in order (filled-first, stone icon per row).
+- [ ] **Step 5:** Confirm Pack behavior: when slots are full, "Your satchel is full"; when there are candidates, they fill; when none, friendly empty state.
+- **Document:** In **row 3b** (Fresh-UID Satchel setup) in the First Five table above, fill **Pass** or **Fail**, date, and device/build. Pass = 6 empty slots + correct Pack behavior.
+
+---
+
 ## Onboarding / first-run verification
 
 Run this on the **latest Firebase build** (e.g. testers group) after code changes to onboarding. Prerequisites: device is signed in or will sign up. (RLS migration **20250320000006** is already applied on this project.)
@@ -42,7 +133,7 @@ Run this on the **latest Firebase build** (e.g. testers group) after code change
 **Flow:** Intro beats → name prompt → name confirmation → New Journey wizard (Intent → Identity → Theme → Logic → Markers → Placing stones) → closing line → Whetstone setup (if shown) → Sanctuary.
 
 | Check | Expected |
-| **Sanctuary home intro (first run)** | First time on Sanctuary after intro + first mountain: overlay appears (Satchel → Path Ahead → Firepit). Each step shows Elias line, spotlight cutout, pulsed gold ring; only **Continue** advances. After three Continues, overlay dismisses and does not show again. |
+| **Sanctuary first entry (beta)** | No spotlight/tutorial overlay. Onboarding is Elias’s narration (Guide’s Whisper + intro) only; Satchel / Hearth / Map / Whetstone are explained there. First land quest bubbles still fire from `sanctuary_screen.dart` as before. |
 |--------|----------|
 | **Name step** | One button **Continue**; tap saves input and advances (keyboard dismisses if up). No "Done" then "Continue". |
 | **Wizard from intro** | Center/left nav button is **Stow the Map** (exits wizard). Right button is **Continue** (advances). Never two "Continue" labels. |
@@ -51,7 +142,7 @@ Run this on the **latest Firebase build** (e.g. testers group) after code change
 | **Underlines** | No visible white/bright underline on text fields when typing; border matches unfocused state. |
 | **Stagger** | Input areas (name, Intent, etc.) fade in after ~1.2s (800ms on Appearance/Logic); no flash of empty then pop. |
 
-**Reset first-run flags (development):** To replay the Sanctuary home intro without clearing app data, use a debug/settings control that calls `prefs.remove('has_seen_sanctuary_home_intro')` and invalidates `hasSeenSanctuaryHomeIntroProvider` (or document the manual step for testers).
+**Reset first-run flags (development):** `has_seen_sanctuary_home_intro` is still written when completing the full Elias + Whetstone path (`markSanctuaryHomeIntroSeen`) but no longer drives a Sanctuary overlay. Clear other intro prefs if you need to replay the Guide’s Whisper from scratch.
 
 **Release gate:** Before marking onboarding "done", run this section on a physical device with the release-candidate build and record pass/fail + build version (e.g. in the table or in RELEASE_CANDIDATE_SCRIPT.md).
 
@@ -129,6 +220,7 @@ Run this on the **latest Firebase build** (e.g. testers group) after code change
 | Build with URL/key | `flutter run --dart-define=SUPABASE_URL=… --dart-define=SUPABASE_ANON_KEY=…` so Realtime/auth point at your project. |
 | Device testing (bypass auth) | `flutter run --dart-define=SKIP_AUTH=true` to skip login for quick device QA. Omit for production builds. |
 | Manual install (avoid loading purgatory) | Build and install with SKIP_AUTH: `flutter build apk --debug --dart-define=SKIP_AUTH=true` then `flutter install -d DEVICE_ID --debug`. Skips SharedPreferences at startup; prevents "Loading Sanctuary..." hang on some devices. |
+| **Realtime cleanup on logout** | Sign out (Settings → Leave the Sanctuary) invalidates `mountainListProvider`, `archivedMountainListProvider`, and `nodeListProvider` in [settings_screen.dart](../lib/features/management/settings_screen.dart), which cancels Supabase Realtime stream subscriptions. No extra disposal needed. |
 
 ---
 

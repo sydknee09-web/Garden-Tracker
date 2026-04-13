@@ -1,0 +1,41 @@
+[lib\bootstrap.dart:45] Found 'seed': debugPrint('[Bootstrap] Init timed out — forcing demo mode, seedInMemoryOnly (no SharedPreferences)');
+[lib\bootstrap.dart:49] Found 'seed': DemoStorage.instance.seedInMemoryOnly();
+[lib\bootstrap.dart:100] Found 'seed': debugPrint('[Bootstrap] SKIP_AUTH: seedInMemoryOnly (no SharedPreferences)');
+[lib\bootstrap.dart:101] Found 'seed': DemoStorage.instance.seedInMemoryOnly();
+[lib\bootstrap.dart:113] Found 'seed': DemoStorage.instance.seedInMemoryOnly();
+[lib\bootstrap.dart:224] Found 'seed': DemoStorage.instance.seedInMemoryOnly();
+[lib\bootstrap.dart:260] Found 'seed': // Seed in memory only; persist demo preference in background (fire-and-forget).
+[lib\bootstrap.dart:264] Found 'seed': DemoStorage.instance.seedInMemoryOnly();
+[lib\bootstrap.dart:284] Found 'seed': colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB8621A), brightness: Brightness.dark),
+[lib\bootstrap.dart:344] Found 'seed': colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB8621A), brightness: Brightness.dark),
+[lib\data\demo\demo_satchel_repository.dart:97] Found 'seed': Future<void> seedEmptySlots() async {
+[lib\data\demo\demo_storage.dart:47] Found 'seed': await _seedInitialData();
+[lib\data\demo\demo_storage.dart:51] Found 'seed': /// Seeds starter data in memory only — no SharedPreferences. Use when load() would hang
+[lib\data\demo\demo_storage.dart:53] Found 'seed': void seedInMemoryOnly() {
+[lib\data\demo\demo_storage.dart:132] Found 'seed': Future<void> _seedInitialData() async {
+[lib\data\demo\demo_whetstone_repository.dart:55] Found 'seed': Future<void> seedStarterHabits() async {
+[lib\data\repositories\node_repository.dart:52] Found 'seed': /// Optional [id] for demo seeding (Developer-Only).
+[lib\data\repositories\satchel_repository.dart:16] Found 'seed': Future<void> seedEmptySlots();
+[lib\data\repositories\satchel_repository.dart:91] Found 'seed': Future<void> seedEmptySlots() async {
+[lib\data\repositories\whetstone_repository.dart:9] Found 'seed': /// The 5 starter habits seeded for every new user.
+[lib\data\repositories\whetstone_repository.dart:79] Found 'seed': /// Seeds 5 starter habits for a new user. Called once after signup.
+[lib\data\repositories\whetstone_repository.dart:80] Found 'seed': Future<void> seedStarterHabits() async {
+[lib\providers\satchel_provider.dart:81] Found 'seed': await _satchelRepo.seedEmptySlots();
+[docs\CURSOR_REFINE_AND_POLISH_PROMPT.md:117] Found 'planting': **Full spec:** [PEAK_PLANTING_WIZARD_SPEC.md](PEAK_PLANTING_WIZARD_SPEC.md)
+[docs\FEATURE_RECOMMENDATIONS_GAMIFIED_EXPERIENCE.md:68] Found 'grow': - **Optional:** Very subtle growth or “aliveness” in the background (e.g. a few more visible ember particles in the scene, or a barely perceptible glow) as streak or recent activity increases. No UI numbers; purely atmospheric.
+[docs\MASTER_PLAN.md:308] Found 'planting': Per [PEAK_PLANTING_WIZARD_SPEC](PEAK_PLANTING_WIZARD_SPEC.md) and [ALIGNMENT_OUTCOME_SPEC](ALIGNMENT_OUTCOME_SPEC.md). Entry: Elias → "New Journey" (first) or Map FAB. Gate: `canAddMountainProvider`. AutoDispose provider for fresh slate on reopen. (Wizard spec filename remains PEAK_PLANTING for historical reference; flow is Peak Creation.)
+[docs\MASTER_PLAN.md:452] Found 'planting': - [ ] F.1.2 Step-by-step Elias (wizard) — State-based reveal: Phase A (prompt) → Phase B (input). Typewriter effect. See [PEAK_PLANTING_WIZARD_SPEC](PEAK_PLANTING_WIZARD_SPEC.md) (Peak Creation Wizard).
+[docs\MASTER_PLAN.md:522] Found 'planting': | 3 | **Peak Creation Wizard** | [PEAK_PLANTING_WIZARD_SPEC.md](PEAK_PLANTING_WIZARD_SPEC.md). 6-step flow (Intent → Identity → Appearance → Logic → Markers → Placing stones). State-based reveal, typewriter. |
+[docs\MASTER_PLAN.md:667] Found 'planting': - [PEAK_PLANTING_WIZARD_SPEC.md](PEAK_PLANTING_WIZARD_SPEC.md) — New Journey wizard (state-based reveal, animations)
+[docs\MASTER_PLAN_AUDIT_REPORT.md:22] Found 'planting': | 3 | **PEAK_PLANTING_WIZARD_SPEC** (Peak Creation Wizard) §2 Logic & Flow Notes | Says Intent saved to "`mountain_logs` or a description field." MASTER_LEDGER and schema use `intent_statement` on `mountains`. | Change to "Save to `mountains.intent_statement`." |
+[docs\MASTER_PLAN_AUDIT_REPORT.md:23] Found 'planting': | 4 | **PEAK_PLANTING_WIZARD_SPEC** §3 | Step 5 button: "Pack Journey". MASTER_PLAN F.0.5 and Part B 1.5 lock **"Pack this Journey"**. | Standardize to "Pack this Journey" in wizard spec. (Wizard = Peak Creation; spec filename unchanged.) |
+[docs\MASTER_PLAN_AUDIT_REPORT.md:81] Found 'planting': 3. **Intent storage wording** — PEAK_PLANTING_WIZARD (Peak Creation flow) could mislead implementers to create `mountain_logs` instead of using `intent_statement`.
+[docs\MASTER_PLAN_AUDIT_REPORT.md:89] Found 'planting': 2. **Fix PEAK_PLANTING_WIZARD_SPEC** (Peak Creation Wizard) — Intent → `mountains.intent_statement`; Step 5 button → "Pack this Journey".
+[docs\PEAK_PLANTING_WIZARD_SPEC.md:1] Found 'planting': # Peak Creation Wizard (Peak Planting Wizard) — State-Based Reveal Specification
+[docs\POST_V1_ROADMAP.md:143] Found 'seed': | **2** | **Safety pass** | 1) Implement Error Boundaries (4)—themed **SanctuaryErrorWidget**. 2) Complete RLS Verification (2); document in TESTING_CHECKLIST. 3) **Manual test: Fresh-UID Satchel Seeding**—confirm 6 empty slots appear for new users; document in TEST_STRATEGY / TESTING_CHECKLIST. This confirms seeding logic, not just “a check.” |
+[docs\PROJECT_PLAN_REFINE_AND_POLISH.md:175] Found 'planting': ### 4.2 Step-by-Step Elias Speech (Peak Planting Wizard)
+[docs\PROJECT_PLAN_REFINE_AND_POLISH.md:181] Found 'planting': **Full spec:** [PEAK_PLANTING_WIZARD_SPEC.md](PEAK_PLANTING_WIZARD_SPEC.md)
+[docs\Completed\PHASE_3_IMPLEMENTATION_PLAN.md:83] Found 'soil': - Mountain untouched for 7+ days triggers the “weeds / soil” line in context. No guilt phrasing; encourages return. Does not spam on every scroll.
+[docs\Completed\RECOMMENDED_FIXES_AND_PLAN.md:62] Found 'seed': | 18 | **Satchel seed source** | Schema defines `seed_satchel_for_user(uuid)` but the signup trigger only creates a profile. The app currently upserts 6 empty slots (e.g. in repository) when needed. Either: (a) call `seed_satchel_for_user` from `ensure_profile()` so every user has 6 rows from signup, or (b) document that app-side creation of 6 slots on first Satchel/Scroll load is intentional. |
+[docs\Completed\SMOKE_TEST_ISSUES_AND_FIXES.md:32] Found 'seed': | 20 | Purgatory persists on manual launch; smoke test doesn't catch it | `bootstrap.dart`, `demo_storage.dart`, `synthetic_user_test.dart` | (1) When SKIP_AUTH: skip DemoStorage.load entirely, use seedInMemoryOnly. (2) Escape hatch at 3s; _onTryDemoMode avoids SharedPreferences (seedInMemoryOnly, unawaited setDemoMode). (3) Add "Loading Screen Purgatory" test that runs real flow (no pre-init). (4) Manual install: build with --dart-define=SKIP_AUTH=true to avoid purgatory. | Completed |
+[docs\Completed\VOYAGER_SANCTUARY_POLISH_PLAN.md:116] Found 'garden': - **Schema:** Peak = mountain, Landmark = boulder, Pebble = pebble (existing `mountains` + `nodes`). Optional `elias_dialogue` table later. No legacy garden-app tables or logic.

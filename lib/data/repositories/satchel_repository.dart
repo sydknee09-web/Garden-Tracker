@@ -18,7 +18,7 @@ abstract class SatchelRepository {
   Future<void> assignPebbleToSlot(String nodeId, String slotId);
   Future<void> clearSlot(String slotId);
   Future<void> markReadyToBurn(String slotId);
-  Future<void> toggleReadyToBurn(String slotId);
+  Future<SatchelSlot?> toggleReadyToBurn(String slotId);
   Future<String?> findSlotIdForNode(String nodeId);
 }
 
@@ -53,13 +53,11 @@ class SupabaseSatchelRepository extends SatchelRepository {
           .then((r) => r),
       'satchel_slots_raw',
     );
-    return rows
-        .map((r) {
-          final map = Map<String, dynamic>.from(r as Map<String, dynamic>);
-          map['nodes'] = null;
-          return SatchelSlot.fromJson(map);
-        })
-        .toList();
+    return rows.map((r) {
+      final map = Map<String, dynamic>.from(r as Map<String, dynamic>);
+      map['nodes'] = null;
+      return SatchelSlot.fromJson(map);
+    }).toList();
   }
 
   @override
@@ -68,15 +66,16 @@ class SupabaseSatchelRepository extends SatchelRepository {
     Set<String>? excludeIds,
   }) async {
     try {
-      final rows = await SupabaseService.executeWithRetry(() =>
-          SupabaseService.client.rpc(
-            'get_packable_candidates',
-            params: {
-              'p_user_id': SupabaseService.userId,
-              'p_limit': limit,
-              'p_exclude_ids': excludeIds?.toList() ?? [],
-            },
-          ));
+      final rows = await SupabaseService.executeWithRetry(
+        () => SupabaseService.client.rpc(
+          'get_packable_candidates',
+          params: {
+            'p_user_id': SupabaseService.userId,
+            'p_limit': limit,
+            'p_exclude_ids': excludeIds?.toList() ?? [],
+          },
+        ),
+      );
       return (rows as List<dynamic>)
           .map((r) => Node.fromJson(r as Map<String, dynamic>))
           .toList();
@@ -94,9 +93,11 @@ class SupabaseSatchelRepository extends SatchelRepository {
       6,
       (i) => {'user_id': userId, 'slot_index': i + 1, 'node_id': null},
     );
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_slotsTable)
-        .upsert(inserts, onConflict: 'user_id,slot_index'));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .upsert(inserts, onConflict: 'user_id,slot_index'),
+    );
   }
 
   @override
@@ -120,70 +121,82 @@ class SupabaseSatchelRepository extends SatchelRepository {
     }
 
     if (updates.isNotEmpty) {
-      await SupabaseService.executeWithRetry(() => SupabaseService.client
-          .from(_slotsTable)
-          .upsert(updates, onConflict: 'user_id,slot_index'));
+      await SupabaseService.executeWithRetry(
+        () => SupabaseService.client
+            .from(_slotsTable)
+            .upsert(updates, onConflict: 'user_id,slot_index'),
+      );
     }
   }
 
   @override
   Future<void> assignPebbleToSlot(String nodeId, String slotId) async {
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_slotsTable)
-        .update({
-          'node_id': nodeId,
-          'packed_at': DateTime.now().toIso8601String(),
-          'ready_to_burn': false,
-        })
-        .eq('id', slotId)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .update({
+            'node_id': nodeId,
+            'packed_at': DateTime.now().toIso8601String(),
+            'ready_to_burn': false,
+          })
+          .eq('id', slotId)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   @override
   Future<void> clearSlot(String slotId) async {
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_slotsTable)
-        .update({
-          'node_id': null,
-          'packed_at': DateTime.now().toIso8601String(),
-          'ready_to_burn': false,
-        })
-        .eq('id', slotId)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .update({
+            'node_id': null,
+            'packed_at': DateTime.now().toIso8601String(),
+            'ready_to_burn': false,
+          })
+          .eq('id', slotId)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   @override
   Future<void> markReadyToBurn(String slotId) async {
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_slotsTable)
-        .update({'ready_to_burn': true})
-        .eq('id', slotId)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .update({'ready_to_burn': true})
+          .eq('id', slotId)
+          .eq('user_id', SupabaseService.userId),
+    );
   }
 
   @override
-  Future<void> toggleReadyToBurn(String slotId) async {
+  Future<SatchelSlot?> toggleReadyToBurn(String slotId) async {
     final slots = await fetchSlotsRaw();
     final list = slots.where((s) => s.id == slotId).toList();
-    if (list.isEmpty) return;
+    if (list.isEmpty) return null;
     final slot = list.first;
     final newValue = !slot.readyToBurn;
-    await SupabaseService.executeWithRetry(() => SupabaseService.client
-        .from(_slotsTable)
-        .update({'ready_to_burn': newValue})
-        .eq('id', slotId)
-        .eq('user_id', SupabaseService.userId));
+    await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .update({'ready_to_burn': newValue})
+          .eq('id', slotId)
+          .eq('user_id', SupabaseService.userId),
+    );
+    return slot.copyWith(readyToBurn: newValue);
   }
 
   @override
   Future<String?> findSlotIdForNode(String nodeId) async {
-    final rows = await SupabaseService.executeWithRetry(() =>
-        SupabaseService.client
-            .from(_slotsTable)
-            .select('id')
-            .eq('user_id', SupabaseService.userId)
-            .eq('node_id', nodeId)
-            .limit(1));
+    final rows = await SupabaseService.executeWithRetry(
+      () => SupabaseService.client
+          .from(_slotsTable)
+          .select('id')
+          .eq('user_id', SupabaseService.userId)
+          .eq('node_id', nodeId)
+          .limit(1),
+    );
     final list = rows as List;
     if (list.isEmpty) return null;
     return list.first['id'] as String;

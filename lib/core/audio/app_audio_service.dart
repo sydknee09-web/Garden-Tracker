@@ -25,7 +25,9 @@ class AppAudioService {
       try {
         await _scroll.setAsset('assets/sounds/scroll_open.wav');
       } catch (e) {
-        if (kDebugMode) debugPrint('AppAudioService: scroll_open not found: $e');
+        if (kDebugMode) {
+          debugPrint('AppAudioService: scroll_open not found: $e');
+        }
         return;
       }
     }
@@ -61,7 +63,9 @@ class AppAudioService {
       try {
         await _scroll.setAsset('assets/sounds/scroll_close.mp3');
       } catch (e) {
-        if (kDebugMode) debugPrint('AppAudioService: scroll_close not found: $e');
+        if (kDebugMode) {
+          debugPrint('AppAudioService: scroll_close not found: $e');
+        }
         return;
       }
     }

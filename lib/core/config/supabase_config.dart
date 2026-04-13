@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 
 /// When true, bypasses auth gate — app goes straight to Sanctuary for UI testing.
 /// Debug builds default to true (avoids SharedPreferences hang on device). Release defaults to false.
-const bool kSkipAuthForTesting = bool.fromEnvironment('SKIP_AUTH', defaultValue: kDebugMode);
+const bool kSkipAuthForTesting = bool.fromEnvironment(
+  'SKIP_AUTH',
+  defaultValue: kDebugMode,
+);
 
 /// Supabase project credentials.
 /// The anon/publishable key is safe to ship in the client bundle —

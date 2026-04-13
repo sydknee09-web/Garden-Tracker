@@ -1,13 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Keys for context-aware Elias lines (throttle: don't repeat within 2s).
-enum EliasContextKey { satchelFull, atMountainCap, returnAfterIdle, tendingSlope }
+enum EliasContextKey {
+  satchelFull,
+  atMountainCap,
+  returnAfterIdle,
+  tendingSlope,
+}
 
 /// Last time each context line was shown. Used to throttle repeats.
 final eliasContextLastSeenProvider =
     StateNotifierProvider<EliasContextNotifier, Map<EliasContextKey, DateTime>>(
-  (ref) => EliasContextNotifier(),
-);
+      (ref) => EliasContextNotifier(),
+    );
 
 class EliasContextNotifier
     extends StateNotifier<Map<EliasContextKey, DateTime>> {

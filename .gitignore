@@ -5,6 +5,9 @@
 e2e_test.env
 dart_defines.json
 
+# Cursor auto-deploy fingerprint (local machine only)
+.cursor/last-auto-deploy-fingerprint.txt
+
 # Miscellaneous
 *.class
 *.log
@@ -51,3 +54,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local tooling / caches
+.venv/
+.firebase/

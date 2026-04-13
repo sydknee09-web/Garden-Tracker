@@ -30,7 +30,9 @@ class HearthSparkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scalar = Curves.easeOut.transform((streak / _divisor).clamp(0.0, 1.0));
+    final scalar = Curves.easeOut.transform(
+      (streak / _divisor).clamp(0.0, 1.0),
+    );
     if (scalar < 0.05) return;
 
     final count = (3 + scalar * (_particleCount - 3)).round();
@@ -46,12 +48,18 @@ class HearthSparkPainter extends CustomPainter {
       final opacity = (1 - age / lifespan).clamp(0.0, 1.0);
       final yOffset = -age * speed;
       final jitter = math.sin(timeSeconds * 2 + i) * 3;
-      final spread = math.sin((i * 1.7) + timeSeconds * 0.5) * _horizontalSpread * scalar;
+      final spread =
+          math.sin((i * 1.7) + timeSeconds * 0.5) * _horizontalSpread * scalar;
       final x = origin.dx + jitter + spread;
       final y = origin.dy + yOffset;
 
-      paint.color = AppColors.gold.withValues(alpha: (opacity * 0.9 * brightnessBoost).clamp(0.0, 1.0));
-      canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: 2, height: 2), paint);
+      paint.color = AppColors.gold.withValues(
+        alpha: (opacity * 0.9 * brightnessBoost).clamp(0.0, 1.0),
+      );
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset(x, y), width: 2, height: 2),
+        paint,
+      );
     }
   }
 

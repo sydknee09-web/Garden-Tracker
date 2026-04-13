@@ -87,7 +87,10 @@ class _ForestThresholdState extends State<ForestThreshold> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                widget.message.substring(0, _visibleLength.clamp(0, widget.message.length)),
+                widget.message.substring(
+                  0,
+                  _visibleLength.clamp(0, widget.message.length),
+                ),
                 style: const TextStyle(
                   fontFamily: 'Georgia',
                   fontSize: 18,
@@ -101,6 +104,73 @@ class _ForestThresholdState extends State<ForestThreshold> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Cinematic post-auth arrival wrapper.
+/// Keeps the destination mounted underneath while the forest threshold fades out.
+class ForestThresholdWrapper extends StatefulWidget {
+  const ForestThresholdWrapper({
+    super.key,
+    required this.child,
+    required this.isDataReady,
+    this.assetPath = 'assets/backgrounds/forest_threshold.png',
+  });
+
+  final Widget child;
+  final bool isDataReady;
+  final String assetPath;
+
+  @override
+  State<ForestThresholdWrapper> createState() => _ForestThresholdWrapperState();
+}
+
+class _ForestThresholdWrapperState extends State<ForestThresholdWrapper> {
+  bool _isFaded = false;
+
+  @override
+  void didUpdateWidget(covariant ForestThresholdWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isDataReady && !oldWidget.isDataReady) {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          setState(() => _isFaded = true);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        IgnorePointer(
+          ignoring: _isFaded,
+          child: AnimatedOpacity(
+            opacity: _isFaded ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 2500),
+            curve: Curves.easeInOutCubic,
+            child: Container(
+              color: const Color(0xFF1B2412),
+              child: AnimatedScale(
+                scale: _isFaded ? 1.1 : 1.0,
+                duration: const Duration(milliseconds: 3000),
+                curve: Curves.easeInOutCubic,
+                child: Image.asset(
+                  widget.assetPath,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

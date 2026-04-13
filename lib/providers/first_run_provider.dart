@@ -3,10 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _keyFirstPack = 'has_seen_first_pack';
 const _keyFirstBurn = 'has_seen_first_burn';
+const _keySanctuaryHomeIntro = 'has_seen_sanctuary_home_intro';
 const _keyLastStreakMilestone = 'last_streak_milestone_shown';
 const _keyQuestStep1 = 'has_seen_quest_step_1';
 const _keyQuestStep3 = 'has_seen_quest_step_3';
 const _keyScrollTooltip = 'has_seen_scroll_tooltip';
+
+/// Shown once before [EliasIntroOverlay]: forest crossroads + intro beat 1.
+const _keyForestCrossroadsWelcome = 'has_seen_forest_crossroads_welcome';
 
 /// Whether the user has seen the first-pack Elias line.
 final hasSeenFirstPackProvider = FutureProvider<bool>((ref) async {
@@ -30,6 +34,18 @@ Future<void> markFirstPackSeen() async {
 Future<void> markFirstBurnSeen() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(_keyFirstBurn, true);
+}
+
+/// Whether the user has seen the Sanctuary home intro (Satchel / Path Ahead / Firepit).
+final hasSeenSanctuaryHomeIntroProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_keySanctuaryHomeIntro) ?? false;
+});
+
+/// Mark Sanctuary home intro as seen. Caller should invalidate [hasSeenSanctuaryHomeIntroProvider].
+Future<void> markSanctuaryHomeIntroSeen() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_keySanctuaryHomeIntro, true);
 }
 
 /// Whether the user has seen Quest Step 1 (empty-state "Look within your bag").
@@ -63,6 +79,19 @@ Future<void> markQuestStep3Seen() async {
 Future<void> markScrollTooltipSeen() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(_keyScrollTooltip, true);
+}
+
+/// Whether the traveler has seen the forest crossroads welcome (before name / full intro).
+final hasSeenForestCrossroadsWelcomeProvider = FutureProvider<bool>((
+  ref,
+) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_keyForestCrossroadsWelcome) ?? false;
+});
+
+Future<void> markForestCrossroadsWelcomeSeen() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_keyForestCrossroadsWelcome, true);
 }
 
 /// Last habit streak milestone shown (7, 30, or 100).

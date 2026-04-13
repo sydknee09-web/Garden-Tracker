@@ -26,15 +26,21 @@ final nodeRepositoryProvider = Provider<NodeRepository>((ref) {
 
 /// Mountain repository — Supabase or demo based on [demoModeProvider].
 final mountainRepositoryProvider = Provider<MountainRepository>((ref) {
-  return ref.watch(demoModeProvider) ? DemoMountainRepository() : MountainRepository();
+  return ref.watch(demoModeProvider)
+      ? DemoMountainRepository()
+      : MountainRepository();
 });
 
 /// Whetstone repository — Supabase or demo based on [demoModeProvider].
 final whetstoneRepositoryProvider = Provider<WhetstoneRepository>((ref) {
-  return ref.watch(demoModeProvider) ? DemoWhetstoneRepository() : WhetstoneRepository();
+  return ref.watch(demoModeProvider)
+      ? DemoWhetstoneRepository()
+      : WhetstoneRepository();
 });
 
 /// Satchel repository — Supabase or demo based on [demoModeProvider].
 final satchelRepositoryProvider = Provider<SatchelRepository>((ref) {
-  return ref.watch(demoModeProvider) ? DemoSatchelRepository() : SupabaseSatchelRepository();
+  return ref.watch(demoModeProvider)
+      ? DemoSatchelRepository()
+      : SupabaseSatchelRepository();
 });

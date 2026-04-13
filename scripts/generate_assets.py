@@ -53,7 +53,9 @@ def build_prompt(config: dict, subject_key: str, pose_key: str) -> str:
 
     style = (global_cfg.get("style") or "").strip()
     quality = (global_cfg.get("quality_modifiers") or "").strip()
-    background = (global_cfg.get("default_background") or "").strip()
+    background = (
+        (subject.get("default_background") or global_cfg.get("default_background")) or ""
+    ).strip()
     desc = (subject.get("description") or "").strip()
     pov = (subject.get("pov") or "").strip()
     do = subject.get("do") or []
@@ -120,7 +122,11 @@ def generate_one(
     out_path = output_dir / filename
 
     global_cfg = config.get("global", {})
-    aspect_ratio = global_cfg.get("aspect_ratio", "3:4")
+    aspect_ratio = (
+        pose_cfg.get("aspect_ratio")
+        or subject.get("aspect_ratio")
+        or global_cfg.get("aspect_ratio", "3:4")
+    )
     # Normalize for API (e.g. "3:4" string)
     if isinstance(aspect_ratio, str) and ":" in aspect_ratio:
         pass

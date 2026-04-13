@@ -1,0 +1,15 @@
+{
+  "needs_human": null,
+  "reason": "",
+  "decision": "Prioritize core data integrity and user personalization features, focusing on the First Blockage RPC, Shard completion logic, and user display name.",
+  "actions": [
+    "Implement the `get_packable_candidates` Supabase RPC function as specified in `VALIDITY_FILTER_RPC_SPEC.md` to enforce the Logic & Leaf validity filter for packable nodes.",
+    "Modify `SatchelRepository` to call the `get_packable_candidates` RPC function when fetching candidates for packing, ensuring only valid nodes are presented to the user.",
+    "Review the existing `update_node_progress` Supabase function and `logic_leaf_trigger` (from `MIGRATE_LOGIC_LEAF.sql`) to confirm it correctly updates the `progress` and `is_completed` status of parent nodes when a child shard is marked complete. Adjust the function/trigger if necessary.",
+    "Ensure the `NodeRepository`'s real-time stream for nodes (e.g., `_supabase.from('nodes').stream(...)`) is robust enough to immediately push updates for parent nodes when a child's status changes, preventing UI lag in the Flutter app.",
+    "Add a `display_name` column (type `text`, nullable initially) to the `profiles` table in Supabase.",
+    "Integrate a step into the New Journey Wizard (or a dedicated profile settings screen) to allow the user to input their `display_name`.",
+    "Update Elias's dialogue in the `EliasIntroductionProvider` and `SanctuaryScreen` (campsite greetings) to dynamically use the user's `display_name`."
+  ],
+  "notes": "This chunk addresses critical gatekeepers for core game logic and user experience before moving to broader polish tasks. RLS verification is a testing task and will be addressed in a later testing phase."
+}

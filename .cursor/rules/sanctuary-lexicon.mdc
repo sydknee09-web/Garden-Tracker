@@ -1,0 +1,52 @@
+---
+description: Sanctuary Lexicon — primary terms, forbidden words, and Back/Return nuance. Use when writing Elias dialogue, naming buttons, or auditing UI copy.
+alwaysApply: false
+---
+
+# SANCTUARY LEXICON (Source of Truth)
+
+## 1. Final Lexicon Decision Set
+
+| Context | Primary Sanctuary Term | Alternative (Elias only) |
+|---------|-------------------------|--------------------------|
+| Exit to Map Action | **Stow the Map** | Roll up the Scroll |
+| Archive Screen/Menu | **Chronicled Peaks** | The Stone Ledger |
+| New Journey Action | **Plot a New Path** | Unroll a New Scroll |
+| Node Deletion | **Abandon the Climb** | Shatter the Stone |
+
+Peak archiving (button/dialog): **Chronicle this Peak** / **Chronicle** (Primary). Use Primary terms app-wide; alternatives only for Elias dialogue variety.
+
+---
+
+## 2. Forbidden in User-Facing UI
+
+- "Return to Earth" and "Return to Sanctuary" when meaning "go back to the Map" → use **Stow the Map**.
+- "Back" or "Return" **only** for the specific action of exiting a Peak or the wizard to the Map → use **Stow the Map** + scroll/map icon (see §4).
+- "Archive" as button/label/title → use **Chronicle** (action), **Chronicled Peaks** (place/screen).
+- "Plant", "Harvest", "Grow" → use **Set**, **Carve**, **Drop** (creation); **Burn**, **Extinguish**, **Clear** (completion).
+- "Task", "To-do", "List" → use **Journey**, **Peak**, **Map**, **Pebble**, **Satchel**.
+
+Scope: user-visible strings only (labels, titles, dialog text, SnackBars, app bar). Code identifiers (`isArchived`, `ArchiveScreen`, `archive()`) may stay.
+
+---
+
+## 3. Wizard Navigation Row (Critical Distinction)
+
+- **Left** control = **onBack** (wizard step back). Label: **Back**. Icon: `Icons.arrow_back`. Do **not** relabel as "Stow the Map".
+- **Center/Right** control = **returnLabel** (Exit to Map). Label: **Stow the Map**. Icon: `Icons.map` or scroll. Use **Stow the Map** here only.
+
+---
+
+## 4. Back & Return Nuance Rule (Prevent Over-Auditing)
+
+- **Permitted "Back"**: Sequential navigation only (e.g. "Previous Page" in storybook, **Back** between wizard steps).
+- **Permitted "Return"**: Temporal or narrative context only (e.g. Elias: "Return tomorrow", "Return to the path").
+- **Prohibition**: Neither "Back" nor "Return" may be used for the **specific action** of exiting a Peak or the wizard to the Map; use **Stow the Map**.
+
+---
+
+## 5. Physical Metaphors & Navigation
+
+- Exit-to-Map: label **Stow the Map**, icon `Icons.map` or scroll (not `Icons.arrow_back` for this action).
+- New Journey CTA: **Plot a New Path** (Primary).
+- Transitions: prefer vertical "roll" or "fold" where it fits the metaphor.

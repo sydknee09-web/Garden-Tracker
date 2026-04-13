@@ -10,11 +10,13 @@ import '../../core/constants/app_colors.dart';
 import '../../core/content/elias_dialogue.dart';
 import '../../core/enums/day_period.dart';
 import '../../data/models/profile.dart';
+import '../../providers/first_run_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/repository_providers.dart';
 import '../../providers/time_of_day_provider.dart';
 import '../../widgets/elias_silhouette.dart';
 import '../../widgets/sanctuary_background.dart';
+import '../../widgets/voyager_surface.dart';
 import '../scroll_map/climb_flow_overlay.dart';
 import 'whetstone_intro_setup_sheet.dart';
 
@@ -25,10 +27,14 @@ class EliasIntroOverlay extends ConsumerStatefulWidget {
   const EliasIntroOverlay({
     super.key,
     this.skipIntroBeats = false,
+    this.skipIntroBeat1 = false,
   });
 
   /// When true, skip the Elias intro beats and open the wizard immediately.
   final bool skipIntroBeats;
+
+  /// When true, start at intro beat 2 (beat 1 was shown on [ForestCrossroadsWelcomeScreen]).
+  final bool skipIntroBeat1;
 
   @override
   ConsumerState<EliasIntroOverlay> createState() => _EliasIntroOverlayState();
@@ -39,12 +45,15 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
   int _step = 0;
   int _visibleLength = 0;
   bool _typewriterComplete = false;
-  bool _typewriterSkipped = false; // true when user tapped to skip; stops _runTypewriter loop
+  bool _typewriterSkipped =
+      false; // true when user tapped to skip; stops _runTypewriter loop
   Timer? _typewriterTimer;
+
   /// Set from profile.displayName when present, or from name prompt (user input or default "traveler").
   String? _travelerName;
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
+
   /// When true, show the name TextField and Continue on the name-prompt step (staggered after dialogue).
   bool _showNameInput = false;
   Timer? _nameInputTimer;
@@ -55,9 +64,11 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
 
   /// Optional pose assets for intro steps; fallback to period pose if missing.
   static const String _eliasWelcoming = 'assets/elias/elias_welcoming.png';
-  static const String _eliasExplainingGesture = 'assets/elias/elias_explaining_gesture.png';
+  static const String _eliasExplainingGesture =
+      'assets/elias/elias_explaining_gesture.png';
   static const String _eliasGuidePose = 'assets/elias/elias_guide_pose.png';
-  static const String _eliasHeadMouthOpen = 'assets/elias/EliasFloatingMouthOpen.png';
+  static const String _eliasHeadMouthOpen =
+      'assets/elias/EliasFloatingMouthOpen.png';
 
   String? _introEliasAssetOverrideForStep(int step) {
     switch (step) {
@@ -78,7 +89,12 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
   }
 
   (double width, double height) _introEliasSizeForStep(int step) {
-    if (step == 6) return (140, 196); // Beat 5: optionally larger (anchor rule: keep feet stable)
+    if (step == 6) {
+      return (
+        140,
+        196,
+      ); // Beat 5: optionally larger (anchor rule: keep feet stable)
+    }
     if (step == 7) return (100, 120); // Bridge: head/bust only
     return (100, 140);
   }
@@ -120,6 +136,11 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _openWizard();
       });
+    } else if (widget.skipIntroBeat1) {
+      _step = 1;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _runTypewriter();
+      });
     } else {
       _runTypewriter();
     }
@@ -151,7 +172,8 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
       });
       final char = i < text.length ? text[i] : '';
       // Pause ~300ms at ellipses for conversational beat (spec §9)
-      final isFirstDotOfEllipsis = char == '.' &&
+      final isFirstDotOfEllipsis =
+          char == '.' &&
           i + 2 < text.length &&
           text[i + 1] == '.' &&
           text[i + 2] == '.' &&
@@ -242,6 +264,7 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
             _showStowTheMapClosingThenContinue();
           },
           returnLabel: 'Stow the Map',
+          persistDraftOnClose: false,
         ),
       ),
     );
@@ -306,7 +329,9 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
           Navigator.of(ctx).pop();
           final repo = ref.read(profileRepositoryProvider);
           await repo.setHasSeenEliasIntro();
+          await markSanctuaryHomeIntroSeen();
           ref.invalidate(profileProvider);
+          ref.invalidate(hasSeenSanctuaryHomeIntroProvider);
           if (!mounted) return;
           context.go(AppRoutes.sanctuary);
         },
@@ -351,7 +376,8 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
       );
     }
 
-    final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final period =
+        ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
 
     return PopScope(
       canPop: false,
@@ -365,9 +391,7 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
             fit: StackFit.expand,
             children: [
               // Layer 1: Sanctuary time-of-day background (RepaintBoundary avoids repaints during typewriter)
-              RepaintBoundary(
-                child: const SanctuaryBackground(),
-              ),
+              RepaintBoundary(child: const SanctuaryBackground()),
               // Layer 2: Scrim — transparent at top so Elias stays bright, deep forest at bottom for text legibility
               Container(
                 decoration: BoxDecoration(
@@ -392,7 +416,9 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
                         child: _step == _namePromptStep
                             ? SingleChildScrollView(
                                 padding: EdgeInsets.only(
-                                  bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                                  bottom:
+                                      MediaQuery.viewInsetsOf(context).bottom +
+                                      48,
                                 ),
                                 child: _buildNamePromptContent(period),
                               )
@@ -448,54 +474,57 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                TextField(
-                  controller: _nameController,
-                  focusNode: _nameFocus,
-                  style: const TextStyle(
-                    fontFamily: 'Georgia',
-                    fontSize: 18,
-                    color: Color(0xFFD8E2DC),
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'What shall I call you?',
-                    hintStyle: const TextStyle(
+                  TextField(
+                    controller: _nameController,
+                    focusNode: _nameFocus,
+                    style: const TextStyle(
                       fontFamily: 'Georgia',
-                      color: AppColors.ashGrey,
-                      fontStyle: FontStyle.italic,
+                      fontSize: 18,
+                      color: Color(0xFFD8E2DC),
                     ),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: const Color(0xFFA4B494).withValues(alpha: 0.8),
+                    decoration: InputDecoration(
+                      hintText: 'What shall I call you?',
+                      hintStyle: const TextStyle(
+                        fontFamily: 'Georgia',
+                        color: AppColors.ashGrey,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: const Color(0xFFA4B494).withValues(alpha: 0.8),
+                        ),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: const Color(0xFFA4B494).withValues(alpha: 0.8),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    textAlign: TextAlign.center,
+                    textCapitalization: TextCapitalization.words,
+                    onSubmitted: (_) => _advance(),
+                  ),
+                  const SizedBox(height: 32),
+                  // Single Continue: dismiss keyboard if focused, then advance (empty uses default "traveler")
+                  TextButton(
+                    onPressed: () {
+                      if (_nameFocus.hasFocus) _nameFocus.unfocus();
+                      _advance();
+                    },
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 14,
+                        color: AppColors.ember,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: const Color(0xFFA4B494).withValues(alpha: 0.8),
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
-                  textAlign: TextAlign.center,
-                  textCapitalization: TextCapitalization.words,
-                  onSubmitted: (_) => _advance(),
-                ),
-                const SizedBox(height: 32),
-                // Single Continue: dismiss keyboard if focused, then advance (empty uses default "traveler")
-                TextButton(
-                  onPressed: () {
-                    if (_nameFocus.hasFocus) _nameFocus.unfocus();
-                    _advance();
-                  },
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 14,
-                      color: AppColors.ember,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  SizedBox(
+                    height: 24 + MediaQuery.paddingOf(context).bottom,
                   ),
-                ),
                 ],
               ),
             ),
@@ -508,7 +537,8 @@ class _EliasIntroOverlayState extends ConsumerState<EliasIntroOverlay> {
   Widget _buildTypewriterContent() {
     final text = _currentText;
     final visible = text.substring(0, _visibleLength.clamp(0, text.length));
-    final period = ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
+    final period =
+        ref.watch(timeOfDayProvider).valueOrNull ?? ScenePeriod.night;
     final (width, height) = _introEliasSizeForStep(_step);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -564,18 +594,7 @@ class _EliasParchmentDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       child: Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.whetPaper.withValues(alpha: 0.98),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.whetLine),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
+        decoration: VoyagerSurface.parchmentCard(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -592,14 +611,7 @@ class _EliasParchmentDialog extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () async => await onContinue(),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.ember,
-                foregroundColor: AppColors.parchment,
-              ),
-              child: const Text(
-                'Continue',
-                style: TextStyle(fontFamily: 'Georgia', letterSpacing: 1),
-              ),
+              child: const Text('Continue', style: TextStyle(letterSpacing: 1)),
             ),
           ],
         ),

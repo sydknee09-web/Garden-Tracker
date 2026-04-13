@@ -68,14 +68,7 @@ class SanctuaryErrorWidget extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded, size: 20),
-                  label: const Text(
-                    'Retry',
-                    style: TextStyle(fontFamily: 'Georgia'),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.ember,
-                    foregroundColor: AppColors.parchment,
-                  ),
+                  label: const Text('Retry'),
                 ),
               ],
             ],

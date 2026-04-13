@@ -41,9 +41,13 @@
 
 ---
 
-## 3. Recent completed work (session)
+## 3. Recent completed work (session + shipped to testers)
 
 - Intro typewriter tap-to-skip (no glitch). Step 5 single Stow/Pack buttons. Plot New Path single Stow, cream nav row. Elias tap reliability (80px min target), management menu cream/scroll. Satchel: stone icon per row, filled-first order, warm empty row color. Sanctuary: stones always visible; locked stone limited drag + snap-back + Elias markDoneToDrop; hearth only accepts readyToBurn, trim nodeId, reject when burn in progress. Architect stays on until explicit exit. Mountain Detail safe bottom padding. EditFlowOverlay: max height 80%, scroll, bottom padding, whetPaper/whetInk, 200ms stagger for actions.
+- **Elias dialogue audit (shipped):** task→stone rewrites; saveFailed() / peakJournalArrival() added and wired (climb_flow, edit_flow, mountain_detail_screen); return-after-idle line, empty-satchel Map nudge; Edit Flow preferred lines (Option B); optional variants for onTap, afterBurn, coldHearth. ELIAS_DIALOGUE_REFERENCE.md catalogue synced.
+- **Build / code:** withOpacity→withValues (sanctuary_screen); removed unused imports (bootstrap, auth_screen) and dead code (elias_intro gradientColors, whetstone bubbleSpacing used).
+- **Firebase:** firebase.json and android/app/google-services.json committed; v0.1.1+15 distributed to testers via Firebase App Distribution (group: testers).
+- **Docs:** BUILD_GUIDANCE.md, GEMINI_APP_HANDOFF.md, GEMINI_RECOMMENDATIONS.md, Elias audit handoff + ELIAS_DIALOGUE_AUDIT_RECOMMENDATIONS.md, ELIAS_DIALOGUE_REFERENCE.md.
 
 ---
 
@@ -72,4 +76,6 @@ Produce **one consolidated markdown document** with these sections (each as a li
 6. **Outstanding tasks** — Ordered task list the team can execute (gatekeepers first: Display name, Shard completion, RLS verify, Satchel verify; then high-value then polish).
 7. **Polishing** — Visual/UX polish (design tokens, letter-spacing where missing, contextual haptics, bubble on tap only, Elias 7+ days copy, step descriptions already done, deferred bugs list when touching related code).
 
-Prefer **actionable, specific items** with file or area references where possible. Preserve the app’s “cozy, ritual, Japandi” stance and gatekeeper order (data safety and narrative before heavy polish).
+8. **Release-readiness / gatekeeper checklist** — Concrete verification steps the team can run (on device or in code) for: (a) Display name — exact steps to verify intro Beats 3 & 5, management, Sanctuary use profile.display_name and skip/empty → “traveler”; (b) Shard completion — exact steps to verify last leaf under a boulder completes → parent updates; (c) RLS — reference to RLS_VERIFICATION.md and what to document in TESTING_CHECKLIST; (d) Satchel verify — fresh UID steps and what to document. Format as a short checklist (e.g. “□ Step 1: … □ Step 2: …”) so it can be printed or pasted into TESTING_CHECKLIST.
+
+Prefer **actionable, specific items** with file or area references where possible. Preserve the app’s “cozy, ritual, Japandi” stance and gatekeeper order (data safety and narrative before heavy polish). **We are in build mode:** prioritize a clear “do next” order and concrete gatekeeper checks so the team can execute toward release.

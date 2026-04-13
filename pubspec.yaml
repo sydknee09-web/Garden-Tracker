@@ -1,8 +1,8 @@
-name: voyager_sanctuary
-description: "Voyager Sanctuary — Goal execution app. Refined Architectural Luxury."
+﻿name: voyager_sanctuary
+description: "Voyager Sanctuary â€” Goal execution app. Refined Architectural Luxury."
 publish_to: 'none'
 
-version: 0.1.1+9
+version: 0.1.2+27
 
 environment:
   sdk: ^3.11.1
@@ -36,6 +36,7 @@ dependencies:
   flutter_slidable: ^3.1.1
   audioplayers: ^6.0.0
   just_audio: ^0.9.40
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -50,11 +51,55 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/backgrounds/
-    - assets/elias/
-    - assets/hearth/
-    - assets/satchel/
-    - assets/mallet/
-    - assets/sounds/
-    - assets/images/
-    - assets/stones/
+    - assets/backgrounds/sunrise.jfif
+    - assets/backgrounds/midday.jfif
+    - assets/backgrounds/dusk.jfif
+    - assets/backgrounds/night.jfif
+    - assets/elias/elias_intro_pathway.png
+    - assets/elias/EliasFloatingBeard.png
+    - assets/elias/EliasFloatingMouthOpen.png
+    - assets/elias/EliasFloatingSmile.png
+    - assets/elias/EliasReadingShocked.png
+    - assets/elias/EliasSittingLog.png
+    - assets/elias/Elias_Dawn.png
+    - assets/elias/Elias_Deliverying.png
+    - assets/elias/elias_explaining_gesture.png
+    - assets/elias/elias_guide_pose.png
+    - assets/elias/Elias_Hammer.png
+    - assets/elias/Elias_Midday.png
+    - assets/elias/Elias_Night.png
+    - assets/elias/elias_pointing_left.png
+    - assets/elias/elias_pointing_up.png
+    - assets/elias/Elias_Sunset.png
+    - assets/elias/elias_welcoming.png
+    - assets/elias/elias_cheering.png
+    - assets/stones/stone_large.png
+    - assets/stones/stone_medium.png
+    - assets/stones/stone_small.png
+    - assets/stones/LargeRock.png
+    - assets/stones/MediumRock.png
+    - assets/stones/SmallRock.png
+    - assets/hearth/hearth_extra_high.png
+    - assets/hearth/Hearth_High.png
+    - assets/hearth/Hearth_Sizzle.png
+    - assets/ui/mallet.png
+    - assets/ui/satchel_open.png
+    - assets/ui/satchel_closed.png
+    - assets/satchel/satchel_texture.png
+    - assets/ui/scroll_top.png
+    - assets/ui/scroll_texture.png
+    - assets/ui/scroll_texture_deckled_white.png
+    - assets/ui/scroll_texture_soft_white.png
+    - assets/ui/scroll_center.png
+    - assets/ui/scroll_bottom.png
+    - assets/ui/scroll_full_open.png
+    - assets/ui/scroll_horizontal_open.png
+    - assets/sounds/app_open.wav
+    - assets/sounds/scroll_open.wav
+    - assets/sounds/stone_drop.wav
+    - assets/sounds/weight.wav
+    - assets/sounds/whetstone.wav
+    - assets/sounds/rock_break.wav
+
+  shaders:
+    - shaders/hearth_burn.frag

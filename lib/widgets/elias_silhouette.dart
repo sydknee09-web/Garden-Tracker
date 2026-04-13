@@ -24,15 +24,16 @@ class EliasWidget extends StatelessWidget {
   final double height;
   final bool showGreeting;
   final double greetingWidth;
+
   /// When set, use this asset path instead of [period].eliasAssetPath. Falls back to period pose on load error.
   final String? assetPathOverride;
 
   Color get _glowColor => switch (period) {
-        ScenePeriod.dawn   => const Color(0xFFD4813A),
-        ScenePeriod.midday => AppColors.gold,
-        ScenePeriod.sunset => AppColors.ember,
-        ScenePeriod.night  => const Color(0xFF3B5DA0),
-      };
+    ScenePeriod.dawn => const Color(0xFFD4813A),
+    ScenePeriod.midday => AppColors.gold,
+    ScenePeriod.sunset => AppColors.ember,
+    ScenePeriod.night => const Color(0xFF3B5DA0),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +55,7 @@ class EliasWidget extends StatelessWidget {
               return child;
             },
             errorBuilder: (_, __, ___) => CustomPaint(
-              painter: _EliasPainter(
-                glowColor: _glowColor,
-                period: period,
-              ),
+              painter: _EliasPainter(glowColor: _glowColor, period: period),
             ),
           ),
         ),
@@ -66,13 +64,15 @@ class EliasWidget extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: greetingWidth,
-            child: Text(
-              period.eliasGreeting,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 11,
-                fontFamily: 'Georgia',
-                fontStyle: FontStyle.italic,
+            child: SelectionContainer.disabled(
+              child: Text(
+                period.eliasGreeting,
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11,
+                  fontFamily: 'Georgia',
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ),
@@ -85,10 +85,7 @@ class EliasWidget extends StatelessWidget {
 // ── CustomPainter ────────────────────────────────────────────
 
 class _EliasPainter extends CustomPainter {
-  const _EliasPainter({
-    required this.glowColor,
-    required this.period,
-  });
+  const _EliasPainter({required this.glowColor, required this.period});
 
   final Color glowColor;
   final ScenePeriod period;
@@ -111,11 +108,7 @@ class _EliasPainter extends CustomPainter {
       glowPaint,
     );
 
-    final bodyColor = Color.lerp(
-      const Color(0xFF0D0B08),
-      glowColor,
-      0.08,
-    )!;
+    final bodyColor = Color.lerp(const Color(0xFF0D0B08), glowColor, 0.08)!;
 
     final bodyPaint = Paint()
       ..color = bodyColor
@@ -142,21 +135,25 @@ class _EliasPainter extends CustomPainter {
     // ── Cloak body ────────────────────────────────────────
     final cloakPath = Path();
     final shoulderY = headCy + headRadius * 1.1;
-    final cloakTopLeft  = Offset(w * 0.18, shoulderY);
+    final cloakTopLeft = Offset(w * 0.18, shoulderY);
     final cloakTopRight = Offset(w * 0.82, shoulderY);
-    final cloakBotLeft  = Offset(w * 0.08, h * 0.97);
+    final cloakBotLeft = Offset(w * 0.08, h * 0.97);
     final cloakBotRight = Offset(w * 0.92, h * 0.97);
 
     cloakPath.moveTo(cloakTopLeft.dx, cloakTopLeft.dy);
     cloakPath.lineTo(cloakTopRight.dx, cloakTopRight.dy);
     cloakPath.quadraticBezierTo(
-      cloakBotRight.dx + w * 0.05, h * 0.82,
-      cloakBotRight.dx, cloakBotRight.dy,
+      cloakBotRight.dx + w * 0.05,
+      h * 0.82,
+      cloakBotRight.dx,
+      cloakBotRight.dy,
     );
     cloakPath.lineTo(cloakBotLeft.dx, cloakBotLeft.dy);
     cloakPath.quadraticBezierTo(
-      cloakBotLeft.dx - w * 0.05, h * 0.82,
-      cloakTopLeft.dx, cloakTopLeft.dy,
+      cloakBotLeft.dx - w * 0.05,
+      h * 0.82,
+      cloakTopLeft.dx,
+      cloakTopLeft.dy,
     );
     cloakPath.close();
     canvas.drawPath(cloakPath, bodyPaint);
@@ -173,12 +170,10 @@ class _EliasPainter extends CustomPainter {
     );
 
     // ── Period indicator dot (tiny) ───────────────────────
-    final dotPaint = Paint()
-      ..color = glowColor.withValues(alpha: 0.6);
+    final dotPaint = Paint()..color = glowColor.withValues(alpha: 0.6);
     canvas.drawCircle(Offset(w * 0.5, h * 0.97), 2.5, dotPaint);
   }
 
   @override
-  bool shouldRepaint(_EliasPainter oldDelegate) =>
-      oldDelegate.period != period;
+  bool shouldRepaint(_EliasPainter oldDelegate) => oldDelegate.period != period;
 }

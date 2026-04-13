@@ -40,30 +40,29 @@ class SatchelSlot {
   bool get canDropInHearth => isFilled && readyToBurn;
 
   factory SatchelSlot.fromJson(Map<String, dynamic> json) => SatchelSlot(
-        id: json['id'] as String,
-        userId: json['user_id'] as String,
-        slotIndex: (json['slot_index'] as num).toInt(),
-        nodeId: json['node_id'] as String?,
-        node: json['nodes'] != null
-            ? Node.fromJson(json['nodes'] as Map<String, dynamic>)
-            : null,
-        packedAt: DateTime.parse(json['packed_at'] as String),
-        readyToBurn: json['ready_to_burn'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    userId: json['user_id'] as String,
+    slotIndex: (json['slot_index'] as num).toInt(),
+    nodeId: json['node_id'] as String?,
+    node: json['nodes'] != null
+        ? Node.fromJson(json['nodes'] as Map<String, dynamic>)
+        : null,
+    packedAt: DateTime.parse(json['packed_at'] as String),
+    readyToBurn: json['ready_to_burn'] as bool? ?? false,
+  );
 
   SatchelSlot copyWith({
     String? nodeId,
     Node? node,
     bool clearNode = false,
     bool? readyToBurn,
-  }) =>
-      SatchelSlot(
-        id: id,
-        userId: userId,
-        slotIndex: slotIndex,
-        nodeId: clearNode ? null : (nodeId ?? this.nodeId),
-        node: clearNode ? null : (node ?? this.node),
-        packedAt: packedAt,
-        readyToBurn: clearNode ? false : (readyToBurn ?? this.readyToBurn),
-      );
+  }) => SatchelSlot(
+    id: id,
+    userId: userId,
+    slotIndex: slotIndex,
+    nodeId: clearNode ? null : (nodeId ?? this.nodeId),
+    node: clearNode ? null : (node ?? this.node),
+    packedAt: packedAt,
+    readyToBurn: clearNode ? false : (readyToBurn ?? this.readyToBurn),
+  );
 }

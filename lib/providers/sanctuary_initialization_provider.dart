@@ -18,17 +18,19 @@ final sanctuaryInitializationProvider = FutureProvider<void>((ref) async {
   final satchelRepo = ref.read(satchelRepositoryProvider);
 
   if (storage.mountains.isEmpty) {
-    await storage.addMountain(Mountain(
-      id: 'demo-mountain-1',
-      userId: DemoStorage.demoUserId,
-      name: 'Sanctuary Heights',
-      orderIndex: 0,
-      isArchived: false,
-      intentStatement: null,
-      layoutType: 'climb',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ));
+    await storage.addMountain(
+      Mountain(
+        id: 'demo-mountain-1',
+        userId: DemoStorage.demoUserId,
+        name: 'Sanctuary Heights',
+        orderIndex: 0,
+        isArchived: false,
+        intentStatement: null,
+        layoutType: 'climb',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   await nodeRepo.createBoulder(

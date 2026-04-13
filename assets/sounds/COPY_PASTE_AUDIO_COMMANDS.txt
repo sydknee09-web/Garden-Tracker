@@ -1,0 +1,75 @@
+================================================================================
+  AUDIO PREP SCRIPTS — COPY AND PASTE THESE (one block at a time)
+================================================================================
+
+Run each block in PowerShell. Wait for it to finish before pasting the next.
+Ignore any message that says "Couldn't find ffmpeg" — it's fine for these scripts.
+
+--------------------------------------------------------------------------------
+STEP 1 — Open the project folder and turn on the virtual environment
+--------------------------------------------------------------------------------
+
+cd "c:\Users\marsh\OneDrive\Documents\Goals_App\voyager_sanctuary"
+.\.venv\Scripts\Activate.ps1
+
+--------------------------------------------------------------------------------
+STEP 2 — Install Python packages (only needed once)
+--------------------------------------------------------------------------------
+
+pip install pydub numpy scipy
+
+--------------------------------------------------------------------------------
+STEP 3 — App open sound
+--------------------------------------------------------------------------------
+
+python scripts/prepare_app_open_sound.py "assets\sounds\17294__luffy__luffy_fire2.wav"
+
+--------------------------------------------------------------------------------
+STEP 4 — Weight sound
+--------------------------------------------------------------------------------
+
+python scripts/prepare_weight_sound.py "assets\sounds\331621__hykenfreak__flame-ignition.wav"
+
+--------------------------------------------------------------------------------
+STEP 5 — Stone drop sound
+--------------------------------------------------------------------------------
+
+python scripts/prepare_stone_drop_sound.py "assets\sounds\95550__dobroide__20100422lightmyfire.wav"
+
+--------------------------------------------------------------------------------
+STEP 6 — Rock break sound
+--------------------------------------------------------------------------------
+
+python scripts/prepare_rock_break_sound.py "assets\sounds\389724__uminari__rolling-rocks-06.wav"
+
+--------------------------------------------------------------------------------
+STEP 7 — Scroll open sound
+--------------------------------------------------------------------------------
+
+python scripts/prepare_scroll_open_sound.py "assets\sounds\77319__benboncan__unrolling-and-rolling-map.wav"
+
+================================================================================
+  Done. Processed files are in: assets\sounds\
+================================================================================
+
+
+================================================================================
+  RUN THE APP (test the sounds)
+================================================================================
+Open PowerShell and paste each block below, one at a time.
+
+--------------------------------------------------------------------------------
+Go to project folder
+--------------------------------------------------------------------------------
+
+cd "c:\Users\marsh\OneDrive\Documents\Goals_App\voyager_sanctuary"
+
+--------------------------------------------------------------------------------
+Start the app (pick one: device/emulator must be running or use Chrome)
+--------------------------------------------------------------------------------
+
+flutter run
+
+(To run in Chrome instead:  flutter run -d chrome)
+
+================================================================================

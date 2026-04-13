@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../app.dart';
 import '../../bootstrap.dart';
 import '../../core/config/demo_mode.dart';
@@ -11,8 +12,13 @@ import '../../data/supabase_cache.dart';
 import '../../data/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/mountain_provider.dart';
+import '../../providers/profile_provider.dart';
+import '../../providers/repository_providers.dart';
 import '../../providers/node_provider.dart';
 import '../../providers/sound_settings_provider.dart';
+
+/// Public privacy policy (Firebase Hosting). See docs/FIREBASE_HOSTING_PRIVACY.md
+const _kPrivacyPolicyUrl = 'https://voyager-sanctuary.web.app/privacy';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -21,6 +27,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(authProvider);
     final email = userAsync.valueOrNull?.email ?? '—';
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final displayName = profile?.displayName?.trim();
 
     return Scaffold(
       backgroundColor: AppColors.inkBlack,
@@ -70,6 +78,16 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 12),
           _ActionRow(
+            icon: Icons.badge_outlined,
+            label: displayName != null && displayName.isNotEmpty
+                ? 'What Elias calls you · $displayName'
+                : 'What Elias calls you (tap to set)',
+            color: AppColors.parchment,
+            onTap: () => _editDisplayName(context, ref),
+          ),
+
+          const SizedBox(height: 12),
+          _ActionRow(
             icon: Icons.lock_reset,
             label: 'Reset Password',
             color: AppColors.parchment,
@@ -104,6 +122,13 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           _ActionRow(
+            icon: Icons.privacy_tip_outlined,
+            label: 'Privacy & Data',
+            color: AppColors.parchment,
+            onTap: () => _openPrivacyPolicy(context),
+          ),
+          const SizedBox(height: 8),
+          _ActionRow(
             icon: Icons.article_outlined,
             label: 'Credits',
             color: AppColors.parchment,
@@ -120,6 +145,147 @@ class SettingsScreen extends ConsumerWidget {
             label: 'Sign Out',
             color: AppColors.ember,
             onTap: () => _confirmSignOut(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPrivacyPolicy(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final uri = Uri.parse(_kPrivacyPolicyUrl);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not open the browser. Visit voyagersanctuary.com/privacy',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
+            ),
+            backgroundColor: AppColors.charcoal,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open link: $e',
+              style: const TextStyle(
+                fontFamily: 'Georgia',
+                color: AppColors.parchment,
+              ),
+            ),
+            backgroundColor: AppColors.charcoal,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _editDisplayName(BuildContext context, WidgetRef ref) {
+    final profile = ref.read(profileProvider).valueOrNull;
+    final controller = TextEditingController(text: profile?.displayName ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.charcoal,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.slotBorder, width: 0.5),
+        ),
+        title: const Text(
+          'What Elias calls you',
+          style: TextStyle(
+            fontFamily: 'Georgia',
+            color: AppColors.parchment,
+            fontSize: 16,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Wayfarer',
+            hintStyle: TextStyle(
+              color: AppColors.ashGrey,
+              fontFamily: 'Georgia',
+            ),
+            border: OutlineInputBorder(),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.slotBorder),
+            ),
+          ),
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            color: AppColors.parchment,
+            fontSize: 14,
+          ),
+          maxLength: 64,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.ashGrey, fontFamily: 'Georgia'),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              Navigator.of(ctx).pop();
+              try {
+                final repo = ref.read(profileRepositoryProvider);
+                await repo.updateDisplayName(name);
+                ref.invalidate(profileProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        name.isEmpty
+                            ? 'Cleared. Elias will use a default.'
+                            : 'Saved. Elias will use "$name".',
+                        style: const TextStyle(
+                          fontFamily: 'Georgia',
+                          color: AppColors.parchment,
+                        ),
+                      ),
+                      backgroundColor: AppColors.charcoal,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Could not save: $e'),
+                      backgroundColor: AppColors.charcoal,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text(
+              'Save',
+              style: TextStyle(
+                color: AppColors.ember,
+                fontFamily: 'Georgia',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -320,10 +486,7 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text(
               'Stay',
-              style: TextStyle(
-                color: AppColors.ashGrey,
-                fontFamily: 'Georgia',
-              ),
+              style: TextStyle(color: AppColors.ashGrey, fontFamily: 'Georgia'),
             ),
           ),
           TextButton(
@@ -341,7 +504,8 @@ class SettingsScreen extends ConsumerWidget {
                 if (context.mounted) context.go('/');
               } catch (e) {
                 // Supabase not initialized (e.g. demo/skip-auth in debug) — exit demo and restart so user sees login
-                final isDemoOrNotInit = e.toString().contains('initialize') ||
+                final isDemoOrNotInit =
+                    e.toString().contains('initialize') ||
                     e.toString().contains('Supabase.instance') ||
                     isDemoMode;
                 if (context.mounted && isDemoOrNotInit) {
@@ -363,7 +527,11 @@ class SettingsScreen extends ConsumerWidget {
                   }
                 } else if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sign out failed: ${e.toString().split('\n').first}')),
+                    SnackBar(
+                      content: Text(
+                        'Sign out failed: ${e.toString().split('\n').first}',
+                      ),
+                    ),
                   );
                   context.go('/');
                 }
@@ -543,9 +711,6 @@ class _SoundToggleRow extends ConsumerWidget {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 0.5,
-      color: AppColors.slotBorder,
-    );
+    return Container(height: 0.5, color: AppColors.slotBorder);
   }
 }

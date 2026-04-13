@@ -6,15 +6,12 @@ import 'repository_providers.dart';
 
 /// Hearth fuel state: effective fuel units and display level (0–3).
 class HearthFuelState {
-  const HearthFuelState({
-    required this.effectiveFuel,
-    required this.fireLevel,
-  });
+  const HearthFuelState({required this.effectiveFuel, required this.fireLevel});
 
-  /// Sum of pebble burns (1.0 each, 4h) + whetstone completions (0.5 each, 2h).
-  final double effectiveFuel;
+  /// floor(pebbles_burned_4h + whetstone_completions_2h * 0.5)
+  final int effectiveFuel;
 
-  /// Display level 0–3. floor(effectiveFuel) clamped to 3.
+  /// Display level 0–3. min(effectiveFuel, 3).
   final int fireLevel;
 
   /// True when celebration should trigger (drop event only, checked at burn time).
@@ -32,7 +29,8 @@ final hearthFuelProvider = FutureProvider<HearthFuelState>((ref) async {
   const whetstoneWindow = Duration(hours: 2);
 
   final burnTimestamps = await nodeRepo.fetchBurnTimestamps();
-  final whetstoneTimestamps = await whetstoneRepo.fetchAllCompletionTimestamps();
+  final whetstoneTimestamps = await whetstoneRepo
+      .fetchAllCompletionTimestamps();
 
   final pebbleCount = burnTimestamps
       .where((t) => now.difference(t) < pebbleWindow)
@@ -41,13 +39,10 @@ final hearthFuelProvider = FutureProvider<HearthFuelState>((ref) async {
       .where((t) => now.difference(t) < whetstoneWindow)
       .length;
 
-  final effectiveFuel = pebbleCount + 0.5 * whetstoneCount;
-  final fireLevel = min(max(0, effectiveFuel.floor()), 3);
+  final effectiveFuel = (pebbleCount + 0.5 * whetstoneCount).floor();
+  final fireLevel = min(max(0, effectiveFuel), 3);
 
-  return HearthFuelState(
-    effectiveFuel: effectiveFuel,
-    fireLevel: fireLevel,
-  );
+  return HearthFuelState(effectiveFuel: effectiveFuel, fireLevel: fireLevel);
 });
 
 /// Set to true when 4+ stones dropped in one session (celebration overlay).

@@ -58,8 +58,30 @@ subjects:
     # Output folder under project (relative to voyager_sanctuary).
     output_dir: "assets/elias"
 
-  # Add more subjects here later, e.g.:
-  # prop_hearth:
-  #   name: "Hearth"
-  #   description: "..."
-  #   poses: { ... }
+  scroll:
+    name: "Scroll"
+    description: |
+      Parchment paper and wooden scroll rollers. Texture and prop only. No characters, no people.
+      Muted earth tones, hand-painted feel, suitable for app UI.
+    default_background: "neutral or transparent, seamless for tiling when needed, no characters"
+    pov: "Clean, refined, subtle texture. UI asset."
+    do:
+      - "Keep consistent with app aesthetic"
+      - "Tileable where specified in prompt"
+    dont:
+      - "No text in image"
+      - "No characters or people"
+    poses:
+      parchment_tile:
+        prompt: "Seamless tileable parchment texture, warm cream tan, subtle paper fiber, square."
+        filename: "parchment_tile.png"
+        aspect_ratio: "1:1"
+      scroll_top:
+        prompt: "Wooden scroll roller at top of scroll, horizontal, cylindrical, dark wood, front view."
+        filename: "scroll_top.png"
+        aspect_ratio: "3:1"
+      scroll_bottom:
+        prompt: "Wooden scroll roller at bottom of scroll, horizontal, cylindrical, dark wood, front view."
+        filename: "scroll_bottom.png"
+        aspect_ratio: "3:1"
+    output_dir: "assets/images"

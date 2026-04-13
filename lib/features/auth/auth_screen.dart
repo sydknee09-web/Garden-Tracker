@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/offline_copy.dart';
 import '../../data/supabase_service.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -22,9 +23,9 @@ class _AuthScreenState extends State<AuthScreen> {
   _AuthMode _mode = _AuthMode.signIn;
   bool _loading = false;
 
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _formKey             = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -51,9 +52,7 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _passwordController.text,
         );
         if (mounted && res.session == null) {
-          _showSuccess(
-            'Check your email — we\'ve sent a verification link.',
-          );
+          _showSuccess('Check your email — we\'ve sent a verification link.');
         }
       }
       // go_router redirect fires automatically on auth state change
@@ -129,7 +128,7 @@ class _AuthScreenState extends State<AuthScreen> {
         lower.contains('connection refused') ||
         lower.contains('connection timed out') ||
         lower.contains('network is unreachable')) {
-      return 'Can\'t reach the server. Check your internet connection and try again.';
+      return OfflineCopy.authConnectionMessage;
     }
     // Invalid email or password
     if (lower.contains('invalid login credentials') ||
@@ -207,17 +206,18 @@ class _AuthScreenState extends State<AuthScreen> {
           const _AuthBackground(),
 
           // Decorative top crest
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: _TopCrest(),
-          ),
+          Positioned(top: 0, left: 0, right: 0, child: _TopCrest()),
 
           // Main form card
           Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
-                24, MediaQuery.of(context).padding.top + 60,
-                24, MediaQuery.of(context).padding.bottom + 24 + MediaQuery.viewInsetsOf(context).bottom,
+                24,
+                MediaQuery.of(context).padding.top + 60,
+                24,
+                MediaQuery.of(context).padding.bottom +
+                    24 +
+                    MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: _FormCard(
                 mode: _mode,
@@ -280,78 +280,95 @@ class _TopCrest extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(32, MediaQuery.of(context).padding.top + 40, 32, 0),
-      child: Column(
-        children: [
-          // Decorative divider line
-          Row(
+          padding: EdgeInsets.fromLTRB(
+            32,
+            MediaQuery.of(context).padding.top + 40,
+            32,
+            0,
+          ),
+          child: Column(
             children: [
-              Expanded(
-                child: Container(height: 0.5, color: AppColors.gold.withValues(alpha: 0.4)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.gold,
+              // Decorative divider line
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 0.5,
+                      color: AppColors.gold.withValues(alpha: 0.4),
+                    ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 0.5,
+                      color: AppColors.gold.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // App title
+              const Text(
+                'VOYAGER',
+                style: TextStyle(
+                  fontFamily: 'Georgia',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 10,
+                  color: AppColors.parchment,
                 ),
               ),
-              Expanded(
-                child: Container(height: 0.5, color: AppColors.gold.withValues(alpha: 0.4)),
+              const SizedBox(height: 4),
+              const Text(
+                'S A N C T U A R Y',
+                style: TextStyle(
+                  fontFamily: 'Georgia',
+                  fontSize: 11,
+                  letterSpacing: 8,
+                  color: AppColors.gold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 0.5,
+                      color: AppColors.gold.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 0.5,
+                      color: AppColors.gold.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          // App title
-          const Text(
-            'VOYAGER',
-            style: TextStyle(
-              fontFamily: 'Georgia',
-              fontSize: 32,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 10,
-              color: AppColors.parchment,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'S A N C T U A R Y',
-            style: TextStyle(
-              fontFamily: 'Georgia',
-              fontSize: 11,
-              letterSpacing: 8,
-              color: AppColors.gold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Container(height: 0.5, color: AppColors.gold.withValues(alpha: 0.4)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.gold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(height: 0.5, color: AppColors.gold.withValues(alpha: 0.4)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    )
+        )
         .animate()
         .fadeIn(duration: 600.ms)
         .slideY(begin: -0.04, end: 0, duration: 600.ms);
@@ -388,147 +405,149 @@ class _FormCard extends StatelessWidget {
     final isSignIn = mode == _AuthMode.signIn;
 
     return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: AppColors.charcoal.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.whetLine.withValues(alpha: 0.4),
-          width: 0.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 40,
-            offset: const Offset(0, 8),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: AppColors.charcoal.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.whetLine.withValues(alpha: 0.4),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 40,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Mode toggle
-            _ModeToggle(mode: mode, onToggle: onToggleMode),
-            const SizedBox(height: 28),
+          child: Form(
+            key: formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Mode toggle
+                _ModeToggle(mode: mode, onToggle: onToggleMode),
+                const SizedBox(height: 28),
 
-            // Email field
-            _AuthField(
-              controller: emailController,
-              label: 'EMAIL',
-              keyboardType: TextInputType.emailAddress,
-              autofillHint: isSignIn
-                  ? AutofillHints.username
-                  : AutofillHints.newUsername,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
-                if (!v.contains('@')) return 'Enter a valid email';
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
+                // Email field
+                _AuthField(
+                  controller: emailController,
+                  label: 'EMAIL',
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHint: isSignIn
+                      ? AutofillHints.username
+                      : AutofillHints.newUsername,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (!v.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
 
-            // Password field
-            _AuthField(
-              controller: passwordController,
-              label: 'PASSWORD',
-              obscure: true,
-              autofillHint: isSignIn
-                  ? AutofillHints.password
-                  : AutofillHints.newPassword,
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Required';
-                if (!isSignIn && v.length < 8) {
-                  return 'Minimum 8 characters';
-                }
-                return null;
-              },
-              onSubmit: (_) => onSubmit(),
-            ),
+                // Password field
+                _AuthField(
+                  controller: passwordController,
+                  label: 'PASSWORD',
+                  obscure: true,
+                  autofillHint: isSignIn
+                      ? AutofillHints.password
+                      : AutofillHints.newPassword,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (!isSignIn && v.length < 8) {
+                      return 'Minimum 8 characters';
+                    }
+                    return null;
+                  },
+                  onSubmit: (_) => onSubmit(),
+                ),
 
-            if (isSignIn) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: loading ? null : onForgotPassword,
-                  child: Text(
-                    'Forgot password?',
-                    style: TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 12,
-                      color: loading ? AppColors.ashGrey : AppColors.gold,
-                      fontStyle: FontStyle.italic,
-                      decoration: TextDecoration.underline,
-                      decorationColor: loading ? AppColors.ashGrey : AppColors.gold,
+                if (isSignIn) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: loading ? null : onForgotPassword,
+                      child: Text(
+                        'Forgot password?',
+                        style: TextStyle(
+                          fontFamily: 'Georgia',
+                          fontSize: 12,
+                          color: loading ? AppColors.ashGrey : AppColors.gold,
+                          fontStyle: FontStyle.italic,
+                          decoration: TextDecoration.underline,
+                          decorationColor: loading
+                              ? AppColors.ashGrey
+                              : AppColors.gold,
+                        ),
+                      ),
                     ),
                   ),
+                ],
+
+                if (!isSignIn) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Use a strong password of at least 8 characters.',
+                    style: TextStyle(
+                      color: AppColors.ashGrey,
+                      fontFamily: 'Georgia',
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+
+                // Primary action button
+                _SubmitButton(
+                  label: isSignIn ? 'Enter the Sanctuary' : 'Begin the Ascent',
+                  loading: loading,
+                  onTap: onSubmit,
                 ),
-              ),
-            ],
 
-            if (!isSignIn) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Use a strong password of at least 8 characters.',
-                style: TextStyle(
-                  color: AppColors.ashGrey,
-                  fontFamily: 'Georgia',
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
+                const SizedBox(height: 20),
+
+                // Divider
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 0.5,
+                        color: AppColors.slotBorder,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
 
-            const SizedBox(height: 32),
+                const SizedBox(height: 16),
 
-            // Primary action button
-            _SubmitButton(
-              label: isSignIn ? 'Enter the Sanctuary' : 'Begin the Ascent',
-              loading: loading,
-              onTap: onSubmit,
-            ),
-
-            const SizedBox(height: 20),
-
-            // Divider
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 0.5,
-                    color: AppColors.slotBorder,
+                // Toggle link
+                GestureDetector(
+                  onTap: onToggleMode,
+                  child: Text(
+                    isSignIn
+                        ? 'No account yet? Create one.'
+                        : 'Already have an account? Sign in.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Georgia',
+                      fontSize: 12,
+                      color: AppColors.ashGrey,
+                      fontStyle: FontStyle.italic,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.ashGrey,
+                    ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 16),
-
-            // Toggle link
-            GestureDetector(
-              onTap: onToggleMode,
-              child: Text(
-                isSignIn
-                    ? 'No account yet? Create one.'
-                    : 'Already have an account? Sign in.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Georgia',
-                  fontSize: 12,
-                  color: AppColors.ashGrey,
-                  fontStyle: FontStyle.italic,
-                  decoration: TextDecoration.underline,
-                  decorationColor: AppColors.ashGrey,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    )
+          ),
+        )
         .animate()
         .fadeIn(duration: 500.ms, delay: 200.ms)
         .slideY(begin: 0.06, end: 0, duration: 500.ms, delay: 200.ms);
@@ -639,7 +658,9 @@ class _AuthFieldState extends State<_AuthField> {
           controller: widget.controller,
           keyboardType: widget.keyboardType,
           obscureText: _obscureText,
-          autofillHints: widget.autofillHint != null ? [widget.autofillHint!] : null,
+          autofillHints: widget.autofillHint != null
+              ? [widget.autofillHint!]
+              : null,
           onFieldSubmitted: widget.onSubmit,
           validator: widget.validator,
           style: const TextStyle(
@@ -676,9 +697,13 @@ class _AuthFieldState extends State<_AuthField> {
                       color: AppColors.ashGrey,
                       size: 22,
                     ),
-                    onPressed: () => setState(() => _obscureText = !_obscureText),
+                    onPressed: () =>
+                        setState(() => _obscureText = !_obscureText),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     tooltip: _obscureText ? 'Show password' : 'Hide password',
                   )
                 : null,

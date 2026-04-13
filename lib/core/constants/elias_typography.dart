@@ -13,11 +13,11 @@ class EliasTypography {
 
   /// Base style for all Elias speech. Use [style] for color overrides.
   static TextStyle style({Color? color}) => TextStyle(
-        fontFamily: fontFamily,
-        fontStyle: fontStyle,
-        fontSize: fontSize,
-        height: height,
-        letterSpacing: letterSpacing,
-        color: color,
-      );
+    fontFamily: fontFamily,
+    fontStyle: fontStyle,
+    fontSize: fontSize,
+    height: height,
+    letterSpacing: letterSpacing,
+    color: color,
+  );
 }

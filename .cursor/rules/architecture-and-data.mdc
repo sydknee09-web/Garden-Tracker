@@ -1,0 +1,12 @@
+---
+description: Follow project architecture and ensure every Supabase write includes user_id for RLS.
+alwaysApply: true
+---
+
+# Architecture and data
+
+When adding or changing features in Voyager Sanctuary:
+
+1. **Folder structure:** Follow the layout in `docs/ARCHITECTURE.md` (FOLDER STRUCTURE). Screens go in `lib/features/<name>/`, providers in `lib/providers/`, repositories in `lib/data/repositories/`. Do not add new top-level folders under `lib/` without updating ARCHITECTURE.md.
+
+2. **Supabase writes:** Every insert, update, or delete must include `user_id` (e.g. from `SupabaseService.client.auth.currentUser!.id` or the repository’s authenticated user). RLS depends on it. See ARCHITECTURE.md — Security model.

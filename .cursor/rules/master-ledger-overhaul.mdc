@@ -1,0 +1,29 @@
+---
+description: Voyager Sanctuary Master Ledger — architecture overhaul (vital audit locked). Loop bug, Plant Pebble, Region/Milestone, Bones view, Promote, Phase 1 wizard. Enforce these conventions in scroll_map, sanctuary, management, climb flow.
+globs: lib/features/scroll_map/**/*.dart, lib/features/sanctuary/**/*.dart, lib/features/management/**/*.dart, lib/features/satchel/**/*.dart, lib/providers/climb_flow_provider.dart, lib/data/models/mountain.dart, lib/data/models/node.dart, lib/core/content/elias_dialogue.dart
+alwaysApply: false
+---
+
+# Master Ledger — Architecture Overhaul (Phase 1 Complete)
+
+**DB columns:** `intent_statement`, `name`, `layout_type`, `is_archived`. No aliases.
+
+1. **Loop Bug (F1) — Preservation of Intent:** Actions within Step 5 (Seeding) that modify the `nodeListProvider` (such as `createPebble`) must not trigger a navigation reset or a state change in `climbFlowProvider` that alters `pebbleStepBoulderIndex`. The user must remain on the current Marker/Landmark until they explicitly tap "Next Area."
+
+2. **Buttons (F2):** Primary: **Plant Pebble**. Secondary (ghost): **Plant & Next Area**. Not "Add" or "Add another".
+
+3. **Dynamic Markers (F4):** 1–10. Step 4 labels: **Milestone N** (Climb) or **Region N** (Survey). Code = Marker/boulder. Unique names; Elias "Heavy Satchel" at 11th.
+
+4. **Terminology (F5):** User-facing copy: **Map** (not Scroll), **Peak** (not Mountain), **Milestone** (Climb) / **Region** (Survey). Internal code may keep `mountain_id`, `Mountain`.
+
+5. **Intent:** Cap 1,000 chars. Elias: "Keep it focused. The peak is won with clarity, not volume."
+
+6. **Bones view:** Tap peak title. Top: Editable Intent. Middle: Logic (Climb/Survey). Hierarchy overview. Bottom: Rename, Archive. Save Intent + layout_type on dispose.
+
+7. **Promote:** At 3-peak cap = block with Elias. Shards move with → pebbles in new Peak's first Milestone.
+
+8. **Miscellaneous:** Same peak, bottom of list. "Hillside: Miscellaneous."
+
+9. **Phase 1:** 5-step wizard (Intent → Identity → Logic → Markers → Seeding). Step 3 = terminology only. Both Climb and Survey use tree layout. Phase 2 = Island/Constellation for Survey.
+
+**Full spec:** `docs/MASTER_LEDGER_ARCHITECTURE_OVERHAUL.md` | `docs/GAPS_AND_ASSUMPTIONS.md`

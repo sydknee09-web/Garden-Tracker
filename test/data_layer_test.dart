@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voyager_sanctuary/core/enums/node_type.dart';
 import 'package:voyager_sanctuary/core/utils/ltree_path.dart';
+import 'package:voyager_sanctuary/data/models/climb_draft.dart';
 import 'package:voyager_sanctuary/data/models/node.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -108,18 +109,13 @@ void main() {
     test('Only pebble is completable', () {
       expect(NodeType.pebble.isCompletable, isTrue);
       expect(NodeType.boulder.isCompletable, isFalse);
-      expect(NodeType.shard.isCompletable, isFalse);
+      expect(NodeType.shard.isCompletable, isTrue);
     });
 
-    test('Only pebble can enter satchel', () {
+    test('Logic & Leaf: pebble and shard can enter satchel when leaf', () {
       expect(NodeType.pebble.canEnterSatchel, isTrue);
+      expect(NodeType.shard.canEnterSatchel, isTrue);
       expect(NodeType.boulder.canEnterSatchel, isFalse);
-      expect(NodeType.shard.canEnterSatchel, isFalse);
-    });
-
-    test('Shard is visual-only', () {
-      expect(NodeType.shard.isVisualOnly, isTrue);
-      expect(NodeType.pebble.isVisualOnly, isFalse);
     });
   });
 
@@ -166,6 +162,18 @@ void main() {
       ];
       final sorted = _sortByPriority(nodes);
       expect(sorted[0].id, 'earlier');
+    });
+
+    // First Five Test #3: starred pebble is first in pack order → slot #1
+    test('First pack candidate is starred when only one is starred', () {
+      final nodes = [
+        _makeNode(id: 'third',  createdAt: DateTime(2026, 1, 3)),
+        _makeNode(id: 'first',  createdAt: DateTime(2026, 1, 1)),
+        _makeNode(id: 'starred', createdAt: DateTime(2026, 1, 2), isStarred: true),
+      ];
+      final sorted = _sortByPriority(nodes);
+      expect(sorted[0].id, 'starred');
+      expect(sorted[0].isStarred, isTrue);
     });
   });
 
@@ -231,6 +239,54 @@ void main() {
       );
       expect(source.isStarred, isTrue);
       expect(source.id, 'original');
+    });
+
+    // First Five Test #2: split inherits both is_starred and due_date
+    test('New sibling inherits both is_starred and due_date from source', () {
+      final due = DateTime(2026, 5, 15);
+      final source = _makeNode(
+        id: 'original',
+        pebbleId: 'p-original',
+        isStarred: true,
+        dueDate: due,
+      );
+      final sibling = source.cloneAsNewSibling(
+        newId: 'sibling-id',
+        siblingPath: buildPebblePath('mountain-1', 'boulder-1', 'sibling-id'),
+      );
+      expect(sibling.isStarred, isTrue);
+      expect(sibling.dueDate, due);
+    });
+  });
+
+  group('ClimbDraft JSON', () {
+    test('roundtrip encode/decode', () {
+      final t = DateTime.utc(2026, 3, 18, 15, 30);
+      final original = ClimbDraft(
+        id: 'draft-1',
+        updatedAt: t,
+        step: 2,
+        intentText: 'Finish the app',
+        peakName: 'Launch',
+        appearanceStyle: 'navy',
+        layoutType: 'survey',
+        landmarkNames: ['A', 'B'],
+        boulderIds: ['b1', 'b2'],
+        pebbleStepBoulderIndex: 1,
+        namingStoneIndex: null,
+        lastEliasIndex: 3,
+        mountainId: 'm-uuid',
+      );
+      final json = ClimbDraft.encodeList([original]);
+      final back = ClimbDraft.decodeList(json);
+      expect(back.length, 1);
+      expect(back.single.id, 'draft-1');
+      expect(back.single.step, 2);
+      expect(back.single.peakName, 'Launch');
+      expect(back.single.intentText, 'Finish the app');
+      expect(back.single.landmarkNames, ['A', 'B']);
+      expect(back.single.boulderIds, ['b1', 'b2']);
+      expect(back.single.mountainId, 'm-uuid');
     });
   });
 }

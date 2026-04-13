@@ -1,7 +1,7 @@
 # Voyager Sanctuary — Project Audit
 
 **Audit date:** March 2026  
-**Scope:** Codebase, PROJECT_PLAN.md alignment, assets, tooling, and recent work.
+**Scope:** Codebase, MASTER_PLAN.md alignment, assets, tooling, and recent work.
 
 ---
 
@@ -76,7 +76,7 @@ The app is **MVP-complete** for core flows: auth, mountains (with trail UI), mal
 - **Structure:** Clear split (core/, data/, features/, providers/, widgets/). Single Supabase config; user_id and RLS used consistently.
 - **Assets:** Elias (4), mallet (1), satchel (2), backgrounds (4 .jfif). All referenced in code and in pubspec.
 - **Tests:** Unit tests for repos/provider logic; one integration test (Whetstone add/check-off), skips when not signed in.
-- **Docs:** PROJECT_PLAN.md, ARCHITECTURE.md, NAVIGATION_MAP.md, TESTING_CHECKLIST.md, AUTH_PASSWORD_RESET.md, SUPABASE_SETUP.md, BUGS_DEFERRED_TO_PHASE.md, static/README.md, scripts/README.md.
+- **Docs:** MASTER_PLAN.md, ARCHITECTURE.md, NAVIGATION_MAP.md, TESTING_CHECKLIST.md, AUTH_PASSWORD_RESET.md, SUPABASE_SETUP.md, BUGS_DEFERRED_TO_PHASE.md, static/README.md, scripts/README.md.
 
 ---
 
@@ -109,7 +109,7 @@ The app is **MVP-complete** for core flows: auth, mountains (with trail UI), mal
 ## 7. Recommendations
 
 1. **Version control:** Initialize Git, create main and dev, add and commit current state.
-2. **Verification:** Run First Five tests on a device; confirm RLS with two test accounts; note results in PROJECT_PLAN.md.
+2. **Verification:** Run First Five tests on a device; confirm RLS with two test accounts; note results in MASTER_PLAN.md.
 3. **Build and install:** Use `flutter run` or `flutter build apk` + `flutter install` for device testing after changes.
 4. **Optional polish:** Pick 1–2 Phase 12 items (e.g. haptics, hearth animation) before or after QA.
 5. **Release path:** When ready, follow Phase 14 (icons, splash, appbundle/ipa, TestFlight/Play Internal).

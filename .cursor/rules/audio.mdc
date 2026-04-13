@@ -1,0 +1,16 @@
+---
+description: When adding a new sound, use assets/sounds/, try mp3 then wav, and document in assets/sounds/README.md.
+alwaysApply: true
+---
+
+# Audio
+
+When adding a new sound to Voyager Sanctuary:
+
+1. **Location:** Place the file(s) under `assets/sounds/` (e.g. `my_sound.mp3` and/or `my_sound.wav`). The folder is already declared in `pubspec.yaml`.
+
+2. **Playback:** In code, try `.mp3` first, then fall back to `.wav` (e.g. `play(AssetSource('sounds/my_sound.mp3')).catchError((_) => play(AssetSource('sounds/my_sound.wav')))`) so the app works when only the generator’s WAV output exists.
+
+3. **Documentation:** Add the new sound to the list in `assets/sounds/README.md`. If you add a generator script in `scripts/`, document the command there too.
+
+See `docs/CONVENTIONS.md` for the full audio section.

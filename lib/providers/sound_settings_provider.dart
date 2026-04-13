@@ -5,12 +5,13 @@ const _keySoundEnabled = 'sound_enabled';
 
 /// Whether sound effects are enabled. Persists to SharedPreferences.
 /// Default true. Loads from storage on first access.
-final soundEnabledProvider =
-    StateNotifierProvider<SoundSettingsNotifier, bool>((ref) {
-  final notifier = SoundSettingsNotifier();
-  Future.microtask(() => notifier._load());
-  return notifier;
-});
+final soundEnabledProvider = StateNotifierProvider<SoundSettingsNotifier, bool>(
+  (ref) {
+    final notifier = SoundSettingsNotifier();
+    Future.microtask(() => notifier._load());
+    return notifier;
+  },
+);
 
 class SoundSettingsNotifier extends StateNotifier<bool> {
   SoundSettingsNotifier() : super(true);

@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Bugs in future-phase features
 
-When the user reports a bug, check whether the affected feature or area is scheduled for change in a **future phase** (see `docs/PROJECT_PLAN.md` for the phase list).
+When the user reports a bug, check whether the affected feature or area is scheduled for change in a **future phase** (see `docs/MASTER_PLAN.md` for the phase list).
 
 ## If the feature IS in a future phase
 

@@ -36,5 +36,4 @@ class DataFreshness extends ChangeNotifier {
       _clearTimer = null;
     });
   }
-
 }

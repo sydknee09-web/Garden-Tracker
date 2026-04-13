@@ -1,24 +1,199 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/offline_copy.dart';
 import '../../core/content/elias_dialogue.dart';
 import '../../core/enums/day_offset.dart';
 import '../../providers/first_run_provider.dart';
 import '../../providers/streak_provider.dart';
 import '../../providers/whetstone_provider.dart';
 import '../../data/models/whetstone_item.dart';
+import '../../widgets/waiting_pulse.dart';
 
-class WhetstoneScreen extends ConsumerWidget {
+Future<void> _playWhetstoneScrapeSfx() async {
+  final player = AudioPlayer();
+  try {
+    await player.play(AssetSource('sounds/whetstone.wav'));
+  } catch (_) {
+    try {
+      await player.play(AssetSource('sounds/whetstone.mp3'));
+    } catch (_) {
+      // graceful no-op if file missing on platform
+    }
+  } finally {
+    player.dispose();
+  }
+}
+
+class WhetstoneScreen extends ConsumerStatefulWidget {
   const WhetstoneScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WhetstoneScreen> createState() => _WhetstoneScreenState();
+}
+
+class _WhetstoneScreenState extends ConsumerState<WhetstoneScreen> {
+  bool _struggleDialogShowing = false;
+
+  Future<void> _maybeShowStrugglePrompt() async {
+    if (_struggleDialogShowing) return;
+    final prefs = await SharedPreferences.getInstance();
+    final d = DateTime.now();
+    final dayKey = '${d.year}-${d.month}-${d.day}';
+    final k = 'vs_whetstone_struggle_$dayKey';
+    if (prefs.getBool(k) == true) return;
+    if (!mounted) return;
+    _struggleDialogShowing = true;
+    try {
+      await prefs.setBool(k, true);
+      if (!mounted) return;
+      await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.whetPaper,
+        title: const Text(
+          'Elias',
+          style: TextStyle(
+            fontFamily: 'Georgia',
+            fontSize: 13,
+            color: AppColors.warmGrey,
+          ),
+        ),
+        content: Text(
+          EliasDialogue.whetstoneStrugglePrompt,
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            fontSize: 15,
+            height: 1.45,
+            color: AppColors.whetInk,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    EliasDialogue.whetstoneStruggleOverwhelmed,
+                    style: const TextStyle(
+                      fontFamily: 'Georgia',
+                      color: AppColors.parchment,
+                    ),
+                  ),
+                  backgroundColor: AppColors.charcoal,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text(
+              'I\'m overwhelmed',
+              style: TextStyle(fontFamily: 'Georgia'),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    EliasDialogue.whetstoneStruggleIntentional,
+                    style: const TextStyle(
+                      fontFamily: 'Georgia',
+                      color: AppColors.parchment,
+                    ),
+                  ),
+                  backgroundColor: AppColors.charcoal,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text(
+              'I\'m taking a break',
+              style: TextStyle(fontFamily: 'Georgia'),
+            ),
+          ),
+        ],
+      ),
+    );
+    } finally {
+      _struggleDialogShowing = false;
+    }
+  }
+
+  Future<void> _onHabitToggled(WhetstoneItem item, WhetstoneState state) async {
+    final notifier = ref.read(whetstoneProvider.notifier);
+    final wasComplete = state.isComplete(item.id);
+    if (!wasComplete) {
+      HapticFeedback.selectionClick();
+    } else {
+      HapticFeedback.lightImpact();
+    }
+    await _playWhetstoneScrapeSfx();
+    await notifier.toggleItem(item.id);
+    ref.invalidate(whetstoneStreakProvider);
+    if (!wasComplete) {
+      if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      final firstEver = prefs.getBool('vs_habit_completed_ever') != true;
+      if (firstEver) {
+        await prefs.setBool('vs_habit_completed_ever', true);
+      }
+      final line = firstEver
+          ? EliasDialogue.firstHabitCompleteMilestone
+          : EliasDialogue.habitCompleteEncouragement(item.title);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            line,
+            style: const TextStyle(
+              fontFamily: 'Georgia',
+              color: AppColors.parchment,
+            ),
+          ),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.charcoal,
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: AppColors.ember,
+            onPressed: () {
+              notifier.toggleItem(item.id);
+              ref.invalidate(whetstoneStreakProvider);
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(whetstoneProvider);
+
+    ref.listen<WhetstoneState>(whetstoneProvider, (prev, next) {
+      if (next.isLoading) return;
+      if (next.items.length < 5) return;
+      if (next.selectedOffset != DayOffset.today) return;
+      if (next.completedItemIds.isNotEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_maybeShowStrugglePrompt());
+      });
+    });
 
     ref.listen(whetstoneStreakProvider, (prev, next) {
       next.whenData((r) {
-        final streak = r.currentStreak;
+        final streak = r.streak;
         if (streak == 7 || streak == 30 || streak == 100) {
           final messenger = ScaffoldMessenger.maybeOf(context);
           if (messenger != null) {
@@ -81,19 +256,20 @@ class WhetstoneScreen extends ConsumerWidget {
           // Habit list
           Expanded(
             child: state.isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: AppColors.warmGrey),
-                  )
+                ? const Center(child: WaitingPulseWidget())
                 : state.items.isEmpty
-                    ? _emptyState(context, ref)
-                    : _habitList(ref, state.items, state),
+                ? _emptyState(context, ref)
+                : _habitList(ref, state.items, state),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _showMilestoneIfNeeded(ScaffoldMessengerState messenger, int streak) async {
+  Future<void> _showMilestoneIfNeeded(
+    ScaffoldMessengerState messenger,
+    int streak,
+  ) async {
     final last = await getLastStreakMilestoneShown();
     if (last >= streak) return;
     await markStreakMilestoneShown(streak); // Claim before show to avoid race
@@ -132,7 +308,6 @@ class WhetstoneScreen extends ConsumerWidget {
       itemBuilder: (context, i) {
         final item = items[i];
         final isComplete = state.isComplete(item.id);
-        final notifier = ref.read(whetstoneProvider.notifier);
         return Slidable(
           key: ValueKey(item.id),
           startActionPane: ActionPane(
@@ -141,12 +316,13 @@ class WhetstoneScreen extends ConsumerWidget {
             children: [
               SlidableAction(
                 onPressed: (_) async {
-                  await notifier.toggleItem(item.id);
-                  ref.invalidate(whetstoneStreakProvider);
+                  await _onHabitToggled(item, state);
                 },
                 backgroundColor: AppColors.whetInk.withValues(alpha: 0.85),
                 foregroundColor: AppColors.parchment,
-                icon: isComplete ? Icons.radio_button_unchecked : Icons.check_circle_outline,
+                icon: isComplete
+                    ? Icons.radio_button_unchecked
+                    : Icons.check_circle_outline,
                 label: isComplete ? 'Undo' : 'Done',
               ),
             ],
@@ -156,7 +332,8 @@ class WhetstoneScreen extends ConsumerWidget {
             extentRatio: 0.35,
             children: [
               SlidableAction(
-                onPressed: (_) => _confirmDeleteHabit(context, ref, item.title, item.id),
+                onPressed: (_) =>
+                    _confirmDeleteHabit(context, ref, item.title, item.id),
                 backgroundColor: AppColors.charcoal,
                 foregroundColor: AppColors.parchment,
                 icon: Icons.remove_circle_outline,
@@ -167,10 +344,7 @@ class WhetstoneScreen extends ConsumerWidget {
           child: _HabitRow(
             item: item,
             isComplete: isComplete,
-            onToggle: () async {
-              await notifier.toggleItem(item.id);
-              ref.invalidate(whetstoneStreakProvider);
-            },
+            onToggle: () async => _onHabitToggled(item, state),
           ),
         );
       },
@@ -184,10 +358,10 @@ class WhetstoneScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Add a daily habit to begin sharpening.',
+            Text(
+              EliasDialogue.whetstoneEmptyLine(),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.warmGrey,
                 fontFamily: 'Georgia',
                 fontStyle: FontStyle.italic,
@@ -199,10 +373,6 @@ class WhetstoneScreen extends ConsumerWidget {
               onPressed: () => _showAddHabitSheet(context, ref),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add habit'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.ember,
-                foregroundColor: AppColors.parchment,
-              ),
             ),
           ],
         ),
@@ -286,7 +456,9 @@ class WhetstoneScreen extends ConsumerWidget {
       backgroundColor: AppColors.whetPaper,
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-          24, 24, 24,
+          24,
+          24,
+          24,
           MediaQuery.of(ctx).viewInsets.bottom + 24,
         ),
         child: Column(
@@ -332,21 +504,19 @@ class WhetstoneScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () async {
                     final title = controller.text.trim();
                     if (title.isEmpty) return;
                     Navigator.of(ctx).pop();
                     try {
-                      await ref
-                          .read(whetstoneProvider.notifier)
-                          .addItem(title);
+                      await ref.read(whetstoneProvider.notifier).addItem(title);
                     } catch (_) {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Couldn\'t add habit. Check your connection.',
+                              OfflineCopy.whetstoneConnectionMessage,
                               style: TextStyle(
                                 fontFamily: 'Georgia',
                                 color: AppColors.parchment,
@@ -360,14 +530,7 @@ class WhetstoneScreen extends ConsumerWidget {
                       }
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.whetInk,
-                    foregroundColor: AppColors.parchment,
-                  ),
-                  child: const Text(
-                    'Add',
-                    style: TextStyle(fontFamily: 'Georgia'),
-                  ),
+                  child: const Text('Add'),
                 ),
               ],
             ),
@@ -388,27 +551,37 @@ class _StreakBadge extends ConsumerWidget {
     final async = ref.watch(whetstoneStreakProvider);
     return async.when(
       data: (result) {
-        if (result.currentStreak < 1) return const SizedBox.shrink();
+        if (result.streak < 1 && !result.graceActive) {
+          return const SizedBox.shrink();
+        }
+        final line = result.graceActive
+            ? 'The fire is low, but the edge holds. Sharpen your path today.'
+            : 'Your edge is keen-a ${result.streak}-day ritual.';
         return Padding(
           padding: const EdgeInsets.only(left: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.ember.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.ember.withValues(alpha: 0.4),
-                width: 1,
+          child: Tooltip(
+            message: line,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.ember.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppColors.ember.withValues(alpha: 0.4),
+                  width: 1,
+                ),
               ),
-            ),
-            child: Text(
-              '${result.currentStreak}-day streak',
-              style: const TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 11,
-                letterSpacing: 0.5,
-                color: AppColors.ember,
-                fontWeight: FontWeight.w500,
+              child: Text(
+                result.graceActive
+                    ? 'Grace Day'
+                    : '${result.streak}-day streak',
+                style: const TextStyle(
+                  fontFamily: 'Georgia',
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                  color: AppColors.ember,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -428,40 +601,32 @@ class _DaySlider extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      children: DayOffset.values.map((offset) {
-        final isSelected = offset == selected;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () =>
-                ref.read(whetstoneProvider.notifier).selectDay(offset),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.whetInk
-                    : Colors.transparent,
-              ),
-              child: Text(
-                offset.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Georgia',
-                  fontSize: 13,
-                  letterSpacing: 1,
-                  color: isSelected
-                      ? AppColors.parchment
-                      : AppColors.warmGrey,
-                  fontWeight: isSelected
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+    return DefaultTabController(
+      length: DayOffset.values.length,
+      initialIndex: selected.index,
+      child: TabBar(
+        onTap: (index) => ref
+            .read(whetstoneProvider.notifier)
+            .selectDay(DayOffset.values[index]),
+        indicator: const BoxDecoration(color: AppColors.whetInk),
+        labelColor: AppColors.parchment,
+        unselectedLabelColor: AppColors.warmGrey,
+        labelStyle: const TextStyle(
+          fontFamily: 'Georgia',
+          fontSize: 13,
+          letterSpacing: 1,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontFamily: 'Georgia',
+          fontSize: 13,
+          letterSpacing: 1,
+          fontWeight: FontWeight.w400,
+        ),
+        tabs: DayOffset.values
+            .map((offset) => Tab(text: offset.label))
+            .toList(),
+      ),
     );
   }
 }
@@ -495,9 +660,7 @@ class _HabitRow extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: isComplete ? AppColors.whetInk : Colors.transparent,
                 border: Border.all(
-                  color: isComplete
-                      ? AppColors.whetInk
-                      : AppColors.whetLine,
+                  color: isComplete ? AppColors.whetInk : AppColors.whetLine,
                   width: 1.5,
                 ),
               ),
@@ -516,21 +679,13 @@ class _HabitRow extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Georgia',
                   fontSize: 15,
-                  color: isComplete
-                      ? AppColors.warmGrey
-                      : AppColors.whetInk,
-                  decoration: isComplete
-                      ? TextDecoration.lineThrough
-                      : null,
+                  color: isComplete ? AppColors.warmGrey : AppColors.whetInk,
+                  decoration: isComplete ? TextDecoration.lineThrough : null,
                   decorationColor: AppColors.warmGrey,
                 ),
               ),
             ),
-            const Icon(
-              Icons.drag_handle,
-              size: 18,
-              color: AppColors.whetLine,
-            ),
+            const Icon(Icons.drag_handle, size: 18, color: AppColors.whetLine),
           ],
         ),
       ),

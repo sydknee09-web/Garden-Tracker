@@ -10,7 +10,11 @@ String buildPebblePath(String mountainId, String boulderId, String pebbleId) =>
     '${mountainId.ltreeLabel}.${boulderId.ltreeLabel}.${pebbleId.ltreeLabel}';
 
 String buildShardPath(
-    String mountainId, String boulderId, String pebbleId, String shardId) =>
+  String mountainId,
+  String boulderId,
+  String pebbleId,
+  String shardId,
+) =>
     '${mountainId.ltreeLabel}.${boulderId.ltreeLabel}.${pebbleId.ltreeLabel}.${shardId.ltreeLabel}';
 
 /// Builds a child path from a parent path and new node ID (e.g. for sub-boulders).

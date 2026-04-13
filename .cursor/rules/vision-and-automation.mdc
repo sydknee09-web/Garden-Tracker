@@ -1,0 +1,33 @@
+---
+description: Align all implementation with product vision; stop for debugging and new vision. Enables hands-off build except where user input is required.
+alwaysApply: true
+---
+
+# Vision & Automation
+
+Before implementing or making product/UX decisions, read `docs/VISION_AND_AUTOMATION.md` and the relevant sections of `docs/MASTER_PLAN.md`. All decisions must align with that vision.
+
+## Before implementing
+
+- Confirm scope comes from MASTER_PLAN (or user explicitly requested it). Do not add net-new features outside the plan unless the user asks.
+- Ensure the change fits North Star and Sanctuary DNA (cozy, smooth, Japandi, ritual over task list). When in doubt, subtract.
+
+## When the user gives feedback
+
+- Treat feedback as a vision/alignment input. Update implementation or docs to reflect it. Do not treat it as a one-off exception unless the user says so.
+
+## When to stop and ask the user
+
+- **Debugging:** If repro is unclear, the bug is ambiguous, or the fix might have side effects—ask for steps, device, or clarification. Do not guess.
+- **New vision:** Do not invent new Elias dialogue, new rituals, new metaphors, or new lore. Propose options or ask the user to provide the vision; then implement.
+- **Conflict with vision:** If a change could conflict with the stated aesthetic or flow—propose options or ask; do not assume.
+
+## Gemini–Cursor (no user middleman)
+
+- For non-trivial implementation or product decisions, **get Gemini’s decision**: write context to `docs/gemini_request.md`, run `python scripts/gemini_decision.py --request-file docs/gemini_request.md`, then read `docs/gemini_response.json`. See [GEMINI_CURSOR_PROTOCOL.md](docs/GEMINI_CURSOR_PROTOCOL.md).
+- If `gemini_response.json` has **`needs_human`: `"debug"` or `"vision"`**: do **not** implement. The script will have appended to `docs/HUMAN_INPUT_NEEDED.md`. Document the escalation and stop; the user steps in only for those entries.
+- If `needs_human` is null, implement Gemini’s `decision` and `actions`. The user is not in the loop.
+
+## Summary
+
+User owns vision and debugging input; the agent owns implementation within the vision. Cursor and Gemini talk via `gemini_decision.py`; user only gives input when HUMAN_INPUT_NEEDED shows debug or vision.

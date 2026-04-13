@@ -1,0 +1,31 @@
+---
+description: When to send a build to testers and how to run the Android deploy script. Always deploy when the app is ready for testing—do not wait for the user to ask.
+alwaysApply: true
+globs: ["**/lib/**", "**/pubspec.yaml", "**/deploy.ps1"]
+---
+
+# Voyager Sanctuary — Firebase Android deploy
+
+## Always send a build when ready for testing
+
+Whenever the app is **ready for user testing** (e.g. after a chunk of work that makes it testable, gatekeepers done, or a release candidate), **run the deploy script** so testers get the build. Do **not** wait for the user to prompt. From repo root `voyager_sanctuary`:
+
+- **Windows (PowerShell):** `.\deploy.ps1 -ReleaseNotes "Short notes"`
+
+If the script fails (e.g. `firebase` not logged in or not in PATH), report the error and remind the user of one-time setup (`firebase login`); still record in the session that a build was due.
+
+After finishing a **major UI or onboarding change** (e.g. stagger timing, Return/Continue, new screens, RLS or save flows), treat the app as ready for testing and trigger a build as above.
+
+## Auto deploy (in addition to manual)
+
+- **Cursor:** `.cursor/hooks.json` runs `.cursor/hooks/auto-firebase-deploy.ps1` on agent **`stop`** when `lib/`, `pubspec.yaml`, or `android/` have uncommitted changes (deduped by fingerprint). Requires opening the **`voyager_sanctuary` folder** as the Cursor workspace so project hooks load; restart Cursor after hook changes.
+- **GitHub:** `.github/workflows/firebase-app-distribution.yml` uploads on push to `main`/`master` when Flutter paths change, if secret **`FIREBASE_TOKEN`** is set (`firebase login:ci`).
+
+## Deploy script (canonical)
+
+- **`deploy.ps1`** (repo root): bumps `pubspec` `+build`, `flutter build apk --release`, `firebase appdistribution:distribute` to group `testers`.
+
+## One-time setup (user runs in terminal)
+
+1. `firebase login` — CLI auth for the project (local builds)
+2. For CI: `firebase login:ci` → add token as GitHub secret `FIREBASE_TOKEN`

@@ -1,0 +1,33 @@
+---
+description: Voyager Sanctuary agent alignment and execution constraints
+alwaysApply: true
+---
+
+# agent_alignment
+
+## Technical Constraint: Logic & Leaf Protocol
+- **Packable Check:** Only Leaf Nodes (nodes with no children) are allowed in the Satchel.
+- **Container Rule:** If a Pebble has Shards, the Pebble is a non-packable container.
+- **Hammer Logic (Satchel):** When striking a Stone with the Hammer, the agent must:
+  1. Remove the parent Stone from the Satchel.
+  2. Trigger `createShardUnderParent()` in Supabase.
+  3. Inherit metadata (`starred`, `due_date`) to new Shards.
+  4. Return new Shards to the Satchel if space permits.
+- Never allow burning or packing of non-leaf container nodes.
+
+## Phase-by-Phase Implementation Strategy
+- Do not prompt "build the whole app".
+- Use phase-scoped prompts tied to `docs/MASTER_PLAN.md`.
+- Prompt template:
+  - `@MASTER_PLAN.md @agent_alignment.mdc We are moving to Phase X: <Phase Name>. Implement <specific bullets>. Run smoke test on my connected phone.`
+- Keep each phase prompt to concrete deliverables plus one verification step.
+
+## Grounding
+- Flutter: @Flutter
+- Supabase: @Supabase
+- Canonical project rules: `AGENTS.md`
+
+## Dialogue Protocol (Elias)
+- **Burn Event:** When `HearthBurnWidget` completes, call `EliasBurnReflections.getReaction()`.
+- **Wait for it:** Do not show burn dialogue before shader completion (`uProgress == 1.0` equivalent).
+- **Lore Priority:** If final leaf in mountain, prioritize `_lastInMountain`; else if starred, prioritize `_starredBurn`; else use `_shortBurn`.
