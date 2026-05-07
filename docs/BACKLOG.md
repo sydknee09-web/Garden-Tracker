@@ -21,6 +21,23 @@ Preliminary issues and earlier notes captured for when you're ready. Not part of
 
 ---
 
+## Garden – macro-category filter (Tree / Vegetable / Fruit / Herb / Flower)
+
+**Gap:** Garden has a "Plant Type" filter ([garden/page.tsx:781](../src/app/garden/page.tsx)) but it filters by *specific* plant (Tomato, Carrot, Pepper, etc.) per `PLANT_CATEGORY_DEFAULTS` in [src/constants/plantDefaults.ts](../src/constants/plantDefaults.ts). There is no macro-grouping (Tree, Vegetable, Fruit, Herb, Flower, Shrub, Berry, Vine, Cover Crop, etc.).
+
+**Why it matters:** Specific plant filter is most useful in the seed/plant bank (Vault). In the Garden, users want to ask "show me all my trees" or "show me all my herbs" — a level above species. The permanent/seasonal split (My Plants tab vs Active Garden tab) gives some of this, but doesn't separate fruit trees from shade trees, or vegetables from herbs within seasonal.
+
+**Scope (medium effort, ~half-day to a day):**
+1. Decide the taxonomy. Suggested starter: Tree, Fruit Tree, Shrub, Berry, Vine, Vegetable, Leafy Green, Herb, Flower, Cover Crop. Lock in [src/constants/plantDefaults.ts](../src/constants/plantDefaults.ts) or a new `plantCategories.ts`.
+2. Add `plant_category` column on `plant_profiles` (migration). Nullable to start.
+3. Backfill existing data — single AI pass across user's profiles via Gemini (similar pattern to existing fill-blanks-for-profile route), or manual sweep with a developer-only batch tool. Plan for imperfect classification; add UI to edit category on the profile.
+4. Wire up new filter section on Garden refine-by panel for both Active Garden + My Plants. Mirror existing chip pattern. Optional: add to Vault for parity.
+5. Update import/AI flows ([scrape-url](../src/app/api/seed/scrape-url/route.ts), [extract](../src/app/api/seed/extract/route.ts), [enrich-from-name](../src/app/api/seed/enrich-from-name/route.ts)) to populate `plant_category` for new profiles.
+
+**Quick-and-dirty alternative:** Use existing `tags` field — add canonical category tags ("Tree", "Vegetable", etc.), filter on tags. No schema change. Downside: tags are user-editable free-form, so categorization quality drifts.
+
+---
+
 ## Earlier notes
 
 - **Plant again with no packets** → Add Plant with "Link existing" pre-filled.
