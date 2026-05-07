@@ -11,6 +11,7 @@ import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -311,13 +312,15 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
     ]
   );
 
+  useBodyScrollLock(open);
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-[60] bg-black/20" aria-hidden onClick={onClose} />
       <div
-        className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="fixed left-4 right-4 bottom-20 z-[70] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-supply-title"

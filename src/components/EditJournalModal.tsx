@@ -10,6 +10,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { localDateString } from "@/lib/calendarDate";
 import type { JournalEntry } from "@/types/garden";
@@ -109,6 +110,7 @@ type EditJournalModalProps = {
 };
 
 export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJournalModalProps) {
+  useBodyScrollLock(true);
   const { user } = useAuth();
   const { setSyncing } = useSync();
   const [entryDate, setEntryDate] = useState(() =>

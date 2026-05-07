@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -54,6 +55,8 @@ export function InviteMemberModal({ open, onClose }: InviteMemberModalProps) {
     }
     setLoading(false);
   }
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

@@ -10,6 +10,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 function toDateInputValue(value: string | null | undefined): string {
   if (!value) return "";
@@ -39,6 +40,7 @@ interface EditPacketModalProps {
 }
 
 export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalProps) {
+  useBodyScrollLock(true);
   const { user } = useAuth();
   const trapRef = useFocusTrap(true);
   const [loading, setLoading] = useState(true);

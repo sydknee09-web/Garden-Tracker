@@ -9,6 +9,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface Props {
   open: boolean;
@@ -131,6 +132,8 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       setSaving(false);
     }
   }, [user?.id, weight, unit, quantity, note, photos, profileId, growInstanceId, displayName, onSaved, onClose]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

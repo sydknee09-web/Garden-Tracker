@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface QRScannerModalProps {
   open: boolean;
@@ -58,6 +59,8 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
       scannerRef.current = null;
     };
   }, [open, onClose, onScan]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

@@ -16,6 +16,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
 
@@ -522,11 +523,13 @@ export function AddPlantModal({
     }
   };
 
+  useBodyScrollLock(open);
+
   if (!open) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-cream rounded-3xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-3 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>

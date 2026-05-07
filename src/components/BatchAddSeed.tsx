@@ -19,6 +19,7 @@ import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNor
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { ImageCropModal } from "@/components/ImageCropModal";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 /** Today's date in YYYY-MM-DD for default purchase date. */
 function todayISO(): string {
@@ -690,6 +691,8 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     streamRef.current = null;
     onClose();
   }
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export type CropShape = "square" | "circle";
 
@@ -316,6 +317,8 @@ export function ImageCropModal({
     const y = Math.max(0, (h - ch) / 2);
     setCrop({ x, y, width: cw, height: ch });
   }, [crop, containerSize.width, containerSize.height, imageSize.width, imageSize.height, naturalAspect]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

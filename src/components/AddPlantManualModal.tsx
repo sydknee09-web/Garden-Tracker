@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import type { Volume } from "@/types/vault";
 
@@ -103,6 +104,8 @@ export function AddPlantManualModal({
     },
     [user?.id, profileId, profileOwnerId, vendor, purchaseDate, purchaseUrl, price, volume, notes, storageLocation, onSuccess, onClose]
   );
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

@@ -17,6 +17,7 @@ import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -488,6 +489,8 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     onStartManualImport?.();
   }
 
+  useBodyScrollLock(open);
+
   if (!open) return null;
 
   const modalTitle = screen === "choose" ? "Add Seed" : "Quick Add Seed";
@@ -495,12 +498,12 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/20"
+        className="fixed inset-0 z-[60] bg-black/20"
         aria-hidden
         onClick={onClose}
       />
       <div
-        className="fixed left-4 right-4 bottom-20 z-50 rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="fixed left-4 right-4 bottom-20 z-[70] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-title"

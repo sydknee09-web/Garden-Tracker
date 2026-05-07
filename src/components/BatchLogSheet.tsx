@@ -8,6 +8,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { compressImage } from "@/lib/compressImage";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP, QUICK_ACTIONS_GRID_CLASS } from "@/lib/styleDictionary";
 
 export type BatchLogBatch = {
@@ -349,6 +350,8 @@ export function BatchLogSheet({
     : firstBatch.profile_variety_name?.trim()
       ? `${firstBatch.profile_name} (${firstBatch.profile_variety_name})`
       : firstBatch.profile_name;
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

@@ -10,6 +10,7 @@ import { setReviewImportData, type ReviewImportItem } from "@/lib/reviewImportSt
 import { setSupplyReviewData } from "@/lib/supplyReviewStorage";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import type { SupplyOrderLineItem } from "@/app/api/supply/extract-order/route";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -236,6 +237,8 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
     streamRef.current = null;
     onClose();
   }
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

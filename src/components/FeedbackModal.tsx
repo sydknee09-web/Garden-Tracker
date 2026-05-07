@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const CATEGORIES = [
   { value: "", label: "Select type…" },
@@ -153,6 +154,8 @@ export function FeedbackModal({
     setScreenshotPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [screenshotPreview]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

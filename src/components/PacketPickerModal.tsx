@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { LoadingState } from "@/components/LoadingState";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { qtyStatusToLabel, usedPercentToLabel } from "@/lib/packetQtyLabels";
@@ -79,6 +80,8 @@ export function PacketPickerModal({ profileId, open, onClose, onConfirm }: Props
     onConfirm(selections);
     onClose();
   }, [selected, onConfirm, onClose]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

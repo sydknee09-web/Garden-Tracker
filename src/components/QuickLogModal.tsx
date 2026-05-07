@@ -12,6 +12,7 @@ import { localDateString } from "@/lib/calendarDate";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { logClientMetrics } from "@/lib/logClientMetrics";
 
@@ -341,6 +342,8 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     },
     [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyIds, preSelectedGrowInstanceId, onJournalAdded, onClose]
   );
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

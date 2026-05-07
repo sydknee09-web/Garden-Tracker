@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ICON_MAP, FAB_MENU_SHADOW_CLASS } from "@/lib/styleDictionary";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 export type UniversalAddMenuScreen = "main" | "add-plant";
 
@@ -55,6 +56,8 @@ export function UniversalAddMenu({
   useEffect(() => {
     if (open) setScreen("main");
   }, [open]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

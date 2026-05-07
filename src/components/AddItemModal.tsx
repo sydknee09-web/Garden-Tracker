@@ -6,6 +6,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertManyWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 interface AddItemModalProps {
   open: boolean;
@@ -76,6 +77,8 @@ export function AddItemModal({ open, onClose, onSuccess, onErrorToast }: AddItem
     },
     [cells, user?.id, onSuccess, onClose, onErrorToast]
   );
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

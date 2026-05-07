@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { setSupplyReviewData, type SupplyReviewItem } from "@/lib/supplyReviewStorage";
 import { compressImage } from "@/lib/compressImage";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 const MAX_PHOTOS = 15;
@@ -269,6 +270,8 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
     streamRef.current = null;
     onClose();
   }, [queue, onClose]);
+
+  useBodyScrollLock(open);
 
   if (!open) return null;
 
