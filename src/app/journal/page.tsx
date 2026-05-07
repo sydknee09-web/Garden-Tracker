@@ -525,11 +525,12 @@ export default function JournalPage() {
                 setViewMode("table");
                 router.replace("/journal?view=table", { scroll: false });
               }}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "table" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[60px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === "table" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Table view"
               aria-label="Table view"
             >
               <TableIcon />
+              <span className="text-[10px] font-medium leading-none">Table</span>
             </button>
             <button
               type="button"
@@ -539,11 +540,12 @@ export default function JournalPage() {
                 setViewMode("grid");
                 router.replace("/journal?view=grid", { scroll: false });
               }}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "grid" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[60px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Gallery view"
               aria-label="Gallery view"
             >
               <ICON_MAP.PhotoCardsGrid stroke="currentColor" className="w-5 h-5" />
+              <span className="text-[10px] font-medium leading-none">Gallery</span>
             </button>
             <button
               type="button"
@@ -553,11 +555,12 @@ export default function JournalPage() {
                 setViewMode("timeline");
                 router.replace("/journal?view=timeline", { scroll: false });
               }}
-              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${viewMode === "timeline" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
+              className={`min-w-[60px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === "timeline" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
               title="Timeline view"
               aria-label="Timeline view"
             >
               <TimelineIcon />
+              <span className="text-[10px] font-medium leading-none">Timeline</span>
             </button>
           </div>
           </div>
