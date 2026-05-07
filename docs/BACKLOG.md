@@ -1,14 +1,16 @@
 # Backlog (on hold)
 
+**Last updated:** 2026-05-07 (audit refresh)
+
 Preliminary issues and earlier notes captured for when you're ready. Not part of the phased roadmap; implement in a future sprint or fold into a relevant phase.
 
-**Roadmap:** See [.cursor/plans/remaining_steps_roadmap.plan.md](../.cursor/plans/remaining_steps_roadmap.plan.md) for the ordered Phase 0–9 plan.
+**Roadmap:** See [.cursor/plans/remaining_steps_roadmap.plan.md](../.cursor/plans/remaining_steps_roadmap.plan.md) for the ordered plan. Phases 0–7 are now done; 8 and 9 are partial. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the verified status table.
 
 ---
 
 ## Plant profile (Vault [id])
 
-- **Packets tab:** Add **Edit** button next to "Remove packet" (opens EditPacketModal).
+- **Packets tab:** Add **Edit** button next to "Remove packet" (opens EditPacketModal). *Confirmed still open 2026-05-07 — [VaultProfilePacketsTab.tsx](../src/app/vault/[id]/VaultProfilePacketsTab.tsx) has delete-only.*
 - **Plants tab → Edit plant:** In the edit-grow modal, add **link to existing seed packet** (dropdown + include `seed_packet_id` in save).
 
 ---

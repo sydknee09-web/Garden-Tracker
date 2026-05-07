@@ -78,10 +78,13 @@ Do not merge or ship code with failing tests. If you're in a hurry, at minimum r
 - **`e2e/accessibility.spec.ts`** — axe accessibility audit (home, login)
 
 **Authenticated (critical paths — run when `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD` are set):**
-- **`e2e/auth.setup.ts`** — Signs in via Supabase REST API, injects session into localStorage, saves `storageState` to `.auth/user.json`
+- **`e2e/auth.setup.ts`** — Browser-based Supabase login, saves `storageState` to `.auth/user.json`
 - **`e2e/smoke.authenticated.spec.ts`** — Smoke test: all main app pages load without redirecting to `/login` (Home, Vault, Garden, Calendar, Journal, Schedule, Shopping List, Settings, Shed)
 - **`e2e/synthetic-user.authenticated.spec.ts`** — Synthetic user procedure: single sequential journey (home → vault add seed → journal → calendar → shopping list → garden → settings → shed). See [docs/SYNTHETIC_USER_PROCEDURE.md](docs/SYNTHETIC_USER_PROCEDURE.md).
 - **`e2e/vault-add-seed.authenticated.spec.ts`** — FAB → Add Seed Packet: menu opens, QuickAddSeed modal opens, manual add flow completes on `/vault`
+- **`e2e/vault-profile-edit.authenticated.spec.ts`** — Vault profile edit flows
+- **`e2e/journal-create.authenticated.spec.ts`** — Quick Log / journal entry creation
+- **`e2e/calendar-task.authenticated.spec.ts`** — Calendar task interactions
 - **`e2e/shopping-list.authenticated.spec.ts`** — Shopping list page renders heading and content; add-from-vault flow (skips gracefully if no eligible profile)
 
 ## Coverage
@@ -94,6 +97,8 @@ Run `npm run test:ci` to generate coverage. Reports:
 Coverage includes `src/**/*.{ts,tsx}` and excludes test files, `src/test/`, and type declarations.
 
 **Coverage thresholds** (in `vitest.config.mts`): CI fails if coverage drops below `lines: 2`, `functions: 14`, `branches: 50`. Current baselines at v1.0.0: lines 2.97%, functions 14.55%, branches 51.58%. Raise the thresholds as tests are added.
+
+**Suite size as of 2026-05-07:** 329 tests across 38 files passing.
 
 ## Writing tests
 

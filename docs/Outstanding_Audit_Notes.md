@@ -56,13 +56,13 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #10 — Dual Gemini SDK (~300KB bundle bloat)
+## #10 — Dual Gemini SDK (~300KB bundle bloat) ✅ Fixed
 
-**Package:** Both `@google/generative-ai` and `@google/genai` are in `dependencies`.
+**Package:** Both `@google/generative-ai` and `@google/genai` were in `dependencies`.
 
 **Bug:** Two SDKs add unnecessary bundle size. The newer `@google/genai` is preferred.
 
-**Fix:** Migrate all usage to `@google/genai`, remove `@google/generative-ai` from `package.json`, and run tests.
+**Fix:** All usage migrated to `@google/genai`; `@google/generative-ai` removed from `package.json`. Verified 2026-05-07 — only `@google/genai` remains. Commit `e15221f`.
 
 ---
 
@@ -86,11 +86,11 @@ Items from the March 2026 app audit that were **not** fixed in the initial batch
 
 ---
 
-## #8 — ESLint re-enabled in builds (deferred)
+## #8 — ESLint re-enabled in builds ✅ Fixed
 
-**Status:** Attempted. The build fails with 50+ pre-existing lint warnings (react-hooks/exhaustive-deps, no-img-element, etc.) and 2 errors (duplicate props, missing rule in test/helpers). Reverted to `ignoreDuringBuilds: true` for now.
+**Status:** Done. `next.config.js:9` now has `eslint: { ignoreDuringBuilds: false }`. Verified 2026-05-07.
 
-**Fix:** Address lint warnings across the codebase, fix `src/test/helpers.ts` eslint-disable for non-existent rule, then set `eslint: { ignoreDuringBuilds: false }` in `next.config.js`.
+**Original concern:** Build was failing with 50+ pre-existing lint warnings + 2 errors. Those have been resolved across the codebase.
 
 ---
 
@@ -102,4 +102,4 @@ A dedicated **AI process audit** is in [docs/AI_PROCESS_AUDIT.md](AI_PROCESS_AUD
 
 ---
 
-*Last updated: March 2026*
+*Last updated: 2026-05-07 (audit refresh — #8 and #10 confirmed fixed)*

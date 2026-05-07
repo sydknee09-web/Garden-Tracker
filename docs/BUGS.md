@@ -1,6 +1,6 @@
 # Known Issues & Bug Triage
 
-**Last updated:** 2026-03-11  
+**Last updated:** 2026-05-07 (audit refresh — no new bugs since 2026-03-11; post-launch list still current)
 **Owner:** Part 5 (Bug Fix and Hardening)
 
 All items are triaged as **must-fix before release** or **post-launch**. Must-fix items are tracked here until closed; post-launch items move to [BACKLOG.md](BACKLOG.md) when deferred.
