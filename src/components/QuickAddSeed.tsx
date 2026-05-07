@@ -230,7 +230,9 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       }
       const { data: packetRows } = await supabase.from("seed_packets").select("vendor_name").in("plant_profile_id", ids).is("deleted_at", null);
       const raw = (packetRows ?? []).map((r: { vendor_name: string | null }) => (r.vendor_name ?? "").trim()).filter(Boolean);
-      setVendorSuggestions(dedupeVendorsForSuggestions(raw));
+      const deduped = dedupeVendorsForSuggestions(raw);
+      const sorted = deduped.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+      setVendorSuggestions(sorted);
     })();
   }, [open, user?.id]);
 
