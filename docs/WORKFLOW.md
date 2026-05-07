@@ -20,62 +20,92 @@ How we work on Seed Vault. Short reference — read once, refer back when needed
 Every feature, big or small, runs through this loop:
 
 ```
-Spec → Build → Self-audit → Fix → Re-audit → Hand off → Ship
-                  ↑                  ↓
-                  └──── (until clean or only immaterial) ────┘
+Plan → Plan-audit → (clean?) → Build → Self-audit → Fix → Re-audit → Hand off → Ship
+   ↑        ↓                    ↑                     ↓
+   └─ (until clean or material) ─┘   └── (until clean or immaterial) ──┘
 ```
 
-### 1. Spec
+**Engagement points with user:**
+- **At plan-audit:** user reviews the plan + audit, approves or redirects.
+- **At hand-off:** user reviews what shipped (or is ready to ship), confirms or flags.
 
-Before any code, agreed acceptance criteria. For small fixes this is one line in the conversation. For larger features, a tracked bullet list (in the relevant doc or as a TodoWrite). Spec answers:
-- What changes for the user?
-- How do we know it's done?
-- What is explicitly out of scope?
+**Between those: Claude operates autonomously.** Once a plan is approved, Claude doesn't seek approval to build. Once a build self-audit passes, Claude doesn't seek approval to commit/push (within the risk tier rules in step 7 below).
 
-### 2. Build
+### 1. Plan
 
-Implementation. May span multiple files. May use sub-agents for parallel research or independent code review.
+Before any code, draft the plan. Plan answers:
+- **Acceptance criteria:** what changes for the user, how we know it's done
+- **Approach:** what files / areas / functions get touched
+- **Scope boundaries:** what's explicitly out of scope
+- **Risks:** what could go wrong, what's uncertain
+- **Verification strategy:** which tests, what manual check, code-review agent if warranted
+- **Effort estimate:** XS / S / M / L / XL
 
-### 3. Self-audit
+For XS tasks (under 30 min) the plan is a few lines in conversation. For S+ it's a structured list (TodoWrite or bullet block). For M+ it may be its own doc.
+
+### 2. Plan-audit
+
+Claude reviews the plan against:
+- Are acceptance criteria specific and testable?
+- Is scope tight? (No "while I'm at it" sprawl)
+- Are risks acknowledged?
+- Is verification strategy proportional to size?
+- Is there hidden coupling? (Will this fix really live alone, or does it need a refactor first?)
+- Are there better/cheaper paths to the same outcome?
+
+If plan-audit surfaces issues: revise the plan, re-audit. Loop until clean.
+
+**Then:** present plan + audit findings to user. User approves or redirects. **Once approved, no further approval needed until hand-off.**
+
+### 3. Build
+
+Implementation. May span multiple files. May use sub-agents for parallel research or independent code review. Claude works without check-ins; the plan was the contract.
+
+### 4. Self-audit
 
 Claude (and optionally a code-reviewer agent) checks:
 - Acceptance criteria met
 - Existing tests still pass (`npm run test:run`)
-- No new TypeScript errors (build passes)
+- No new TypeScript errors (build passes for M+ tasks)
 - Edge cases considered
-- No accidental scope creep
+- No accidental scope creep beyond the plan
 - For UI: visual quality, accessibility (touch targets, aria-labels), responsive layouts
 - For data: RLS / soft-delete / user_id scoping (the project's "Laws")
 
-### 4. Fix
+### 5. Fix
 
-Address findings. Loop back to step 3.
+Address findings. Loop back to step 4.
 
-### 5. Re-audit
+### 6. Re-audit
 
-Repeat 3+4 until findings are clean or only immaterial.
+Repeat 4+5 until findings are clean or only immaterial.
 
 **"Immaterial"** means: out-of-scope concern (logged for later), pre-existing issue (not caused by this change), or stylistic preference that doesn't affect function. Document it; don't gate on it.
 
-### 6. Hand off
+### 7. Hand off (with explicit next step)
 
 Plain-language summary to user:
-- What changed for the user (in their words, not technical)
-- Where to test it
-- Any decisions made that the user should know
-- What I'd do next if anything emerged
+- **What changed for the user** (in their words, not technical)
+- **Where to test it**
+- **Any decisions made** that the user should know
+- **Anything new I noticed** that's out of scope but worth logging
+- **NEXT STEP** — explicit. One of:
+  - "Next: ship this (push) — speak up if you want to hold."
+  - "Next: I'll verify with you, then push. Tap to confirm or flag issues."
+  - "Next: planning [task X]."
+  - "Next: waiting for your direction on [decision]."
 
-For UI changes, ideally with a screenshot or recording. For data/backend changes, a description of what's now possible.
+The "next step" line is non-optional. Every hand-off ends with it so the user can intervene before momentum carries us in a wrong direction.
 
-### 7. Ship
+### 8. Ship
 
-`git push` after hand-off OR before-and-tell, depending on risk:
+`git push` per risk tier:
 - **Doc-only / lock-file / config:** push immediately, summarize after
-- **UI changes / new behavior:** prefer hand-off → user verifies in dev → push
+- **UI changes / new behavior:** push after self-audit; user verifies in production. Hand-off-first only when user-flagged or for risky changes.
 - **Schema changes:** always hand-off → user reviews migration → push deliberately
 - **Anything irreversible** (schema migration to prod, force-push, account changes): explicit approval before pushing
 
-For this project specifically: the user has approved deploys to `garden-tracker-cyan.vercel.app` via push to `main` for low-risk doc and config changes. UI changes should be hand-off-first by default.
+For this project specifically: the user has approved deploys to `garden-tracker-cyan.vercel.app` via push to `main`. The hand-off includes the next step, so the user always knows what's about to happen.
 
 ---
 
