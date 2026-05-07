@@ -64,7 +64,10 @@ Decisions still pending or recently made. Resolve or revisit as needed; don't le
 
 | Document | Role |
 |----------|------|
-| [`docs/FEEDBACK_AND_FEATURE_NOTES.md`](FEEDBACK_AND_FEATURE_NOTES.md) | **Current product intent** — north-star principles for the plant profile (information hub, not a navigation menu) and the resolutions that override older roadmap items. Read first when planning UX work. |
+| [`docs/PRODUCT_AUDIT_2026-05-07.md`](PRODUCT_AUDIT_2026-05-07.md) | **Pattern-level synthesis** of live user feedback. 9 cross-cutting patterns + 10 workstreams + recommended sequencing. Read this when planning UX work bigger than a single fix. |
+| [`docs/IMPORT_FLOW_AUDIT.md`](IMPORT_FLOW_AUDIT.md) | Friction audit of every import path with re-prioritized recommendations after 2026-05-07 user feedback. |
+| [`docs/FEEDBACK_AND_FEATURE_NOTES.md`](FEEDBACK_AND_FEATURE_NOTES.md) | **Current product intent** — north-star principles for the plant profile (information hub, not a navigation menu). Read first when planning UX work. |
+| [`docs/BUGS.md`](BUGS.md) | Concrete reproducible bugs, including user-reported items from 2026-05-07. |
 | [`.cursor/plans/remaining_steps_roadmap.plan.md`](../.cursor/plans/remaining_steps_roadmap.plan.md) | Ordered UX backlog. Phases 0–7 done; 8 and 9 partial. |
 | [`.cursor/plans/offline_write_sync.plan.md`](../.cursor/plans/offline_write_sync.plan.md) | Track A. Foundation shipped; ordered replay + failed-replay UX + manual test pass remain. |
 | [`docs/IMPLEMENTATION_PLAN_AUDIT.md`](IMPLEMENTATION_PLAN_AUDIT.md) | Audit vs code as of 2026-03-15. Refresh when needed. |

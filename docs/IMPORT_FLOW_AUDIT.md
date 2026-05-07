@@ -271,15 +271,92 @@ Items 12, 13, 15, 16 are nice-to-have — schedule individually or skip.
 
 ---
 
-## Open questions for you
+## User answers (2026-05-07 feedback session)
 
-These need user input — answers shape the plan:
+The questions below were answered during a live feedback session. The answers re-rank Phase 1 priorities — captured in the addendum below.
 
-1. **Which import method do you use most?** (Affects whether A1 is high-impact for you.)
-2. **What does "really problematic" feel like to you in your testing?** Is it the wait? The review page? The result? Knowing where the pain is concentrated lets us start there.
-3. **Are imports usually single-item or batch?** (5 URLs vs 1 URL changes which improvements matter most.)
-4. **Have you ever had a tab close mid-import and lost work?** (Tells us if D1 is theoretical or real-world.)
-5. **Do you fix imported data after the fact often?** (Tells us if E1 is the real bottleneck.)
+1. **Which import method do you use most?**
+   → **Shed Purchase Order, Shed Photo Import, Add Plant Scan Purchase Order, Add Seed Purchase Order.** Notably absent: link import. Manual is used but with friction (variety dropdown not alphabetical, malformed legacy data in autocomplete).
+
+2. **What does "really problematic" feel like to you?**
+   → Multiple things: hero photo finding is slow during import; original uploaded photos and receipts get discarded; review page handles too much; AI autofill is load-bearing because legacy DB data is dirty.
+
+3. **Single-item or batch?**
+   → Mixed; PO flows are inherently batch (a single receipt → multiple line items).
+
+4. **Tab close mid-import — has it bitten you?**
+   → Not explicitly answered, but related concern: receipts and original images have no recovery point because they're discarded.
+
+5. **Do you fix imported data after the fact often?**
+   → Yes — frequently relies on AI autofill (`✨ Fill blanks`, `Overwrite AI`, Magic Fill) to populate profile data that the original scrape missed or corrupted.
+
+---
+
+## Addendum — 2026-05-07 re-prioritization
+
+User feedback re-orders the original recommendations. **PurchaseOrderImport flow becomes top priority** (used in 3 of 4 most-used flows). Photo import gets bumped up. Link-import-specific work drops in priority. Two new sections added below.
+
+### New Phase 0 — Critical user-reported items (do first)
+
+These are concrete, contained, and address top user friction. Most are 30 min – 2 hours each.
+
+| # | Item | Why now |
+|---|------|---------|
+| 0a | **Variety dropdown alphabetical sort** in QuickAddSeed manual | User hits this every manual add. ~10 min fix. |
+| 0b | **Defer hero-photo finding** to post-import. Use user's uploaded image as immediate visual; trigger find-hero on demand from review page. | Biggest speed win for the user's most-used flows (Photo + PO). Touches `/vault/import/photos`, BatchAddSeed, BatchAddSupply, PurchaseOrderImport. ~3-5h. |
+| 0c | **Receipt retention for Purchase Order** — save the original receipt image as a `vault_add` journal entry attached to the created profile(s) / grow_instances. Use the existing `journal-photos` bucket. | Closes a real workflow gap: nursery warranty case for permanent plants, supply purchase records. Touches PurchaseOrderImport, supply review-import save, `vault_add` journal type. ~4-6h. |
+| 0d | **Display-time normalization for autocomplete** — strip apostrophes, fix case, filter obvious junk from plant_name / variety dropdowns even though source data is dirty. | Quick UX fix while data quality remediation (workstream #3) is scheduled later. ~2-3h. |
+
+### New section — Receipt retention (workstream #4 in PRODUCT_AUDIT)
+
+The original audit treated import as one concern. The 2026-05-07 session revealed a **separate concern that import flows currently break**: keeping the original photo / receipt as a record, distinct from using it as the product's visual identity.
+
+**Two distinct image roles being conflated:**
+
+| Concern | Where the image should live |
+|---------|-----------------------------|
+| Visual identity (profile / product hero) | `hero_image_path` on profile, `primary_image_path` on packet |
+| Purchase record (receipt for warranty etc.) | `journal_entries` row with `entry_type: "vault_add"` and the receipt image attached |
+
+**These should not share a slot.** A PO receipt as a plant's hero image would be silly. A packet photo as the journal "I added this on date X" record is fine and useful.
+
+**What to build:**
+- PurchaseOrderImport saves the receipt to `journal-photos` and creates a `vault_add` journal entry on each profile/grow_instance the order touched.
+- AddPlantModal (esp. for permanent plants) allows attaching a receipt photo, saved to the grow_instance's `vault_add` journal entry.
+- Photo Import (seed packets) — option to use uploaded packet photo as the profile hero (replacing the AI-found one) via a toggle on the review page.
+
+### New section — Hero photo deferral (Pattern 5 expression)
+
+User suggestion validated against current code: hero-photo finding runs synchronously in the import pipeline (every photo / link import waits on `find-hero-photo` before reaching review). This is a major time-sink in the user's most-used flows.
+
+**Proposed shape:**
+
+1. **During import** — use the user's uploaded image (or extracted vendor image from page metadata) as the visual immediately. Skip AI hero search.
+2. **On review page** — show user's image already in place. Per-item button: "Find a stock photo" triggers find-hero-photo on demand.
+3. **After save** — profile has user's image as hero by default. User can replace later via existing "Set Profile Photo" / "Search web" affordances.
+
+This decouples import speed from hero photo quality. **Significant win for the speed concern AND closes a "wanted my photo as hero" frustration in one change.**
+
+### Re-ranked priority list (replaces the original Phase 1)
+
+**🟢 Phase 1 — Most impactful quick wins (target: half-day each, ship together)**
+
+1. **0a: Variety dropdown alphabetical** — universal, instant relief.
+2. **0b: Defer hero-photo finding to post-import** — biggest speed improvement for most-used flows.
+3. **0d: Display-time normalization for dropdowns** — interim fix while data quality work is scheduled.
+4. **A1: Remember last-used import method** — per-add-type localStorage.
+5. **A2: ICON_MAP icons replacing emoji** in choose screens.
+6. **0c: Receipt retention for Purchase Order flows** — closes a real product gap.
+
+That's roughly 1.5–2 days of focused work, addresses the user's top concrete friction, and sets up the more architectural improvements that follow.
+
+**🟡 Phase 2 — Review page improvements** (unchanged from original audit): items 6, 7, 8.
+
+**🔴 Phase 3+** (unchanged from original audit): seed/supply asymmetry, review page decomposition, etc.
+
+---
+
+## Open questions for you (original — kept for reference)
 
 ---
 
