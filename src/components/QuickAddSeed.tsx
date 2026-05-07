@@ -206,7 +206,10 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
     const t = setTimeout(() => {
       supabase.rpc("get_global_plant_cache_varieties", { p_plant_type: plantName.trim() }).then(({ data }) => {
         if (cancelled) return;
-        const varieties = ((data ?? []) as { variety: string | null }[]).map((r) => (r.variety ?? "").trim()).filter(Boolean);
+        const varieties = ((data ?? []) as { variety: string | null }[])
+          .map((r) => (r.variety ?? "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
         setVarietySuggestions(varieties);
       });
     }, 200);
