@@ -31,6 +31,18 @@ These were verified during the 2026-05-07 audit and **should not be reopened** w
 
 ---
 
+## Open decisions
+
+Decisions still pending or recently made. Resolve or revisit as needed; don't let them sit implicit.
+
+| # | Decision | Status | Notes |
+|---|----------|--------|-------|
+| 1 | **Framework upgrade posture** — stay on Next 14 LTS or schedule Next 14→16 + React 18→19 upgrade | Open | 11 remaining npm advisories blocked behind this (`npm audit fix --force`). Recommendation: stay on 14 LTS for now; revisit when forced (EOL, feature need, or new advisory). |
+| 2 | **Next implementation focus** — (a) hub-coherence pass vs (b) import-flow polish | ✅ Resolved 2026-05-07 → **(b) import polish** | Import flows named as a real frustration; more bounded scope than hub coherence. |
+| 3 | **Phase 4 `plant_count` qtyLabel on Plantings cards** — keep or drop? | Tentatively resolved → **keep** | Roadmap spec said drop; [FEEDBACK_AND_FEATURE_NOTES.md](FEEDBACK_AND_FEATURE_NOTES.md) hub principle says keep cards informative. Confirm explicitly when next touching the file so future audits don't re-flag it as a deviation. |
+
+---
+
 ## Phase status (verified 2026-05-07)
 
 | Phase | Status | Notes |
