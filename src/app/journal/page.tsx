@@ -603,7 +603,7 @@ export default function JournalPage() {
       ) : viewMode === "table" ? (
         <>
           {/* Mobile: card layout — no horizontal scroll */}
-          <div className="sm:hidden space-y-3 pb-24 -mx-6 px-4">
+          <div className="sm:hidden space-y-4 pb-24 -mx-6 px-4">
             {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
               if (item.type === "section") {
                 return (
