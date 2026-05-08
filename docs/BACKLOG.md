@@ -12,6 +12,7 @@ Preliminary issues and earlier notes captured for when you're ready. Not part of
 
 - **Packets tab:** Add **Edit** button next to "Remove packet" (opens EditPacketModal). *Confirmed still open 2026-05-07 — [VaultProfilePacketsTab.tsx](../src/app/vault/[id]/VaultProfilePacketsTab.tsx) has delete-only.*
 - **Plants tab → Edit plant:** In the edit-grow modal, add **link to existing seed packet** (dropdown + include `seed_packet_id` in save).
+- **Too many places to edit a plant's image** — there are multiple paths to change a profile photo (Add Photo / Change Photo on profile, Set Profile Photo modal, Edit Plant Profile → Change Photo, plus implicit via packet image, journal photo, etc.). User reported this as friction. Audit and consolidate. *Reported 2026-05-07.*
 
 ---
 

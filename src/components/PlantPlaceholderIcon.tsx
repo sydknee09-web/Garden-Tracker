@@ -22,7 +22,8 @@ interface PlantPlaceholderIconProps {
  * Renders the /plant-placeholder.png asset centered in a soft container with rounded-xl.
  */
 export function PlantPlaceholderIcon({ size = "md", className = "", variant = "neutral" }: PlantPlaceholderIconProps) {
-  const bg = variant === "emerald" ? "bg-emerald-50/30" : "bg-neutral-50";
+  // White matches the placeholder PNG's background so there's no visible seam.
+  const bg = variant === "emerald" ? "bg-emerald-50/30" : "bg-white";
   return (
     <div
       className={`${SIZE_MAP[size]} flex items-center justify-center rounded-xl ${bg} overflow-hidden ${className}`}

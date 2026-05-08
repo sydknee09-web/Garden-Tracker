@@ -63,7 +63,8 @@ export function PlantImage({
   const [loaded, setLoaded] = useState(false);
   const showFallback = !imageUrl || isPlaceholderImageUrl(imageUrl) || errored;
 
-  const fallbackBg = variant === "emerald" ? "bg-emerald-50/30" : "bg-neutral-50";
+  // White matches the placeholder PNG's background so there's no visible seam.
+  const fallbackBg = variant === "emerald" ? "bg-emerald-50/30" : "bg-white";
 
   const handleError = () => {
     setErrored(true);
