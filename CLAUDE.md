@@ -182,6 +182,88 @@ If the user calls out that you're behaving as smart-respondent instead of projec
 
 ---
 
+## Session transition management
+
+Long chats degrade quality (context bloat, token cost, performance drift). Claude should proactively manage when to suggest a fresh chat — without the user having to track this.
+
+### When to suggest switching (signals to watch for)
+
+Surface these unprompted; don't wait for the user to ask.
+
+- **Phase / chunk transition** — a design phase just closed, or a build chunk just shipped clean. Natural pause.
+- **Mode shift** — moving from design discussion to build execution, or build to debugging, or feature work to documentation. Different mental modes benefit from fresh context.
+- **Long conversation** — roughly 50+ turns, or when responses start feeling slower / drifting.
+- **Tangent accumulation** — conversation has wandered far from the original task and is unlikely to return cleanly.
+- **End of contained work** — a clean commit shipped, no ongoing thread, you reach a natural pause.
+
+When any of these occurs, say so in the next response. Phrase clearly:
+
+> "We're at a good natural switching point — [reason]. Want me to do session close-out so you can start a fresh chat?"
+
+If the user agrees, run the close-out protocol below. If she says no / not yet, drop it and continue — don't push.
+
+### Session close-out protocol
+
+When wrapping up a session (proactively or on user request):
+
+1. **Audit pending changes**
+   - Any uncommitted code? Commit it.
+   - Any decisions made this session but not yet in docs? Capture them.
+   - Any new user signals (preferences, pain points, "I like X" / "I hate Y")? Capture them.
+
+2. **Update `docs/VISION.md`** if any:
+   - New scope decisions (✅ / 🕐 / ❌ changes)
+   - New failure modes flagged
+   - New "don't touch" items
+   - New parked decisions
+   - User communication patterns learned this session (those go in CLAUDE.md actually — see below)
+
+3. **Update `docs/ROADMAP.md` per its §7:**
+   - §1 Current focus → exact starting point for next session
+   - §3 Build chunks → status changes (🔵 → 🟡, 🟡 → 🟢, 🟢 → ✅)
+   - §5 Recently shipped → new commits with hashes + brief descriptions
+   - §6 Decision log → today's locked-in decisions
+
+4. **Update `CLAUDE.md`** if any:
+   - New user communication patterns observed
+   - New project-lead behavior gaps surfaced
+
+5. **Update `docs/BACKLOG.md` and `docs/BUGS.md`** if relevant.
+
+6. **Commit all doc changes** with a descriptive message that includes a session summary.
+
+7. **Provide hand-off summary** to the user:
+   - What was accomplished this session (high-signal, not full transcript)
+   - What's ready to pick up next session
+   - The exact opening prompt for the new chat (paste-able)
+   - Any flags / outstanding items she should know about
+   - Confirm `git status` is clean
+
+8. **Confirm switching readiness:**
+   - All decisions captured
+   - All commits pushed
+   - Hand-off prompt provided
+   - User has what she needs to open a new chat with no friction
+
+### What "smooth transition" means
+
+The next chat should:
+- Read CLAUDE.md → VISION.md → ROADMAP.md and be fully oriented
+- Pick up exactly where the prior session left off, no state-reconstruction needed
+- Not require the user to re-explain anything
+
+**Failure mode to avoid:** the new chat asks "what was decided last session?" — that means close-out failed and the docs aren't capturing enough.
+
+### When NOT to switch
+
+- Mid-build (e.g. mid plan-audit, mid code change). Finish the work first.
+- User has unaddressed concerns or unfinished questions.
+- Active debugging where context matters.
+
+In those cases, decline / push back if user suggests switching: "We should finish [X] first, then I'll close out and we can switch."
+
+---
+
 ## How to start a session
 
 1. Read this file (CLAUDE.md) — done if you're reading this.

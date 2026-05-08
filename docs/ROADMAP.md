@@ -215,7 +215,9 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
-- **2026-05-08 `e28d5df`** — `docs(claude): add CLAUDE.md with project lead behaviors required` — orients fresh Claude sessions, codifies project-lead obligations and user communication patterns.
+- **2026-05-08 (session close)** — Session transition management framework added to CLAUDE.md (when-to-switch signals, close-out protocol).
+- **2026-05-08 `43871a9`** — `docs(framework): add ROADMAP.md + capture user communication patterns in CLAUDE.md`.
+- **2026-05-08 `e28d5df`** — `docs(claude): add CLAUDE.md with project lead behaviors required` — orients fresh Claude sessions.
 - **2026-05-08 `bee1dc7`** — `docs(vision): commit Phase 1 design phase to VISION.md` — comprehensive Phase 1 close.
 - **2026-05-08 `0db8cd8`** — `feat(transitions): FAB transition standard + VISION.md as source of truth`.
 - **2026-05-08 `7d3585a`** — `revert: U18 calendar header changes (overstepped without asking)`.
@@ -223,8 +225,6 @@ Most recent first. For full history, use `git log`.
 - **2026-05-07 `c7e1c44`** — `fix(visual): use bg-white on placeholder container so PNG blends seamlessly (U10 v3)`.
 - **2026-05-07 `e54980e`** — `fix(visual): use plant-placeholder.png as the real plant placeholder (U10 v2)`.
 - **2026-05-07 `13146cc`** — U14 card spacing.
-- **2026-05-07 `cba80a8`** — U10 v1 SeedlingIcon design (later replaced).
-- **2026-05-07 `36bb44c`** — U2 follow-up iOS-safe scroll-lock.
 
 ---
 
@@ -249,6 +249,7 @@ Chronological log of key decisions made during design and build. New decisions a
 - **Project documentation:** VISION.md (canonical truth), CLAUDE.md (Claude orientation + project-lead behaviors), WORKFLOW.md (process), ROADMAP.md (this file — where we are / what's next).
 - **Project-lead behaviors codified** in CLAUDE.md after user flagged Claude was acting as smart respondent rather than lead.
 - **User communication patterns captured** in CLAUDE.md for future Claude sessions.
+- **Session transition management framework** added to CLAUDE.md — defines when Claude should proactively suggest switching chats and the close-out protocol to run when switching. Goal: chat-to-chat handoffs are smooth without the user tracking chat length.
 
 ### 2026-05-07
 
