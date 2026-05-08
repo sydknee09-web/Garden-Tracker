@@ -361,7 +361,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
       <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
       <div
         ref={trapRef}
-        className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+        className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)] animate-modal-slide-up"
         role="dialog"
         aria-modal="true"
         aria-labelledby="quicklog-title"

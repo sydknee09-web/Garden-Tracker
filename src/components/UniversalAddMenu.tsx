@@ -52,9 +52,14 @@ export function UniversalAddMenu({
   onAddJournal,
 }: UniversalAddMenuProps) {
   const [screen, setScreen] = useState<UniversalAddMenuScreen>("main");
+  // Direction tracks forward / back nav so submenu slide animation reads correctly. See docs/VISION.md §4.
+  const [screenDirection, setScreenDirection] = useState<"forward" | "back">("forward");
 
   useEffect(() => {
-    if (open) setScreen("main");
+    if (open) {
+      setScreen("main");
+      setScreenDirection("forward");
+    }
   }, [open]);
 
   useBodyScrollLock(open);
@@ -71,17 +76,19 @@ export function UniversalAddMenu({
     onAddPlantManual(addPlantDefaultType);
   };
 
+  const slideClass = screenDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
+
   return (
     <>
-      <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-[100] bg-black/20 animate-fade-in" aria-hidden onClick={onClose} />
       <div
-        className={`fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto ${FAB_MENU_SHADOW_CLASS}`}
+        className={`fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto animate-fab-menu-enter ${FAB_MENU_SHADOW_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"
       >
         {screen === "main" && (
-          <>
+          <div key="main" className={slideClass}>
             <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add</h2>
             <p className="text-sm text-neutral-500 text-center mb-4">What would you like to add?</p>
             <div className="space-y-3">
@@ -98,7 +105,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => setScreen("add-plant")}
+                onClick={() => { setScreenDirection("forward"); setScreen("add-plant"); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
@@ -144,13 +151,13 @@ export function UniversalAddMenu({
             <div className="pt-4">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
-          </>
+          </div>
         )}
 
         {screen === "add-plant" && (
-          <>
+          <div key="add-plant" className={slideClass}>
             <div className="flex items-center gap-2 mb-4">
-              <button type="button" onClick={() => setScreen("main")} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
+              <button type="button" onClick={() => { setScreenDirection("back"); setScreen("main"); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
                 <ICON_MAP.Back className="w-5 h-5" />
               </button>
               <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
@@ -226,7 +233,7 @@ export function UniversalAddMenu({
             <div className="pt-4">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </>

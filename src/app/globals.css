@@ -204,6 +204,72 @@ input, select, textarea {
   .animate-app-ready-fade-in {
     animation: app-ready-fade-in 0.4s ease-out forwards;
   }
+  /* FAB transition standard (see docs/VISION.md §4 Design Tokens — Transitions). */
+  /* Three languages: fade-scale (menu open/close), horizontal-slide (in-place submenu), slide-up (target modal). */
+  /* Asymmetry: 200ms entries, 150ms exits. */
+  @keyframes fab-menu-enter {
+    from {
+      opacity: 0;
+      transform: scale(0.92) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  .animate-fab-menu-enter {
+    animation: fab-menu-enter 0.2s ease-out forwards;
+    transform-origin: bottom right;
+  }
+  @keyframes submenu-slide-forward {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .animate-submenu-slide-forward {
+    animation: submenu-slide-forward 0.2s ease-out forwards;
+  }
+  @keyframes submenu-slide-back {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .animate-submenu-slide-back {
+    animation: submenu-slide-back 0.2s ease-out forwards;
+  }
+  @keyframes modal-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-modal-slide-up {
+    animation: modal-slide-up 0.2s ease-out forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fab-menu-enter,
+    .animate-submenu-slide-forward,
+    .animate-submenu-slide-back,
+    .animate-modal-slide-up {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
   /* Emerald-branded shimmer: gentle pulse for Shed / Vault / Journal skeletons */
   @keyframes shimmer {
     0% { background-position: -200% 0; }
