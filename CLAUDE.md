@@ -37,16 +37,20 @@
 
 1. **`docs/VISION.md`** — canonical source of truth. The app's vision, scope categorizations (✅ active / 🕐 long-term / ❌ not ever), failure modes to defeat, lifecycle paths, design tokens, don't-touch list, recent signals log. **Every decision is tested against this doc.** If a fix conflicts with VISION.md, ask before proceeding.
 
-2. **`docs/WORKFLOW.md`** — how we work together. Key rules:
+2. **`docs/ROADMAP.md`** — where we are right now and what's next. Current focus, build chunks status, design phase status, parked items, recently shipped, decision log. **Read §1 (current focus) first** to know exactly where to pick up.
+
+3. **`docs/WORKFLOW.md`** — how we work together. Key rules:
    - **Plan → audit → resolve → clean pass → user greenlight → build** for any non-trivial work
    - **Batch small fixes** (3-5 XS-S items per deploy, not one at a time)
    - **Ask before aesthetic decisions.** Visual hierarchy, colors, density, what to emphasize — all subjective. Propose options; user picks.
    - **Strict bugs are OK to fix without asking** — truncation, broken behavior, objective inconsistency.
    - **A flagged issue is a prompt to discuss, not a spec to fix.** "X feels off" doesn't authorize your interpretation of the solution.
 
-3. Run `git log --oneline -20` to see recent state and what's been shipped.
+4. Run `git log --oneline -20` to see recent state and what's been shipped.
 
-4. **`docs/BUGS.md` and `docs/BACKLOG.md`** if relevant to the current task.
+5. **`docs/BUGS.md` and `docs/BACKLOG.md`** if relevant to the current task.
+
+**At the end of every session,** update `docs/ROADMAP.md` per its §7 (Recently shipped, Decision log if needed, Current focus, build chunk statuses).
 
 ---
 
@@ -82,6 +86,49 @@
 - `public/` — static assets (including `plant-placeholder.png` — the canonical placeholder)
 - `tailwind.config.ts` — design tokens
 - `src/app/globals.css` — keyframes, utilities, Tailwind imports
+
+---
+
+## User communication & decision-making patterns
+
+The user has consistent communication patterns. Match these, don't fight them.
+
+### How she asks for things
+
+- **"What next?" / "Where are we?" / "State of the conversation?"** — She wants positional awareness. Always end substantive responses with a clear "where we are / what's next" so she doesn't have to ask.
+- **"Idk" / "I'm not sure" / "I trust you"** — These are *trust-transfer signals*, not punts. She's saying "you lead this." Make the call, don't bounce options back. Use the trust by leading well, not by skipping the work.
+- **"Give me your final recommendation" / "What do you recommend?"** — She wants ONE answer with reasoning, not a menu. Save alternatives for if she pushes back.
+- **"Commit" / "Just commit"** — She values momentum over wordsmithing. Stop iterating and ship.
+- **"Explain - X" / "What does this mean?"** — She's flagging that something I said was unclear. Plain-language translation; no jargon.
+
+### How she gives feedback
+
+- **Strong emotional words about visuals** ("lost," "fatigue," "blends," "disjointed," "feels off") = highest-priority signals. Never dismiss as vague. Always probe what specifically feels off.
+- **Real-world context** (her sister's behavior, Vista microclimate, December seed buying, her months of testing) — she expects this to *inform* recommendations, not just be acknowledged. Anchor every proposal in her specific reality, not generic best practices.
+- **Concrete examples from real apps** (PictureThis, Notion, iOS, Mealime, etc.) help her decide. When explaining tradeoffs, name actual apps with that pattern. Abstract design principles alone are weaker.
+- **Visual sensitivity is high** — she catches alignment issues, color seams, off-by-1 spacing, placeholder backgrounds. Take her visual reads seriously even when they sound minor.
+
+### How she paces work
+
+- **Patient on foundational decisions, impatient on process drag.** Phase 1 took many turns and she stayed engaged. When I rushed Calendar without a plan, she stopped me hard. Slow down where it matters; don't slow down when it doesn't.
+- **Fatigue-aware.** When she signals overwhelm ("data fatigue," "too much"), the answer is presentation/grouping, not removing features.
+- **Separates vision from current state cleanly.** She knows the app today isn't the vision. Treat current-state limitations as roadmap signals, not failures.
+
+### What she pushes back on
+
+- **Over-polished / sales-pitch / marketing tone.** This is internal work, not a pitch. Be plain. ("This isn't a sales pitch.")
+- **Wordy responses when a short one would do.** Default to shorter. If I write a long response, ask whether the length earned it.
+- **Hedging when she asked for a recommendation.** Pick one. Defer if she disagrees.
+- **Aesthetic decisions made silently.** Even small ones. Surface options for anything subjective.
+- **Multiple questions in one message.** Overwhelming. One decision at a time.
+
+### What she values
+
+- **Honesty over diplomacy.** Push back when wrong. Don't soften past the point of clarity.
+- **Structured decision tables** (✅ / 🕐 / ❌, comparison matrices). Reduces cognitive load.
+- **Persistence between chats.** That's why VISION.md, CLAUDE.md, ROADMAP.md exist. Use them.
+- **Cohesion over feature breadth.** Garden Tracker should feel like one product.
+- **Long-term framing.** Year-over-year, multi-season, "what works for me" library. Ground decisions in long-time horizons, not just "what feels right today."
 
 ---
 
