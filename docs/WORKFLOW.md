@@ -141,6 +141,28 @@ The user does not need to see most agent work. Claude reports the result, not th
 
 ---
 
+## Batching small fixes
+
+Small visual/UX changes (XS or small S) should be **batched into a single ship cycle** rather than deployed one at a time. Vercel build + user verification takes 2-3 min per round; ten 1-line fixes shouldn't mean ten deploys.
+
+**Batch when:**
+- Each item is XS or small S (≤ 1 hour individually)
+- Items are visual / cosmetic / contained CSS or copy changes
+- All can be verified in a single test session
+- Risk is independent (one broken item shouldn't block the others — easy to revert if needed)
+
+**Don't batch when:**
+- Any item is M+ (real engineering scope)
+- Items touch the same file in conflicting ways
+- One item depends on another's outcome
+- Risk is high enough that the user might want to verify each independently
+
+**Batch size:** 3-5 items is the sweet spot. More than 5 and the user's test burden grows; fewer than 3 and we're not really batching.
+
+**Each batched commit's hand-off** lists every item and where to test it, so the user can run through the batch in one session.
+
+---
+
 ## Calibration scale (project size)
 
 | Size | Loop overhead | Examples |

@@ -796,7 +796,7 @@ export default function CalendarPage() {
   return (
     <div className="px-6 pt-2 pb-6">
       <div
-        className="flex items-center justify-center gap-2 mb-2 touch-pan-y pl-6 pr-6"
+        className="flex items-center justify-center gap-2 mb-1 touch-pan-y pl-6 pr-6"
         onTouchStart={(e) => {
           swipeStartX.current = e.touches[0]?.clientX ?? null;
         }}
@@ -820,7 +820,7 @@ export default function CalendarPage() {
         >
           ←
         </button>
-        <span className="font-semibold text-black text-base min-w-[140px] text-center">{monthLabel}</span>
+        <span className="font-semibold text-black text-base min-w-[110px] text-center">{monthLabel}</span>
         <button
           type="button"
           onClick={nextMonth}
@@ -831,21 +831,21 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {/* Plantable window: icons + infinity */}
+      {/* Plantable window: compact link unless expanded */}
       {plantableProfiles.length > 0 && (
-        <div className="mb-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 overflow-hidden">
+        <div className="mb-2">
           <button
             type="button"
             onClick={() => setPlantableExpanded((e) => !e)}
-            className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left"
+            className="w-full min-h-[36px] flex items-center justify-between px-2 py-1 text-left rounded-lg hover:bg-emerald-50/60 transition-colors"
           >
-            <span className="text-sm font-semibold text-emerald-800">
+            <span className="text-xs font-medium text-emerald-700">
               Plantable in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })} ({plantableProfiles.length})
             </span>
-            <span className="text-emerald-600 text-sm">{plantableExpanded ? "Hide" : "Show"}</span>
+            <span className="text-emerald-600 text-xs">{plantableExpanded ? "Hide" : "Show"}</span>
           </button>
           {plantableExpanded && (
-            <div className="px-4 pb-4">
+            <div className="mt-1 rounded-2xl bg-emerald-50/60 border border-emerald-200 px-3 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 {plantTypesGrouped.map(({ plantType, profiles }) => (
                   <button

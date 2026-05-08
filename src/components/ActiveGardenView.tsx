@@ -1072,7 +1072,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex items-center justify-center truncate mb-0">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 mb-0">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
                       <p className="text-[10px] text-black/60 leading-tight line-clamp-2 w-full min-h-0">
                         Sown {new Date(batch.sown_date).toLocaleDateString()}
                         {batch.harvest_count > 0 && ` · ${batch.harvest_count} harvest`}
