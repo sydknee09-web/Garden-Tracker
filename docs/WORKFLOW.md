@@ -141,6 +141,25 @@ The user does not need to see most agent work. Claude reports the result, not th
 
 ---
 
+## Don't assume aesthetic / UX intent
+
+If the user says **"X takes too much space"** or **"X feels off"** or **"the calendar header is too big"**, that is a **prompt to discuss, not a spec to fix.** It tells me what they don't like, not what they want instead.
+
+**Before changing anything visual / aesthetic / structural, I have to surface my reasoning and ask:**
+- What is the user trying to highlight on this page? (e.g. for Calendar — the grid? the tasks? the plantable widget?)
+- What did they already like that I should preserve? (color scheme, specific elements, a particular treatment)
+- What's the *outcome* they want — not the *implementation* I assume?
+
+**Hard rule:** if a fix involves changing colors, sizes, paddings beyond minor (>4px), reorganizing a section's hierarchy, demoting/promoting a feature, or changing how prominent something feels — STOP and ask before building. Even when the user has flagged the issue. The flag identifies a problem; it does not authorize my interpretation of the solution.
+
+**OK to fix without asking:** strict bugs (truncation, clipping, off-by-one, broken layout, broken behavior), where there's a single objectively-correct answer.
+
+**NOT OK to fix without asking:** anything where reasonable people could disagree on the solution. Visual hierarchy, color choices, density tradeoffs, what to emphasize, what to demote.
+
+When in doubt, ask. The cost of a question is 30 seconds; the cost of building the wrong thing is a deploy + verification + revert + redo.
+
+---
+
 ## Batching small fixes
 
 Small visual/UX changes (XS or small S) should be **batched into a single ship cycle** rather than deployed one at a time. Vercel build + user verification takes 2-3 min per round; ten 1-line fixes shouldn't mean ten deploys.
