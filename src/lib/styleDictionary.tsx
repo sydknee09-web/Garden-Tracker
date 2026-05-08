@@ -334,15 +334,13 @@ function CloseIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Sprout/seedling for plant profile fallback (1.2 stroke). */
+/** Single-leaf placeholder for plant profile fallback (1.2 stroke). Matches /public/seedling-icon.svg so all placeholder paths render identically. */
 function SeedlingIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
-      <path d="M12 22v-6" />
-      <path d="M12 16c2.5-2 4-5 4-8a4 4 0 1 0-8 0c0 3 1.5 6 4 8z" />
-      <path d="M8 10h2" />
-      <path d="M14 10h2" />
+      <path d="M12 3c-3.5 3.5-5.5 7.5-5.5 11.5a5.5 5.5 0 0 0 11 0c0-4-2-8-5.5-11.5z" />
+      <path d="M12 6.5v12" />
     </svg>
   );
 }
