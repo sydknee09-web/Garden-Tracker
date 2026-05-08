@@ -1093,7 +1093,7 @@ export default function VaultImportPage() {
         days_to_maturity: r.days_to_maturity,
         source_url: r.source_url ?? parsed[i],
         stock_photo_url: r.stock_photo_url?.trim() || undefined,
-        hero_image_url: heroUrl || "/seedling-icon.svg",
+        hero_image_url: heroUrl || "/plant-placeholder.png",
         useStockPhotoAsHero: !!heroUrl,
         linkNotFound: !!(r as { linkNotFound?: boolean }).linkNotFound,
         identityKey,

@@ -140,7 +140,12 @@ function getJournalImageUrl(entry: JournalEntry): string | null {
 function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
   const u = url?.trim();
   if (!u) return true;
-  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  return (
+    u === "/seedling-icon.svg" ||
+    u.endsWith("/seedling-icon.svg") ||
+    u === "/plant-placeholder.png" ||
+    u.endsWith("/plant-placeholder.png")
+  );
 }
 
 // ---------------------------------------------------------------------------

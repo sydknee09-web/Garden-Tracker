@@ -12,7 +12,12 @@ const IMAGE_CHECK_TIMEOUT_MS = 5_000;
 export function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
   if (!url || !String(url).trim()) return false;
   const u = String(url).trim().toLowerCase();
-  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  return (
+    u === "/seedling-icon.svg" ||
+    u.endsWith("/seedling-icon.svg") ||
+    u === "/plant-placeholder.png" ||
+    u.endsWith("/plant-placeholder.png")
+  );
 }
 
 function qualityRank(q: string): number {

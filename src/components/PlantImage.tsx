@@ -2,13 +2,20 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ICON_MAP } from "@/lib/styleDictionary";
 
-/** Treat placeholder hero URL as "no image" so we show Seedling fallback (Law 7). */
+const PLANT_PLACEHOLDER = "/plant-placeholder.png";
+
+/** Treat placeholder hero URL as "no image" so we render the plant-placeholder fallback (Law 7). Recognizes both legacy /seedling-icon.svg and current /plant-placeholder.png. */
 function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== "string") return true;
   const u = url.trim();
-  return u === "" || u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  return (
+    u === "" ||
+    u === "/seedling-icon.svg" ||
+    u.endsWith("/seedling-icon.svg") ||
+    u === PLANT_PLACEHOLDER ||
+    u.endsWith(PLANT_PLACEHOLDER)
+  );
 }
 
 const SIZE_CLASSES = {
@@ -19,14 +26,6 @@ const SIZE_CLASSES = {
   "2xl": "w-20 h-20",
 } as const;
 
-const ICON_SIZES = {
-  sm: "w-5 h-5",
-  md: "w-6 h-6",
-  lg: "w-8 h-8",
-  xl: "w-10 h-10",
-  "2xl": "w-12 h-12",
-} as const;
-
 export type PlantImageSize = keyof typeof SIZE_CLASSES;
 
 export interface PlantImageProps {
@@ -34,7 +33,7 @@ export interface PlantImageProps {
   imageUrl: string | null | undefined;
   alt: string;
   size?: PlantImageSize;
-  /** Background for fallback: neutral (bg-neutral-50) or emerald (bg-emerald-50/30). */
+  /** Background for fallback container. Both variants now use a soft wash so the plant-placeholder PNG reads cleanly. */
   variant?: "neutral" | "emerald";
   /** When true, component fills parent (absolute inset-0); use inside a relative aspect-square container. */
   fill?: boolean;
@@ -47,8 +46,8 @@ export interface PlantImageProps {
 
 /**
  * Standardized plant profile image with fallback.
- * If imageUrl is null or placeholder, renders ICON_MAP.Seedling (1.5 stroke) centered in a
- * bg-neutral-50 or bg-emerald-50/30 square with rounded-xl. Icon color is muted (text-neutral-400 or soft emerald).
+ * If imageUrl is null or placeholder, renders /plant-placeholder.png centered in a soft container.
+ * Otherwise renders the real image.
  */
 export function PlantImage({
   imageUrl,
@@ -65,7 +64,6 @@ export function PlantImage({
   const showFallback = !imageUrl || isPlaceholderImageUrl(imageUrl) || errored;
 
   const fallbackBg = variant === "emerald" ? "bg-emerald-50/30" : "bg-neutral-50";
-  const iconColor = variant === "emerald" ? "text-emerald-600/70" : "text-neutral-400";
 
   const handleError = () => {
     setErrored(true);
@@ -83,7 +81,7 @@ export function PlantImage({
       : `${SIZE_CLASSES[size]} flex items-center justify-center rounded-xl ${fallbackBg} overflow-hidden ${className}`;
     return (
       <div className={boxClass} aria-hidden>
-        <ICON_MAP.Seedling className={`${ICON_SIZES[size]} ${iconColor} shrink-0`} />
+        <img src={PLANT_PLACEHOLDER} alt="" className="w-full h-full object-contain p-1" />
       </div>
     );
   }

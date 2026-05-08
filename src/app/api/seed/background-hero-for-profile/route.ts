@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     // Skip if already has a real hero (path or non-placeholder URL)
     const existingPath = (p.hero_image_path ?? "").trim();
     const existingUrl = (p.hero_image_url ?? "").trim();
-    if (existingPath || (existingUrl && !existingUrl.endsWith("seedling-icon.svg"))) {
+    if (existingPath || (existingUrl && !existingUrl.endsWith("seedling-icon.svg") && !existingUrl.endsWith("plant-placeholder.png"))) {
       return NextResponse.json({ ok: true, updated: false });
     }
 

@@ -139,7 +139,12 @@ export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" |
 function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
   if (!url || !String(url).trim()) return false;
   const u = String(url).trim().toLowerCase();
-  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  return (
+    u === "/seedling-icon.svg" ||
+    u.endsWith("/seedling-icon.svg") ||
+    u === "/plant-placeholder.png" ||
+    u.endsWith("/plant-placeholder.png")
+  );
 }
 
 /** Thumbnail URL: real hero first, then packet image. Skip placeholder icon so we show packet or empty state. */

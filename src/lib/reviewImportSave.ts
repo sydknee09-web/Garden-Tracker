@@ -72,7 +72,7 @@ export function buildPlantProfileInsertPayload(
 
   const rawHeroNew = (item.stock_photo_url ?? "").trim() || (item.hero_image_url ?? "").trim();
   const heroUrlForNew =
-    item.useStockPhotoAsHero !== false && rawHeroNew ? rawHeroNew : "/seedling-icon.svg";
+    item.useStockPhotoAsHero !== false && rawHeroNew ? rawHeroNew : "/plant-placeholder.png";
 
   const existingTags = item.tags ?? [];
   const existingSeedTypes = getSeedTypesFromTags(existingTags);

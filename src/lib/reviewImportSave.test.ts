@@ -139,7 +139,7 @@ describe("buildPlantProfileInsertPayload", () => {
       "user-1",
       () => ""
     );
-    expect(payload.hero_image_url).toBe("/seedling-icon.svg");
+    expect(payload.hero_image_url).toBe("/plant-placeholder.png");
   });
 
   it("includes plant_description and description_source when present", () => {

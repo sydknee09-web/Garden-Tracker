@@ -131,7 +131,8 @@ export async function POST(req: Request) {
       !skipHero &&
       !(profile.hero_image_path ?? "").trim() &&
       (!(profile.hero_image_url ?? "").trim() ||
-        (profile.hero_image_url ?? "").trim().toLowerCase().endsWith("seedling-icon.svg"));
+        (profile.hero_image_url ?? "").trim().toLowerCase().endsWith("seedling-icon.svg") ||
+        (profile.hero_image_url ?? "").trim().toLowerCase().endsWith("plant-placeholder.png"));
     const hadNoDescription = !(profile.plant_description ?? "").trim() && !(profile.growing_notes ?? "").trim();
     const stillMissingHero = hadNoHero && !(updates as Record<string, unknown>).hero_image_url;
     const stillMissingDescription =

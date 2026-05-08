@@ -80,7 +80,12 @@ type JournalPhoto = { id: string; image_file_path: string; created_at: string };
 function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
   const u = url?.trim();
   if (!u) return true;
-  return u === "/seedling-icon.svg" || u.endsWith("/seedling-icon.svg");
+  return (
+    u === "/seedling-icon.svg" ||
+    u.endsWith("/seedling-icon.svg") ||
+    u === "/plant-placeholder.png" ||
+    u.endsWith("/plant-placeholder.png")
+  );
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -600,7 +605,7 @@ export default function VaultSeedPage() {
   // Skip placeholder URL so we use packet/journal/sprout per Law 7; avoids showing old icon when DB has placeholder.
   const useHeroUrl = heroUrl && !isPlaceholderHeroUrl(heroUrl);
   const fallbackStorageUrl = effectiveHeroPath ? supabase.storage.from(heroBucket).getPublicUrl(effectiveHeroPath).data.publicUrl : null;
-  const resolvedHeroUrl = useHeroUrl ? heroUrl! : (fallbackStorageUrl || "/seedling-icon.svg");
+  const resolvedHeroUrl = useHeroUrl ? heroUrl! : (fallbackStorageUrl || "/plant-placeholder.png");
   // Never show placeholder icon as image — show cute sprout fallback (Law 7) instead.
   const isPlaceholderResolved = !resolvedHeroUrl || isPlaceholderHeroUrl(resolvedHeroUrl);
   const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError && !isPlaceholderResolved;

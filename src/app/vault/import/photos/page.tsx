@@ -247,7 +247,7 @@ export default function ImportPhotosPage() {
         days_to_maturity: r.days_to_maturity,
         source_url: r.source_url,
         stock_photo_url: r.stock_photo_url?.trim() || undefined,
-        hero_image_url: heroUrl || "/seedling-icon.svg",
+        hero_image_url: heroUrl || "/plant-placeholder.png",
         useStockPhotoAsHero: true,
         identityKey: identityKey || undefined,
         companion_plants: (r as { companion_plants?: string[] }).companion_plants,

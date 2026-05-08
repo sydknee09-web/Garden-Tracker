@@ -134,7 +134,7 @@ export default function HeroImportPage() {
       if (storedItem) {
         return {
           ...storedItem,
-          hero_image_url: heroUrl || "/seedling-icon.svg",
+          hero_image_url: heroUrl || "/plant-placeholder.png",
           useStockPhotoAsHero: !!heroUrl,
         };
       }
@@ -148,7 +148,7 @@ export default function HeroImportPage() {
         variety: i.variety ?? "",
         tags: i.tags ?? [],
         purchaseDate: i.purchaseDate ?? new Date().toISOString().slice(0, 10),
-        hero_image_url: heroUrl || "/seedling-icon.svg",
+        hero_image_url: heroUrl || "/plant-placeholder.png",
         useStockPhotoAsHero: !!heroUrl,
         identityKey: identityKeyFromVariety(i.type ?? "Imported seed", i.variety ?? "") || undefined,
       };

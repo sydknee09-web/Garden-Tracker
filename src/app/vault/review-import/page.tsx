@@ -792,7 +792,7 @@ export default function ReviewImportPage() {
             .single();
           const heroPath = (existing as { hero_image_path?: string; hero_image_url?: string } | null)?.hero_image_path?.trim();
           const heroUrl = (existing as { hero_image_url?: string } | null)?.hero_image_url?.trim();
-          const hasHero = heroPath || (heroUrl && !heroUrl.endsWith("seedling-icon.svg"));
+          const hasHero = heroPath || (heroUrl && !heroUrl.endsWith("seedling-icon.svg") && !heroUrl.endsWith("plant-placeholder.png"));
           if (hasHero) {
             profileAlreadyHadHero = true;
           } else {
