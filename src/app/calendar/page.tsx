@@ -154,6 +154,8 @@ export default function CalendarPage() {
   const swipeStartX = useRef<number | null>(null);
   /** Collapsible date groups: which dates are expanded. Start with today expanded if it has tasks. */
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
+  /** Overdue tasks consolidated by (title, plant_profile_id, grow_instance_id, user_id). Multi-task groups can be expanded; this Set tracks which group keys are open. */
+  const [expandedOverdueGroups, setExpandedOverdueGroups] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchActionOpen, setBatchActionOpen] = useState<"reschedule" | "delete" | null>(null);
@@ -655,6 +657,44 @@ export default function CalendarPage() {
     });
   }, []);
 
+  const toggleOverdueGroup = useCallback((key: string) => {
+    setExpandedOverdueGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  /** Consolidate overdue tasks by (title, plant_profile_id, grow_instance_id, user_id). user_id is in the key so household members' identical tasks don't merge in family view. */
+  const overdueGroups = useMemo(() => {
+    const groupMap = new Map<string, typeof overdueTasks>();
+    for (const t of overdueTasks) {
+      const key = [
+        t.title ?? "",
+        t.plant_profile_id ?? "",
+        t.grow_instance_id ?? "",
+        t.user_id ?? "",
+      ].join("|");
+      const existing = groupMap.get(key);
+      if (existing) existing.push(t);
+      else groupMap.set(key, [t]);
+    }
+    const result: { key: string; tasks: typeof overdueTasks }[] = [];
+    for (const [key, ts] of groupMap.entries()) {
+      const sorted = [...ts].sort((a, b) => a.due_date.localeCompare(b.due_date));
+      result.push({ key, tasks: sorted });
+    }
+    result.sort((a, b) => a.tasks[0].due_date.localeCompare(b.tasks[0].due_date));
+    return result;
+  }, [overdueTasks]);
+
+  const handleSelectAllInGroup = useCallback((groupTasks: (Task & { user_id?: string | null })[]) => {
+    setSelectMode(true);
+    setSelectedIds(new Set(groupTasks.map((t) => t.id)));
+    setBatchMenuOpen(true);
+  }, []);
+
   const handleLongPressTask = useCallback((taskId: string) => {
     setSelectMode(true);
     setSelectedIds(new Set([taskId]));
@@ -1038,7 +1078,7 @@ export default function CalendarPage() {
                 </>
               );
               const baseClass = `min-h-[56px] p-1.5 border-b border-r border-black/5 last:border-r-0 flex flex-col items-center justify-start ${
-                cell.dateStr ? "bg-white" : "bg-black/[0.02]"
+                cell.dateStr ? "bg-white" : "bg-neutral-100"
               } ${isSelected ? "ring-2 ring-inset ring-emerald/40" : ""}`;
               return cell.dateStr ? (
                 <button
@@ -1172,21 +1212,92 @@ export default function CalendarPage() {
                   </button>
                   {expandedDateGroups.has("overdue") && (
                     <div className="px-4 pb-4 space-y-2 bg-amber-50/30">
-                      {overdueTasks.map((t) => (
-                        <CalendarTaskRow
-                          key={t.id}
-                          task={t}
-                          onComplete={() => handleComplete(t)}
-                          onSnooze={(newDue) => handleSnooze(t, newDue)}
-                          selectMode={selectMode}
-                          isSelected={selectedIds.has(t.id)}
-                          onLongPress={() => handleLongPressTask(t.id)}
-                          onToggleSelect={() => toggleTaskSelect(t.id)}
-                          onTaskTap={() => setTaskDetailTask(t)}
-                          ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
-                          canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
-                        />
-                      ))}
+                      {overdueGroups.map(({ key, tasks: groupTasks }) => {
+                        if (groupTasks.length === 1) {
+                          const t = groupTasks[0];
+                          return (
+                            <CalendarTaskRow
+                              key={t.id}
+                              task={t}
+                              onComplete={() => handleComplete(t)}
+                              onSnooze={(newDue) => handleSnooze(t, newDue)}
+                              selectMode={selectMode}
+                              isSelected={selectedIds.has(t.id)}
+                              onLongPress={() => handleLongPressTask(t.id)}
+                              onToggleSelect={() => toggleTaskSelect(t.id)}
+                              onTaskTap={() => setTaskDetailTask(t)}
+                              ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                              canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
+                            />
+                          );
+                        }
+                        const isGroupExpanded = expandedOverdueGroups.has(key);
+                        const first = groupTasks[0];
+                        const oldestDateLabel = new Date(first.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                        const categoryLabel = TASK_LABELS[first.category] ?? first.category ?? "";
+                        const primaryLabel = (first.title ?? categoryLabel).trim() || categoryLabel;
+                        const plantName = first.plant_name?.trim();
+                        const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
+                        return (
+                          <div key={key} className="rounded-xl bg-white border border-amber-300/70 shadow-sm overflow-hidden">
+                            <div className="flex items-stretch">
+                              <button
+                                type="button"
+                                onClick={() => toggleOverdueGroup(key)}
+                                className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px] hover:bg-amber-50/40"
+                                aria-expanded={isGroupExpanded}
+                                aria-label={`${primaryLabel}${showPlant ? ` ${plantName}` : ""} — ${groupTasks.length} overdue, oldest ${oldestDateLabel}. ${isGroupExpanded ? "Collapse" : "Expand"}.`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-black break-words">
+                                    {primaryLabel}{showPlant ? ` · ${plantName}` : ""}
+                                  </div>
+                                  <div className="text-xs text-amber-800 mt-0.5">
+                                    {groupTasks.length} overdue · oldest {oldestDateLabel}
+                                  </div>
+                                </div>
+                                <svg
+                                  width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                  className={`shrink-0 text-amber-700 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
+                                  aria-hidden
+                                >
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </button>
+                              {!selectMode && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectAllInGroup(groupTasks)}
+                                  className="shrink-0 min-h-[44px] px-3 text-xs font-medium text-emerald-700 border-l border-amber-200/70 hover:bg-emerald-50"
+                                  aria-label={`Select all ${groupTasks.length} ${primaryLabel} tasks`}
+                                >
+                                  Select all
+                                </button>
+                              )}
+                            </div>
+                            {isGroupExpanded && (
+                              <div className="border-t border-amber-200/60 px-3 py-2 space-y-2 bg-amber-50/20">
+                                {groupTasks.map((t) => (
+                                  <CalendarTaskRow
+                                    key={t.id}
+                                    task={t}
+                                    onComplete={() => handleComplete(t)}
+                                    onSnooze={(newDue) => handleSnooze(t, newDue)}
+                                    selectMode={selectMode}
+                                    isSelected={selectedIds.has(t.id)}
+                                    onLongPress={() => handleLongPressTask(t.id)}
+                                    onToggleSelect={() => toggleTaskSelect(t.id)}
+                                    onTaskTap={() => setTaskDetailTask(t)}
+                                    ownerBadge={householdViewMode === "family" && t.user_id ? getShorthandForUser(t.user_id) : null}
+                                    canEdit={!t.user_id || canEditPage(t.user_id, "garden")}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </li>
@@ -1220,10 +1331,10 @@ export default function CalendarPage() {
                       <button
                         type="button"
                         onClick={() => toggleDateGroup(date)}
-                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-black/[0.02] transition-colors"
+                        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-4 py-3 text-left bg-emerald-50/40 hover:bg-emerald-50/70 transition-colors"
                         aria-expanded={isExpanded}
                       >
-                        <span className="text-sm font-medium text-black/80">
+                        <span className="text-sm font-semibold text-black/85">
                           {dateLabel} ({summary})
                         </span>
                         <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>

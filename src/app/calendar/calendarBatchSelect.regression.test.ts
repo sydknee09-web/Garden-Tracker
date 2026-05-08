@@ -135,22 +135,23 @@ describe("Batch select — CalendarTaskRow component interface", () => {
 
   it("All CalendarTaskRow call sites pass selectMode", () => {
     const count = (src.match(/selectMode=\{selectMode\}/g) ?? []).length;
-    expect(count).toBe(3); // Overdue section + selectedDate view + date groups
+    // Overdue singleton + overdue inside expanded consolidated group + selectedDate view + date groups
+    expect(count).toBe(4);
   });
 
   it("All CalendarTaskRow call sites pass isSelected", () => {
     const count = (src.match(/isSelected=\{selectedIds\.has/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(4);
   });
 
   it("All CalendarTaskRow call sites wire onLongPress to handleLongPressTask", () => {
     const count = (src.match(/onLongPress=\{/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(4);
   });
 
   it("All CalendarTaskRow call sites wire onToggleSelect to toggleTaskSelect", () => {
     const count = (src.match(/onToggleSelect=\{/g) ?? []).length;
-    expect(count).toBe(3);
+    expect(count).toBe(4);
   });
 });
 
@@ -201,5 +202,76 @@ describe("Batch select — action bar and sheets", () => {
   // N4: NewTaskModal must NOT call useModalBackClose — calendar/page.tsx owns it. Duplicate causes double Back press.
   it("NewTaskModal does not call useModalBackClose (page owns back state)", () => {
     expect(newTaskModalSrc).not.toContain("useModalBackClose");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature C — Overdue consolidation (group repeated tasks under a summary row)
+// ---------------------------------------------------------------------------
+describe("Overdue consolidation — state and grouping helpers", () => {
+  it("expandedOverdueGroups Set state exists", () => {
+    expect(src).toContain("expandedOverdueGroups");
+    expect(src).toContain("setExpandedOverdueGroups");
+  });
+
+  it("toggleOverdueGroup handler exists", () => {
+    expect(src).toContain("toggleOverdueGroup");
+  });
+
+  it("overdueGroups is built via useMemo from overdueTasks", () => {
+    expect(src).toContain("const overdueGroups = useMemo");
+  });
+
+  it("Group key includes title, plant_profile_id, grow_instance_id, and user_id (so household members' identical tasks don't merge)", () => {
+    expect(src).toContain("t.title ?? \"\"");
+    expect(src).toContain("t.plant_profile_id ?? \"\"");
+    expect(src).toContain("t.grow_instance_id ?? \"\"");
+    expect(src).toContain("t.user_id ?? \"\"");
+  });
+
+  it("handleSelectAllInGroup enters selectMode, fills selectedIds, opens batch menu", () => {
+    expect(src).toContain("handleSelectAllInGroup");
+    const idx = src.indexOf("handleSelectAllInGroup = useCallback");
+    expect(idx).toBeGreaterThan(-1);
+    const handlerSection = src.slice(idx, idx + 500);
+    expect(handlerSection).toContain("setSelectMode(true)");
+    expect(handlerSection).toContain("setSelectedIds");
+    expect(handlerSection).toContain("setBatchMenuOpen(true)");
+  });
+});
+
+describe("Overdue consolidation — render", () => {
+  it("Singleton overdue groups render a flat CalendarTaskRow (no wrapper)", () => {
+    // The singleton branch returns a CalendarTaskRow when groupTasks.length === 1
+    expect(src).toContain("groupTasks.length === 1");
+  });
+
+  it("Multi-task overdue groups render a summary row with overdue count and oldest date", () => {
+    expect(src).toContain("overdue · oldest");
+  });
+
+  it("Summary row shows 'Select all' button when not in select mode", () => {
+    // The button is gated by !selectMode so the existing batch flow remains the single source of truth in select mode.
+    expect(src).toContain("Select all");
+    expect(src).toContain("handleSelectAllInGroup(groupTasks)");
+  });
+
+  it("Summary row chevron rotates when expanded", () => {
+    expect(src).toContain("isGroupExpanded ? \"rotate-180\"");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature D — Day-header visual treatment (semibold + emerald tint)
+// ---------------------------------------------------------------------------
+describe("Day header visual treatment", () => {
+  it("Per-date headers use font-semibold (not font-medium) for stronger section dividers", () => {
+    // Match the date-group header span specifically
+    expect(src).toContain('text-sm font-semibold text-black/85');
+  });
+
+  it("Per-date headers carry a faint emerald tint", () => {
+    expect(src).toContain("bg-emerald-50/40");
+    expect(src).toContain("hover:bg-emerald-50/70");
   });
 });

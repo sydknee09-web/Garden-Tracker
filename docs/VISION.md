@@ -298,6 +298,7 @@ Items deferred to a later session, with the WHY of deferral preserved.
 - **Too many places to edit a plant's image** (in `BACKLOG.md`, deferred 2026-05-07).
 - **FAB icon style consistency** (raised 2026-05-08). Awaiting decision on canonical stroke weight; whether FAB main matches submenu icons.
 - **Save / Cancel button consistency** (raised 2026-05-08). Stacked vs side-by-side; `bg-emerald` vs `bg-emerald-600`.
+- **Calendar task row primitive — "bubbles vs. list"** (raised 2026-05-08). User flagged that `CalendarTaskRow` reads as cards/bubbles (rounded-xl + white bg + emerald border + drop shadow) rather than as list items, and that this contributes to density-fatigue on the calendar page. Open question: how far to go. *My recommendation: re-evaluate AFTER Calendar fatigue batch deploys (consolidation + day-header treatment may resolve the reading problem on its own). If still cluttered, lighter row treatment — drop shadow, replace card border with bottom-divider, drop rounding, keep snooze/complete actions inline. Pure checkboxes go too far (lose action affordances + category color signal).*
 - **Sister's additional feedback** (pending). Will fold in when received.
 
 ---
@@ -306,6 +307,8 @@ Items deferred to a later session, with the WHY of deferral preserved.
 
 Last several pieces of feedback from the user, in case any didn't make it into the right section above. Acts as a safety net. Most recent at the top.
 
+- **2026-05-08:** Calendar adjacent-month grid cells (the leading/trailing pad days when month doesn't start on Sunday or end on Saturday) read as too similar to current-month days; user wants them visibly muted. Locked to `bg-neutral-100` (gray-100) for clean "not part of this month" cue.
+- **2026-05-08:** Calendar `CalendarTaskRow` primitive reads as "bubbles/individual cards" rather than as a list — contributes to calendar-page density fatigue. User asked whether to switch to checkbox-style. *Parked to evaluate after Calendar fatigue batch deploys; consolidation + day-header treatment may resolve reading problem before we touch the row primitive.* See §11.
 - **2026-05-08 (Phase 1 closed):** Vision statement v4 locked. Full audience model, three lifecycle paths, four failure modes, complete Q8 categorization, beds-as-first-class, micro-climate triggers, cost-driven freemium, encyclopedia + tips + content split into three modes, all captured in this commit.
 - **2026-05-08:** Growing-from-seed lifecycle is meaningfully distinct from established-plant lifecycle. App shouldn't force them into the same template.
 - **2026-05-08:** "Disorientation" / feeling lost is a real failure mode — bigger than just inconsistency. Cohesion is the antidote.
