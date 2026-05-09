@@ -1879,7 +1879,14 @@ function CalendarTaskRow({
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [snoozeDate, setSnoozeDate] = useState(task.due_date);
+  const [swipeOffsetX, setSwipeOffsetX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeDirectionRef = useRef<"horizontal" | "vertical" | null>(null);
+  const latestOffsetRef = useRef(0);
+
   const categoryLabel = TASK_LABELS[task.category] ?? task.category ?? "";
   const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
   const plantName = task.plant_name?.trim();
@@ -1908,73 +1915,184 @@ function CalendarTaskRow({
 
   const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
 
+  // Swipe-to-act on touch devices: swipe-left = mark complete, swipe-right = open snooze.
+  // Native touch listeners (not React synthetic events) so we can preventDefault to suppress
+  // vertical scroll once the gesture locks horizontal. Per VISION.md Principle 9, desktop
+  // keeps inline buttons (rendered with `hidden lg:flex` below) so swipe is mobile-only.
+  const isOptimistic = task.id.startsWith("opt-");
+  const swipeEligible = !task.completed_at && !selectMode && !isOptimistic && canEdit;
+  useEffect(() => {
+    const node = rowRef.current;
+    if (!node || !swipeEligible) return;
+
+    const SWIPE_THRESHOLD = 100;
+    const DIRECTION_LOCK_AT = 8;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      swipeStartRef.current = { x: t.clientX, y: t.clientY };
+      swipeDirectionRef.current = null;
+      latestOffsetRef.current = 0;
+      setIsSwiping(true);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const start = swipeStartRef.current;
+      const t = e.touches[0];
+      if (!start || !t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+
+      if (!swipeDirectionRef.current) {
+        if (Math.abs(dx) > DIRECTION_LOCK_AT || Math.abs(dy) > DIRECTION_LOCK_AT) {
+          swipeDirectionRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+        }
+      }
+
+      if (swipeDirectionRef.current === "horizontal") {
+        e.preventDefault();
+        latestOffsetRef.current = dx;
+        setSwipeOffsetX(dx);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      const dx = latestOffsetRef.current;
+      const direction = swipeDirectionRef.current;
+
+      swipeStartRef.current = null;
+      swipeDirectionRef.current = null;
+      latestOffsetRef.current = 0;
+      setIsSwiping(false);
+      setSwipeOffsetX(0);
+
+      if (direction === "horizontal") {
+        if (dx <= -SWIPE_THRESHOLD) {
+          onComplete();
+        } else if (dx >= SWIPE_THRESHOLD) {
+          setSnoozeOpen(true);
+        }
+      }
+    };
+
+    node.addEventListener("touchstart", handleTouchStart, { passive: false });
+    node.addEventListener("touchmove", handleTouchMove, { passive: false });
+    node.addEventListener("touchend", handleTouchEnd);
+    node.addEventListener("touchcancel", handleTouchEnd);
+
+    return () => {
+      node.removeEventListener("touchstart", handleTouchStart);
+      node.removeEventListener("touchmove", handleTouchMove);
+      node.removeEventListener("touchend", handleTouchEnd);
+      node.removeEventListener("touchcancel", handleTouchEnd);
+    };
+  }, [swipeEligible, onComplete]);
+
+  const showSwipeReveal = swipeOffsetX !== 0;
+
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-      className={`flex flex-wrap items-start gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
-        selectMode && isSelected
-          ? "bg-emerald-50 border-emerald-400"
-          : task.completed_at
-            ? "bg-slate-50 border-slate-200/80 text-slate-500"
-            : "bg-white border-emerald-200/60 text-black shadow-sm hover:border-emerald-300/70"
-      } ${task.id.startsWith("opt-") ? "opacity-60 animate-pulse" : ""} ${selectMode ? "cursor-pointer select-none" : ""}`}
-    >
-      {selectMode && (
-        <span
-          className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-            isSelected ? "bg-emerald-500 border-emerald-500" : "border-black/30 bg-white"
-          }`}
-          aria-hidden
-        >
-          {isSelected && (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-        </span>
-      )}
-      <span className={`font-medium flex-1 min-w-0 break-words ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
-      {ownerBadge && (
-        <span className="shrink-0">
-          <OwnerBadge shorthand={ownerBadge} canEdit={canEdit} size="xs" />
-        </span>
-      )}
-      {!task.completed_at && !selectMode && canEdit && (
-        <span className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setSnoozeOpen(true); }}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
-            aria-label="Snooze"
-            title="Snooze"
-          >
-            <SnoozeIcon />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onComplete(); }}
-            className={
-              isSowTask(task.category)
-                ? "min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center"
-                : "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            }
-            aria-label={isSowTask(task.category) ? "Plant" : "Mark complete"}
-          >
-            {isSowTask(task.category) ? (
-              "Plant"
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <>
+      <div className="relative overflow-hidden rounded-xl">
+        {showSwipeReveal && (
+          <div className="absolute inset-0 flex pointer-events-none" aria-hidden>
+            <div className="flex-1 bg-amber-100 flex items-center justify-start px-5">
+              <svg
+                width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className="text-amber-700"
+                style={{ opacity: Math.max(0, Math.min(1, swipeOffsetX / 80)) }}
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+                <path d="M4 22l2-2M20 22l-2-2M22 4l-2 2M2 4l2 2" />
+              </svg>
+            </div>
+            <div className="flex-1 bg-emerald-100 flex items-center justify-end px-5">
+              <svg
+                width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className="text-emerald-700"
+                style={{ opacity: Math.max(0, Math.min(1, -swipeOffsetX / 80)) }}
+              >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-            )}
-          </button>
-        </span>
-      )}
+            </div>
+          </div>
+        )}
+        <div
+          ref={rowRef}
+          role="button"
+          tabIndex={0}
+          onClick={handleClick}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          style={{
+            transform: `translateX(${swipeOffsetX}px)`,
+            transition: isSwiping ? "none" : "transform 0.2s ease-out",
+          }}
+          className={`relative flex flex-wrap items-start gap-2 py-3 px-4 rounded-xl text-sm border transition-colors ${
+            selectMode && isSelected
+              ? "bg-emerald-50 border-emerald-400"
+              : task.completed_at
+                ? "bg-slate-50 border-slate-200/80 text-slate-500"
+                : "bg-white border-emerald-200/60 text-black shadow-sm hover:border-emerald-300/70"
+          } ${isOptimistic ? "opacity-60 animate-pulse" : ""} ${selectMode ? "cursor-pointer select-none" : ""}`}
+        >
+          {selectMode && (
+            <span
+              className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                isSelected ? "bg-emerald-500 border-emerald-500" : "border-black/30 bg-white"
+              }`}
+              aria-hidden
+            >
+              {isSelected && (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </span>
+          )}
+          <span className={`font-medium flex-1 min-w-0 break-words ${task.completed_at ? "line-through" : ""}`}>{displayLine}</span>
+          {ownerBadge && (
+            <span className="shrink-0">
+              <OwnerBadge shorthand={ownerBadge} canEdit={canEdit} size="xs" />
+            </span>
+          )}
+          {!task.completed_at && !selectMode && canEdit && (
+            <span className="hidden lg:flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setSnoozeOpen(true); }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
+                aria-label="Snooze"
+                title="Snooze"
+              >
+                <SnoozeIcon />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onComplete(); }}
+                className={
+                  isSowTask(task.category)
+                    ? "min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center"
+                    : "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }
+                aria-label={isSowTask(task.category) ? "Plant" : "Mark complete"}
+              >
+                {isSowTask(task.category) ? (
+                  "Plant"
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            </span>
+          )}
+        </div>
+      </div>
       {snoozeOpen && !selectMode && (
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setSnoozeOpen(false)} />
@@ -1999,6 +2117,6 @@ function CalendarTaskRow({
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

@@ -276,3 +276,75 @@ describe("Day header visual treatment", () => {
     expect(src).toContain("hover:bg-emerald-50/70");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Feature E — Swipe gestures (mobile) + responsive button visibility (desktop)
+// Implements VISION.md Principle 9: mobile-first with desktop responsiveness in
+// every commit. Swipe-left = complete, swipe-right = open snooze. Inline action
+// buttons hidden on mobile (`hidden lg:flex`), visible on desktop.
+// ---------------------------------------------------------------------------
+describe("Calendar row — swipe gestures (mobile)", () => {
+  it("Swipe state and refs exist on CalendarTaskRow", () => {
+    expect(src).toContain("swipeOffsetX");
+    expect(src).toContain("setSwipeOffsetX");
+    expect(src).toContain("isSwiping");
+    expect(src).toContain("setIsSwiping");
+    expect(src).toContain("swipeStartRef");
+    expect(src).toContain("swipeDirectionRef");
+    expect(src).toContain("latestOffsetRef");
+  });
+
+  it("Swipe is gated by eligibility (not completed, not selectMode, not optimistic, canEdit)", () => {
+    expect(src).toContain("swipeEligible");
+    expect(src).toContain("!task.completed_at && !selectMode && !isOptimistic && canEdit");
+  });
+
+  it("Touch handlers are attached via native addEventListener with passive: false", () => {
+    // React's synthetic touchmove is passive by default on mobile, which would
+    // block preventDefault. Native listeners with passive:false are required.
+    expect(src).toContain('addEventListener("touchstart"');
+    expect(src).toContain('addEventListener("touchmove"');
+    expect(src).toContain('{ passive: false }');
+  });
+
+  it("Direction lock prevents diagonal-jitter from triggering false swipes during scroll", () => {
+    // The lock decides "horizontal" vs "vertical" once early movement crosses
+    // a small threshold; only the horizontal branch intercepts (preventDefault).
+    // Vertical lock just falls through, letting the page scroll naturally.
+    expect(src).toContain('"horizontal" : "vertical"');
+    expect(src).toContain('swipeDirectionRef.current === "horizontal"');
+  });
+
+  it("Swipe-left past threshold fires onComplete; swipe-right opens snooze modal", () => {
+    expect(src).toContain("SWIPE_THRESHOLD");
+    expect(src).toContain("dx <= -SWIPE_THRESHOLD");
+    expect(src).toContain("onComplete()");
+    expect(src).toContain("dx >= SWIPE_THRESHOLD");
+    expect(src).toContain("setSnoozeOpen(true)");
+  });
+
+  it("Row content slides via transform, with no transition during active swipe", () => {
+    expect(src).toContain("transform: `translateX(${swipeOffsetX}px)`");
+    expect(src).toContain('transition: isSwiping ? "none" : "transform 0.2s ease-out"');
+  });
+
+  it("Swipe-reveal background layer renders only when there is offset", () => {
+    expect(src).toContain("showSwipeReveal");
+    expect(src).toContain("swipeOffsetX !== 0");
+  });
+
+  it("Cleanup removes all touch listeners on unmount or eligibility change", () => {
+    expect(src).toContain('removeEventListener("touchstart"');
+    expect(src).toContain('removeEventListener("touchmove"');
+    expect(src).toContain('removeEventListener("touchend"');
+    expect(src).toContain('removeEventListener("touchcancel"');
+  });
+});
+
+describe("Calendar row — responsive button visibility (desktop)", () => {
+  it("Inline snooze/complete buttons are hidden on mobile, visible on desktop (lg:)", () => {
+    // The action group uses `hidden lg:flex` so it only renders at lg+ breakpoints.
+    // Mobile users get the swipe pattern instead.
+    expect(src).toContain('"hidden lg:flex items-center gap-1 shrink-0"');
+  });
+});
