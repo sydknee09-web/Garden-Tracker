@@ -1242,44 +1242,44 @@ export default function CalendarPage() {
                         const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
                         return (
                           <div key={key} className="rounded-xl bg-white border border-amber-300/70 shadow-sm overflow-hidden">
-                            <div className="flex items-stretch">
-                              <button
-                                type="button"
-                                onClick={() => toggleOverdueGroup(key)}
-                                className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px] hover:bg-amber-50/40"
-                                aria-expanded={isGroupExpanded}
-                                aria-label={`${primaryLabel}${showPlant ? ` ${plantName}` : ""} — ${groupTasks.length} overdue, oldest ${oldestDateLabel}. ${isGroupExpanded ? "Collapse" : "Expand"}.`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-black break-words">
-                                    {primaryLabel}{showPlant ? ` · ${plantName}` : ""}
-                                  </div>
-                                  <div className="text-xs text-amber-800 mt-0.5">
-                                    {groupTasks.length} overdue · oldest {oldestDateLabel}
-                                  </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleOverdueGroup(key)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px] hover:bg-amber-50/40"
+                              aria-expanded={isGroupExpanded}
+                              aria-label={`${primaryLabel}${showPlant ? ` ${plantName}` : ""} — ${groupTasks.length} overdue, oldest ${oldestDateLabel}. ${isGroupExpanded ? "Collapse" : "Expand"}.`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-black break-words">
+                                  {primaryLabel}{showPlant ? ` · ${plantName}` : ""}
                                 </div>
-                                <svg
-                                  width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                  className={`shrink-0 text-amber-700 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
-                                  aria-hidden
-                                >
-                                  <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                              </button>
-                              {!selectMode && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSelectAllInGroup(groupTasks)}
-                                  className="shrink-0 min-h-[44px] px-3 text-xs font-medium text-emerald-700 border-l border-amber-200/70 hover:bg-emerald-50"
-                                  aria-label={`Select all ${groupTasks.length} ${primaryLabel} tasks`}
-                                >
-                                  Select all
-                                </button>
-                              )}
-                            </div>
+                                <div className="text-xs text-amber-800 mt-0.5">
+                                  {groupTasks.length} overdue · oldest {oldestDateLabel}
+                                </div>
+                              </div>
+                              <svg
+                                width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                className={`shrink-0 text-amber-700 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
+                                aria-hidden
+                              >
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </button>
                             {isGroupExpanded && (
                               <div className="border-t border-amber-200/60 px-3 py-2 space-y-2 bg-amber-50/20">
+                                {!selectMode && (
+                                  <div className="flex justify-end -mt-0.5 -mb-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSelectAllInGroup(groupTasks)}
+                                      className="text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-md px-2 py-1 min-h-[32px]"
+                                      aria-label={`Select all ${groupTasks.length} ${primaryLabel} tasks`}
+                                    >
+                                      Select all {groupTasks.length}
+                                    </button>
+                                  </div>
+                                )}
                                 {groupTasks.map((t) => (
                                   <CalendarTaskRow
                                     key={t.id}

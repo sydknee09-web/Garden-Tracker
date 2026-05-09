@@ -250,8 +250,9 @@ describe("Overdue consolidation — render", () => {
     expect(src).toContain("overdue · oldest");
   });
 
-  it("Summary row shows 'Select all' button when not in select mode", () => {
-    // The button is gated by !selectMode so the existing batch flow remains the single source of truth in select mode.
+  it("Expanded group shows 'Select all' button when not in select mode", () => {
+    // Hidden in collapsed state to keep vertical rhythm uniform across rows;
+    // revealed inside the expanded view, top-right, only when not already in select mode.
     expect(src).toContain("Select all");
     expect(src).toContain("handleSelectAllInGroup(groupTasks)");
   });
