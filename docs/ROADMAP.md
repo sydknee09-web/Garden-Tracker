@@ -14,13 +14,20 @@
 
 ## 1. Current focus
 
-**As of 2026-05-08 — end of Phase 1 (Strategy / Vision).**
+**As of 2026-05-08 — Calendar fatigue batch shipped, awaiting prod verification.**
 
-🟢 *No active build work right now.* Phase 1 just closed; ROADMAP.md and CLAUDE.md just shipped to set up the structure for the next session.
+🟢 **Just shipped:** Calendar fatigue batch (overdue consolidation + day-header treatment + adjacent-month muting). Pushed to `main`; Vercel auto-deploying.
 
-**Recommended next session focus:** 🟡 **Calendar fatigue batch** (Option A from prior chat). Has a clean-pass plan from a prior session — ready to execute. See §3 for details.
+**Awaiting from user:** prod verification of the deploy. Specifically:
+- Does overdue consolidation resolve the "copper fungicide reads as 14 rows" reading problem?
+- Is the day-header treatment legible without being loud?
+- Do adjacent-month grid cells now read clearly as muted/separate?
 
-If user wants to start with something else: see §3 for ranked alternatives.
+**Likely next session focus, depending on prod verification:**
+- If consolidation solves the reading problem → 🔵 **FAB consistency batch** (§3.2) is the next ready-to-plan item.
+- If consolidation does NOT resolve the bubbles-vs-list complaint → **CalendarTaskRow row primitive batch** becomes the next priority. See VISION.md §11 (parked decision) for the recommended approach.
+
+See §3 for the full ranked queue.
 
 ---
 
@@ -46,22 +53,22 @@ The full design framework — what was outlined as "what a design phase usually 
 
 Major work items, ranked by recommended order. Each has a status, brief scope, and dependencies.
 
-### 3.1 🟡 Calendar fatigue batch — READY TO EXECUTE
+### 3.1 ✅ Calendar fatigue batch — SHIPPED 2026-05-08
 
-**Status:** Clean-pass plan exists from prior session. Awaits user greenlight + plan-audit refresh against VISION.md.
+**Status:** Built, tested (340/340), pushed to `main` (commit `2697f04`), Vercel deployed. Awaiting user prod-verification.
 
-**Scope (3 changes bundled):**
-1. Day header visual treatment — semibold text + subtle background tint ("A+B lightly combined")
-2. Consolidation of repeated overdue rows — group by `(task_title, plant_profile_id, grow_instance_id)`, summary row with count + oldest date, expandable to individual dates
-3. Bulk action on consolidated row — individual checkboxes per date + "Select all" checkbox at top of expanded view + undo toast for bulk action
+**What shipped:**
+1. **Day header visual treatment** — per-date headers now `text-sm font-semibold text-black/85` + `bg-emerald-50/40` tint. Reads as section dividers without competing with content.
+2. **Overdue consolidation** — repeated overdue tasks (e.g. daily copper fungicide × 14 days) collapse into a single summary row showing `{count} overdue · oldest {date}` with chevron-expand. Group key = `(title, plant_profile_id, grow_instance_id, user_id)`. Singletons render flat (no fake nesting). Group key includes `user_id` so household members' identical tasks don't merge in family view.
+3. **"Select all in group" button** on consolidated rows — reuses existing long-press batch-select flow (selectMode + selectedIds + batchMenuOpen). No parallel checkbox UI introduced.
 
-**Why first:** Real fatigue relief on the page user uses most. Plan was already greenlit; just need quick alignment check against VISION.md before executing.
+**Plus (folded in):** calendar grid adjacent-month pad cells switch from `bg-black/[0.02]` to `bg-neutral-100` for clean "not part of this month" cue.
 
-**Effort:** M (estimated). Consolidation logic adds complexity.
+**Deferred from original plan:** Undo toast on bulk action. New UI pattern; deserves its own decision in a future design-system pass.
 
-**Dependencies:** None. Compatible with current data model.
+**Captured signals:** Row primitive ("bubbles vs. list") flagged by user → parked in VISION.md §11. Re-evaluate after prod verification.
 
-**Source:** Calendar discussion in prior session. See VISION.md §11 (open decisions / Calendar task fatigue).
+**Source:** VISION.md §7 (Calendar surface), §11 (Calendar task fatigue parked decision).
 
 ---
 
@@ -215,6 +222,7 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-08 `2697f04`** — `feat(calendar): fatigue batch — overdue consolidation, day-header treatment, adjacent-month muting` — three coordinated changes addressing calendar reading fatigue. Repeated overdue tasks collapse to a summary row with expand-on-tap. Per-date headers gain semibold + faint emerald tint. Adjacent-month grid cells switch from near-invisible `bg-black/[0.02]` to `bg-neutral-100`. Reuses existing long-press batch-select for "Select all in group" — no parallel UI. 340/340 tests.
 - **2026-05-08 (session close)** — Session transition management framework added to CLAUDE.md (when-to-switch signals, close-out protocol).
 - **2026-05-08 `43871a9`** — `docs(framework): add ROADMAP.md + capture user communication patterns in CLAUDE.md`.
 - **2026-05-08 `e28d5df`** — `docs(claude): add CLAUDE.md with project lead behaviors required` — orients fresh Claude sessions.
@@ -250,6 +258,8 @@ Chronological log of key decisions made during design and build. New decisions a
 - **Project-lead behaviors codified** in CLAUDE.md after user flagged Claude was acting as smart respondent rather than lead.
 - **User communication patterns captured** in CLAUDE.md for future Claude sessions.
 - **Session transition management framework** added to CLAUDE.md — defines when Claude should proactively suggest switching chats and the close-out protocol to run when switching. Goal: chat-to-chat handoffs are smooth without the user tracking chat length.
+- **Calendar fatigue batch shipped (build chunk 3.1).** Overdue consolidation key: `(title, plant_profile_id, grow_instance_id, user_id)` — `user_id` in key prevents household-member task merging. Singletons render flat (no fake nesting). "Select all in group" reuses existing long-press batch-select rather than introducing parallel checkbox UI. Per-date header tint = `bg-emerald-50/40` mirrors Overdue's amber pattern. Adjacent-month cells = `bg-neutral-100` (Option A) for unambiguous "not part of month" cue. Undo toast deferred to future design-system pass.
+- **Row primitive ("bubbles vs. list") parked** in VISION.md §11 — re-evaluate after Calendar fatigue batch deploys; consolidation may resolve reading problem before we touch the row primitive. Recommended approach if needed: drop shadow + replace card border with bottom-divider + drop rounding + keep snooze/complete actions inline. Pure checkboxes go too far (lose action affordances + category color signal).
 
 ### 2026-05-07
 
