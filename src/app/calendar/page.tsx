@@ -1029,7 +1029,9 @@ export default function CalendarPage() {
               const dayTasks = cell.dateStr ? (byDate[cell.dateStr] ?? []) : [];
               const completedDay = cell.dateStr ? (completedByDate[cell.dateStr] ?? []) : [];
               const isToday = cell.dateStr === todayStr;
-              const isSelected = cell.dateStr === selectedDate;
+              // cell.dateStr is null for adjacent-month pad cells; selectedDate defaults to null too,
+              // so a naive === would mark every pad cell as "selected" and apply the emerald ring.
+              const isSelected = cell.dateStr != null && cell.dateStr === selectedDate;
               const uniqueCategories = [...new Set(dayTasks.map((t) => t.category))];
               const hasUpcoming = dayTasks.length > 0;
               const hasCompletedOnly = !hasUpcoming && completedDay.length > 0;
