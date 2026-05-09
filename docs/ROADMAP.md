@@ -14,18 +14,26 @@
 
 ## 1. Current focus
 
-**As of 2026-05-08 — Calendar fatigue batch shipped, awaiting prod verification.**
+**As of 2026-05-08 — Calendar swipe + responsive batch shipped, awaiting prod verification.**
 
-🟢 **Just shipped:** Calendar fatigue batch (overdue consolidation + day-header treatment + adjacent-month muting). Pushed to `main`; Vercel auto-deploying.
+🟢 **Just shipped today (in order):**
+1. Calendar fatigue batch — overdue consolidation, day-header treatment, adjacent-month muting (`2697f04`)
+2. Adjacent-month pad-cell green-outline bug fix (`295635d`)
+3. "Select all" relocated inside expanded consolidated group (`dbaed5f`)
+4. VISION.md Principle 9 locked: mobile-first with desktop responsiveness in every commit (`0ceb4a0`)
+5. **Calendar row swipe-to-act on mobile + inline buttons on desktop** (`cea21e0`) ← latest
 
-**Awaiting from user:** prod verification of the deploy. Specifically:
-- Does overdue consolidation resolve the "copper fungicide reads as 14 rows" reading problem?
-- Is the day-header treatment legible without being loud?
-- Do adjacent-month grid cells now read clearly as muted/separate?
+**Awaiting from user:** prod verification on phone:
+- Does the row primitive feel like a list now (not stacked cards)?
+- Swipe-left → complete; swipe-right → snooze modal — gestures discoverable and reliable?
+- Vertical scroll still works (no false-positive swipe triggers)?
+- Long-press multi-select still works alongside swipe?
+- Desktop unchanged (inline buttons still visible)?
 
 **Likely next session focus, depending on prod verification:**
-- If consolidation solves the reading problem → 🔵 **FAB consistency batch** (§3.2) is the next ready-to-plan item.
-- If consolidation does NOT resolve the bubbles-vs-list complaint → **CalendarTaskRow row primitive batch** becomes the next priority. See VISION.md §11 (parked decision) for the recommended approach.
+- If swipe + responsive treatment land well → 🔵 **Modal/menu desktop placement batch** (newly logged in VISION.md §11). FAB Add menu and other phone-style modals render as centered floating cards on desktop — same pattern problem in different components.
+- If swipe needs tuning (haptics, threshold, animation feel) → quick polish batch on the swipe pattern itself.
+- After that, FAB icon-style consistency (§3.2) remains queued.
 
 See §3 for the full ranked queue.
 
@@ -222,6 +230,10 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-08 `cea21e0`** — `feat(calendar): swipe-to-act on mobile, inline buttons on desktop (Principle 9)` — first worked example of new operating principle. Mobile swipe-left=complete, swipe-right=snooze; inline buttons hidden via `hidden lg:flex`. Desktop unchanged. Native touch listeners (passive:false), 100px threshold, 8px direction lock. Long-press multi-select preserved. 349/349 tests (9 new swipe assertions).
+- **2026-05-08 `0ceb4a0`** — `docs(vision): lock Principle 9 (mobile-first with desktop responsiveness in every commit) + log open desktop issues` — operating principle 9 locked; modal/menu desktop placement logged for separate batch.
+- **2026-05-08 `dbaed5f`** — `fix(calendar): hide 'Select all' until consolidated group is expanded` — vertical scan rhythm fix; consolidated row now visually identical in shape to a normal task row (title + count + chevron).
+- **2026-05-08 `295635d`** — `fix(calendar): adjacent-month pad cells no longer match selectedDate when both are null` — strict bug exposed by `bg-neutral-100` change; null guard on `isSelected` calc.
 - **2026-05-08 `2697f04`** — `feat(calendar): fatigue batch — overdue consolidation, day-header treatment, adjacent-month muting` — three coordinated changes addressing calendar reading fatigue. Repeated overdue tasks collapse to a summary row with expand-on-tap. Per-date headers gain semibold + faint emerald tint. Adjacent-month grid cells switch from near-invisible `bg-black/[0.02]` to `bg-neutral-100`. Reuses existing long-press batch-select for "Select all in group" — no parallel UI. 340/340 tests.
 - **2026-05-08 (session close)** — Session transition management framework added to CLAUDE.md (when-to-switch signals, close-out protocol).
 - **2026-05-08 `43871a9`** — `docs(framework): add ROADMAP.md + capture user communication patterns in CLAUDE.md`.
