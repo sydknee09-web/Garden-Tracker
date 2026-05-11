@@ -315,11 +315,17 @@ describe("Calendar row — swipe gestures (mobile)", () => {
     expect(src).toContain('swipeDirectionRef.current === "horizontal"');
   });
 
-  it("Swipe-left past threshold fires onComplete; swipe-right opens snooze modal", () => {
+  it("Swipe-left past threshold fires onSwipeLeft; swipe-right fires onSwipeRight (via useRowSwipe hook)", () => {
     expect(src).toContain("SWIPE_THRESHOLD");
     expect(src).toContain("dx <= -SWIPE_THRESHOLD");
-    expect(src).toContain("onComplete()");
+    expect(src).toContain("onSwipeLeft()");
     expect(src).toContain("dx >= SWIPE_THRESHOLD");
+    expect(src).toContain("onSwipeRight()");
+  });
+
+  it("CalendarTaskRow wires onSwipeLeft to onComplete and onSwipeRight to openSnooze", () => {
+    expect(src).toContain("onSwipeLeft: onComplete");
+    expect(src).toContain("onSwipeRight: openSnooze");
     expect(src).toContain("setSnoozeOpen(true)");
   });
 
@@ -346,5 +352,178 @@ describe("Calendar row — responsive button visibility (desktop)", () => {
     // The action group uses `hidden lg:flex` so it only renders at lg+ breakpoints.
     // Mobile users get the swipe pattern instead.
     expect(src).toContain('"hidden lg:flex items-center gap-1 shrink-0"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature F — useRowSwipe hook (shared swipe primitive)
+// Swipe logic extracted into a hook so it can be reused on consolidated-group
+// header rows (apply-all to N tasks at once) without duplicating the gesture
+// machinery.
+// ---------------------------------------------------------------------------
+describe("useRowSwipe hook — extracted swipe primitive", () => {
+  it("useRowSwipe is defined as a top-level function", () => {
+    expect(src).toContain("function useRowSwipe(");
+  });
+
+  it("useRowSwipe accepts enabled, onSwipeLeft, onSwipeRight props", () => {
+    expect(src).toContain("enabled: boolean");
+    expect(src).toContain("onSwipeLeft: () => void");
+    expect(src).toContain("onSwipeRight: () => void");
+  });
+
+  it("useRowSwipe returns { rowRef, swipeOffsetX, isSwiping }", () => {
+    expect(src).toContain("return { rowRef, swipeOffsetX, isSwiping };");
+  });
+
+  it("CalendarTaskRow consumes useRowSwipe (no inline gesture state)", () => {
+    expect(src).toContain("useRowSwipe({");
+    // The old inline declarations should be gone from CalendarTaskRow's body.
+    // (They live inside useRowSwipe now.) We verify by checking the hook call site
+    // appears in the file.
+    const calendarTaskRowIdx = src.indexOf("function CalendarTaskRow");
+    const calendarTaskRowEnd = src.indexOf("\n}\n", calendarTaskRowIdx);
+    const body = src.slice(calendarTaskRowIdx, calendarTaskRowEnd);
+    expect(body).toContain("useRowSwipe({");
+    // No duplicated swipe-state setters inline in CalendarTaskRow
+    expect(body).not.toContain("setSwipeOffsetX(dx)");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Feature G — Consolidated overdue group: apply-all actions
+// Inline [Snooze][Done][Chevron] cluster on consolidated rows; both actions
+// route through confirmation/sheets and apply to every task in the group.
+// Mobile parity via swipe (left = complete-all, right = snooze-all).
+// ---------------------------------------------------------------------------
+describe("Consolidated overdue row — apply-all actions", () => {
+  it("ConsolidatedOverdueHeader component is defined", () => {
+    expect(src).toContain("function ConsolidatedOverdueHeader(");
+  });
+
+  it("Header has Snooze, Done, and Chevron buttons in that order", () => {
+    const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
+    expect(headerIdx).toBeGreaterThan(-1);
+    const body = src.slice(headerIdx, headerIdx + 8000);
+    const snoozeIdx = body.indexOf("aria-label={`Snooze all");
+    const doneIdx = body.indexOf("aria-label={`${firstSow ? \"Plant\" : \"Mark complete\"} all");
+    const chevronIdx = body.indexOf("aria-label={isGroupExpanded ? \"Collapse\" : \"Expand\"}");
+    expect(snoozeIdx).toBeGreaterThan(-1);
+    expect(doneIdx).toBeGreaterThan(-1);
+    expect(chevronIdx).toBeGreaterThan(-1);
+    expect(snoozeIdx).toBeLessThan(doneIdx);
+    expect(doneIdx).toBeLessThan(chevronIdx);
+  });
+
+  it("Snooze and Done buttons on consolidated row are hidden on mobile (hidden lg:flex)", () => {
+    const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
+    const body = src.slice(headerIdx, headerIdx + 8000);
+    // Both buttons should use hidden lg:flex
+    const hiddenLgCount = (body.match(/hidden lg:flex/g) ?? []).length;
+    expect(hiddenLgCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("Chevron on consolidated row is always visible (no hidden lg:flex)", () => {
+    const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
+    const body = src.slice(headerIdx, headerIdx + 8000);
+    // The chevron button's className should NOT include hidden lg
+    const chevronButtonIdx = body.indexOf('aria-label={isGroupExpanded ? "Collapse" : "Expand"}');
+    expect(chevronButtonIdx).toBeGreaterThan(-1);
+    // Walk back to the className for the chevron button
+    const sectionBefore = body.slice(Math.max(0, chevronButtonIdx - 400), chevronButtonIdx);
+    expect(sectionBefore).not.toContain("hidden lg:flex");
+  });
+
+  it("Consolidated header uses useRowSwipe for mobile swipe parity", () => {
+    const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
+    const body = src.slice(headerIdx, headerIdx + 8000);
+    expect(body).toContain("useRowSwipe({");
+    expect(body).toContain("onSwipeLeft: onCompleteAll");
+    expect(body).toContain("onSwipeRight: onSnoozeAll");
+  });
+});
+
+describe("Consolidated overdue row — bulk handlers and state", () => {
+  it("groupAction state is declared with snooze and complete kinds", () => {
+    expect(src).toContain("groupAction");
+    expect(src).toContain("setGroupAction");
+    expect(src).toContain('kind: "snooze" | "complete"');
+  });
+
+  it("handleCompleteAllInGroup is defined and guards on user + groupAction.kind", () => {
+    expect(src).toContain("handleCompleteAllInGroup");
+    const idx = src.indexOf("handleCompleteAllInGroup = useCallback");
+    expect(idx).toBeGreaterThan(-1);
+    const handler = src.slice(idx, idx + 1500);
+    expect(handler).toContain('groupAction.kind !== "complete"');
+    expect(handler).toContain("completeTask");
+  });
+
+  it("handleSnoozeAllInGroup is defined and guards on user + groupAction.kind", () => {
+    expect(src).toContain("handleSnoozeAllInGroup");
+    const idx = src.indexOf("handleSnoozeAllInGroup = useCallback");
+    expect(idx).toBeGreaterThan(-1);
+    const handler = src.slice(idx, idx + 3000);
+    expect(handler).toContain('groupAction.kind !== "snooze"');
+    expect(handler).toContain("due_date: newDate");
+  });
+
+  it("handleSnoozeAllInGroup preserves transplant→harvest cascade per-task", () => {
+    const idx = src.indexOf("handleSnoozeAllInGroup = useCallback");
+    const handler = src.slice(idx, idx + 3000);
+    expect(handler).toContain('t.category === "transplant"');
+    expect(handler).toContain("grow_instance_id");
+    expect(handler).toContain("expected_harvest_date");
+  });
+
+  it("Bulk handlers emit a single toast, not per-task toasts", () => {
+    const completeIdx = src.indexOf("handleCompleteAllInGroup = useCallback");
+    const completeHandler = src.slice(completeIdx, completeIdx + 1500);
+    expect(completeHandler).toMatch(/showToast\([^)]*tasks?[^)]*completed/);
+
+    const snoozeIdx = src.indexOf("handleSnoozeAllInGroup = useCallback");
+    const snoozeHandler = src.slice(snoozeIdx, snoozeIdx + 3000);
+    expect(snoozeHandler).toMatch(/showToast\([^)]*tasks?[^)]*snoozed/);
+  });
+});
+
+describe("Consolidated overdue row — confirm sheets", () => {
+  it("'Mark all N as done?' confirm sheet renders when groupAction.kind === 'complete'", () => {
+    expect(src).toContain('groupAction?.kind === "complete"');
+    expect(src).toContain("Mark all {groupAction.tasks.length} as done?");
+  });
+
+  it("'Mark all as done?' sheet has Cancel and Mark done buttons", () => {
+    const idx = src.indexOf('groupAction?.kind === "complete"');
+    const sheet = src.slice(idx, idx + 2500);
+    // Normalize line endings so CRLF (Windows) and LF (Unix) both work.
+    const normalized = sheet.replace(/\r\n/g, "\n");
+    expect(normalized).toContain(">\n                Cancel");
+    expect(normalized).toContain('"Saving…" : "Mark done"');
+  });
+
+  it("'Snooze all N tasks' sheet renders when groupAction.kind === 'snooze'", () => {
+    expect(src).toContain('groupAction?.kind === "snooze"');
+    expect(src).toContain("Snooze all {groupAction.tasks.length} task");
+  });
+
+  it("'Snooze all' sheet offers Tomorrow / In 3 days / Next week quick chips + date picker", () => {
+    const idx = src.indexOf('groupAction?.kind === "snooze"');
+    const sheet = src.slice(idx, idx + 2500);
+    expect(sheet).toContain('"Tomorrow"');
+    expect(sheet).toContain('"In 3 days"');
+    expect(sheet).toContain('"Next week"');
+    expect(sheet).toContain('type="date"');
+    expect(sheet).toContain("handleSnoozeAllInGroup");
+  });
+
+  it("Modal back-close is wired for groupAction (back-press dismisses the sheet)", () => {
+    expect(src).toContain("useModalBackClose(!!groupAction");
+  });
+
+  it("Cancel button is disabled while bulk action is saving", () => {
+    const idx = src.indexOf('groupAction?.kind === "complete"');
+    const sheet = src.slice(idx, idx + 2500);
+    expect(sheet).toContain("disabled={groupActionSaving}");
   });
 });

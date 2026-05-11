@@ -172,11 +172,19 @@ export default function CalendarPage() {
   const [batchMenuOpen, setBatchMenuOpen] = useState(false);
   /** Task to edit in NewTaskModal (set when user chooses Edit from batch menu with one task selected) */
   const [editTask, setEditTask] = useState<(Task & { plant_name?: string; user_id?: string | null }) | null>(null);
+  /** Apply-all action on a consolidated overdue group (Snooze all / Mark all done). Kept separate from selectMode batch-flow to preserve the long-press multi-select UX. */
+  const [groupAction, setGroupAction] = useState<{
+    kind: "snooze" | "complete";
+    tasks: (Task & { plant_name?: string; user_id?: string | null })[];
+  } | null>(null);
+  const [groupSnoozeDate, setGroupSnoozeDate] = useState(() => localDateString());
+  const [groupActionSaving, setGroupActionSaving] = useState(false);
 
   const todayStr = localDateString();
 
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
+  useModalBackClose(!!groupAction, () => setGroupAction(null));
 
   const exitSelectMode = useCallback(() => {
     setSelectMode(false);
@@ -694,6 +702,93 @@ export default function CalendarPage() {
     setSelectedIds(new Set(groupTasks.map((t) => t.id)));
     setBatchMenuOpen(true);
   }, []);
+
+  /** Apply-all "Mark done" on a consolidated overdue group. Optimistic UI, single toast, single refetch. */
+  const handleCompleteAllInGroup = useCallback(async () => {
+    if (!user || !groupAction || groupAction.kind !== "complete") return;
+    setGroupActionSaving(true);
+    const groupTasks = groupAction.tasks;
+    const ids = new Set(groupTasks.map((t) => t.id));
+
+    const now = new Date().toISOString();
+    const completed = groupTasks.map((t) => ({ ...t, completed_at: now, due_date: todayStr }));
+    setOverdueTasks((prev) => prev.filter((t) => !ids.has(t.id)));
+    setCompletedTasksForMonth((prev) => [...prev, ...completed]);
+    if (selectedDate === todayStr) {
+      setCompletedTasksForSelectedDay((prev) => [...prev, ...completed]);
+    }
+    hapticSuccess();
+    showToast(`${groupTasks.length} task${groupTasks.length !== 1 ? "s" : ""} completed`);
+    setGroupAction(null);
+
+    const results = await Promise.all(
+      groupTasks.map((t) => completeTask(t, t.user_id ?? user.id))
+    );
+    setGroupActionSaving(false);
+    if (results.some((ok) => !ok)) {
+      showToast("Some tasks could not be completed");
+    }
+    setTimeout(() => setRefetch((r) => r + 1), 0);
+  }, [user, groupAction, todayStr, selectedDate, showToast]);
+
+  /** Apply-all "Snooze" on a consolidated overdue group. Optimistic UI, single toast, single refetch. Transplant→harvest cascade preserved per-task. */
+  const handleSnoozeAllInGroup = useCallback(async (newDate: string) => {
+    if (!user || !groupAction || groupAction.kind !== "snooze") return;
+    setGroupActionSaving(true);
+    const groupTasks = groupAction.tasks;
+    const ids = new Set(groupTasks.map((t) => t.id));
+
+    const snoozed = groupTasks.map((t) => ({ ...t, due_date: newDate }));
+    setOverdueTasks((prev) => prev.filter((t) => !ids.has(t.id)));
+    setTasks((prev) => {
+      const without = prev.filter((t) => !ids.has(t.id));
+      return [...without, ...snoozed].sort((a, b) => a.due_date.localeCompare(b.due_date));
+    });
+    setCachedTasks(
+      user.id,
+      householdViewMode ?? "personal",
+      [...tasks.filter((t) => !ids.has(t.id)), ...snoozed].sort((a, b) => a.due_date.localeCompare(b.due_date))
+    );
+    hapticSuccess();
+    showToast(`${groupTasks.length} task${groupTasks.length !== 1 ? "s" : ""} snoozed`);
+    setGroupAction(null);
+
+    await Promise.all(
+      groupTasks.map((t) => {
+        const ownerId = t.user_id ?? user.id;
+        return supabase.from("tasks").update({ due_date: newDate }).eq("id", t.id).eq("user_id", ownerId);
+      })
+    );
+
+    // Transplant-harvest cascade: if any task in the group is a transplant with a grow_instance,
+    // shift its paired harvest task by the same delta. Mirrors handleSnooze's per-task logic.
+    for (const t of groupTasks) {
+      if (t.category === "transplant" && t.grow_instance_id) {
+        const deltaDays = Math.round(
+          (new Date(newDate).getTime() - new Date(t.due_date).getTime()) / (24 * 60 * 60 * 1000)
+        );
+        if (deltaDays !== 0) {
+          const ownerId = t.user_id ?? user.id;
+          const { data: harvestTask } = await supabase
+            .from("tasks")
+            .select("id, due_date")
+            .eq("grow_instance_id", t.grow_instance_id)
+            .eq("category", "harvest")
+            .maybeSingle();
+          if (harvestTask) {
+            const d = new Date((harvestTask as { due_date: string }).due_date + "T12:00:00");
+            d.setDate(d.getDate() + deltaDays);
+            const newHarvestDate = d.toISOString().slice(0, 10);
+            await supabase.from("tasks").update({ due_date: newHarvestDate }).eq("id", (harvestTask as { id: string }).id).eq("user_id", ownerId);
+            await supabase.from("grow_instances").update({ expected_harvest_date: newHarvestDate }).eq("id", t.grow_instance_id).eq("user_id", ownerId);
+          }
+        }
+      }
+    }
+
+    setGroupActionSaving(false);
+    setTimeout(() => setRefetch((r) => r + 1), 0);
+  }, [user, groupAction, tasks, householdViewMode, showToast]);
 
   const handleLongPressTask = useCallback((taskId: string) => {
     setSelectMode(true);
@@ -1242,30 +1337,20 @@ export default function CalendarPage() {
                         const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
                         return (
                           <div key={key} className="rounded-xl bg-white border border-amber-300/70 shadow-sm overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => toggleOverdueGroup(key)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px] hover:bg-amber-50/40"
-                              aria-expanded={isGroupExpanded}
-                              aria-label={`${primaryLabel}${showPlant ? ` ${plantName}` : ""} — ${groupTasks.length} overdue, oldest ${oldestDateLabel}. ${isGroupExpanded ? "Collapse" : "Expand"}.`}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-black break-words">
-                                  {primaryLabel}{showPlant ? ` · ${plantName}` : ""}
-                                </div>
-                                <div className="text-xs text-amber-800 mt-0.5">
-                                  {groupTasks.length} overdue · oldest {oldestDateLabel}
-                                </div>
-                              </div>
-                              <svg
-                                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                                className={`shrink-0 text-amber-700 transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
-                                aria-hidden
-                              >
-                                <polyline points="6 9 12 15 18 9" />
-                              </svg>
-                            </button>
+                            <ConsolidatedOverdueHeader
+                              groupTasks={groupTasks}
+                              primaryLabel={primaryLabel}
+                              showPlant={showPlant}
+                              plantName={plantName}
+                              oldestDateLabel={oldestDateLabel}
+                              isGroupExpanded={isGroupExpanded}
+                              onToggleExpand={() => toggleOverdueGroup(key)}
+                              onSnoozeAll={() => {
+                                setGroupSnoozeDate(localDateString());
+                                setGroupAction({ kind: "snooze", tasks: groupTasks });
+                              }}
+                              onCompleteAll={() => setGroupAction({ kind: "complete", tasks: groupTasks })}
+                            />
                             {isGroupExpanded && (
                               <div className="border-t border-amber-200/60 px-3 py-2 space-y-2 bg-amber-50/20">
                                 {!selectMode && (
@@ -1522,6 +1607,94 @@ export default function CalendarPage() {
               <button type="button" disabled={batchSaving} onClick={handleBatchDelete}
                 className="flex-1 py-3 rounded-3xl bg-red-500 text-white text-sm font-semibold min-h-[44px] disabled:opacity-40">
                 {batchSaving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Group apply-all: Mark all done? confirmation */}
+      {groupAction?.kind === "complete" && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => !groupActionSaving && setGroupAction(null)} aria-hidden />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 space-y-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+            style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom))" }}
+            role="dialog"
+            aria-labelledby="group-complete-title"
+            aria-describedby="group-complete-desc"
+          >
+            <h3 id="group-complete-title" className="text-base font-bold text-black">
+              Mark all {groupAction.tasks.length} as done?
+            </h3>
+            <p id="group-complete-desc" className="text-sm text-black/60">
+              All {groupAction.tasks.length} overdue tasks in this group will be marked complete.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={groupActionSaving}
+                onClick={() => setGroupAction(null)}
+                className="flex-1 py-3 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={groupActionSaving}
+                onClick={handleCompleteAllInGroup}
+                className="flex-1 py-3 rounded-3xl bg-emerald text-white text-sm font-semibold min-h-[44px] disabled:opacity-40"
+              >
+                {groupActionSaving ? "Saving…" : "Mark done"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Group apply-all: Snooze all N tasks sheet */}
+      {groupAction?.kind === "snooze" && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => !groupActionSaving && setGroupAction(null)} aria-hidden />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 pb-10 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]"
+            role="dialog"
+            aria-labelledby="group-snooze-title"
+          >
+            <h3 id="group-snooze-title" className="text-base font-bold text-black">
+              Snooze all {groupAction.tasks.length} task{groupAction.tasks.length !== 1 ? "s" : ""}
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
+                const d = new Date(); d.setDate(d.getDate() + days);
+                const dateStr = d.toISOString().slice(0, 10);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={groupActionSaving}
+                    onClick={() => handleSnoozeAllInGroup(dateStr)}
+                    className="py-3 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10 disabled:opacity-40 min-h-[44px]"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 items-center pt-1">
+              <input
+                type="date"
+                value={groupSnoozeDate}
+                onChange={(e) => setGroupSnoozeDate(e.target.value)}
+                className="flex-1 rounded-3xl border border-black/10 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                disabled={groupActionSaving}
+                onClick={() => handleSnoozeAllInGroup(groupSnoozeDate)}
+                className="px-4 py-2 rounded-3xl bg-emerald text-white text-sm font-medium min-h-[44px] disabled:opacity-40"
+              >
+                {groupActionSaving ? "Saving…" : "Apply"}
               </button>
             </div>
           </div>
@@ -1839,91 +2012,25 @@ export default function CalendarPage() {
   );
 }
 
-function SnoozeIcon({ className }: { className?: string }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
-      <path d="M4 22l2-2M20 22l-2-2M22 4l-2 2M2 4l2 2" />
-    </svg>
-  );
-}
-
-function CalendarTaskRow({
-  task,
-  onComplete,
-  onSnooze,
-  selectMode = false,
-  isSelected = false,
-  onLongPress,
-  onToggleSelect,
-  onTaskTap,
-  ownerBadge,
-  canEdit = true,
-  displayDateOverride,
+function useRowSwipe({
+  enabled,
+  onSwipeLeft,
+  onSwipeRight,
 }: {
-  task: Task & { plant_name?: string };
-  onComplete: () => void;
-  onSnooze: (newDueDate: string) => void;
-  selectMode?: boolean;
-  isSelected?: boolean;
-  onLongPress?: () => void;
-  onToggleSelect?: () => void;
-  /** When provided, short tap navigates (e.g. to plant profile Care tab) */
-  onTaskTap?: () => void;
-  ownerBadge?: string | null;
-  /** When false, complete/snooze/delete buttons are hidden */
-  canEdit?: boolean;
-  /** When set (e.g. selectedDate), show this date in the label so it matches the section header */
-  displayDateOverride?: string;
+  enabled: boolean;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
 }) {
-  const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const [snoozeDate, setSnoozeDate] = useState(task.due_date);
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const [swipeOffsetX, setSwipeOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rowRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const swipeDirectionRef = useRef<"horizontal" | "vertical" | null>(null);
   const latestOffsetRef = useRef(0);
 
-  const categoryLabel = TASK_LABELS[task.category] ?? task.category ?? "";
-  const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
-  const plantName = task.plant_name?.trim();
-  const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
-  // Completed tasks: show completion date (or displayDateOverride so label matches "Tasks for [date]"); upcoming: show due date
-  const dateLabel = displayDateOverride
-    ? new Date(displayDateOverride + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
-    : task.completed_at
-      ? new Date(task.completed_at).toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
-      : new Date(task.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
-  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${dateLabel})`;
-
-  const handlePointerDown = () => {
-    if (selectMode) return;
-    longPressTimerRef.current = setTimeout(() => {
-      onLongPress?.();
-      longPressTimerRef.current = null;
-    }, 500);
-  };
-  const handlePointerUp = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
-
-  const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
-
-  // Swipe-to-act on touch devices: swipe-left = mark complete, swipe-right = open snooze.
-  // Native touch listeners (not React synthetic events) so we can preventDefault to suppress
-  // vertical scroll once the gesture locks horizontal. Per VISION.md Principle 9, desktop
-  // keeps inline buttons (rendered with `hidden lg:flex` below) so swipe is mobile-only.
-  const isOptimistic = task.id.startsWith("opt-");
-  const swipeEligible = !task.completed_at && !selectMode && !isOptimistic && canEdit;
   useEffect(() => {
     const node = rowRef.current;
-    if (!node || !swipeEligible) return;
+    if (!node || !enabled) return;
 
     const SWIPE_THRESHOLD = 100;
     const DIRECTION_LOCK_AT = 8;
@@ -1969,9 +2076,9 @@ function CalendarTaskRow({
 
       if (direction === "horizontal") {
         if (dx <= -SWIPE_THRESHOLD) {
-          onComplete();
+          onSwipeLeft();
         } else if (dx >= SWIPE_THRESHOLD) {
-          setSnoozeOpen(true);
+          onSwipeRight();
         }
       }
     };
@@ -1987,7 +2094,229 @@ function CalendarTaskRow({
       node.removeEventListener("touchend", handleTouchEnd);
       node.removeEventListener("touchcancel", handleTouchEnd);
     };
-  }, [swipeEligible, onComplete]);
+  }, [enabled, onSwipeLeft, onSwipeRight]);
+
+  return { rowRef, swipeOffsetX, isSwiping };
+}
+
+/**
+ * Header strip of a consolidated overdue-group row. Layout: [title+count] [Snooze][Done] [Chevron].
+ * Snooze + Done are hidden on mobile (`hidden lg:flex`) — mobile uses swipe (left = complete-all,
+ * right = snooze-all). The chevron is always visible and toggles expansion.
+ */
+function ConsolidatedOverdueHeader({
+  groupTasks,
+  primaryLabel,
+  showPlant,
+  plantName,
+  oldestDateLabel,
+  isGroupExpanded,
+  onToggleExpand,
+  onSnoozeAll,
+  onCompleteAll,
+}: {
+  groupTasks: { id: string; category: string | null }[];
+  primaryLabel: string;
+  showPlant: boolean | "" | undefined;
+  plantName: string | undefined;
+  oldestDateLabel: string;
+  isGroupExpanded: boolean;
+  onToggleExpand: () => void;
+  onSnoozeAll: () => void;
+  onCompleteAll: () => void;
+}) {
+  const { rowRef, swipeOffsetX, isSwiping } = useRowSwipe({
+    enabled: true,
+    onSwipeLeft: onCompleteAll,
+    onSwipeRight: onSnoozeAll,
+  });
+  const showSwipeReveal = swipeOffsetX !== 0;
+  // All tasks in a group share the same (title, plant, grow_instance) so the first task's
+  // category determines whether this is a sow group (renders "Plant" label) or generic.
+  const firstSow = groupTasks.length > 0 && isSowTask(groupTasks[0].category);
+
+  return (
+    <div className="relative overflow-hidden">
+      {showSwipeReveal && (
+        <div className="absolute inset-0 flex pointer-events-none" aria-hidden>
+          <div className="flex-1 bg-amber-100 flex items-center justify-start px-5">
+            <svg
+              width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className="text-amber-700"
+              style={{ opacity: Math.max(0, Math.min(1, swipeOffsetX / 80)) }}
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+              <path d="M4 22l2-2M20 22l-2-2M22 4l-2 2M2 4l2 2" />
+            </svg>
+          </div>
+          <div className="flex-1 bg-emerald-100 flex items-center justify-end px-5">
+            <svg
+              width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              className="text-emerald-700"
+              style={{ opacity: Math.max(0, Math.min(1, -swipeOffsetX / 80)) }}
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        </div>
+      )}
+      <div
+        ref={rowRef}
+        style={{
+          transform: `translateX(${swipeOffsetX}px)`,
+          transition: isSwiping ? "none" : "transform 0.2s ease-out",
+        }}
+        className="relative flex items-stretch min-h-[44px] bg-white"
+      >
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 text-left hover:bg-amber-50/40"
+          aria-expanded={isGroupExpanded}
+          aria-label={`${primaryLabel}${showPlant ? ` ${plantName}` : ""} — ${groupTasks.length} overdue, oldest ${oldestDateLabel}. ${isGroupExpanded ? "Collapse" : "Expand"}.`}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-black break-words">
+              {primaryLabel}{showPlant ? ` · ${plantName}` : ""}
+            </div>
+            <div className="text-xs text-amber-800 mt-0.5">
+              {groupTasks.length} overdue · oldest {oldestDateLabel}
+            </div>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSnoozeAll(); }}
+          className="hidden lg:flex min-w-[44px] items-center justify-center text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
+          aria-label={`Snooze all ${groupTasks.length} ${primaryLabel} tasks`}
+          title={`Snooze all ${groupTasks.length}`}
+        >
+          <SnoozeIcon />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCompleteAll(); }}
+          className={
+            firstSow
+              ? "hidden lg:flex min-h-[44px] px-4 my-1 mx-1 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 items-center justify-center"
+              : "hidden lg:flex min-w-[44px] my-1 mx-1 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          }
+          aria-label={`${firstSow ? "Plant" : "Mark complete"} all ${groupTasks.length} ${primaryLabel} tasks`}
+          title={`Mark all ${groupTasks.length} ${firstSow ? "planted" : "complete"}`}
+        >
+          {firstSow ? (
+            "Plant"
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+          className="min-w-[44px] flex items-center justify-center text-amber-700 hover:bg-amber-50/40"
+          aria-label={isGroupExpanded ? "Collapse" : "Expand"}
+        >
+          <svg
+            width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className={`transition-transform ${isGroupExpanded ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SnoozeIcon({ className }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+      <path d="M4 22l2-2M20 22l-2-2M22 4l-2 2M2 4l2 2" />
+    </svg>
+  );
+}
+
+function CalendarTaskRow({
+  task,
+  onComplete,
+  onSnooze,
+  selectMode = false,
+  isSelected = false,
+  onLongPress,
+  onToggleSelect,
+  onTaskTap,
+  ownerBadge,
+  canEdit = true,
+  displayDateOverride,
+}: {
+  task: Task & { plant_name?: string };
+  onComplete: () => void;
+  onSnooze: (newDueDate: string) => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onLongPress?: () => void;
+  onToggleSelect?: () => void;
+  /** When provided, short tap navigates (e.g. to plant profile Care tab) */
+  onTaskTap?: () => void;
+  ownerBadge?: string | null;
+  /** When false, complete/snooze/delete buttons are hidden */
+  canEdit?: boolean;
+  /** When set (e.g. selectedDate), show this date in the label so it matches the section header */
+  displayDateOverride?: string;
+}) {
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [snoozeDate, setSnoozeDate] = useState(task.due_date);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const categoryLabel = TASK_LABELS[task.category] ?? task.category ?? "";
+  const primaryLabel = (task.title ?? categoryLabel).trim() || categoryLabel;
+  const plantName = task.plant_name?.trim();
+  const showPlant = plantName && plantName !== "Unknown" && !primaryLabel.includes(plantName);
+  // Completed tasks: show completion date (or displayDateOverride so label matches "Tasks for [date]"); upcoming: show due date
+  const dateLabel = displayDateOverride
+    ? new Date(displayDateOverride + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
+    : task.completed_at
+      ? new Date(task.completed_at).toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" })
+      : new Date(task.due_date + "T12:00:00").toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+  const displayLine = `${primaryLabel}${showPlant ? ` · ${plantName}` : ""} (${dateLabel})`;
+
+  const handlePointerDown = () => {
+    if (selectMode) return;
+    longPressTimerRef.current = setTimeout(() => {
+      onLongPress?.();
+      longPressTimerRef.current = null;
+    }, 500);
+  };
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
+
+  // Swipe-to-act on touch devices: swipe-left = mark complete, swipe-right = open snooze.
+  // Per VISION.md Principle 9, desktop keeps inline buttons (rendered with `hidden lg:flex`
+  // below) so swipe is mobile-only. Swipe logic lives in useRowSwipe hook (shared with the
+  // consolidated overdue-group header row).
+  const isOptimistic = task.id.startsWith("opt-");
+  const swipeEligible = !task.completed_at && !selectMode && !isOptimistic && canEdit;
+  const openSnooze = useCallback(() => setSnoozeOpen(true), []);
+  const { rowRef, swipeOffsetX, isSwiping } = useRowSwipe({
+    enabled: swipeEligible,
+    onSwipeLeft: onComplete,
+    onSwipeRight: openSnooze,
+  });
 
   const showSwipeReveal = swipeOffsetX !== 0;
 
