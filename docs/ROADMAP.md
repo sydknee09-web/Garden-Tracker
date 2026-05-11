@@ -14,25 +14,19 @@
 
 ## 1. Current focus
 
-**As of 2026-05-08 — Calendar swipe + responsive batch shipped, awaiting prod verification.**
+**As of 2026-05-10 — Calendar consolidated-row apply-all shipped, awaiting prod verification.**
 
-🟢 **Just shipped today (in order):**
-1. Calendar fatigue batch — overdue consolidation, day-header treatment, adjacent-month muting (`2697f04`)
-2. Adjacent-month pad-cell green-outline bug fix (`295635d`)
-3. "Select all" relocated inside expanded consolidated group (`dbaed5f`)
-4. VISION.md Principle 9 locked: mobile-first with desktop responsiveness in every commit (`0ceb4a0`)
-5. **Calendar row swipe-to-act on mobile + inline buttons on desktop** (`cea21e0`) ← latest
+🟢 **Just shipped (`f77507a`, on `main`, Vercel deploying):** Consolidated overdue rows now show inline `[Snooze][Done][Chevron]` on desktop — same button order as singleton rows, chevron tacked on at the end. Mobile gets swipe-left=complete-all, swipe-right=snooze-all via a new shared `useRowSwipe` hook (consumed by both `CalendarTaskRow` and a new `ConsolidatedOverdueHeader` component). Both actions confirm before applying (per "Option B" decision — see §6). Single toast per bulk action. Cohesion top-to-bottom on the row primitive's right-side actions.
 
-**Awaiting from user:** prod verification on phone:
-- Does the row primitive feel like a list now (not stacked cards)?
-- Swipe-left → complete; swipe-right → snooze modal — gestures discoverable and reliable?
-- Vertical scroll still works (no false-positive swipe triggers)?
-- Long-press multi-select still works alongside swipe?
-- Desktop unchanged (inline buttons still visible)?
+**Awaiting from user — prod verification on phone + desktop:**
+- **Desktop:** consolidated overdue row shows `[Snooze][Done][Chevron]`; tap Done → "Mark all N as done?" confirm; tap Snooze → sheet with Tomorrow / In 3 days / Next week chips + date picker
+- **Mobile:** swipe-left on consolidated row → done-confirm; swipe-right → snooze sheet; chevron stays visible
+- **Preserved (regressions to watch for):** singleton row swipe + inline buttons, chevron expand, "Select all" inside expanded group, long-press multi-select, transplant→harvest cascade on bulk snooze
+- **Also still in scope from 2026-05-08 batch (`cea21e0`):** singleton row swipe pattern feel — gesture discoverability, vertical-scroll non-interference, long-press alongside swipe
 
 **Likely next session focus, depending on prod verification:**
-- If swipe + responsive treatment land well → 🔵 **Modal/menu desktop placement batch** (newly logged in VISION.md §11). FAB Add menu and other phone-style modals render as centered floating cards on desktop — same pattern problem in different components.
-- If swipe needs tuning (haptics, threshold, animation feel) → quick polish batch on the swipe pattern itself.
+- If both batches land well → 🔵 **Phase 4 + 5 desktop layout pass** (parked in VISION.md §11): two-column layout (calendar left ~600-700px, tasks right), left sidebar nav on `lg:` breakpoint, modal/menu desktop placement — entangled work, designed as one coherent pass rather than fixed ad-hoc.
+- If consolidated-row apply-all needs tuning (confirmation wording, sheet polish, swipe feel on the new row) → quick polish batch.
 - After that, FAB icon-style consistency (§3.2) remains queued.
 
 See §3 for the full ranked queue.
@@ -230,6 +224,7 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-10 `f77507a`** — `feat(calendar): inline Snooze/Done + apply-all on consolidated overdue rows` — cohesion fix on consolidated overdue group rows. Right side now `[Snooze][Done][Chevron]` on desktop (matches singleton-row button order); mobile swipe-left=complete-all, swipe-right=snooze-all. Bulk actions route through confirmation sheets ("Mark all N as done?" + "Snooze all N tasks"). Swipe logic extracted into reusable `useRowSwipe` hook consumed by both `CalendarTaskRow` and new `ConsolidatedOverdueHeader` component. Transplant→harvest cascade preserved per-task in bulk snooze. Single toast per bulk action. New `groupAction` state kept separate from `selectMode` flow so long-press multi-select stays intact. 370/370 tests (21 new for hook + consolidated header + sheets).
 - **2026-05-08 `cea21e0`** — `feat(calendar): swipe-to-act on mobile, inline buttons on desktop (Principle 9)` — first worked example of new operating principle. Mobile swipe-left=complete, swipe-right=snooze; inline buttons hidden via `hidden lg:flex`. Desktop unchanged. Native touch listeners (passive:false), 100px threshold, 8px direction lock. Long-press multi-select preserved. 349/349 tests (9 new swipe assertions).
 - **2026-05-08 `0ceb4a0`** — `docs(vision): lock Principle 9 (mobile-first with desktop responsiveness in every commit) + log open desktop issues` — operating principle 9 locked; modal/menu desktop placement logged for separate batch.
 - **2026-05-08 `dbaed5f`** — `fix(calendar): hide 'Select all' until consolidated group is expanded` — vertical scan rhythm fix; consolidated row now visually identical in shape to a normal task row (title + count + chevron).
@@ -251,6 +246,17 @@ Most recent first. For full history, use `git log`.
 ## 6. Decision log
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
+
+### 2026-05-10
+
+- **Calendar consolidated-row apply-all shipped (`f77507a`).** User flagged a cohesion gap: singleton overdue rows had inline `[Snooze][Done]`, consolidated rows had only a chevron. Same row primitive should read the same top-to-bottom. Resolved by adding apply-all actions to consolidated rows.
+- **Layout decision: `[Snooze][Done][Chevron]` on the right.** Preserves singleton-row button positions; chevron tacked on at the end. Two ways to expand (title-body button + chevron button), both `aria-expanded`. Recommended over `[Chevron][Snooze][Done]` to keep button order identical to singleton rows for vertical scan rhythm.
+- **Safety decision: confirmation step (Option B over A).** Apply-all actions confirm before applying — "Mark all N as done?" sheet for complete-all; "Snooze all N tasks" sheet (Tomorrow / In 3 days / Next week chips + date picker) for snooze-all. Singletons stay no-confirm (single-tap speed retained); confirmation differentiates "applying to a group" from "applying to one" and matches the existing long-press batch-select pattern. Compensates for parked undo-toast.
+- **Swipe primitive extraction: `useRowSwipe` hook.** Swipe gesture logic moved from inline `CalendarTaskRow` useEffect into a reusable hook (`{ enabled, onSwipeLeft, onSwipeRight } → { rowRef, swipeOffsetX, isSwiping }`). Consumed by both `CalendarTaskRow` and new `ConsolidatedOverdueHeader`. Mobile swipe parity on consolidated rows (Principle 9) ships in the same commit as the desktop button cluster.
+- **State separation: `groupAction` kept distinct from `selectMode`/`selectedIds`/`batchActionOpen`.** Two parallel "bulk action" patterns now coexist: long-press multi-select (for arbitrary task selection across the page) and consolidated-row apply-all (for a pre-defined group). Different intents; both stay around.
+- **Bulk handler patterns mirror existing batch flows.** `handleCompleteAllInGroup` and `handleSnoozeAllInGroup` follow the optimistic-UI + Promise.all + single-debounced-refetch pattern from `handleBatchReschedule`. Single toast on bulk completion ("N tasks completed") rather than per-task. Transplant→harvest cascade preserved per-task inside the bulk snooze handler.
+- **Row primitive ("bubbles vs. list") remains parked.** The cohesion-of-actions issue is resolved by this ship, but the underlying `rounded-xl + white bg + emerald border + drop shadow` styling question is a separate concern still parked in VISION.md §11. Re-evaluate after this batch + the 2026-05-08 swipe batch both have prod time.
+- **Process correction reinforced.** "yes build" is a contract that follows a complete plan-audit; sub-decisions surfaced during the build also get plan-audit treatment when reasonable people could disagree on the solution. (User explicit reminder this session.)
 
 ### 2026-05-08
 
