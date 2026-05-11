@@ -14,20 +14,19 @@
 
 ## 1. Current focus
 
-**As of 2026-05-10 — Calendar consolidated-row apply-all shipped, awaiting prod verification.**
+**As of 2026-05-11 — Phase 4+5 desktop layout pass B1 shipped; calendar prod verification still pending from prior batches.**
 
-🟢 **Just shipped (`f77507a`, on `main`, Vercel deploying):** Consolidated overdue rows now show inline `[Snooze][Done][Chevron]` on desktop — same button order as singleton rows, chevron tacked on at the end. Mobile gets swipe-left=complete-all, swipe-right=snooze-all via a new shared `useRowSwipe` hook (consumed by both `CalendarTaskRow` and a new `ConsolidatedOverdueHeader` component). Both actions confirm before applying (per "Option B" decision — see §6). Single toast per bulk action. Cohesion top-to-bottom on the row primitive's right-side actions.
+🟢 **Just shipped (`e61ffdc`, on `main`, Vercel deploying):** Phase 4+5 desktop layout pass — milestone B1 (App shell + sidebar nav at `xl:1280px`). At desktop widths, bottom nav hides and a left sidebar appears (240px ↔ 64px collapsible, persisted to localStorage). Five primary nav items reused from BottomNav for cohesion. Top header simplifies at `xl:` to cloud-sync + page title + household toggle. Shopping list / Help / Settings / Feedback moved to sidebar footer (utilities, not sections). New shared `navItems.tsx` module extracted from BottomNav. Below `xl:1280` (phone + iPad-landscape): zero visual change. 370/370 tests pass.
 
-**Awaiting from user — prod verification on phone + desktop:**
-- **Desktop:** consolidated overdue row shows `[Snooze][Done][Chevron]`; tap Done → "Mark all N as done?" confirm; tap Snooze → sheet with Tomorrow / In 3 days / Next week chips + date picker
-- **Mobile:** swipe-left on consolidated row → done-confirm; swipe-right → snooze sheet; chevron stays visible
-- **Preserved (regressions to watch for):** singleton row swipe + inline buttons, chevron expand, "Select all" inside expanded group, long-press multi-select, transplant→harvest cascade on bulk snooze
-- **Also still in scope from 2026-05-08 batch (`cea21e0`):** singleton row swipe pattern feel — gesture discoverability, vertical-scroll non-interference, long-press alongside swipe
+**Awaiting from user — prod verification:**
+- **Desktop (≥1280px):** sidebar visible, bottom nav hidden, all 5 sections navigable, chevron toggle collapses sidebar and persists on reload, all four footer items (Shopping list / Help / Settings / Feedback) work as before
+- **Phone + iPad landscape:** identical to before — no regressions to swipe, long-press, bottom nav, full header
+- **Still pending from prior sessions (`f77507a` + `cea21e0`):** consolidated overdue row inline buttons + apply-all confirm flows; singleton-row swipe feel (gesture discoverability, vertical-scroll non-interference)
 
-**Likely next session focus, depending on prod verification:**
-- If both batches land well → 🔵 **Phase 4 + 5 desktop layout pass** (parked in VISION.md §11): two-column layout (calendar left ~600-700px, tasks right), left sidebar nav on `lg:` breakpoint, modal/menu desktop placement — entangled work, designed as one coherent pass rather than fixed ad-hoc.
-- If consolidated-row apply-all needs tuning (confirmation wording, sheet polish, swipe feel on the new row) → quick polish batch.
-- After that, FAB icon-style consistency (§3.2) remains queued.
+**Next session focus, depending on B1 prod verification:**
+- If B1 lands clean → 🟡 **B2 — Calendar two-column layout** (calendar grid capped ~640px left, existing task list moves to right column at `xl:`; mobile unchanged). Plan-audit then build per the Phase 4+5 milestone shape in §3.2.
+- If B1 needs tuning (sidebar width, active state, footer item placement) → quick polish batch on the sidebar.
+- After B2: B3 (FAB → popover), B4 (modal/sheet desktop treatment), B5 (per-page audit).
 
 See §3 for the full ranked queue.
 
@@ -74,7 +73,48 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.2 🔵 FAB consistency batch
+### 3.2 🟢 Phase 4 + 5 Desktop Layout Pass
+
+**Status:** Active. Milestone B1 shipped 2026-05-11 (`e61ffdc`); B2–B5 queued.
+
+**Frame:** Bundles three entangled VISION.md §11 items as one coherent pass because they share architecture (sidebar width → main column width → right column → modal anchoring):
+1. Desktop calendar oversized + empty horizontal space
+2. Bottom nav feels mobile-y on desktop
+3. Phone-style modals/sheets centered on wide screens
+
+**Locked decisions (A1–A7 + S1–S5, 2026-05-11):**
+- Breakpoint: **`xl:` (1280px)** — iPad-landscape stays on mobile-style layout.
+- Sidebar appears on **every page** in this pass; right-column treatment is **Calendar-only**. Other pages stay single-column main until Phase 5 designs their layouts.
+- Sidebar: 240px expanded ↔ 64px collapsed, chevron toggle at top-right, state persisted to localStorage. Active state = emerald left-edge accent bar + `bg-emerald-50` tint. Icons identical to BottomNav (reuse via new shared `navItems.tsx` module). Small "Garden Tracker" wordmark in emerald-700 at top.
+- Top header at `xl:`: slim — keeps cloud-sync, page title, household toggle. Shopping list / Help / Settings / Feedback move to sidebar footer.
+- FAB stays viewport-anchored (no offset by sidebar). FAB → popover treatment is B3.
+- Modals on desktop: B4 will convert phone bottom-sheets to centered modals with backdrop (capped width).
+
+**Milestone breakdown:**
+
+| # | Milestone | Scope | Status | Effort |
+|---|---|---|---|---|
+| **B1** | App shell + sidebar nav at `xl:` | New `Sidebar.tsx` + shared `navItems.tsx`; `AuthGuard.tsx` wraps shell in `xl:flex` w/ sidebar; `BottomNav.tsx` gains `xl:hidden`. | ✅ Shipped 2026-05-11 (`e61ffdc`) | M |
+| **B2** | Calendar two-column | Calendar page wraps grid + existing task list in `xl:grid-cols-[640px_1fr]`. Grid capped ~640px left; existing task list moves to right column. Mobile unchanged. | 🟡 Next (after B1 prod verification) | S |
+| **B3** | FAB menu → popover at `xl:` | FAB add menu becomes anchored popover at `xl:` (not centered card). Mobile unchanged. | 🔵 | S |
+| **B4** | Modals/sheets desktop treatment | NewTaskModal, QuickLogModal, snooze sheet, batch sheets get `xl:` centered-modal-with-backdrop variant. Width cap. Mobile = unchanged. New design-token sanity check needed (backdrop opacity, modal rounding, matches FAB transition language). | 🔵 | M |
+| **B5** | Polish + cross-page audit | Walk all five pages at `xl:`; flag hardcoded `max-w-*` containers that read off-center in the sidebar-offset main column; capture Phase 5 questions for other pages' eventual right-column content. | 🔵 | S |
+
+**Risks tracked:**
+- Sidebar at `xl:` only — if iPad-landscape users want it, easy follow-up to lower the breakpoint.
+- Right column on Calendar reuses the existing dense task list; density-fatigue may resurface in the narrower column. Follow-up if so (VISION.md §11 row-primitive park is the candidate fix).
+- Modal centered-with-backdrop at `xl:` is a new pattern in this codebase — B4 will need a quick design-token decision before build.
+
+**Out of scope (don't expand):**
+- Phase 5 page-goals work for Home / Vault / Garden / Journal right-column content.
+- Beds-as-first-class (Phase 3) — see §3.4.
+- Floating-months grid with fade-slide transitions — confirmed ornamental for a utility app; rejected.
+
+**Source:** VISION.md §11 (parked desktop layout, FAB modal placement), §12 (recent signals 2026-05-08 + 2026-05-11).
+
+---
+
+### 3.3 🔵 FAB consistency batch
 
 **Status:** Decisions surfaced from prior session, awaits user input on canonical choices, then plan-audit-build.
 
@@ -93,7 +133,7 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.3 🟣 Beds-as-first-class implementation (Phase 3 IA work)
+### 3.4 🟣 Beds-as-first-class implementation (Phase 3 IA work)
 
 **Status:** Vision-level decision locked (VISION.md §8). Implementation requires Phase 3 IA session before build.
 
@@ -101,7 +141,7 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 - Phase 3 design: data model for `bed` entity, migration plan for existing location strings, page design for bed detail page, plan for updating dependent surfaces
 - After Phase 3 design lands: build (M-sized engineering work)
 
-**Why third:** Foundation for many other things — soft-blocks the lifecycle batch tracking (3.4), unblocks soil testing (🕐), unblocks future bed layout (🕐), provides destinations for batch-split workflows.
+**Why third:** Foundation for many other things — soft-blocks the lifecycle batch tracking (3.5), unblocks soil testing (🕐), unblocks future bed layout (🕐), provides destinations for batch-split workflows.
 
 **Effort:** Phase 3 design (~30-60 min session) + M-sized build (split data model, migration, UI updates).
 
@@ -111,7 +151,7 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.4 🟣 Lifecycle / batch-tracking improvements (Failure Mode #1)
+### 3.5 🟣 Lifecycle / batch-tracking improvements (Failure Mode #1)
 
 **Status:** Major theme. Multiple connected workflows. Needs Phase 3 IA work first (beds), possibly Phase 5 page goals work for the seed-starting flow.
 
@@ -127,13 +167,13 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 **Effort:** L. Probably broken into smaller chunks during planning.
 
-**Dependencies:** Beds-as-first-class (3.3) recommended first; possibly Phase 5 page goals for the seed-starting flow.
+**Dependencies:** Beds-as-first-class (3.4) recommended first; possibly Phase 5 page goals for the seed-starting flow.
 
 **Source:** VISION.md §6 (Failure Mode #1), §5 (Lifecycle paths).
 
 ---
 
-### 3.5 🟣 Plant profile depth (Failure Mode #2)
+### 3.6 🟣 Plant profile depth (Failure Mode #2)
 
 **Status:** Surfaced as a failure mode but specific design work pending.
 
@@ -152,16 +192,16 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.6 🟣 Cross-view cohesion / disorientation (Failure Mode #4)
+### 3.7 🟣 Cross-view cohesion / disorientation (Failure Mode #4)
 
-**Status:** Spans multiple surfaces. Partially addressed by 3.2 cross-view consistency batch. Larger work pending.
+**Status:** Spans multiple surfaces. Partially addressed by 3.3 cross-view consistency batch. Larger work pending.
 
 **Scope:**
 - Audit visual language across surfaces (typography, button treatments, card patterns, terminology)
 - Audit IA — clear paths between Plant Profile ↔ Growing Instance ↔ Tasks ↔ Journal ↔ Harvest
 - Resolve mental-model mismatches (e.g. "where is the plant's history?")
 
-**Why sixth:** This is mostly "fix as we go" rather than one big project. The 3.2 batch addresses surface inconsistency; the IA work is partly addressed by 3.3 + Phase 4 navigation; mental-model fixes will surface as Phase 5 page goals get defined.
+**Why sixth:** This is mostly "fix as we go" rather than one big project. The 3.3 batch addresses surface inconsistency; the IA work is partly addressed by 3.4 + Phase 4 navigation; mental-model fixes will surface as Phase 5 page goals get defined.
 
 **Effort:** Distributed across many sessions.
 
@@ -171,7 +211,7 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.7 🟣 Micro-climate triggers (Failure Mode #3)
+### 3.8 🟣 Micro-climate triggers (Failure Mode #3)
 
 **Status:** ✅ in scope per VISION.md §9, but requires new infrastructure. Major feature work.
 
@@ -212,7 +252,7 @@ See VISION.md §9 for full status of each.
 Items deferred with the reason for the parking. Re-surface when conditions change.
 
 - **Calendar task fatigue (broader than the batch in §3.1)** — Today/Week default window, lazy-load older completions, and other approaches beyond what's in the batch. Parked until the §3.1 batch ships and we see how it feels.
-- **Cross-view consistency** between Vault grid / Garden gallery / My Plants list (covered partly by §3.2).
+- **Cross-view consistency** between Vault grid / Garden gallery / My Plants list (covered partly by §3.3).
 - **Too many places to edit a plant's image** (in `BACKLOG.md`). Audit + consolidate.
 - **Sister's additional feedback** — pending. User said she'd get more.
 - **Plant database moderation philosophy** — Phase 3 deferred. Concern about user pollution / inappropriate entries. Hybrid (curated canonical + private user extensions + suggestion queue) recommended.
@@ -224,6 +264,7 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-11 `e61ffdc`** — `feat(shell): desktop sidebar nav at xl:1280px (B1 of Phase 4+5)` — first milestone of the desktop layout pass. At `xl:` (≥1280px), bottom nav hides and a left sidebar appears (240px ↔ 64px collapsible, persisted to localStorage). Five primary nav items reused from BottomNav for cohesion via new shared `navItems.tsx` module. Slim top header at `xl:` keeps cloud-sync + page title + household toggle; shopping list / help / settings / feedback moved to sidebar footer. Below `xl:1280` (phone + iPad-landscape): zero visual change. 370/370 tests. New files: `Sidebar.tsx`, `navItems.tsx`. Modified: `AuthGuard.tsx`, `BottomNav.tsx`. B2 (calendar two-column) queued.
 - **2026-05-10 `f77507a`** — `feat(calendar): inline Snooze/Done + apply-all on consolidated overdue rows` — cohesion fix on consolidated overdue group rows. Right side now `[Snooze][Done][Chevron]` on desktop (matches singleton-row button order); mobile swipe-left=complete-all, swipe-right=snooze-all. Bulk actions route through confirmation sheets ("Mark all N as done?" + "Snooze all N tasks"). Swipe logic extracted into reusable `useRowSwipe` hook consumed by both `CalendarTaskRow` and new `ConsolidatedOverdueHeader` component. Transplant→harvest cascade preserved per-task in bulk snooze. Single toast per bulk action. New `groupAction` state kept separate from `selectMode` flow so long-press multi-select stays intact. 370/370 tests (21 new for hook + consolidated header + sheets).
 - **2026-05-08 `cea21e0`** — `feat(calendar): swipe-to-act on mobile, inline buttons on desktop (Principle 9)` — first worked example of new operating principle. Mobile swipe-left=complete, swipe-right=snooze; inline buttons hidden via `hidden lg:flex`. Desktop unchanged. Native touch listeners (passive:false), 100px threshold, 8px direction lock. Long-press multi-select preserved. 349/349 tests (9 new swipe assertions).
 - **2026-05-08 `0ceb4a0`** — `docs(vision): lock Principle 9 (mobile-first with desktop responsiveness in every commit) + log open desktop issues` — operating principle 9 locked; modal/menu desktop placement logged for separate batch.
@@ -246,6 +287,17 @@ Most recent first. For full history, use `git log`.
 ## 6. Decision log
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
+
+### 2026-05-11
+
+- **Phase 4+5 Desktop Layout Pass — B1 shipped (`e61ffdc`).** First milestone of the pass: app shell + sidebar nav at `xl:1280px`. Bottom nav hides, left sidebar appears (240px ↔ 64px collapsible, state persisted to localStorage). Five primary nav items reused from BottomNav. New shared `navItems.tsx` module. Top header simplified at `xl:`.
+- **Breakpoint locked at `xl:` (1280px), not `lg:` (1024px).** Reason: iPad-landscape stays on mobile-style layout — a sidebar at iPad widths would feel cramped, and the existing app already uses `lg:` for the swipe/inline split (different concern, can coexist).
+- **Scope decision: this pass touches every page (sidebar everywhere), but right-column layout is Calendar-only.** Other pages stay single-column main column until Phase 5 designs them. Keeps B1 bounded.
+- **Sidebar shape locked (A2 + S1–S5):** 240px expanded / 64px collapsed, chevron toggle at top-right, state persisted to localStorage, active state = emerald left-edge accent bar + `bg-emerald-50` tint, icons identical to BottomNav (DRY via new shared module), small "Garden Tracker" wordmark at top, "Shopping list / Help / Settings / Feedback" live in sidebar footer (utilities, not sections).
+- **Top header at `xl:` simplifies, doesn't disappear.** Cloud-sync + page title + household toggle stay; everything else moves to sidebar. Header items get `xl:hidden`; sidebar surfaces them on desktop.
+- **FAB stays viewport-anchored at `xl:`.** Doesn't offset for sidebar. FAB → popover treatment is a separate concern (milestone B3).
+- **Milestone breakdown for the pass (B1–B5).** Insert as ROADMAP §3.2 (renumbering 3.2 → 3.3, 3.3 → 3.4, etc.). B2 = Calendar two-column, B3 = FAB popover, B4 = modals/sheets centered-with-backdrop, B5 = per-page audit pass.
+- **Communication pattern observed and captured in CLAUDE.md:** "I am ok with your recommendations" + explicit-starting-point naming (e.g. "A1 and A7") = **blanket trust-transfer on the batch of recommendations**, not a partial accept. Treat the full slate as locked; start where named; revisit individual items only on later redirect. Reduces friction without being silent on aesthetic decisions.
 
 ### 2026-05-10
 

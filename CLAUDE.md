@@ -97,6 +97,7 @@ The user has consistent communication patterns. Match these, don't fight them.
 
 - **"What next?" / "Where are we?" / "State of the conversation?"** — She wants positional awareness. Always end substantive responses with a clear "where we are / what's next" so she doesn't have to ask.
 - **"Idk" / "I'm not sure" / "I trust you"** — These are *trust-transfer signals*, not punts. She's saying "you lead this." Make the call, don't bounce options back. Use the trust by leading well, not by skipping the work.
+- **"I am ok with your recommendations" + naming an explicit starting point (e.g. "A1 and A7")** — This is *batch trust-transfer*, not partial accept. Treat the full slate of recommendations as locked, start where she named, and only revisit individual items if she later redirects. Don't make her re-confirm each one — that's friction. Aesthetic decisions are still being asked (the recommendations were laid out in writing for her to see), so this isn't silent decision-making.
 - **"Give me your final recommendation" / "What do you recommend?"** — She wants ONE answer with reasoning, not a menu. Save alternatives for if she pushes back.
 - **"Commit" / "Just commit"** — She values momentum over wordsmithing. Stop iterating and ship.
 - **"Explain - X" / "What does this mean?"** — She's flagging that something I said was unclear. Plain-language translation; no jargon.
@@ -298,4 +299,4 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 
 ---
 
-*Last updated: 2026-05-08 — Phase 1 close + CLAUDE.md initial creation.*
+*Last updated: 2026-05-11 — Batch trust-transfer pattern captured ("I am ok with your recommendations" = blanket-greenlight).*
