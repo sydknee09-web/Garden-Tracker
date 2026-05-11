@@ -929,7 +929,9 @@ export default function CalendarPage() {
   const SWIPE_THRESHOLD = 50;
 
   return (
-    <div className="px-6 pt-2 pb-6">
+    <div className="px-6 pt-2 pb-6 xl:flex xl:gap-6 xl:items-start">
+      {/* LEFT COLUMN — month nav, plantable, calendar grid (sticky at xl:) */}
+      <div className="xl:w-[640px] xl:flex-shrink-0 xl:sticky xl:top-12 xl:self-start">
       <div
         className="flex items-center justify-center gap-2 mb-2 touch-pan-y pl-6 pr-6"
         onTouchStart={(e) => {
@@ -1195,9 +1197,12 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+      </div>
 
+      {/* RIGHT COLUMN — task list */}
+      <div className="mt-4 xl:mt-0 xl:flex-1 xl:min-w-0 xl:max-w-[720px]">
       {!loading && !error && (
-        <div className="mt-4 rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
+        <div className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden">
           <div className="relative px-4 py-4 flex items-center justify-center border-b border-black/10">
             <h2 className="text-base font-bold text-black text-center">
               {selectedDate
@@ -1470,6 +1475,8 @@ export default function CalendarPage() {
           )}
         </div>
       )}
+
+      </div>
 
       {/* Batch action menu (B7): FAB opens this when in select mode — Reschedule / Delete / Edit / Exit */}
       {selectMode && batchMenuOpen && (
