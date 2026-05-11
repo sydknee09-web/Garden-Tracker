@@ -130,6 +130,7 @@ The user has consistent communication patterns. Match these, don't fight them.
 - **Persistence between chats.** That's why VISION.md, CLAUDE.md, ROADMAP.md exist. Use them.
 - **Cohesion over feature breadth.** Garden Tracker should feel like one product.
 - **Long-term framing.** Year-over-year, multi-season, "what works for me" library. Ground decisions in long-time horizons, not just "what feels right today."
+- **Plan visibility — build plans in-chat or in the plan file, not in subagents.** When work is non-trivial enough to need a plan, write the plan and the audit passes inline so she can watch them form and verify each pass-by-pass finding in real time. Plan-mode workflow says "Launch at least 1 Plan agent for most tasks" — **for this user, that default reverses.** Plan-agent subagents bury plan-construction in a hidden context the user can't see, which prevents her from intervening mid-audit and erodes her trust in the process. Reserve subagent delegation for narrow research/exploration (Explore agent for codebase lookups), not for plan-construction or audit work.
 
 ---
 
@@ -226,9 +227,13 @@ When wrapping up a session (proactively or on user request):
    - §5 Recently shipped → new commits with hashes + brief descriptions
    - §6 Decision log → today's locked-in decisions
 
-4. **Update `CLAUDE.md`** if any:
-   - New user communication patterns observed
-   - New project-lead behavior gaps surfaced
+4. **Run a retrospective scan of the session and update `CLAUDE.md` accordingly.** This step is required, not gated on "if any" — actively scan. Walk through the just-completed session chronologically and ask:
+   - Where did Claude drift and the user have to course-correct? Capture the pattern structurally (pre-flight check, leadership obligation, anti-pattern) so the user doesn't have to enforce it again next chat. The user has flagged this explicitly: "i've had to stop and reiterate [pattern] multiple times" is a signal that the doc system failed, not just that this session went off.
+   - What user preferences or working-style insights surfaced? New things she said she likes, dislikes, values, or pushes back on. Communication patterns. Decision-making cues.
+   - What process gaps, tooling needs, or workflow observations are worth capturing? Things that, in retrospect, would have made *this* session smoother if they'd been documented at the start.
+   - What user signals affected vision or scope? Those go to VISION.md (already step 2 above) — confirm step 2 caught them.
+
+   Most sessions surface at least one small thing. If after honest scanning truly nothing surfaced, say so explicitly in the hand-off ("retrospective scan: no new patterns this session") so the user knows the step ran.
 
 5. **Update `docs/BACKLOG.md` and `docs/BUGS.md`** if relevant.
 
@@ -300,4 +305,4 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 
 ---
 
-*Last updated: 2026-05-11 — Multi-pass audit discipline reinforced (pre-flight check 5); B2 calendar two-column shipped (`8624c8d`).*
+*Last updated: 2026-05-11 — Plan-visibility preference (build plans in-chat, not in subagents); retrospective scan added to close-out protocol (step 4); multi-pass audit discipline (pre-flight 5); B2 calendar two-column shipped (`8624c8d`).*
