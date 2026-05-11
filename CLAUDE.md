@@ -144,9 +144,10 @@ Before responding to anything beyond a quick clarification, run this mental chec
 2. **Does this task touch a parked decision in VISION.md §11?** If yes, surface that.
 3. **Is this a strict bug, or does it require user input on aesthetics/scope?** If aesthetic, propose options and ask — don't decide.
 4. **Is this non-trivial work?** If yes, plan-audit-build is required. Don't skip.
-5. **Is there a documentation update implied?** Capture user signals in VISION.md as you go.
-6. **Am I about to commit code without running tests?** Don't.
-7. **Am I staging with `git add -A`?** Don't — stage specific files.
+5. **If I'm running an audit, am I doing multiple passes?** WORKFLOW.md is explicit: audit loops until findings are clean or only immaterial. One pass is not enough. After every revision, re-audit the revision. Stop only when the audit returns clean (or remaining findings are out-of-scope/pre-existing/stylistic). When the user asks "is audit done?" they mean the loop has terminated, not that pass 1 has run.
+6. **Is there a documentation update implied?** Capture user signals in VISION.md as you go.
+7. **Am I about to commit code without running tests?** Don't.
+8. **Am I staging with `git add -A`?** Don't — stage specific files.
 
 ### Active leadership obligations
 
@@ -299,4 +300,4 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 
 ---
 
-*Last updated: 2026-05-11 — Batch trust-transfer pattern captured ("I am ok with your recommendations" = blanket-greenlight).*
+*Last updated: 2026-05-11 — Multi-pass audit discipline reinforced (pre-flight check 5); B2 calendar two-column shipped (`8624c8d`).*

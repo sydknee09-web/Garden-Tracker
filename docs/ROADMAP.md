@@ -14,19 +14,27 @@
 
 ## 1. Current focus
 
-**As of 2026-05-11 — Phase 4+5 desktop layout pass B1 shipped; calendar prod verification still pending from prior batches.**
+**As of 2026-05-11 — Phase 4+5 desktop layout pass B2 shipped; B1 + B2 prod verification pending, plus prior-batch verification still open.**
 
-🟢 **Just shipped (`e61ffdc`, on `main`, Vercel deploying):** Phase 4+5 desktop layout pass — milestone B1 (App shell + sidebar nav at `xl:1280px`). At desktop widths, bottom nav hides and a left sidebar appears (240px ↔ 64px collapsible, persisted to localStorage). Five primary nav items reused from BottomNav for cohesion. Top header simplifies at `xl:` to cloud-sync + page title + household toggle. Shopping list / Help / Settings / Feedback moved to sidebar footer (utilities, not sections). New shared `navItems.tsx` module extracted from BottomNav. Below `xl:1280` (phone + iPad-landscape): zero visual change. 370/370 tests pass.
+🟢 **Just shipped (`8624c8d`, on `claude/vigorous-curran-72c89a` worktree branch tracking `origin/main`):** Phase 4+5 desktop layout pass — milestone B2 (Calendar two-column layout at `xl:1280px`). At desktop widths, the Calendar page wraps its content in a two-column flex layout: left column = month nav + Plantable widget + calendar grid (locked at 640px wide, sticky at `top-12` so the grid stays visible while the right column scrolls); right column = task list (`xl:flex-1` with `max-w-[720px]` cap to keep row line-length comfortable on ultra-wide screens). Below `xl:1280` (phone + iPad-landscape): zero visual change. Sub-decisions locked: D1 sticky left column, D2 right max-w-720, D3 24px gap, D4 keep 640px left cap. 370/370 tests pass; build clean.
 
-**Awaiting from user — prod verification:**
-- **Desktop (≥1280px):** sidebar visible, bottom nav hidden, all 5 sections navigable, chevron toggle collapses sidebar and persists on reload, all four footer items (Shopping list / Help / Settings / Feedback) work as before
-- **Phone + iPad landscape:** identical to before — no regressions to swipe, long-press, bottom nav, full header
-- **Still pending from prior sessions (`f77507a` + `cea21e0`):** consolidated overdue row inline buttons + apply-all confirm flows; singleton-row swipe feel (gesture discoverability, vertical-scroll non-interference)
+🟢 **Previously shipped (`e61ffdc`, on `main`, Vercel deployed):** B1 — App shell + sidebar nav at `xl:1280px`.
 
-**Next session focus, depending on B1 prod verification:**
-- If B1 lands clean → 🟡 **B2 — Calendar two-column layout** (calendar grid capped ~640px left, existing task list moves to right column at `xl:`; mobile unchanged). Plan-audit then build per the Phase 4+5 milestone shape in §3.2.
-- If B1 needs tuning (sidebar width, active state, footer item placement) → quick polish batch on the sidebar.
-- After B2: B3 (FAB → popover), B4 (modal/sheet desktop treatment), B5 (per-page audit).
+**Awaiting from user — prod verification (after merge to main + Vercel deploy):**
+- **B2 desktop (≥1280px):**
+  - Two columns visible side-by-side with 24px gap; left column at 640px, calendar grid renders ~88px cells
+  - Scroll the page → left column stays pinned just below the slim header; task list scrolls past
+  - Click a day cell → right-column header updates to "Tasks for {date}"; tasks update
+  - Resize to 1920px+ → right column caps at 720px; far-right has empty space (expected)
+  - **Worst-case check (Risk 4 from plan):** at exactly 1280px viewport with sidebar EXPANDED → right column ~328px. If task rows feel cramped, fast follow-up: `xl:w-[600px] 2xl:w-[640px]` on left column.
+- **B2 below 1280px (phone + iPad-landscape):** layout identical to before; swipe-month + task list interactions all work
+- **B1 still pending verification:** sidebar nav visible/hidden behavior, chevron toggle persistence, footer item placement
+- **Prior sessions still pending (`f77507a` + `cea21e0`):** consolidated overdue row inline buttons + apply-all confirm flows; singleton-row swipe feel
+
+**Next session focus, depending on B2 prod verification:**
+- If B2 lands clean → 🟡 **B3 — FAB menu → popover at `xl:`** (FAB add menu becomes anchored popover at `xl:` instead of centered card; mobile unchanged). Plan-audit then build.
+- If B2 needs tuning (left col width at 1280px squeeze, sticky behavior, gap, right max-w) → quick polish batch.
+- After B3: B4 (modal/sheet desktop treatment), B5 (per-page audit).
 
 See §3 for the full ranked queue.
 
@@ -95,8 +103,8 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 | # | Milestone | Scope | Status | Effort |
 |---|---|---|---|---|
 | **B1** | App shell + sidebar nav at `xl:` | New `Sidebar.tsx` + shared `navItems.tsx`; `AuthGuard.tsx` wraps shell in `xl:flex` w/ sidebar; `BottomNav.tsx` gains `xl:hidden`. | ✅ Shipped 2026-05-11 (`e61ffdc`) | M |
-| **B2** | Calendar two-column | Calendar page wraps grid + existing task list in `xl:grid-cols-[640px_1fr]`. Grid capped ~640px left; existing task list moves to right column. Mobile unchanged. | 🟡 Next (after B1 prod verification) | S |
-| **B3** | FAB menu → popover at `xl:` | FAB add menu becomes anchored popover at `xl:` (not centered card). Mobile unchanged. | 🔵 | S |
+| **B2** | Calendar two-column | Calendar page wraps grid + task list in `xl:flex xl:gap-6` two-column layout. Left col 640px sticky at `top-12`; right col `xl:flex-1 xl:max-w-[720px]`. Mobile unchanged. | ✅ Shipped 2026-05-11 (`8624c8d`) | S |
+| **B3** | FAB menu → popover at `xl:` | FAB add menu becomes anchored popover at `xl:` (not centered card). Mobile unchanged. | 🟡 Next (after B2 prod verification) | S |
 | **B4** | Modals/sheets desktop treatment | NewTaskModal, QuickLogModal, snooze sheet, batch sheets get `xl:` centered-modal-with-backdrop variant. Width cap. Mobile = unchanged. New design-token sanity check needed (backdrop opacity, modal rounding, matches FAB transition language). | 🔵 | M |
 | **B5** | Polish + cross-page audit | Walk all five pages at `xl:`; flag hardcoded `max-w-*` containers that read off-center in the sidebar-offset main column; capture Phase 5 questions for other pages' eventual right-column content. | 🔵 | S |
 
@@ -264,6 +272,7 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-11 `8624c8d`** — `feat(calendar): two-column layout at xl:1280px (B2 of Phase 4+5)` — Calendar page wraps in a two-column flex layout at `xl:` (≥1280px). Left column: month nav + Plantable widget + calendar grid, locked at 640px wide and sticky at `top-12` so the grid stays visible while the right column scrolls. Right column: task list, `xl:flex-1` with `max-w-[720px]` cap. Below `xl:1280` (phone + iPad-landscape): byte-identical to before. Single-file change to `src/app/calendar/page.tsx` (+9/-2). Sub-decisions D1 (sticky) / D2 (max-w-720) / D3 (gap-6) / D4 (640px) locked from plan-audit. Risk flagged for prod check: at exactly 1280px viewport with sidebar expanded, right col ~328px (narrower than mobile); mitigation path is `xl:w-[600px] 2xl:w-[640px]` if cramped. 370/370 tests. B3 (FAB popover) queued next.
 - **2026-05-11 `e61ffdc`** — `feat(shell): desktop sidebar nav at xl:1280px (B1 of Phase 4+5)` — first milestone of the desktop layout pass. At `xl:` (≥1280px), bottom nav hides and a left sidebar appears (240px ↔ 64px collapsible, persisted to localStorage). Five primary nav items reused from BottomNav for cohesion via new shared `navItems.tsx` module. Slim top header at `xl:` keeps cloud-sync + page title + household toggle; shopping list / help / settings / feedback moved to sidebar footer. Below `xl:1280` (phone + iPad-landscape): zero visual change. 370/370 tests. New files: `Sidebar.tsx`, `navItems.tsx`. Modified: `AuthGuard.tsx`, `BottomNav.tsx`. B2 (calendar two-column) queued.
 - **2026-05-10 `f77507a`** — `feat(calendar): inline Snooze/Done + apply-all on consolidated overdue rows` — cohesion fix on consolidated overdue group rows. Right side now `[Snooze][Done][Chevron]` on desktop (matches singleton-row button order); mobile swipe-left=complete-all, swipe-right=snooze-all. Bulk actions route through confirmation sheets ("Mark all N as done?" + "Snooze all N tasks"). Swipe logic extracted into reusable `useRowSwipe` hook consumed by both `CalendarTaskRow` and new `ConsolidatedOverdueHeader` component. Transplant→harvest cascade preserved per-task in bulk snooze. Single toast per bulk action. New `groupAction` state kept separate from `selectMode` flow so long-press multi-select stays intact. 370/370 tests (21 new for hook + consolidated header + sheets).
 - **2026-05-08 `cea21e0`** — `feat(calendar): swipe-to-act on mobile, inline buttons on desktop (Principle 9)` — first worked example of new operating principle. Mobile swipe-left=complete, swipe-right=snooze; inline buttons hidden via `hidden lg:flex`. Desktop unchanged. Native touch listeners (passive:false), 100px threshold, 8px direction lock. Long-press multi-select preserved. 349/349 tests (9 new swipe assertions).
@@ -290,6 +299,10 @@ Chronological log of key decisions made during design and build. New decisions a
 
 ### 2026-05-11
 
+- **Phase 4+5 Desktop Layout Pass — B2 shipped (`8624c8d`).** Second milestone: Calendar page two-column layout at `xl:1280px`. Wrapped existing return in `xl:flex xl:gap-6 xl:items-start` with two child wrapper divs (left 640px sticky + right `flex-1 max-w-[720px]`). Mobile byte-identical. Single-file mechanical wrap of `src/app/calendar/page.tsx` (+9/-2).
+- **Sub-decisions locked for B2 (D1–D4):** D1 = sticky left column on desktop (so grid stays visible while task list scrolls — reinforces "primary check-in surface" role from VISION §7). D2 = right-column `max-w-[720px]` (comfortable row line length at 1920+; whitespace to the right is parked space for Phase 5). D3 = `gap-6` (24px, matches existing card-level spacing). D4 = keep 640px left column per A1–A7 / ROADMAP §3.2 (each day cell ~88px).
+- **B2 plan-audit ran 4 passes before clean.** Pass 2 surfaced three real misses: (a) worst-case viewport squeeze at 1280px + expanded sidebar → right col ~328px (narrower than mobile); (b) sticky-position smoothness analysis was hand-wavy until math added (header 44 + `pt-2` 8 = 52px natural vs `top-12` = 48px sticky → smooth 4px scroll-then-stick, no jump); (c) loading-state behavior in the empty right col wasn't documented. Pass 3 caught a wording error in Risk 4. Pass 4 clean. Mitigation for Risk 4 parked as fast-follow if prod testing shows cramping at 1280px viewport.
+- **Process correction reinforced from session start.** Initial audit attempt stopped at one pass; user flagged that WORKFLOW.md requires looping until findings are clean or immaterial. Re-ran with full discipline. Captured behaviorally — multi-pass audit is the default, not an option.
 - **Phase 4+5 Desktop Layout Pass — B1 shipped (`e61ffdc`).** First milestone of the pass: app shell + sidebar nav at `xl:1280px`. Bottom nav hides, left sidebar appears (240px ↔ 64px collapsible, state persisted to localStorage). Five primary nav items reused from BottomNav. New shared `navItems.tsx` module. Top header simplified at `xl:`.
 - **Breakpoint locked at `xl:` (1280px), not `lg:` (1024px).** Reason: iPad-landscape stays on mobile-style layout — a sidebar at iPad widths would feel cramped, and the existing app already uses `lg:` for the swipe/inline split (different concern, can coexist).
 - **Scope decision: this pass touches every page (sidebar everywhere), but right-column layout is Calendar-only.** Other pages stay single-column main column until Phase 5 designs them. Keeps B1 bounded.
