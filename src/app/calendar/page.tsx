@@ -650,7 +650,6 @@ export default function CalendarPage() {
     if (expandedInitRef.current || (tasks.length === 0 && overdueTasks.length === 0 && completedForToday.length === 0)) return;
     expandedInitRef.current = true;
     const next = new Set<string>();
-    if (overdueTasks.length > 0) next.add("overdue");
     const todayTasks = tasks.filter((t) => t.due_date === todayStr);
     if (todayTasks.length > 0 || completedForToday.length > 0) next.add(todayStr);
     setExpandedDateGroups(next);
