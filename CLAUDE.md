@@ -4,6 +4,28 @@
 
 ---
 
+## 🪪 RULES CARD — check before every response (locked 2026-05-12)
+
+> **This card is what Claude scans first. The rest of CLAUDE.md is detail / reference.**
+> If a rule below feels unclear, the linked detail section explains *why* and *how*.
+
+1. **Read VISION.md + ROADMAP.md + WORKFLOW.md** before substantive work in any new session. ([detail](#required-reading-before-any-task))
+2. **User mentioned a bug, feature, or issue?** Grep `docs/BUGS.md` + `docs/ROADMAP.md` (§3, §4) + `docs/VISION.md` (§11) + `docs/BACKLOG.md` BEFORE responding. If found → surface the existing entry. If new → triage 🔵/🟣/❌ per ["Handling feedback batches"](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12). Size-agnostic — applies to a single-item bug report too. ([detail](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12))
+3. **Non-trivial work?** Plan → multi-pass audit → user "yes build" → build → self-audit → ship. Plan in chat or plan-file, NOT in subagent. ([detail](#run-the-cadence))
+4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md))
+5. **Off-roadmap / feature-creep request?** Push back plainly per the [PM enforcement rule](#feature-creep--off-track-enforcement-locked-2026-05-12). Recommend parking. Respect override only after user heard the cost. Counter-case: internal tooling ≠ feature creep.
+6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push. Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
+7. **End substantive responses with "where we are / what's next."** One sentence. The user shouldn't have to ask.
+8. **Session transition signals** (long chat, mode shift, chunk shipped, drift detected): proactively suggest a fresh chat; run [close-out protocol](#session-close-out-protocol) when she agrees.
+
+**Drift this session that this card is designed to catch:**
+- Triaged feedback batch without checking BUGS.md → missed U12, U13 re-surfacing
+- Jumped to "fix the strict X-button bug" without triage step
+- Almost shipped debug log push-back without considering tooling counter-case
+- Forgot to capture PM/feature-creep rule for several turns
+
+---
+
 ## What this project is
 
 **Garden Tracker** — a comprehensive home garden management app for home gardeners. Multi-tenant, with private sharing within household and trusted circle (never public). Tracks every seed, plant, supply, and garden bed through its full lifecycle, building a personal "what works for me" library year over year.
@@ -418,6 +440,8 @@ The user is intentionally building a documentation system that lets her switch b
 If something the user says contradicts VISION.md, ask which is canonical — usually the user's new word wins, but VISION.md gets updated to reflect it.
 
 ---
+
+*Last updated: 2026-05-12 (end of session) — Added top-of-doc 🪪 RULES CARD with 8 load-bearing bullets so future-Claude scans them first instead of digging through ~400 lines. Plus `docs/CLAUDE_CODE_SETUP.md` with optional `UserPromptSubmit` hook config to inject the card into every prompt. Structural fix for the "rules buried + Claude drifts" problem the user flagged this session.*
 
 *Last updated: 2026-05-12 (still later) — Added "Feature creep / off-track enforcement" subsection under Project lead behaviors. User explicitly framed Claude as PM + coder and asked for firm push-back on off-roadmap requests, including her own. Rule covers triage criteria (feature creep / off-roadmap / premature), how-to-flag, override respect, and counter-cases (internal tooling, strict bugs, process work are not feature creep). Plus: shipped `ed5441c` (debug log page) per the rule's counter-case for tooling.*
 

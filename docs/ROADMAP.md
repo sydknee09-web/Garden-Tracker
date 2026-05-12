@@ -53,9 +53,17 @@
 
 ### Next session focus
 
-- **Awaiting user choice** on which 🔵 current-build item to start (likely #6 Journal search as least controversial, or #4 Bag icon as fastest)
-- **B3 (FAB → popover)** still queued after Phase 4+5 desktop verification completes (chunk 3.2)
-- **Icon density decision** (parked VISION §11) still parked
+**Open task awaiting user action:** Reproduce the journal flicker bug from `7482c59` ship on phone, capture via Settings → Developer → Debug Log → Copy all, paste output into the new chat. Then Claude diagnoses + ships flicker fix.
+
+**Other open items (not blocking the debug step):**
+- **U21** (two-clear-X buttons on search bar) — awaiting fix greenlight; 1-line CSS
+- **U12** (two "+Entry" paths on journal) — awaiting user decision since 2026-05-07
+- **Settings page search bar** — 🟣 parked per PM rule
+- **App-wide icon density** — still parked, VISION §11
+- **B3 (FAB → popover)** — still queued in chunk 3.2
+
+**Optional setup at session start:**
+- Read `docs/CLAUDE_CODE_SETUP.md` and (if you want stronger enforcement) enable the `UserPromptSubmit` hook by creating `.claude/settings.json` at the main repo root.
 
 See §3 for the full ranked queue.
 
@@ -357,6 +365,7 @@ Chronological log of key decisions made during design and build. New decisions a
 
 ### 2026-05-12
 
+- **CLAUDE.md restructure: top-of-doc Rules Card added.** Multiple drift events this session signaled that load-bearing rules were buried inside ~400 lines of CLAUDE.md and being missed during turn-by-turn responses. Added a 🪪 RULES CARD section at the top of CLAUDE.md as the first thing future-Claude reads each session. 8 bullets covering: required reading, feedback-batch Step 0 search, plan-audit-build cadence, aesthetic decisions, PM/feature-creep enforcement, push tiers, end-with-where-we-are, session-switch signals. Card links to detail sections below for "why" and "how." Plus: created `docs/CLAUDE_CODE_SETUP.md` with paste-ready `.claude/settings.json` snippet for an optional `UserPromptSubmit` hook that injects the rules card into every prompt — user-owned, user-enables. Structural fix for the "Claude keeps drifting from rules I locked yesterday" problem the user flagged in this session.
 - **Debug log page shipped (`ed5441c`).** Built specifically so user can copy-paste captured console output into bug-report conversations (no screenshots of tiny phone text). Scope: 50-entry rolling buffer in sessionStorage, captures log/warn/error, page UI with Copy/Refresh/Clear. Explicitly DEVELOPER TOOLING, not user-facing feature — bounded scope (no filters, no persistence across reload, no network/render-warning capture, no enable-disable UI). Reusable for future bug-debugging. Per the PM/feature-creep rule the user locked earlier today: this was initially push-back'd as feature creep, then re-evaluated because (a) tooling for the build process ≠ user-facing product feature, (b) user pushed back on push-back with clear use-case (copy-paste workflow), (c) scope guardrails kept it bounded.
 - **New procedural rule locked: PM enforcement on feature creep / off-track requests.** User explicitly framed Claude as "project manager and coder" and asked for enforcement when requests pull project off-track. Captured in CLAUDE.md "Feature creep enforcement" subsection. Behavior: push back plainly, propose deferral, surface scope, then respect override if user wants it anyway after hearing cost. Reinforces existing "Push back when needed" project-lead obligation.
 - **Journal search shipped (`7482c59`).** First item shipped from chunk 3.9 (2026-05-12 batch). Search field above view-toggle row matching Vault/Garden pattern. Multi-token AND, fields: note, entry_type (underscore-stripped), plant_name + display_names, formatted date. All three view modes. Pure filter function in `src/lib/journalSearch.ts` (testable without React). 8 new vitest cases (378/378). 3-pass plan-audit + 2-pass self-audit, both clean.
