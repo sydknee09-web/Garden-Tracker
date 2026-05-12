@@ -547,7 +547,7 @@ export default function JournalPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search journal…"
-              className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-10 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
+              className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-10 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset [&::-webkit-search-cancel-button]:appearance-none"
               aria-label="Search journal"
             />
             {searchQuery && (
