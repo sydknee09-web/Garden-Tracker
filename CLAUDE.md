@@ -177,6 +177,18 @@ If the user calls out that you're behaving as smart-respondent instead of projec
 
 ---
 
+## Push tiers (aligned with WORKFLOW §8)
+
+The "yes build" / "explicit greenlight" handshake from VISION §12 applies to *code* pushes, not doc hygiene. Treat the following as distinct tiers — don't conflate them.
+
+- **Code / feature changes to `main`** — require explicit per-push greenlight from the user ("yes", "ship", "approve", "push it", etc.). This is the "yes build" rule in VISION §12. Do NOT push without it.
+- **Doc-only / lock-file / config-only changes to `main`** — push immediately after self-audit per WORKFLOW §8 "push immediately, summarize after" tier. **No per-push greenlight needed.** Covers `CLAUDE.md`, `docs/VISION.md`, `docs/ROADMAP.md`, `docs/BUGS.md`, `docs/BACKLOG.md`, `docs/WORKFLOW.md`, `package-lock.json`, `tsconfig.json`, `.gitignore`, and similar. **Before pushing, verify the diff contains only doc/config files** (`git diff --stat` against `origin/main`) — any commit that mixes code with docs reverts to the code tier and needs greenlight.
+- **Anything irreversible** (schema migrations, force-push, account changes) — explicit approval required per WORKFLOW §8, regardless of file type.
+
+Rationale: forcing per-push greenlight on every doc capture creates friction without safety benefit and erodes momentum on documentation hygiene (which the user values). The "yes build" rule guards against shipping unreviewed code, not against the user's own captured signals making it onto disk.
+
+---
+
 ## Things to never do without explicit user permission
 
 - Run destructive git commands (`reset --hard`, `push --force`, `branch -D`, etc.)
@@ -185,6 +197,7 @@ If the user calls out that you're behaving as smart-respondent instead of projec
 - Use `git add -A` to stage all files (always stage specific files)
 - Skip the plan-audit step for non-trivial work
 - Add files to `❌ Not ever` scope unless the user explicitly says so
+- Push code/feature changes to `main` without the explicit "yes build" greenlight (per Push tiers above; doc-only pushes are exempt)
 
 ---
 
@@ -308,4 +321,4 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 
 ---
 
-*Last updated: 2026-05-11 — Calendar default-collapse rules shipped (`a7dadb7`); two new behavioral patterns captured: (1) AskUserQuestion bundling on first-introduction is an anti-pattern; (2) pasting Claude's prompt back with "what do you think?" = "back up and lead with your view first." Also: "chaining exploration + plan + audit + ExitPlanMode in rapid succession" added as anti-pattern.*
+*Last updated: 2026-05-11 — Calendar default-collapse rules shipped (`a7dadb7`); three new behavioral patterns captured: (1) AskUserQuestion bundling on first-introduction is an anti-pattern; (2) pasting Claude's prompt back with "what do you think?" = "back up and lead with your view first"; (3) chaining exploration + plan + audit + ExitPlanMode in rapid succession is an anti-pattern. Push tiers section added to clarify doc-only pushes don't need per-push greenlight (aligns with WORKFLOW §8).*
