@@ -189,6 +189,36 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 
 ---
 
+## Handling feedback batches (locked 2026-05-12)
+
+When the user drops a multi-item batch of bugs, feature ideas, or observations in one message, you OWN the triage. Don't kick decisions back as a single big AskUserQuestion ("where does each item go?") — that's exactly the bundling anti-pattern. Instead:
+
+1. **Triage each item** into one of three buckets:
+   - 🔵 **Current build** — actionable now or near-now; plan-audit + ship in coming sessions
+   - 🟣 **Future phase** — needs design phase (IA, page goals, etc.) first, OR is a larger feature that belongs in a roadmap chunk
+   - ❌ **Outside scope / post-completion** — doesn't fit the vision OR is a "nice to have" after MVP; goes to `BACKLOG.md` or `❌` scope in VISION.md
+2. **Present the triage in text** (table format works well), one row per item, with: bucket, size estimate (XS/S/M/L), type (bug / feature / aesthetic / discussion), and a one-line reason. User sees every call you made and can redirect any of them.
+3. **Flag aesthetic items separately** — anything in the 🔵 current bucket that involves visual hierarchy, color, density, icon choice, copy tone needs **her input before any fix** per [WORKFLOW.md §"Don't assume aesthetic / UX intent"](docs/WORKFLOW.md). List those out explicitly so she knows you're not about to silently fix them.
+4. **Flag items that need clarification** — if an item conflicts with a locked VISION.md decision (e.g. "welcome instructions" vs "empty-by-default IS the onboarding") OR is too vague to scope, ask for clarification before triaging finally.
+5. **Update ROADMAP.md immediately** — add current items to a new build chunk or existing chunk; add future items to §4 parked or appropriate chunk; mark anything that surfaced again as a parked decision (don't double-park).
+6. **Log the batch in VISION.md §12** with the date and a one-line summary per item.
+7. **Ask her where she wants to start** from the current bucket — single AskUserQuestion or text question, ONE decision, not a bundle.
+
+**Why this rule exists:** the user gives batches because she thinks in batches, but each item is a separate decision that needs its own consideration. The triage step is your job; the per-item decisions are hers. Don't conflate the two.
+
+---
+
+## Roadmap maintenance (locked 2026-05-12)
+
+ROADMAP.md is a **living document**, not a one-time write. Maintain it actively:
+
+- **As work progresses:** mark sections done (🔵 → 🟡 → 🟢 → ✅), amend future chunks when new info arrives, move items between buckets as decisions get made.
+- **Before each handoff (close-out):** do a final review of ROADMAP.md. Walk through §1 (Current focus), §3 (Build chunks), §4 (Parked), §5 (Recently shipped), §6 (Decision log). Update each as needed. This is now step **3.5** in the close-out protocol — happens between roadmap updates per close-out and the retrospective scan.
+
+The reason for the final review: between mid-session updates and end-of-session, things shift — a decision gets locked, a chunk gets renumbered, a parked item gets resurrected. The final review catches drift so the next chat opens on a clean, current roadmap.
+
+---
+
 ## Things to never do without explicit user permission
 
 - Run destructive git commands (`reset --hard`, `push --force`, `branch -D`, etc.)
@@ -242,6 +272,8 @@ When wrapping up a session (proactively or on user request):
    - §3 Build chunks → status changes (🔵 → 🟡, 🟡 → 🟢, 🟢 → ✅)
    - §5 Recently shipped → new commits with hashes + brief descriptions
    - §6 Decision log → today's locked-in decisions
+
+3.5. **Final ROADMAP review (locked 2026-05-12).** After step 3 mid-session updates land, do a separate walkthrough of the *entire* ROADMAP.md — §1, §3, §4, §5, §6. Things shift between mid-session updates and end-of-session: decisions lock, chunks renumber, parked items get resurrected. Catch drift here so the next chat opens on a clean, current roadmap. If nothing surfaced, say so in the hand-off ("final roadmap review: clean, no drift").
 
 4. **Run a retrospective scan of the session and update `CLAUDE.md` accordingly.** This step is required, not gated on "if any" — actively scan. Walk through the just-completed session chronologically and ask:
    - Where did Claude drift and the user have to course-correct? Capture the pattern structurally (pre-flight check, leadership obligation, anti-pattern) so the user doesn't have to enforce it again next chat. The user has flagged this explicitly: "i've had to stop and reiterate [pattern] multiple times" is a signal that the doc system failed, not just that this session went off.
@@ -320,5 +352,7 @@ The user is intentionally building a documentation system that lets her switch b
 If something the user says contradicts VISION.md, ask which is canonical — usually the user's new word wins, but VISION.md gets updated to reflect it.
 
 ---
+
+*Last updated: 2026-05-12 — Two new procedural rules locked: (1) "Handling feedback batches" — Claude owns triage into 🔵 current / 🟣 future / ❌ outside; presents in text, flags aesthetic + clarification items, updates ROADMAP + VISION; (2) "Roadmap maintenance" — ROADMAP.md is a living doc; final review of entire ROADMAP added as step 3.5 in close-out protocol. Also: `a7dadb7` verified clean from user's phone screenshots.*
 
 *Last updated: 2026-05-11 — Calendar default-collapse rules shipped (`a7dadb7`); three new behavioral patterns captured: (1) AskUserQuestion bundling on first-introduction is an anti-pattern; (2) pasting Claude's prompt back with "what do you think?" = "back up and lead with your view first"; (3) chaining exploration + plan + audit + ExitPlanMode in rapid succession is an anti-pattern. Push tiers section added to clarify doc-only pushes don't need per-push greenlight (aligns with WORKFLOW §8).*

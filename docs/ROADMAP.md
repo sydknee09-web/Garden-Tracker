@@ -14,32 +14,42 @@
 
 ## 1. Current focus
 
-**As of 2026-05-11 — Calendar default-collapse rules shipped on top of B2; multiple ships now awaiting prod verification.**
+**As of 2026-05-12 — `a7dadb7` verified clean from phone screenshots; 4 commits still need prod verification (desktop + phone swipe); new feedback batch from user landed (12 items triaged).**
 
-🟢 **Just shipped (`a7dadb7`, on `main` via `claude/pedantic-boyd-6c4991` worktree, Vercel auto-deploy triggered):** Calendar default-collapse rules. The Overdue section is now collapsed on Calendar load (was previously auto-expanded when overdue count > 0). Today still auto-expands; all other days remain collapsed by default (unchanged). Tap-grid-day still switches to single-day mode (preserved). Count badges on collapsed headers — "Overdue (N tasks)", "Fri Nov 13 (3 items)" — were already in the code, doing the at-a-glance work without spilling rows. Single-line removal (`-1 LOC`) in `src/app/calendar/page.tsx` init effect. 3-pass plan-audit clean; 370/370 tests pass; build clean.
+### Verified clean
 
-🟢 **Previously shipped this session (`8624c8d`, on `main`):** Phase 4+5 B2 — Calendar two-column at `xl:1280px`. Left 640px sticky, right `flex-1 max-w-[720px]`, 24px gap. Mobile byte-identical.
+🟢 **`a7dadb7` (Calendar default-collapse)** — both phone screenshots from user (2026-05-12) show "Overdue (42 tasks)" / "Overdue (41 tasks)" collapsed at top with Upcoming Tasks expanded below. Confirmed working.
 
-🟢 **Also previously shipped (`e61ffdc`, on `main`):** B1 — App shell + sidebar nav at `xl:1280px`.
+### Still TBD verification
 
-**Awaiting from user — prod verification (Vercel deployed):**
-- **Today's `a7dadb7` (default-collapse):**
-  - Open Calendar → Overdue section reads "Overdue (N tasks) · Show" with content hidden
-  - Today's section is expanded with tasks visible
-  - Other days collapsed with count badges visible
-  - Tap Overdue "Show"/"Hide" → toggles
-  - Tap a grid cell → still switches to "Tasks for {date}" single-day view
-- **B2 desktop (≥1280px):** two columns, 24px gap, left 640px sticky, right max-w-720; Risk 4 (1280px + sidebar expanded → right ~328px) check
-- **B2 below 1280px:** layout byte-identical, swipe-month + task list interactions intact
-- **B1:** sidebar visible/hidden behavior, chevron toggle persistence, footer item placement
-- **Prior sessions still pending (`f77507a` + `cea21e0`):** consolidated overdue row inline buttons + apply-all confirm flows; singleton-row swipe feel
+- **`8624c8d` B2** (desktop ≥1280px two-column) — user hasn't been on desktop browser yet
+- **`e61ffdc` B1** (desktop ≥1280px sidebar) — user hasn't been on desktop browser yet
+- **`cea21e0` phone swipe** (singleton row swipe-left=complete / swipe-right=snooze) — gesture, not visible in static screenshot
+- **`f77507a` phone swipe** (consolidated row swipe-to-confirm) — also needs precondition: repeat overdue group present
 
-**Next session focus, depending on prod verification:**
-- If `a7dadb7` lands clean and B2 lands clean → 🟡 **B3 — FAB menu → popover at `xl:`**. Plan-audit then build.
-- If `a7dadb7` reveals new fatigue sub-rules to lock (collapse-completed-today, lazy-load older, etc.) → batch in their own pass.
-- Parallel parked: **App-wide icon density / canonical stroke weight** (VISION §11). User flagged in sidebar today; same decision as FAB icon consistency from 2026-05-08. Awaiting user decision on stroke 1.2 vs 2.0 canonical.
-- If B2 needs tuning → quick polish batch.
-- After B3: B4 (modal/sheet desktop treatment), B5 (per-page audit).
+### New feedback batch (2026-05-12) — triaged
+
+**🔵 Current build (chunk 3.9 — see §3.9):**
+1. Calendar "Upcoming Tasks" master expand-all / collapse-all toggle w/ smooth arrow swap + smooth content animation
+2. Phone calendar month-nav arrows redundant w/ swipe — hide on phone, keep desktop *(aesthetic — needs user input)*
+3. Garden card spacing fix *(aesthetic — user needs to point at what feels off)*
+4. Bag (shopping list) icon swap *(aesthetic — needs user pick from options)*
+5. Journal gallery card format: structured header + description + variety/location tags *(aesthetic — discuss structure)*
+6. Journal search
+7. Plant profile section — no-AI-data fallback *(needs current-behavior look + empty-state copy decision)*
+
+**🟣 Future (added to §4 parked):**
+- Welcome instructions — ⚠️ conflicts with VISION §10 "empty-by-default IS the onboarding"; needs clarification before triage (#8)
+- Gallery vs table view purposes — Phase 5 page-goals discussion (#9)
+- Journal growing-indicator tags (flowering, first leaves, etc.) — Phase 3 IA tag schema (#10)
+- Vault filter by flower color / perennial / fruit-vs-veggie — Phase 3 IA plant metadata (#11)
+- Harvest calculator (season stats, weights, first/last logged) — memory plane / Failure Mode #2; aligns w/ chunk 3.6 plant profile depth (#12)
+
+### Next session focus
+
+- **Awaiting user choice** on which 🔵 current-build item to start (likely #6 Journal search as least controversial, or #4 Bag icon as fastest)
+- **B3 (FAB → popover)** still queued after Phase 4+5 desktop verification completes (chunk 3.2)
+- **Icon density decision** (parked VISION §11) still parked
 
 See §3 for the full ranked queue.
 
@@ -245,6 +255,34 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
+### 3.9 🔵 Bug/feedback batch — 2026-05-12
+
+**Status:** Triaged from user feedback batch 2026-05-12. Items 1, 6, 7 ready to plan-audit; items 2, 3, 4, 5, 7 need aesthetic decisions from user first. Will likely ship in 2-3 plan-audit-build cycles rather than a single batch, since the items vary in shape (animation feature vs icon swap vs empty-state copy).
+
+**Scope (7 items):**
+
+1. **Calendar "Upcoming Tasks" master expand-all / collapse-all toggle.** Direct follow-on to shipped `a7dadb7` default-collapse. Add a chevron-down icon next to the "Upcoming Tasks" header that, when tapped, expands every collapsed day section (today + overdue + future days) in one motion. Once expanded, swaps to a chevron-up that collapses all. Smooth arrow rotation + smooth content height animation between states. Effort: S. **Aesthetic touch:** animation timing + easing — propose 200ms ease-out (matches existing transition language in VISION §8) but confirm with user.
+2. **Phone calendar month-nav arrows.** `← May 2026 →` arrows at top of grid are redundant w/ swipe gesture on phone. User asked to remove them on phone (keep desktop). Effort: XS. **Aesthetic decision:** does user want `lg:hidden` (phone-only hide), or hide on phone AND desktop, or keep both? Discoverability vs density tradeoff. Need user input.
+3. **Garden card spacing.** User flagged spacing looks "weird" on garden gallery cards (perennial badge + image + name + planted-date + "1 journal" pill). Effort: XS. **Aesthetic discussion:** user needs to point at what specifically feels off (intra-card padding? grid gap? pill positioning? card height?).
+4. **Bag (shopping list) icon swap.** User dislikes current bag icon in header. Effort: XS. **Aesthetic decision:** user pick from options (shopping cart, basket, checklist, list-with-check). Will sketch 2-3 candidates.
+5. **Journal gallery card format.** User wants structured layout: clear header w/ relevant info (date + type) + description body + variety/location tags. Currently variety pill is mingled with description visually. Effort: S. **Aesthetic discussion:** confirm structure — `[date | type icon+label]` header, description below, variety + location pills at bottom? Or different shape?
+6. **Journal search.** Add search input to journal page. Effort: S. **Scope decision:** which fields are searched? Description only, or also variety/location/type/date? Recommend: full-text across description + variety + location, with type filter as separate control (already exists per "Filter" button in screenshot — verify).
+7. **Plant profile no-AI-data fallback.** When AI returns no data for a plant profile section, the section should show a graceful empty state rather than nothing/broken UI. Effort: S. **Needs:** look at current behavior to see what happens today, then aesthetic decision on empty-state copy (retry button? "No info yet" + add-manually CTA? Encyclopedia stub?).
+
+**Why current-build priority:** Items 1, 6, 7 are user-flagged gaps in shipped features. Items 2, 3, 4, 5 are aesthetic polish in active surfaces. None are blocked by Phase 3/4/5 design work.
+
+**Dependencies:**
+- Item 1 depends on `a7dadb7` (already shipped). No blockers.
+- Item 6 (Journal search) — read existing journal page to find where search input fits; likely no schema change.
+- Item 7 — read existing AI-data flow on profile page to understand current state.
+- Aesthetic items (2, 3, 4, 5) blocked on user input only.
+
+**Verification strategy:** standard plan-audit-build per item or grouped (3-5 batch per WORKFLOW.md). User prod-verifies on phone after each ship.
+
+**Source:** User feedback batch 2026-05-12. See VISION.md §12 for verbatim signal.
+
+---
+
 ### Later (🕐 long-term aspirational, in priority-ish order)
 
 - **Pest / illness ID camera + Q&A + treatment recs.** Likely paid tier. Differentiator.
@@ -265,11 +303,16 @@ See VISION.md §9 for full status of each.
 Items deferred with the reason for the parking. Re-surface when conditions change.
 
 - **Calendar task fatigue (broader than the batch in §3.1)** — Today/Week default window, lazy-load older completions, and other approaches beyond what's in the batch. Parked until the §3.1 batch ships and we see how it feels.
-- **Cross-view consistency** between Vault grid / Garden gallery / My Plants list (covered partly by §3.3).
+- **Cross-view consistency** between Vault grid / Garden gallery / My Plants list (covered partly by §3.3 FAB consistency batch).
 - **Too many places to edit a plant's image** (in `BACKLOG.md`). Audit + consolidate.
 - **Sister's additional feedback** — pending. User said she'd get more.
 - **Plant database moderation philosophy** — Phase 3 deferred. Concern about user pollution / inappropriate entries. Hybrid (curated canonical + private user extensions + suggestion queue) recommended.
 - **Growing instance representation detail** — Phase 3. Now that beds are first-class, the exact relationship needs design.
+- **Welcome instructions (2026-05-12 #8)** — ⚠️ **needs clarification before triage.** User asked to "build out welcome instructions." VISION.md §10 locks "empty-by-default IS the onboarding — don't add notifications/tasks/state by default." Either (a) user is changing that decision, (b) wants empty-state guidance copy *within* the principle (e.g., "Tap + to add your first plant"), or (c) wants tooltip-style first-run hints. Resolve at next session.
+- **Gallery vs table view purposes (2026-05-12 #9)** — User asked "discuss purposes of gallery vs table view." Phase 5 page-goals work. Belongs in design-phase session when we pick up Phase 5.
+- **Journal growing-indicator tags (2026-05-12 #10)** — Tag a journal entry with growing milestones (flowering, first leaves, lost leaves, fruit set, etc.) so user can search/filter to see historical patterns year-over-year. Phase 3 IA work (needs tag schema design). Aligns with VISION memory plane / "what works for me" library. M-sized feature after Phase 3 lands.
+- **Vault filter by flower color / perennial vs annual / fruit vs veggie (2026-05-12 #11)** — Improve vault search w/ plant-metadata filters. Phase 3 IA work (needs metadata schema on plant profiles). M-sized feature after Phase 3 lands.
+- **Harvest calculator (2026-05-12 #12)** — Per-plant report: total weight harvested, first/last log dates in a growing season, derived stats. Memory plane work; aligns w/ Failure Mode #2 (profile depth) and §3.6 plant profile depth chunk. M-sized after profile work is scoped.
 
 ---
 
@@ -302,6 +345,14 @@ Most recent first. For full history, use `git log`.
 ## 6. Decision log
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
+
+### 2026-05-12
+
+- **`a7dadb7` verified clean in prod.** User's phone screenshots show "Overdue (42 tasks)" and "Overdue (41 tasks)" collapsed at top of Calendar with Upcoming Tasks expanded below. Default-collapse rule shipping confirmed.
+- **New procedural rule locked: "Handling feedback batches."** When user drops a multi-item batch in one message, Claude owns triage into 🔵 current build / 🟣 future phase / ❌ outside scope. Triage gets presented in text (not bundled into a single AskUserQuestion), aesthetic items flagged separately for user input, conflicts with VISION.md surfaced for clarification, ROADMAP + VISION updated immediately, and a single closing question on where-to-start. Captured in CLAUDE.md.
+- **New procedural rule locked: "Roadmap maintenance."** ROADMAP.md is a living doc — mark sections done as work progresses, amend chunks when info arrives, move items between buckets. Added a new step **3.5 Final ROADMAP review** to close-out protocol: between mid-session roadmap updates and retrospective scan, walk the full roadmap one more time to catch drift. Captured in CLAUDE.md.
+- **Feedback batch 2026-05-12 (12 items) triaged.** 7 items 🔵 current build (new chunk 3.9): Calendar expand-all toggle, phone month-arrow redundancy, garden card spacing, bag icon swap, journal card format, journal search, profile no-AI-data fallback. 5 items 🟣 future / parked: welcome instructions (⚠️ VISION conflict, needs clarification), gallery-vs-table-view discussion (Phase 5), journal growing-indicator tags (Phase 3 IA), vault metadata filters (Phase 3 IA), harvest calculator (memory plane / Failure Mode #2). Each parked item logged in §4 with bucket reasoning.
+- **No double-park.** Items 9-12 in the parked list reference existing chunks (Phase 3 IA, Phase 5 page goals, §3.6 plant profile depth) rather than creating duplicate parked entries.
 
 ### 2026-05-11
 
