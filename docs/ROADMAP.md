@@ -14,26 +14,31 @@
 
 ## 1. Current focus
 
-**As of 2026-05-11 — Phase 4+5 desktop layout pass B2 shipped; B1 + B2 prod verification pending, plus prior-batch verification still open.**
+**As of 2026-05-11 — Calendar default-collapse rules shipped on top of B2; multiple ships now awaiting prod verification.**
 
-🟢 **Just shipped (`8624c8d`, on `claude/vigorous-curran-72c89a` worktree branch tracking `origin/main`):** Phase 4+5 desktop layout pass — milestone B2 (Calendar two-column layout at `xl:1280px`). At desktop widths, the Calendar page wraps its content in a two-column flex layout: left column = month nav + Plantable widget + calendar grid (locked at 640px wide, sticky at `top-12` so the grid stays visible while the right column scrolls); right column = task list (`xl:flex-1` with `max-w-[720px]` cap to keep row line-length comfortable on ultra-wide screens). Below `xl:1280` (phone + iPad-landscape): zero visual change. Sub-decisions locked: D1 sticky left column, D2 right max-w-720, D3 24px gap, D4 keep 640px left cap. 370/370 tests pass; build clean.
+🟢 **Just shipped (`a7dadb7`, on `main` via `claude/pedantic-boyd-6c4991` worktree, Vercel auto-deploy triggered):** Calendar default-collapse rules. The Overdue section is now collapsed on Calendar load (was previously auto-expanded when overdue count > 0). Today still auto-expands; all other days remain collapsed by default (unchanged). Tap-grid-day still switches to single-day mode (preserved). Count badges on collapsed headers — "Overdue (N tasks)", "Fri Nov 13 (3 items)" — were already in the code, doing the at-a-glance work without spilling rows. Single-line removal (`-1 LOC`) in `src/app/calendar/page.tsx` init effect. 3-pass plan-audit clean; 370/370 tests pass; build clean.
 
-🟢 **Previously shipped (`e61ffdc`, on `main`, Vercel deployed):** B1 — App shell + sidebar nav at `xl:1280px`.
+🟢 **Previously shipped this session (`8624c8d`, on `main`):** Phase 4+5 B2 — Calendar two-column at `xl:1280px`. Left 640px sticky, right `flex-1 max-w-[720px]`, 24px gap. Mobile byte-identical.
 
-**Awaiting from user — prod verification (after merge to main + Vercel deploy):**
-- **B2 desktop (≥1280px):**
-  - Two columns visible side-by-side with 24px gap; left column at 640px, calendar grid renders ~88px cells
-  - Scroll the page → left column stays pinned just below the slim header; task list scrolls past
-  - Click a day cell → right-column header updates to "Tasks for {date}"; tasks update
-  - Resize to 1920px+ → right column caps at 720px; far-right has empty space (expected)
-  - **Worst-case check (Risk 4 from plan):** at exactly 1280px viewport with sidebar EXPANDED → right column ~328px. If task rows feel cramped, fast follow-up: `xl:w-[600px] 2xl:w-[640px]` on left column.
-- **B2 below 1280px (phone + iPad-landscape):** layout identical to before; swipe-month + task list interactions all work
-- **B1 still pending verification:** sidebar nav visible/hidden behavior, chevron toggle persistence, footer item placement
+🟢 **Also previously shipped (`e61ffdc`, on `main`):** B1 — App shell + sidebar nav at `xl:1280px`.
+
+**Awaiting from user — prod verification (Vercel deployed):**
+- **Today's `a7dadb7` (default-collapse):**
+  - Open Calendar → Overdue section reads "Overdue (N tasks) · Show" with content hidden
+  - Today's section is expanded with tasks visible
+  - Other days collapsed with count badges visible
+  - Tap Overdue "Show"/"Hide" → toggles
+  - Tap a grid cell → still switches to "Tasks for {date}" single-day view
+- **B2 desktop (≥1280px):** two columns, 24px gap, left 640px sticky, right max-w-720; Risk 4 (1280px + sidebar expanded → right ~328px) check
+- **B2 below 1280px:** layout byte-identical, swipe-month + task list interactions intact
+- **B1:** sidebar visible/hidden behavior, chevron toggle persistence, footer item placement
 - **Prior sessions still pending (`f77507a` + `cea21e0`):** consolidated overdue row inline buttons + apply-all confirm flows; singleton-row swipe feel
 
-**Next session focus, depending on B2 prod verification:**
-- If B2 lands clean → 🟡 **B3 — FAB menu → popover at `xl:`** (FAB add menu becomes anchored popover at `xl:` instead of centered card; mobile unchanged). Plan-audit then build.
-- If B2 needs tuning (left col width at 1280px squeeze, sticky behavior, gap, right max-w) → quick polish batch.
+**Next session focus, depending on prod verification:**
+- If `a7dadb7` lands clean and B2 lands clean → 🟡 **B3 — FAB menu → popover at `xl:`**. Plan-audit then build.
+- If `a7dadb7` reveals new fatigue sub-rules to lock (collapse-completed-today, lazy-load older, etc.) → batch in their own pass.
+- Parallel parked: **App-wide icon density / canonical stroke weight** (VISION §11). User flagged in sidebar today; same decision as FAB icon consistency from 2026-05-08. Awaiting user decision on stroke 1.2 vs 2.0 canonical.
+- If B2 needs tuning → quick polish batch.
 - After B3: B4 (modal/sheet desktop treatment), B5 (per-page audit).
 
 See §3 for the full ranked queue.
@@ -272,6 +277,7 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 
 Most recent first. For full history, use `git log`.
 
+- **2026-05-11 `a7dadb7`** — `feat(calendar): collapse Overdue section by default on load` — single-line removal from the Calendar init effect (line 653: `if (overdueTasks.length > 0) next.add("overdue");`). Overdue now reads "Overdue (N tasks) · Show" on page load (collapsed); today still auto-expands; all other days remain collapsed (existing behavior). Tap-grid-day still switches to single-day mode (preserved). Count badges on collapsed headers were already in the code — they now do the at-a-glance work without spilling rows. Partially unparks VISION §11 "Calendar task fatigue approach" — default-window / collapse-by-default sub-rule locked. -1 LOC. 3-pass plan-audit clean; 370/370 tests pass.
 - **2026-05-11 `8624c8d`** — `feat(calendar): two-column layout at xl:1280px (B2 of Phase 4+5)` — Calendar page wraps in a two-column flex layout at `xl:` (≥1280px). Left column: month nav + Plantable widget + calendar grid, locked at 640px wide and sticky at `top-12` so the grid stays visible while the right column scrolls. Right column: task list, `xl:flex-1` with `max-w-[720px]` cap. Below `xl:1280` (phone + iPad-landscape): byte-identical to before. Single-file change to `src/app/calendar/page.tsx` (+9/-2). Sub-decisions D1 (sticky) / D2 (max-w-720) / D3 (gap-6) / D4 (640px) locked from plan-audit. Risk flagged for prod check: at exactly 1280px viewport with sidebar expanded, right col ~328px (narrower than mobile); mitigation path is `xl:w-[600px] 2xl:w-[640px]` if cramped. 370/370 tests. B3 (FAB popover) queued next.
 - **2026-05-11 `e61ffdc`** — `feat(shell): desktop sidebar nav at xl:1280px (B1 of Phase 4+5)` — first milestone of the desktop layout pass. At `xl:` (≥1280px), bottom nav hides and a left sidebar appears (240px ↔ 64px collapsible, persisted to localStorage). Five primary nav items reused from BottomNav for cohesion via new shared `navItems.tsx` module. Slim top header at `xl:` keeps cloud-sync + page title + household toggle; shopping list / help / settings / feedback moved to sidebar footer. Below `xl:1280` (phone + iPad-landscape): zero visual change. 370/370 tests. New files: `Sidebar.tsx`, `navItems.tsx`. Modified: `AuthGuard.tsx`, `BottomNav.tsx`. B2 (calendar two-column) queued.
 - **2026-05-10 `f77507a`** — `feat(calendar): inline Snooze/Done + apply-all on consolidated overdue rows` — cohesion fix on consolidated overdue group rows. Right side now `[Snooze][Done][Chevron]` on desktop (matches singleton-row button order); mobile swipe-left=complete-all, swipe-right=snooze-all. Bulk actions route through confirmation sheets ("Mark all N as done?" + "Snooze all N tasks"). Swipe logic extracted into reusable `useRowSwipe` hook consumed by both `CalendarTaskRow` and new `ConsolidatedOverdueHeader` component. Transplant→harvest cascade preserved per-task in bulk snooze. Single toast per bulk action. New `groupAction` state kept separate from `selectMode` flow so long-press multi-select stays intact. 370/370 tests (21 new for hook + consolidated header + sheets).
@@ -298,6 +304,13 @@ Most recent first. For full history, use `git log`.
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
 ### 2026-05-11
+
+- **Calendar default-collapse rules shipped (`a7dadb7`).** Overdue section now collapsed on Calendar load. Today still auto-expands. Other days remain collapsed (unchanged). Tap-grid-day still switches to single-day mode (preserved). Single-line removal (`if (overdueTasks.length > 0) next.add("overdue");`) from the init effect in `src/app/calendar/page.tsx`. 3-pass plan-audit was clean (Pass 1 flagged a pre-existing race condition involving the separate `completedTasksForMonth` fetch; documented as known follow-up, not in scope per "no while-I'm-at-it scope creep"). -1 LOC, 370/370 tests, clean build.
+- **Default-collapse rule set locked (overdue=collapsed, today=open, others=collapsed; tap-grid-day preserves single-day mode; count badges on collapsed headers).** Future-days default was the swing decision: locked as **collapsed** because task fatigue is the failure mode being solved (VISION §6, §11) and count badges already preserve at-a-glance scan.
+- **AskUserQuestion bundling pattern caught and corrected.** When introducing a multi-item rule set for the first time, do NOT offer a single "Lock it all (Recommended)" AskUserQuestion — user picks Recommended efficiently but skips per-item digest, which surfaces later as "what do you think?" + interrupts to ExitPlanMode. Either (a) discuss verbally and let her engage per piece, then bundle-lock once she's clearly seen each; or (b) ask separately per sub-decision. Captured in CLAUDE.md and VISION §12.
+- **Sidebar icon density flagged (parked widening of FAB icon consistency).** User saw the issue in B1's sidebar: primary nav (24×24 @ 2.0), Shopping list (20×20 @ 1.2), Settings/Feedback (20×20 @ 2.0), Help (text glyph `?`) — four different rendering systems in one component. Same parked decision as VISION §11 "FAB icon style consistency" from 2026-05-08, widened to "App-wide icon density / canonical stroke weight." Awaiting user decision on canonical: stroke 1.2 (recommended — `styleDictionary.tsx` is the larger of the two libraries) or stroke 2.0.
+
+### 2026-05-11 (earlier)
 
 - **Phase 4+5 Desktop Layout Pass — B2 shipped (`8624c8d`).** Second milestone: Calendar page two-column layout at `xl:1280px`. Wrapped existing return in `xl:flex xl:gap-6 xl:items-start` with two child wrapper divs (left 640px sticky + right `flex-1 max-w-[720px]`). Mobile byte-identical. Single-file mechanical wrap of `src/app/calendar/page.tsx` (+9/-2).
 - **Sub-decisions locked for B2 (D1–D4):** D1 = sticky left column on desktop (so grid stays visible while task list scrolls — reinforces "primary check-in surface" role from VISION §7). D2 = right-column `max-w-[720px]` (comfortable row line length at 1920+; whitespace to the right is parked space for Phase 5). D3 = `gap-6` (24px, matches existing card-level spacing). D4 = keep 640px left column per A1–A7 / ROADMAP §3.2 (each day cell ~88px).
