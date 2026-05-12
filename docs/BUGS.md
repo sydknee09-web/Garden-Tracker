@@ -71,7 +71,7 @@ Concrete, reproducible issues raised during a live testing session. Each is cont
 | U18 | Calendar page | Header (May 2026 + arrows + Plantable banner) takes too much vertical space; calendar grid feels secondary | Compact month nav inline, demote Plantable to smaller link, reduce padding | ~2-3h |
 | U19 | Home page | Bottom half (Shopping list, At a glance) lacks visual hierarchy compared to top half | Consistent card style; soften "Done" buttons; consolidate or restructure | ~2-3h |
 | U20 | Home page | Sections load staggered on app open (top first, bottom pops in later) | Skeleton placeholders for all sections at first paint, OR batched data fetch | ~2-3h |
-| U21 | Journal search input (`7482c59`) | Two clear-X buttons visible when query is non-empty on Android Chrome — one grey (custom React clear-X) and one blue (browser-native `type="search"` cancel button). Reported 2026-05-12 immediately after `7482c59` shipped. | Hide native button via Tailwind arbitrary variant `[&::-webkit-search-cancel-button]:appearance-none` on the search input; custom X remains as the single control | ~5 min (1-line CSS) |
+| U21 | Journal search input (`7482c59`) | Two clear-X buttons visible when query is non-empty on Android Chrome — one grey (custom React clear-X) and one blue (browser-native `type="search"` cancel button). Reported 2026-05-12 immediately after `7482c59` shipped. ✅ **Fixed 2026-05-12 (`fb67e10`)** | Hide native button via Tailwind arbitrary variant `[&::-webkit-search-cancel-button]:appearance-none` on the search input; custom X remains as the single control | ~5 min (1-line CSS) |
 
 ### Systemic / structural issues (require workstream-scale work)
 
