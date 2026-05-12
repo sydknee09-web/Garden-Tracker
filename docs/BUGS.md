@@ -62,8 +62,8 @@ Concrete, reproducible issues raised during a live testing session. Each is cont
 | U9 | Active Garden cards | Selection / highlight border looks visually off | Tune border weight / color (part of design system pass) | Bundle with U10 |
 | U10 | Throughout | Seedling placeholder for missing hero is visually unpleasant | Design new placeholder (icon, illustration, or initials) — part of design system pass | ~2-4h |
 | U11 | Active Garden cards | Quick Log button uses ICON_MAP.Journal which reads ambiguous at small sizes | Replace with clearer icon OR add label | ~30 min |
-| U12 | Journal page | Two ways to add an entry ("+Entry" button + FAB → Add journal) — redundant | UX coherence decision: keep both with differentiation, or remove one | Decision + ~30 min |
-| U13 | Journal entry cards | Visual hierarchy poor — eyes dart between date, badge, note, pills | Lead with note in heavier weight, demote date, group type+pills | ~1-2h |
+| U12 | Journal page | Two ways to add an entry ("+Entry" button + FAB → Add journal) — redundant *(re-flagged 2026-05-12 — user verifying journal page after `7482c59` search ship)* | UX coherence decision: keep both with differentiation, or remove one | Decision + ~30 min |
+| U13 | Journal entry cards | Visual hierarchy poor — eyes dart between date, badge, note, pills; plant variety mingled with description *(re-flagged 2026-05-12 — user feedback batch item #6)* | Lead with note in heavier weight, demote date, group type+pills; structured header + body + tags | ~1-2h |
 | U14 | Journal entry cards | Spacing between cards too tight | `space-y` increase OR adjust card padding | ~15 min |
 | U15 | AddPlantModal | "Permanent / Seasonal" terminology inconsistent with "Active Garden / My Plants" tab labels | Pick one terminology and propagate (UX coherence — see Pattern 6) | ~1h + decision |
 | U16 | AddPlantModal | Permanent/Seasonal toggle redundant when already chosen via FAB sub-screen | Hide toggle when `defaultProfileType` already set | ~30 min |
@@ -71,6 +71,7 @@ Concrete, reproducible issues raised during a live testing session. Each is cont
 | U18 | Calendar page | Header (May 2026 + arrows + Plantable banner) takes too much vertical space; calendar grid feels secondary | Compact month nav inline, demote Plantable to smaller link, reduce padding | ~2-3h |
 | U19 | Home page | Bottom half (Shopping list, At a glance) lacks visual hierarchy compared to top half | Consistent card style; soften "Done" buttons; consolidate or restructure | ~2-3h |
 | U20 | Home page | Sections load staggered on app open (top first, bottom pops in later) | Skeleton placeholders for all sections at first paint, OR batched data fetch | ~2-3h |
+| U21 | Journal search input (`7482c59`) | Two clear-X buttons visible when query is non-empty on Android Chrome — one grey (custom React clear-X) and one blue (browser-native `type="search"` cancel button). Reported 2026-05-12 immediately after `7482c59` shipped. | Hide native button via Tailwind arbitrary variant `[&::-webkit-search-cancel-button]:appearance-none` on the search input; custom X remains as the single control | ~5 min (1-line CSS) |
 
 ### Systemic / structural issues (require workstream-scale work)
 

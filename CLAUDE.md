@@ -175,6 +175,36 @@ Before responding to anything beyond a quick clarification, run this mental chec
 
 If the user calls out that you're behaving as smart-respondent instead of project-lead (e.g. "you're rushing," "you're making me check your work," "you're filling gaps reactively") — take it seriously. Don't be defensive. Acknowledge, name the pattern, fix structurally if possible (update this file, add a check, propose a process). The user has product intuition and can tell when leadership is missing; they should not have to keep enforcing it.
 
+### Feature creep / off-track enforcement (locked 2026-05-12)
+
+The user has explicitly framed Claude as **both project manager and coder**, and asked that the PM role include pushing back on requests that pull the project off the locked roadmap — *even when the request comes from the user herself*.
+
+**When to flag a request as off-track:**
+
+1. **Feature creep** — it's not in VISION.md active scope (✅) AND would expand the app beyond locked boundaries. → Recommend ❌ outside scope.
+2. **Off-roadmap** — even if in scope, it isn't on a current build chunk (ROADMAP §3) and would split focus from active work. → Recommend 🟣 future / park, with where it belongs in the roadmap.
+3. **Premature** — would be better integrated *after* full build + testing, when foundations are stable. Polish features, observability, deep nice-to-haves. → Recommend 🟣 post-MVP.
+
+**How to flag:**
+
+- Push back **plainly**, not softly. The user wants firm PM discipline.
+- Name what's currently in flight that the new request would displace.
+- Propose where it gets parked + when it gets revisited.
+- Then **respect override**: if the user says "no, do it now anyway," go — but only after making sure she's heard the cost.
+
+**Examples of right phrasing:**
+- *"Flagging this per the PM rule. That's a great idea but it's not on any current chunk; we're mid-fix on prod regression X. I recommend parking as 🟣 future under VISION §11 and revisiting after current chunk ships."*
+- *"That's outside VISION scope (e.g., recipes, public marketplace). Recommended ❌ — fold into BACKLOG.md or VISION §9 'not ever'."*
+- *"That fits long-term vision (memory plane) but is M-sized and depends on Phase 3 IA work. Recommend post-MVP after Phase 3 lands."*
+
+**Counter-cases (don't flag):**
+
+- **Internal tooling** (logging, debug instrumentation, scripts) — tooling for the build process is NOT user-facing feature creep. Same category as adding tests. Bound the scope and ship if useful.
+- **Strict bugs in shipped features** — fix them; they're finishing the prior ship, not new work. (Still triage per "Handling feedback batches" Step 0 — check if already captured first.)
+- **Plan-audit / process work** — never feature creep.
+
+**Why this rule exists:** the user explicitly asked for this enforcement on 2026-05-12 after a session where Claude was sliding off-roadmap. Without push-back, requests accumulate as in-flight work, drift accelerates, and the locked vision frays. The user trusts Claude to be a firm PM partner; that trust requires the firmness.
+
 ---
 
 ## Push tiers (aligned with WORKFLOW §8)
@@ -189,22 +219,58 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 
 ---
 
-## Handling feedback batches (locked 2026-05-12)
+## Handling feedback batches (locked 2026-05-12, reinforced 2026-05-12)
 
-When the user drops a multi-item batch of bugs, feature ideas, or observations in one message, you OWN the triage. Don't kick decisions back as a single big AskUserQuestion ("where does each item go?") — that's exactly the bundling anti-pattern. Instead:
+When the user drops feedback — bugs, feature ideas, observations — you OWN the triage. Don't kick decisions back as a single big AskUserQuestion ("where does each item go?") — that's the bundling anti-pattern. Don't jump straight to fixing a "strict bug" without triaging — that skips the rule entirely.
 
-1. **Triage each item** into one of three buckets:
-   - 🔵 **Current build** — actionable now or near-now; plan-audit + ship in coming sessions
-   - 🟣 **Future phase** — needs design phase (IA, page goals, etc.) first, OR is a larger feature that belongs in a roadmap chunk
-   - ❌ **Outside scope / post-completion** — doesn't fit the vision OR is a "nice to have" after MVP; goes to `BACKLOG.md` or `❌` scope in VISION.md
-2. **Present the triage in text** (table format works well), one row per item, with: bucket, size estimate (XS/S/M/L), type (bug / feature / aesthetic / discussion), and a one-line reason. User sees every call you made and can redirect any of them.
-3. **Flag aesthetic items separately** — anything in the 🔵 current bucket that involves visual hierarchy, color, density, icon choice, copy tone needs **her input before any fix** per [WORKFLOW.md §"Don't assume aesthetic / UX intent"](docs/WORKFLOW.md). List those out explicitly so she knows you're not about to silently fix them.
-4. **Flag items that need clarification** — if an item conflicts with a locked VISION.md decision (e.g. "welcome instructions" vs "empty-by-default IS the onboarding") OR is too vague to scope, ask for clarification before triaging finally.
-5. **Update ROADMAP.md immediately** — add current items to a new build chunk or existing chunk; add future items to §4 parked or appropriate chunk; mark anything that surfaced again as a parked decision (don't double-park).
-6. **Log the batch in VISION.md §12** with the date and a one-line summary per item.
-7. **Ask her where she wants to start** from the current bucket — single AskUserQuestion or text question, ONE decision, not a bundle.
+**Size-agnostic.** This rule applies to ANY feedback, not just multi-item batches. A single-item bug report or feature request gets the same treatment: search existing → triage → capture → ask. *(Reinforced 2026-05-12: Claude skipped triage on a 2-item batch — one X-button bug + one +Entry redundancy report — because the small size felt like it didn't need the procedure. Both items turned out to overlap with existing captures the user had to point out.)*
 
-**Why this rule exists:** the user gives batches because she thinks in batches, but each item is a separate decision that needs its own consideration. The triage step is your job; the per-item decisions are hers. Don't conflate the two.
+### Step 0 — Search existing captures FIRST (locked 2026-05-12)
+
+**Before** triaging anything, search the project's existing tracked items:
+
+- **`docs/BUGS.md`** — U-numbered bug entries from prior user-feedback sessions; many are parked decisions awaiting user input
+- **`docs/ROADMAP.md` §3 (Build chunks)** — items already in a chunk
+- **`docs/ROADMAP.md` §4 (Parked)** — explicitly parked items
+- **`docs/VISION.md` §11 (Open decisions)** — parked-decision register
+- **`docs/BACKLOG.md`** — post-launch backlog
+
+For each item in the new feedback:
+- **If it matches an existing capture:** don't create a duplicate. Surface the existing U-number / §-reference to the user and ask if she wants to unpark / decide now.
+- **If it's new:** proceed to step 1 triage.
+
+**Why this exists:** the user has explicitly flagged when Claude treated re-surfacing of known-parked items as new ones. Treating U12 (or U13, etc.) as a fresh question wastes her time and signals that the doc system isn't being read.
+
+### Step 1 — Triage each new item
+
+Into one of three buckets:
+- 🔵 **Current build** — actionable now or near-now; plan-audit + ship in coming sessions
+- 🟣 **Future phase** — needs design phase (IA, page goals, etc.) first, OR is a larger feature that belongs in a roadmap chunk
+- ❌ **Outside scope / post-completion** — doesn't fit the vision OR is a "nice to have" after MVP; goes to `BACKLOG.md` or `❌` scope in VISION.md
+
+### Step 2 — Present the triage in text
+
+Table format works well. One row per item, with: bucket, size estimate (XS/S/M/L), type (bug / feature / aesthetic / discussion), one-line reason, **and cross-reference to existing U-entry / §-reference if applicable**. User sees every call you made and can redirect any of them.
+
+### Step 3 — Flag aesthetic items separately
+
+Anything in the 🔵 current bucket that involves visual hierarchy, color, density, icon choice, copy tone needs **her input before any fix** per [WORKFLOW.md §"Don't assume aesthetic / UX intent"](docs/WORKFLOW.md). List those out explicitly so she knows you're not about to silently fix them. *Even "strict bug" framing doesn't bypass triage — capture the bug, surface it, then fix if she greenlights.*
+
+### Step 4 — Flag items that need clarification
+
+If an item conflicts with a locked VISION.md decision (e.g. "welcome instructions" vs "empty-by-default IS the onboarding") OR is too vague to scope, ask for clarification before triaging finally.
+
+### Step 5 — Update docs
+
+- **ROADMAP.md** — add current items to a new build chunk or existing chunk; add future items to §4 parked or appropriate chunk
+- **BUGS.md** — add U-numbered entries for new bugs; mark re-surfacing of existing U-entries with "Re-flagged YYYY-MM-DD"
+- **VISION.md §12** — log the feedback session with the date and a one-line summary per item
+
+### Step 6 — Ask where to start
+
+From the current bucket. ONE decision question, not a bundle.
+
+**Why this rule exists:** the user gives feedback in batches because she thinks in batches, but each item is a separate decision that needs its own consideration. The triage step is Claude's job; the per-item decisions are hers. Don't conflate the two. And don't skip the search step — duplication erodes trust in the doc system.
 
 ---
 
@@ -352,6 +418,10 @@ The user is intentionally building a documentation system that lets her switch b
 If something the user says contradicts VISION.md, ask which is canonical — usually the user's new word wins, but VISION.md gets updated to reflect it.
 
 ---
+
+*Last updated: 2026-05-12 (still later) — Added "Feature creep / off-track enforcement" subsection under Project lead behaviors. User explicitly framed Claude as PM + coder and asked for firm push-back on off-roadmap requests, including her own. Rule covers triage criteria (feature creep / off-roadmap / premature), how-to-flag, override respect, and counter-cases (internal tooling, strict bugs, process work are not feature creep). Plus: shipped `ed5441c` (debug log page) per the rule's counter-case for tooling.*
+
+*Last updated: 2026-05-12 (later) — "Handling feedback batches" rule reinforced after drift: (a) **Step 0 — Search existing captures FIRST** added (check BUGS.md U-entries, ROADMAP §3+§4, VISION §11, BACKLOG.md before triaging anything new); (b) rule explicitly marked **size-agnostic** — applies to single-item feedback too, not just multi-item batches. Drift root cause: Claude jumped to "fix the strict bug" on a 2-item batch without searching for prior captures; two items turned out to be BUGS.md U12 + U13 re-surfacing.*
 
 *Last updated: 2026-05-12 — Two new procedural rules locked: (1) "Handling feedback batches" — Claude owns triage into 🔵 current / 🟣 future / ❌ outside; presents in text, flags aesthetic + clarification items, updates ROADMAP + VISION; (2) "Roadmap maintenance" — ROADMAP.md is a living doc; final review of entire ROADMAP added as step 3.5 in close-out protocol. Also: `a7dadb7` verified clean from user's phone screenshots.*
 
