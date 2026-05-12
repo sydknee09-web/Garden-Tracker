@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -61,6 +61,7 @@ import type { JournalEntry } from "@/types/garden";
 import type { GrowInstance } from "@/types/garden";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { LoadingState } from "@/components/LoadingState";
+import { filterJournalEntries } from "@/lib/journalSearch";
 
 type JournalEntryWithPlant = JournalEntry & {
   plant_name?: string;
@@ -252,6 +253,7 @@ export default function JournalPage() {
     return "grid";
   });
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [deleteConfirmEntryIds, setDeleteConfirmEntryIds] = useState<string[] | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -390,6 +392,11 @@ export default function JournalPage() {
     };
   }, [user?.id, householdViewMode, refetchTrigger]);
 
+  const filteredEntries = useMemo(
+    () => filterJournalEntries(entries, searchQuery),
+    [entries, searchQuery]
+  );
+
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -514,6 +521,32 @@ export default function JournalPage() {
     <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
       {toast}
       <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
+        <div className="flex gap-2 mb-2">
+          <div className="flex-1 relative">
+            <ICON_MAP.Search stroke="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-black/40 pointer-events-none" aria-hidden />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search journal…"
+              className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-10 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
+              aria-label="Search journal"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-full text-black/50 hover:text-black/80 hover:bg-black/5"
+                aria-label="Clear search"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-3 mb-3">
           <div className="flex-1 min-w-0" role="tablist" aria-label="Journal view">
           <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
@@ -600,11 +633,24 @@ export default function JournalPage() {
             </>
           }
         />
+      ) : filteredEntries.length === 0 ? (
+        <div className="rounded-2xl bg-white border border-black/5 shadow-card p-8 text-center">
+          <p className="text-sm text-black/70 mb-3">
+            No entries match <span className="font-medium text-black/90">&ldquo;{searchQuery}&rdquo;</span>.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="min-h-[44px] px-4 rounded-xl border border-black/15 text-sm font-medium text-black/80 hover:bg-black/5"
+          >
+            Clear search
+          </button>
+        </div>
       ) : viewMode === "table" ? (
         <>
           {/* Mobile: card layout — no horizontal scroll */}
           <div className="sm:hidden space-y-4 pb-24 -mx-6 px-4">
-            {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
+            {tableRowsWithSections(groupEntriesForTable(filteredEntries)).map((item) => {
               if (item.type === "section") {
                 return (
                   <h2 key={`section-${item.label}`} className="text-sm font-semibold text-slate-700 pt-2 first:pt-0 sticky top-11 bg-paper -mx-4 px-4 py-1 z-10">
@@ -692,7 +738,7 @@ export default function JournalPage() {
                 </tr>
               </thead>
               <tbody>
-                {tableRowsWithSections(groupEntriesForTable(entries)).map((item) => {
+                {tableRowsWithSections(groupEntriesForTable(filteredEntries)).map((item) => {
                   if (item.type === "section") {
                     return (
                       <tr key={`section-${item.label}`} className="bg-slate-100/80 border-b border-black/10">
@@ -780,7 +826,7 @@ export default function JournalPage() {
       ) : viewMode === "timeline" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-24">
           {/* Plant gallery: click opens that plant's journal in vault; no blank photo placeholder */}
-          {groupEntriesByPlant(entries).map((group) => {
+          {groupEntriesByPlant(filteredEntries).map((group) => {
             const firstWithImage = group.entries.find((e) => {
               const paths = (e as JournalEntryWithPlant & { photo_paths?: string[] })?.photo_paths ?? [];
               return paths.length > 0 || e.image_file_path || e.photo_url;
@@ -830,8 +876,8 @@ export default function JournalPage() {
       ) : (
         <div className="max-w-lg mx-auto pb-24">
           {/* Instagram-style feed: one card per (day, plant), photo then note */}
-          {groupEntriesForTable(entries).map((row) => {
-            const entry = entries.find((e) => e.id === row.entryIds[0]);
+          {groupEntriesForTable(filteredEntries).map((row) => {
+            const entry = filteredEntries.find((e) => e.id === row.entryIds[0]);
             const photoPaths = (entry as JournalEntryWithPlant & { photo_paths?: string[] })?.photo_paths ?? [];
             const imageUrls =
               photoPaths.length > 0
