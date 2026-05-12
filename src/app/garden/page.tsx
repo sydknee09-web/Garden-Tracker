@@ -48,6 +48,7 @@ import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { compressImage } from "@/lib/compressImage";
@@ -210,6 +211,7 @@ function GardenPageInner() {
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
+  useModalBackClose(addMenuOpen, closeMenu, skipPopOnNavigateRef);
   const [profileFilteredPlantName, setProfileFilteredPlantName] = useState<string | null>(null);
   const [profileFilterEmpty, setProfileFilterEmpty] = useState(false);
   const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);

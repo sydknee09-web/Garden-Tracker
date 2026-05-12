@@ -81,8 +81,9 @@ export function UniversalAddMenu({
   return (
     <>
       <div className="fixed inset-0 z-[100] bg-black/20 animate-fade-in" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 pointer-events-none">
       <div
-        className={`fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto animate-fab-menu-enter ${FAB_MENU_SHADOW_CLASS}`}
+        className={`relative w-full max-w-md rounded-3xl bg-white border border-neutral-200/80 p-6 max-h-[85svh] overflow-y-auto animate-fab-menu-enter pointer-events-auto ${FAB_MENU_SHADOW_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"
@@ -235,6 +236,7 @@ export function UniversalAddMenu({
             </div>
           </div>
         )}
+      </div>
       </div>
     </>
   );

@@ -49,6 +49,7 @@ import Image from "next/image";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStateJournal } from "@/components/EmptyStateIllustrations";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { supabase } from "@/lib/supabase";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -285,6 +286,7 @@ export default function JournalPage() {
   const [editEntryId, setEditEntryId] = useState<string | null>(null);
   const { toast, showToast } = useToast();
   const skipPopOnNavigateRef = useRef(false);
+  useModalBackClose(addMenuOpen, closeMenu, skipPopOnNavigateRef);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 

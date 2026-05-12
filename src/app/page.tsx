@@ -11,6 +11,7 @@ import { AddItemModal } from "@/components/AddItemModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSync } from "@/contexts/SyncContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useToast } from "@/hooks/useToast";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
@@ -151,6 +152,7 @@ export default function HomePage() {
   const onboardingCtx = useOnboardingContextOptional();
 
   useEscapeKey(addMenuOpen || !!activeModal, closeAll);
+  useModalBackClose(addMenuOpen, closeMenu, skipPopOnNavigateRef);
 
   useEffect(() => {
     if (!user) { setLoadingTasksAndList(false); return; }

@@ -185,6 +185,7 @@ export default function CalendarPage() {
   useModalBackClose(newTaskOpen, () => setNewTaskOpen(false));
   useModalBackClose(!!batchActionOpen, () => setBatchActionOpen(null));
   useModalBackClose(!!groupAction, () => setGroupAction(null));
+  useModalBackClose(addMenuOpen, closeMenu, skipPopOnNavigateRef);
 
   const exitSelectMode = useCallback(() => {
     setSelectMode(false);
