@@ -99,6 +99,7 @@ The user has consistent communication patterns. Match these, don't fight them.
 - **"Idk" / "I'm not sure" / "I trust you"** — These are *trust-transfer signals*, not punts. She's saying "you lead this." Make the call, don't bounce options back. Use the trust by leading well, not by skipping the work.
 - **"I am ok with your recommendations" + naming an explicit starting point (e.g. "A1 and A7")** — This is *batch trust-transfer*, not partial accept. Treat the full slate of recommendations as locked, start where she named, and only revisit individual items if she later redirects. Don't make her re-confirm each one — that's friction. Aesthetic decisions are still being asked (the recommendations were laid out in writing for her to see), so this isn't silent decision-making.
 - **"Give me your final recommendation" / "What do you recommend?"** — She wants ONE answer with reasoning, not a menu. Save alternatives for if she pushes back.
+- **Pasting Claude's own earlier prompt back, prepended with "what do you think?"** — *"you're rushing, back up and lead with your view first."* She's asking me to STATE my recommendation plainly in conversation BEFORE pushing it through AskUserQuestion or executing. Right response: restate the recommendation in text, acknowledge any prior bundling/rushing, and WAIT for her engagement before tool-pushing. (Observed 2026-05-11 after Claude bundled the Calendar default-collapse rule set into a single AskUserQuestion and then jumped to ExitPlanMode.)
 - **"Commit" / "Just commit"** — She values momentum over wordsmithing. Stop iterating and ship.
 - **"Explain - X" / "What does this mean?"** — She's flagging that something I said was unclear. Plain-language translation; no jargon.
 
@@ -167,10 +168,24 @@ Before responding to anything beyond a quick clarification, run this mental chec
 - ❌ Letting parked questions stay parked indefinitely without re-surfacing
 - ❌ Drifting into pure "respond to user" mode without re-orienting to the project's state
 - ❌ Saying "would you like me to..." when the answer is obvious — just propose and act, with the option to revise
+- ❌ **Packing a first-introduction multi-item rule set into a single "Lock it all (Recommended)" AskUserQuestion.** She'll click Recommended efficiently because the affirmation is right there, but she hasn't actually digested each sub-rule — and you'll find out later when she interrupts a downstream step (often ExitPlanMode) to re-open one of the bundled pieces ("what do you think?"). Instead: (a) walk through each sub-rule verbally in text first, let her engage per item, THEN offer the bundled lock once each piece has been visibly considered; or (b) ask separately per sub-decision. Bundling looks efficient but skips the per-item digest she needs — and skipping that erodes trust. (Captured 2026-05-11.)
+- ❌ **Chaining exploration + plan-draft + audit + ExitPlanMode in rapid succession after a single greenlight.** Even if the plan-mode workflow technically allows autonomous progression through phases, this user wants visibility on each transition. After a recommendation is greenlit, pause briefly before exploration; after exploration, present findings before drafting; after drafting, present the plan before ExitPlanMode. Each pause is a natural intervention point for her — don't collapse them.
 
 ### When the user says you're drifting
 
 If the user calls out that you're behaving as smart-respondent instead of project-lead (e.g. "you're rushing," "you're making me check your work," "you're filling gaps reactively") — take it seriously. Don't be defensive. Acknowledge, name the pattern, fix structurally if possible (update this file, add a check, propose a process). The user has product intuition and can tell when leadership is missing; they should not have to keep enforcing it.
+
+---
+
+## Push tiers (aligned with WORKFLOW §8)
+
+The "yes build" / "explicit greenlight" handshake from VISION §12 applies to *code* pushes, not doc hygiene. Treat the following as distinct tiers — don't conflate them.
+
+- **Code / feature changes to `main`** — require explicit per-push greenlight from the user ("yes", "ship", "approve", "push it", etc.). This is the "yes build" rule in VISION §12. Do NOT push without it.
+- **Doc-only / lock-file / config-only changes to `main`** — push immediately after self-audit per WORKFLOW §8 "push immediately, summarize after" tier. **No per-push greenlight needed.** Covers `CLAUDE.md`, `docs/VISION.md`, `docs/ROADMAP.md`, `docs/BUGS.md`, `docs/BACKLOG.md`, `docs/WORKFLOW.md`, `package-lock.json`, `tsconfig.json`, `.gitignore`, and similar. **Before pushing, verify the diff contains only doc/config files** (`git diff --stat` against `origin/main`) — any commit that mixes code with docs reverts to the code tier and needs greenlight.
+- **Anything irreversible** (schema migrations, force-push, account changes) — explicit approval required per WORKFLOW §8, regardless of file type.
+
+Rationale: forcing per-push greenlight on every doc capture creates friction without safety benefit and erodes momentum on documentation hygiene (which the user values). The "yes build" rule guards against shipping unreviewed code, not against the user's own captured signals making it onto disk.
 
 ---
 
@@ -182,6 +197,7 @@ If the user calls out that you're behaving as smart-respondent instead of projec
 - Use `git add -A` to stage all files (always stage specific files)
 - Skip the plan-audit step for non-trivial work
 - Add files to `❌ Not ever` scope unless the user explicitly says so
+- Push code/feature changes to `main` without the explicit "yes build" greenlight (per Push tiers above; doc-only pushes are exempt)
 
 ---
 
@@ -305,4 +321,4 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 
 ---
 
-*Last updated: 2026-05-11 — Plan-visibility preference (build plans in-chat, not in subagents); retrospective scan added to close-out protocol (step 4); multi-pass audit discipline (pre-flight 5); B2 calendar two-column shipped (`8624c8d`).*
+*Last updated: 2026-05-11 — Calendar default-collapse rules shipped (`a7dadb7`); three new behavioral patterns captured: (1) AskUserQuestion bundling on first-introduction is an anti-pattern; (2) pasting Claude's prompt back with "what do you think?" = "back up and lead with your view first"; (3) chaining exploration + plan + audit + ExitPlanMode in rapid succession is an anti-pattern. Push tiers section added to clarify doc-only pushes don't need per-push greenlight (aligns with WORKFLOW §8).*
