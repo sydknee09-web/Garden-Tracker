@@ -12,6 +12,7 @@ import { UniversalAddProvider } from "@/contexts/UniversalAddContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { DebugLogInit } from "@/components/DebugLogInit";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -47,6 +48,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={outfit.variable}>
       <body className="min-h-screen bg-paper font-sans antialiased">
+        <DebugLogInit />
         <ServiceWorkerRegistration />
         <OfflineIndicator />
         <AuthProvider>

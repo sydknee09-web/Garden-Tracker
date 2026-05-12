@@ -397,6 +397,24 @@ export default function JournalPage() {
     [entries, searchQuery]
   );
 
+  // TEMP: instrumentation for journal flicker bug investigation (remove after fix)
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  console.log(
+    "[journal-debug]",
+    JSON.stringify({
+      render: renderCountRef.current,
+      viewMode,
+      viewFromUrl,
+      searchQueryLen: searchQuery.length,
+      entries: entries.length,
+      filtered: filteredEntries.length,
+      selected: selectedEntryIds.length,
+      addMenuOpen,
+      activeModal,
+    })
+  );
+
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {

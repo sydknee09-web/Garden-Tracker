@@ -768,6 +768,16 @@ export default function SettingsDeveloperPage() {
       </section>
       )}
 
+      {matchesSection({ title: "Debug Log", desc: "Recent console output for bug reports" }) && (
+      <section>
+        <Link href="/settings/developer/debug-log" className="block rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors min-h-[44px]">
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Debug Log</h3>
+          <p className="text-sm text-neutral-500 mb-2">Recent console output captured this session. Copy + paste into a bug report.</p>
+          <span className="text-sm text-emerald-600 font-medium">Open debug log &rarr;</span>
+        </Link>
+      </section>
+      )}
+
       {matchesSection({ title: "Archived Purchases", desc: "Items marked purchased" }) && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
