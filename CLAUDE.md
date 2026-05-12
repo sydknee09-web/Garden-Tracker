@@ -14,7 +14,7 @@
 3. **Non-trivial work?** Plan → multi-pass audit → user "yes build" → build → self-audit → ship. Plan in chat or plan-file, NOT in subagent. ([detail](#run-the-cadence))
 4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md))
 5. **Off-roadmap / feature-creep request?** Push back plainly per the [PM enforcement rule](#feature-creep--off-track-enforcement-locked-2026-05-12). Recommend parking. Respect override only after user heard the cost. Counter-case: internal tooling ≠ feature creep.
-6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push. Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
+6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push, AND **Preview MCP mobile-viewport sanity check on visual ships** (UI/CSS/`.tsx` diff). Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
 7. **End substantive responses with "where we are / what's next."** One sentence. The user shouldn't have to ask.
 8. **Session transition signals** (long chat, mode shift, chunk shipped, drift detected): proactively suggest a fresh chat; run [close-out protocol](#session-close-out-protocol) when she agrees.
 
@@ -238,6 +238,45 @@ The "yes build" / "explicit greenlight" handshake from VISION §12 applies to *c
 - **Anything irreversible** (schema migrations, force-push, account changes) — explicit approval required per WORKFLOW §8, regardless of file type.
 
 Rationale: forcing per-push greenlight on every doc capture creates friction without safety benefit and erodes momentum on documentation hygiene (which the user values). The "yes build" rule guards against shipping unreviewed code, not against the user's own captured signals making it onto disk.
+
+---
+
+## Pre-push visual verification (locked 2026-05-12)
+
+On visual ships — anywhere the diff touches `.tsx`/`.jsx`/`.css`/`tailwind.config.ts`/`globals.css` and changes what renders — run a **Preview MCP mobile-viewport sanity check** before pushing. Costs ~30s per ship. Triggered AFTER plan-audit + tests + build pass, BEFORE `git push`.
+
+### What to do
+
+1. `mcp__Claude_Preview__preview_start` to spin up `npm run dev`.
+2. `mcp__Claude_Preview__preview_resize` to a phone viewport — default to **412×915** (Pixel-style) since that matches the user's reported device. iPhone 390×844 as secondary if the surface is iOS-relevant.
+3. Navigate to the affected page(s).
+4. `mcp__Claude_Preview__preview_screenshot` of the changed surface, plus any interaction states (e.g. open the FAB, expand the section, type into the input).
+5. `mcp__Claude_Preview__preview_console_logs` — scan for new errors / warnings introduced by the diff.
+6. If anything looks off, flag to user before push. If clean, push and note in commit summary that the visual check passed.
+
+### What it catches
+
+- ✅ General layout issues: overflow, off-screen elements, z-index conflicts, text truncation at narrow widths
+- ✅ Console errors / unhandled promise rejections introduced by the diff
+- ✅ Obvious visual regressions on the changed surface
+- ✅ Animation glitches visible in screenshots
+
+### What it does NOT catch
+
+- ❌ **Android Chrome 100vh quirk** (the U23 root cause) — Chromium-DevTools mobile simulation uses correct viewport math, doesn't replicate Chrome-on-Android's URL-bar-makes-100vh-larger behavior. Real Android needed.
+- ❌ **Webkit pseudo-element rendering** (the U21 root cause) — `::-webkit-search-cancel-button` doesn't render reliably in Chromium devtools the same way it does on real Android Chrome.
+- ❌ **Hardware back-button behavior** (the U22 root cause) — Chromium doesn't expose a hardware back surface.
+- ❌ Real-device-specific quirks (iOS Safari rubber-band, gesture conflicts, virtual keyboard reflows).
+
+### When to skip
+
+- **Pure logic / non-rendering changes** (changes to `src/lib/*.ts`, hooks that don't return JSX, API routes, tests, docs, config).
+- **Auth-blocked surfaces** if Preview MCP can't get past `AuthGuard` — document why and ship with note; user can verify on real device.
+- **Cold-start dev server taking >60s** — note the slowdown and skip; don't burn the user's time. Speed back up when the dev server is hot in subsequent ships.
+
+### Why this rule exists
+
+User pattern: the user is the QA. She catches mobile-specific regressions on her phone after every push. The verification check shifts some of that load left — catches the easy stuff in ~30s before push so she only encounters the genuinely Android/iOS-platform-specific issues. Honest framing: it would NOT have caught U21 (webkit pseudo), U22 (hardware back), or U23 (100vh quirk) — but it WOULD have caught a generic overflow / cutoff bug at mobile width if the root cause had been viewport-math-honoring CSS.
 
 ---
 
