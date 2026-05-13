@@ -50,6 +50,13 @@ Audit: <"pending" | "loaded clean" | "n/a — non-build chat">
 
 For XS / non-build chats, In-scope / Out-of-scope / Success criteria can be 1-liners or "n/a — Q&A only." The structure stays even when values are minimal — explicit Out-of-scope is the counter-creep guard the user can interrupt if Claude tries to expand mid-chat.
 
+**Short form for trivial Q&A (added 2026-05-13).** Use this 2-line form when (a) question is fact-lookup / explanation / clarification AND (b) no code or doc edits will result AND (c) no decision is being made. Use the expanded form above for everything else.
+
+```
+Phase 1 acknowledged.
+Purpose: <Q&A topic in one sentence>. (Trivial Q&A; In-scope/Out-of-scope/Success criteria/Plan-of-record/Audit N/A.)
+```
+
 **2. Every phase transition.** Format (one line):
 
 ```
@@ -156,6 +163,13 @@ If any box is unchecked, the chat does NOT advance to Phase 3. Return to Phase 1
   - **(c) Dogfood-style findings** (user-experience signals captured this chat — e.g. "user flagged X feels slow," "user mentioned Y twice across recent chats")
   
   Empty bucket → say "none this chat" explicitly. Silence ≠ empty.
+- **Dogfood-findings status tagging (locked 2026-05-13).** Each dogfood finding captured in bucket (c) MUST be tagged with one of four statuses at close-out (Claude proposes; user amends):
+  - **Just-captured** — acknowledged, no action this chat. Logs in ROADMAP §6 entry under the chat's date. Monitor for recurrence.
+  - **Propose rule now** — finding suggests a new rule or amendment. Trigger an immediate Rule A `AskUserQuestion` before close completes.
+  - **File as parked** — goes to VISION §11 (open decisions) or BACKLOG.md as a 🟣 future item.
+  - **File as bug/feature** — goes to BUGS.md (U-numbered entry) or ROADMAP (current chunk).
+  
+  Prevents findings from accumulating in chat logs without a destination. Every finding gets explicit follow-through (or "just-captured" as an explicit non-action).
 - **Two close-out shapes (locked 2026-05-13, adopted from voyager_sanctuary).** Pick the shape based on what comes next:
   - **Handoff shape (new chat starting):** full handoff prompt — git preflight (branch state, pending pushes) + required reads (CLAUDE.md / VISION.md / ROADMAP.md) + current state (what shipped + what's in flight) + first task (paste-able Phase 1 starter) + do-not-touch list (anything user has explicitly parked or marked sensitive) + 3 buckets.
   - **In-place close shape (sub-purpose completion mid-chat, no new chat starting):** shipment recap — commits shipped this sub-purpose + memory adds / edits + rule changes + 3 buckets. No preflight or required-reads (same chat continues).
@@ -579,6 +593,28 @@ The reason for the final review: between mid-session updates and end-of-session,
 
 ---
 
+## Capture-doc boundaries (locked 2026-05-13)
+
+When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.
+
+| Signal type | Goes to |
+|---|---|
+| Product vision / scope decision (✅ / 🕐 / ❌) | VISION.md §9 |
+| Failure mode flagged | VISION.md §6 |
+| "Don't touch" item | VISION.md §10 |
+| Parked design decision awaiting user input | VISION.md §11 |
+| User communication / decision-making pattern | CLAUDE.md "User communication & decision-making patterns" section |
+| Process / cadence / discipline rule | CLAUDE.md (relevant rule section — Chat Lifecycle Protocol / Plan-audit standard / Push tiers / etc.) |
+| Current-chunk progress / status change | ROADMAP.md §1 / §3 / §5 |
+| Locked-in decision dated | ROADMAP.md §6 |
+| Bug found / parked | BUGS.md (U-numbered entry) |
+| Post-MVP feature idea | BACKLOG.md |
+| Long-term scope (✅ but later) | ROADMAP.md §3.X future chunks |
+
+If a signal could fit multiple destinations, default to the more durable one (VISION > ROADMAP > CLAUDE.md for cross-cutting; ROADMAP §6 over CLAUDE.md for one-time decisions). If genuinely ambiguous, surface the routing choice to the user before capturing.
+
+---
+
 ## Session transition management
 
 Long chats degrade quality (context bloat, token cost, performance drift). Claude should proactively manage when to suggest a fresh chat — without the user having to track this.
@@ -698,6 +734,14 @@ We don't have to do all phases sequentially before building. We pick up a phase 
 The user is intentionally building a documentation system that lets her switch between Claude chats without losing context. **VISION.md and CLAUDE.md (this file) are the persistent memory.** This works only if you actually read them before doing anything. Don't skip.
 
 If something the user says contradicts VISION.md, ask which is canonical — usually the user's new word wins, but VISION.md gets updated to reflect it.
+
+**When the user's direction contradicts a locked rule in CLAUDE.md (locked 2026-05-13):**
+
+- Flag the contradiction explicitly: *"That contradicts CLAUDE.md §X which says Y, locked YYYY-MM-DD because Z."*
+- Surface the trade-off (what we lose by overriding — e.g. "skipping the audit means we lose Pass 1 factual-check, which is what caught ICON_MAP not being imported in `eea6a84`").
+- Respect the override if the user reaffirms after hearing the trade-off.
+- **AMEND CLAUDE.md** if the override implies the rule itself should change permanently (not just for this turn). One-turn overrides stay one-turn; durable changes go in the file.
+- Don't silently comply — contradictions must be visible. Same logic as the VISION.md contradiction rule above: parallels exist, central rule catches anything not covered by section-level override clauses.
 
 ---
 
