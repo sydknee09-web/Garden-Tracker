@@ -11,7 +11,7 @@
 
 1. **Read VISION.md + ROADMAP.md + WORKFLOW.md** before substantive work in any new session. ([detail](#required-reading-before-any-task))
 2. **User mentioned a bug, feature, or issue?** Grep `docs/BUGS.md` + `docs/ROADMAP.md` (§3, §4) + `docs/VISION.md` (§11) + `docs/BACKLOG.md` BEFORE responding. If found → surface the existing entry. If new → triage 🔵/🟣/❌ per ["Handling feedback batches"](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12). Size-agnostic — applies to a single-item bug report too. ([detail](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12))
-3. **Non-trivial work?** Plan → multi-pass audit → user "yes build" → build → self-audit → ship. Plan in chat or plan-file, NOT in subagent. ([detail](#run-the-cadence))
+3. **Non-trivial work?** Plan → multi-pass audit (Pass 1 factual / Pass 2 semantic+edge / Pass 3 lock-hygiene; min 2 passes, 3 for contexts/nav/locked decisions) → user "yes build" → build → self-audit → ship. Plan in chat or plan-file (file required for ≥3 files or state-machine change). NOT in subagent. ([detail](#plan-audit-standard-locked-2026-05-12))
 4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md))
 5. **Off-roadmap / feature-creep request?** Push back plainly per the [PM enforcement rule](#feature-creep--off-track-enforcement-locked-2026-05-12). Recommend parking. Respect override only after user heard the cost. Counter-case: internal tooling ≠ feature creep.
 6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push, AND **Preview MCP mobile-viewport sanity check on visual ships** (UI/CSS/`.tsx` diff). Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
@@ -238,6 +238,40 @@ The "yes build" / "explicit greenlight" handshake from VISION §12 applies to *c
 - **Anything irreversible** (schema migrations, force-push, account changes) — explicit approval required per WORKFLOW §8, regardless of file type.
 
 Rationale: forcing per-push greenlight on every doc capture creates friction without safety benefit and erodes momentum on documentation hygiene (which the user values). The "yes build" rule guards against shipping unreviewed code, not against the user's own captured signals making it onto disk.
+
+---
+
+## Plan-audit standard (locked 2026-05-12)
+
+Every non-trivial plan runs **minimum 2 audit passes** before user greenlight. **3 passes** for changes touching: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6.
+
+### The three passes
+
+**Pass 1 — Factual.** Every code reference exists. Imports resolve in the target file (verified via Grep, not memory). Functions/utilities/hooks I name are real. API signatures match actual code. Asset paths match disk. Tailwind classes are valid utilities or arbitrary-value syntax. *This is the pass that catches "I planned `ICON_MAP.ChevronDown` but `ICON_MAP` isn't imported in this file" — see drift note below.*
+
+**Pass 2 — Semantic + edge.** Behavior correctness. State transitions traced step-by-step. Edge cases handled: empty, null, many, race conditions, async ordering, double-fire. **For state-machine changes** (anything that changes how state evolves over time — hooks, reducers, refs-as-state, mode flags, multi-screen menus), Pass 2 is REQUIRED and must include a 3-5 bullet inline behavior trace even when other audit shortcuts are taken.
+
+**Pass 3 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
+
+### Plan file vs in-chat plan
+
+- **≥3 files OR architectural change OR state-machine change** → plan written to `C:\Users\marsh\.claude\plans\<branch>.md` BEFORE code. Audit log lives IN the plan file, not just chat scrollback. Retrospective readability + accountability.
+- **<3 files AND no arch/state-machine change** → plan in chat is fine. Audit findings inline.
+- **Plan mode active** → always plan file; that's the mechanic.
+
+### Explore agents for Pass 1 fact-checking
+
+For plans touching **>5 files** OR a non-obvious API (one Claude hasn't worked with this session), spawn an Explore agent to verify references in parallel before writing the plan. At ≤5 files, inline Grep is fast enough AND preserves the "plan visibility" the user values (see CLAUDE.md "What she values"). Threshold tuned conservatively at >5 not >3 for this reason — visible plan-construction outweighs marginal parallel-grep speedup on small scopes.
+
+### Mid-session scope additions
+
+If a ship grows mid-execution (user adds a follow-on item, Claude finds a related bug to fix in scope), run a fresh Pass 1+2+3 in the plan file for the addition. Inline tracking isn't enough — the addition needs the same rigor as the original scope or it becomes silent overstep.
+
+### Why this rule exists
+
+User has flagged that plan-audit discipline is the pattern she most often has to re-enforce. Codifying the three passes with concrete content (not just "loop until clean") gives each pass a checkable rubric. The trigger thresholds (2 passes baseline, 3 for state-touching changes; plan-file at 3 files; Explore at 5 files) are calibrated to this project's reality: small, UI-heavy, non-developer PM, plan-visibility preference.
+
+**Drift this catches:** Calendar #1 ship 2026-05-12 — build error `ICON_MAP is not defined` because the plan referenced `ICON_MAP.ChevronDown` without verifying `ICON_MAP` was imported in `src/app/calendar/page.tsx`. Pass 1 factual explicitly checks "does the code I'm proposing reference real exports in this file's import set?" — would have caught it before commit.
 
 ---
 
