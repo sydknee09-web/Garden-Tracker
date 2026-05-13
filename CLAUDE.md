@@ -133,18 +133,20 @@ If any box is unchecked, the chat does NOT advance to Phase 3. Return to Phase 1
 
 ### Phase 5 — Close (handoff)
 
-**Gate to pass: standard close-out protocol completes AND uncovered-work register is clean.**
+**Gate to pass: standard close-out protocol completes AND uncovered-work register is clean AND every recommendation/option/alternative surfaced during the chat is either explicitly asked at close OR queued in the next-chat handoff prompt with a clear ask attached.**
 
 - Run the existing close-out protocol (steps 1-8 in "Session close-out protocol")
-- **NEW: Uncovered work register.** Walk the chat chronologically. Every out-of-scope discovery — every bug noticed in passing, every "we should also..." comment, every parked decision that re-surfaced, every user signal that didn't get acted on — is captured in ONE of:
+- **Uncovered work register.** Walk the chat chronologically. Every out-of-scope discovery — every bug noticed in passing, every "we should also..." comment, every parked decision that re-surfaced, every user signal that didn't get acted on — is captured in ONE of:
   - (a) ROADMAP.md as a 🟣 parked item or new chunk entry, OR
   - (b) BUGS.md as a new U-numbered entry (or "re-flagged YYYY-MM-DD" on an existing one), OR
   - (c) BACKLOG.md if post-MVP, OR
   - (d) The next-chat handoff prompt directly if it's the next chat's purpose
 - If genuinely no uncovered work surfaced, say so in the handoff explicitly ("uncovered work register: clean, no new items"). Silence ≠ clean.
-- Close-out does NOT complete until the register is clean.
+- **Rule A — Explicit-approval asks on recommendations (locked 2026-05-13).** Any recommendation, option, or alternative Claude surfaces during a chat that isn't auto-shipped to docs MUST be converted to an explicit `AskUserQuestion` at close-out — not described as "your call" / "your option" / "you can decide" text. *Auto-shipped* = changes the user greenlit via ExitPlanMode and Claude implemented (no separate ask needed). *Not auto-shipped* = optional tools, deferred choices, mentioned-in-passing alternatives (explicit ask required at close). **When the ask comes, the rule/option content MUST be self-contained in the question text** — the question UI is a separate view from chat scrollback, so references like "approve Rule A" without embedded content are themselves a loose end. Why: the user copy-pastes the handoff and moves on; vague text-mentions get lost.
+- **Rule B — Tie-out-loose-ends gate (locked 2026-05-13).** Phase 5 close-out does NOT complete until every open question / recommendation / unanswered decision raised during the chat is either (a) explicitly asked via `AskUserQuestion` with answer captured, OR (b) explicitly written into the next-chat handoff prompt as a queued decision for next session **with a clear ask attached**. Vague directional language ("your call", "consider this", "you can decide later") doesn't satisfy the gate. The gate is binary: every loose end is answered now or queued for next chat with a clear ask attached.
+- Close-out does NOT complete until ALL gates pass (uncovered-work register clean + Rule A asks made + Rule B loose-ends tied out).
 
-**Anti-pattern this phase catches:** lost-thread close-out. Bug or signal noticed mid-chat, never written down, surfaces in the next chat as a "new" issue and the user has to re-explain context Claude already had.
+**Anti-pattern this phase catches:** lost-thread close-out. Bug or signal noticed mid-chat, never written down, surfaces in the next chat as a "new" issue and the user has to re-explain context Claude already had. PLUS recommendation-drift: chat surfaces an optional thing in passing, doesn't ask, user copy-pastes handoff and moves on with no decision captured.
 
 ### How "non-trivial work" threshold changes
 
