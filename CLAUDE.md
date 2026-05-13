@@ -11,7 +11,7 @@
 
 1. **Read VISION.md + ROADMAP.md + WORKFLOW.md** before substantive work in any new session. ([detail](#required-reading-before-any-task))
 2. **User mentioned a bug, feature, or issue?** Grep `docs/BUGS.md` + `docs/ROADMAP.md` (§3, §4) + `docs/VISION.md` (§11) + `docs/BACKLOG.md` BEFORE responding. If found → surface the existing entry. If new → triage 🔵/🟣/❌ per ["Handling feedback batches"](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12). Size-agnostic — applies to a single-item bug report too. ([detail](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12))
-3. **Non-trivial work?** Plan → multi-pass audit (Pass 1 factual / Pass 2 semantic+edge / Pass 3 lock-hygiene; min 2 passes, 3 for contexts/nav/locked decisions) → user "yes build" → build → self-audit → ship. Plan in chat or plan-file (file required for ≥3 files or state-machine change). NOT in subagent. ([detail](#plan-audit-standard-locked-2026-05-12))
+3. **Every chat purpose** runs the Chat Lifecycle Protocol: kickoff (purpose + plan + audit) → plan readiness gate → execute (amendment = re-audit) → verification (definition-of-done checklist) → close (uncovered-work register clean). Plan-audit Pass 1/2/3 inside Phase 1+3. Plan in chat or plan-file (file required for ≥3 files / state-machine / plan mode). NOT in subagent. **Compliance:** Phase declarations required at chat-open, every transition, every amendment. ([detail](#-chat-lifecycle-protocol-locked-2026-05-13)) ([plan-audit detail](#plan-audit-standard-locked-2026-05-12))
 4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md))
 5. **Off-roadmap / feature-creep request?** Push back plainly per the [PM enforcement rule](#feature-creep--off-track-enforcement-locked-2026-05-12). Recommend parking. Respect override only after user heard the cost. Counter-case: internal tooling ≠ feature creep.
 6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push, AND **Preview MCP mobile-viewport sanity check on visual ships** (UI/CSS/`.tsx` diff). Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
@@ -23,6 +23,146 @@
 - Jumped to "fix the strict X-button bug" without triage step
 - Almost shipped debug log push-back without considering tooling counter-case
 - Forgot to capture PM/feature-creep rule for several turns
+
+---
+
+## 🔄 Chat Lifecycle Protocol (locked 2026-05-13)
+
+> Every chat traverses 5 phases. Each phase has a gate. No phase advances until its gate passes. This protocol stitches the existing rules (plan-audit standard, handling feedback batches, close-out) into a single chat-arc with hard gates between phases.
+>
+> **Backbone:** The plan + audit pattern is the load-bearing piece of every phase. Audits catch gaps / assumptions / inconsistencies / concerns BEFORE code lands. This is not new — it's the early-project practice formalized.
+
+### Phase declarations — required output (the compliance-enforcement layer)
+
+The protocol on paper doesn't fix compliance. To make drift visible — and interruptible by the user mid-session — Claude **must explicitly declare the active phase in text** at three trigger points:
+
+**1. Chat open (first substantive response).** Format:
+
+```
+Phase 1 acknowledged.
+Purpose: <one sentence>
+Plan-of-record: <"loaded from .claude/plans/X.md" | "drafting this turn" | "inline, XS scope">
+Audit: <"pending" | "loaded clean" | "n/a — non-build chat">
+```
+
+**2. Every phase transition.** Format (one line):
+
+```
+→ Phase 2 (readiness gate): checklist running
+→ Phase 3 (execute): building per plan, N files
+→ Phase 4 (verify): tests + build + preview check
+→ Phase 5 (close): uncovered-work register pending review
+```
+
+**3. Every mid-build plan amendment.** Format (one line):
+
+```
+Amendment detected — <one sentence>. Re-audit required before continuing.
+```
+
+**Why this works:** A missing or wrong declaration is visible instantly. If the chat opens with code-editing instead of "Phase 1 acknowledged," that's a skipped phase the user catches in seconds. If amendments slip past without "Amendment detected," that's a skip the user catches. The user no longer has to remember which rules apply when — the declarations themselves are the reminder.
+
+**Override.** Trivial Q&A ("what does this commit do?") doesn't need declarations. But anything that touches code, docs, commits, or pushes MUST declare. When in doubt, declare.
+
+**Recovery when the user has to remind.** If the user has to prompt Claude back to a phase ("did you run the audit?", "are we in Phase 4 yet?"), the rule has already failed for that chat. The recovery is non-defensive: (a) acknowledge the skip in one sentence, (b) declare the phase Claude should have been in, (c) execute the missed gate before continuing. Don't apologize at length — the user's time is the cost; recover and move.
+
+### Phase 1 — Kickoff (chat opens)
+
+**Gate to pass: chat purpose is named and plan-of-record exists.**
+
+- Read CLAUDE.md + VISION.md + ROADMAP.md per RULES CARD #1
+- State the chat purpose back to the user in one sentence ("This chat tackles chunk 3.9 #5: journal gallery card format")
+- If user opened with `[continue from prev chat]` — load the handoff prompt; the purpose is whatever the handoff says
+- If user opened with new feedback or a new request — triage per "Handling feedback batches" (Step 0 search, then 🔵/🟣/❌ bucket) BEFORE drafting plan
+- Confirm or draft plan-of-record for the purpose
+  - Plan file at `.claude/plans/<branch>.md` if ≥3 files OR state-machine change OR plan mode active
+  - Inline-chat plan otherwise
+- Run audit passes per the plan-audit standard (2 minimum, 3 for state-touching / locked-decision changes)
+- Present plan + audit findings; wait for user "yes build" greenlight
+
+**Non-build chats** (Q&A, design discussion, exploratory ideation): Phases 2–4 are no-ops. Phase 1 still runs (state purpose) and Phase 5 still runs (capture decisions made into VISION/ROADMAP if any landed).
+
+**User override allowed.** If the user explicitly says "skip the audit, just ship X" or "don't plan, just answer," respect it — but flag the cost in one sentence ("OK, Phase-2-skip; if downstream X breaks, we won't have caught it") so the user has chosen knowingly.
+
+**Anti-pattern this phase catches:** purpose drift. Chat that opens with "let me fix this bug" without confirming the bug is the actual purpose, not pre-empting a different in-flight chunk.
+
+### Phase 2 — Plan readiness gate (before any code)
+
+**Gate to pass: every box below is checked.**
+
+- [ ] Purpose stated in one sentence
+- [ ] Acceptance criteria specific + testable (what changes for the user)
+- [ ] Files to be modified enumerated (path-level)
+- [ ] Edge cases listed (Pass 2 content)
+- [ ] Lock-hygiene confirmed if applicable — VISION §10 don't-touch, §11 parked, ROADMAP §6 (Pass 3 content)
+- [ ] Aesthetic decisions surfaced and answered (or explicitly deferred with note)
+- [ ] User "yes build" greenlight received
+
+If any box is unchecked, the chat does NOT advance to Phase 3. Return to Phase 1, address the gap, re-audit, re-present.
+
+### Phase 3 — Execute (build per plan, amendment = re-audit)
+
+**Gate to pass: build complete and matches plan; every amendment was re-audited.**
+
+- Build only what's in the plan
+- **ANY amendment** — change to scope, files, approach, or acceptance criteria — triggers a fresh Pass 1+2 in the plan file BEFORE the amendment's code is written
+  - Even small amendments ("oh, also need to update X") get the pass
+  - Why: this is the drift shape that produced ICON_MAP-not-imported and similar downstream bugs. Amendments slip past the rigor that the initial plan got.
+- Tests + local build before any commit
+- Pre-push Preview MCP visual check on UI/CSS diffs per "Pre-push visual verification"
+- Self-audit per WORKFLOW §4-6 audit loop
+
+**Urgent prod regressions discovered mid-chat are NOT amendments.** They're new purposes. Park the current purpose (write it to ROADMAP as 🟡 in-flight, including everything done so far) and start a fresh Phase 1 for the regression. Resume the parked purpose in a follow-up chat unless the user explicitly says "fix this and come back to the original."
+
+**Anti-pattern this phase catches:** plan-amendment drift. Feedback comes mid-build, scope shifts, plan in the file says one thing, code goes a different way, audit never re-runs on the difference.
+
+### Phase 4 — Verification (definition-of-done)
+
+**Gate to pass: every box below is checked OR explicitly noted as awaiting user verification.**
+
+- [ ] Tests pass (`npm run test:run`)
+- [ ] Local build clean (`npm run build` for M+ tasks; tests sufficient for XS/S)
+- [ ] Preview MCP mobile-viewport screenshot captured on visual changes (or skipped per the rule's documented conditions — auth-blocked, pure-logic, etc.)
+- [ ] No new console errors / warnings in Preview MCP logs introduced by the diff
+- [ ] Original purpose's acceptance criteria checked off **individually**, not as a batch claim
+- [ ] User-facing change has a verification path stated to user ("verified locally; need your phone confirmation on X")
+
+**"Done" is never declared on the user's behalf.** Locally-verified ≠ user-verified. Always frame the handoff as "verified locally, awaiting your confirmation on [specific test path]" until the user signs off.
+
+**Anti-pattern this phase catches:** premature "done" claim. Fix shipped, declared complete, regression surfaces in next chat because verification was a vibe-check not a checklist.
+
+### Phase 5 — Close (handoff)
+
+**Gate to pass: standard close-out protocol completes AND uncovered-work register is clean.**
+
+- Run the existing close-out protocol (steps 1-8 in "Session close-out protocol")
+- **NEW: Uncovered work register.** Walk the chat chronologically. Every out-of-scope discovery — every bug noticed in passing, every "we should also..." comment, every parked decision that re-surfaced, every user signal that didn't get acted on — is captured in ONE of:
+  - (a) ROADMAP.md as a 🟣 parked item or new chunk entry, OR
+  - (b) BUGS.md as a new U-numbered entry (or "re-flagged YYYY-MM-DD" on an existing one), OR
+  - (c) BACKLOG.md if post-MVP, OR
+  - (d) The next-chat handoff prompt directly if it's the next chat's purpose
+- If genuinely no uncovered work surfaced, say so in the handoff explicitly ("uncovered work register: clean, no new items"). Silence ≠ clean.
+- Close-out does NOT complete until the register is clean.
+
+**Anti-pattern this phase catches:** lost-thread close-out. Bug or signal noticed mid-chat, never written down, surfaces in the next chat as a "new" issue and the user has to re-explain context Claude already had.
+
+### How "non-trivial work" threshold changes
+
+**Old:** Plan-audit standard applied to "non-trivial work" (judgment call).
+**New:** Every chat purpose has a plan. Audit always runs.
+
+For XS purposes (one-line copy fix, single icon swap) the plan is 3 lines:
+- Purpose: <one sentence>
+- Files: <path:line>
+- Acceptance: <what's true after>
+
+The audit on that 3-line plan is also 3 lines (Pass 1 factual: does the file exist + does the line look right; Pass 2 semantic: any obvious edge case). Total overhead: 60-90 seconds. Cost is real but small; bug-chasing avoided is many hours per occurrence.
+
+For M+ purposes the existing plan-audit standard applies in full.
+
+### Why this rule exists
+
+User flagged 2026-05-13 that bug-chasing keeps recurring despite mature process docs. Root cause: rules exist but aren't stitched into a single chat-arc with hard gates, and Claude was drifting mid-chat without visible compliance signal. The protocol named here closes the gates explicitly. All four drift shapes the user identified have a phase that closes them: purpose drift (Phase 1), plan-amendment drift (Phase 2 + 3), premature "done" (Phase 4), lost-thread close-out (Phase 5). The Phase declarations subsection is the compliance-enforcement layer that makes drift visible to the user as it happens.
 
 ---
 
@@ -242,6 +382,8 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 ---
 
 ## Plan-audit standard (locked 2026-05-12)
+
+> **Threshold lowered 2026-05-13:** every chat purpose has a plan + audit, not just non-trivial work. XS purposes get a 3-line plan + ~60-90s audit. See [Chat Lifecycle Protocol](#-chat-lifecycle-protocol-locked-2026-05-13) for full chat-arc context including the compliance-enforcement Phase declarations.
 
 Every non-trivial plan runs **minimum 2 audit passes** before user greenlight. **3 passes** for changes touching: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6.
 
