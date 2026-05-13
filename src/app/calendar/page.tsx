@@ -43,6 +43,7 @@ const QuickLogModal = dynamic(
   { ssr: false }
 );
 import { supabase } from "@/lib/supabase";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -674,6 +675,26 @@ export default function CalendarPage() {
     });
   }, []);
 
+  /** All section keys ("overdue" + each date with content) used by the master expand-all toggle. */
+  const allDateKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (overdueTasks.length > 0) keys.push("overdue");
+    Object.keys(byDate).forEach((k) => keys.push(k));
+    if (isTodayInMonth && completedForToday.length > 0 && !keys.includes(todayStr)) {
+      keys.push(todayStr);
+    }
+    return keys;
+  }, [overdueTasks.length, byDate, isTodayInMonth, completedForToday.length, todayStr]);
+
+  const isAllExpanded = allDateKeys.length > 0 && allDateKeys.every((k) => expandedDateGroups.has(k));
+
+  const handleToggleAll = useCallback(() => {
+    setExpandedDateGroups((prev) => {
+      const allOpen = allDateKeys.length > 0 && allDateKeys.every((k) => prev.has(k));
+      return allOpen ? new Set() : new Set(allDateKeys);
+    });
+  }, [allDateKeys]);
+
   /** Consolidate overdue tasks by (title, plant_profile_id, grow_instance_id, user_id). user_id is in the key so household members' identical tasks don't merge in family view. */
   const overdueGroups = useMemo(() => {
     const groupMap = new Map<string, typeof overdueTasks>();
@@ -1222,6 +1243,17 @@ export default function CalendarPage() {
                 Show all
               </button>
             )}
+            {!selectedDate && allDateKeys.length > 0 && (
+              <button
+                type="button"
+                onClick={handleToggleAll}
+                className="absolute right-4 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                aria-label={isAllExpanded ? "Collapse all sections" : "Expand all sections"}
+                aria-expanded={isAllExpanded}
+              >
+                <ICON_MAP.ChevronDown className={`w-5 h-5 transition-transform duration-200 ease-out ${isAllExpanded ? "rotate-180" : "rotate-0"}`} />
+              </button>
+            )}
           </div>
           {!selectedDate &&
           overdueTasks.length === 0 &&
@@ -1312,7 +1344,11 @@ export default function CalendarPage() {
                     </span>
                     <span className="text-amber-700 text-sm shrink-0">{expandedDateGroups.has("overdue") ? "Hide" : "Show"}</span>
                   </button>
-                  {expandedDateGroups.has("overdue") && (
+                  <div
+                    className="grid transition-[grid-template-rows] duration-200 ease-out"
+                    style={{ gridTemplateRows: expandedDateGroups.has("overdue") ? "1fr" : "0fr" }}
+                  >
+                    <div className="overflow-hidden min-h-0">
                     <div className="px-4 pb-4 space-y-2 bg-amber-50/30">
                       {overdueGroups.map(({ key, tasks: groupTasks }) => {
                         if (groupTasks.length === 1) {
@@ -1391,7 +1427,8 @@ export default function CalendarPage() {
                         );
                       })}
                     </div>
-                  )}
+                    </div>
+                  </div>
                 </li>
               )}
               {(() => {
@@ -1431,7 +1468,11 @@ export default function CalendarPage() {
                         </span>
                         <span className="text-emerald-600 text-sm shrink-0">{isExpanded ? "Hide" : "Show"}</span>
                       </button>
-                      {isExpanded && (
+                      <div
+                        className="grid transition-[grid-template-rows] duration-200 ease-out"
+                        style={{ gridTemplateRows: isExpanded ? "1fr" : "0fr" }}
+                      >
+                        <div className="overflow-hidden min-h-0">
                         <div className="px-4 pb-4 space-y-2">
                           {dayTasks.map((t) => (
                             <CalendarTaskRow
@@ -1466,7 +1507,8 @@ export default function CalendarPage() {
                             </div>
                           )}
                         </div>
-                      )}
+                        </div>
+                      </div>
                     </li>
                   );
                 });
