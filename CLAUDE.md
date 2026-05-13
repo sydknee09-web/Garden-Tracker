@@ -36,14 +36,19 @@
 
 The protocol on paper doesn't fix compliance. To make drift visible — and interruptible by the user mid-session — Claude **must explicitly declare the active phase in text** at three trigger points:
 
-**1. Chat open (first substantive response).** Format:
+**1. Chat open (first substantive response).** Format (expanded 2026-05-13 with in-scope / out-of-scope / success-criteria fields, adopted from voyager_sanctuary):
 
 ```
 Phase 1 acknowledged.
 Purpose: <one sentence>
+In-scope: <what gets touched this chat>
+Out-of-scope: <what's explicitly NOT this chat — counter-creep guard>
+Success criteria: <how we know it's done>
 Plan-of-record: <"loaded from .claude/plans/X.md" | "drafting this turn" | "inline, XS scope">
 Audit: <"pending" | "loaded clean" | "n/a — non-build chat">
 ```
+
+For XS / non-build chats, In-scope / Out-of-scope / Success criteria can be 1-liners or "n/a — Q&A only." The structure stays even when values are minimal — explicit Out-of-scope is the counter-creep guard the user can interrupt if Claude tries to expand mid-chat.
 
 **2. Every phase transition.** Format (one line):
 
@@ -145,7 +150,16 @@ If any box is unchecked, the chat does NOT advance to Phase 3. Return to Phase 1
 - **Rule A — Explicit-approval asks on recommendations (locked 2026-05-13).** Any recommendation, option, or alternative Claude surfaces during a chat that isn't auto-shipped to docs MUST be converted to an explicit `AskUserQuestion` at close-out — not described as "your call" / "your option" / "you can decide" text. *Auto-shipped* = changes the user greenlit via ExitPlanMode and Claude implemented (no separate ask needed). *Not auto-shipped* = optional tools, deferred choices, mentioned-in-passing alternatives (explicit ask required at close). **When the ask comes, the rule/option content MUST be self-contained in the question text** — the question UI is a separate view from chat scrollback, so references like "approve Rule A" without embedded content are themselves a loose end. Why: the user copy-pastes the handoff and moves on; vague text-mentions get lost.
 - **Rule B — Tie-out-loose-ends gate (locked 2026-05-13).** Phase 5 close-out does NOT complete until every open question / recommendation / unanswered decision raised during the chat is either (a) explicitly asked via `AskUserQuestion` with answer captured, OR (b) explicitly written into the next-chat handoff prompt as a queued decision for next session **with a clear ask attached**. Vague directional language ("your call", "consider this", "you can decide later") doesn't satisfy the gate. The gate is binary: every loose end is answered now or queued for next chat with a clear ask attached.
 - **Rule C — Recommended option marker on every AskUserQuestion (locked 2026-05-13).** Every `AskUserQuestion` Claude sends to the user MUST mark Claude's recommended option clearly. The recommended option goes FIRST in the option list, with `(Recommended)` appended to its label. If Claude genuinely has no preference between options (rare), state that explicitly in the question text — don't omit the marker silently. **Applies to every `AskUserQuestion` in the chat, not just close-out ones** (placed in Phase 5 for emphasis since AskUserQuestion is most frequent at close-out). Reinforces RULES CARD #4 "Don't decide silently": even when the user is choosing, Claude's recommendation must be visible so the user can factor it into their analysis.
-- Close-out does NOT complete until ALL gates pass (uncovered-work register clean + Rule A asks made + Rule B loose-ends tied out + every AskUserQuestion sent this chat had a (Recommended) marker per Rule C).
+- **3 buckets at every close-out (locked 2026-05-13, adopted from voyager_sanctuary).** Every Phase 5 close — handoff OR in-place — must explicitly enumerate three buckets, even when empty:
+  - **(a) Parked items added this chat** (with ROADMAP location / link / U-number reference)
+  - **(b) Deferred audits / known follow-ups** (things flagged but not acted on this chat — e.g. "U12 still pending decision," "icon density still parked")
+  - **(c) Dogfood-style findings** (user-experience signals captured this chat — e.g. "user flagged X feels slow," "user mentioned Y twice across recent chats")
+  
+  Empty bucket → say "none this chat" explicitly. Silence ≠ empty.
+- **Two close-out shapes (locked 2026-05-13, adopted from voyager_sanctuary).** Pick the shape based on what comes next:
+  - **Handoff shape (new chat starting):** full handoff prompt — git preflight (branch state, pending pushes) + required reads (CLAUDE.md / VISION.md / ROADMAP.md) + current state (what shipped + what's in flight) + first task (paste-able Phase 1 starter) + do-not-touch list (anything user has explicitly parked or marked sensitive) + 3 buckets.
+  - **In-place close shape (sub-purpose completion mid-chat, no new chat starting):** shipment recap — commits shipped this sub-purpose + memory adds / edits + rule changes + 3 buckets. No preflight or required-reads (same chat continues).
+- Close-out does NOT complete until ALL gates pass (uncovered-work register clean + Rule A asks made + Rule B loose-ends tied out + every AskUserQuestion this chat had a (Recommended) marker per Rule C + 3 buckets enumerated + correct close-out shape used).
 
 **Anti-pattern this phase catches:** lost-thread close-out. Bug or signal noticed mid-chat, never written down, surfaces in the next chat as a "new" issue and the user has to re-explain context Claude already had. PLUS recommendation-drift: chat surfaces an optional thing in passing, doesn't ask, user copy-pastes handoff and moves on with no decision captured.
 
@@ -389,6 +403,8 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 > **Threshold lowered 2026-05-13:** every chat purpose has a plan + audit, not just non-trivial work. XS purposes get a 3-line plan + ~60-90s audit. See [Chat Lifecycle Protocol](#-chat-lifecycle-protocol-locked-2026-05-13) for full chat-arc context including the compliance-enforcement Phase declarations.
 >
 > **Iterative-loop clarification 2026-05-13:** Audit is iterative, not one-shot. Each pass that surfaces concerns triggers: (a) revise the plan to address the concerns, (b) re-run the audit pass on the revised plan, (c) repeat until the pass returns clean (no findings, OR only immaterial findings per WORKFLOW.md). Stopping after a single failed pass is the failure mode — the gate is "audit clean," not "audit attempted." Treat "minimum 2 audit passes" as the FLOOR per audit cycle; the LOOP runs until clean.
+>
+> **Strict clean-pass clause (locked 2026-05-13, adopted from voyager_sanctuary):** "fixed inline during audit + declared clean" does NOT satisfy the gate. After every revision (no matter how small), the pass must be RE-RUN on the revised plan from the top of that pass type. The clean pass is on the AS-WRITTEN-NOW plan, not on the audit-log-with-inline-fixes-noted. Prevents the failure where Claude finds a concern in Pass 1, fixes it inline in the audit log, declares "Pass 1 clean," and moves on without actually re-running Pass 1 on the revised plan.
 
 Every non-trivial plan runs **minimum 2 audit passes** before user greenlight. **3 passes** for changes touching: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6.
 
@@ -458,6 +474,23 @@ On visual ships — anywhere the diff touches `.tsx`/`.jsx`/`.css`/`tailwind.con
 ### Why this rule exists
 
 User pattern: the user is the QA. She catches mobile-specific regressions on her phone after every push. The verification check shifts some of that load left — catches the easy stuff in ~30s before push so she only encounters the genuinely Android/iOS-platform-specific issues. Honest framing: it would NOT have caught U21 (webkit pseudo), U22 (hardware back), or U23 (100vh quirk) — but it WOULD have caught a generic overflow / cutoff bug at mobile width if the root cause had been viewport-math-honoring CSS.
+
+---
+
+## Capability honesty (locked 2026-05-13)
+
+Claude does not offer capabilities it doesn't have. Overstating capability creates a confused split of responsibility — the user thinks Claude will do X, Claude can't actually do X, and the work falls into the gap.
+
+**Examples on this project:**
+
+- ❌ "I'll pull the mobile logs." Claude can't access the user's phone. The user taps and pastes via the debug log page at `/settings/developer/debug-log` → Copy all. Honest framing: *"I can analyze the log if you paste it. The debug log page captures the last 50 console messages this session — open it, hit Copy all, paste here."*
+- ❌ "I'll verify on real Android." Preview MCP simulates Chrome but doesn't replicate Android-specific quirks (100vh URL-bar math, webkit pseudo-element rendering, hardware back behavior). U21 / U22 / U23 were exactly these gaps. Honest framing: *"Preview MCP will catch generic overflow + console errors at the right viewport. Real Android quirks (100vh, webkit pseudos, hardware back) need your phone — I'll flag what I can't simulate."*
+- ❌ "I'll check production." Claude can't make HTTP requests to deployed `garden-tracker-cyan.vercel.app` unless WebFetch is explicitly invoked with a specific URL the user provides. Even then, no JS execution / no auth session / no user data. Honest framing: *"I can't see your prod state directly. If you paste the network response or take a screenshot of the issue, I can diagnose from there."*
+- ❌ "I'll set up the hook." Claude can write `.claude/settings.json` and commit it from main repo via `git -C` (as done 2026-05-13 for `3845dc6`). But Claude can't change the user's local Claude Code session to apply the hook to THIS chat — the hook activates in NEXT chats only. Honest framing: *"Setting up the hook now; it'll take effect when you open a new chat."*
+
+**When tempted to offer a capability:** check what Claude CAN do instead and reframe. Say "I can X if you Y" not "I'll do X." Honest framing prevents the user from waiting on something Claude isn't going to deliver.
+
+**Why this rule exists:** observed pattern in voyager_sanctuary project; adopted here because Garden Tracker has the same shape (mobile-only PWA, deployed Vercel, debugging via user's phone). User shouldn't have to chase Claude's overpromises.
 
 ---
 
