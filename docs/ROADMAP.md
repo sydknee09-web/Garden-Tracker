@@ -14,7 +14,7 @@
 
 ## 1. Current focus
 
-**As of 2026-05-12 — Chunk 3.9 #2 + #4 batch shipped (`3de1c2c`). Item #3 (garden card spacing) moved to §4 Parked with diagnosis + 3 fix options preserved. Journal flicker bug repro still pending. 3 remaining current-build items in chunk 3.9: #5 (journal card format = U13), #7 (plant profile no-AI fallback), #8 (= U12).**
+**As of 2026-05-12 — Chunk 3.9 #2 + #4 batch shipped (`3de1c2c`) + doc commit (`c744c8b`) — both LOCAL, push to `origin/main` pending. Item #3 (garden card spacing) moved to §4 Parked. User-delivered doc audit received and triaged into new §3.10 (doc hygiene cleanup) — R1-R5 strict fixes ready to ship; R6-R8 + D1/D2 need user decisions. Journal flicker bug repro still pending. 3 remaining current-build items in chunk 3.9: #5, #7, #8.**
 
 ### Just shipped this session
 
@@ -306,6 +306,41 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
+### 3.10 🔵 Doc hygiene cleanup — 2026-05-12 audit findings
+
+**Status:** Triaged from user-delivered audit pasted 2026-05-12 (separate audit pass, possibly run in another session). All findings cross-referenced against existing ROADMAP/VISION/BUGS captures — most are new. Strict drift items can ship as a single doc-only commit; structural items need scope decisions; D1/D2 need user input.
+
+**Strict fixes — 🔵 ready (no aesthetic decisions, ship batch as single doc commit):**
+
+- **R1** — `CLAUDE.md` line 81: test count `329/329` → `387/387`. Verified via `npm run test:run` 2026-05-12.
+- **R2** — `docs/WORKFLOW.md` line 3: "Seed Vault" → "Garden Tracker" (rename happened pre-VISION-v4); bump stamp to 2026-05-12.
+- **R3** — `docs/BUGS.md`: U1 ("Set up your zone" widget) + U3 (variety dropdown alphabetical) are silently fixed in code. Move to "Resolved (Closed)" with verification notes. Verified: no zone widget in `src/app/page.tsx`; `src/components/QuickAddSeed.tsx:213` uses `localeCompare` for variety sort.
+- **R4** — `docs/BUGS.md` stamp: "Last updated: 2026-05-07" → 2026-05-12 (file contains U21-U23 from this week).
+- **R5** — `docs/VISION.md` §11 icon density: "~25+ icons" → "42 icons" (actual count in `ICON_MAP`). Recommendation direction unchanged.
+
+**Structural fixes — 🔵 needs scoping (user input on shape):**
+
+- **R6** — `docs/PROJECT_STATUS.md` is pre-VISION-v4 (claims "Seed Vault" identity, Phase 0-9 taxonomy, 329 tests, stamped 2026-04-06) but cited as canonical by `WORKFLOW.md:215` + `BACKLOG.md:7`. **Decision needed:** banner at top "ARCHIVED"? rename `PROJECT_STATUS.archive.md`? move to `docs/archive/`? Update the 2 citations to point at ROADMAP.md regardless.
+- **R7** — `docs/WORKFLOW.md` missing 5 procedural rules locked 2026-05-11/12 (Plan-audit 3-pass, Pre-push visual check, Feedback-batch triage Step 0, PM/feature-creep, Roadmap maintenance). All in CLAUDE.md but absent from WORKFLOW.md. **Decision needed:** thin pointer (one-line refs to CLAUDE.md sections) vs full duplication (single source ambiguity risk). Recommend pointer approach.
+- **R8** — `docs/BACKLOG.md:7` references `.cursor/plans/remaining_steps_roadmap.plan.md` (pre-Claude-Code Cursor IDE era, incompatible Phase taxonomy). Remove citation.
+
+**Future / parked — 🟣 in §4:**
+
+- **D1** — ~30 legacy docs in `docs/` folder (AI_FLOWS.md, AI_PROCESS_AUDIT.md, FULL_APP_AUDIT.md, AUDIT-2025-02.md, etc.) of unclear provenance — none referenced by canonical docs but sit alongside them. **Recommended approach:** bulk-move pre-VISION-v4 docs to `docs/archive/` so `docs/` shows only active+canonical. Full content audit is correct long-term but high cost — defer.
+- **D2** — `.claude/settings.json` doesn't exist at repo root despite `docs/CLAUDE_CODE_SETUP.md` describing the optional `UserPromptSubmit` hook for the rules-card injection. User-optional; surface whether to enable.
+
+**Cross-reference / low-risk:**
+
+- BUGS.md timestamp stale (covered by R4).
+- ROADMAP §1 says "Journal flicker bug repro still pending" — confirm whether still next action.
+- VISION §11 Calendar task fatigue parking framing could tighten now that chunk 3.9 #1 (expand-all toggle) shipped (`6d76c20`).
+
+**Effort:** R1-R5 are 5 doc edits (~20 min total). R6-R8 + D1 need user decisions before execution.
+
+**Source:** User-delivered audit document 2026-05-12. Full audit preserved in this session's transcript for reference.
+
+---
+
 ### Later (🕐 long-term aspirational, in priority-ish order)
 
 - **Pest / illness ID camera + Q&A + treatment recs.** Likely paid tier. Differentiator.
@@ -382,6 +417,7 @@ Chronological log of key decisions made during design and build. New decisions a
 
 ### 2026-05-12
 
+- **User-delivered doc audit received and triaged into §3.10.** External audit (possibly run in another Claude session) flagged 7 🔴 strict drift items (test count 329 vs 387, WORKFLOW.md "Seed Vault" stale name, BUGS U1+U3 silently fixed, BUGS+VISION stale stamps, icon count ~25+ vs 42), 3 🟠 structural items (PROJECT_STATUS.md canonical-vs-archived ambiguity, WORKFLOW.md missing 5 procedural rules from 2026-05-11/12, BACKLOG.md `.cursor/plans/` ref), and 2 🟣 future items (~30 legacy docs disposition, optional `.claude/settings.json` setup). All cross-referenced — most are new captures. Strict fixes (R1-R5) ready to ship as one doc commit in next session; structural fixes (R6-R8) + future (D1-D2) need scoping decisions. Audit document itself is preserved in this session's transcript.
 - **Chunk 3.9 #2 + #4 batch shipped (`3de1c2c`).** Two XS fixes bundled per WORKFLOW §"Batching small fixes." **#2 calendar arrows:** hidden below `xl:1280px` via `hidden xl:flex` matching B1/B2 family. Alternative breakpoints considered: `lg:1024px` (would split iPad-landscape inconsistently with the rest of the desktop pass), always-hidden (would require keyboard-arrow nav on desktop — out of scope). `xl:` won on cohesion grounds. **#4 garden trigger icon:** swapped to `ICON_MAP.Edit` (pen with motion). Alternatives `Journal` (lined paper), `Pencil`, and a new composite `Journal+Plus` overlay were considered; `Edit` won on (a) zero new icon work (already in styleDictionary), (b) strongest "log/write" semantic, (c) visually distinct from all 10 entry-type markers (no basket curve, no leaf, no droplet). Scope A locked over Scope B (also retag the `care` marker) and Scope C (full entry-type vocabulary audit) — user opted for minimal scope. The secondary cohesion question (Harvest basket + JournalCareHands cupped curve reading as same family within the entry-type set) is now visible and noted for future Phase 6 design-system pass.
 - **ROADMAP §3.9 #3 (garden card spacing) parked for future batch.** User identified the empty-space-below-short-names issue, Claude diagnosed `min-h-[1.75rem]` on the h3 at `ActiveGardenView.tsx:1075` as the root cause, and 3 fix options were surfaced with trade-offs (remove min-h / reduce / move space via justify-end). User opted to think through the alignment-vs-tightness trade-off in its own batch rather than bundle with #2+#4. Parked entry in §4 preserves the full diagnosis + options so future-Claude doesn't re-discover them.
 - **ROADMAP §3.9 #4 mis-triage learning.** During the 2026-05-12 12-item batch triage, the user's "bag icon" feedback was assumed to be the shopping-list icon in the mobile header. Actual surface was `JournalCareHands` on Garden plant cards (at small sizes the cupped-hands silhouette reads as a basket/bag). Mismatch surfaced when planning chunk 3.9 #4 — Claude initially walked through shopping-list icon candidates (cart/basket/checklist/clipboard); user corrected to the garden trigger surface. Reinforcement of the existing "search existing captures FIRST + clarify ambiguous items before locking triage" rule — when a vague visual cue ("bag") could plausibly map to multiple surfaces, ask user to clarify the surface during triage. Captured here for decision-log visibility, not in CLAUDE.md (rule already exists).
