@@ -82,7 +82,7 @@ Amendment detected — <one sentence>. Re-audit required before continuing.
 - Confirm or draft plan-of-record for the purpose
   - Plan file at `.claude/plans/<branch>.md` if ≥3 files OR state-machine change OR plan mode active
   - Inline-chat plan otherwise
-- Run audit passes per the plan-audit standard (2 minimum, 3 for state-touching / locked-decision changes)
+- Run all required audit pass-types iteratively until clean per the plan-audit standard (2 pass-types baseline, 3 for state-touching / locked-decision changes; the LOOP runs until clean — no cap on pass-runs)
 - Present plan + audit findings; wait for user "yes build" greenlight
 
 **Non-build chats** (Q&A, design discussion, exploratory ideation): Phases 2–4 are no-ops. Phase 1 still runs (state purpose) and Phase 5 still runs (capture decisions made into VISION/ROADMAP if any landed).
@@ -408,7 +408,12 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 >
 > **Cite-by-path practice (locked 2026-05-13, adopted from voyager_sanctuary).** When a plan references existing functions, files, components, or rules, cite by path — e.g. `[ActiveGardenView.tsx:1094](src/components/ActiveGardenView.tsx:1094)` or `VISION.md §10`. Already common practice on this project; codifying it ensures it's not skipped when the plan is in chat-form (where there's less structural pressure to cite). Cite-by-path is the Pass 1 factual-verification anchor: if Claude cites `ICON_MAP.ChevronDown`, the audit can grep that path to confirm the export exists in the target file.
 
-Every non-trivial plan runs **minimum 2 audit passes** before user greenlight. **3 passes** for changes touching: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6.
+Every non-trivial plan runs all required pass-TYPES iteratively until clean. The 2-vs-3 distinction below is about REQUIRED pass-TYPES, NOT a cap on total pass-runs.
+
+- **Baseline (every plan):** Pass 1 — Factual + Pass 2 — Semantic + edge (2 pass-types required).
+- **Add Pass 3 — Lock hygiene** for state-touching changes: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6 (3 pass-types required).
+
+Each required pass-type runs iteratively per the iterative-loop + strict-clean-pass clauses above: find concerns → revise plan → re-run THAT pass-type on the revised plan → loop until it returns clean or only immaterial findings. **There is no cap on total pass-runs. The cap is on which pass-TYPES are required (2 or 3 types). Within each type, run as many times as needed until clean.**
 
 ### The three passes
 
