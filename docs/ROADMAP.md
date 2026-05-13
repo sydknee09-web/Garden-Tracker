@@ -14,7 +14,7 @@
 
 ## 1. Current focus
 
-**As of 2026-05-13 — Chat Lifecycle Protocol locked into CLAUDE.md (5 phases + Phase declarations as the compliance-enforcement layer) — this commit. §3.10 R1-R5 doc-drift batch shipped earlier today (`884cf9d`). All prior commits (`3de1c2c`, `c744c8b`, `5c9cdf9`, `884cf9d`, `4b333ea`) now on `origin/main`. Item #3 (garden card spacing) parked in §4. R6-R8 + D1/D2 from the user-delivered audit still need scoping decisions. Journal flicker bug repro from `7482c59` still pending. 3 remaining current-build items in chunk 3.9: #5, #7, #8.**
+**As of 2026-05-13 (end-of-session) — MAJOR rules-and-process session: 7 commits shipped to `origin/main` locking the Chat Lifecycle Protocol + Rules A/B/C + 5 voyager_sanctuary adoptions + iterative-audit-loop + UserPromptSubmit hook. Commits: `565d281` (protocol) → `8ead0ae` (Rules A+B) → `e0790b9` (CLAUDE_CODE_SETUP mirror) → `3845dc6` (hook enabled) → `6daefb2` (Rule C + iterative-loop) → `dcd6264` (4 voyager adoptions) → `a28f6e9` (cite-by-path). Earlier today: `884cf9d` + `4b333ea` for §3.10 R1-R5 doc-drift batch. Item #3 (garden card spacing) parked in §4. R6-R8 + D1/D2 from the user-delivered audit still need scoping decisions. Journal flicker bug repro from `7482c59` still pending. 3 remaining current-build items in chunk 3.9: #5, #7, #8. **Next session focus:** pick a purpose from journal flicker / chunk 3.9 / §3.10 hygiene; new chat will open with the Phase declarations + UserPromptSubmit hook active.**
 
 ### Just shipped this session
 
