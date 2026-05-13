@@ -78,7 +78,7 @@
 
 ## Project commands
 
-- `npm run test:run` — run all unit tests. Must pass before commit. Currently 329/329 passing.
+- `npm run test:run` — run all unit tests. Must pass before commit. Currently 387/387 passing.
 - `npm run build` — local build (use to catch type errors before push).
 - `npm run dev` — local dev server.
 - `git push origin main` — Vercel auto-deploys from main.

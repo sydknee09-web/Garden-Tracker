@@ -14,7 +14,7 @@
 
 ## 1. Current focus
 
-**As of 2026-05-12 — Chunk 3.9 #2 + #4 batch shipped (`3de1c2c`) + doc commit (`c744c8b`) — both LOCAL, push to `origin/main` pending. Item #3 (garden card spacing) moved to §4 Parked. User-delivered doc audit received and triaged into new §3.10 (doc hygiene cleanup) — R1-R5 strict fixes ready to ship; R6-R8 + D1/D2 need user decisions. Journal flicker bug repro still pending. 3 remaining current-build items in chunk 3.9: #5, #7, #8.**
+**As of 2026-05-13 — §3.10 R1-R5 doc-drift batch shipped (this commit); `3de1c2c` + `c744c8b` + `5c9cdf9` all on `origin/main`. Item #3 (garden card spacing) parked in §4. R6-R8 + D1/D2 from the user-delivered audit still need scoping decisions. Journal flicker bug repro still pending. 3 remaining current-build items in chunk 3.9: #5, #7, #8.**
 
 ### Just shipped this session
 
@@ -308,15 +308,15 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ### 3.10 🔵 Doc hygiene cleanup — 2026-05-12 audit findings
 
-**Status:** Triaged from user-delivered audit pasted 2026-05-12 (separate audit pass, possibly run in another session). All findings cross-referenced against existing ROADMAP/VISION/BUGS captures — most are new. Strict drift items can ship as a single doc-only commit; structural items need scope decisions; D1/D2 need user input.
+**Status:** Triaged from user-delivered audit pasted 2026-05-12 (separate audit pass, possibly run in another session). All findings cross-referenced against existing ROADMAP/VISION/BUGS captures — most are new. **R1-R5 strict drift batch shipped 2026-05-13** as a single doc-only commit; R6-R8 structural items still need scope decisions; D1/D2 need user input.
 
-**Strict fixes — 🔵 ready (no aesthetic decisions, ship batch as single doc commit):**
+**Strict fixes — ✅ shipped 2026-05-13 (no aesthetic decisions, single doc commit):**
 
-- **R1** — `CLAUDE.md` line 81: test count `329/329` → `387/387`. Verified via `npm run test:run` 2026-05-12.
-- **R2** — `docs/WORKFLOW.md` line 3: "Seed Vault" → "Garden Tracker" (rename happened pre-VISION-v4); bump stamp to 2026-05-12.
-- **R3** — `docs/BUGS.md`: U1 ("Set up your zone" widget) + U3 (variety dropdown alphabetical) are silently fixed in code. Move to "Resolved (Closed)" with verification notes. Verified: no zone widget in `src/app/page.tsx`; `src/components/QuickAddSeed.tsx:213` uses `localeCompare` for variety sort.
-- **R4** — `docs/BUGS.md` stamp: "Last updated: 2026-05-07" → 2026-05-12 (file contains U21-U23 from this week).
-- **R5** — `docs/VISION.md` §11 icon density: "~25+ icons" → "42 icons" (actual count in `ICON_MAP`). Recommendation direction unchanged.
+- **R1** — `CLAUDE.md` line 81: test count `329/329` → `387/387`. Verified via `npm run test:run` 2026-05-12. ✅ **Shipped 2026-05-13**
+- **R2** — `docs/WORKFLOW.md` line 3: "Seed Vault" → "Garden Tracker" (rename happened pre-VISION-v4); bump stamp to 2026-05-12. ✅ **Shipped 2026-05-13**
+- **R3** — `docs/BUGS.md`: U1 ("Set up your zone" widget) + U3 (variety dropdown alphabetical) are silently fixed in code. Move to "Resolved (Closed)" with verification notes. Verified: no zone widget in `src/app/page.tsx`; `src/components/QuickAddSeed.tsx:213` uses `localeCompare` for variety sort. ✅ **Shipped 2026-05-13** (variance from audit: applied inline `✅ Fixed (verified date)` annotations on U1/U3 rows in-place, matching the in-file U21-U23 convention rather than physically moving rows to the Resolved table).
+- **R4** — `docs/BUGS.md` stamp: "Last updated: 2026-05-07" → 2026-05-12 (file contains U21-U23 from this week). ✅ **Shipped 2026-05-13**
+- **R5** — `docs/VISION.md` §11 icon density: "~25+ icons" → "42 icons" (actual count in `ICON_MAP`). Recommendation direction unchanged. ✅ **Shipped 2026-05-13** (factual count only — decision substance preserved verbatim, see §6 2026-05-13 lock-hygiene note).
 
 **Structural fixes — 🔵 needs scoping (user input on shape):**
 

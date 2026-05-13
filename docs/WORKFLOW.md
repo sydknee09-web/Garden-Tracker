@@ -1,8 +1,8 @@
 # Workflow
 
-How we work on Seed Vault. Short reference — read once, refer back when needed.
+How we work on Garden Tracker. Short reference — read once, refer back when needed.
 
-**Last updated:** 2026-05-07
+**Last updated:** 2026-05-12
 
 ---
 

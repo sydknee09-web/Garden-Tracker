@@ -1,6 +1,6 @@
 # Known Issues & Bug Triage
 
-**Last updated:** 2026-05-07 (live user feedback session — see "User-reported issues" section below)
+**Last updated:** 2026-05-12 (U21-U23 added; U1+U3 closure-verified)
 **Owner:** Part 5 (Bug Fix and Hardening)
 
 All items are triaged as **must-fix before release**, **post-launch**, or **user-reported (2026-05-07)**. Must-fix items are tracked here until closed; post-launch items move to [BACKLOG.md](BACKLOG.md) when deferred.
@@ -51,9 +51,9 @@ Concrete, reproducible issues raised during a live testing session. Each is cont
 
 | # | Surface | Issue | Likely fix | Effort |
 |---|---------|-------|------------|--------|
-| U1 | Home — Quick Start | "Set up your zone" step persists after zone is set in `user_settings` | Read `user_settings.planting_zone` and gate the step | ~1h |
+| U1 | Home — Quick Start | "Set up your zone" step persists after zone is set in `user_settings`. ✅ **Fixed (verified 2026-05-12)** — "Set up your zone" string absent from `src/app/page.tsx` and entire `src/`; widget removed. | Read `user_settings.planting_zone` and gate the step | ~1h |
 | U2 | FAB sub-modals | Background visible & interactable behind sub-modal (e.g., open "Add Seed", parent menu still scrollable) | Audit modal scroll-lock + backdrop primitive globally — likely affects all modals (see PRODUCT_AUDIT Pattern 4) | ~2-4h (one-time, app-wide) |
-| U3 | QuickAddSeed manual | Variety dropdown not alphabetical — hard to find entries | Sort the array before render | ~10 min |
+| U3 | QuickAddSeed manual | Variety dropdown not alphabetical — hard to find entries. ✅ **Fixed (verified 2026-05-12)** — `src/components/QuickAddSeed.tsx:213` sorts via `localeCompare(a, b, undefined, { sensitivity: "base" })` before render. | Sort the array before render | ~10 min |
 | U4 | Journal page header | "Journal" truncates to "Jou..." on small screens | Responsive header sizing or shorter label | ~30 min |
 | U5 | Active Garden gallery cards | Plant names clip from the LEFT ("rtichoke", "umber", "mato") | Switch to right-side ellipsis (`text-overflow: ellipsis; overflow: hidden; white-space: nowrap`) — likely affects other surfaces too (see Pattern 7) | ~30 min |
 | U6 | FAB main vs submenus | Main menu icons styled differently from submenu icons | Unify under ICON_MAP — part of design system pass | Bundle with U10 |
