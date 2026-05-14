@@ -187,7 +187,7 @@ For XS purposes (one-line copy fix, single icon swap) the plan is 3 lines:
 - Files: <path:line>
 - Acceptance: <what's true after>
 
-The audit on that 3-line plan is also 3 lines (Pass 1 factual: does the file exist + does the line look right; Pass 2 semantic: any obvious edge case). Total overhead: 60-90 seconds. Cost is real but small; bug-chasing avoided is many hours per occurrence.
+The audit on that 3-line plan is also 3 lines (Pass 1 factual: does the file exist + does the line look right; Pass 2 concerns-hunt: state 1-2 hunt categories for the change + check each). Total overhead: 60-90 seconds. Cost is real but small; bug-chasing avoided is many hours per occurrence.
 
 For M+ purposes the existing plan-audit standard applies in full.
 
@@ -426,7 +426,7 @@ Rationale: forcing per-push greenlight on every doc capture creates friction wit
 
 Every non-trivial plan runs all required pass-TYPES iteratively until clean. The 2-vs-3 distinction below is about REQUIRED pass-TYPES, NOT a cap on total pass-runs.
 
-- **Baseline (every plan):** Pass 1 — Factual + Pass 2 — Semantic + edge (2 pass-types required).
+- **Baseline (every plan):** Pass 1 — Factual + Pass 2 — Concerns / gaps / inconsistencies hunt (2 pass-types required).
 - **Add Pass 3 — Lock hygiene** for state-touching changes: React contexts (`UniversalAddContext`, `AuthContext`, `SyncContext`, `HouseholdContext`, `OnboardingContext`), Next App Router navigation, VISION.md §10 don't-touch list, VISION.md §11 parked decisions, or any locked decision in ROADMAP.md §6 (3 pass-types required).
 
 Each required pass-type runs iteratively per the iterative-loop + strict-clean-pass clauses above: find concerns → revise plan → re-run THAT pass-type on the revised plan → loop until it returns clean or only immaterial findings. **There is no cap on total pass-runs. The cap is on which pass-TYPES are required (2 or 3 types). Within each type, run as many times as needed until clean.**
@@ -435,7 +435,13 @@ Each required pass-type runs iteratively per the iterative-loop + strict-clean-p
 
 **Pass 1 — Factual.** Every code reference exists. Imports resolve in the target file (verified via Grep, not memory). Functions/utilities/hooks I name are real. API signatures match actual code. Asset paths match disk. Tailwind classes are valid utilities or arbitrary-value syntax. *This is the pass that catches "I planned `ICON_MAP.ChevronDown` but `ICON_MAP` isn't imported in this file" — see drift note below.*
 
-**Pass 2 — Semantic + edge.** Behavior correctness. State transitions traced step-by-step. Edge cases handled: empty, null, many, race conditions, async ordering, double-fire. **For state-machine changes** (anything that changes how state evolves over time — hooks, reducers, refs-as-state, mode flags, multi-screen menus), Pass 2 is REQUIRED and must include a 3-5 bullet inline behavior trace even when other audit shortcuts are taken.
+**Pass 2 — Concerns / gaps / inconsistencies hunt (formerly "Semantic + edge").** Pass 2 is an ACTIVE HUNT for what could go wrong with the plan, not just a wording check. Before running Pass 2, Claude states out loud the categories being hunted for THIS specific plan; running Pass 2 without naming the hunt categories is the failure mode the user explicitly flagged 2026-05-13. Categories scale with batch shape:
+
+  - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path
+  - **Doc batch hunt categories:** internal contradictions with existing entries (new entry vs. older entry), stale framing introduced by the new content, broken or missing cross-refs, missing destination routing (signal logged but no consumer), numbering / placement collisions, hierarchy gaps (e.g. lock-decision listed without a §6 entry to back it), dating / stamp drift adjacent to the edit
+  - **Mixed batch:** both lists apply.
+
+  **For state-machine changes** (anything that changes how state evolves over time — hooks, reducers, refs-as-state, mode flags, multi-screen menus), Pass 2 is REQUIRED and must include a 3-5 bullet inline behavior trace even when other audit shortcuts are taken. **For code ships generally** (anything that compiles + ships to users), Pass 2's hunt runs more thoroughly than for doc batches — the cost of a missed concern is a regression in production, not a doc-drift fix. **User locked 2026-05-13:** *"i want our audits to be relatively thorough so we are catching concerns and bugs before we implement any coding."* When in doubt, list more hunt categories and run them; never skip the hunt by treating Pass 2 as a wording check.
 
 **Pass 3 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
 
