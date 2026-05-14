@@ -524,7 +524,7 @@ function GardenPageInner() {
     setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
     setSelectionActionsOpen(false);
-    setMoveToActiveGardenToast(hadError ? "Some moves failed — try again" : "Moved to Active Garden");
+    setMoveToActiveGardenToast(hadError ? "Couldn't move some plantings — please refresh and try again" : "Moved to Active Garden");
     setTimeout(() => setMoveToActiveGardenToast(null), hadError ? 3000 : 2000);
   }, [user?.id, selectedPlantGrows]);
 

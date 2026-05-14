@@ -465,7 +465,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     setBulkDeleteSaving(false);
     setBulkDeleteConfirmOpen(false);
     if (hadError) {
-      setQuickToast("Some deletions failed — try again");
+      setQuickToast("Couldn't delete some plantings — please refresh and try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
       const msg = `Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`;
@@ -481,19 +481,32 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     const selectedBatches = plants.filter((p) => selectedGrowIds.has(p.id));
     const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     const now = new Date().toISOString();
+    let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
-      await updateWithOfflineQueue("grow_instances", { status: "archived", ended_at: now }, { id: batch.id, user_id: batchUserId });
+      const { error } = await updateWithOfflineQueue("grow_instances", { status: "archived", ended_at: now }, { id: batch.id, user_id: batchUserId });
+      if (error) {
+        console.error("MyPlantsView.handleBulkEndBatch: update failed", { batchId: batch.id, error });
+        hadError = true;
+        continue;
+      }
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
     }
-    for (const profileId of profileIds) {
-      await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+    if (!hadError) {
+      for (const profileId of profileIds) {
+        await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+      }
     }
     setBulkEndBatchSaving(false);
     setBulkEndBatchConfirmOpen(false);
-    const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
-    if (onSaveMessage) onSaveMessage(msg);
-    else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    if (hadError) {
+      setQuickToast("Couldn't end some plantings — please refresh and try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    }
     onRefetch?.();
   }, [user?.id, selectedGrowIds, plants, onRefetch, onSaveMessage]);
 

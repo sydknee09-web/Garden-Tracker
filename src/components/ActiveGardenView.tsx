@@ -710,7 +710,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     onBulkSelectionChange?.(0);
     onBulkModeChange?.(false);
     if (hadError) {
-      setQuickToast("Some deletions failed — try again");
+      setQuickToast("Couldn't delete some plantings — please refresh and try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
       const msg = `Deleted ${selectedBatches.length} plant${selectedBatches.length !== 1 ? "s" : ""}`;
@@ -734,7 +734,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     onBulkSelectionChange?.(0);
     onBulkModeChange?.(false);
     if (hadError) {
-      setQuickToast("Some moves failed — try again");
+      setQuickToast("Couldn't move some plantings — please refresh and try again");
       setTimeout(() => setQuickToast(null), 3000);
     } else {
       const msg = `Moved ${selectedBatches.length} to My Plants`;
@@ -752,13 +752,26 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
     const now = new Date().toISOString();
     const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
+    let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
-      await supabase.from("grow_instances").update({ status: "archived", ended_at: now }).eq("id", batch.id).eq("user_id", batchUserId);
+      const { data, error } = await supabase
+        .from("grow_instances")
+        .update({ status: "archived", ended_at: now })
+        .eq("id", batch.id)
+        .eq("user_id", batchUserId)
+        .select("id");
+      if (error || !data || data.length === 0) {
+        console.error("ActiveGardenView.handleBulkEndBatch: update failed", { batchId: batch.id, error });
+        hadError = true;
+        continue;
+      }
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
     }
-    for (const profileId of profileIds) {
-      await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+    if (!hadError) {
+      for (const profileId of profileIds) {
+        await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+      }
     }
     setBulkEndBatchSaving(false);
     setBulkEndBatchConfirmOpen(false);
@@ -766,9 +779,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     setBulkMode(false);
     onBulkSelectionChange?.(0);
     onBulkModeChange?.(false);
-    const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
-    if (onSaveMessage) onSaveMessage(msg);
-    else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    if (hadError) {
+      setQuickToast("Couldn't end some plantings — please refresh and try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      const msg = `Ended ${selectedBatches.length} planting${selectedBatches.length !== 1 ? "s" : ""}`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    }
     load();
   }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 

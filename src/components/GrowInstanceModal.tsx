@@ -154,7 +154,7 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, onOpenInGarden }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { toast, showToast } = useToast();
+  const { toast, showToast, showErrorToast } = useToast();
   const instanceId = growId;
 
   const [grow, setGrow] = useState<GrowInstance | null>(null);
@@ -417,12 +417,15 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       .eq("id", grow.id)
       .eq("user_id", user.id);
     setArchiveSaving(false);
-    if (!err) {
-      showToast("Archived");
-      setArchiveOpen(false);
-      if (backHref) router.push(backHref);
-      onClose();
+    if (err) {
+      console.error("GrowInstanceModal.handleArchive: update failed", err);
+      showErrorToast("Couldn't archive — please try again");
+      return;
     }
+    showToast("Archived");
+    setArchiveOpen(false);
+    if (backHref) router.push(backHref);
+    onClose();
   }
 
   const handleQuickCare = useCallback(
