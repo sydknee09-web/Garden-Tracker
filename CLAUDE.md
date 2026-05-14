@@ -410,6 +410,8 @@ The "yes build" / "explicit greenlight" handshake from VISION §12 applies to *c
 
 Rationale: forcing per-push greenlight on every doc capture creates friction without safety benefit and erodes momentum on documentation hygiene (which the user values). The "yes build" rule guards against shipping unreviewed code, not against the user's own captured signals making it onto disk.
 
+**Push-classifier caveat (locked 2026-05-13).** Independent of the doc-only tier rule above, Claude Code's auto-mode push-classifier gates *every* `git push origin main` invocation regardless of file type and may surface a permission prompt that's hard to satisfy without a concrete reply token. Observed 2026-05-13 during the `884cf9d` doc-only push: 3 denials with letter-coded reply options ("Reply `A`" / "Reply `B`") before a bare `push` landed. **How to handle:** when surfacing the gate to the user, frame the reply convention concretely — "Reply `push` to proceed" — not "approve A vs B." Phrase the ask so the user can paste one word back. This is friction in the runtime gate, not a contradiction of the doc-only tier rule: the rule says doc-only pushes don't need per-push greenlight, but the classifier may still prompt and the prompt should be answerable with one short word.
+
 ---
 
 ## Plan-audit standard (locked 2026-05-12)
