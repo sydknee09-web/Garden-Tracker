@@ -12,7 +12,7 @@
 1. **Read VISION.md + ROADMAP.md + WORKFLOW.md** before substantive work in any new session. ([detail](#required-reading-before-any-task))
 2. **User mentioned a bug, feature, or issue?** Grep `docs/BUGS.md` + `docs/ROADMAP.md` (§3, §4) + `docs/VISION.md` (§11) + `docs/BACKLOG.md` BEFORE responding. If found → surface the existing entry. If new → triage 🔵/🟣/❌ per ["Handling feedback batches"](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12). Size-agnostic — applies to a single-item bug report too. ([detail](#handling-feedback-batches-locked-2026-05-12-reinforced-2026-05-12))
 3. **Every chat purpose** runs the Chat Lifecycle Protocol: kickoff (purpose + plan + audit) → plan readiness gate → execute (amendment = re-audit) → verification (definition-of-done checklist) → close (uncovered-work register clean). Plan-audit Pass 1/2/3 inside Phase 1+3. Plan in chat or plan-file (file required for ≥3 files / state-machine / plan mode). NOT in subagent. **Compliance:** Phase declarations required at chat-open, every transition, every amendment. ([detail](#-chat-lifecycle-protocol-locked-2026-05-13)) ([plan-audit detail](#plan-audit-standard-locked-2026-05-12))
-4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md))
+4. **Aesthetic / UX decision?** Don't decide silently. Propose options + ask. **Micro-aesthetic / cohesion-by-aggregation choices too** (toast color, threshold value, animation tech, log-string format, padding token, icon weight, row-primitive shape) — cite an existing pattern in the app as anchor (by path) or ASK. "Small enough to feel like engineering" is the failure-mode signal. Strict bugs are OK to fix only AFTER step 2 confirms it's not already parked. ([detail](docs/WORKFLOW.md)) ([cohesion-by-aggregation detail](#plan-audit-standard-locked-2026-05-12))
 5. **Off-roadmap / feature-creep request?** Push back plainly per the [PM enforcement rule](#feature-creep--off-track-enforcement-locked-2026-05-12). Recommend parking. Respect override only after user heard the cost. Counter-case: internal tooling ≠ feature creep.
 6. **Pushing to `main`?** Code → needs explicit "yes build" / "ship" greenlight per push, AND **Preview MCP mobile-viewport sanity check on visual ships** (UI/CSS/`.tsx` diff). Doc-only → push immediately if diff is doc-only (verify with `git diff --stat`). Destructive → always ask. ([detail](#push-tiers-aligned-with-workflow-8))
 7. **End substantive responses with "where we are / what's next."** One sentence. The user shouldn't have to ask.
@@ -437,11 +437,42 @@ Each required pass-type runs iteratively per the iterative-loop + strict-clean-p
 
 **Pass 2 — Concerns / gaps / inconsistencies hunt (formerly "Semantic + edge").** Pass 2 is an ACTIVE HUNT for what could go wrong with the plan, not just a wording check. Before running Pass 2, Claude states out loud the categories being hunted for THIS specific plan; running Pass 2 without naming the hunt categories is the failure mode the user explicitly flagged 2026-05-13. Categories scale with batch shape:
 
-  - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path
+  - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path, **cohesion-by-aggregation / micro-aesthetic** (see dedicated subsection below — applies to every code batch, no exception)
   - **Doc batch hunt categories:** internal contradictions with existing entries (new entry vs. older entry), stale framing introduced by the new content, broken or missing cross-refs, missing destination routing (signal logged but no consumer), numbering / placement collisions, hierarchy gaps (e.g. lock-decision listed without a §6 entry to back it), dating / stamp drift adjacent to the edit
   - **Mixed batch:** both lists apply.
 
   **For state-machine changes** (anything that changes how state evolves over time — hooks, reducers, refs-as-state, mode flags, multi-screen menus), Pass 2 is REQUIRED and must include a 3-5 bullet inline behavior trace even when other audit shortcuts are taken. **For code ships generally** (anything that compiles + ships to users), Pass 2's hunt runs more thoroughly than for doc batches — the cost of a missed concern is a regression in production, not a doc-drift fix. **User locked 2026-05-13:** *"i want our audits to be relatively thorough so we are catching concerns and bugs before we implement any coding."* When in doubt, list more hunt categories and run them; never skip the hunt by treating Pass 2 as a wording check.
+
+**Cohesion-by-aggregation / micro-aesthetic — Pass 2 subcategory (locked 2026-05-14).**
+
+User signal verbatim: *"i request a feature and it gets implemented but you fill in gaps without thinking it fully through... The pattern, restated. You ask for X. Claude scopes X. Claude also makes a bunch of smaller decisions to actually implement X — what the swipe threshold is, whether swipe autocommits or confirms, what the row primitive shape is (rounded-xl + white bg + emerald border + drop shadow), what padding the day header uses, where the count badge sits, whether the expand-all toggle animates with grid-template-rows or max-height, etc. Each of those individual choices feels like an implementation detail at planning time, so Claude classifies it as 'engineering, decide silently' rather than 'aesthetic, ask first.' Then they aggregate — and a month later you look at the Calendar and feel that nothing reads right, even though every individual ship was technically 'what you asked for.'"*
+
+**The rule:** every code batch's Pass 2 hunts for small implementation decisions that introduce a NEW visual / UX / data-shape pattern. Concrete categories:
+
+- Color tokens (toast variant — emerald vs amber; status colors; selection borders)
+- Animation technique (`grid-template-rows 0fr↔1fr` vs `max-height`; CSS transition vs Framer Motion; ease curve)
+- Threshold values (swipe px, hold ms, debounce ms, char limits)
+- Log-string format (e.g. `[scope] description` vs `scope: description`)
+- Padding / spacing tokens new to a file or surface
+- Icon weight, stroke, or size when adjacent to existing iconography
+- Row-primitive shape (border, shadow, radius, bg) when extending or echoing a list/card
+- Copy frame ("Some X failed" vs "Couldn't X — please refresh and try again")
+- Transition timing (ms in / ms out, asymmetry)
+- Toast wording, position, duration
+- Empty-state copy + structure
+
+**Two-branch resolution at audit time:**
+1. **Cite an existing pattern as anchor (by path).** Example: "swipe threshold 100px matching [cea21e0]"; "console.error format `<scope>: <description>` matching [cascadeOnGrowEnd.ts:18](src/lib/cascadeOnGrowEnd.ts:18)"; "row primitive untouched, used existing `CalendarTaskRow` shell." If an anchor exists, the decision is silently-OK BUT must be named in the plan's audit log so the user can spot drift before it ships.
+2. **No anchor → ASK.** Surface as an aesthetic / UX decision even if it feels too small. RULES CARD #4 applies.
+
+**The failure-mode signal: "Small enough to feel like engineering."** That's exactly the moment cohesion-by-aggregation drifts. If you catch yourself thinking "this is just an implementation detail, no need to ask," check whether you're about to introduce a new pattern. If yes, anchor or ask. Don't decide silently.
+
+**Why this rule exists (specific drift this catches):**
+- U24 Phase A ship 2026-05-14: new console.error calls used `[handlerName] description` bracket-notation; existing helpers used `functionName: description` colon-notation. Pass 2 with this category named would have caught it pre-commit. Caught only on user's procedural callout post-build, fixed via amend.
+- Calendar work cumulatively over 2026-05-08 → 2026-05-13: swipe threshold, autocommit-vs-confirm, row primitive shape (`rounded-xl + white bg + emerald border + drop shadow`), day-header padding, count-badge position, expand-all animation technique — each decided silently as "engineering." Aggregate: Calendar reads off, user reports "nothing feels right."
+- Generalizes: any sufficiently small UI decision that compounds with peers will degrade cohesion unless anchored. The rule is the audit-time guard.
+
+---
 
 **Pass 3 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
 
