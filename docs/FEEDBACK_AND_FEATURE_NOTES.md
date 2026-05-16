@@ -64,7 +64,7 @@ Decisions that stand unless product direction changes.
 
 | Topic | Resolution | Notes |
 |--------|------------|--------|
-| **Grafted fruit trees / rootstock** | No dedicated “grafted” field today. **Variety/name** (e.g. cultivar + rootstock in variety line), **Growing notes** for permanent graft/rootstock detail, optional **journal** (`vault_add` / `note`) at purchase for a dated record. | First-class option later: optional fields on **permanent** profiles or **grow instance** (e.g. rootstock line), not a new tab. |
+| **Grafted fruit trees / rootstock** ⚠ **SUPERSEDED 2026-05-16** | No dedicated “grafted” field today. **Variety/name** (e.g. cultivar + rootstock in variety line), **Growing notes** for permanent graft/rootstock detail, optional **journal** (`vault_add` / `note`) at purchase for a dated record. | First-class option later: optional fields on **permanent** profiles or **grow instance** (e.g. rootstock line), not a new tab. **Migrated 2026-05-16** to canonical capture: ROADMAP §4 "Rootstock tracking on grow instances" + chunk 3.6 sub-item. User raised 2026-05-16: "i want to be able to track rootstocks for trees." Workaround pattern (variety line + growing notes) holds until first-class field ships. |
 
 ---
 

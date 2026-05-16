@@ -14,7 +14,11 @@
 
 ## 1. Current focus
 
-**As of 2026-05-14 (latest — U24 Phase A ship chat + cohesion rule lock) — U24 Phase A code fix shipped (`7207164` → origin/main, Vercel auto-deploying). Three bulk/archive handlers patched to surface Supabase errors instead of silent failure. 4 sibling bulk-handler error toasts updated to friendly+refresh wording for cohesion. New regression test file at [src/app/garden/activeGardenBulkEnd.regression.test.ts](src/app/garden/activeGardenBulkEnd.regression.test.ts); tests 387 → 401. Mid-build, user raised a procedural concern: "engineering" decisions (toast color, animation tech, threshold value, log-string format) that aggregate into product-level cohesion drift get classified as decide-silently at planning time. Rule codified into CLAUDE.md as a dedicated Pass 2 subcategory ("Cohesion-by-aggregation / micro-aesthetic") + cross-reference from RULES CARD #4. Doc batch this chat: CLAUDE.md, VISION §12, ROADMAP §1/§5/§6, BUGS U24 — captures the ship + rule lock. **Next session focus:** Phase B (when user retries her 7 stuck plants with the instrumented build live; debug log page captures `ActiveGardenView.handleBulkEndBatch: update failed` console output). Plus: user is starting a parallel chat NOW for onboarding-for-testers (new testers being added) — that chat handoff prepared in this session. This chat stays open per user direction; she may continue here later.**
+**As of 2026-05-16 (sleepy-vaughan-25de4f chat — still open) — Two tree-data feature asks (chill hours + rootstock tracking) parked to chunk 3.6 + §4 per PM rule. Both scope-✅ but off-current-chunks; user chose park rather than priority shift. Rootstock entry migrated from legacy `FEEDBACK_AND_FEATURE_NOTES.md:67` to canonical capture (kills one §3.10 D1 dual-capture instance). Doc-only ship this turn. U24 Phase B still awaiting user phone retry (this chat's named purpose). Parallel onboarding-for-testers chat may bundle tree-fields if testers grow trees — decision input handed there. Next session focus unchanged otherwise.**
+
+---
+
+**Earlier 2026-05-14 (latest — U24 Phase A ship chat + cohesion rule lock) — U24 Phase A code fix shipped (`7207164` → origin/main, Vercel auto-deploying). Three bulk/archive handlers patched to surface Supabase errors instead of silent failure. 4 sibling bulk-handler error toasts updated to friendly+refresh wording for cohesion. New regression test file at [src/app/garden/activeGardenBulkEnd.regression.test.ts](src/app/garden/activeGardenBulkEnd.regression.test.ts); tests 387 → 401. Mid-build, user raised a procedural concern: "engineering" decisions (toast color, animation tech, threshold value, log-string format) that aggregate into product-level cohesion drift get classified as decide-silently at planning time. Rule codified into CLAUDE.md as a dedicated Pass 2 subcategory ("Cohesion-by-aggregation / micro-aesthetic") + cross-reference from RULES CARD #4. Doc batch this chat: CLAUDE.md, VISION §12, ROADMAP §1/§5/§6, BUGS U24 — captures the ship + rule lock. **Next session focus:** Phase B (when user retries her 7 stuck plants with the instrumented build live; debug log page captures `ActiveGardenView.handleBulkEndBatch: update failed` console output). Plus: user is starting a parallel chat NOW for onboarding-for-testers (new testers being added) — that chat handoff prepared in this session. This chat stays open per user direction; she may continue here later.**
 
 ---
 
@@ -236,14 +240,15 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 - Establishment care vs. regular care templates (currently set up manually each time)
 - Deeper growing data on profile page (pending more sister feedback)
 - Profile-to-history connection clarity (the "where do I see growing history" disorientation)
+- **Tree-specific data fields (raised 2026-05-16):** chill hours (variety-level on `plant_profiles`) + rootstock (instance-level on `grow_instances`). See §4 parked entries for full context. Both fit "deeper growing data" sub-scope. Attachment-point split (variety vs instance) is a Phase 3 IA decision input — variety data describes the cultivar; rootstock describes the specific specimen and what it's grafted onto.
 
 **Why fifth:** Real user pain (sister specifically), but needs Phase 5 page goals work to scope properly.
 
 **Effort:** M (after Phase 5 design).
 
-**Dependencies:** Phase 5 page goals work for the plant profile page.
+**Dependencies:** Phase 5 page goals work for the plant profile page. Phase 3 IA work for attachment-point decisions (which fields belong on `plant_profiles` vs `grow_instances`).
 
-**Source:** VISION.md §6 (Failure Mode #2).
+**Source:** VISION.md §6 (Failure Mode #2). Tree-data sub-items raised by user 2026-05-16.
 
 ---
 
@@ -386,6 +391,8 @@ Items deferred with the reason for the parking. Re-surface when conditions chang
 - **Journal growing-indicator tags (2026-05-12 #10)** — Tag a journal entry with growing milestones (flowering, first leaves, lost leaves, fruit set, etc.) so user can search/filter to see historical patterns year-over-year. Phase 3 IA work (needs tag schema design). Aligns with VISION memory plane / "what works for me" library. M-sized feature after Phase 3 lands.
 - **Vault filter by flower color / perennial vs annual / fruit vs veggie (2026-05-12 #11)** — Improve vault search w/ plant-metadata filters. Phase 3 IA work (needs metadata schema on plant profiles). M-sized feature after Phase 3 lands.
 - **Harvest calculator (2026-05-12 #12)** — Per-plant report: total weight harvested, first/last log dates in a growing season, derived stats. Memory plane work; aligns w/ Failure Mode #2 (profile depth) and §3.6 plant profile depth chunk. M-sized after profile work is scoped.
+- **Chill hours on plant profiles (2026-05-16, sub-item of §3.6)** — User raised 2026-05-16: "i need chill hours added to our profiles for trees." Adds a variety-level field on `plant_profiles` for required chill hours (e.g. "Snow Queen nectarine = 200-300 hrs"). Used by gardener to match variety against local zone's average chill accumulation. Effort: S-M (1 schema migration + UI on Vault profile + display logic). Likely also wants integration with micro-climate triggers (Failure Mode #3) eventually for "this variety won't perform at your location" alerts — but that's a later extension. **Dependencies:** Phase 3 IA decision on schema (likely straightforward — variety-level data fits `plant_profiles`); Phase 5 page goals for where on profile UI it sits. **Cross-ref:** chunk 3.6 sub-item; sister's feedback (VISION §11 parked) may reinforce this when received; relates to Failure Mode #2 (profile shallow for growing).
+- **Rootstock tracking on grow instances (2026-05-16, sub-item of §3.6)** — User raised 2026-05-16: "i want to be able to track rootstocks for trees." Adds an instance-level field on `grow_instances` for rootstock identifier (e.g. "M27 dwarf apple rootstock"). Specific to grafted fruit trees; rootstock determines size, vigor, hardiness, disease resistance independent of the scion variety. **Pre-existing capture migrated from `docs/FEEDBACK_AND_FEATURE_NOTES.md:67`** (legacy pre-VISION-v4 doc, see §3.10 D1 archive question) where the prior recommendation was: workaround via variety/name line OR growing notes for now; first-class fields later. User's 2026-05-16 ask promotes "later" to "park canonically." Effort: S (1 optional field on `grow_instances` migration + UI on Grow Instance Modal + Vault Plantings handler). **Dependencies:** Phase 3 IA decision on `grow_instances` schema extensibility — connects to beds-as-first-class architectural work since both extend the grow-instance schema. Likely bundled with that Phase 3 build. **Cross-ref:** chunk 3.6 sub-item; legacy doc at FEEDBACK_AND_FEATURE_NOTES.md:67 should be marked superseded.
 
 ---
 
@@ -427,6 +434,10 @@ Most recent first. For full history, use `git log`.
 ## 6. Decision log
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
+
+### 2026-05-16
+
+- **Tree-data feature asks parked to chunk 3.6 + §4 (chill hours + rootstock tracking).** User raised 2026-05-16: *"i need chill hours added to our profiles for trees. and i want to be able to track rootstocks for trees."* Step 0 search: chill hours = net-new; rootstock = pre-captured at `docs/FEEDBACK_AND_FEATURE_NOTES.md:67` (legacy pre-VISION-v4 doc with workaround pattern + "first-class later" note). PM triage: both scope-✅ per VISION §6 Theme 2 / chunk 3.6 BUT off-current-chunks (U24 Phase B + parallel onboarding chat + chunk 3.2 B3-B5 + chunk 3.9 #5/#7/#8/#9/#10 + §3.10 doc-hygiene). User chose park-to-3.6. **Locked attachment-point distinction:** chill hours = variety-level on `plant_profiles` (cultivar property: "Snow Queen nectarine = 200-300 hrs"); rootstock = instance-level on `grow_instances` (specimen property: "this apple was grafted onto M27 dwarf rootstock"). Distinction matters for Phase 3 IA work — the same field can't sit at both layers without a duplication question. Chill hours likely needs eventual micro-climate-triggers (Failure Mode #3) integration for "this variety won't perform at your location" alerts. Rootstock likely bundles with beds-as-first-class Phase 3 build (both extend `grow_instances` schema). Rootstock entry migrated from legacy doc; legacy entry marked SUPERSEDED 2026-05-16 to prevent dual-capture drift. Doc-only ship.
 
 ### 2026-05-14
 
