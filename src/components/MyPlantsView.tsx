@@ -14,6 +14,7 @@ import { PlantImage } from "@/components/PlantImage";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStatePerennial } from "@/components/EmptyStateIllustrations";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 /** One planting (grow_instance) of a permanent plant — like Active Garden batches but for perennials. */
 type PermanentPlanting = {
@@ -890,7 +891,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
                             aria-label="Add journal entry"
                           >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><path d="M8 7h8" /><path d="M8 11h8" /></svg>
+                            <ICON_MAP.Edit className="w-5 h-5" />
                           </button>
                         </div>
                       )}
