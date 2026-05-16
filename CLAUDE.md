@@ -519,6 +519,7 @@ User signal verbatim: *"i request a feature and it gets implemented but you fill
 
 **Why this pass exists (specific drift this catches):**
 - **U24 Phase A 2026-05-14:** new console.error calls used `[handlerName] description` bracket-notation while existing helpers (e.g. [cascadeOnGrowEnd.ts](src/lib/cascadeOnGrowEnd.ts)) used `functionName: description` colon-notation. Pass 2 cohesion-by-aggregation rule existed but is REACTIVE (catches Claude introducing a new pattern). Pass 3 sibling sweep is PROACTIVE: grep for `console.error(` in the codebase, eyeball the prevailing format, align. Pre-commit. Would have prevented the post-build amend.
+- **U25 2026-05-16:** `3de1c2c` (2026-05-12) updated [ActiveGardenView.tsx:1112](src/components/ActiveGardenView.tsx:1112) trigger icon to `<ICON_MAP.Edit />` without grepping for the matching `aria-label="Add journal entry"` elsewhere — missed [MyPlantsView.tsx:893](src/components/MyPlantsView.tsx:893) (inline notebook SVG, never updated) and 3 more sites in Vault profile tabs (`ICON_MAP.Journal`, different visual primitive). Surfaced as cross-surface visual mismatch when user phone-verified. A Pass 3 sibling sweep on `aria-label="Add journal entry"` at the time of `3de1c2c` would have caught all 4 misses (BLOCKING for the icon-only Garden sibling; ADJACENT for the Vault profile labeled-CTA sibling). Independently validated during the U25 fix's own audit (`3e71149`): the cross-surface aria-label grep caught 3 Vault sites the initial plan draft missed. Two chats converged on the same need for proactive sibling grep — strong validation of Pass 3 covering visual cohesion (not just code-format drift).
 - **Generalizable:** any sufficiently UI-heavy codebase grows sibling-shape drift unless audited explicitly. Pass 2 cohesion-by-aggregation handles "new pattern introduced"; Pass 3 sibling sweep handles "existing peers ignored." They're complementary, not redundant.
 
 **Cost calibration:** for a single-file change with no obvious siblings, this pass is 30-60 seconds (one grep, eyeball). For a multi-file change touching a known surface (e.g. anything Row/Card/Calendar-shaped), this pass is 2-3 minutes (grep + read 2-3 peer files + cite). Always cheaper than the post-ship amend.
@@ -685,6 +686,7 @@ The reason for the final review: between mid-session updates and end-of-session,
 - Skip the plan-audit step for non-trivial work
 - Add files to `❌ Not ever` scope unless the user explicitly says so
 - Push code/feature changes to `main` without the explicit "yes build" greenlight (per Push tiers above; doc-only pushes are exempt)
+- Create a migration file with a timestamp prefix matching an existing file in `supabase/migrations/`. Use unique `YYYYMMDDHHMMSS` 14-digit timestamps. Duplicate prefixes cause undefined migration order and silent skip via `supabase db push` or Dashboard application. Drift example: `20250330000000_journal_entry_type_prune.sql` + `20250330000000_user_settings_onboarding_complete.sql` collision caused the second to be silently skipped on prod, contributing to U24 + the `user_settings.onboarding_completed_at` gap (locked 2026-05-16).
 
 ---
 
