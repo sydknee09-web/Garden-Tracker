@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 
 export default function ApiUsagePage() {
-  const { session } = useAuth();
+  const { user, session } = useAuth();
+  const { isUnlocked } = useDeveloperUnlock();
   const [loading, setLoading] = useState(true);
   const [usageData, setUsageData] = useState<{
     byProvider: Record<string, { thisMonth: number; lastMonth: number; thisYear: number; tokensThisMonth: number; tokensThisYear: number }>;
@@ -35,6 +37,19 @@ export default function ApiUsagePage() {
   useEffect(() => {
     loadUsage();
   }, [loadUsage]);
+
+  if (!user) return null;
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen p-6 text-center">
+        <p className="text-neutral-600">Developer tools require unlock.</p>
+        <p className="mt-2 text-sm text-neutral-500">Tap the version number 7 times in Settings to unlock.</p>
+        <Link href="/settings" className="mt-4 inline-block min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium">
+          Go to Settings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 py-8 max-w-2xl mx-auto pb-24">

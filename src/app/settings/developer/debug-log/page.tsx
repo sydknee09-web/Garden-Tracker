@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import {
   clearEntries,
   formatEntriesForCopy,
@@ -10,6 +12,8 @@ import {
 } from "@/lib/debugLogBuffer";
 
 export default function DebugLogPage() {
+  const { user } = useAuth();
+  const { isUnlocked } = useDeveloperUnlock();
   const [entries, setEntries] = useState<DebugLogEntry[]>([]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
@@ -44,6 +48,19 @@ export default function DebugLogPage() {
   }, [refresh]);
 
   const formatted = formatEntriesForCopy(entries);
+
+  if (!user) return null;
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen p-6 text-center">
+        <p className="text-neutral-600">Developer tools require unlock.</p>
+        <p className="mt-2 text-sm text-neutral-500">Tap the version number 7 times in Settings to unlock.</p>
+        <Link href="/settings" className="mt-4 inline-block min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium">
+          Go to Settings
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-w-0 px-6 pt-2 pb-24 box-border">
