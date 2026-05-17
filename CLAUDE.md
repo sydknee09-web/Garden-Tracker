@@ -549,6 +549,22 @@ For any user-facing UX change, run the proposed change through each persona in `
 
 **Persona-mismatch sub-check (locked 2026-05-17).** When a Pass 3 sibling sweep finds an existing pattern, ask: *does the existing pattern serve all 5 personas in `docs/PERSONAS.md`, or was it originally built for one persona's needs and silently excludes others?* If the sibling pattern excludes a persona (e.g. swipe gestures with no visible-button fallback work for Maya/Sydney/Aria but exclude Walter), surface as **ADJACENT** finding — current ship doesn't have to fix the broader pattern, but the persona-exclusion is named for future cohesion work. Complements Pass 2 persona walk (which is proactive on the new change); this is reactive on the codebase's existing patterns.
 
+**Vocabulary-breadth sub-rule (locked 2026-05-17 after `flamboyant-wilson-34fc0c` ship).** Pass 3 grep regex must cover the **vocabulary breadth** of possible naming for the pattern shape, not just the obvious naming for the option being planned. When planning a feature with a known abstract shape (gating, unlock, role, permission, allowlist, throttle, cache, lock, queue, etc.), ALSO grep for the OTHER common vocabularies for that shape — not just the one your chosen implementation uses.
+
+Concrete vocabulary families to grep across when relevant:
+
+- **Gating / access control** → `Gate|Guard|Unlock|Allow|Allowlist|Whitelist|Permission|Role|isAdmin|isDev|isDeveloper|isUnlocked|tapVersion|hasAccess|canAccess`
+- **Throttle / rate-limit** → `throttle|debounce|rateLimit|cooldown|backoff|retryAfter|tooManyRequests`
+- **Lock / mutex** → `lock|mutex|isLocked|acquire|release|exclusive|pending|inProgress|isMutating`
+- **Cache** → `cache|memo|invalidate|stale|TTL|expiry|cached`
+- **Queue** → `queue|enqueue|dequeue|pending|inflight|backlog|offline`
+
+**Why this rule exists (specific drift this catches):**
+
+- **§3.12-pre dev-tools gating 2026-05-17 (`flamboyant-wilson-34fc0c`):** Plan picked an env-var allowlist (`NEXT_PUBLIC_DEV_USER_IDS`) as Q1 Recommended. Pass 3 regex covered `NEXT_PUBLIC_DEV|process\.env\.NEXT_PUBLIC|DEV_TOOLS|is_dev|isDev|isDeveloper|role===dev` — missed the existing [DeveloperUnlockContext.tsx](src/contexts/DeveloperUnlockContext.tsx) tap-count gate with `tapVersion()` + `isUnlocked`. The existing pattern was wired into [layout.tsx:58](src/app/layout.tsx:58) + [admin/scraper-audit/page.tsx:68](src/app/admin/scraper-audit/page.tsx:68) + entry-point button on [profile/page.tsx:503](src/app/settings/profile/page.tsx:503) — exactly the canonical dev-gate pattern in this codebase. Slipped through because the regex vocabulary was env-var-flavored, not gate-flavored. Compounded: Q1 AskUserQuestion listed "Tap-count-to-unlock" as a from-scratch candidate when it was actually half-built. Caught pre-commit only by luck (stale test mock had the existing context's name in it). Reverted entire ship + reworked to existing pattern via Rule A re-ask. **Cost of the miss:** ~30 min rework + Amendment 2 re-audit. **Cost a 60-second broader grep at plan-time would have been:** essentially zero.
+
+The cost of a too-narrow regex = parallel-mechanism failure mode = exactly the cohesion-by-aggregation drift this rule locks against. When in doubt, grep broader; 2 minutes of grep beats a revert-and-rework cycle every time.
+
 **Pass 4 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
 
 ### Plan file vs in-chat plan
@@ -881,6 +897,8 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 - Don't silently comply — contradictions must be visible. Same logic as the VISION.md contradiction rule above: parallels exist, central rule catches anything not covered by section-level override clauses.
 
 ---
+
+*Last updated: 2026-05-17 — Added **Vocabulary-breadth sub-rule** to plan-audit standard Pass 3. When planning a feature with a known abstract shape (gating / unlock / role / permission / throttle / cache / lock / queue), Pass 3 grep regex must cover the vocabulary breadth of possible naming, not just the obvious naming for the option being planned. Drift this catches: 2026-05-17 `flamboyant-wilson-34fc0c` §3.12-pre dev-tools gating ship picked env-var allowlist (Q1 Recommended via Rule A) when an existing `DeveloperUnlockContext` tap-count gate already existed in the codebase — regex was env-var-flavored, missed the gate-vocabulary peer, caught pre-commit only by luck via stale-mock grep, reverted entirely + reworked. Promoted from memory entry to CLAUDE.md per user Rule A ask end-of-chat (second occurrence-of-a-class-of-drift = promotion threshold). Concrete vocabulary families listed in the new subsection. Pairs with the existing persona-mismatch sub-check (both are Pass-3-time refinements).*
 
 *Last updated: 2026-05-16 — Incorporated 5 high-value framings from the user's other-project skeleton CLAUDE.md + a 10-section checklist gap-walk. Adds: (A0) **Authority docs precedence** — explicit doc-vs-doc winner per domain (VISION wins on vision/scope, CLAUDE wins on process/cadence, ROADMAP wins on current-state); (A1) **Audit Pass 3 — Sibling pattern sweep** (Pass 4 = lock hygiene, renumbered) — proactive grep for adjacent peers + bug-class shape elsewhere; catches the U24 console.error format drift; (A2) **Role lock subsection** — names "the trap" (enumerating without recommending, asking permission for mechanical decisions) crisply; (A3) **6-condition handoff readiness gate** — binary checklist before suggesting a fresh chat; (B1+B2) **RULES CARD #9 + #10** — capability honesty and role lock now scanned per-turn; (B3) lowercase-prose-as-confidence one-sentence add; (B4) **mid-sprint blocking-vs-polish split** inside feedback batch triage; (B5) "memory drifts; canon is the source" reminder on required reading. Deferred: AGENTS.md doc-architecture split → VISION §11 as separate proposal. Plan + audit log at `.claude/plans/ive-been-workin-with-replicated-wind.md`.*
 

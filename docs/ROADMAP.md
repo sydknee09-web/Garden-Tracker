@@ -14,18 +14,19 @@
 
 ## 1. Current focus
 
-**As of 2026-05-17 (latest — `binary-valley` chat, persona-audit kickoff) — Persona-audit Flavor D skim-first walk ✅ CLOSED. 8 surfaces (Home / Vault / Garden / Calendar / Journal / Shed / Settings / FAB+modals) × 5 personas (Maya / Sydney / Walter / Aria / Sam) walked at skim depth.** Top 2-3 concerns per intersection captured. **10 cross-cutting themes surfaced** (5 P0 / 5 P1 — see §3.12 catalog). **2 Rule A locks:** (Q1) Theme #1 dev-tools gating splits into new §3.12-pre 🔵 chunk "App-store ship-readiness preflight — gate developer tools" (mechanical, independent, ships first); (Q2) §3.12 = 🟣 triage-catalog form (findings list + cross-cutting themes; per-theme planning chats spin off this catalog; do not build directly from §3.12). **Verified during plan-mode:** [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) renders `SETTINGS_ITEMS` flat with no role / build / env gate — Developer / Import logs / Extract cache visible to every authed user; subtitle even says "Profile, data, and developer tools." Dev-tools gating finding is confirmed not inferred. **Phase 5 captures applied (doc-only this turn):** new §3.12-pre + §3.12 chunks in ROADMAP §3; §1 lead-line + Next session focus refreshed; §6 new 2026-05-17 entry. **Next session focus:** §3.12-pre dev-tools gating ship (mechanical, S effort, plan-audit + build + verify on prod) is the highest-leverage next step — ships first since it's an app-store blocker independent of all other persona work. **Chat A (aesthetic-decision sweep on 9 SURFACE items) still queued, runs after §3.12-pre** — persona-audit findings did not invalidate Chat A's items but added context to weigh them; Chat A's plan file (`fresh-chat-purpose-vision-sorted-clover.md`) preserved for resumption. Plan file retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` with full 8 × 5 walk. See §6 2026-05-17 `binary-valley` entry for decision log + 3 buckets close-out.
+**As of 2026-05-17 (latest — `flamboyant-wilson-34fc0c` chat) — §3.12-pre dev-tools gating ✅ SHIPPED (`4a8b04c`).** Settings menu now hides Developer / Import logs / Extract cache from non-unlocked users; each of 5 dev sub-pages renders the canonical scraper-audit-style "Developer tools require unlock" message + Go to Settings link when locked. **APP-STORE BLOCKER resolved** — Sam-on-day-1 lands on Settings sees clean 6-item menu, not "Developer / fill-in-blanks / Extract cache." Implementation uses the **existing `useDeveloperUnlock` tap-count gate** (entry gesture = tap App Version 7× on Profile bottom) — same pattern as [admin/scraper-audit/page.tsx:68](src/app/admin/scraper-audit/page.tsx:68); no new mechanism introduced. **Major Amendment 2 in plan-mode:** initial plan picked Q1 Option B (env-var allowlist) Recommended via Rule A; Pass 3 sibling-sweep missed the existing `DeveloperUnlockContext` (regex covered env-var vocabulary only, missed `DeveloperUnlock|tapVersion|isUnlocked`); discovered pre-commit while grepping for a stale test mock; surfaced honestly via second Rule A ask; user chose Recommended revert; env-var ship reverted entirely (devAccess.ts + test deleted), reworked to use existing pattern. **Tests 405/405 + build clean; Preview MCP skipped** per documented `.env.local`-absent condition. **ADJACENT finding** captured to BUGS as **U27**: 4 `/api/developer/*` server-side routes accept any authed user (defense-in-depth gap; deferred to follow-up security-hardening ship per Q2 Rule A lock). **Awaits user phone-verification on prod.** Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-quizzical-stardust.md` retains full audit trail + Amendment 2 block. See §6 2026-05-17 `flamboyant-wilson` entry for 3 buckets close-out.
 
 ---
 
-**Earlier 2026-05-17 (`competent-blackwell-5de2a2` chat, sharing-purpose chat) — All 6 open-territory items from VISION §11 "Sharing UX / purpose narrowing" RESOLVED + 4 bonus locks shipped (public boundary → 🕐 long-term; sharing data model = communication + transfer-at-time; persona system; app-store distribution context explicit). 10 total decisions captured. Non-build design chat per Chat Lifecycle Protocol. **Phase 5 captures applied (doc-only):** new `docs/PERSONAS.md` (5 personas — Maya / Sydney / Walter / Aria / Sam); VISION.md §1/§3/§9/§10/§11 updated; ROADMAP.md §6 comprehensive entry + §3.5 trade-sub-item expanded + new §3.11 chunk "Trusted-circle infrastructure" 🟣; CLAUDE.md "What this project is" refined + plan-audit standard gains "persona walk" subcategory in Pass 2 + Pass 3 + Required-reading mentions PERSONAS.md as optional context. **Concurrent-chat collision caught + reconciled mid-Phase-5:** `5ca4bae` + `d61fff0` landed on origin/main between my plan-lock and pre-push (ecstatic-rubin-5f30c8 chat's U25-verify + concurrent-chat-fetch-rule + push-classifier-allowlist + U26 capture). Stash + pull --rebase + pop stash + surgical conflict resolution on §1 lead-line + §6 2026-05-17 (merged both ships into the day's entries; neither chat's work lost). **Important meta-note:** the new Phase 2 readiness-gate `git fetch origin main` rule that ecstatic-rubin shipped in `5ca4bae` would have caught this collision pre-edit — but that rule wasn't in my CLAUDE.md at chat start. Validation pattern again: rule locks AT THE MOMENT OF ITS NEED. **Next session focus (UPDATED end-of-chat):** **Persona-audit kickoff** (new chat purpose, locked via Rule A ask end-of-`competent-blackwell-5de2a2`). Flavor D shape: skim-first walk of 5 personas (PERSONAS.md) × ~8 surfaces (Home/Vault/Garden/Calendar/Journal/Shed/Settings/FAB+modals), top 2-3 concerns per intersection, triaged into a new ROADMAP §3.12 chunk. **Chat A (aesthetic sweep on 9 SURFACE items) deferred to AFTER persona-audit closes** — persona findings may re-prioritize or amend Chat A's items; locking aesthetic decisions before persona-audit risks redo. Plan files retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-frolicking-token.md` (this chat) + `fresh-chat-purpose-vision-sorted-clover.md` (Chat A, deferred). See §6 2026-05-17 entries for full decision log.**
+**Earlier 2026-05-17 (`binary-valley` chat, persona-audit kickoff) — Persona-audit Flavor D skim-first walk ✅ CLOSED. 8 surfaces (Home / Vault / Garden / Calendar / Journal / Shed / Settings / FAB+modals) × 5 personas (Maya / Sydney / Walter / Aria / Sam) walked at skim depth.** Top 2-3 concerns per intersection captured. **10 cross-cutting themes surfaced** (5 P0 / 5 P1 — see §3.12 catalog). **2 Rule A locks:** (Q1) Theme #1 dev-tools gating splits into new §3.12-pre 🔵 chunk "App-store ship-readiness preflight — gate developer tools" (mechanical, independent, ships first); (Q2) §3.12 = 🟣 triage-catalog form (findings list + cross-cutting themes; per-theme planning chats spin off this catalog; do not build directly from §3.12). **Verified during plan-mode:** [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) renders `SETTINGS_ITEMS` flat with no role / build / env gate — Developer / Import logs / Extract cache visible to every authed user; subtitle even says "Profile, data, and developer tools." Dev-tools gating finding is confirmed not inferred. **Phase 5 captures applied (doc-only this turn):** new §3.12-pre + §3.12 chunks in ROADMAP §3; §1 lead-line + Next session focus refreshed; §6 new 2026-05-17 entry. **Next session focus:** §3.12-pre dev-tools gating ship (mechanical, S effort, plan-audit + build + verify on prod) is the highest-leverage next step — ships first since it's an app-store blocker independent of all other persona work. **Chat A (aesthetic-decision sweep on 9 SURFACE items) still queued, runs after §3.12-pre** — persona-audit findings did not invalidate Chat A's items but added context to weigh them; Chat A's plan file (`fresh-chat-purpose-vision-sorted-clover.md`) preserved for resumption. Plan file retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` with full 8 × 5 walk. See §6 2026-05-17 `binary-valley` entry for decision log + 3 buckets close-out.
 
 ---
 
-
-*Older dated lead-line paragraphs (2026-05-14 and earlier, plus 2026-05-16 sleepy-vaughan U24-close + tree-data entries + 2026-05-16 pedantic-panini-9d963c U25 ship paragraph + 2026-05-16 frosty-wright-d437a7 alignment-audit paragraph + 2026-05-17 ecstatic-rubin-5f30c8 U25-verify + 2-procedural-rules paragraph) archived — full content preserved in §6 entries. §1 lead-line cap = 2 paragraphs (locked 2026-05-16, see §7).*
+*Older dated lead-line paragraphs (2026-05-14 and earlier, plus 2026-05-16 sleepy-vaughan U24-close + tree-data entries + 2026-05-16 pedantic-panini-9d963c U25 ship paragraph + 2026-05-16 frosty-wright-d437a7 alignment-audit paragraph + 2026-05-17 ecstatic-rubin-5f30c8 U25-verify + 2-procedural-rules paragraph + 2026-05-17 competent-blackwell-5de2a2 sharing-purpose-chat paragraph) archived — full content preserved in §6 entries. §1 lead-line cap = 2 paragraphs (locked 2026-05-16, see §7).*
 
 ### Just shipped this session
+
+🟢 **`4a8b04c` (§3.12-pre dev-tools gating — `flamboyant-wilson-34fc0c` chat)** — Settings page hides Developer / Import logs / Extract cache when `DeveloperUnlockContext.isUnlocked === false`; each of the 5 dev sub-pages adds the canonical scraper-audit-style "Developer tools require unlock" gate (matching [admin/scraper-audit/page.tsx:68](src/app/admin/scraper-audit/page.tsx:68) verbatim). Resolves persona-audit P0 theme #1 (APP-STORE BLOCKER). Sam-on-day-1 sees clean 6-item menu. Implementation = existing `useDeveloperUnlock` tap-count gate (entry gesture = tap App Version 7× on Profile bottom). **Major Amendment 2:** initial Q1 Rule A picked env-var allowlist (Recommended); Pass 3 sibling-sweep missed existing `DeveloperUnlockContext` (regex covered env-var vocabulary only); discovered pre-commit during stale-mock grep; surfaced via second Rule A ask; reverted entirely (`devAccess.ts` + test deleted) + reworked to canonical pattern. 7 files, +100/-8. Tests 405/405; build clean. Preview MCP skipped per `.env.local`-absent worktree condition. ADJACENT finding captured to BUGS U27 (4 `/api/developer/*` server-side routes have no dev gate — defense-in-depth follow-up).
 
 🟢 **`fdc295b` (Sharing-purpose chat closeout — 10 decisions + PERSONAS.md)** — Non-build design chat (`competent-blackwell-5de2a2`) Phase 5 captures shipped. All 6 open-territory items from VISION §11 "Sharing UX / purpose narrowing" RESOLVED + 4 bonus locks (public boundary, sharing data model, persona system, app-store distribution context). **New file:** `docs/PERSONAS.md` (5 personas — Maya / Sydney / Walter / Aria / Sam — for plan-audit Pass 2 + Pass 3 persona walks). **VISION.md:** §1 boundaries (public-distribution line); §3 first paragraph + Layer 2 attribution + Layer 3 internal group-mode structure; §9 new Public social-media stream 🕐 row + Level 3 trade row updated with two-shape note; §10 new no-activity-feed don't-touch; §11 sharing-UX entry replaced with resolved summary. **ROADMAP.md:** §6 comprehensive entry + §3.5 trade sub-item expanded + new §3.11 chunk "Trusted-circle infrastructure" 🟣 + §1 lead-line refresh (demoted 2026-05-16 frosty-wright paragraph to archive). **CLAUDE.md:** "What this project is" refined to name app-store distribution + Pass 2 + Pass 3 gain persona-walk subcategory + Required-reading mentions PERSONAS.md. **Concurrent-chat collision caught mid-Phase-5:** `5ca4bae` + `d61fff0` (ecstatic-rubin-5f30c8) landed between my plan-lock and pre-push; stash + pull --rebase + pop stash + surgical conflict resolution on §1 + §6 (both ships preserved, no work lost). 4 files, +294/-11. Tests 404/404 (sanity — no code). Doc-only push tier. Classifier-bypass via `permissions.allow` worked clean (parallel chat's P4 open-verification confirmed). Plan file at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-frolicking-token.md`.
 
@@ -51,6 +52,7 @@
 
 ### Still TBD verification
 
+- **`4a8b04c` (§3.12-pre dev-tools gating)** — needs phone verification on prod after Vercel deploy: (a) sign in, navigate to Settings, confirm 6-item menu (no Developer / Import logs / Extract cache); (b) tap App Version at bottom of Profile 7×, return to Settings, confirm 9-item menu now visible; (c) while in unlocked state, all 5 dev pages render normally; (d) sign out + sign in fresh (or use different account) — confirm 6-item menu returns.
 - **`3de1c2c` chunk 3.9 #2** (calendar arrows hide on phone) — needs phone verification: open Calendar, confirm no arrows beside month label below `xl:1280px`; swipe still works. (3.9 #4 Garden trigger icon implicitly verified via U25's `11eaf37` verify 2026-05-17 — same icon, same surface family.)
 - **`8624c8d` B2** (desktop ≥1280px two-column) — user hasn't been on desktop browser yet
 - **`e61ffdc` B1** (desktop ≥1280px sidebar) — user hasn't been on desktop browser yet
@@ -77,9 +79,19 @@
 
 ### Next session focus
 
-**Open task — §3.12-pre dev-tools gating ship (NEW, locked end-of-`binary-valley` 2026-05-17):** Persona-audit P0 theme #1 of 10. Mechanical fix, independent of persona-design work. APP-STORE BLOCKER. Settings page exposes Developer / Import logs / Extract cache to every authed user; [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) verified flat with no gate. Ship pattern: plan-audit → choose implementation (build-flag / role-gated / env-based / combo) → build → phone-verify on prod. See §3.12-pre for full scope. **Ships first.**
+**§3.12-pre ✅ SHIPPED 2026-05-17 (`4a8b04c`, `flamboyant-wilson-34fc0c` chat).** Awaiting user phone-verification on prod. Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-quizzical-stardust.md` retains full audit trail + Amendment 2 (Pass 3 sibling-sweep miss → env-var ship reverted → existing `useDeveloperUnlock` adopted).
 
-**Persona-audit kickoff ✅ CLOSED 2026-05-17** (this chat — `binary-valley`). 8 surfaces × 5 personas walked at skim depth; 10 cross-cutting themes surfaced (5 P0 / 5 P1); new §3.12-pre + §3.12 chunks landed. Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` retained with full walk. See §1 lead-line + §6 2026-05-17 `binary-valley` entry for log + 3 buckets.
+**Open task — User phone-verification of `4a8b04c` (~5 min on her phone).** After Vercel deploy completes: confirm Settings shows 6-item menu by default; tap App Version 7× → 9-item menu appears; sign out + back in confirms gate re-engages. See "Still TBD verification" above for full verification path.
+
+**Next per-theme planning chat — user picks from §3.12 catalog** (P0 → P1 order recommended, but user-prioritized):
+- **#2 (outdoor-garden assumption sweep)** + **#6 (FAB / tab disclosure-by-data)** = same family; build together; M-L effort
+- **#3 (plain-language audit)** + **#8 (settings IA)** = Phase 4 navigation audit work; L effort
+- **#4 (visible-button fallback for swipe)** = independent audit + targeted fix; S effort
+- **#5 (empty-state cliff)** = independent audit + per-surface copy work; M effort
+
+**Chat A (aesthetic-decision sweep on 9 SURFACE items) still queued** — see plan file `fresh-chat-purpose-vision-sorted-clover.md`. Persona-audit didn't invalidate items; added context (U12 reinforced as Walter P0; icon density sits inside theme #3).
+
+**Persona-audit kickoff ✅ CLOSED 2026-05-17** (`binary-valley`). 8 surfaces × 5 personas walked at skim depth; 10 cross-cutting themes surfaced; new §3.12-pre + §3.12 chunks landed. Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` retained.
 
 **Deferred — Chat A (aesthetic-decision sweep):** 9 SURFACE items walked individually per Rule C. See plan file `fresh-chat-purpose-vision-sorted-clover.md`. **Now runs after §3.12-pre dev-tools gating ships.** Persona-audit findings did not invalidate Chat A items but added context to weigh them (esp. U12 two-+Entry-paths now reinforced as Walter P0 friction; icon-density now sits inside theme #3 plain-language audit). U25 fix (originally Chat A) shipped on Garden tabs via parallel-chat `11eaf37`; 3 Vault profile sites parked.
 
@@ -408,38 +420,42 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
-### 3.12-pre 🔵 App-store ship-readiness preflight — gate developer tools
+### 3.12-pre ✅ App-store ship-readiness preflight — gate developer tools (shipped 2026-05-17 `4a8b04c`)
 
-**Status:** Decision locked 2026-05-17 (`binary-valley` persona-audit chat, Rule A ask). Mechanical fix, ships independent of persona-design work. Needs plan-audit before build.
+**Status:** ✅ Shipped 2026-05-17 (`flamboyant-wilson-34fc0c` chat, `4a8b04c`). Awaiting user phone-verification on prod.
 
-**Surfaced by:** Persona-audit P0 theme #1 of 10. Verified during plan-mode via [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) — `SETTINGS_ITEMS` array renders Developer / Import logs / Extract cache to every user with no role / build / env gate.
+**Implementation chosen at plan time = existing `useDeveloperUnlock` tap-count gate** (per `binary-valley` Rule A Q1 list, ultimately chosen after Amendment 2 — see §6 2026-05-17 `flamboyant-wilson` entry for full Pass-3-sibling-sweep miss + revert log). Settings page menu gates on `isUnlocked`; each of 5 dev sub-pages renders the canonical scraper-audit-style "Developer tools require unlock" message + Go to Settings link when locked. Aligns with existing pattern at [admin/scraper-audit/page.tsx:68](src/app/admin/scraper-audit/page.tsx:68); no new mechanism introduced. Entry gesture = tap App Version 7× on Profile (existing).
 
-**Scope:** Settings page currently exposes developer-only surfaces to every authed user:
+**Surfaced by:** Persona-audit P0 theme #1 of 10. Verified during plan-mode via [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) — `SETTINGS_ITEMS` array rendered Developer / Import logs / Extract cache to every user with no gate.
+
+**Scope (shipped):** 5 pages now gated (initial scope said "4 sub-pages under /settings/developer/*" — actual count was 3 under that route + 2 standalone = 5 total):
 - Developer (fill-in-blanks, repair hero, cache, trash) — [/settings/developer](src/app/settings/developer/page.tsx)
 - Debug log — [/settings/developer/debug-log](src/app/settings/developer/debug-log/page.tsx)
-- Import logs
-- Extract cache
+- API Usage — [/settings/developer/usage](src/app/settings/developer/usage/page.tsx)
+- Import logs — [/settings/import-logs](src/app/settings/import-logs/page.tsx)
+- Extract cache — [/settings/extract-cache](src/app/settings/extract-cache/page.tsx)
 
-Walter / Aria / Sam all confused at first sight; Sam-on-day-1 is the explicit APP-STORE BLOCKER signal ("dev tools on first run = app is unfinished / not for me"). Maya merely intrigued (not blocking but messy).
+Walter / Aria / Sam all confused at first sight; Sam-on-day-1 was the explicit APP-STORE BLOCKER signal ("dev tools on first run = app is unfinished / not for me"). Maya merely intrigued (not blocking but messy).
 
-**Why pre-§3.12:** Mechanical fix, isolated from all persona-design work. Ships independently. Unblocks public-distribution context locked 2026-05-17 (VISION §1, §3). The other 9 persona-audit themes need design discussion; this one doesn't.
+**Why pre-§3.12:** Mechanical fix, isolated from all persona-design work. Ships independently. Unblocks public-distribution context locked 2026-05-17 (VISION §1, §3). The other 9 persona-audit themes need design discussion; this one didn't.
 
-**Implementation candidates (decide at plan time, not now):**
-- Build-flag gate (`process.env.NEXT_PUBLIC_DEV_TOOLS === 'true'` hides in prod build)
-- Role-gated menu (user role flag in Supabase; developer-role users only)
-- Tap-count-to-unlock (gesture-revealed, hidden by default)
-- Environment-based (visible on `localhost` + Vercel preview deploys, hidden on prod domain)
-- Combo (build-flag AS the gate; preview deploys still expose for testing)
+**Implementation alternatives considered (at plan time):**
+- Build-flag gate (`process.env.NEXT_PUBLIC_DEV_TOOLS === 'true'` hides in prod build) — REJECTED, user uses dev tools on prod against real data
+- Role-gated menu (user role flag in Supabase) — REJECTED, schema migration overkill for S effort
+- Env-var user-ID allowlist (`NEXT_PUBLIC_DEV_USER_IDS`) — initially CHOSEN via Q1 Rule A, then REVERTED via Amendment 2 when Pass 3 miss surfaced existing `useDeveloperUnlock` already covered this
+- Tap-count-to-unlock (gesture-revealed) — FINAL CHOICE via Amendment 2; already half-built in codebase
 
-**Files in scope:** [src/app/settings/page.tsx](src/app/settings/page.tsx) + 4 sub-pages under `/settings/developer/*` + `/settings/import-logs` + `/settings/extract-cache`.
+**Files shipped:** [src/app/settings/page.tsx](src/app/settings/page.tsx) (split `USER_ITEMS` / `DEV_ITEMS` + `isUnlocked` gate) + [src/app/settings/page.test.tsx](src/app/settings/page.test.tsx) (two cases: locked + unlocked) + 5 dev pages each adding the `if (!isUnlocked) return <unlock message>` gate.
 
-**Verification:** Phone screenshot on prod after gate ships — confirm none of the developer items visible to a non-dev user. Persona walk on revised Settings: Sam landing on Settings on day 1 sees only user-facing items.
+**Verification:** Phone-verify on prod after Vercel auto-deploy: (1) Settings shows 6-item menu by default; (2) tap App Version 7× on Profile bottom → return to Settings → 9-item menu; (3) bookmark `/settings/developer` while locked → "Developer tools require unlock" message + Go to Settings link. Persona walk in audit log confirmed all 5 personas + user pass.
 
 **Dependencies:** None. Independent of §3.12 catalog.
 
-**Effort:** S (small).
+**Effort actual:** S — 7 files, +100/-8 lines, ~45 min including Amendment 2 revert + re-test.
 
-**Source:** Persona-audit P0 theme #1; ROADMAP §6 2026-05-17 `binary-valley` entry.
+**Source:** Persona-audit P0 theme #1; ROADMAP §6 2026-05-17 `binary-valley` + `flamboyant-wilson` entries.
+
+**ADJACENT finding captured:** [/api/developer/*](src/app/api/developer) server-side routes (4 handlers) accept any authed user — captured as BUGS U27 for follow-up security-hardening ship (per Q2 Rule A lock in `binary-valley`).
 
 ---
 
@@ -544,6 +560,35 @@ Most recent first. For full history, use `git log`.
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
 ### 2026-05-17
+
+- **§3.12-pre dev-tools gating ✅ SHIPPED end-to-end (`flamboyant-wilson-34fc0c` chat, 2026-05-17).** Code commit `4a8b04c` → main; Vercel auto-deploys. Resolves persona-audit P0 theme #1 of 10 (APP-STORE BLOCKER named by `binary-valley` 2026-05-17). 7 files, +100/-8. Tests 405/405. Build clean. Preview MCP skipped per documented `.env.long`-absent worktree condition; user phone-verifies on prod (verification path in ROADMAP §1 "Still TBD verification").
+
+  **Implementation = existing `useDeveloperUnlock` tap-count gate.** Settings page menu items split into `USER_ITEMS` (always shown) + `DEV_ITEMS` (gated on `isUnlocked`); each of 5 dev sub-pages (developer hub + debug-log + usage + import-logs + extract-cache) adds `if (!isUnlocked) return <"Developer tools require unlock"> + Go to Settings link` — verbatim pattern from [admin/scraper-audit/page.tsx:68](src/app/admin/scraper-audit/page.tsx:68). Entry gesture pre-existed = tap App Version 7× on Profile bottom (already wired via [settings/profile/page.tsx:34,503](src/app/settings/profile/page.tsx:34) + [layout.tsx:58](src/app/layout.tsx:58) provider). No new mechanism introduced.
+
+  **Two Rule A locks shipped this chat:**
+  - **Q1 → initial pick = Option B env-var allowlist (`NEXT_PUBLIC_DEV_USER_IDS`) (Recommended).** Chosen at plan-time based on incomplete Pass 3 sibling-sweep (regex covered `NEXT_PUBLIC_DEV|process\.env\.NEXT_PUBLIC|DEV_TOOLS|is_dev|isDev|isDeveloper|role===dev` but missed `DeveloperUnlock|tapVersion|isUnlocked`).
+  - **Q2 → UI gating only this ship (Recommended).** `/api/developer/*` server-side gating captured to BUGS U27 for separate security-hardening ship (4 routes accept any authed user despite UI gate).
+
+  **Amendment 2 (post-build pre-commit, second Rule A ask):** Discovered during stale-mock-cleanup grep for `DeveloperUnlockContext` in `settings/page.test.tsx`: the context existed and is actively used. 5 files reference it (provider in layout, tap entry on Profile, gate on scraper-audit, the orphaned test mock). My Pass 3 regex vocabulary was env-var-flavored, so the existing tap-unlock pattern slipped past — AND my Q1 AskUserQuestion listed "Tap-count-to-unlock (gesture-revealed)" as a from-scratch candidate when it was already half-built and unused-on-Settings. User picked Option B Recommended without knowing tap-unlock was the cohesion-aligned answer. **Surfaced honestly via second Rule A ask** with 3 options (revert env-var ship + switch to tap-unlock / keep env-var + delete tap-unlock / parallel mechanisms). User chose Recommended (revert + switch). Env-var ship reverted entirely: `src/lib/devAccess.ts` + `src/lib/devAccess.test.ts` deleted; 5 sub-pages re-edited to drop `useRouter` + `isDeveloperUser` + useEffect-redirect → adopt `useDeveloperUnlock` + scraper-audit-style render-time message; `settings/page.test.tsx` restored to mock `DeveloperUnlockContext` (which the original test correctly anticipated). Net diff vs. baseline (devAccess never landed; 7 files modified only). **Amendment 2 re-audited Pass 1+2+3+4 clean in plan file.**
+
+  **Process lesson captured to memory:** Pass 3 sibling-sweep grep regex must cover **vocabulary breadth**, not just the obvious naming for the pattern you expect. When gating dev tools, search for `DeveloperUnlock`, `tapVersion`, `isUnlocked` alongside env-var patterns. The cost of a too-narrow regex = parallel-mechanism failure mode (the specific cohesion-by-aggregation drift CLAUDE.md 2026-05-14 locked against). Caught here pre-commit by luck (the stale test mock had the existing context's name in it); next time the regex should catch it deliberately.
+
+  **Concurrent-chat fetch check (Phase 2 readiness gate item 9, locked 2026-05-17):** `git fetch origin main` ran twice — pre-edit (HEAD = origin/main) + pre-code-push (HEAD = origin/main). No collision. Third validation of the rule in 2 days running clean.
+
+  **Phase 5 captures applied this chat (this entry + ROADMAP §3.12-pre status flip 🔵 → ✅ + §1 lead-line refresh per 2-paragraph cap + §3.12-pre count fix "4 sub-pages" → "3 sub-pages" + BUGS U27 new entry + Next session focus rewritten).** Single doc-only commit follows the code commit on push.
+
+  **3 buckets close-out:**
+  - **(a) Parked items added this chat:** None new beyond BUGS U27 (which is a captured ADJACENT, not parked).
+  - **(b) Deferred audits / known follow-ups:**
+    - **`4a8b04c` user phone-verification on prod** — pending Vercel deploy + her hands-on test.
+    - **BUGS U27 `/api/developer/*` server-side gating** — defense-in-depth follow-up; separate security-hardening ship; user picks priority vs. §3.12 themes.
+    - **Pass 3 sibling-sweep regex vocabulary-breadth rule** — captured to memory; consider promoting to CLAUDE.md plan-audit standard Pass 3 subsection as a structural fix.
+    - **`scraper-audit` sibling now visible** — separate admin route, not on Settings menu, already self-gates correctly. No work needed unless user wants Settings to also link there (out of scope this chat).
+  - **(c) Dogfood-style findings:**
+    - **Pass 3 sibling-sweep regex narrowness is a recurring class of miss.** This is the second time in two chats Claude's sibling sweep was too narrow (the 2026-05-16 `pedantic-panini` chat caught its narrowness in the AGENTS.md split, this chat caught its narrowness in the dev-gate pattern). **Status: propose rule now** — flag for the user a CLAUDE.md Pass 3 amendment ("when planning a gating / unlock / role-based feature, ALWAYS grep for: `Unlock|Gate|Role|Permission|Allowlist|tapVersion|isUnlocked|isAllowed` in addition to the obvious naming you're searching for"). Surfaced separately for user decision below.
+    - **Auto mode + plan-mode + Rule A re-ask interplay:** when auto mode is active and a substantive plan-amendment is needed mid-execution, the right pattern (which this chat demonstrated) is: stop, surface honestly, ask Rule A, get lock, then continue. Auto mode doesn't override CLAUDE.md's amendment-rigor rule. **Status: just-captured** (not a new rule, just confirmation the existing pattern works in auto mode).
+
+  Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-quizzical-stardust.md` retains full audit trail + Amendment 1 (debug-log lacks auth pattern) + Amendment 2 (sibling-sweep miss revert) + 4-pass audits on each.
 
 - **Persona-audit kickoff closed end-to-end (`binary-valley` chat, 2026-05-17). Flavor D skim-first walk completed. 8 surfaces × 5 personas = 40 cells walked; ~80 findings prioritized P0/P1/P2/P3. 10 cross-cutting themes surfaced + 2 Rule A locks shipped.** Non-build design chat per Chat Lifecycle Protocol; Phases 2-4 no-ops; Phase 1 (purpose + walk + concerns) + Phase 5 (capture into new §3.12-pre + §3.12 chunks) carried the load.
 
