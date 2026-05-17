@@ -82,7 +82,11 @@
 
 **§3.12-pre ✅ SHIPPED + VERIFIED 2026-05-17 (`4a8b04c`, `flamboyant-wilson-34fc0c` chat).** User phone-verified clean on prod — all 4 verification steps passed. APP-STORE BLOCKER resolved. Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-quizzical-stardust.md` retains full audit trail + Amendment 2 (Pass 3 sibling-sweep miss → env-var ship reverted → existing `useDeveloperUnlock` adopted).
 
-**Next per-theme planning chat — user picks from §3.12 catalog** (P0 → P1 order recommended, but user-prioritized):
+**Two ready chats — user picks order:**
+
+**(a) §3.12-tester T3 (Tools-bar gate-or-public design decision).** Scopes T1 (voice) + T2 (debug-log) which spin off after T3 lands. Effort: XS-S design + ship. Captured 2026-05-17 (`gifted-wright-4184cb` chat); see §3.12-tester for full triage.
+
+**(b) Next per-theme planning chat from §3.12 catalog** (P0 → P1 order recommended, but user-prioritized):
 - **#2 (outdoor-garden assumption sweep)** + **#6 (FAB / tab disclosure-by-data)** = same family; build together; M-L effort
 - **#3 (plain-language audit)** + **#8 (settings IA)** = Phase 4 navigation audit work; L effort
 - **#4 (visible-button fallback for swipe)** = independent audit + targeted fix; S effort
@@ -495,6 +499,34 @@ Walter / Aria / Sam all confused at first sight; Sam-on-day-1 was the explicit A
 
 ---
 
+### 3.12-tester 🔵 Tester feedback enhancements — 2026-05-17
+
+**Status:** Triage captured (`gifted-wright-4184cb` chat 2026-05-17). T3 ships first (scopes T1+T2). T1+T2 spin off as separate chats after T3 lands. T4 parked.
+
+**Context:** Current Tools-bar feedback flow ([AuthGuard.tsx:297](src/components/AuthGuard.tsx:297) wrench-icon button → [FeedbackModal.tsx](src/components/FeedbackModal.tsx)) captures: `message`, `category` (bug/feature/question/other), optional screenshot, `page_url`, `user_id`, `user_email` — saves to supabase `user_feedback` table. **No voice. No debug log.** Debug log lives separately at [/settings/developer/debug-log](src/app/settings/developer/debug-log/page.tsx) (now dev-gated post-`4a8b04c`) — manual navigate + Copy All + paste flow only. Tools-bar button currently shown to **every authed user** — no gate.
+
+**Items:**
+
+- **T3 🔵 Tools-bar button visibility scope — gated or public?** Design decision that scopes T1+T2. Currently visible to all authed users; given app-store distribution locked 2026-05-17, this may or may not be intentional. Three shapes:
+  - **Option A — Public, stays as-is.** Many public apps ship a "Send feedback" button. Forces T1+T2 to stay Walter/Sam-friendly (light voice UI, opt-in debug log).
+  - **Option B — Gate behind same `useDeveloperUnlock` as dev tools.** Tester-only via the 7-tap unlock gesture. T1+T2 can lean heavier (longer voice durations, default-on debug log).
+  - **Option C — New gate: separate "beta tester" flag.** Different from dev-tools gate; allowlist of tester user IDs or invite-code. More work, more precise control.
+  - Effort: XS-S depending on option chosen. **Aesthetic flag:** if gated, copy on the menu where the entry lives ("Beta feedback" vs "Send feedback" vs etc.). **Persona flag:** Walter benefits from labeled-not-icon-only if gated; Sam doesn't need it visible at all.
+
+- **T1 🔵 Voice recorder attach in FeedbackModal.** Add voice-memo recording alongside the existing screenshot attach. Effort: S-M. **Aesthetic decisions blocking build:** recording button location (next to "Attach screenshot"?), states (idle / recording-with-timer / recorded-with-replay), max duration cap (30s? 60s? 25MB-limit?), file format (webm via MediaRecorder is universal), retake behavior, save flow (new column `voice_path` on `user_feedback` parallel to `screenshot_path` + supabase storage upload). **Persona flag:** Walter benefits substantially (voice > typing for retirees); Sam/Aria neutral; privacy-prompt UX needed for first-time mic access.
+
+- **T2 🔵 Debug log auto-attach on feedback submit.** Currently `debugLogBuffer.ts` captures last 50 console messages this session; on submit, read entries + attach to feedback row (new column `debug_log_text` OR storage-upload as `.txt`). Effort: XS-S (infrastructure exists). **Privacy decision blocking build:** opt-in toggle vs default-on vs default-on-only-for-testers (depends on T3). Console output can include user IDs, timestamps, error context — must be surfaced to user with "Include debug info" toggle + tooltip explaining what's attached. Show preview before submit? **Persona flag:** all 5 personas need clarity on what's being sent; default-off + user toggles ON if she wants to help is the conservative shape.
+
+- **T4 🟣 Feedback inbox admin page — PARKED.** User raised as aside ("easier access location or manager would be nice but current is fine"). Future `/settings/developer/feedback-inbox` page (gated by `useDeveloperUnlock`) listing `user_feedback` rows with filter + screenshot/voice/log preview. Effort: M. Re-surface after T1-T3 ship; T4 is the consumer of the data T1+T2 will collect. Status: 🟣 future, low priority — current Supabase Dashboard SQL Editor flow works.
+
+**Dependencies:** T3 → (T1, T2) sequential. T1, T2 can ship as one bundled chat after T3, or sequentially.
+
+**Why 🔵 not feature creep:** Per CLAUDE.md "Counter-cases (don't flag)" — internal tooling counter-case. The Tools-bar IS the tester-feedback infrastructure; expanding it is finishing the tooling, not new product scope.
+
+**Source:** `gifted-wright-4184cb` chat 2026-05-17 user feedback batch (2 explicit items + 1 adjacent surfaced by Pass 3 sibling-sweep equivalent + 1 aside).
+
+---
+
 ### Later (🕐 long-term aspirational, in priority-ish order)
 
 - **Pest / illness ID camera + Q&A + treatment recs.** Likely paid tier. Differentiator.
@@ -559,6 +591,8 @@ Most recent first. For full history, use `git log`.
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
 ### 2026-05-17
+
+- **§3.12-pre `4a8b04c` user-verified clean on prod + tester-tooling triage captured (`gifted-wright-4184cb` chat, 2026-05-17).** Two purposes in one short chat: (P1) user phone-verified `4a8b04c` §3.12-pre dev-tools gating across all 4 verification steps — default 6-item Settings menu, tap-7× → 9-item menu, all 5 dev pages render unlocked, sign-out + fresh sign-in re-engages gate. APP-STORE BLOCKER (persona-audit P0 theme #1) confirmed resolved end-to-end; row moved §1 "Still TBD verification" → "Verified clean." (P2) User raised 2-item tester-tooling feedback batch — voice recorder on Tools-bar feedback + debug-log auto-attach on feedback submit. **Step 0 search:** no prior captures in BUGS / ROADMAP §3+§4 / VISION §11 / BACKLOG. **Triage outcome (Rule A ask, user chose Recommended):** capture all 3 in new §3.12-tester chunk (T1 voice + T2 debug-log + T3 gate-or-public scope-decision) + T4 admin-inbox parked 🟣; T3 ships first (scopes T1+T2); fresh chat opens for T3 next. **Adjacent finding surfaced by Pass 3 sibling-sweep equivalent at triage time:** Tools-bar wrench button [AuthGuard.tsx:297](src/components/AuthGuard.tsx:297) currently visible to all authed users — given app-store distribution context, design decision (T3) pending. **Aesthetic / privacy flags named per item** (T1: voice UI states + duration cap + Walter touch-target check; T2: opt-in vs default-on, privacy preview, console-content disclosure; T3: 3 options A=public / B=existing tap-unlock / C=separate tester-allowlist). 1 file, +~50 lines. Doc-only push tier. Tests N/A (no code). **3 buckets close-out:** (a) Parked: T4 feedback inbox manager 🟣 future. (b) Deferred: T3 → T1+T2 sequencing; user picks (a) §3.12-tester T3 or (b) §3.12 catalog theme #2+#6 as next chat. (c) Dogfood findings: none — verification clean, triage clean.
 
 - **§3.12-pre dev-tools gating ✅ SHIPPED end-to-end (`flamboyant-wilson-34fc0c` chat, 2026-05-17).** Code commit `4a8b04c` → main; Vercel auto-deploys. Resolves persona-audit P0 theme #1 of 10 (APP-STORE BLOCKER named by `binary-valley` 2026-05-17). 7 files, +100/-8. Tests 405/405. Build clean. Preview MCP skipped per documented `.env.long`-absent worktree condition; user phone-verifies on prod (verification path in ROADMAP §1 "Still TBD verification").
 
