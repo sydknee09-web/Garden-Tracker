@@ -14,16 +14,16 @@
 
 ## 1. Current focus
 
-**As of 2026-05-17 (latest — `competent-blackwell-5de2a2` chat, sharing-purpose chat) — All 6 open-territory items from VISION §11 "Sharing UX / purpose narrowing" RESOLVED + 4 bonus locks shipped (public boundary → 🕐 long-term; sharing data model = communication + transfer-at-time; persona system; app-store distribution context explicit). 10 total decisions captured. Non-build design chat per Chat Lifecycle Protocol. **Phase 5 captures applied (doc-only):** new `docs/PERSONAS.md` (5 personas — Maya / Sydney / Walter / Aria / Sam); VISION.md §1/§3/§9/§10/§11 updated; ROADMAP.md §6 comprehensive entry + §3.5 trade-sub-item expanded + new §3.11 chunk "Trusted-circle infrastructure" 🟣; CLAUDE.md "What this project is" refined + plan-audit standard gains "persona walk" subcategory in Pass 2 + Pass 3 + Required-reading mentions PERSONAS.md as optional context. **Concurrent-chat collision caught + reconciled mid-Phase-5:** `5ca4bae` + `d61fff0` landed on origin/main between my plan-lock and pre-push (ecstatic-rubin-5f30c8 chat's U25-verify + concurrent-chat-fetch-rule + push-classifier-allowlist + U26 capture). Stash + pull --rebase + pop stash + surgical conflict resolution on §1 lead-line + §6 2026-05-17 (merged both ships into the day's entries; neither chat's work lost). **Important meta-note:** the new Phase 2 readiness-gate `git fetch origin main` rule that ecstatic-rubin shipped in `5ca4bae` would have caught this collision pre-edit — but that rule wasn't in my CLAUDE.md at chat start. Validation pattern again: rule locks AT THE MOMENT OF ITS NEED. **Next session focus (UPDATED end-of-chat):** **Persona-audit kickoff** (new chat purpose, locked via Rule A ask end-of-`competent-blackwell-5de2a2`). Flavor D shape: skim-first walk of 5 personas (PERSONAS.md) × ~8 surfaces (Home/Vault/Garden/Calendar/Journal/Shed/Settings/FAB+modals), top 2-3 concerns per intersection, triaged into a new ROADMAP §3.12 chunk. **Chat A (aesthetic sweep on 9 SURFACE items) deferred to AFTER persona-audit closes** — persona findings may re-prioritize or amend Chat A's items; locking aesthetic decisions before persona-audit risks redo. Plan files retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-frolicking-token.md` (this chat) + `fresh-chat-purpose-vision-sorted-clover.md` (Chat A, deferred). See §6 2026-05-17 entries for full decision log.**
+**As of 2026-05-17 (latest — `binary-valley` chat, persona-audit kickoff) — Persona-audit Flavor D skim-first walk ✅ CLOSED. 8 surfaces (Home / Vault / Garden / Calendar / Journal / Shed / Settings / FAB+modals) × 5 personas (Maya / Sydney / Walter / Aria / Sam) walked at skim depth.** Top 2-3 concerns per intersection captured. **10 cross-cutting themes surfaced** (5 P0 / 5 P1 — see §3.12 catalog). **2 Rule A locks:** (Q1) Theme #1 dev-tools gating splits into new §3.12-pre 🔵 chunk "App-store ship-readiness preflight — gate developer tools" (mechanical, independent, ships first); (Q2) §3.12 = 🟣 triage-catalog form (findings list + cross-cutting themes; per-theme planning chats spin off this catalog; do not build directly from §3.12). **Verified during plan-mode:** [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) renders `SETTINGS_ITEMS` flat with no role / build / env gate — Developer / Import logs / Extract cache visible to every authed user; subtitle even says "Profile, data, and developer tools." Dev-tools gating finding is confirmed not inferred. **Phase 5 captures applied (doc-only this turn):** new §3.12-pre + §3.12 chunks in ROADMAP §3; §1 lead-line + Next session focus refreshed; §6 new 2026-05-17 entry. **Next session focus:** §3.12-pre dev-tools gating ship (mechanical, S effort, plan-audit + build + verify on prod) is the highest-leverage next step — ships first since it's an app-store blocker independent of all other persona work. **Chat A (aesthetic-decision sweep on 9 SURFACE items) still queued, runs after §3.12-pre** — persona-audit findings did not invalidate Chat A's items but added context to weigh them; Chat A's plan file (`fresh-chat-purpose-vision-sorted-clover.md`) preserved for resumption. Plan file retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` with full 8 × 5 walk. See §6 2026-05-17 `binary-valley` entry for decision log + 3 buckets close-out.
 
 ---
 
-**Earlier 2026-05-17 (ecstatic-rubin-5f30c8 chat, U25 phone-verify + 2 procedural rules + concurrent-chat collision reconciled) — U25 ✅ VERIFIED CLEAN on prod.** User phone-verified 2026-05-17: My Plants list per-row "Add journal entry" pen icon (`ICON_MAP.Edit`) matches Active Garden gallery + list — cross-surface cohesion within Garden tabs confirmed end-to-end. Vault profile sites remain parked per §4 (separate aesthetic decision queued for future cross-surface icon-cohesion pass). **Concurrent-chat collision caught pre-push (via `git diff origin/main`):** 4 commits landed on origin/main between this chat's plan-lock and pre-push — `f620e37` frosty-wright-d437a7 shipped a comprehensive ROADMAP archive policy (§7: §1 ≤2 paragraphs, §5 ~10 entries, §6 ~14 days inline) + applied it; `25de0ac` audit close-out; `9fc07f4` ALIGNMENT_AUDIT report; `39bc96f` sharing-purpose chat scoping. **My P2 "ROADMAP shortening park as §3.10 R10" entry was OBSOLETED by `f620e37`** the moment the parallel chat landed — the archive policy is already shipped + applied with a better 3-cap rule than my single-cap R10 proposal. Plan amended mid-Phase-3 per Phase 3 amendment-re-audit clause: rebase via `git stash + git pull --rebase origin main + drop stash + surgical re-apply on rebased state` (no destructive operations; user explicitly chose this path via Rule A ask after hearing alternatives). P2 dropped; P1/P3/P4 preserved and re-applied on the new §7 archive policy caps. **Two procedural rules locked into CLAUDE.md:** (P3) Phase 2 readiness gate gains 9th checklist item — `git fetch origin main` before amending CLAUDE.md / VISION.md / ROADMAP.md; catches concurrent-chat collisions earlier than rebase. Sibling pattern to Pass 1 cite-by-path verification. **Ironically, the P3 rule I'm shipping would have caught this very collision** if it had been in place during my plan-mode draft. Strong real-time validation. (P4) Push-classifier caveat amended to note `.claude/settings.json` `permissions.allow` bypass — paired with settings.json change adding narrow `Bash(git push origin HEAD:main)` allowlist. Trade-off heard via Rule A: removes runtime backstop on this push form; rule enforcement moves to plan-mode + AskUserQuestion only. **Open verification (testable on this chat's doc + config push):** whether `permissions.allow` actually bypasses the auto-mode classifier. Tests 404/404; build clean; no code touched this chat — single doc + config commit. **Next session focus per parallel-chat handoff (frosty-wright):** Chat A (aesthetic-decision sweep — 9 SURFACE items per Rule C) + Sharing-purpose chat (parallel to Chat A, new 2026-05-17, VISION §11 territory list). This chat's specific carry-overs: dogfood-bucket §3.10 D1 stale-finding (settings.json now exists, contradicts D1 text) — bundle into Chat D §3.10 doc-hygiene.
+**Earlier 2026-05-17 (`competent-blackwell-5de2a2` chat, sharing-purpose chat) — All 6 open-territory items from VISION §11 "Sharing UX / purpose narrowing" RESOLVED + 4 bonus locks shipped (public boundary → 🕐 long-term; sharing data model = communication + transfer-at-time; persona system; app-store distribution context explicit). 10 total decisions captured. Non-build design chat per Chat Lifecycle Protocol. **Phase 5 captures applied (doc-only):** new `docs/PERSONAS.md` (5 personas — Maya / Sydney / Walter / Aria / Sam); VISION.md §1/§3/§9/§10/§11 updated; ROADMAP.md §6 comprehensive entry + §3.5 trade-sub-item expanded + new §3.11 chunk "Trusted-circle infrastructure" 🟣; CLAUDE.md "What this project is" refined + plan-audit standard gains "persona walk" subcategory in Pass 2 + Pass 3 + Required-reading mentions PERSONAS.md as optional context. **Concurrent-chat collision caught + reconciled mid-Phase-5:** `5ca4bae` + `d61fff0` landed on origin/main between my plan-lock and pre-push (ecstatic-rubin-5f30c8 chat's U25-verify + concurrent-chat-fetch-rule + push-classifier-allowlist + U26 capture). Stash + pull --rebase + pop stash + surgical conflict resolution on §1 lead-line + §6 2026-05-17 (merged both ships into the day's entries; neither chat's work lost). **Important meta-note:** the new Phase 2 readiness-gate `git fetch origin main` rule that ecstatic-rubin shipped in `5ca4bae` would have caught this collision pre-edit — but that rule wasn't in my CLAUDE.md at chat start. Validation pattern again: rule locks AT THE MOMENT OF ITS NEED. **Next session focus (UPDATED end-of-chat):** **Persona-audit kickoff** (new chat purpose, locked via Rule A ask end-of-`competent-blackwell-5de2a2`). Flavor D shape: skim-first walk of 5 personas (PERSONAS.md) × ~8 surfaces (Home/Vault/Garden/Calendar/Journal/Shed/Settings/FAB+modals), top 2-3 concerns per intersection, triaged into a new ROADMAP §3.12 chunk. **Chat A (aesthetic sweep on 9 SURFACE items) deferred to AFTER persona-audit closes** — persona findings may re-prioritize or amend Chat A's items; locking aesthetic decisions before persona-audit risks redo. Plan files retained at `C:\Users\marsh\.claude\plans\continue-from-prev-chat-frolicking-token.md` (this chat) + `fresh-chat-purpose-vision-sorted-clover.md` (Chat A, deferred). See §6 2026-05-17 entries for full decision log.**
 
 ---
 
 
-*Older dated lead-line paragraphs (2026-05-14 and earlier, plus the 2026-05-16 sleepy-vaughan U24-close + tree-data entries + 2026-05-16 pedantic-panini-9d963c U25 ship paragraph + 2026-05-16 frosty-wright-d437a7 alignment-audit paragraph) archived — full content preserved in §6 entries. §1 lead-line cap = 2 paragraphs (locked 2026-05-16, see §7).*
+*Older dated lead-line paragraphs (2026-05-14 and earlier, plus 2026-05-16 sleepy-vaughan U24-close + tree-data entries + 2026-05-16 pedantic-panini-9d963c U25 ship paragraph + 2026-05-16 frosty-wright-d437a7 alignment-audit paragraph + 2026-05-17 ecstatic-rubin-5f30c8 U25-verify + 2-procedural-rules paragraph) archived — full content preserved in §6 entries. §1 lead-line cap = 2 paragraphs (locked 2026-05-16, see §7).*
 
 ### Just shipped this session
 
@@ -77,23 +77,29 @@
 
 ### Next session focus
 
-**Open task — Persona-audit kickoff (NEW, locked end-of-`competent-blackwell-5de2a2` 2026-05-17):** Flavor D skim-first walk of 5 personas (PERSONAS.md) × ~8 surfaces, output triaged into new ROADMAP §3.12 chunk. This chat runs FIRST.
+**Open task — §3.12-pre dev-tools gating ship (NEW, locked end-of-`binary-valley` 2026-05-17):** Persona-audit P0 theme #1 of 10. Mechanical fix, independent of persona-design work. APP-STORE BLOCKER. Settings page exposes Developer / Import logs / Extract cache to every authed user; [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) verified flat with no gate. Ship pattern: plan-audit → choose implementation (build-flag / role-gated / env-based / combo) → build → phone-verify on prod. See §3.12-pre for full scope. **Ships first.**
 
-**Deferred — Chat A (aesthetic-decision sweep):** 9 SURFACE items walked individually per Rule C. See plan file `fresh-chat-purpose-vision-sorted-clover.md` for the full list. **Now runs AFTER persona-audit closes** — persona findings may re-prioritize or amend Chat A's items. U25 fix (originally Chat A) shipped on Garden tabs via parallel-chat `11eaf37` mid-audit; 3 Vault profile sites parked by that chat as separate cross-surface cohesion decision (joins Chat D scope).
+**Persona-audit kickoff ✅ CLOSED 2026-05-17** (this chat — `binary-valley`). 8 surfaces × 5 personas walked at skim depth; 10 cross-cutting themes surfaced (5 P0 / 5 P1); new §3.12-pre + §3.12 chunks landed. Plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` retained with full walk. See §1 lead-line + §6 2026-05-17 `binary-valley` entry for log + 3 buckets.
 
-**Parallel sharing-purpose chat ✅ CLOSED 2026-05-17** (this chat — `competent-blackwell-5de2a2`). All 6 open-territory items resolved + 4 bonus locks captured. See §1 lead-line above + §6 2026-05-17 entry for full log + new §3.11 chunk for trusted-circle infrastructure build (🟣 Phase 3-gated).
+**Deferred — Chat A (aesthetic-decision sweep):** 9 SURFACE items walked individually per Rule C. See plan file `fresh-chat-purpose-vision-sorted-clover.md`. **Now runs after §3.12-pre dev-tools gating ships.** Persona-audit findings did not invalidate Chat A items but added context to weigh them (esp. U12 two-+Entry-paths now reinforced as Walter P0 friction; icon-density now sits inside theme #3 plain-language audit). U25 fix (originally Chat A) shipped on Garden tabs via parallel-chat `11eaf37`; 3 Vault profile sites parked.
 
-**Persona-audit kickoff chat QUEUED (end-of-chat decision):** Sequenced BEFORE Chat A per user lock via Rule A. Flavor D shape (skim-first). 5 personas × ~8 surfaces, top concerns triaged into new ROADMAP §3.12 chunk. Chat A deferred to AFTER persona-audit closes.
+**Per-theme planning chats spin off §3.12 catalog as user prioritizes:**
+- **#2 (outdoor-garden assumption sweep)** + **#6 (FAB / tab disclosure-by-data)** = same family; build together; M-L effort
+- **#3 (plain-language audit)** + **#8 (settings IA)** = Phase 4 navigation audit work; L effort
+- **#4 (visible-button fallback for swipe)** = independent audit + targeted fix; S effort
+- **#5 (empty-state cliff)** = independent audit + per-surface copy work; M effort
+- **#7 (cross-view consistency)** = already VISION §11 parked, queued for design pass; M effort
+- **#9 (memory plane gaps)** = chunk 3.6 territory
+- **#10 (touch target sweep)** = independent audit + targeted fix; S effort
 
 **Other open items (deferred to dedicated chats — see audit's updated 4-chat sequence):**
-- **U12** (two "+Entry" paths on journal) — Chat A
-- **App-wide icon density** — Chat A
-- **HarvestModal end-state realization** — Chat A
+- **U12** (two "+Entry" paths on journal) — Chat A (now Walter P0 friction confirmed)
+- **App-wide icon density** — Chat A (sits inside §3.12 theme #3)
+- **HarvestModal end-state realization** — Chat A (Maya impact confirmed via §3.12 Garden surface)
 - **Garden card spacing (3.9 #3)** — Chat A
 - **B3 (FAB → popover)** — Chat C (chunk 3.2 resumption)
 - **§3.10 R6-R8 + R9 + D1/D2 + Finding F/G wording fixes + 3 missing destinations + Vault profile aria-label cohesion** — Chat D
 - **Journal flicker bug from `7482c59`** — needs U-entry capture in Chat D (currently floats with no destination)
-- **U25 phone-verify on prod** — user opens Garden tab → both Active Garden + My Plants → confirm matching pen icon on per-row "Add journal entry" buttons (parallel-chat ship needs prod-verify per parallel-chat handoff)
 
 **Optional setup at session start:**
 - Read `docs/CLAUDE_CODE_SETUP.md` and (if you want stronger enforcement) enable the `UserPromptSubmit` hook by creating `.claude/settings.json` at the main repo root.
@@ -402,6 +408,78 @@ Major work items, ranked by recommended order. Each has a status, brief scope, a
 
 ---
 
+### 3.12-pre 🔵 App-store ship-readiness preflight — gate developer tools
+
+**Status:** Decision locked 2026-05-17 (`binary-valley` persona-audit chat, Rule A ask). Mechanical fix, ships independent of persona-design work. Needs plan-audit before build.
+
+**Surfaced by:** Persona-audit P0 theme #1 of 10. Verified during plan-mode via [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) — `SETTINGS_ITEMS` array renders Developer / Import logs / Extract cache to every user with no role / build / env gate.
+
+**Scope:** Settings page currently exposes developer-only surfaces to every authed user:
+- Developer (fill-in-blanks, repair hero, cache, trash) — [/settings/developer](src/app/settings/developer/page.tsx)
+- Debug log — [/settings/developer/debug-log](src/app/settings/developer/debug-log/page.tsx)
+- Import logs
+- Extract cache
+
+Walter / Aria / Sam all confused at first sight; Sam-on-day-1 is the explicit APP-STORE BLOCKER signal ("dev tools on first run = app is unfinished / not for me"). Maya merely intrigued (not blocking but messy).
+
+**Why pre-§3.12:** Mechanical fix, isolated from all persona-design work. Ships independently. Unblocks public-distribution context locked 2026-05-17 (VISION §1, §3). The other 9 persona-audit themes need design discussion; this one doesn't.
+
+**Implementation candidates (decide at plan time, not now):**
+- Build-flag gate (`process.env.NEXT_PUBLIC_DEV_TOOLS === 'true'` hides in prod build)
+- Role-gated menu (user role flag in Supabase; developer-role users only)
+- Tap-count-to-unlock (gesture-revealed, hidden by default)
+- Environment-based (visible on `localhost` + Vercel preview deploys, hidden on prod domain)
+- Combo (build-flag AS the gate; preview deploys still expose for testing)
+
+**Files in scope:** [src/app/settings/page.tsx](src/app/settings/page.tsx) + 4 sub-pages under `/settings/developer/*` + `/settings/import-logs` + `/settings/extract-cache`.
+
+**Verification:** Phone screenshot on prod after gate ships — confirm none of the developer items visible to a non-dev user. Persona walk on revised Settings: Sam landing on Settings on day 1 sees only user-facing items.
+
+**Dependencies:** None. Independent of §3.12 catalog.
+
+**Effort:** S (small).
+
+**Source:** Persona-audit P0 theme #1; ROADMAP §6 2026-05-17 `binary-valley` entry.
+
+---
+
+### 3.12 🟣 Persona-audit findings catalog — 2026-05-17
+
+**Status:** Catalog form (triage list, not build chunk). Locked 2026-05-17 (`binary-valley` persona-audit chat, Rule A ask). Per-theme planning chats spin off this catalog as user prioritizes; **do not build directly from §3.12** — promote items into their own chunks.
+
+**Method:** Each of 8 surfaces (Home / Vault / Garden / Calendar / Journal / Shed / Settings / FAB+modals) walked through 5 personas (Maya / Sydney / Walter / Aria / Sam). Top 2-3 concerns per cell. Findings tagged P0 (app-store blocker) / P1 (high) / P2 (medium) / P3 (low). Full 8 × 5 walk preserved in plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md`.
+
+**Cross-cutting themes (highest leverage):**
+
+1. **P0 — Developer tools gating** — Settings exposes dev tools to all users; APP-STORE BLOCKER. **Split into §3.12-pre chunk (sibling above), ships first** independent of §3.12 catalog.
+2. **P0 — Outdoor-garden assumption sweep** — Aria + Sam excluded by default framing across Home (frost alerts, planting schedule), Vault ("Seed Vault" tab), Garden ("Active Garden" / beds), Calendar (planting calendar), Shed ("Shed" naming), FAB (Add Seed / Add Supply outdoor-framed). Per VISION §3 disclosure-by-data: these should appear gracefully on data, not be default visible.
+3. **P0 — Plain-language audit** — Walter + Sam friction on jargon: "Vault," "Shed," "Plantable," "Annual roadmap," "Monthly pulse," "Polyculture," "Grow instance," "True leaves," "Hardening off," "Vendor scorecard," "Repair hero," "Extract cache." Page-by-page rename pass. Phase 4 navigation audit candidate.
+4. **P0 — Visible-button fallback for swipe-only gestures** — Walter won't use swipe. Calendar swipe-complete (cea21e0 + f77507a) is load-bearing on mobile; verify button fallback exists. Same audit for Garden drag-to-move, Journal swipe-delete, any other swipe-only interaction.
+5. **P0 — Empty-state cliff audit** — Sam day-1 risk. VISION §10 empty-by-default IS onboarding (LOCKED, don't touch the principle). But individual empty surfaces still render — each needs guiding-not-scolding copy. Per-surface sweep: Home sections, Vault tabs, Garden tabs, Calendar, Journal, Shed.
+6. **P1 — Disclosure-by-data on FAB Menu + tabs** — 6-option FAB always; 3-tab Vault always; 2-tab Garden always. Sam paradox of choice; Aria sees 3-4 irrelevant always. Needs explicit per-option / per-tab disclosure rule. Phase 5 design candidate.
+7. **P1 — Cross-view consistency** — Sydney's primary pain. Vault grid + Garden gallery + My Plants list visual incoherence; row-primitive bubbles-vs-list; icon-cohesion (multiple parked). Already at VISION §11 + queued for design pass.
+8. **P1 — Settings information architecture** — 10+ flat items, no grouping, mixed user/dev surfaces. Walter loses navigation; Sam overwhelmed. Independent of dev-tools gating (#1). Phase 4 navigation work.
+9. **P1 — Memory-plane gaps** — Maya's primary value gap. Multi-season comparison, variety eval, year-over-year, structured journal tagging — partial-build. Chunk 3.6 territory.
+10. **P1 — Touch target sweep** — Walter; iPad-first audit across ALL surfaces: long-press handles, count badges, expand-all chevron, supply rows, alert dismissal, insight dismissal, sub-screen back buttons. Mechanical fix shape once enumerated.
+
+**Per-surface findings:** see plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md` for full 8 × 5 walk with prioritized findings.
+
+**Dependencies:**
+- #1 (dev-tools gating) = independent + mechanical = §3.12-pre (above), ships first.
+- #2 (outdoor-garden assumptions) + #6 (disclosure-by-data on FAB/tabs) = same family; build together.
+- #3 (plain-language) + #8 (settings IA) = Phase 4 navigation audit work.
+- #4 (visible-button fallback) = independent audit + targeted fix (small scope).
+- #5 (empty-state cliff) = independent audit + per-surface copy work.
+- #7 (cross-view consistency) = already VISION §11 parked, queued for design pass.
+- #9 (memory plane) = chunk 3.6 territory.
+- #10 (touch targets) = independent audit + targeted fix.
+
+**Effort:** Catalog itself = none (this entry). Per-theme planning chats vary; #1 = S, #4 + #10 = S each, #5 = M, #2 + #6 = M-L, #3 + #8 = L (Phase 4 work).
+
+**Source:** Persona-audit chat (`binary-valley`, 2026-05-17). Method + persona system locked 2026-05-17 sharing-purpose chat (VISION §3 + PERSONAS.md). App-store distribution context VISION §1 boundary line + §3 first paragraph.
+
+---
+
 ### Later (🕐 long-term aspirational, in priority-ish order)
 
 - **Pest / illness ID camera + Q&A + treatment recs.** Likely paid tier. Differentiator.
@@ -466,6 +544,53 @@ Most recent first. For full history, use `git log`.
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
 ### 2026-05-17
+
+- **Persona-audit kickoff closed end-to-end (`binary-valley` chat, 2026-05-17). Flavor D skim-first walk completed. 8 surfaces × 5 personas = 40 cells walked; ~80 findings prioritized P0/P1/P2/P3. 10 cross-cutting themes surfaced + 2 Rule A locks shipped.** Non-build design chat per Chat Lifecycle Protocol; Phases 2-4 no-ops; Phase 1 (purpose + walk + concerns) + Phase 5 (capture into new §3.12-pre + §3.12 chunks) carried the load.
+
+  **Method:** Each surface (Home / Vault / Garden / Calendar / Journal / Shed / Settings / FAB+modals) walked through 5 personas (Maya / Sydney / Walter / Aria / Sam — see [docs/PERSONAS.md](docs/PERSONAS.md) locked same day). Per-surface coherence preferred over per-persona coherence. 2-3 concerns per cell, prioritized P0 (app-store blocker) / P1 (high) / P2 (medium) / P3 (low). Full 8 × 5 walk preserved in plan file `C:\Users\marsh\.claude\plans\continue-from-prev-chat-binary-valley.md`.
+
+  **10 cross-cutting themes (highest leverage):**
+  1. **P0 — Developer tools gating** (Settings exposes dev tools to all users; APP-STORE BLOCKER; split into §3.12-pre)
+  2. **P0 — Outdoor-garden assumption sweep** (Aria + Sam excluded by default framing across Home/Vault/Garden/Calendar/Shed/FAB)
+  3. **P0 — Plain-language audit** (Walter + Sam jargon friction on Vault/Shed/Plantable/Annual roadmap/Monthly pulse/Polyculture/Grow instance/Vendor scorecard/dev-tool labels)
+  4. **P0 — Visible-button fallback for swipe-only gestures** (Walter won't swipe; verify Calendar/Garden/Journal alternatives)
+  5. **P0 — Empty-state cliff audit** (Sam day-1; per-surface guiding-not-scolding copy sweep)
+  6. **P1 — Disclosure-by-data on FAB Menu + tabs** (6-option FAB always; 3-tab Vault always; Sam paradox of choice; Aria irrelevant options)
+  7. **P1 — Cross-view consistency** (Sydney's primary pain; already VISION §11 parked)
+  8. **P1 — Settings information architecture** (10+ flat items; Walter loses nav; Sam overwhelmed)
+  9. **P1 — Memory-plane gaps** (Maya's primary value gap; chunk 3.6 territory)
+  10. **P1 — Touch target sweep** (Walter; iPad-first audit across all surfaces)
+
+  **2 Rule A locks (both Recommended picks):**
+  - **Q1 → Theme #1 dev-tools gating splits into §3.12-pre chunk** (ships first; mechanical; independent of all other persona work; APP-STORE BLOCKER). Verified during plan-mode: [src/app/settings/page.tsx:7-17](src/app/settings/page.tsx) renders `SETTINGS_ITEMS` flat with no role/build/env gate — Developer / Import logs / Extract cache visible to every authed user; subtitle even says "Profile, data, and developer tools." Finding confirmed not inferred.
+  - **Q2 → §3.12 = triage catalog form** (findings list + cross-cutting themes + per-surface notes; not build chunk). Per-theme planning chats spin off this catalog as user prioritizes; do not build directly from §3.12.
+
+  **User pushback on persona-walk discipline validated retroactively (cross-link 2026-05-17 sharing-purpose chat decision 9):** Persona walk on existing app reinforced the persona-walk plan-audit subcategory locked in `competent-blackwell-5de2a2`. App-store distribution context (VISION §1, §3) made the gap visible: app was built to one user's needs; many surfaces work for Maya / Sydney but exclude Aria / Walter / Sam by default framing. The persona system is structurally necessary for app-store readiness.
+
+  **Phase 5 captures applied this chat (all doc-only):**
+  - **ROADMAP.md:** new §3.12-pre 🔵 chunk "App-store ship-readiness preflight — gate developer tools"; new §3.12 🟣 chunk "Persona-audit findings catalog"; §1 lead-line refresh (binary-valley para added, ecstatic-rubin para demoted to archive note per 2-para cap); Next session focus rewritten (§3.12-pre = next ship; Chat A still queued; per-theme planning chats listed); this §6 entry
+  - No code touched; no VISION/CLAUDE/BUGS/BACKLOG/PERSONAS edits this chat (out of scope for Phase 5)
+
+  **Concurrent-chat fetch check (Phase 2 readiness gate, locked 2026-05-17):** `git fetch origin main` ran pre-edit; HEAD = origin/main, no divergence. Second meta-validation of the rule in two days (2026-05-16 first; this chat second confirmation it's running cleanly).
+
+  **Dependencies for future work:**
+  - §3.12-pre (dev-tools gating) = independent + mechanical = ships first.
+  - §3.12 catalog = triage register, not build chunk; do not build directly from §3.12.
+  - Per-theme planning chats spin off when user prioritizes (see Next session focus subsection for theme effort + pairings).
+
+  **3 buckets at close-out:**
+  - **(a) Parked items added this chat:** None new beyond the catalog itself. §3.12 IS the parking surface for the 10 themes; per-theme planning chats will move them into active chunks.
+  - **(b) Deferred audits / known follow-ups:**
+    - §3.12 theme #4 (visible-button fallback) NEEDS VERIFICATION on real device — does mobile Calendar have button alternative to swipe-complete, or only desktop? Audit pre-empts any P0→P1 demotion.
+    - §3.12 theme #1 (dev-tools gating) implementation pattern (build-flag / role-gated / env-based / combo) chosen at plan-time when §3.12-pre is built, not now.
+    - Chat A's 9 SURFACE items still queued; persona-audit confirmed U12 + icon-density + HarvestModal end-state + Garden card spacing as persona-relevant (Walter / Maya impact named); does NOT invalidate any Chat A item.
+    - Skim-depth walk surfaced ~80 findings; deeper per-persona dives possible later if a theme needs more concrete user-story detail before build. Optional.
+  - **(c) Dogfood-style findings:**
+    - **Status: just-captured.** User accepted both Recommended Rule A options without modification — strong signal the catalog-vs-build-chunk distinction reads cleanly (no "what's the difference?" pushback). Validation that the §3.12 shape is correct for this surface volume.
+    - **Status: just-captured.** Plan-mode verification step (Reading [src/app/settings/page.tsx](src/app/settings/page.tsx) pre-ExitPlanMode) caught that the dev-tools finding was actually-verified rather than just-inferred. Sibling pattern to Pass 1 cite-by-path discipline; reinforces "don't ship a finding based on Explore agent characterization alone."
+    - **Status: just-captured.** Skim-depth (~120s per surface, 2-3 concerns per cell) felt right for 8 × 5 walk — would have been overwhelming at deep-dive shape per cell, and per-persona-only walks (Flavors B / C in the counter-options) would have lost the cross-surface theme view. Flavor D shape validated.
+
+  **Close-out shape:** Handoff shape — new chat starting. Plan file retained for retrospective. Doc-only push tier (only ROADMAP.md touched).
 
 - **Persona-audit chat purpose queued + sequenced BEFORE Chat A (locked end-of-`competent-blackwell-5de2a2` via Rule A ask).** User's verbatim: *"should we review the rest of the app for any concerns or recommendations based on the users or under the concern that i want to sell? like walk through it as each user?"* Triggered by the same-chat lock of the persona system + app-store distribution context — natural next move to test existing app through the new lens. **Shape locked = Flavor D (skim-first kickoff):** one chat walks 5 personas (PERSONAS.md) × ~8 surfaces (Home/Vault/Garden/Calendar/Journal/Shed/Settings/FAB+modals); top 2-3 concerns per persona × surface intersection; triaged into new ROADMAP §3.12 chunk with prioritized findings; deep dives deferred to future chats. **Sequence locked = persona-audit FIRST, Chat A (aesthetic-decision sweep on 9 SURFACE items) AFTER.** Reasoning: persona-audit findings may re-prioritize or amend Chat A's items; locking aesthetic decisions before persona-audit risks redo work. Chat A's plan file (`fresh-chat-purpose-vision-sorted-clover.md`) preserved for resumption after persona-audit closes. **Recommended persona-audit chat opening prompt:** see end-of-chat handoff message for paste-able version. Counter-options surfaced but not picked: (A) comprehensive deep-dive in one chat (fatigue risk); (B) per-persona series of 5 chats (slower); (C) per-surface series of ~8 chats (longest total); parallel-to-Chat-A (faster but risk of overlap if persona-audit flags a Chat A item mid-stream); Chat A first then persona-audit (redo risk).
 
