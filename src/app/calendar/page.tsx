@@ -973,7 +973,7 @@ export default function CalendarPage() {
         <button
           type="button"
           onClick={prevMonth}
-          className="hidden xl:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
+          className="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Previous month"
         >
           ←
@@ -982,7 +982,7 @@ export default function CalendarPage() {
         <button
           type="button"
           onClick={nextMonth}
-          className="hidden xl:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
+          className="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
           aria-label="Next month"
         >
           →
@@ -2150,8 +2150,9 @@ function useRowSwipe({
 
 /**
  * Header strip of a consolidated overdue-group row. Layout: [title+count] [Snooze][Done] [Chevron].
- * Snooze + Done are hidden on mobile (`hidden lg:flex`) — mobile uses swipe (left = complete-all,
- * right = snooze-all). The chevron is always visible and toggles expansion.
+ * Snooze + Done are hidden on phone-portrait (`hidden md:flex`) — phone uses swipe (left = complete-all,
+ * right = snooze-all). iPad-portrait+ shows visible buttons alongside swipe (Walter persona served).
+ * The chevron is always visible and toggles expansion.
  */
 function ConsolidatedOverdueHeader({
   groupTasks,
@@ -2239,7 +2240,7 @@ function ConsolidatedOverdueHeader({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onSnoozeAll(); }}
-          className="hidden lg:flex min-w-[44px] items-center justify-center text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
+          className="hidden md:flex min-w-[44px] items-center justify-center text-black/60 hover:text-emerald-600 hover:bg-emerald/10"
           aria-label={`Snooze all ${groupTasks.length} ${primaryLabel} tasks`}
           title={`Snooze all ${groupTasks.length}`}
         >
@@ -2250,8 +2251,8 @@ function ConsolidatedOverdueHeader({
           onClick={(e) => { e.stopPropagation(); onCompleteAll(); }}
           className={
             firstSow
-              ? "hidden lg:flex min-h-[44px] px-4 my-1 mx-1 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 items-center justify-center"
-              : "hidden lg:flex min-w-[44px] my-1 mx-1 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              ? "hidden md:flex min-h-[44px] px-4 my-1 mx-1 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 items-center justify-center"
+              : "hidden md:flex min-w-[44px] my-1 mx-1 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
           }
           aria-label={`${firstSow ? "Plant" : "Mark complete"} all ${groupTasks.length} ${primaryLabel} tasks`}
           title={`Mark all ${groupTasks.length} ${firstSow ? "planted" : "complete"}`}
@@ -2355,9 +2356,10 @@ function CalendarTaskRow({
   const handleClick = selectMode ? () => onToggleSelect?.() : onTaskTap;
 
   // Swipe-to-act on touch devices: swipe-left = mark complete, swipe-right = open snooze.
-  // Per VISION.md Principle 9, desktop keeps inline buttons (rendered with `hidden lg:flex`
-  // below) so swipe is mobile-only. Swipe logic lives in useRowSwipe hook (shared with the
-  // consolidated overdue-group header row).
+  // Per VISION.md Principle 9 (narrowed 2026-05-17 for Walter persona): phone-portrait is
+  // swipe-only; iPad-portrait+ AND desktop show inline buttons (`hidden md:flex` below)
+  // alongside swipe. Swipe logic lives in useRowSwipe hook (shared with the consolidated
+  // overdue-group header row).
   const isOptimistic = task.id.startsWith("opt-");
   const swipeEligible = !task.completed_at && !selectMode && !isOptimistic && canEdit;
   const openSnooze = useCallback(() => setSnoozeOpen(true), []);
@@ -2439,7 +2441,7 @@ function CalendarTaskRow({
             </span>
           )}
           {!task.completed_at && !selectMode && canEdit && (
-            <span className="hidden lg:flex items-center gap-1 shrink-0">
+            <span className="hidden md:flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setSnoozeOpen(true); }}

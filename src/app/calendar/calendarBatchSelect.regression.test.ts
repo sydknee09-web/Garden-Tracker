@@ -278,10 +278,10 @@ describe("Day header visual treatment", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Feature E — Swipe gestures (mobile) + responsive button visibility (desktop)
-// Implements VISION.md Principle 9: mobile-first with desktop responsiveness in
-// every commit. Swipe-left = complete, swipe-right = open snooze. Inline action
-// buttons hidden on mobile (`hidden lg:flex`), visible on desktop.
+// Feature E — Swipe gestures (mobile) + responsive button visibility (iPad+/desktop)
+// Implements VISION.md Principle 9 (narrowed 2026-05-17 for Walter persona):
+// phone-portrait is swipe-only; iPad-portrait+ AND desktop show inline buttons
+// (`hidden md:flex`) alongside swipe. Swipe-left = complete, swipe-right = open snooze.
 // ---------------------------------------------------------------------------
 describe("Calendar row — swipe gestures (mobile)", () => {
   it("Swipe state and refs exist on CalendarTaskRow", () => {
@@ -347,11 +347,11 @@ describe("Calendar row — swipe gestures (mobile)", () => {
   });
 });
 
-describe("Calendar row — responsive button visibility (desktop)", () => {
-  it("Inline snooze/complete buttons are hidden on mobile, visible on desktop (lg:)", () => {
-    // The action group uses `hidden lg:flex` so it only renders at lg+ breakpoints.
-    // Mobile users get the swipe pattern instead.
-    expect(src).toContain('"hidden lg:flex items-center gap-1 shrink-0"');
+describe("Calendar row — responsive button visibility (iPad-portrait+/desktop)", () => {
+  it("Inline snooze/complete buttons are hidden on phone-portrait, visible on iPad-portrait+ (md:)", () => {
+    // The action group uses `hidden md:flex` so it renders at md+ (≥768px) breakpoints.
+    // Phone-portrait users get the swipe pattern instead. Walter persona served on iPad.
+    expect(src).toContain('"hidden md:flex items-center gap-1 shrink-0"');
   });
 });
 
@@ -415,23 +415,23 @@ describe("Consolidated overdue row — apply-all actions", () => {
     expect(doneIdx).toBeLessThan(chevronIdx);
   });
 
-  it("Snooze and Done buttons on consolidated row are hidden on mobile (hidden lg:flex)", () => {
+  it("Snooze and Done buttons on consolidated row are hidden on phone-portrait (hidden md:flex)", () => {
     const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
     const body = src.slice(headerIdx, headerIdx + 8000);
-    // Both buttons should use hidden lg:flex
-    const hiddenLgCount = (body.match(/hidden lg:flex/g) ?? []).length;
-    expect(hiddenLgCount).toBeGreaterThanOrEqual(2);
+    // Both buttons should use hidden md:flex (narrowed 2026-05-17 from lg: for Walter persona)
+    const hiddenMdCount = (body.match(/hidden md:flex/g) ?? []).length;
+    expect(hiddenMdCount).toBeGreaterThanOrEqual(2);
   });
 
-  it("Chevron on consolidated row is always visible (no hidden lg:flex)", () => {
+  it("Chevron on consolidated row is always visible (no hidden md:flex)", () => {
     const headerIdx = src.indexOf("function ConsolidatedOverdueHeader(");
     const body = src.slice(headerIdx, headerIdx + 8000);
-    // The chevron button's className should NOT include hidden lg
+    // The chevron button's className should NOT include hidden md
     const chevronButtonIdx = body.indexOf('aria-label={isGroupExpanded ? "Collapse" : "Expand"}');
     expect(chevronButtonIdx).toBeGreaterThan(-1);
     // Walk back to the className for the chevron button
     const sectionBefore = body.slice(Math.max(0, chevronButtonIdx - 400), chevronButtonIdx);
-    expect(sectionBefore).not.toContain("hidden lg:flex");
+    expect(sectionBefore).not.toContain("hidden md:flex");
   });
 
   it("Consolidated header uses useRowSwipe for mobile swipe parity", () => {
