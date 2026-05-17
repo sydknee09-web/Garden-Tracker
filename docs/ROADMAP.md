@@ -75,6 +75,8 @@
 
 **Open task — Chat A (UPDATED post-collision):** Aesthetic-decision sweep — 9 SURFACE items walked individually per Rule C. See plan file `fresh-chat-purpose-vision-sorted-clover.md` for the full list. U25 fix (originally Chat A) shipped on Garden tabs via parallel-chat `11eaf37` mid-audit; 3 Vault profile sites parked by that chat as separate cross-surface cohesion decision (joins Chat D scope).
 
+**Parallel open task — Sharing-purpose chat (new 2026-05-17):** User has conflicting ideas about sharing UX and wants to narrow the use of sharing in the app. Runs parallel to Chat A (no scope overlap — sharing is upstream of the 9 SURFACE items, all of which are single-user surfaces). Phase 2 (jobs-to-be-done) / Phase 3 (IA) style design discussion shape. See VISION §11 "Sharing UX / purpose narrowing" parked entry for open-territory list.
+
 **Other open items (deferred to dedicated chats — see audit's updated 4-chat sequence):**
 - **U12** (two "+Entry" paths on journal) — Chat A
 - **App-wide icon density** — Chat A
@@ -421,6 +423,10 @@ Most recent first. For full history, use `git log`.
 ## 6. Decision log
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
+
+### 2026-05-17
+
+- **Sharing-purpose chat scoped as own dedicated chat purpose, parallel to Chat A (locked 2026-05-17).** User raised mid-handoff in frosty-wright-d437a7: *"i also want to dig into the sharing functionality and the purpose of sharing within the app. i have a few conflicting ideas and id like to narrow down the use of 'sharing' and how it will integrate/appear in the app."* PM triage: scope-✅ per VISION §1/§3/§9 (sharing IS in the locked vision); not feature creep; closest existing roadmap chunk is §3.5 lifecycle (transfer/give-away/trade) which is 🟣 Phase 3-gated. **Bucket: Phase 2 (jobs-to-be-done) / Phase 3 (IA) style design discussion** — needs its own chat, not bundled into Chat A aesthetic sweep. Reasons: (a) different cognitive mode (vision-level design vs per-item aesthetic); (b) sharing is upstream of all 9 Chat A SURFACE items (single-user surfaces — calendar/journal/garden/icon/save-cancel/harvest-end — no sharing UX collisions); (c) Phase 2/3 design framework's existing slot for this. **Locked decisions surfaced for the new chat (don't re-litigate):** Self/Household/Trusted-circle 3-layer audience locked 2026-05-08; invite-only forever; never public/strangers; Level 3 trades ✅ / Level 4 paid ❌ / Level 5 public marketplace ❌. **Open territory captured to VISION §11** for the new chat to chew on. Doc-only ship; no decision pre-empted.
 
 ### 2026-05-16
 
