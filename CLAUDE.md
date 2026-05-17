@@ -212,7 +212,7 @@ User flagged 2026-05-13 that bug-chasing keeps recurring despite mature process 
 - Deployed on Vercel (auto-deploy from `main` branch)
 - PWA — mobile-first responsive web
 
-**Who it's for:** Home gardeners across the full skill range (beginner through pro). Single user has been testing it personally for months; her sister and possibly others use it too.
+**Who it's for:** Home gardeners across the full skill range (beginner through pro). **The user is the product owner and primary tester; the app is intended for public release via app store** (*locked 2026-05-17*). Her sister and possibly others currently use it too. See `docs/PERSONAS.md` for the 5-persona roster used in plan-audit walks.
 
 ---
 
@@ -246,6 +246,8 @@ User flagged 2026-05-13 that bug-chasing keeps recurring despite mature process 
 4. Run `git log --oneline -20` to see recent state and what's been shipped.
 
 5. **`docs/BUGS.md` and `docs/BACKLOG.md`** if relevant to the current task.
+
+6. **`docs/PERSONAS.md`** (optional context — read when planning user-facing work; skip for tooling, backend, or docs-only changes). Contains the 5 personas (Maya / Sydney / Walter / Aria / Sam) used in plan-audit Pass 2 + Pass 3 persona walks. *(Added 2026-05-17.)*
 
 **Read the relevant docs in full before drafting a plan, even when you remember the topic from prior context.** Memory drifts between chats; the doc is canon. The 1-2 minute re-read is cheaper than a plan-audit failure caused by stale recall. *(Locked 2026-05-16.)*
 
@@ -471,7 +473,7 @@ Each required pass-type runs iteratively per the iterative-loop + strict-clean-p
 
 **Pass 2 — Concerns / gaps / inconsistencies hunt (formerly "Semantic + edge").** Pass 2 is an ACTIVE HUNT for what could go wrong with the plan, not just a wording check. Before running Pass 2, Claude states out loud the categories being hunted for THIS specific plan; running Pass 2 without naming the hunt categories is the failure mode the user explicitly flagged 2026-05-13. Categories scale with batch shape:
 
-  - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path, **cohesion-by-aggregation / micro-aesthetic** (see dedicated subsection below — applies to every code batch, no exception)
+  - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path, **cohesion-by-aggregation / micro-aesthetic** (see dedicated subsection below — applies to every code batch, no exception), **persona walk** (see dedicated subsection below — applies to every user-facing change; locked 2026-05-17)
   - **Doc batch hunt categories:** internal contradictions with existing entries (new entry vs. older entry), stale framing introduced by the new content, broken or missing cross-refs, missing destination routing (signal logged but no consumer), numbering / placement collisions, hierarchy gaps (e.g. lock-decision listed without a §6 entry to back it), dating / stamp drift adjacent to the edit
   - **Mixed batch:** both lists apply.
 
@@ -506,6 +508,26 @@ User signal verbatim: *"i request a feature and it gets implemented but you fill
 - Calendar work cumulatively over 2026-05-08 → 2026-05-13: swipe threshold, autocommit-vs-confirm, row primitive shape (`rounded-xl + white bg + emerald border + drop shadow`), day-header padding, count-badge position, expand-all animation technique — each decided silently as "engineering." Aggregate: Calendar reads off, user reports "nothing feels right."
 - Generalizes: any sufficiently small UI decision that compounds with peers will degrade cohesion unless anchored. The rule is the audit-time guard.
 
+**Persona walk — Pass 2 subcategory (locked 2026-05-17).**
+
+For any user-facing UX change, run the proposed change through each persona in `docs/PERSONAS.md`. Five personas in roster: Maya (Power Gardener), Sydney (Spring-Planner Hobbyist), Walter (Retiree Gardener), Aria (Houseplant Urban User), Sam (First-Time Beginner).
+
+**At audit time, ask per persona:**
+- **Maya** — would this slow her down, hide depth from her, or feel hand-holdy?
+- **Sydney** — would this feel coherent with the rest of the app she already knows?
+- **Walter** — are touch targets big enough, gestures discoverable, language plain (no jargon)?
+- **Aria** — does this assume an outdoor garden she doesn't have? Does it clutter her UI with features she'll never use?
+- **Sam** — does this clutter her empty-state with features she doesn't need yet? Is the disclosure path graceful?
+
+**Output findings:**
+- If all 5 work → no Pass 2 finding from this category
+- If 1-2 are excluded/confused → name them; either redesign or capture the trade-off explicitly in the plan ("Maya + Sydney benefit; Aria + Sam see clutter — accepted because feature is core for power users; Aria + Sam path stays hidden via empty-state until first plant added")
+- If 3+ are excluded → likely a misframe; redesign
+
+**Skip persona walk for:** pure backend / tooling / docs-only changes / refactors with no UX surface. Use it for: every UI/UX decision, copy choices, onboarding work, feature additions, lifecycle/state-machine work, sharing-UX work.
+
+**Why this rule exists (specific drift this catches):** User flagged 2026-05-17 during sharing-UX chat after Claude proposed a trade-flow recommendation framed entirely on her specific scenario ("the 'give to sister' button"): *"this is way too specific and is not applicable to every user if i put this app on the store."* User was already applying persona-thinking in real-time; formalizing makes the check consistent instead of relying on the user catching it after the framing slips into a plan. Reinforces the app-store distribution context locked same day (CLAUDE.md "What this project is"): every UX decision must generalize beyond user's specific scenario.
+
 ---
 
 **Pass 3 — Sibling pattern sweep (locked 2026-05-16, adopted from skeleton checklist).** Active grep for what's already in the codebase that does the same kind of thing this change does. Two trigger shapes:
@@ -524,6 +546,8 @@ User signal verbatim: *"i request a feature and it gets implemented but you fill
 - **Generalizable:** any sufficiently UI-heavy codebase grows sibling-shape drift unless audited explicitly. Pass 2 cohesion-by-aggregation handles "new pattern introduced"; Pass 3 sibling sweep handles "existing peers ignored." They're complementary, not redundant.
 
 **Cost calibration:** for a single-file change with no obvious siblings, this pass is 30-60 seconds (one grep, eyeball). For a multi-file change touching a known surface (e.g. anything Row/Card/Calendar-shaped), this pass is 2-3 minutes (grep + read 2-3 peer files + cite). Always cheaper than the post-ship amend.
+
+**Persona-mismatch sub-check (locked 2026-05-17).** When a Pass 3 sibling sweep finds an existing pattern, ask: *does the existing pattern serve all 5 personas in `docs/PERSONAS.md`, or was it originally built for one persona's needs and silently excludes others?* If the sibling pattern excludes a persona (e.g. swipe gestures with no visible-button fallback work for Maya/Sydney/Aria but exclude Walter), surface as **ADJACENT** finding — current ship doesn't have to fix the broader pattern, but the persona-exclusion is named for future cohesion work. Complements Pass 2 persona walk (which is proactive on the new change); this is reactive on the codebase's existing patterns.
 
 **Pass 4 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
 
