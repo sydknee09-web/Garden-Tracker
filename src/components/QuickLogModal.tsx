@@ -270,22 +270,20 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
       const profileIds = Array.from(selectedProfileIds);
       const plantProfileId = profileIds.length === 1 ? profileIds[0]! : profileIds.length > 0 ? profileIds[0]! : null;
       try {
-        let firstPath: string | null = null;
+        const uploadedPaths: string[] = [];
         if (photos.length > 0) {
           setUploadingPhoto(true);
-          const { blob } = await compressImage(photos[0].file);
-          const path = `${sessionUserId}/${crypto.randomUUID()}.jpg`;
-          const { error: uploadErr } = await supabase.storage
-            .from("journal-photos")
-            .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
-          if (uploadErr) {
-            setSubmitError(formatAddFlowError(uploadErr));
-            hapticError();
-            return;
+          for (const p of photos) {
+            const { blob } = await compressImage(p.file);
+            const path = `${sessionUserId}/${crypto.randomUUID()}.jpg`;
+            const { error: uploadErr } = await supabase.storage
+              .from("journal-photos")
+              .upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
+            if (!uploadErr) uploadedPaths.push(path);
           }
-          firstPath = path;
           setUploadingPhoto(false);
         }
+        const firstPath = uploadedPaths[0] ?? null;
         const entryType = (quickAction?.entryType ?? "note") as string;
         const noteForEntry = buildNoteForEntry(quickAction, noteTrim);
         const supplyIds = Array.from(selectedSupplyIds).filter(Boolean);
@@ -312,6 +310,16 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           return;
         }
         const entryId = (entry as { id: string })?.id;
+        if (entryId && uploadedPaths.length > 0) {
+          await supabase
+            .from("journal_entry_photos")
+            .insert(uploadedPaths.map((path, i) => ({
+              journal_entry_id: entryId,
+              image_file_path: path,
+              sort_order: i,
+              user_id: sessionUserId,
+            })));
+        }
         if (entryId && profileIds.length > 0) {
           const jepRows = profileIds.map((pid) => ({
             journal_entry_id: entryId,
