@@ -480,6 +480,19 @@ function ColdStratifyIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Microphone (1.2 stroke) — voice memo recorder on FeedbackModal. */
+function MicIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <rect x="9" y="3" width="6" height="12" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+      <line x1="9" y1="21" x2="15" y2="21" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Close: CloseIcon,
@@ -524,6 +537,7 @@ export const ICON_MAP = {
   Search: SearchIcon,
   Prune: PruneIcon,
   ColdStratify: ColdStratifyIcon,
+  Mic: MicIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

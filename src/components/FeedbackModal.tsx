@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useVoiceRecorder, formatElapsed, VOICE_MAX_DURATION_MS } from "@/hooks/useVoiceRecorder";
+import { ICON_MAP } from "@/lib/styleDictionary";
+import { getEntries, formatEntriesForCopy } from "@/lib/debugLogBuffer";
 
 const CATEGORIES = [
   { value: "", label: "Select type…" },
@@ -36,11 +39,20 @@ export function FeedbackModal({
   const [category, setCategory] = useState("");
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [attachDebugLog, setAttachDebugLog] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const voice = useVoiceRecorder();
+  void user; // referenced via useAuth subscription; live value read from supabase below
+
+  // T2: read snapshot only when toggle ON so empty-toggle modal opens are cheap.
+  const debugLogPreview = useMemo(() => {
+    if (!open || !attachDebugLog) return "";
+    return formatEntriesForCopy(getEntries());
+  }, [open, attachDebugLog]);
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +107,17 @@ export function FeedbackModal({
         if (uploadErr) throw uploadErr;
         screenshotPath = path;
       }
+      let voicePath: string | null = null;
+      if (voice.blob) {
+        const contentType = voice.mimeType || voice.blob.type || "audio/webm";
+        const path = `${currentUser.id}/feedback-voice-${crypto.randomUUID()}.${voice.extension}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("journal-photos")
+          .upload(path, voice.blob, { contentType, upsert: false, cacheControl: "31536000" });
+        if (uploadErr) throw uploadErr;
+        voicePath = path;
+      }
+      const debugLogText = attachDebugLog ? formatEntriesForCopy(getEntries()) : null;
       const { error: err } = await supabase.from("user_feedback").insert({
         user_id: currentUser.id,
         message: msg,
@@ -102,6 +125,8 @@ export function FeedbackModal({
         page_url: pageUrl || null,
         user_email: currentUser.email ?? null,
         screenshot_path: screenshotPath,
+        voice_path: voicePath,
+        debug_log_text: debugLogText && debugLogText.length > 0 ? debugLogText : null,
       });
       if (err) throw err;
       setSent(true);
@@ -109,6 +134,8 @@ export function FeedbackModal({
       setCategory("");
       setScreenshotFile(null);
       setScreenshotPreview(null);
+      setAttachDebugLog(false);
+      voice.reset();
       setTimeout(() => {
         setSent(false);
         onClose();
@@ -119,7 +146,7 @@ export function FeedbackModal({
     } finally {
       setSending(false);
     }
-  }, [message, category, screenshotFile, pageUrl, onClose]);
+  }, [message, category, screenshotFile, pageUrl, onClose, voice, attachDebugLog]);
 
   const handleClose = useCallback(() => {
     if (!sending) {
@@ -127,11 +154,13 @@ export function FeedbackModal({
       setCategory("");
       setScreenshotFile(null);
       setScreenshotPreview(null);
+      setAttachDebugLog(false);
+      voice.reset();
       setError(null);
       setSent(false);
       onClose();
     }
-  }, [sending, onClose]);
+  }, [sending, onClose, voice]);
 
   const handleScreenshotChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -259,6 +288,106 @@ export function FeedbackModal({
               className="sr-only"
               aria-label="Choose screenshot file"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black/80 mb-1">
+              Voice memo (optional)
+            </label>
+            {!voice.supported ? (
+              <p className="text-xs text-black/50">
+                Voice recording isn&apos;t supported on this browser. Typing and screenshots still work.
+              </p>
+            ) : voice.recState === "recorded" && voice.blobUrl ? (
+              <div className="rounded-xl border border-emerald-500 bg-emerald-50 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-emerald-900">
+                    Voice memo recorded ({formatElapsed(voice.elapsedMs)})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={voice.reset}
+                    disabled={sending}
+                    className="min-h-[44px] px-3 rounded-lg text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                    aria-label="Re-record voice memo"
+                  >
+                    Re-record
+                  </button>
+                </div>
+                <audio
+                  controls
+                  src={voice.blobUrl}
+                  className="w-full"
+                  aria-label="Voice memo playback"
+                />
+              </div>
+            ) : voice.recState === "recording" ? (
+              <div className="rounded-xl border border-emerald-500 bg-emerald-50 p-3 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm font-medium text-emerald-900" aria-live="polite">
+                  <span
+                    className="w-2 h-2 rounded-full bg-red-500 animate-pulse"
+                    aria-hidden
+                  />
+                  Recording… {formatElapsed(voice.elapsedMs)} / {formatElapsed(VOICE_MAX_DURATION_MS)}
+                </span>
+                <button
+                  type="button"
+                  onClick={voice.stopRecording}
+                  className="min-h-[44px] px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                  aria-label="Stop recording"
+                >
+                  Stop
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={voice.startRecording}
+                disabled={sending}
+                className="w-full min-h-[44px] rounded-xl border border-dashed border-black/20 px-4 py-3 text-sm text-black/60 hover:bg-black/5 hover:border-black/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                aria-label="Record voice memo"
+              >
+                <ICON_MAP.Mic className="w-5 h-5" stroke="currentColor" />
+                <span>Record voice memo (up to {Math.round(VOICE_MAX_DURATION_MS / 1000)}s)</span>
+              </button>
+            )}
+            {voice.errorMessage && (
+              <p className="mt-2 text-xs text-red-600" role="alert">
+                {voice.errorMessage}
+              </p>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center justify-between gap-3 min-h-[44px]">
+              <div className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-black/80">Include debug info</span>
+                <span id="feedback-debug-desc" className="block text-xs text-black/50">
+                  Attaches recent technical messages from your browser. Helps us figure out what went wrong. You can review the text below before sending.
+                </span>
+              </div>
+              <label className="relative inline-flex items-center shrink-0 cursor-pointer min-w-[44px] min-h-[44px]">
+                <input
+                  type="checkbox"
+                  checked={attachDebugLog}
+                  onChange={(e) => setAttachDebugLog(e.target.checked)}
+                  disabled={sending}
+                  className="peer sr-only"
+                  aria-describedby="feedback-debug-desc"
+                  aria-label="Include debug info"
+                />
+                <span
+                  className="relative block w-11 h-6 bg-neutral-200 rounded-full peer-checked:bg-emerald-500 transition-colors after:content-[''] after:block after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow after:transition-transform peer-checked:after:translate-x-5"
+                  aria-hidden
+                />
+              </label>
+            </div>
+            {attachDebugLog && (
+              <textarea
+                readOnly
+                value={debugLogPreview || "(No console messages captured yet.)"}
+                className="mt-2 w-full max-h-32 min-h-[80px] rounded-lg border border-black/10 bg-neutral-50 p-2 text-[11px] font-mono text-neutral-700 whitespace-pre-wrap"
+                aria-label="Debug info preview (will be attached to feedback)"
+              />
+            )}
           </div>
           {pageUrl && (
             <p className="text-xs text-black/50">
