@@ -126,6 +126,7 @@ export default function VaultSeedPage() {
   const [entryIdToPhotoPaths, setEntryIdToPhotoPaths] = useState<Record<string, string[]>>({});
   const tabFromUrl = searchParams.get("tab");
   const fromParam = searchParams.get("from");
+  const focusScheduleId = searchParams.get("schedule") ?? undefined;
   const validTab = ["about", "care", "packets", "plantings", "journal"].includes(tabFromUrl ?? "") ? tabFromUrl as "about" | "care" | "packets" | "plantings" | "journal" : "about";
   const [activeTab, setActiveTab] = useState<"about" | "care" | "packets" | "plantings" | "journal">(validTab);
 
@@ -1361,6 +1362,7 @@ export default function VaultSeedPage() {
             aboutCollapsed={aboutCollapsed}
             toggleAboutSection={toggleAboutSection}
             isAboutOpen={isAboutOpen}
+            focusScheduleId={focusScheduleId}
           />
         )}
 

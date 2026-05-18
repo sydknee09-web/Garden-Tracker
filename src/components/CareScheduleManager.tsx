@@ -32,6 +32,8 @@ interface Props {
   isPermanent?: boolean;
   /** Rendered next to the Add button (e.g. Get AI suggestions). */
   extraActions?: React.ReactNode;
+  /** When set, scrolls the matching schedule into view once it's rendered (used for calendar deep-link). */
+  focusScheduleId?: string;
 }
 
 const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
@@ -41,7 +43,7 @@ const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false, extraActions }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false, extraActions, focusScheduleId }: Props) {
   const { viewMode: householdViewMode } = useHousehold();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,6 +84,15 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     setSupplies((data ?? []) as SupplyProfile[]);
   }, [userId, isFamilyView]);
   useEffect(() => { fetchSupplies(); }, [fetchSupplies]);
+
+  // Calendar deep-link: scroll the focused schedule into view once it's rendered.
+  useEffect(() => {
+    if (!focusScheduleId) return;
+    if (!schedules.some((s) => s.id === focusScheduleId)) return;
+    const el = document.getElementById(`schedule-${focusScheduleId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusScheduleId, schedules]);
 
   const openEdit = useCallback((s: CareSchedule) => {
     setEditingId(s.id);
@@ -234,7 +245,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           </div>
           <div className="space-y-2">
             {schedules.map((s) => (
-              <div key={s.id} className="bg-white rounded-xl border border-neutral-100 p-4 shadow-sm">
+              <div key={s.id} id={`schedule-${s.id}`} className="bg-white rounded-xl border border-neutral-100 p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl shrink-0" aria-hidden>{getCategoryIcon(s.category ?? "other")}</span>
                   <div className="flex-1 min-w-0">

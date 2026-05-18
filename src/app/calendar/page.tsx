@@ -1788,26 +1788,42 @@ export default function CalendarPage() {
                 </div>
               )}
             </dl>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setTaskDetailTask(null)}
-                className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm"
-              >
-                Close
-              </button>
-              {taskDetailTask.plant_profile_id && (
+            <div className="space-y-2">
+              {taskDetailTask.plant_profile_id && taskDetailTask.care_schedule_id && (
                 <button
                   type="button"
                   onClick={() => {
+                    const pid = taskDetailTask.plant_profile_id;
+                    const sid = taskDetailTask.care_schedule_id;
                     setTaskDetailTask(null);
-                    router.push(`/vault/${taskDetailTask.plant_profile_id}?tab=care&from=calendar&date=${taskDetailTask.due_date}`);
+                    router.push(`/vault/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
                   }}
-                  className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700"
+                  className="w-full min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700"
                 >
-                  View Plant Profile
+                  Manage Schedule
                 </button>
               )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTaskDetailTask(null)}
+                  className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm"
+                >
+                  Close
+                </button>
+                {taskDetailTask.plant_profile_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTaskDetailTask(null);
+                      router.push(`/vault/${taskDetailTask.plant_profile_id}?tab=care&from=calendar&date=${taskDetailTask.due_date}`);
+                    }}
+                    className={`flex-1 min-h-[44px] rounded-xl font-medium text-sm ${taskDetailTask.care_schedule_id ? "border border-neutral-300 text-neutral-700" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+                  >
+                    View Plant Profile
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </>

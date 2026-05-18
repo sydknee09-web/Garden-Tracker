@@ -21,6 +21,8 @@ export interface VaultProfileCareTabProps {
   aboutCollapsed: Record<string, boolean>;
   toggleAboutSection: (key: string) => void;
   isAboutOpen: (key: string) => boolean;
+  /** Schedule id to scroll into view (from calendar deep-link). */
+  focusScheduleId?: string;
 }
 
 export function VaultProfileCareTab({
@@ -38,6 +40,7 @@ export function VaultProfileCareTab({
   aboutCollapsed,
   toggleAboutSection,
   isAboutOpen,
+  focusScheduleId,
 }: VaultProfileCareTabProps) {
   const handleCareChanged = async () => {
     if (userId) await generateCareTasks(userId);
@@ -57,6 +60,7 @@ export function VaultProfileCareTab({
             onChanged={handleCareChanged}
             readOnly={!canEdit}
             extraActions={canEdit ? <GetAiSuggestionsButton profileId={profileId} userId={userId} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="seed" onChanged={onChanged} /> : null}
+            focusScheduleId={focusScheduleId}
           />
         </div>
       )}
@@ -73,6 +77,7 @@ export function VaultProfileCareTab({
             growInstances={growInstances}
             isPermanent={isPermanent}
             extraActions={canEdit ? <GetAiSuggestionsButton profileId={profileId} userId={userId} profileName={profile?.name ?? ""} profileVariety={profile?.variety_name ?? null} profileType="permanent" onChanged={onChanged} /> : null}
+            focusScheduleId={focusScheduleId}
           />
         </div>
       )}
