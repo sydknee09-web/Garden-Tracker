@@ -43,13 +43,21 @@ Top-level FAB rows (5, same count as today, partially reorganized):
 Two-option chooser on Add Plant tap (MVP):
 
 - **Start from seed** — sowing event. Opens form with sow method chips.
-- **Add already-grown** — anything already alive when acquired (nursery, gift, division, mature plant). Captures: variety, source, acquisition date, location.
+- **Add already-grown** — anything already alive when acquired. Captures: variety, source, acquisition date, location.
 
 Indoor-start-to-transplant case is captured via an optional *"started indoors on [date]"* field inside Start-from-seed, not a separate option.
 
+**"Add already-grown" source — locked 5-value enum:**
+
+- **Nursery** — bought as a started plant (nursery / garden center / Home Depot)
+- **Gift** — someone gave you a started plant
+- **Propagation** — division / cutting / layering / grafting from an existing plant (yours or another gardener's). Propagation is the broader term — merges the earlier "Division" recommendation.
+- **Transplanted in** — moved from another bed or another yard you have
+- **Other** — free text for edge cases
+
 ### 3.3 — Sow method chips
 
-Inside the "Start from seed" form, four chip options:
+Inside the "Start from seed" form, four chip options. **Locked order: Direct sow → Indoor start → Greenhouse start → Outdoor start.** Direct first so it's not mingled in with the tray-starts; trays sequenced indoor → outdoor.
 
 - **Direct sow** — sowing IS the planting event. One date, one location.
 - **Indoor start** — started inside, transplant later. Two events (start + transplant).
@@ -82,12 +90,12 @@ Auto-task generation adapts:
 - Tab deletion: **only from Manage Zones** (avoids accidental tab-bar swipes-into-oblivion)
 - Rename / reorder / delete: all from Manage Zones screen (not long-press on tab bar — avoids conflict with long-press-to-select on plant cards)
 
-**System default "Plants" zone — smart show/hide:**
+**System default "Garden" zone — smart show/hide:** (locked: default name is **"Garden"**, matches the auto-created zone for migrated existing users in §3.10)
 
 - Brand new user (no plants, no zones): no tabs visible. Empty-state copy: *"Add a plant or set up a garden zone to get started."*
-- User adds first plant without picking/creating a zone: "Plants" materializes as a real zone and the plant lands there
-- User creates own zones AND no plants remain in "Plants": "Plants" auto-hides
-- If user later adds a plant without specifying location: "Plants" reappears
+- User adds first plant without picking/creating a zone: "Garden" materializes as a real zone and the plant lands there
+- User creates own zones AND no plants remain in "Garden": "Garden" auto-hides
+- If user later adds a plant without specifying location: "Garden" reappears
 
 **On the word "Zones":** chosen over "Locations," "Areas," "Spots," "Beds," or generic "Tabs." Garden-domain flavor. Mild concern: conflicts with USDA hardiness zones (Zone 10b, Zone 7). Mitigation: empty-state and onboarding copy clarifies *"garden zones — your labeled areas like Planter bed or Greenhouse"* to head off the hardiness confusion.
 
@@ -318,38 +326,80 @@ Once user's actual zone is captured, the Calendar's *"Plantable this month"* ban
 - When user uses **Photo Import** or **Scan Purchase Order**, AI enrichment attempts to **auto-extract seed count** from the packet image or receipt line item (seed count is often stamped on the packet or itemized on the receipt).
 - **Blank-and-fine when not detected.** No error, no nag.
 
+### 3.17 — Packet decrement on plant — tier decrement
+
+**Locked rule: tier decrement, not full archive.** Each plant from a packet decrements the packet by one tier:
+
+- **Full → Partial → Low → Empty**
+
+Matches the existing volume-pill widget in the app. Removes today's silent data-loss behavior where the entire packet is archived on a single plant action (audit `F-I`).
+
+**Resolves `Q17` (packet decrement rule). Unblocks `F-I` bug fix.**
+
+### 3.18 — Calendar polish — task-row identity, /schedule link, frost overlay
+
+Three locked Calendar improvements that ship in Phase 1 (Ship 2 cohesion pass) rather than waiting for the Phase 2 redesign:
+
+- **Plant-instance identity in task rows** (`CAL-3` fix, resolves `Q10`/`CQ5`). When multiple plantings of the same variety exist, task rows display the `grow_instance` location: `"Water Tomato (Bed 2)"`. Fall back to sown-date when location is missing (`"Water Tomato (sown 4/15)"`).
+- **`/schedule` cross-link from Calendar** (resolves `Q9`/`CQ4`). Add a header link or *"View planting calendar"* affordance from the Calendar surface to `/schedule` (the zone-aware reference page). Once §3.15 lands, `/schedule` is data-driven from the user's actual zone instead of the `zone10b` hardcode.
+- **Weather + frost overlay on Calendar grid** (resolves `Q8`/`CQ2`). Surface frost-date overlay on Calendar grid cells using existing Home forecast data. Tooltip on tasks for those days: *"Protect tender plants — frost forecast."*
+
+### 3.19 — Recurring task edit gap — "Manage schedule" deep-link (`CAL-F7` fix shape)
+
+**Locked fix shape (resolves `Q7`):** keep `NewTaskModal` edit mode simple — title / date / category only. Add a **"Manage schedule"** button in the Calendar task detail popup that deep-links to the plant profile's **Care tab**, where the full schedule editor lives. Power-user schedule changes route to the canonical Care tab surface; the Calendar modal stays uncluttered.
+
 ---
 
 ## 4. Open questions still pending Syd's decision
 
-Carry forward — these need her input before related work can ship:
+Originally numbered 1-26 below. This list now annotates each with status: **OPEN** / **RESOLVED** / **DISSOLVED**. Resolved items reference their locking section; open items carry forward.
 
-1. **Per-instance card layout** — the planting instance card is underdeveloped today. Need to sketch what the new card contains (stage badge + location + dates + journal thread + photos) and how info ranks visually. Both mobile and desktop layouts.
-2. **"Add already-grown" source options** — locked enum (Nursery / Gift / Division / Mature plant moved) or free text?
-3. **Sow method chip count** — keep all 4 (Direct sow / Indoor / Greenhouse / Outdoor start) or merge similar ones (Greenhouse + Outdoor start are functionally similar — both two-event with start spot + transplant)?
-4. **Default zone name** — "Plants" or "Garden"?
-5. **Onboarding tooltip on post-migration first login** — yes or silent migration?
-6. **Notification engine** (`TQ2`/`CQ1`) — push notifications: yes / no / when? Biggest absent feature flagged in audits. Decision shapes Ship 6 significantly.
-7. **Recurring task interval editability** (`CAL-F7`) — fix shape: add toggle + interval to `NewTaskModal` edit mode, or keep Care-tab-only and surface "Manage schedule" deep-link?
-8. **Weather + calendar join** (`CQ2`) — frost overlay on calendar grid cells using existing Home forecast data?
-9. **`/schedule` cross-link from Calendar** (`CQ4`)?
-10. **Plant-instance identity in calendar task rows** (`CQ5`/`CAL-3`) — show `grow_instance` location/sown-date when multiple plantings of same profile?
-11. **Edit Plant Profile structured fields** — Sun / Water / Spacing / Sowing Method → enum selects with "Other" fallback, or stay free-text?
-12. **`profile_type` editability** — accept lock-forever or make editable from Edit Plant Profile?
-13. **Growing Notes catch-all** — keep as free-text or promote common content (location, health, amendments) to structured fields?
-14. **`purchase_vendor` display** — exposed somewhere on read-side, or deprecate the field?
-15. **Tags editable inline from Edit Plant Profile** — instead of routing to separate `/vault/tags` page?
-16. ~~**17-field Edit Plant Profile collapse**~~ — **Resolved by §3.14.** Locked as collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes).
-17. **Packet decrement rule on planting** — today: full archive of selected packet. Better: tier decrement / ask user how much / no auto-decrement? **Blocks `F-I` bug fix.**
-18. ~~**Permanent vs Seasonal type lock**~~ — **Dissolved by §3.13.** Replaced by editable `lifecycle_pattern` on the profile.
-19. **Multi-grow flow** for power users — save+continue, per-bed multi-select inside one modal, or accept N full cycles?
-20. **Button copy naming** — "Add Plant" or "Plant Again" (engineering uses latter; UI shows former everywhere)?
-21. **`uncompleteTask` flow** — undo recent task complete with full rollback, or accept "delete and recreate"?
-22. **Sow→harvest pair migrate to `care_schedules`** (`T9`) — so continuous-pick crops get repeating harvest tasks?
-23. **Per-plant "stop auto-tasks" toggle** — surface on plant profile?
-24. **`tasks.title` denormalized** (`T11`) — fix on read or accept stale history?
-25. **Tags + filters layer for power users** (Maya-persona, "show me all tomatoes across all zones") — when to build, MVP or later?
-26. **Frost-date data source** (§3.15) — NWS API (US-only, accurate), OpenWeather (global, paid tier maybe), or built-in zone-to-frost-dates dataset (offline-friendly, USDA reference). Choose at Ship 5 implementation time.
+1. **Per-instance card layout** — **OPEN.** The planting instance card is underdeveloped today. Need to sketch what the new card contains (stage badge + location + dates + journal thread + photos) and how info ranks visually. Both mobile and desktop layouts.
+2. ~~**"Add already-grown" source options**~~ — **RESOLVED by §3.2.** Locked 5-value enum: Nursery / Gift / Propagation / Transplanted in / Other.
+3. ~~**Sow method chip count**~~ — **RESOLVED by §3.3.** Keep all 4 in locked order: Direct sow → Indoor start → Greenhouse start → Outdoor start.
+4. ~~**Default zone name**~~ — **RESOLVED by §3.4.** Locked: **"Garden"** (matches the auto-created migration zone in §3.10).
+5. ~~**Onboarding tooltip on post-migration first login**~~ — **RESOLVED by §3.10.** Yes, include the one-time tooltip.
+6. ~~**Notification engine** (`TQ2`/`CQ1`)~~ — **RESOLVED by §6 Phase 3.** Push notifications are Phase 3+, NOT MVP. Rationale: see actual usage patterns first; Phase 2 is higher value per token; notifications become the standout Phase 3 ship.
+7. ~~**Recurring task interval editability** (`CAL-F7`)~~ — **RESOLVED by §3.19.** Locked option (b): keep `NewTaskModal` edit mode simple, add "Manage schedule" deep-link from Calendar task popup to plant profile's Care tab.
+8. ~~**Weather + calendar join** (`CQ2`)~~ — **RESOLVED by §3.18.** Yes — frost overlay on Calendar grid cells using existing Home forecast data; tooltip on tasks for those days.
+9. ~~**`/schedule` cross-link from Calendar** (`CQ4`)~~ — **RESOLVED by §3.18.** Yes — header link / *"View planting calendar"* affordance.
+10. ~~**Plant-instance identity in calendar task rows** (`CQ5`/`CAL-3`)~~ — **RESOLVED by §3.18.** Show `grow_instance` location: `"Water Tomato (Bed 2)"`. Fall back to sown-date when location missing.
+11. **Edit Plant Profile structured fields** — **OPEN** (also `EQ1`). Sun / Water / Spacing / Sowing Method → enum selects with "Other" fallback, or stay free-text?
+12. ~~**`profile_type` editability**~~ — **DISSOLVED by §3.13** (also `EQ2`). Lifecycle now lives at `plant_profile` level as `lifecycle_pattern` and is editable on the profile; the per-grow toggle is removed.
+13. **Growing Notes catch-all** — **OPEN** (also `EQ3`). Keep as free-text or promote common content (location, health, amendments) to structured fields?
+14. **`purchase_vendor` display** — **OPEN** (also `EQ4`). Exposed somewhere on read-side, or deprecate the field? (Note: `purchase_nursery` separately flagged for deprecation as a duplicate of `purchase_vendor` per §7 convergence.)
+15. **Tags editable inline from Edit Plant Profile** — **OPEN** (also `EQ5`). Instead of routing to separate `/vault/tags` page?
+16. ~~**17-field Edit Plant Profile collapse**~~ — **RESOLVED by §3.14** (also `EQ6`). Locked as collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes).
+17. ~~**Packet decrement rule on planting**~~ — **RESOLVED by §3.17.** Locked: tier decrement (Full → Partial → Low → Empty). Unblocks `F-I`.
+18. ~~**Permanent vs Seasonal type lock**~~ — **DISSOLVED by §3.13.** Replaced by editable `lifecycle_pattern` on the profile.
+19. **Multi-grow flow** for power users — **OPEN, partially resolved** (also `PQ3`). Split-on-partial-count from logs (§3.7) covers some of this naturally. Remaining: whether to ALSO add multi-select at add-time (save+continue / per-bed multi-select / accept N cycles).
+20. **Button copy naming** — **OPEN** (also `PQ6`). *"Add Plant"* or *"Plant Again"* (engineering uses latter; UI shows former everywhere)?
+21. **`uncompleteTask` flow** — **OPEN** (also `TQ5`). Undo recent task complete with full rollback, or accept "delete and recreate"?
+22. **Sow→harvest pair migrate to `care_schedules`** (`T9`) — **OPEN.** Direction locked by §3.13 (continuous-pick stays harvestable; single-harvest gets harvest-window task); remaining is the technical migration question.
+23. **Per-plant "stop auto-tasks" toggle** — **OPEN** (also `TQ4`). Surface on plant profile?
+24. **`tasks.title` denormalized** (`T11`) — **OPEN** (also `TQ3`). Fix on read or accept stale history?
+25. **Tags + filters layer for power users** (Maya-persona) — **OPEN.** "Show me all tomatoes across all zones" — when to build, MVP or later?
+26. **Frost-date data source** (§3.15) — **OPEN.** NWS API (US-only, accurate), OpenWeather (global, paid tier maybe), or built-in zone-to-frost-dates dataset (offline-friendly, USDA reference). Choose at Ship 5 implementation time.
+
+### Residual open list (the carry-forward set after today's session)
+
+After folding all of today's locks, the open questions Syd still needs to decide on (or that are deferred to implementation time):
+
+- **Q1** — Per-instance card layout
+- **Q11 / `EQ1`** — Edit Plant Profile structured fields (enum vs free-text)
+- **Q13 / `EQ3`** — Growing Notes catch-all
+- **Q14 / `EQ4`** — `purchase_vendor` display
+- **Q15 / `EQ5`** — Tags editable inline
+- **Q19 / `PQ3`** — Multi-grow flow (partial)
+- **Q20 / `PQ6`** — Button copy naming
+- **Q21 / `TQ5`** — `uncompleteTask` flow
+- **Q22** — Sow→harvest `care_schedules` migration (technical)
+- **Q23 / `TQ4`** — Per-plant "stop auto-tasks" toggle
+- **Q24 / `TQ3`** — `tasks.title` denormalized
+- **Q25** — Tags + filters power-user layer
+- **Q26** — Frost-date data source
+
+Plus the validation step from §8 (show pitch to another non-technical gardener before Phase 2 commit).
 
 ---
 
@@ -362,13 +412,13 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
 - **`F-F`** — Plant Again from seasonal profile silently records as permanent. `useEffect` at `AddPlantModal.tsx:104-120` force-sets `plantType="permanent"` ignoring the `defaultPlantType` prop. ~10 min fix.
 - **`F11`** — `QuickLogModal` saves only `photos[0]` despite multi-photo UI. Affects 5 of 8 journal entry points (FAB Add journal, Journal page +Entry, Vault Journal tab, Vault Plantings tab per-grow). `BatchLogSheet` + `EditJournalModal` handle multi-photo correctly. ~30 min fix mirroring `BatchLogSheet`'s loop.
 - **`E5`** — Edit Plant Profile silently drops 5 fields (Sowing Method, Planting Window, Companion plants, Avoid plants, Vendor/Nursery) for legacy `plant_varieties` profiles. Form renders fields, save handler excludes them. ~15 min fix (conditional rendering or honest save).
-- **`CAL-F7`** — Recurring task interval uneditable from Calendar. `NewTaskModal` in edit mode hides the recurring toggle (`{!editTask && ...}` at line 319). ~30 min fix.
+- **`CAL-F7`** — Recurring task interval uneditable from Calendar. **Locked fix shape (§3.19):** add "Manage schedule" button in Calendar task detail popup that deep-links to the plant profile's Care tab. Keep `NewTaskModal` edit mode simple (title/date/category only). Replaces the earlier "add toggle to `NewTaskModal`" idea.
+- **`F-I`** — Entire packet archived on plant, regardless of quantity. **Unblocked** by §3.17 (tier decrement locked). Implements: Full → Partial → Low → Empty on each plant action.
 
 ### Decision-gated (Ship 1b):
 
-- **`F-H`** — Plant Again with 0 packets opens packet-inventory modal, not planting modal. Blocked on Q1 (Seed vs Plant collapse) or Q17 (packet rule).
-- **`F-I`** — Entire packet archived on plant, regardless of quantity. Blocked on Q17.
-- **`F-T`** — Permanent plant + 0 packets opens seed-packet form. Blocked on Q1 / Q17.
+- **`F-H`** — Plant Again with 0 packets opens packet-inventory modal, not planting modal. No longer blocked on `Q17`; remaining decision is the broader Plant Again UX cleanup absorbed into Ship 5 plant-profile redesign.
+- **`F-T`** — Permanent plant + 0 packets opens seed-packet form. No longer blocked on `Q17`; same Ship 5 absorption as `F-H`.
 
 ---
 
@@ -378,12 +428,16 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
 
 ### Phase 1 — Finish current build + ship soon (weeks)
 
-- **Ship 1a** — No-decision bug fixes (`F-F` + `F11` + `E5` + `CAL-F7`). 1-2 weeks. Doc-only or single bug-fix PR per item.
-- **Ship 1b** — Decision-gated bug fixes (`F-H` + `F-I` + `F-T`). After Q17 (packet rule) decision lands.
-- **Ship 2** — Cohesion pass: modal anchors, submit verbs (six verbs for one action today), back-arrow consistency, photo-upload button label alignment (*"From gallery"* / *"Choose from Files"* / *"Choose from files"*), *"Add new"* vs *"Create new"* alignment. One PR.
+- **Ship 1a** — No-decision bug fixes (`F-F` + `F11` + `E5` + `CAL-F7` + `F-I`). `F-I` joins Ship 1a now that §3.17 (tier decrement) is locked. 1-2 weeks. Doc-only or single bug-fix PR per item.
+- **Ship 1b** — Plant Again UX cleanup absorbing `F-H` + `F-T`. Sequenced ahead of Ship 5 since both are real 0-packet bugs even with tier decrement in place; routes packet-empty → planting-modal correctly.
+- **Ship 2** — Cohesion pass + Calendar polish in one PR:
+  - Modal anchors, submit verbs (six verbs for one action today), back-arrow consistency, photo-upload button label alignment (*"From gallery"* / *"Choose from Files"* / *"Choose from files"*), *"Add new"* vs *"Create new"* alignment
+  - **Plant-instance identity in Calendar task rows** (§3.18, `CAL-3`)
+  - **`/schedule` cross-link from Calendar header** (§3.18, `CQ4`)
+  - **Frost overlay on Calendar grid cells** (§3.18, `CQ2`)
 - **Ship 3** — **Merge Active Garden + My Plants into a single Garden page** with filters. Remove the Permanent/Seasonal UI toggle from Add Plant; smart defaults derive from `profile.lifecycle_type` (§3.13). UI consolidation — schema-edits scoped to enabling the merged view. This is the bridge to Phase 2's Zones (the merged Garden page becomes the surface Zones replace later).
 - **Ship 4** — **App voice sweep** across remaining surfaces. Chatty copy → plain action-led labels per the locked voice rule (§3.12). Audit and rewrite any *"Do you want to...?"* / *"Would you like to...?"* / conversational-AI framing.
-- **Ship 5** — **Plant profile redesign** (§3.13 + §3.14 + §3.15 + §3.16). Schema: add `lifecycle_pattern` enum (`annual` / `perennial-single-harvest` / `perennial-continuous-pick` / `biennial`) to `plant_profiles`; backfill from variety enrichment with `annual` fallback. Capture user's zone at signup or in Settings; drop the hardcoded `zone10b` default everywhere. Profile UI: vendor-derived field set (botanical name, mature spread, light requirement, hardiness zone range, growth habit, chill hours, pollination, fruit-bearing season, foliage description, etc.); variety-type-aware visibility; collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes); all new fields optional; surfaces silently-captured `scientific_name` + `mature_spread` + `mature_height`. Add the *"When You Grow"* zone-aware timing section. Auto-derive `grow_instance` permanence from `profile.lifecycle_pattern`; deprecate per-planting `is_permanent_planting` UI surface. Seed-count field becomes optional + AI-enriched from photo/scan-receipt.
+- **Ship 5** — **Plant profile redesign** (§3.13 + §3.14 + §3.15 + §3.16 + §3.17). Schema: add `lifecycle_pattern` enum (`annual` / `perennial-single-harvest` / `perennial-continuous-pick` / `biennial`) to `plant_profiles`; backfill from variety enrichment with `annual` fallback. Capture user's zone at signup or in Settings; drop the hardcoded `zone10b` default everywhere. Profile UI: vendor-derived field set (botanical name, mature spread, light requirement, hardiness zone range, growth habit, chill hours, pollination, fruit-bearing season, foliage description, etc.); variety-type-aware visibility; collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes); all new fields optional; surfaces silently-captured `scientific_name` + `mature_spread` + `mature_height`. Add the *"When You Grow"* zone-aware timing section. Auto-derive `grow_instance` permanence from `profile.lifecycle_pattern`; deprecate per-planting `is_permanent_planting` UI surface. Seed-count field becomes optional + AI-enriched from photo/scan-receipt. Packet tier-decrement applied consistently across all plant actions (§3.17).
 - **Ship 6** — **Website parity sweep.** Both app + website pass cohesion + functionality so the marketing/landing surface matches the in-app experience post-redesign.
 
 ### Phase 2 — The redesign rollout (months)
@@ -394,12 +448,20 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
 - **Split-on-partial-count** (§3.7) — schema add (`split_from` FK) + log forms.
 - **Add Plant subcategories** (Start from seed / Add already-grown) + **sow method chips** (§3.2, §3.3).
 - **End-lifecycle terminal state** (§3.9) — terminal stage + reasons + tab-delete-with-plants flow.
-- **Migration plan** — auto-create Garden + Permanent zones for existing users; one-time onboarding tooltip (§3.10).
+- **Migration plan** — auto-create Garden + Permanent zones for existing users; one-time onboarding tooltip locked: *"Your garden was reorganized into Garden + Permanent zones. You can rename or add new zones anytime."* (§3.10).
 - **Compare / analytics tab** on Plant profile (§3.11).
 
-### Beyond Phase 2
+### Phase 3 — Push notifications (post-Phase-2 standout ship)
 
-- Missing data structuring: sun exposure enum, container vs in-ground, time-of-day on tasks, push notification engine. Each is its own ship; sequencing depends on Q6 (notifications) decision.
+**Locked: push notifications are Phase 3+, NOT MVP** (resolves `Q6`/`TQ2`/`CQ1`).
+
+Rationale: Syd wants to see actual app usage patterns first before committing weeks of work to a notification engine. Phase 2 (Zones + log-driven state + Compare tab) is higher value per token. Notifications become the standout Phase 3 ship — engaging users back into the app after they've built habits via Phase 1 + 2.
+
+Scope when it ships: push notification engine, task reminders (with quiet-hours respect), frost warnings (joins §3.18 frost overlay → push), harvest-window reminders for `perennial-single-harvest` plants, optional digest cadence.
+
+### Beyond Phase 3
+
+- Missing data structuring: sun exposure enum, container vs in-ground, time-of-day on tasks. Each is its own ship.
 - Cross-variety analytics ("Insights") for Maya-persona power users.
 
 ### Sow+harvest refactor — slot inside whichever phase it lands
