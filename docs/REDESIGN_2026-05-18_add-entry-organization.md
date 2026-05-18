@@ -121,7 +121,7 @@ If it fails any of the three, it doesn't ship to the card.
 
 ### 3.6 — DTM (days to maturity) — context-aware
 
-DTM only displays for plants where *"matures on day N"* is meaningful. Continuous-pick crops (oregano, herbs, lettuce, beans) stay in "Harvestable" stage indefinitely with no false "mature-and-done" lie. Lifecycle pattern (annual / perennial / biennial / continuous-pick / single-harvest) is a property of the plant profile, drives whether DTM is shown.
+DTM only displays for plants where *"matures on day N"* is meaningful. Continuous-pick crops (oregano, herbs, lettuce, beans) stay in "Harvestable" stage indefinitely with no false "mature-and-done" lie. Driven by the `lifecycle_pattern` enum on the plant profile (§3.13): only `annual` shows DTM; `perennial-single-harvest` shows fruit-bearing season; `perennial-continuous-pick` shows neither; `biennial` shows a 2-year flow.
 
 ### 3.7 — Split-on-partial-count
 
@@ -205,47 +205,118 @@ Cross-reference: this is consistent with the §3.12 #5 ship's verb-led empty-sta
 
 **Lifecycle is variety-level metadata, not per-planting metadata.** A tomato is ALWAYS an annual; a crepe myrtle is ALWAYS a perennial. The user shouldn't declare per-planting.
 
-**Locked:**
+**Locked: `lifecycle_pattern` enum on `plant_profiles` — 4 values:**
 
-- Add `lifecycle_type` enum to `plant_profiles` with values: **Annual / Perennial / Biennial**
-- Auto-populate from variety enrichment for known varieties
+- **`annual`** — completes lifecycle in one season (tomato, basil, lettuce). Has meaningful DTM.
+- **`perennial-single-harvest`** — comes back year after year, yield in a discrete harvest window (fruit trees, berries, asparagus, garlic). Has fruit-bearing season, **not** DTM.
+- **`perennial-continuous-pick`** — comes back year after year, harvestable continuously once started (oregano, chives, rhubarb, mint). Stays in "Harvestable" stage indefinitely after first harvest log. **No DTM, no false "matured" state.**
+- **`biennial`** — 2-year lifecycle (carrots if seed-saving, parsley, beets if seed-saving). Has 2-year flow with harvest in year 1 OR year 2 depending on purpose.
+
+**Behavior:**
+
+- Auto-populated from variety enrichment for known varieties
 - Editable on the plant profile if wrong (one place to fix)
+- Default to **`annual`** for unknown/niche varieties (safe fallback)
 - `grow_instances` inherit lifecycle from their profile — no user decision at plant time
 - `is_permanent_planting` on `grow_instance` becomes derived/redundant; migrate out in Phase 2
-- Backend logic (auto-task generation, care template copy, end-of-season prompts) reads from `profile.lifecycle_type` instead of `grow_instance.is_permanent_planting`
+- Backend logic (auto-task generation, care template copy, end-of-season prompts) reads from `profile.lifecycle_pattern` instead of `grow_instance.is_permanent_planting`
 - Filter: *"show me my perennials for fall care"* becomes a real query
-- DTM display only for Annual; Perennial gets a harvest-season range; Biennial gets a 2-year flow
+
+**Drives:**
+
+- DTM field display — `annual` only
+- Harvest-bearing-season field display — `perennial-single-harvest` only
+- Auto-task generation per pattern:
+  - `annual` → sow + harvest
+  - `perennial-single-harvest` → fertilize + winterize + harvest-window
+  - `perennial-continuous-pick` → stays in harvestable; no terminal harvest task
+  - `biennial` → flows over 2 years
 
 **Downstream simplifications this unlocks (now dissolved, not questions):**
 
 - `F2` (Permanent/Seasonal asked twice in FAB) → **dissolved; never asked**
 - `F-F` (Plant Again silently forces permanent) → **dissolved structurally; nothing to force.** (Ship 1a still patches the immediate bug; Ship 5 structurally removes the toggle.)
-- `Q18` (Permanent vs Seasonal type lock) → **dissolved.** Replaced by editable `lifecycle_type` on the profile.
+- `Q18` (Permanent vs Seasonal type lock) → **dissolved.** Replaced by editable `lifecycle_pattern` on the profile.
 - Add Plant form gets simpler (one fewer decision)
 
 **Edge case to flag.** Some varieties shift annual ↔ perennial by climate zone (peppers in zone 10 are perennial). **MVP: default from enrichment, user can edit on profile. Don't try to be zone-aware in MVP.**
 
 **Ship vehicle:** Phase 1 — Ship 5 (plant profile redesign). Schema migration + UI removal of Permanent/Seasonal toggle from Add Plant + auto-derive `grow_instance` behavior.
 
-### 3.14 — Plant profile redesign principles (Ship 5)
+### 3.14 — Plant profile redesign principles + field set (Ship 5)
 
 **Three locked design rules for the redesigned plant profile:**
 
-1. **Variety-type-aware fields** — chill hours only show for fruit trees; rootstock only for grafted plants; pollination requirements only where relevant. Driven by a category/type tag on the profile (or by `lifecycle_type` + plant kind).
-2. **Collapsible groups** — Identity / How to Grow / Harvest / Companion / Propagation / Notes. **Collapsed by default, expand on tap.** Mitigates audit `E7` (17-field scroll fatigue) without losing density for power users.
+1. **Variety-type-aware fields** — chill hours only show for fruit trees; rootstock only for grafted plants; pollination requirements only where relevant. Driven by `lifecycle_pattern` + a category/type tag on the profile.
+2. **Collapsible groups** — Identity / Key Attributes / Variety-type details / Care / Notes. **Collapsed by default, expand on tap.** Mitigates audit `E7` (17-field scroll fatigue) without losing density for power users.
 3. **Optional, never required** — Sam-persona can ignore new fields entirely. **No new field gates submit.**
 
-**New fields to plan for (variety-type-aware):**
+#### Field set — derived from review of 5 vendor product pages
 
-- Harvest season (different from days-to-maturity — e.g. *"July-September"*)
-- Chill hours (fruit-tree-only)
-- Rootstock (grafted-plant-only)
-- Pollination requirements (self-pollinating vs needs partner)
-- Zone hardiness range
-- Years to first fruit (for trees)
-- Pest/disease susceptibility tags
+Reference vendor pages reviewed by Syd: Ambrosia Pomegranate, Burpee Cilantro, Burpee Blueberry, Variegated Pink Lemon, Heirloom Tomato. Field set consolidated below. Variety-type-aware (irrelevant fields hidden); collapsible groups; **optional unless noted**.
 
-**Cross-reference:** dissolves `Q16` (17-field collapse) — locked here as collapsible groups.
+**Identity tier (all plants):**
+
+- **Botanical / Latin name** — already in schema as `scientific_name`. Currently silently captured, never displayed. **Surface it** in the redesign.
+- Common name
+- Variety name (already in schema)
+- Form / category tags — **multi-tag** (Vegetable, Fruit, Heirloom, Tree, Shrub, Herb, Flower, etc.)
+- Photo / hero
+
+**Key Attributes (icon-tagged top summary, all plants):**
+
+- Mature height (already in schema)
+- **Mature spread** — already in schema, never displayed. **Surface it.**
+- Light requirement (Full Sun / Part Sun / Part Shade / Shade)
+- Zones / hardiness zone range
+- Days to maturity — **`annual` only** (driven by `lifecycle_pattern`, §3.13)
+- Fruit-bearing season — **`perennial-single-harvest` only**
+- Sow method (Direct / Indoor / Both)
+- Growth habit (Bush / Vine / Tree / Indeterminate / Determinate)
+
+**Variety-type-aware fields (only shown when relevant):**
+
+- *Fruit trees / berries:* chill hours, pollination (self-fruitful vs needs partner), cold hardiness (e.g. *"Hardy to 10°F"*), fruit-bearing season (Early / Mid / Late), fruit characteristics (size / color / flavor), bloom description (color / season), climate type (inland / coastal / both)
+- *Edibles:* flavor profile, yield estimate, culinary uses
+- *All:* foliage description
+
+**Care guidance (collapsible sub-sections, variety-aware):**
+
+- Sunlight / Soil / Watering / Fertilization / Pruning / Pest control / Growth rate / Container growing / Fruit production (fruit-bearing only)
+
+**Cross-references:**
+
+- Dissolves `Q16` (17-field collapse) — locked here as collapsible groups
+- Surfaces `scientific_name` + `mature_height` + `mature_width` — partly resolves audit `E2` silent-capture finding (see §7 note)
+
+### 3.15 — "When You Grow" zone-aware timing section + drop zone10b hardcode
+
+**Add to Ship 5 scope: a zone-aware section on the plant profile** that calculates and displays, based on the user's actual zone:
+
+- Average last frost / Average first frost
+- **From Seed Indoors:** start date + transplant date
+- **From Seed Outdoors:** start date
+- **From Plant:** timing window
+- Fall planting (where applicable)
+
+**Drop the zone10b hardcoded default everywhere.** Today the app defaults all users to zone10b (per `CAL-7` audit note + Syd's confirmation: *"I did that when I was setting up the app for ease"*). Replace with the user's actual zone:
+
+- Capture user's zone at signup or in Settings — **per-user, simplest MVP**
+- **Future enhancement:** per-profile zone for multi-microclimate gardens (Maya in Vista)
+- **Frost-date data source TBD** — three options to choose from at implementation time (carried as `Q26` in §4):
+  - NWS API (US-only, accurate, requires lookup)
+  - OpenWeather (global, paid tier may be needed)
+  - Built-in zone-to-frost-dates dataset (offline-friendly, USDA reference data)
+
+Once user's actual zone is captured, the Calendar's *"Plantable this month"* banner (today `CAL-7`: reads from user's `plant_profiles.planting_window` free-text) can also drive from **real zone data + variety reference**.
+
+### 3.16 — Seed count per packet — optional + auto-scrub
+
+**Locked behavior for the `seed_packets.seed_count` field:**
+
+- **Optional, never required.** Manual entry is tough for users (Syd's call: *"it can be hard to add in"*). Does not gate any flow.
+- When user uses **Photo Import** or **Scan Purchase Order**, AI enrichment attempts to **auto-extract seed count** from the packet image or receipt line item (seed count is often stamped on the packet or itemized on the receipt).
+- **Blank-and-fine when not detected.** No error, no nag.
 
 ---
 
@@ -268,9 +339,9 @@ Carry forward — these need her input before related work can ship:
 13. **Growing Notes catch-all** — keep as free-text or promote common content (location, health, amendments) to structured fields?
 14. **`purchase_vendor` display** — exposed somewhere on read-side, or deprecate the field?
 15. **Tags editable inline from Edit Plant Profile** — instead of routing to separate `/vault/tags` page?
-16. ~~**17-field Edit Plant Profile collapse**~~ — **Resolved by §3.14.** Locked as collapsible groups (Identity / How to Grow / Harvest / Companion / Propagation / Notes).
+16. ~~**17-field Edit Plant Profile collapse**~~ — **Resolved by §3.14.** Locked as collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes).
 17. **Packet decrement rule on planting** — today: full archive of selected packet. Better: tier decrement / ask user how much / no auto-decrement? **Blocks `F-I` bug fix.**
-18. ~~**Permanent vs Seasonal type lock**~~ — **Dissolved by §3.13.** Replaced by editable `lifecycle_type` on the profile.
+18. ~~**Permanent vs Seasonal type lock**~~ — **Dissolved by §3.13.** Replaced by editable `lifecycle_pattern` on the profile.
 19. **Multi-grow flow** for power users — save+continue, per-bed multi-select inside one modal, or accept N full cycles?
 20. **Button copy naming** — "Add Plant" or "Plant Again" (engineering uses latter; UI shows former everywhere)?
 21. **`uncompleteTask` flow** — undo recent task complete with full rollback, or accept "delete and recreate"?
@@ -278,6 +349,7 @@ Carry forward — these need her input before related work can ship:
 23. **Per-plant "stop auto-tasks" toggle** — surface on plant profile?
 24. **`tasks.title` denormalized** (`T11`) — fix on read or accept stale history?
 25. **Tags + filters layer for power users** (Maya-persona, "show me all tomatoes across all zones") — when to build, MVP or later?
+26. **Frost-date data source** (§3.15) — NWS API (US-only, accurate), OpenWeather (global, paid tier maybe), or built-in zone-to-frost-dates dataset (offline-friendly, USDA reference). Choose at Ship 5 implementation time.
 
 ---
 
@@ -311,7 +383,7 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
 - **Ship 2** — Cohesion pass: modal anchors, submit verbs (six verbs for one action today), back-arrow consistency, photo-upload button label alignment (*"From gallery"* / *"Choose from Files"* / *"Choose from files"*), *"Add new"* vs *"Create new"* alignment. One PR.
 - **Ship 3** — **Merge Active Garden + My Plants into a single Garden page** with filters. Remove the Permanent/Seasonal UI toggle from Add Plant; smart defaults derive from `profile.lifecycle_type` (§3.13). UI consolidation — schema-edits scoped to enabling the merged view. This is the bridge to Phase 2's Zones (the merged Garden page becomes the surface Zones replace later).
 - **Ship 4** — **App voice sweep** across remaining surfaces. Chatty copy → plain action-led labels per the locked voice rule (§3.12). Audit and rewrite any *"Do you want to...?"* / *"Would you like to...?"* / conversational-AI framing.
-- **Ship 5** — **Plant profile redesign** (§3.13 + §3.14). Schema: add `lifecycle_type` enum (Annual / Perennial / Biennial) to `plant_profiles`. Backfill from variety enrichment. Profile UI: variety-type-aware fields (chill hours, rootstock, pollination, harvest season, zone hardiness, years to first fruit, pest/disease tags); collapsible groups (Identity / How to Grow / Harvest / Companion / Propagation / Notes); all new fields optional. Auto-derive `grow_instance` permanence from `profile.lifecycle_type`; deprecate per-planting `is_permanent_planting` UI surface.
+- **Ship 5** — **Plant profile redesign** (§3.13 + §3.14 + §3.15 + §3.16). Schema: add `lifecycle_pattern` enum (`annual` / `perennial-single-harvest` / `perennial-continuous-pick` / `biennial`) to `plant_profiles`; backfill from variety enrichment with `annual` fallback. Capture user's zone at signup or in Settings; drop the hardcoded `zone10b` default everywhere. Profile UI: vendor-derived field set (botanical name, mature spread, light requirement, hardiness zone range, growth habit, chill hours, pollination, fruit-bearing season, foliage description, etc.); variety-type-aware visibility; collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes); all new fields optional; surfaces silently-captured `scientific_name` + `mature_spread` + `mature_height`. Add the *"When You Grow"* zone-aware timing section. Auto-derive `grow_instance` permanence from `profile.lifecycle_pattern`; deprecate per-planting `is_permanent_planting` UI surface. Seed-count field becomes optional + AI-enriched from photo/scan-receipt.
 - **Ship 6** — **Website parity sweep.** Both app + website pass cohesion + functionality so the marketing/landing surface matches the in-app experience post-redesign.
 
 ### Phase 2 — The redesign rollout (months)
@@ -341,6 +413,7 @@ Collapse the 5 parallel insert paths in `AddPlantModal` / `vault/plant/page` / `
 - **FAB audit** (chat `admiring-carson-81435d`, idle): F1-F21 friction items, including Seed-vs-Plant ambiguity (F1), double-asked Permanent/Seasonal (F2), modal anchor variance (F5), submit verb inconsistency (F6), Sam-persona empty-state landings (F4), etc.
 - **Photo + Journal audit** (chat `youthful-napier-8a9bc5`, idle): C1-C12 cross-cutting items + F11 multi-photo bug scoped to `QuickLogModal` only. 8 journal entry points, 3 different modals.
 - **Edit Plant Profile audit** (chat `xenodochial-mayer-1dd58d`, idle): E1-E15 friction items. 17-field inventory. E5 silent-drop bug. Silently-unused fields (`purchase_vendor`, `mature_height`, `mature_width`, `scientific_name`, `purchase_nursery`).
+  - **Convergence with §3.14 vendor-derived field set:** Ship 5 surfaces `scientific_name` (→ Botanical Name), `mature_height` (→ Mature height in Key Attributes), `mature_width` (→ Mature spread). `purchase_nursery` confirmed redundant with existing `purchase_vendor`; recommend deprecating `purchase_nursery` in Ship 5 to collapse the duplicate. `purchase_vendor` display surface remains open as `Q14`.
 - **Plant Again audit** (chat `youthful-napier-8a9bc5`, idle): F-A through F-T friction items + 3 critical bugs (F-F seasonal forcing, F-H 0-packet sidetrack, F-I full packet archive).
 - **Tasks Lifecycle audit v2** (chat `zealous-bhaskara-8eff9d`, idle): T1-T12 friction items. 5 parallel sow+harvest insert paths. No push notifications. No `uncompleteTask`. `tasks.title` denormalized. `NewTaskModal` exposes 4 of 9 task categories.
 - **Calendar UI audit** (chat `elastic-bhabha-12fb89`, idle): CAL-F1 through CAL-F12 friction items + CAL-M1 through CAL-M12 missing-data items. No "Today" jump. No push notifications. Phone-portrait swipe-only with no affordance. Recurring task interval uneditable.
