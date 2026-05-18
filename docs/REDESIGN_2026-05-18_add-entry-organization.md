@@ -201,6 +201,52 @@ Future / not MVP: estimated yield (if user captures weights), pest/disease incid
 
 Cross-reference: this is consistent with the §3.12 #5 ship's verb-led empty-state frame ("Add a {noun}" CTAs).
 
+### 3.13 — Lifecycle taxonomy (replaces Permanent / Seasonal entirely)
+
+**Lifecycle is variety-level metadata, not per-planting metadata.** A tomato is ALWAYS an annual; a crepe myrtle is ALWAYS a perennial. The user shouldn't declare per-planting.
+
+**Locked:**
+
+- Add `lifecycle_type` enum to `plant_profiles` with values: **Annual / Perennial / Biennial**
+- Auto-populate from variety enrichment for known varieties
+- Editable on the plant profile if wrong (one place to fix)
+- `grow_instances` inherit lifecycle from their profile — no user decision at plant time
+- `is_permanent_planting` on `grow_instance` becomes derived/redundant; migrate out in Phase 2
+- Backend logic (auto-task generation, care template copy, end-of-season prompts) reads from `profile.lifecycle_type` instead of `grow_instance.is_permanent_planting`
+- Filter: *"show me my perennials for fall care"* becomes a real query
+- DTM display only for Annual; Perennial gets a harvest-season range; Biennial gets a 2-year flow
+
+**Downstream simplifications this unlocks (now dissolved, not questions):**
+
+- `F2` (Permanent/Seasonal asked twice in FAB) → **dissolved; never asked**
+- `F-F` (Plant Again silently forces permanent) → **dissolved structurally; nothing to force.** (Ship 1a still patches the immediate bug; Ship 5 structurally removes the toggle.)
+- `Q18` (Permanent vs Seasonal type lock) → **dissolved.** Replaced by editable `lifecycle_type` on the profile.
+- Add Plant form gets simpler (one fewer decision)
+
+**Edge case to flag.** Some varieties shift annual ↔ perennial by climate zone (peppers in zone 10 are perennial). **MVP: default from enrichment, user can edit on profile. Don't try to be zone-aware in MVP.**
+
+**Ship vehicle:** Phase 1 — Ship 5 (plant profile redesign). Schema migration + UI removal of Permanent/Seasonal toggle from Add Plant + auto-derive `grow_instance` behavior.
+
+### 3.14 — Plant profile redesign principles (Ship 5)
+
+**Three locked design rules for the redesigned plant profile:**
+
+1. **Variety-type-aware fields** — chill hours only show for fruit trees; rootstock only for grafted plants; pollination requirements only where relevant. Driven by a category/type tag on the profile (or by `lifecycle_type` + plant kind).
+2. **Collapsible groups** — Identity / How to Grow / Harvest / Companion / Propagation / Notes. **Collapsed by default, expand on tap.** Mitigates audit `E7` (17-field scroll fatigue) without losing density for power users.
+3. **Optional, never required** — Sam-persona can ignore new fields entirely. **No new field gates submit.**
+
+**New fields to plan for (variety-type-aware):**
+
+- Harvest season (different from days-to-maturity — e.g. *"July-September"*)
+- Chill hours (fruit-tree-only)
+- Rootstock (grafted-plant-only)
+- Pollination requirements (self-pollinating vs needs partner)
+- Zone hardiness range
+- Years to first fruit (for trees)
+- Pest/disease susceptibility tags
+
+**Cross-reference:** dissolves `Q16` (17-field collapse) — locked here as collapsible groups.
+
 ---
 
 ## 4. Open questions still pending Syd's decision
@@ -222,9 +268,9 @@ Carry forward — these need her input before related work can ship:
 13. **Growing Notes catch-all** — keep as free-text or promote common content (location, health, amendments) to structured fields?
 14. **`purchase_vendor` display** — exposed somewhere on read-side, or deprecate the field?
 15. **Tags editable inline from Edit Plant Profile** — instead of routing to separate `/vault/tags` page?
-16. **17-field Edit Plant Profile collapse** — group into Identity / How to Grow / Companion / Propagation / Notes sections with collapse?
+16. ~~**17-field Edit Plant Profile collapse**~~ — **Resolved by §3.14.** Locked as collapsible groups (Identity / How to Grow / Harvest / Companion / Propagation / Notes).
 17. **Packet decrement rule on planting** — today: full archive of selected packet. Better: tier decrement / ask user how much / no auto-decrement? **Blocks `F-I` bug fix.**
-18. **Permanent vs Seasonal type lock** — accept lock-forever (delete + re-create to fix misclassification) or make editable?
+18. ~~**Permanent vs Seasonal type lock**~~ — **Dissolved by §3.13.** Replaced by editable `lifecycle_type` on the profile.
 19. **Multi-grow flow** for power users — save+continue, per-bed multi-select inside one modal, or accept N full cycles?
 20. **Button copy naming** — "Add Plant" or "Plant Again" (engineering uses latter; UI shows former everywhere)?
 21. **`uncompleteTask` flow** — undo recent task complete with full rollback, or accept "delete and recreate"?
@@ -261,20 +307,22 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
 ### Phase 1 — Finish current build + ship soon (weeks)
 
 - **Ship 1a** — No-decision bug fixes (`F-F` + `F11` + `E5` + `CAL-F7`). 1-2 weeks. Doc-only or single bug-fix PR per item.
-- **Ship 1b** — Decision-gated bug fixes (`F-H` + `F-I` + `F-T`). After Q1 + Q17 decisions land.
+- **Ship 1b** — Decision-gated bug fixes (`F-H` + `F-I` + `F-T`). After Q17 (packet rule) decision lands.
 - **Ship 2** — Cohesion pass: modal anchors, submit verbs (six verbs for one action today), back-arrow consistency, photo-upload button label alignment (*"From gallery"* / *"Choose from Files"* / *"Choose from files"*), *"Add new"* vs *"Create new"* alignment. One PR.
-- **Ship 3** — **Merge Active Garden + My Plants into a single Garden page with filters.** Permanent / Seasonal becomes a filter, not separate tabs. UI consolidation only — schema unchanged. This is the bridge to Phase 2's Zones (the merged Garden page becomes the surface Zones replace later).
+- **Ship 3** — **Merge Active Garden + My Plants into a single Garden page** with filters. Remove the Permanent/Seasonal UI toggle from Add Plant; smart defaults derive from `profile.lifecycle_type` (§3.13). UI consolidation — schema-edits scoped to enabling the merged view. This is the bridge to Phase 2's Zones (the merged Garden page becomes the surface Zones replace later).
 - **Ship 4** — **App voice sweep** across remaining surfaces. Chatty copy → plain action-led labels per the locked voice rule (§3.12). Audit and rewrite any *"Do you want to...?"* / *"Would you like to...?"* / conversational-AI framing.
+- **Ship 5** — **Plant profile redesign** (§3.13 + §3.14). Schema: add `lifecycle_type` enum (Annual / Perennial / Biennial) to `plant_profiles`. Backfill from variety enrichment. Profile UI: variety-type-aware fields (chill hours, rootstock, pollination, harvest season, zone hardiness, years to first fruit, pest/disease tags); collapsible groups (Identity / How to Grow / Harvest / Companion / Propagation / Notes); all new fields optional. Auto-derive `grow_instance` permanence from `profile.lifecycle_type`; deprecate per-planting `is_permanent_planting` UI surface.
+- **Ship 6** — **Website parity sweep.** Both app + website pass cohesion + functionality so the marketing/landing surface matches the in-app experience post-redesign.
 
 ### Phase 2 — The redesign rollout (months)
 
 - **Zones / location-tabs as primary nav** — replaces Phase 1's merged Garden page from Ship 3.
 - **Log-driven state derivation** — logging IS state management (§3.5).
-- **Stage-aware lifecycle (data model only)** — the stage-as-data layer locks in; stage-as-UI is decided here in coordination with family-mode rework (§3.5 UI options + must-pass criteria).
+- **Stage-aware lifecycle (data model only)** — the stage-as-data layer locks in; **stage-as-UI representation TBD** in coordination with family-mode rework (§3.5 UI options + must-pass criteria).
 - **Split-on-partial-count** (§3.7) — schema add (`split_from` FK) + log forms.
 - **Add Plant subcategories** (Start from seed / Add already-grown) + **sow method chips** (§3.2, §3.3).
 - **End-lifecycle terminal state** (§3.9) — terminal stage + reasons + tab-delete-with-plants flow.
-- **Migration plan** — auto-create Garden + Permanent zones for existing users (§3.10).
+- **Migration plan** — auto-create Garden + Permanent zones for existing users; one-time onboarding tooltip (§3.10).
 - **Compare / analytics tab** on Plant profile (§3.11).
 
 ### Beyond Phase 2
