@@ -933,7 +933,7 @@ export default function VaultSeedPage() {
                 { id: "edit-maturity", label: "Days to Maturity", key: "maturity" as const, placeholder: "e.g. 75" },
                 { id: "edit-sowing-method", label: "Sowing Method", key: "sowingMethod" as const, placeholder: "e.g. Direct Sow or Start Indoors" },
                 { id: "edit-planting-window", label: "Planting Window", key: "plantingWindow" as const, placeholder: "e.g. Spring: Feb-May" },
-              ].map((f) => (
+              ].filter((f) => !(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) || (f.key !== "sowingMethod" && f.key !== "plantingWindow")).map((f) => (
                 <div key={f.id}>
                   <label htmlFor={f.id} className="block text-sm font-medium text-neutral-700 mb-1">{f.label}</label>
                   {f.key === "status" ? (
@@ -971,24 +971,26 @@ export default function VaultSeedPage() {
                 <label htmlFor="edit-purchase-date" className="block text-sm font-medium text-neutral-700 mb-1">Purchase Date</label>
                 <input id="edit-purchase-date" type="date" value={editForm.purchaseDate} onChange={(e) => setEditForm((f) => ({ ...f, purchaseDate: e.target.value }))} className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
               </div>
-              <div>
-                <label htmlFor="edit-purchase-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
-                <input id="edit-purchase-vendor" type="text" value={editForm.purchaseVendor} onChange={(e) => setEditForm((f) => ({ ...f, purchaseVendor: e.target.value }))} placeholder="e.g. Briggs Tree Nursery, Home Depot" className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Vendor or nursery" />
-              </div>
+              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                <div>
+                  <label htmlFor="edit-purchase-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                  <input id="edit-purchase-vendor" type="text" value={editForm.purchaseVendor} onChange={(e) => setEditForm((f) => ({ ...f, purchaseVendor: e.target.value }))} placeholder="e.g. Briggs Tree Nursery, Home Depot" className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Vendor or nursery" />
+                </div>
+              )}
               <div>
                 <label htmlFor="edit-growing-notes" className="block text-sm font-medium text-neutral-700 mb-1">Growing Notes</label>
                 <textarea id="edit-growing-notes" rows={3} value={editForm.growingNotes} onChange={(e) => setEditForm((f) => ({ ...f, growingNotes: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
               </div>
-              <div>
-                <label htmlFor="edit-companion-plants" className="block text-sm font-medium text-neutral-700 mb-1">Companion plants</label>
-                <input id="edit-companion-plants" type="text" value={editForm.companionPlants} onChange={(e) => setEditForm((f) => ({ ...f, companionPlants: e.target.value }))} placeholder="e.g. Basil, Carrot" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Companion plants" />
-              </div>
-              <div>
-                <label htmlFor="edit-avoid-plants" className="block text-sm font-medium text-neutral-700 mb-1">Avoid plants</label>
-                <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
-              </div>
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <>
+                  <div>
+                    <label htmlFor="edit-companion-plants" className="block text-sm font-medium text-neutral-700 mb-1">Companion plants</label>
+                    <input id="edit-companion-plants" type="text" value={editForm.companionPlants} onChange={(e) => setEditForm((f) => ({ ...f, companionPlants: e.target.value }))} placeholder="e.g. Basil, Carrot" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Companion plants" />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-avoid-plants" className="block text-sm font-medium text-neutral-700 mb-1">Avoid plants</label>
+                    <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
+                  </div>
                   <div>
                     <label htmlFor="edit-propagation" className="block text-sm font-medium text-neutral-700 mb-1">Propagation (optional)</label>
                     <textarea id="edit-propagation" rows={2} value={editForm.propagationNotes} onChange={(e) => setEditForm((f) => ({ ...f, propagationNotes: e.target.value }))} placeholder="e.g. Cuttings, division, layering" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="How to propagate" />
