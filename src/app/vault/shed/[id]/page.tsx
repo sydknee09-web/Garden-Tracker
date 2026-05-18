@@ -653,7 +653,7 @@ export default function VaultShedDetailPage() {
       <div className="rounded-xl bg-white border border-black/10 p-4">
         <h2 className="text-lg font-semibold text-neutral-900 mb-3">History</h2>
         {history.length === 0 ? (
-          <p className="text-neutral-500 text-sm">No usage recorded yet.</p>
+          <p className="text-neutral-500 text-sm">No uses logged yet. Log this product on a journal entry to start tracking how often you use it.</p>
         ) : (
           <ul className="space-y-2">
             {history.map((entry) => (

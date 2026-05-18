@@ -630,7 +630,7 @@ export default function JournalPage() {
 
       {entries.length === 0 ? (
         <EmptyStateCard
-          title="No journal entries yet"
+          title="Your journal starts here."
           illustration={<EmptyStateJournal />}
           body={
             <>
@@ -649,7 +649,7 @@ export default function JournalPage() {
                   return prompts[day % prompts.length];
                 })()}
               </p>
-              <p className="text-xs text-slate-400">Tap the + button below or <strong>+ Entry</strong> above to add your first entry.</p>
+              <p className="text-xs text-slate-400">Tap the + button below or <strong>+ Entry</strong> above to log your first entry.</p>
             </>
           }
         />

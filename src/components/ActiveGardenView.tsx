@@ -1013,9 +1013,10 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             </button>
           </div>
         ) : sortedBatches.length === 0 ? (
-          <p className="text-black/50 text-sm py-4">
-            {isNewUser ? "Map your hillside. Place your first plant from the Vault to begin its life story." : "No active batches. Plant from the Seed Vault to see them here."}
-          </p>
+          <div className="py-4 text-center">
+            <p className="text-black/70 text-sm font-medium">No plantings growing right now.</p>
+            <p className="text-black/50 text-xs mt-1">Add a plant from your library — every planting tracks where, when, and how it grew.</p>
+          </div>
         ) : displayStyle === "grid" ? (
           <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {

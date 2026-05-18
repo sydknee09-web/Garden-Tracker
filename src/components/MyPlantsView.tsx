@@ -695,9 +695,9 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
     <div>
       {plants.length === 0 ? (
         <EmptyStateCard
-          title="No permanent plants yet"
-          body="Add your fruit trees, bushes, and other perennial plants here."
-          actionLabel="Add a Perennial"
+          title="No long-living plants here yet."
+          body="Add trees, bushes, or anything else you keep year after year."
+          actionLabel="Add a plant"
           onAction={() => onAddClick?.()}
           illustration={<EmptyStatePerennial />}
         />

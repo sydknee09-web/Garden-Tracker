@@ -48,16 +48,16 @@ export function VaultProfilePacketsTab({
   if (sortedPackets.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-        <p className="text-neutral-500 text-sm">No seed packets yet.</p>
+        <p className="text-neutral-500 text-sm">No packets for this variety yet.</p>
         {canEdit && !isPermanent && (
           <>
-            <p className="text-neutral-400 text-xs mt-1 mb-4">Add a packet here or from the Vault import.</p>
+            <p className="text-neutral-400 text-xs mt-1 mb-4">Add one by scanning, uploading, or typing in the details.</p>
             <button
               type="button"
               onClick={() => setAddPlantManualOpen(true)}
               className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:ring-offset-2"
             >
-              Add seed packet
+              Add a packet
             </button>
           </>
         )}

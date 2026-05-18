@@ -371,9 +371,9 @@ export function ShedView({
       ) : filteredSupplies.length === 0 ? (
         supplies.length === 0 ? (
           <EmptyStateCard
-            title={isNewUser ? "Your Shed holds your supplies" : "No supplies yet"}
-            body={isNewUser ? "Log fertilizers and tools. The app will suggest the right products based on your plants." : "Add fertilizers, pesticides, or other products to track usage and instructions."}
-            actionLabel="Add your first supply"
+            title="Your supplies live here."
+            body="Add fertilizers, pesticides, or anything else you use on your plants. We&rsquo;ll track how often and on what."
+            actionLabel="Add a supply"
             onAction={() => setQuickAddOpen(true)}
             illustration={<ShedSupplyIcon className="w-16 h-16 text-neutral-300" />}
           />

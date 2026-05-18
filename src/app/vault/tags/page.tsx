@@ -250,7 +250,7 @@ export default function VaultTagsPage() {
               <h2 className="text-sm font-semibold text-neutral-700 mb-2">Active Vault Tags</h2>
               {vaultTagNames.length === 0 ? (
                 <p className="text-sm text-neutral-500 py-4 px-4 rounded-xl border border-neutral-200 bg-white">
-                  No tags on your plants yet. Add one below or import seeds to discover tags.
+                  No tags yet. Add a tag below — or they&rsquo;ll appear here automatically as you import seeds.
                 </p>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">

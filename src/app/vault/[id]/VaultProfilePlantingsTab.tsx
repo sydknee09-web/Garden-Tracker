@@ -52,18 +52,18 @@ export function VaultProfilePlantingsTab({
       )}
       {growInstances.length === 0 ? (
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-          <p className="text-neutral-500 text-sm">{isPermanent ? "No plants yet." : "No plantings yet."}</p>
+          <p className="text-neutral-500 text-sm">{isPermanent ? "No plants of this variety yet." : "Not planted yet."}</p>
           <p className="text-neutral-400 text-xs mt-1 mb-4">
-            {isPermanent ? "Add your trees or perennials via the FAB from Home or Vault." : nonEmptyPacketsCount === 0 ? "Add a seed packet first, then start a planting." : "Start a new planting from your packets."}
+            {isPermanent ? "Add a planting to track when and where you put it in." : nonEmptyPacketsCount === 0 ? "Add a seed packet first, then start a planting from it." : "Start a planting from one of your packets to begin tracking."}
           </p>
           <button
             type="button"
             onClick={onPlantAgain}
             className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 text-sm"
-            aria-label="Add plant"
+            aria-label="Add a planting"
           >
             <ICON_MAP.Add className="w-4 h-4" />
-            Add Plant
+            Add a planting
           </button>
         </div>
       ) : (

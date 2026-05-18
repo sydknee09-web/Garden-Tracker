@@ -1114,9 +1114,9 @@ export function SeedVaultView({
   if (seeds.length === 0) {
     return (
       <EmptyStateCard
-        title={isNewUser ? "Your Vault is the heart of your garden" : "Your vault is empty"}
-        body={isNewUser ? "Scan a seed packet or upload a photo to start your inventory." : "Add a packet or scan one with your camera to get started."}
-        actionLabel={onAddFirst ? "Add your first packet" : undefined}
+        title="Your seed library starts here."
+        body="Add a packet by scanning, uploading a photo, or typing the details."
+        actionLabel={onAddFirst ? "Add a packet" : undefined}
         onAction={onAddFirst}
         illustration={<EmptyStateVault />}
       />
@@ -1137,14 +1137,17 @@ export function SeedVaultView({
         />
       );
     }
-    const emptyVaultMessage = mode === "grid"
-      ? (isNewUser ? "Your Vault is the heart of your garden" : "No plant profiles yet. Add your first variety to get started.")
-      : (isNewUser ? "Scan a seed packet to start your inventory" : "No seeds yet. Add your first packet to get started.");
+    const emptyVaultTitle = mode === "grid"
+      ? "No plant varieties here yet."
+      : "No packets in your library yet.";
+    const emptyVaultBody = mode === "grid"
+      ? "Add a variety by scanning a packet or typing it in."
+      : "Scan a packet, upload a photo, or add details by hand.";
     return (
       <EmptyStateCard
-        title={emptyVaultMessage}
-        body={isNewUser ? "Scan a seed packet or upload a photo to start your inventory." : "Tap + to add a seed packet or plant profile."}
-        actionLabel={onAddFirst ? (mode === "grid" ? "Add your first plant" : "Add your first packet") : undefined}
+        title={emptyVaultTitle}
+        body={emptyVaultBody}
+        actionLabel={onAddFirst ? (mode === "grid" ? "Add a plant" : "Add a packet") : undefined}
         onAction={onAddFirst}
         illustration={mode === "grid" ? <EmptyStateSprout /> : <EmptyStateVault />}
       />

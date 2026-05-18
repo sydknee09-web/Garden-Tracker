@@ -57,8 +57,8 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
         )}
         {journalEntries.length === 0 ? (
           <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-            <p className="text-neutral-500 text-sm">No journal entries yet.</p>
-            <p className="text-neutral-400 text-xs mt-1 mb-4">Entries appear here as you plant, care for, and harvest this variety.</p>
+            <p className="text-neutral-500 text-sm">No journal entries for this variety yet.</p>
+            <p className="text-neutral-400 text-xs mt-1 mb-4">Notes and photos you log will show up here over time.</p>
             {canEdit && onAddJournal && (
               <button
                 type="button"
@@ -67,7 +67,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                 aria-label="Add journal entry"
               >
                 <ICON_MAP.Journal className="w-4 h-4" />
-                Add journal
+                Add a journal entry
               </button>
             )}
           </div>

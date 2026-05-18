@@ -1261,10 +1261,10 @@ export default function CalendarPage() {
           !(isTodayInMonth && completedForToday.length > 0) ? (
             <div className="p-6 text-center">
               <p className="text-black/60 text-sm font-medium">
-                No upcoming tasks scheduled.
+                Nothing scheduled right now.
               </p>
               <p className="text-sm text-black/50 mt-2">
-                Tap + to add a task, or plant from a profile to generate tasks automatically.
+                Tasks show up as your plants grow. Tap + to add one yourself.
               </p>
             </div>
           ) : selectedDate ? (
@@ -1283,9 +1283,9 @@ export default function CalendarPage() {
                 return (
                   <div className="p-6 text-center">
                     <p className="text-black/50 text-sm">
-                      No tasks on {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric" })}.
+                      Nothing on {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", { weekday: "short", month: "short", day: "numeric" })}.
                     </p>
-                    <p className="text-xs text-black/40 mt-1">Tap another date to see its tasks.</p>
+                    <p className="text-xs text-black/40 mt-1">Tap another day to see what&rsquo;s scheduled, or tap + to add a task.</p>
                   </div>
                 );
               }

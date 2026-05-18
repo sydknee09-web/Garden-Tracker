@@ -466,7 +466,8 @@ export default function HomePage() {
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
-              <p className="text-xs text-black/50 text-center">No items on your shopping list yet.</p>
+              <p className="text-sm text-black/70 text-center font-medium">Your shopping list is clear.</p>
+              <p className="text-xs text-black/50 text-center">Add seeds, supplies, or anything else you want to pick up — they&rsquo;ll show up here.</p>
               <button
                 type="button"
                 onClick={() => setAddItemModalOpen(true)}
@@ -576,7 +577,8 @@ export default function HomePage() {
                       <path d="M9 11l3 3L22 4" />
                       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                     </svg>
-                    <p className="text-xs text-black/50 text-center">No pending tasks.</p>
+                    <p className="text-sm text-black/70 text-center font-medium">Nothing scheduled right now.</p>
+                    <p className="text-xs text-black/50 text-center">Tasks show up as your plants grow, or you can add reminders yourself.</p>
                     <Link href="/calendar" className="text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
                   </div>
                 ) : (

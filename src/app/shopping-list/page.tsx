@@ -185,8 +185,8 @@ export default function ShoppingListPage() {
           <p className="text-neutral-500">Loading…</p>
         ) : items.length === 0 ? (
           <EmptyStateCard
-            title="No items on your shopping list yet."
-            body="Add items by name. You can add to Vault or Shed after you purchase."
+            title="Your shopping list is clear."
+            body="Add seeds, supplies, or anything else you want to remember to pick up. Mark items purchased once you have them."
             actionLabel="Add item"
             onAction={() => setAddItemModalOpen(true)}
             illustration={<EmptyStateCart />}

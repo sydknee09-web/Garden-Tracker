@@ -207,7 +207,7 @@ export function VaultProfileAboutTab({
                 ) : fillBlanksAttempted ? (
                   <p className="text-sm text-neutral-500">—</p>
                 ) : (
-                  <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
+                  <p className="text-sm text-neutral-500">Nothing here yet. Tap the ✨ button above to fill in details from our library or AI.</p>
                 )}
               </div>
               <div>
@@ -217,7 +217,7 @@ export function VaultProfileAboutTab({
                 ) : fillBlanksAttempted ? (
                   <p className="text-sm text-neutral-500">—</p>
                 ) : (
-                  <p className="text-sm text-neutral-500">No data. Use the ✨ button above to fill from cache or AI.</p>
+                  <p className="text-sm text-neutral-500">Nothing here yet. Tap the ✨ button above to fill in details from our library or AI.</p>
                 )}
               </div>
             </div>

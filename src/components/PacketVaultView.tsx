@@ -601,14 +601,15 @@ export function PacketVaultView({
     }
     return (
       <div className="rounded-2xl bg-white p-8 shadow-card border border-black/10 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-        <p className="text-black/70 font-medium mb-4">No packets yet. Add your first packet to get started.</p>
+        <p className="text-black/70 font-medium mb-2">No packets in this library yet.</p>
+        <p className="text-sm text-black/50 mb-4">Add a packet by scanning, photographing, or typing details.</p>
         {onAddFirst && (
           <button
             type="button"
             onClick={onAddFirst}
             className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
           >
-            Add your first packet
+            Add a packet
           </button>
         )}
       </div>

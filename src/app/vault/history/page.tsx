@@ -87,7 +87,10 @@ export default function PlantingHistoryPage() {
       {loading ? (
         <LoadingState message="Loading…" />
       ) : grows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400">No planting history yet. Plant something from your vault!</div>
+        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+          <p className="text-neutral-500 text-sm font-medium">No plantings to look back on yet.</p>
+          <p className="text-neutral-400 text-xs mt-1">Once you start a planting from a packet, it&rsquo;ll show up here — with how it grew, where it lived, and what you harvested.</p>
+        </div>
       ) : (
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
           <div className="overflow-x-auto">

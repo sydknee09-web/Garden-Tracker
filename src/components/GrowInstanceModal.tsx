@@ -828,15 +828,15 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-sm text-neutral-500">No photos yet.</p>
-                  <p className="text-xs text-neutral-400 mt-1">Photos from journal entries linked to this plant will appear here.</p>
+                  <p className="text-sm text-neutral-500">No photos of this plant yet.</p>
+                  <p className="text-xs text-neutral-400 mt-1">Photos you log in journal entries will show up here.</p>
                   {allowEdits && (
                     <button
                       type="button"
                       onClick={() => setBatchLogOpen(true)}
                       className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 min-h-[44px] min-w-[44px]"
                     >
-                      Add photo
+                      Add a photo
                     </button>
                   )}
                 </div>
@@ -882,8 +882,8 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             {timelineItems.length === 0 ? (
               upcomingTasks.length === 0 ? (
                 <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-                  <p className="text-neutral-500 text-sm">No history yet.</p>
-                  <p className="text-neutral-400 text-xs mt-1">Journal entries and completed tasks will appear here.</p>
+                  <p className="text-neutral-500 text-sm">No history for this plant yet.</p>
+                  <p className="text-neutral-400 text-xs mt-1">Journal entries and completed tasks will show up here as you log them.</p>
                 </div>
               ) : (
                 <p className="text-sm text-neutral-500 text-center py-2 px-2">No journal entries or completed tasks yet.</p>
