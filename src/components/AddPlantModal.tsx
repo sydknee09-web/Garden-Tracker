@@ -106,7 +106,7 @@ export function AddPlantModal({
       const justOpened = !prevOpenRef.current;
       prevOpenRef.current = true;
       if (addToExistingProfile && profileIdProp) {
-        setPlantType("permanent");
+        setPlantType(defaultPlantType ?? "seasonal");
         setMode("existing");
         setSelectedProfileId(profileIdProp);
       } else if (justOpened) {
