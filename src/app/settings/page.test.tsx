@@ -32,7 +32,8 @@ describe("Settings page", () => {
     render(<SettingsPage />);
 
     expect(await screen.findByRole("heading", { name: /settings/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /developer/i })).toHaveAttribute("href", "/settings/developer");
+    expect(screen.getByRole("link", { name: /^Developer Fill in blanks/i })).toHaveAttribute("href", "/settings/developer");
+    expect(screen.getByRole("link", { name: /feedback inbox/i })).toHaveAttribute("href", "/settings/developer/feedback-inbox");
     expect(screen.getByRole("link", { name: /import logs/i })).toHaveAttribute("href", "/settings/import-logs");
     expect(screen.getByRole("link", { name: /extract cache/i })).toHaveAttribute("href", "/settings/extract-cache");
   });

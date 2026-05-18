@@ -16,6 +16,7 @@ const USER_ITEMS = [
 
 const DEV_ITEMS = [
   { href: "/settings/developer", label: "Developer", subtitle: "Fill in blanks, repair hero, cache, trash" },
+  { href: "/settings/developer/feedback-inbox", label: "Feedback inbox", subtitle: "All user feedback (admin view)" },
   { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
   { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },
 ] as const;
