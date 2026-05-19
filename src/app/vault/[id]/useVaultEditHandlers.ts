@@ -142,6 +142,7 @@ export function useVaultEditHandlers({
         propagation_notes: editForm.propagationNotes.trim() || null,
         seed_saving_notes: editForm.seedSavingNotes.trim() || null,
         purchase_vendor: editForm.purchaseVendor.trim() || null,
+        purchase_date: editForm.purchaseDate.trim() || null,
         ...(editForm.growingNotes.trim() && { description_source: "user" }),
       } : {}),
     };
