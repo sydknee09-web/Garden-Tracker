@@ -680,6 +680,7 @@ export default function HomePage() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             showToast("Entry saved");
             router.refresh();
@@ -797,6 +798,7 @@ export default function HomePage() {
         <AddPlantModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}
           onSuccess={() => {

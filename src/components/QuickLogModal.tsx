@@ -84,9 +84,11 @@ export interface QuickLogModalProps {
   onAddSupplyFromEmptyState?: (searchString?: string) => void;
   /** When this changes, refetch supplies (e.g. after user adds a supply via QuickAddSupply). */
   suppliesRefreshKey?: number;
+  /** When provided, renders a back-arrow that returns to the FAB menu (instead of the Close X). */
+  onBackToMenu?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey, onBackToMenu }: QuickLogModalProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [supplies, setSupplies] = useState<SupplyOption[]>([]);
@@ -378,14 +380,25 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
-            aria-label="Close"
-          >
-            <ICON_MAP.Close className="w-5 h-5" />
-          </button>
+          {onBackToMenu ? (
+            <button
+              type="button"
+              onClick={onBackToMenu}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+              aria-label="Back to add menu"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+              aria-label="Close"
+            >
+              <ICON_MAP.Close className="w-5 h-5" />
+            </button>
+          )}
           <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick Log</h2>
         </div>
 

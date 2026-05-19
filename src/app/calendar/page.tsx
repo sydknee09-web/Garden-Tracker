@@ -1937,6 +1937,7 @@ export default function CalendarPage() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             showToast("Entry saved");
             router.refresh();
@@ -2044,6 +2045,7 @@ export default function CalendarPage() {
         <AddPlantModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onSuccess={() => { closeActiveModal(); setRefetch((r) => r + 1); }}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}

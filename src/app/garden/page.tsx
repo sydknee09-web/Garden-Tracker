@@ -1258,6 +1258,7 @@ function GardenPageInner() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             router.refresh();
             closeActiveModal();
@@ -1525,7 +1526,7 @@ function GardenPageInner() {
       )}
 
       {activeModal === "plant" && (
-        <AddPlantModal open onClose={closeActiveModal} onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
+        <AddPlantModal open onClose={closeActiveModal} onBackToMenu={backToMenu} onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
       )}
       <PurchaseOrderImport
         open={purchaseOrderOpen}

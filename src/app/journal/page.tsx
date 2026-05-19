@@ -1092,6 +1092,7 @@ export default function JournalPage() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             showToast("Entry saved");
             router.refresh();
@@ -1203,6 +1204,7 @@ export default function JournalPage() {
         <AddPlantModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}

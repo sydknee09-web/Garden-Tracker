@@ -1713,6 +1713,7 @@ function VaultPageInner() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             router.refresh();
             closeActiveModal();
@@ -1841,6 +1842,7 @@ function VaultPageInner() {
         <AddPlantModal
           open
           onClose={closeActiveModal}
+          onBackToMenu={backToMenu}
           onSuccess={() => { closeActiveModal(); refetch(); }}
           defaultPlantType={addPlantDefaultType}
           stayInGarden={false}
