@@ -318,13 +318,17 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/20" aria-hidden onClick={onClose} />
       <div
-        className="fixed left-4 right-4 bottom-20 z-[70] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto animate-modal-slide-up"
+        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
+        onClick={onClose}
+      >
+      <div
+        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto animate-modal-slide-up"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-supply-title"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-4">
           {!isEdit && screen === "choose" && onBackToMenu ? (
@@ -670,6 +674,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
         </form>
         </div>
         )}
+      </div>
       </div>
       {imagePreviewSrc && (
         <ImageCropModal

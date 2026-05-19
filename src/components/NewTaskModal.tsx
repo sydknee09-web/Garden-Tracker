@@ -244,14 +244,18 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, initial
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/20" aria-hidden onClick={onClose} />
+      <div
+        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
+        onClick={onClose}
+      >
       <div
         ref={trapRef}
-        className="fixed left-4 right-4 bottom-20 z-[70] max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md mx-auto animate-modal-slide-up"
+        className="relative max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md w-full animate-modal-slide-up"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-task-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="relative">
           <SubmitLoadingOverlay show={saving} message="Saving task…" />
@@ -439,6 +443,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, initial
             </div>
           </form>
         </div>
+      </div>
       </div>
     </>
   );

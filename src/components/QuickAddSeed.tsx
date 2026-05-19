@@ -498,16 +498,16 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
   return (
     <>
       <div
-        className="fixed inset-0 z-[60] bg-black/20"
-        aria-hidden
+        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
         onClick={onClose}
-      />
+      >
       <div
-        className="fixed left-4 right-4 bottom-20 z-[70] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-title"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-4">
           {screen === "manual" ? (
@@ -1110,6 +1110,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
             )}
           </div>
         )}
+      </div>
       </div>
     </>
   );

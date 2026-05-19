@@ -529,8 +529,8 @@ export function AddPlantModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-        <div ref={modalRef} className="bg-cream rounded-3xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
+        <div ref={modalRef} className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 p-3 border-b border-neutral-200">
             <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
             <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>

@@ -110,8 +110,8 @@ export function AddPlantManualModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="add-plant-manual-title">
-      <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-manual-title">
+      <div className="bg-white rounded-3xl shadow-xl border border-neutral-200/80 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
         <h2 id="add-plant-manual-title" className="text-lg font-bold text-neutral-900 mb-4">
           Add seed packet
         </h2>

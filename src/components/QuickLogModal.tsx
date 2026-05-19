@@ -365,14 +365,17 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
   }));
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 z-[100] bg-black/20" aria-hidden onClick={onClose} />
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
+      onClick={onClose}
+    >
       <div
         ref={trapRef}
-        className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md mx-auto max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)] animate-modal-slide-up"
+        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)] animate-modal-slide-up"
         role="dialog"
         aria-modal="true"
         aria-labelledby="quicklog-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-4">
           <button
