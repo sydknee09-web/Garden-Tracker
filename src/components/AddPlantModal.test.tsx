@@ -51,11 +51,11 @@ describe("AddPlantModal", () => {
     expect(screen.getByText("Seasonal")).toBeInTheDocument();
   });
 
-  it("shows Create new and Link to existing modes", async () => {
+  it("shows Add new and Link to existing modes", async () => {
     render(<AddPlantModal open onClose={vi.fn()} />);
     await waitFor(() => {
       expect(screen.getByText("Link to existing")).toBeInTheDocument();
     });
-    expect(screen.getByText("Create new")).toBeInTheDocument();
+    expect(screen.getByText("Add new")).toBeInTheDocument();
   });
 });

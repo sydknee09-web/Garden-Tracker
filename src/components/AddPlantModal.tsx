@@ -590,7 +590,7 @@ export function AddPlantModal({
                   onClick={() => setMode("new")}
                   className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${mode === "new" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
                 >
-                  Create new
+                  Add new
                 </button>
               </div>
             )}
