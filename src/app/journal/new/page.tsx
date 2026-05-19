@@ -539,7 +539,7 @@ export default function JournalNewPage() {
             disabled={saving || uploadingPhoto}
             className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
           >
-            {uploadingPhoto ? "Uploading…" : saving ? "Saving…" : "Save"}
+            {uploadingPhoto ? "Uploading…" : saving ? "Adding…" : "Add"}
           </button>
         </div>
       </form>

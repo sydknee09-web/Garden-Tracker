@@ -431,7 +431,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, initial
                 disabled={saving}
                 className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
-                {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Save Recurring Task" : "Save Task"}
+                {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add Recurring Task" : "Add Task"}
               </button>
               <button
                 type="button"

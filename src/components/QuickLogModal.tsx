@@ -554,9 +554,9 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
               {uploadingPhoto ? "Uploading…" : saving ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
-                  Saving…
+                  Adding…
                 </>
-              ) : "Save"}
+              ) : "Add"}
             </button>
           </div>
           <p className="text-center text-sm text-neutral-500 mt-3">
