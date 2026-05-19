@@ -440,7 +440,7 @@ export default function VaultShedDetailPage() {
                   onChange={handleAddPhoto}
                 />
                 <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {photoSaving ? "Uploading…" : "Choose from files"}
+                  {photoSaving ? "Uploading…" : "From gallery"}
                 </label>
                 <input
                   id="shed-photo-gallery"

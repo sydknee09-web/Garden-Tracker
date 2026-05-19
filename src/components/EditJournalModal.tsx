@@ -649,7 +649,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
                         >
                           <UploadIcon />
-                          Choose from Files
+                          From gallery
                         </button>
                       </div>
                     )}

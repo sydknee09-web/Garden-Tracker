@@ -785,7 +785,7 @@ export default function VaultSeedPage() {
                   </>
                 )}
                 <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "Choose from files"}
+                  {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "From gallery"}
                 </label>
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Choose from web images</p>
