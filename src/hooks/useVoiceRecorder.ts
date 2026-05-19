@@ -160,7 +160,7 @@ export function useVoiceRecorder() {
       const name = (err as { name?: string })?.name;
       if (name === "NotAllowedError" || name === "SecurityError") {
         setRecState("permission-denied");
-        setErrorMessage("Microphone access denied. You can still type your feedback or attach a screenshot. To re-enable mic, check your browser's site settings.");
+        setErrorMessage("Microphone access denied. Type your feedback or attach a screenshot instead. To re-enable mic, check your browser's site settings.");
       } else {
         setRecState("idle");
         setErrorMessage("Couldn't start recording. Try again or attach a screenshot instead.");

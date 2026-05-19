@@ -361,7 +361,7 @@ export function FeedbackModal({
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-black/80">Include debug info</span>
                 <span id="feedback-debug-desc" className="block text-xs text-black/50">
-                  Attaches recent technical messages from your browser. Helps us figure out what went wrong. You can review the text below before sending.
+                  Attaches recent technical messages from your browser. Helps diagnose what went wrong. Review the text below before sending.
                 </span>
               </div>
               <label className="relative inline-flex items-center shrink-0 cursor-pointer min-w-[44px] min-h-[44px]">

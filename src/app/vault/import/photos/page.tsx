@@ -436,7 +436,7 @@ export default function ImportPhotosPage() {
                   ` ${items.length - successCount} failed.`}
               </p>
             ) : (
-              <p className="text-sm text-amber-700">No photos could be processed. You can try again with different images.</p>
+              <p className="text-sm text-amber-700">No photos could be processed. Try again with different images.</p>
             )}
             <button
               type="button"

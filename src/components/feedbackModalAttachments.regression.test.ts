@@ -77,7 +77,7 @@ describe("T1 voice recorder hook — useVoiceRecorder", () => {
 
   it("provides plain-language permission-denied copy", () => {
     expect(voiceHook).toContain("Microphone access denied");
-    expect(voiceHook).toContain("type your feedback or attach a screenshot");
+    expect(voiceHook).toContain("Type your feedback or attach a screenshot");
   });
 
   it("cleans up MediaStream tracks on unmount + reset", () => {
@@ -120,8 +120,8 @@ describe("T2 debug-log opt-in — FeedbackModal integration", () => {
 
   it("uses plain-language disclosure copy (no jargon)", () => {
     expect(feedbackModal).toContain("recent technical messages from your browser");
-    expect(feedbackModal).toContain("Helps us figure out what went wrong");
-    expect(feedbackModal).toContain("review the text");
+    expect(feedbackModal).toContain("Helps diagnose what went wrong");
+    expect(feedbackModal).toContain("Review the text");
   });
 
   it("toggle does NOT persist to localStorage (per-session privacy default)", () => {

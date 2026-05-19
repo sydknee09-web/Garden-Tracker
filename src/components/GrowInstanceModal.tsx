@@ -1043,7 +1043,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           <div className="fixed left-4 right-4 bottom-4 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm">
             <h2 className="font-semibold text-neutral-900 text-base mb-1">Archive this plant?</h2>
             <p className="text-sm text-neutral-500 mb-4">
-              The plant will be marked as archived and will stay in your history. You can review it later in archived plantings.
+              Archives this plant and keeps it in your history. Review later under archived plantings.
             </p>
             <div className="flex gap-2">
               <button

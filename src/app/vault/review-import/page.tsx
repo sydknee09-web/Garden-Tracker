@@ -1238,7 +1238,7 @@ export default function ReviewImportPage() {
       {importSource === "purchase_order" && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <p className="text-sm text-black/70 mb-2 w-full">
-            Step 2: Find plant photos for each item (optional). We&apos;ll search for images based on your edits above.
+            Step 2: Find plant photos for each item (optional). Searches for images based on your edits above.
           </p>
           <button
             type="button"

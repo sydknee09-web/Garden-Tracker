@@ -415,7 +415,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
 
         {!isEdit && screen === "link" && (
           <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Paste a product page URL. We&apos;ll extract the name, brand, and usage instructions.</p>
+            <p className="text-sm text-neutral-600">Paste a product page URL. Extracts name, brand, and usage instructions.</p>
             <input
               type="url"
               value={importUrl}

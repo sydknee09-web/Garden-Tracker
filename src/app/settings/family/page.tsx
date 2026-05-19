@@ -181,7 +181,7 @@ export default function SettingsFamilyPage() {
     }
     setJoiningHousehold(false);
     setJoinCode("");
-    setHouseholdSuccess("You joined the family! You can now switch to Family view in the header.");
+    setHouseholdSuccess("Joined the family. Switch to Family view in the header to see shared items.");
     await reloadHousehold();
   }, [user?.id, user?.email, joinCode, isInHousehold, reloadHousehold]);
 

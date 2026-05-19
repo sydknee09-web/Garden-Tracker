@@ -974,7 +974,7 @@ export function AddPlantModal({
           <div className="bg-cream rounded-3xl shadow-lg max-w-sm w-full p-3.5">
             <h2 id="enrichment-failed-title" className="text-lg font-semibold text-neutral-900 mb-2">Details couldn&apos;t be loaded</h2>
             <p className="text-sm text-neutral-600 mb-4">
-              We couldn&apos;t find growing details for this plant. You can add them now or edit the profile later.
+              Couldn&apos;t find growing details for this plant. Add them now or edit the profile later.
             </p>
             <div className="flex gap-3 justify-end">
               <button

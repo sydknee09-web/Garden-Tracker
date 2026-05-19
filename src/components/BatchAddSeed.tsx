@@ -929,7 +929,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         {saveSuccessCount != null ? (
           <div className="py-4 text-center">
             <p className="text-lg font-medium text-emerald-700 mb-2">Saved to vault</p>
-            <p className="text-sm text-black/70 mb-4">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. You can add more from the vault or close.</p>
+            <p className="text-sm text-black/70 mb-4">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. Add more from the vault or close.</p>
             <button type="button" onClick={handleClose} className="py-3 px-6 rounded-xl bg-emerald text-white font-medium">
               Done
             </button>

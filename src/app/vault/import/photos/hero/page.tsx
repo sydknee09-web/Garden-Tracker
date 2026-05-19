@@ -220,7 +220,7 @@ export default function HeroImportPage() {
 
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">Find Hero Photos</h1>
         <p className="text-neutral-600 text-sm mb-6">
-          Finding a plant photo for each entry. You can stop early and review what we have so far.
+          Finding a plant photo for each entry. Stop early to review the matches found so far.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-neutral-600 mb-2">
@@ -349,7 +349,7 @@ export default function HeroImportPage() {
                   ` ${items.length - successCount} failed.`}
               </p>
             ) : (
-              <p className="text-sm text-amber-700">No hero photos could be found. You can still save to review with packet images.</p>
+              <p className="text-sm text-amber-700">No hero photos found. Save to review with packet images.</p>
             )}
             <button
               type="button"
