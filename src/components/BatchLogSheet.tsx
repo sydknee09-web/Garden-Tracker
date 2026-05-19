@@ -356,35 +356,32 @@ export function BatchLogSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center pb-20 sm:pb-4 sm:items-center sm:p-4 bg-black/40" aria-modal="true" role="dialog">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center pb-20 sm:pb-4 sm:items-center sm:p-4 bg-black/20" aria-modal="true" role="dialog">
       <div
-        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-lg border border-black/10 w-full max-w-md max-h-[70vh] sm:max-h-[85vh] flex flex-col"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-lg border border-neutral-200/80 w-full max-w-md max-h-[70vh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between p-4 border-b border-black/10 shrink-0">
-          <h2 className="text-lg font-semibold text-black">
-            {isBulk ? `Log for ${batches.length} plants` : "Log"}
-          </h2>
+        <header className="flex items-start gap-2 px-6 pt-6 pb-3 shrink-0">
+          <div className="w-11 shrink-0" aria-hidden />
+          <div className="flex-1 min-w-0 text-center">
+            <h2 className="text-xl font-bold text-neutral-900 truncate">
+              {isBulk ? `Log for ${batches.length} plants` : (displayName || "Log")}
+            </h2>
+            {!isBulk && firstBatch?.location?.trim() && (
+              <p className="text-xs text-neutral-500 mt-0.5 truncate">{firstBatch.location.trim()}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100 -mr-2"
             aria-label="Close"
           >
-            <span className="text-xl leading-none">×</span>
+            <ICON_MAP.Close className="w-5 h-5" />
           </button>
         </header>
 
-        {!isBulk && firstBatch && (
-          <div className="px-4 pb-2">
-            <p className="text-sm text-black/60">{displayName}</p>
-            {firstBatch.location?.trim() && (
-              <p className="text-xs text-black/50 mt-0.5">{firstBatch.location.trim()}</p>
-            )}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-4 pt-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
           <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
