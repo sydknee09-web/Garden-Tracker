@@ -534,8 +534,8 @@ export function AddPlantModal({
     <>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
         <div ref={modalRef} className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
-          <div className="flex-shrink-0 p-3 border-b border-neutral-200">
-            <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 px-6 pt-6 pb-4">
+            <div className="flex items-center gap-2 mb-2">
               {onBackToMenu ? (
                 <button
                   type="button"
@@ -545,12 +545,15 @@ export function AddPlantModal({
                 >
                   <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
                 </button>
-              ) : null}
-              <h2 id="add-plant-title" className="text-lg font-semibold text-neutral-900 flex-1">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
+              ) : (
+                <div className="w-11 shrink-0" aria-hidden />
+              )}
+              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
+              <div className="w-11 shrink-0" aria-hidden />
             </div>
-            <p className="text-sm text-neutral-500 mt-1">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
+            <p className="text-sm text-neutral-500 text-center">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
             {!hidePlantTypeToggle && (
-              <div className="flex gap-2 mt-2.5">
+              <div className="flex gap-2 mt-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -574,7 +577,7 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5 relative">
             <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
             {!addToExistingProfile && (
               <div className="flex gap-2">
@@ -955,7 +958,7 @@ export function AddPlantModal({
 
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
           </div>
-          <div className="flex-shrink-0 p-3 border-t border-neutral-200 flex gap-2.5 justify-end">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
             <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
               Cancel
             </button>
