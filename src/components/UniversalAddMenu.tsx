@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ICON_MAP, FAB_MENU_SHADOW_CLASS } from "@/lib/styleDictionary";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
-
-// Belt-and-suspenders fallback in case onAnimationEnd doesn't fire (slow device, animation preempt).
-// 200ms = 150ms fab-menu-exit duration + 50ms safety margin.
-const EXIT_FALLBACK_MS = 200;
 
 export type UniversalAddMenuScreen = "main" | "add-plant";
 
@@ -58,101 +54,39 @@ export function UniversalAddMenu({
   const [screen, setScreen] = useState<UniversalAddMenuScreen>("main");
   // Direction tracks forward / back nav so submenu slide animation reads correctly. See docs/VISION.md §4.
   const [screenDirection, setScreenDirection] = useState<"forward" | "back">("forward");
-  // Exit choreography: when user picks a target modal entry, the menu plays fab-menu-exit
-  // and on animationend (or fallback timeout) calls onClose() + the target opener. This makes
-  // the 5 entry points share one transition language (menu fades-down, target slides-up at the
-  // same anchor) instead of the prior close-then-open glitch.
-  const [isExiting, setIsExiting] = useState(false);
-  const pendingActionRef = useRef<(() => void) | null>(null);
-  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (open) {
       setScreen("main");
       setScreenDirection("forward");
-      setIsExiting(false);
-      pendingActionRef.current = null;
-      if (fallbackTimerRef.current) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
     }
   }, [open]);
-
-  // Cleanup any pending timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (fallbackTimerRef.current) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
-      }
-    };
-  }, []);
 
   useBodyScrollLock(open);
 
   if (!open) return null;
 
-  const runPending = () => {
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    const action = pendingActionRef.current;
-    pendingActionRef.current = null;
-    setIsExiting(false);
-    if (action) {
-      onClose();
-      action();
-    }
-  };
-
-  const beginExit = (action: () => void) => {
-    if (isExiting) return; // guard double-tap during exit animation
-    pendingActionRef.current = action;
-    setIsExiting(true);
-    fallbackTimerRef.current = setTimeout(runPending, EXIT_FALLBACK_MS);
-  };
-
-  const handleClose = () => {
-    // Cancel any pending action; user explicitly dismissed.
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-      fallbackTimerRef.current = null;
-    }
-    pendingActionRef.current = null;
-    setIsExiting(false);
-    onClose();
-  };
-
-  const handleAnimationEnd = (e: React.AnimationEvent<HTMLDivElement>) => {
-    // Animation events bubble; only the exit keyframe on the panel itself triggers the open.
-    if (e.animationName === "fab-menu-exit") {
-      runPending();
-    }
-  };
-
   const handleAddPlantFromVault = () => {
-    beginExit(onAddPlantFromVault);
+    onClose();
+    onAddPlantFromVault();
   };
 
   const handleAddPlantManual = () => {
-    beginExit(() => onAddPlantManual(addPlantDefaultType));
+    onClose();
+    onAddPlantManual(addPlantDefaultType);
   };
 
   const slideClass = screenDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
-  const panelAnimationClass = isExiting ? "animate-fab-menu-exit" : "animate-fab-menu-enter";
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] bg-black/20 animate-fade-in" aria-hidden onClick={handleClose} />
-      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center px-4 pb-20 sm:pb-4 pointer-events-none">
+      <div className="fixed inset-0 z-[100] bg-black/20 animate-fade-in" aria-hidden onClick={onClose} />
+      <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 pointer-events-none">
       <div
-        className={`relative w-full max-w-md rounded-3xl bg-white border border-neutral-200/80 p-6 max-h-[85svh] overflow-y-auto ${panelAnimationClass} pointer-events-auto ${FAB_MENU_SHADOW_CLASS}`}
+        className={`relative w-full max-w-md rounded-3xl bg-white border border-neutral-200/80 p-6 max-h-[85svh] overflow-y-auto animate-fab-menu-enter pointer-events-auto ${FAB_MENU_SHADOW_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"
-        onAnimationEnd={handleAnimationEnd}
       >
         {screen === "main" && (
           <div key="main" className={slideClass}>
@@ -161,7 +95,7 @@ export function UniversalAddMenu({
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => beginExit(onAddSeed)}
+                onClick={() => { onClose(); onAddSeed(); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
@@ -183,7 +117,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => beginExit(onAddToShed)}
+                onClick={() => { onClose(); onAddToShed(); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
@@ -194,7 +128,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => beginExit(onAddTask)}
+                onClick={() => { onClose(); onAddTask(); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
@@ -205,7 +139,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => beginExit(onAddJournal)}
+                onClick={() => { onClose(); onAddJournal(); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
@@ -216,7 +150,7 @@ export function UniversalAddMenu({
               </button>
             </div>
             <div className="pt-4">
-              <button type="button" onClick={handleClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
+              <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
           </div>
         )}
@@ -273,7 +207,7 @@ export function UniversalAddMenu({
               {onAddPlantPurchaseOrder && (
                 <button
                   type="button"
-                  onClick={() => onAddPlantPurchaseOrder && beginExit(onAddPlantPurchaseOrder)}
+                  onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
@@ -286,7 +220,7 @@ export function UniversalAddMenu({
               {onAddPlantPhotoImport && (
                 <button
                   type="button"
-                  onClick={() => onAddPlantPhotoImport && beginExit(onAddPlantPhotoImport)}
+                  onClick={() => { onClose(); onAddPlantPhotoImport(); }}
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
@@ -298,7 +232,7 @@ export function UniversalAddMenu({
               )}
             </div>
             <div className="pt-4">
-              <button type="button" onClick={handleClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
+              <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
           </div>
         )}
