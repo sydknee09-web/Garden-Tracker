@@ -67,8 +67,8 @@ function isMobileDevice(): boolean {
   return (hasTouch && mobileKeywords.test(ua)) || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-export interface QuickLogModalProps {
-  open: boolean;
+export interface JournalEntryFormProps {
+  /** Called both after successful save AND when the Cancel button / Close X is tapped. */
   onClose: () => void;
   /** When set (e.g. from vault/[id] Plantings tab), pre-select this plant. */
   preSelectedProfileId?: string | null;
@@ -84,11 +84,34 @@ export interface QuickLogModalProps {
   onAddSupplyFromEmptyState?: (searchString?: string) => void;
   /** When this changes, refetch supplies (e.g. after user adds a supply via QuickAddSupply). */
   suppliesRefreshKey?: number;
-  /** When provided, renders a back-arrow that returns to the FAB menu (instead of the Close X). */
-  onBackToMenu?: () => void;
+  /** When provided, renders a Back arrow in the header (instead of the Close X). */
+  onBack?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey, onBackToMenu }: QuickLogModalProps) {
+/**
+ * JournalEntryForm — pure form body for creating a journal entry (Quick Log).
+ *
+ * Two mount paths:
+ *  1. Inside the <QuickLogModal> standalone shell — for non-add-button callers
+ *     (vault/[id] Plantings tab, shed/[id] "I used this today", etc.). Shell provides
+ *     backdrop + panel + focus trap + body scroll lock.
+ *  2. Inside the <UniversalAddMenu> "journal" sub-screen (the add-button flow). Menu
+ *     provides its own dialog context; no separate focus trap needed.
+ *
+ * The form does NOT call useBodyScrollLock — that belongs to the surrounding shell/menu
+ * (single-source-of-truth).
+ */
+export function JournalEntryForm({
+  onClose,
+  preSelectedProfileId,
+  preSelectedGrowInstanceId,
+  preSelectedSupplyId,
+  defaultActionType,
+  onJournalAdded,
+  onAddSupplyFromEmptyState,
+  suppliesRefreshKey,
+  onBack,
+}: JournalEntryFormProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [supplies, setSupplies] = useState<SupplyOption[]>([]);
@@ -110,14 +133,12 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const trapRef = useFocusTrap(open);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
   }, []);
 
   useEffect(() => {
-    if (!open) return;
     setEntryDate(localDateString());
     setNote("");
     setPhotos([]);
@@ -133,10 +154,10 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     } else {
       setSelectedProfileIds(new Set());
     }
-  }, [open, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType]);
+  }, [preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType]);
 
   useEffect(() => {
-    if (!open || !user?.id) {
+    if (!user?.id) {
       setProfiles([]);
       setProfilesLoading(false);
       return;
@@ -154,10 +175,10 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
       if (!cancelled) setProfilesLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, user?.id]);
+  }, [user?.id]);
 
   useEffect(() => {
-    if (!open || !user?.id) {
+    if (!user?.id) {
       setSupplies([]);
       setSuppliesLoading(false);
       return;
@@ -175,7 +196,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
       if (!cancelled) setSuppliesLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, user?.id, suppliesRefreshKey]);
+  }, [user?.id, suppliesRefreshKey]);
 
   const stopWebcamStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -353,10 +374,6 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyIds, preSelectedGrowInstanceId, onJournalAdded, onClose]
   );
 
-  useBodyScrollLock(open);
-
-  if (!open) return null;
-
   const supplyOptions = supplies.map((s) => ({
     id: s.id,
     label: s.brand?.trim() ? `${s.name} (${s.brand})` : s.name,
@@ -366,7 +383,237 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     label: p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name,
   }));
 
-  const modalContent = (
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+            aria-label="Back"
+          >
+            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+            aria-label="Close"
+          >
+            <ICON_MAP.Close className="w-5 h-5" />
+          </button>
+        )}
+        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick Log</h2>
+      </div>
+
+      <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          ref={cameraMobileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          aria-label="Take photo (mobile)"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleImageSelected(f);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          aria-label="Choose file"
+          multiple
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files?.length) handleImageSelected(Array.from(files));
+            e.target.value = "";
+          }}
+        />
+
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 mb-1">Date</label>
+          <input
+            type="date"
+            value={entryDate}
+            onChange={(e) => setEntryDate(e.target.value)}
+            className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px]"
+          />
+        </div>
+
+        <div>
+          <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
+          <div className={QUICK_ACTIONS_GRID_CLASS}>
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = ICON_MAP[action.icon];
+              const isSelected = selectedQuickAction === action.id;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => setSelectedQuickAction(action.id)}
+                  className={`min-w-[44px] min-h-[44px] shrink-0 inline-flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                    isSelected ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
+                  }`}
+                >
+                  {Icon && <Icon className="w-5 h-5" />}
+                  <span className="text-[10px] leading-tight">{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="quicklog-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
+          <textarea
+            id="quicklog-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={
+              selectedQuickAction === "pest"
+                ? "Identify pest (e.g., Aphids, Scale) and severity..."
+                : selectedQuickAction === "cold_stratify"
+                  ? "Optional: duration, location (e.g., fridge, 6 weeks)…"
+                  : "Notes for your entry (optional for most quick actions)…"
+            }
+            rows={3}
+            className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+          />
+        </div>
+
+        <div>
+          {profilesLoading ? (
+            <p className="text-sm text-neutral-500">Loading plants…</p>
+          ) : (
+            <SearchableMultiSelect
+              options={profileOptions}
+              selectedIds={selectedProfileIds}
+              onChange={setSelectedProfileIds}
+              placeholder="Type to search plants…"
+              label="Linked plants"
+              preSelectedIds={preSelectedProfileId ? [preSelectedProfileId] : undefined}
+              dropdownZIndex={110}
+            />
+          )}
+        </div>
+
+        <div>
+          <SearchableMultiSelect
+            options={supplyOptions}
+            selectedIds={selectedSupplyIds}
+            onChange={setSelectedSupplyIds}
+            placeholder="Type to search supplies…"
+            label="Supply Used"
+            preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
+            dropdownZIndex={120}
+            emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
+          />
+          {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
+        </div>
+
+        <div>
+          <span className="block text-sm font-medium text-black/80 mb-2">Photo (optional)</span>
+          {webcamActive ? (
+            <div className="space-y-2">
+              <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={captureFromWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium">
+                  <ICON_MAP.Camera className="w-5 h-5 inline mr-1" /> Capture
+                </button>
+                <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {photos.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {photos.map((p) => (
+                    <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5 flex-shrink-0">
+                      <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removePhoto(p.id)} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold" aria-label="Remove photo">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => (isMobile ? cameraMobileRef.current?.click() : startDesktopWebcam())}
+                  className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2"
+                >
+                  <ICON_MAP.Camera className="w-5 h-5" /> Take Photo
+                </button>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2">
+                  <ICON_MAP.Gallery className="w-5 h-5" /> From gallery
+                </button>
+              </div>
+            </>
+          )}
+          {webcamError && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
+        </div>
+
+        {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}
+
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">
+            {uploadingPhoto ? "Uploading…" : saving ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+                Adding…
+              </>
+            ) : "Add"}
+          </button>
+        </div>
+        <p className="text-center text-sm text-neutral-500 mt-3">
+          Need more fields? <Link href="/journal/new" className="text-emerald-600 font-medium hover:underline" onClick={onClose}>Full journal entry</Link>
+        </p>
+      </form>
+    </>
+  );
+}
+
+export interface QuickLogModalProps {
+  open: boolean;
+  onClose: () => void;
+  /** When set (e.g. from vault/[id] Plantings tab), pre-select this plant. */
+  preSelectedProfileId?: string | null;
+  /** When set (e.g. from Plantings tab), attach journal entry to this grow instance for Life Story. */
+  preSelectedGrowInstanceId?: string | null;
+  /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
+  preSelectedSupplyId?: string | null;
+  /** When opening with a supply, default quick action (e.g. fertilize, spray). */
+  defaultActionType?: QuickActionType;
+  /** Called after a journal entry is saved successfully; parent can router.refresh(). */
+  onJournalAdded?: () => void;
+  /** When supply search has no results, show "+ Add New Supply" and call this with current search string for pre-fill. Parent opens QuickAddSupply. */
+  onAddSupplyFromEmptyState?: (searchString?: string) => void;
+  /** When this changes, refetch supplies (e.g. after user adds a supply via QuickAddSupply). */
+  suppliesRefreshKey?: number;
+  /** When provided, renders a back-arrow that returns to the FAB menu (instead of the Close X). */
+  onBackToMenu?: () => void;
+}
+
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey, onBackToMenu }: QuickLogModalProps) {
+  const trapRef = useFocusTrap(open);
+  useBodyScrollLock(open);
+
+  if (!open) return null;
+
+  return (
     <div
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
       onClick={onClose}
@@ -379,206 +626,18 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
         aria-labelledby="quicklog-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 mb-4">
-          {onBackToMenu ? (
-            <button
-              type="button"
-              onClick={onBackToMenu}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
-              aria-label="Back to add menu"
-            >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
-              aria-label="Close"
-            >
-              <ICON_MAP.Close className="w-5 h-5" />
-            </button>
-          )}
-          <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick Log</h2>
-        </div>
-
-        <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            ref={cameraMobileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            aria-label="Take photo (mobile)"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleImageSelected(f);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            aria-label="Choose file"
-            multiple
-            onChange={(e) => {
-              const files = e.target.files;
-              if (files?.length) handleImageSelected(Array.from(files));
-              e.target.value = "";
-            }}
-          />
-
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1">Date</label>
-            <input
-              type="date"
-              value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
-              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px]"
-            />
-          </div>
-
-          <div>
-            <span className="block text-sm font-medium text-black/80 mb-2">Quick action</span>
-            <div className={QUICK_ACTIONS_GRID_CLASS}>
-              {QUICK_ACTIONS.map((action) => {
-                const Icon = ICON_MAP[action.icon];
-                const isSelected = selectedQuickAction === action.id;
-                return (
-                  <button
-                    key={action.id}
-                    type="button"
-                    onClick={() => setSelectedQuickAction(action.id)}
-                    className={`min-w-[44px] min-h-[44px] shrink-0 inline-flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-xl border text-sm font-medium transition-colors ${
-                      isSelected ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-black/10 text-black/70 hover:bg-black/5"
-                    }`}
-                  >
-                    {Icon && <Icon className="w-5 h-5" />}
-                    <span className="text-[10px] leading-tight">{action.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="quicklog-note" className="block text-sm font-medium text-black/80 mb-1">Quick memo</label>
-            <textarea
-              id="quicklog-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={
-                selectedQuickAction === "pest"
-                  ? "Identify pest (e.g., Aphids, Scale) and severity..."
-                  : selectedQuickAction === "cold_stratify"
-                    ? "Optional: duration, location (e.g., fridge, 6 weeks)…"
-                    : "Notes for your entry (optional for most quick actions)…"
-              }
-              rows={3}
-              className="w-full rounded-xl border border-black/10 px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
-            />
-          </div>
-
-          <div>
-            {profilesLoading ? (
-              <p className="text-sm text-neutral-500">Loading plants…</p>
-            ) : (
-              <SearchableMultiSelect
-                options={profileOptions}
-                selectedIds={selectedProfileIds}
-                onChange={setSelectedProfileIds}
-                placeholder="Type to search plants…"
-                label="Linked plants"
-                preSelectedIds={preSelectedProfileId ? [preSelectedProfileId] : undefined}
-                dropdownZIndex={110}
-              />
-            )}
-          </div>
-
-          <div>
-            <SearchableMultiSelect
-              options={supplyOptions}
-              selectedIds={selectedSupplyIds}
-              onChange={setSelectedSupplyIds}
-              placeholder="Type to search supplies…"
-              label="Supply Used"
-              preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
-              dropdownZIndex={120}
-              emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
-            />
-            {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
-          </div>
-
-          <div>
-            <span className="block text-sm font-medium text-black/80 mb-2">Photo (optional)</span>
-            {webcamActive ? (
-              <div className="space-y-2">
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
-                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={captureFromWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium">
-                    <ICON_MAP.Camera className="w-5 h-5 inline mr-1" /> Capture
-                  </button>
-                  <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {photos.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {photos.map((p) => (
-                      <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5 flex-shrink-0">
-                        <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removePhoto(p.id)} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold" aria-label="Remove photo">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => (isMobile ? cameraMobileRef.current?.click() : startDesktopWebcam())}
-                    className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2"
-                  >
-                    <ICON_MAP.Camera className="w-5 h-5" /> Take Photo
-                  </button>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2">
-                    <ICON_MAP.Gallery className="w-5 h-5" /> From gallery
-                  </button>
-                </div>
-              </>
-            )}
-            {webcamError && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
-          </div>
-
-          {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">
-              {uploadingPhoto ? "Uploading…" : saving ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
-                  Adding…
-                </>
-              ) : "Add"}
-            </button>
-          </div>
-          <p className="text-center text-sm text-neutral-500 mt-3">
-            Need more fields? <Link href="/journal/new" className="text-emerald-600 font-medium hover:underline" onClick={onClose}>Full journal entry</Link>
-          </p>
-        </form>
+        <JournalEntryForm
+          onClose={onClose}
+          preSelectedProfileId={preSelectedProfileId}
+          preSelectedGrowInstanceId={preSelectedGrowInstanceId}
+          preSelectedSupplyId={preSelectedSupplyId}
+          defaultActionType={defaultActionType}
+          onJournalAdded={onJournalAdded}
+          onAddSupplyFromEmptyState={onAddSupplyFromEmptyState}
+          suppliesRefreshKey={suppliesRefreshKey}
+          onBack={onBackToMenu}
+        />
       </div>
     </div>
   );
-
-  return modalContent;
 }
