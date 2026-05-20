@@ -163,12 +163,9 @@ function GardenPageInner() {
     setAddPlantDefaultType,
     openMenu,
     closeMenu,
-    openSeed,
     openShed,
     shedInitialName,
     openPlant,
-    openTask,
-    openJournal,
     closeActiveModal,
     backToMenu,
     closeAll,
@@ -1230,7 +1227,6 @@ function GardenPageInner() {
           gardenTab={effectiveViewMode}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
@@ -1248,9 +1244,6 @@ function GardenPageInner() {
             setBatchAddPlantMode(true);
             setBatchAddSeedOpen(true);
           }}
-          onAddToShed={openShed}
-          onAddTask={openTask}
-          onAddJournal={openJournal}
         />
       )}
 
@@ -1258,7 +1251,6 @@ function GardenPageInner() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             router.refresh();
             closeActiveModal();
@@ -1275,7 +1267,6 @@ function GardenPageInner() {
         <NewTaskModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onSuccess={() => {
             showToast("Task added");
             setRefetchTrigger((t) => t + 1);
@@ -1287,7 +1278,6 @@ function GardenPageInner() {
         <QuickAddSeed
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
@@ -1341,7 +1331,6 @@ function GardenPageInner() {
           open
           onClose={closeActiveModal}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          onBackToMenu={backToMenu}
           initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;

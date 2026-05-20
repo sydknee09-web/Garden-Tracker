@@ -269,11 +269,9 @@ export default function JournalPage() {
     setAddPlantDefaultType,
     openMenu,
     closeMenu,
-    openSeed,
     openShed,
     shedInitialName,
     openPlant,
-    openTask,
     openJournal,
     closeActiveModal,
     backToMenu,
@@ -1064,7 +1062,6 @@ export default function JournalPage() {
           pathname={pathname ?? "/journal"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
@@ -1082,9 +1079,6 @@ export default function JournalPage() {
             setBatchAddPlantMode(true);
             setBatchAddSeedOpen(true);
           }}
-          onAddToShed={openShed}
-          onAddTask={openTask}
-          onAddJournal={openJournal}
         />
       )}
 
@@ -1092,7 +1086,6 @@ export default function JournalPage() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             showToast("Entry saved");
             router.refresh();
@@ -1110,7 +1103,6 @@ export default function JournalPage() {
         <NewTaskModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onSuccess={() => {
             showToast("Task added");
             setRefetchTrigger((t) => t + 1);
@@ -1122,7 +1114,6 @@ export default function JournalPage() {
         <QuickAddSeed
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
@@ -1176,7 +1167,6 @@ export default function JournalPage() {
           open
           onClose={closeActiveModal}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          onBackToMenu={backToMenu}
           initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;

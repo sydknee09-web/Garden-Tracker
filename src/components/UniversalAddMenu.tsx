@@ -3,8 +3,13 @@
 import { useState, useEffect } from "react";
 import { ICON_MAP, FAB_MENU_SHADOW_CLASS } from "@/lib/styleDictionary";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
+import { TaskForm } from "@/components/NewTaskModal";
+import { JournalEntryForm } from "@/components/QuickLogModal";
+import { SupplyForm } from "@/components/QuickAddSupply";
+import { SeedPacketForm } from "@/components/QuickAddSeed";
 
-export type UniversalAddMenuScreen = "main" | "add-plant";
+export type UniversalAddMenuScreen = "main" | "add-plant" | "seed" | "shed" | "task" | "journal";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -17,8 +22,6 @@ export interface UniversalAddMenuProps {
   addPlantDefaultType: "permanent" | "seasonal";
   /** Update add plant type. From UniversalAddContext. */
   setAddPlantDefaultType: (t: "permanent" | "seasonal") => void;
-  /** Open QuickAddSeed (has its own Manual/Photo/Link/PO chooser) */
-  onAddSeed: () => void;
   /** Open AddPlantModal with given default type */
   onAddPlantManual: (defaultType: "permanent" | "seasonal") => void;
   /** Navigate to /vault/plant with from param */
@@ -27,14 +30,20 @@ export interface UniversalAddMenuProps {
   onAddPlantPurchaseOrder?: () => void;
   /** Open Photo Import (multi-photo, extract plant tags); same flow as Add seed packet Photo Import */
   onAddPlantPhotoImport?: () => void;
-  /** Open QuickAddSupply (has its own chooser) */
-  onAddToShed: () => void;
-  /** Open task form (navigate to calendar or open modal) */
-  onAddTask: () => void;
-  /** Navigate to add journal entry */
-  onAddJournal: () => void;
 }
 
+/**
+ * UniversalAddMenu — the FAB add-button menu.
+ *
+ * Path Y (U7 corrective refactor) — all 5 picks slide in-place inside the same menu container.
+ * The menu never unmounts during the add-button flow. Forms live INSIDE the menu via the
+ * extracted <TaskForm> / <JournalEntryForm> / <SupplyForm> / <SeedPacketForm> sub-components.
+ *
+ * The 4 standalone modal shells (NewTaskModal / QuickLogModal / QuickAddSupply / QuickAddSeed)
+ * remain mounted on each page for non-add-button callers (onboarding "Observe Hillside",
+ * calendar ?openTask=1 deep-link, QuickLog cross-modal "+ Add New Supply", vault Plant Again,
+ * etc.) — they're driven by `activeModal === "..."` from UniversalAddContext, not by this menu.
+ */
 export function UniversalAddMenu({
   open,
   onClose,
@@ -42,18 +51,20 @@ export function UniversalAddMenu({
   gardenTab = "active",
   addPlantDefaultType,
   setAddPlantDefaultType,
-  onAddSeed,
   onAddPlantManual,
   onAddPlantFromVault,
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
-  onAddToShed,
-  onAddTask,
-  onAddJournal,
 }: UniversalAddMenuProps) {
   const [screen, setScreen] = useState<UniversalAddMenuScreen>("main");
   // Direction tracks forward / back nav so submenu slide animation reads correctly. See docs/VISION.md §4.
   const [screenDirection, setScreenDirection] = useState<"forward" | "back">("forward");
+
+  // Cross-modal handoff: when JournalEntryForm's "+ Add New Supply" empty-state fires,
+  // close the menu and open the standalone QuickAddSupply with prefill. Q1 Option B
+  // (locked 2026-05-19) — accept the regression that the menu doesn't auto-resume on
+  // the journal sub-screen after QuickAddSupply closes; user re-opens menu manually.
+  const { openShed } = useUniversalAddModals();
 
   useEffect(() => {
     if (open) {
@@ -77,6 +88,7 @@ export function UniversalAddMenu({
   };
 
   const slideClass = screenDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
+  const goBackToMain = () => { setScreenDirection("back"); setScreen("main"); };
 
   return (
     <>
@@ -95,7 +107,7 @@ export function UniversalAddMenu({
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => { onClose(); onAddSeed(); }}
+                onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
@@ -117,7 +129,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => { onClose(); onAddToShed(); }}
+                onClick={() => { setScreenDirection("forward"); setScreen("shed"); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
@@ -128,7 +140,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => { onClose(); onAddTask(); }}
+                onClick={() => { setScreenDirection("forward"); setScreen("task"); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
@@ -139,7 +151,7 @@ export function UniversalAddMenu({
               </button>
               <button
                 type="button"
-                onClick={() => { onClose(); onAddJournal(); }}
+                onClick={() => { setScreenDirection("forward"); setScreen("journal"); }}
                 className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
@@ -158,7 +170,7 @@ export function UniversalAddMenu({
         {screen === "add-plant" && (
           <div key="add-plant" className={slideClass}>
             <div className="flex items-center gap-2 mb-4">
-              <button type="button" onClick={() => { setScreenDirection("back"); setScreen("main"); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
+              <button type="button" onClick={goBackToMain} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
                 <ICON_MAP.Back className="w-5 h-5" />
               </button>
               <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
@@ -234,6 +246,45 @@ export function UniversalAddMenu({
             <div className="pt-4">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
+          </div>
+        )}
+
+        {screen === "seed" && (
+          <div key="seed" className={slideClass}>
+            <SeedPacketForm
+              onClose={onClose}
+              onSuccess={onClose}
+              onBack={goBackToMain}
+            />
+          </div>
+        )}
+
+        {screen === "shed" && (
+          <div key="shed" className={slideClass}>
+            <SupplyForm
+              onClose={onClose}
+              onSuccess={onClose}
+              onBack={goBackToMain}
+            />
+          </div>
+        )}
+
+        {screen === "task" && (
+          <div key="task" className={slideClass}>
+            <TaskForm
+              onClose={onClose}
+              onBack={goBackToMain}
+            />
+          </div>
+        )}
+
+        {screen === "journal" && (
+          <div key="journal" className={slideClass}>
+            <JournalEntryForm
+              onClose={onClose}
+              onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
+              onBack={goBackToMain}
+            />
           </div>
         )}
       </div>

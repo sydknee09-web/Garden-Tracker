@@ -164,8 +164,6 @@ function VaultPageInner() {
     openShed,
     shedInitialName,
     openPlant,
-    openTask,
-    openJournal,
     closeActiveModal,
     backToMenu,
     closeAll,
@@ -1685,7 +1683,6 @@ function VaultPageInner() {
           pathname={pathname ?? "/vault"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddSeed={openSeed}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             skipPopOnNavigateRef.current = true;
@@ -1703,9 +1700,6 @@ function VaultPageInner() {
             setBatchAddPlantMode(true);
             setBatchAddOpen(true);
           }}
-          onAddToShed={openShed}
-          onAddTask={openTask}
-          onAddJournal={openJournal}
         />
       )}
 
@@ -1713,7 +1707,6 @@ function VaultPageInner() {
         <QuickLogModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onJournalAdded={() => {
             router.refresh();
             closeActiveModal();
@@ -1730,7 +1723,6 @@ function VaultPageInner() {
         <NewTaskModal
           open
           onClose={closeActiveModal}
-          onBackToMenu={backToMenu}
           onSuccess={() => {
             setSaveToastMessage("Task added");
             refetch();
@@ -1743,7 +1735,6 @@ function VaultPageInner() {
         <QuickAddSeed
           open
           onClose={() => { setQrPrefill(null); closeActiveModal(); }}
-          onBackToMenu={() => { setQrPrefill(null); backToMenu(); }}
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
@@ -1787,7 +1778,6 @@ function VaultPageInner() {
           open
           onClose={closeActiveModal}
           onSuccess={() => refetch()}
-          onBackToMenu={backToMenu}
           initialName={shedInitialName}
           onOpenPurchaseOrder={() => {
             skipPopOnNavigateRef.current = true;
