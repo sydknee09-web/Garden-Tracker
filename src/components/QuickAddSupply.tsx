@@ -16,27 +16,52 @@ import type { SupplyProfile } from "@/types/garden";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 
-type QuickAddSupplyScreen = "choose" | "link" | "form";
+// Internal multi-screen flow inside SupplyForm — renamed from `screen` to `step` to avoid
+// collision with UniversalAddMenu's outer `screen` state when this form mounts inside the menu.
+type SupplyFormStep = "choose" | "link" | "form";
 
-interface QuickAddSupplyProps {
-  open: boolean;
+export interface SupplyFormProps {
+  /** Called when the user cancels (Cancel button) — typically wraps to menu/shell onClose. */
   onClose: () => void;
+  /** Called after successful save — typically a parent refresh. */
   onSuccess: () => void;
   /** When set, modal is in Edit mode. */
   initialData?: SupplyProfile | null;
   /** When set (e.g. from QuickLog "+ Add New Supply"), pre-fill name and open directly to form. */
   initialName?: string;
-  /** Open Purchase Order import (screenshot of cart/order with supplies); parent should close this and open PurchaseOrderImport with mode="supply". */
+  /** Open Purchase Order import (screenshot of cart/order with supplies). */
   onOpenPurchaseOrder?: () => void;
-  /** Open batch photo import (multiple photos, extract each, review all); parent should close this and open BatchAddSupply. */
+  /** Open batch photo import (multiple photos, extract each, review all). */
   onOpenBatchPhotoImport?: () => void;
-  /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
-  onBackToMenu?: () => void;
+  /** When provided, renders a Back arrow on the choose step. */
+  onBack?: () => void;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialName, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
+/**
+ * SupplyForm — the multi-step body for adding or editing a supply.
+ *
+ * Hosts its own internal step machine: choose → form OR choose → link → form.
+ * Edit mode skips choose and starts on form.
+ *
+ * Two mount paths:
+ *  1. Inside the <QuickAddSupply> standalone shell — for the FAB-flow handoff (today via
+ *     openShed cross-modal), for vault Plant Again, for shed/[id] edit, etc.
+ *  2. Inside the <UniversalAddMenu> "shed" sub-screen (Step 4 work).
+ *
+ * The form does NOT call useBodyScrollLock — that belongs to the surrounding shell/menu.
+ * ImageCropModal renders alongside the form (fixed-positioned; parent doesn't matter).
+ */
+export function SupplyForm({
+  onClose,
+  onSuccess,
+  initialData,
+  initialName,
+  onOpenPurchaseOrder,
+  onOpenBatchPhotoImport,
+  onBack,
+}: SupplyFormProps) {
   const { user, session } = useAuth();
-  const [screen, setScreen] = useState<QuickAddSupplyScreen>("choose");
+  const [step, setStep] = useState<SupplyFormStep>("choose");
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState<string>("fertilizer");
@@ -75,54 +100,52 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
       : null;
 
   useEffect(() => {
-    if (open) {
-      setError(null);
-      setAdded(false);
-      setPhotoFile(null);
-      setPhotoPreviewUrl(null);
-      setPhotoRemoved(false);
-      setImportedImagePath(null);
-      setImportUrl("");
-      setImportError(null);
-      if (initialData) {
-        setName(initialData.name ?? "");
-        setBrand(initialData.brand ?? "");
-        setCategory(initialData.category ?? "fertilizer");
-        setUsageInstructions(initialData.usage_instructions ?? "");
-        setApplicationRate(initialData.application_rate ?? "");
-        setNpk(initialData.npk ?? "");
-        setNotes(initialData.notes ?? "");
-        setSourceUrl(initialData.source_url ?? "");
-        setSize(initialData.size ?? "");
-        setSizeUom(initialData.size_uom ?? "");
-        setScreen("form");
-      } else if (initialName?.trim()) {
-        setName(initialName.trim());
-        setBrand("");
-        setCategory("fertilizer");
-        setUsageInstructions("");
-        setApplicationRate("");
-        setNpk("");
-        setNotes("");
-        setSourceUrl("");
-        setSize("");
-        setSizeUom("");
-        setScreen("form");
-      } else {
-        setName("");
-        setBrand("");
-        setCategory("fertilizer");
-        setUsageInstructions("");
-        setApplicationRate("");
-        setNpk("");
-        setNotes("");
-        setSourceUrl("");
-        setSize("");
-        setSizeUom("");
-        setScreen("choose");
-      }
+    setError(null);
+    setAdded(false);
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setPhotoRemoved(false);
+    setImportedImagePath(null);
+    setImportUrl("");
+    setImportError(null);
+    if (initialData) {
+      setName(initialData.name ?? "");
+      setBrand(initialData.brand ?? "");
+      setCategory(initialData.category ?? "fertilizer");
+      setUsageInstructions(initialData.usage_instructions ?? "");
+      setApplicationRate(initialData.application_rate ?? "");
+      setNpk(initialData.npk ?? "");
+      setNotes(initialData.notes ?? "");
+      setSourceUrl(initialData.source_url ?? "");
+      setSize(initialData.size ?? "");
+      setSizeUom(initialData.size_uom ?? "");
+      setStep("form");
+    } else if (initialName?.trim()) {
+      setName(initialName.trim());
+      setBrand("");
+      setCategory("fertilizer");
+      setUsageInstructions("");
+      setApplicationRate("");
+      setNpk("");
+      setNotes("");
+      setSourceUrl("");
+      setSize("");
+      setSizeUom("");
+      setStep("form");
+    } else {
+      setName("");
+      setBrand("");
+      setCategory("fertilizer");
+      setUsageInstructions("");
+      setApplicationRate("");
+      setNpk("");
+      setNotes("");
+      setSourceUrl("");
+      setSize("");
+      setSizeUom("");
+      setStep("choose");
     }
-  }, [open, initialData, initialName]);
+  }, [initialData, initialName]);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -206,7 +229,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
       if (data.primary_image_path) setImportedImagePath(data.primary_image_path as string);
       setPhotoRemoved(false);
       setImportUrl("");
-      setScreen("form");
+      setStep("form");
     } catch (err) {
       setImportError(formatAddFlowError(err));
     } finally {
@@ -312,370 +335,352 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
     ]
   );
 
-  useBodyScrollLock(open);
-
-  if (!open) return null;
-
   return (
     <>
-      <div
-        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
-        onClick={onClose}
-      >
-      <div
-        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto animate-modal-slide-up"
-        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
-        role="dialog"
-        aria-labelledby="quick-add-supply-title"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          {!isEdit && screen === "choose" && onBackToMenu ? (
+      <div className="flex items-center gap-2 mb-4">
+        {!isEdit && step === "choose" && onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Back"
+          >
+            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+          </button>
+        ) : !isEdit && step === "link" ? (
+          <button
+            type="button"
+            onClick={() => setStep("choose")}
+            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Back to choose method"
+          >
+            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+          </button>
+        ) : !isEdit && step === "form" ? (
+          <button
+            type="button"
+            onClick={() => setStep("choose")}
+            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Back to add options"
+          >
+            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+          </button>
+        ) : (
+          <div className="w-11 shrink-0" aria-hidden />
+        )}
+        <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+          {isEdit ? "Edit Supply" : step === "choose" ? "Add Supply" : step === "link" ? "Import from Link" : "Add Supply"}
+        </h2>
+      </div>
+
+      {!isEdit && step === "choose" && (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a supply.</p>
+          <button
+            type="button"
+            onClick={() => setStep("form")}
+            className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+          >
+            <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
+            Manual Entry
+          </button>
+          {onOpenBatchPhotoImport && (
             <button
               type="button"
-              onClick={onBackToMenu}
-              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Back to add menu"
+              onClick={() => { onClose(); onOpenBatchPhotoImport(); }}
+              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
+              Photo Import
             </button>
-          ) : !isEdit && screen === "link" ? (
-            <button
-              type="button"
-              onClick={() => setScreen("choose")}
-              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Back to choose method"
-            >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-            </button>
-          ) : !isEdit && screen === "form" ? (
-            <button
-              type="button"
-              onClick={() => setScreen("choose")}
-              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Back to add options"
-            >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-            </button>
-          ) : (
-            <div className="w-11 shrink-0" aria-hidden />
           )}
-          <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-            {isEdit ? "Edit Supply" : screen === "choose" ? "Add Supply" : screen === "link" ? "Import from Link" : "Add Supply"}
-          </h2>
+          <button
+            type="button"
+            onClick={() => setStep("link")}
+            className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+          >
+            <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
+            Link Import
+          </button>
+          {onOpenPurchaseOrder && (
+            <button
+              type="button"
+              onClick={() => { onClose(); onOpenPurchaseOrder(); }}
+              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+            >
+              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
+              Purchase Order
+            </button>
+          )}
+          <div className="pt-4">
+            <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
+              Cancel
+            </button>
+          </div>
         </div>
+      )}
 
-        {!isEdit && screen === "choose" && (
-          <div className="space-y-3">
-            <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a supply.</p>
+      {!isEdit && step === "link" && (
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">Paste a product page URL. Extracts name, brand, and usage instructions.</p>
+          <input
+            type="url"
+            value={importUrl}
+            onChange={(e) => setImportUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+            aria-label="Product URL"
+          />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStep("choose")} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
+              Back
+            </button>
             <button
               type="button"
-              onClick={() => setScreen("form")}
-              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              onClick={handleImportFromLink}
+              disabled={importing}
+              className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
-              Manual Entry
+              {importing ? "Importing…" : "Import"}
             </button>
-            {onOpenBatchPhotoImport && (
-              <button
-                type="button"
-                onClick={() => { onClose(); onOpenBatchPhotoImport(); }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
-                Photo Import
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setScreen("link")}
-              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-            >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
-              Link Import
-            </button>
-            {onOpenPurchaseOrder && (
-              <button
-                type="button"
-                onClick={() => { onClose(); onOpenPurchaseOrder(); }}
-                className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
-                Purchase Order
-              </button>
-            )}
-            <div className="pt-4">
-              <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
-                Cancel
-              </button>
-            </div>
           </div>
-        )}
+          {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
+        </div>
+      )}
 
-        {!isEdit && screen === "link" && (
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-600">Paste a product page URL. Extracts name, brand, and usage instructions.</p>
-            <input
-              type="url"
-              value={importUrl}
-              onChange={(e) => setImportUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
-              aria-label="Product URL"
-            />
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setScreen("choose")} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleImportFromLink}
-                disabled={importing}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
-              >
-                {importing ? "Importing…" : "Import"}
-              </button>
-            </div>
-            {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
-          </div>
-        )}
-
-        {(isEdit || screen === "form") && (
+      {(isEdit || step === "form") && (
         <div className="relative">
           <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
           <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            aria-label="Take product photo"
-            onChange={handlePhotoChange}
-          />
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            aria-label="Choose product photo from gallery"
-            onChange={handlePhotoChange}
-          />
-          <div>
-            <label htmlFor="supply-name" className="block text-sm font-medium text-black/80 mb-1">
-              Product Name *
-            </label>
             <input
-              id="supply-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Fish Emulsion 5-1-1"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Product name"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              aria-label="Take product photo"
+              onChange={handlePhotoChange}
             />
-          </div>
-          <div>
-            <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
-              Brand (optional)
-            </label>
             <input
-              id="supply-brand"
-              type="text"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="e.g. Neptune's Harvest"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Brand"
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              aria-label="Choose product photo from gallery"
+              onChange={handlePhotoChange}
             />
-          </div>
-          <div>
-            <label htmlFor="supply-category" className="block text-sm font-medium text-black/80 mb-1">
-              Category *
-            </label>
-            <select
-              id="supply-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Category"
-            >
-              <option value="fertilizer">Fertilizer</option>
-              <option value="pesticide">Pesticide</option>
-              <option value="soil_amendment">Soil Amendment</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <span className="block text-sm font-medium text-black/80 mb-1">Photo (optional)</span>
-            {photoPreviewUrl || (existingImageUrl && !photoRemoved) ? (
-              <div className="space-y-2">
-                <img
-                  src={photoPreviewUrl ?? existingImageUrl ?? ""}
-                  alt="Product"
-                  className="w-full rounded-xl object-cover aspect-video max-h-40 bg-neutral-100"
-                />
-                <div className="flex flex-wrap gap-2 items-center">
+            <div>
+              <label htmlFor="supply-name" className="block text-sm font-medium text-black/80 mb-1">
+                Product Name *
+              </label>
+              <input
+                id="supply-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Fish Emulsion 5-1-1"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Product name"
+              />
+            </div>
+            <div>
+              <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
+                Brand (optional)
+              </label>
+              <input
+                id="supply-brand"
+                type="text"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="e.g. Neptune's Harvest"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Brand"
+              />
+            </div>
+            <div>
+              <label htmlFor="supply-category" className="block text-sm font-medium text-black/80 mb-1">
+                Category *
+              </label>
+              <select
+                id="supply-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Category"
+              >
+                <option value="fertilizer">Fertilizer</option>
+                <option value="pesticide">Pesticide</option>
+                <option value="soil_amendment">Soil Amendment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm font-medium text-black/80 mb-1">Photo (optional)</span>
+              {photoPreviewUrl || (existingImageUrl && !photoRemoved) ? (
+                <div className="space-y-2">
+                  <img
+                    src={photoPreviewUrl ?? existingImageUrl ?? ""}
+                    alt="Product"
+                    className="w-full rounded-xl object-cover aspect-video max-h-40 bg-neutral-100"
+                  />
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                      type="button"
+                      onClick={() => imagePreviewSrc && setCropModalOpen(true)}
+                      disabled={!imagePreviewSrc}
+                      className="text-sm font-medium text-emerald-600 hover:text-emerald-700 min-h-[44px] px-2"
+                    >
+                      Crop scraped image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      className="text-sm font-medium text-amber-600 hover:text-amber-700 min-h-[44px] px-2"
+                    >
+                      Remove photo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => imagePreviewSrc && setCropModalOpen(true)}
-                    disabled={!imagePreviewSrc}
-                    className="text-sm font-medium text-emerald-600 hover:text-emerald-700 min-h-[44px] px-2"
+                    onClick={() => { if (isMobileDeviceSupply) fileInputRef.current?.click(); else startSupplyWebcam(); }}
+                    className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
                   >
-                    Crop scraped image
+                    Take photo
                   </button>
                   <button
                     type="button"
-                    onClick={handleRemovePhoto}
-                    className="text-sm font-medium text-amber-600 hover:text-amber-700 min-h-[44px] px-2"
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
                   >
-                    Remove photo
+                    From gallery
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { if (isMobileDeviceSupply) fileInputRef.current?.click(); else startSupplyWebcam(); }}
-                  className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
-                >
-                  Take photo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
-                >
-                  From gallery
-                </button>
-              </div>
-            )}
-          </div>
-          <div>
-            <label htmlFor="supply-npk" className="block text-sm font-medium text-black/80 mb-1">
-              NPK (e.g. 5-1-1) (optional)
-            </label>
-            <input
-              id="supply-npk"
-              type="text"
-              value={npk}
-              onChange={(e) => setNpk(e.target.value)}
-              placeholder="e.g. 5-1-1 or 10-10-10"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="NPK ratio"
-            />
-          </div>
-          <div>
-            <label htmlFor="supply-rate" className="block text-sm font-medium text-black/80 mb-1">
-              Application Rate (optional)
-            </label>
-            <input
-              id="supply-rate"
-              type="text"
-              value={applicationRate}
-              onChange={(e) => setApplicationRate(e.target.value)}
-              placeholder="e.g. 1 tbsp per gallon"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Application rate"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+              )}
+            </div>
             <div>
-              <label htmlFor="supply-size" className="block text-sm font-medium text-black/80 mb-1">
-                Size (optional)
+              <label htmlFor="supply-npk" className="block text-sm font-medium text-black/80 mb-1">
+                NPK (e.g. 5-1-1) (optional)
               </label>
               <input
-                id="supply-size"
+                id="supply-npk"
                 type="text"
-                inputMode="decimal"
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                placeholder="e.g. 50, 2.5"
+                value={npk}
+                onChange={(e) => setNpk(e.target.value)}
+                placeholder="e.g. 5-1-1 or 10-10-10"
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                aria-label="Package size"
+                aria-label="NPK ratio"
               />
             </div>
             <div>
-              <label htmlFor="supply-size-uom" className="block text-sm font-medium text-black/80 mb-1">
-                Unit (UOM)
+              <label htmlFor="supply-rate" className="block text-sm font-medium text-black/80 mb-1">
+                Application Rate (optional)
               </label>
               <input
-                id="supply-size-uom"
+                id="supply-rate"
                 type="text"
-                value={sizeUom}
-                onChange={(e) => setSizeUom(e.target.value)}
-                placeholder="e.g. lbs, gal, oz"
+                value={applicationRate}
+                onChange={(e) => setApplicationRate(e.target.value)}
+                placeholder="e.g. 1 tbsp per gallon"
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                aria-label="Unit of measure"
+                aria-label="Application rate"
               />
             </div>
-          </div>
-          <div>
-            <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
-              Usage Instructions (optional)
-            </label>
-            <textarea
-              id="supply-instructions"
-              value={usageInstructions}
-              onChange={(e) => setUsageInstructions(e.target.value)}
-              placeholder="How to use, when to apply, etc."
-              rows={3}
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Usage instructions"
-            />
-          </div>
-          <div>
-            <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              id="supply-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Your own notes"
-              rows={2}
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Notes"
-            />
-          </div>
-          <div>
-            <label htmlFor="supply-source" className="block text-sm font-medium text-black/80 mb-1">
-              Product URL (optional)
-            </label>
-            <input
-              id="supply-source"
-              type="url"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Product URL"
-            />
-          </div>
-          {error && <p className="text-sm text-amber-600 font-medium">{error}</p>}
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={!isEdit ? () => setScreen("choose") : onClose}
-              className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
-            >
-              {!isEdit ? "Back" : "Cancel"}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || added}
-              className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-            >
-              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save" : "Add"}
-            </button>
-          </div>
-        </form>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="supply-size" className="block text-sm font-medium text-black/80 mb-1">
+                  Size (optional)
+                </label>
+                <input
+                  id="supply-size"
+                  type="text"
+                  inputMode="decimal"
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
+                  placeholder="e.g. 50, 2.5"
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                  aria-label="Package size"
+                />
+              </div>
+              <div>
+                <label htmlFor="supply-size-uom" className="block text-sm font-medium text-black/80 mb-1">
+                  Unit (UOM)
+                </label>
+                <input
+                  id="supply-size-uom"
+                  type="text"
+                  value={sizeUom}
+                  onChange={(e) => setSizeUom(e.target.value)}
+                  placeholder="e.g. lbs, gal, oz"
+                  className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                  aria-label="Unit of measure"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
+                Usage Instructions (optional)
+              </label>
+              <textarea
+                id="supply-instructions"
+                value={usageInstructions}
+                onChange={(e) => setUsageInstructions(e.target.value)}
+                placeholder="How to use, when to apply, etc."
+                rows={3}
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Usage instructions"
+              />
+            </div>
+            <div>
+              <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
+                Notes (optional)
+              </label>
+              <textarea
+                id="supply-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Your own notes"
+                rows={2}
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Notes"
+              />
+            </div>
+            <div>
+              <label htmlFor="supply-source" className="block text-sm font-medium text-black/80 mb-1">
+                Product URL (optional)
+              </label>
+              <input
+                id="supply-source"
+                type="url"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+                aria-label="Product URL"
+              />
+            </div>
+            {error && <p className="text-sm text-amber-600 font-medium">{error}</p>}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={!isEdit ? () => setStep("choose") : onClose}
+                className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
+              >
+                {!isEdit ? "Back" : "Cancel"}
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || added}
+                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+              >
+                {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save" : "Add"}
+              </button>
+            </div>
+          </form>
         </div>
-        )}
-      </div>
-      </div>
+      )}
       {imagePreviewSrc && (
         <ImageCropModal
           open={cropModalOpen}
@@ -689,3 +694,50 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
   );
 }
 
+interface QuickAddSupplyProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  /** When set, modal is in Edit mode. */
+  initialData?: SupplyProfile | null;
+  /** When set (e.g. from QuickLog "+ Add New Supply"), pre-fill name and open directly to form. */
+  initialName?: string;
+  /** Open Purchase Order import (screenshot of cart/order with supplies); parent should close this and open PurchaseOrderImport with mode="supply". */
+  onOpenPurchaseOrder?: () => void;
+  /** Open batch photo import (multiple photos, extract each, review all); parent should close this and open BatchAddSupply. */
+  onOpenBatchPhotoImport?: () => void;
+  /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
+  onBackToMenu?: () => void;
+}
+
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialName, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
+  useBodyScrollLock(open);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
+      onClick={onClose}
+    >
+      <div
+        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto animate-modal-slide-up"
+        style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
+        role="dialog"
+        aria-labelledby="quick-add-supply-title"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SupplyForm
+          onClose={onClose}
+          onSuccess={onSuccess}
+          initialData={initialData}
+          initialName={initialName}
+          onOpenPurchaseOrder={onOpenPurchaseOrder}
+          onOpenBatchPhotoImport={onOpenBatchPhotoImport}
+          onBack={onBackToMenu}
+        />
+      </div>
+    </div>
+  );
+}
