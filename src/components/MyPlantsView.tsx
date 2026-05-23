@@ -111,6 +111,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   onRefetch?: () => void;
   /** Called on success (e.g. batch ended, batch deleted). */
   onSaveMessage?: (msg: string) => void;
+  /** When user taps Harvest in BatchLogSheet, parent opens HarvestModal for this batch. */
+  onLogHarvest?: (batch: BatchLogBatch) => void;
 }>(({
   refetchTrigger,
   searchQuery = "",
@@ -143,6 +145,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
   onBulkLogRequestHandled,
   onRefetch,
   onSaveMessage,
+  onLogHarvest,
 }, ref) => {
   const router = useRouter();
   const { user } = useAuth();
@@ -776,10 +779,9 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
           <BatchLogSheet
             open={batchLogOpen}
             batches={batchLogBatches}
-            isPermanent={true}
             onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
             onSaved={() => { fetchPlants(); onRefetch?.(); }}
-            onLogHarvest={() => {}}
+            onLogHarvest={(b) => { onLogHarvest?.(b); setBatchLogOpen(false); setBatchLogBatches([]); }}
             onQuickCare={(batch, action) => { handleQuickTap(batch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
             onBulkQuickCare={(batches, action) => { handleBulkQuickTap(batches, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
           />

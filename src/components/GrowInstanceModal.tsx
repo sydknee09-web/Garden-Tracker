@@ -1084,7 +1084,6 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           handleQuickCare(batch, action);
           setBatchLogOpen(false);
         }}
-        isPermanent={grow?.is_permanent_planting === true}
       />
     </>
   );

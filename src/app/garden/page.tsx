@@ -1062,6 +1062,7 @@ function GardenPageInner() {
                 setPlantsBatchSelectMode(false);
               }}
               onSaveMessage={showToast}
+              onLogHarvest={openLogHarvest}
             />
           </div>
         )}

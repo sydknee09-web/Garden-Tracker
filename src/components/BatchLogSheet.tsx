@@ -41,8 +41,6 @@ interface BatchLogSheetProps {
   onLogHarvest: (batch: BatchLogBatch) => void;
   onQuickCare: (batch: BatchLogBatch, action: "water" | "fertilize" | "spray") => void;
   onBulkQuickCare?: (batches: BatchLogBatch[], action: "water" | "fertilize" | "spray", note?: string) => void;
-  /** When true, hide seed-specific actions (e.g. Log germination) for permanent plants. */
-  isPermanent?: boolean;
 }
 
 const CARE_NOTES: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
@@ -67,7 +65,6 @@ export function BatchLogSheet({
   onLogHarvest,
   onQuickCare,
   onBulkQuickCare,
-  isPermanent = false,
 }: BatchLogSheetProps) {
   const { user } = useAuth();
   const { showErrorToast } = useToast();
@@ -446,115 +443,113 @@ export function BatchLogSheet({
           {!isBulk && (
             <>
               {/* Growth milestones — collapsible */}
-              {!isPermanent && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setGrowthMilestonesOpen((o) => !o)}
-                    className="w-full min-h-[44px] flex items-center justify-between px-0 py-3 text-sm font-medium text-black/80 hover:text-black border-b border-black/5"
-                  >
-                    <span>Growth milestones</span>
-                    <span aria-hidden>{growthMilestonesOpen ? "▴" : "▾"}</span>
-                  </button>
-                  {growthMilestonesOpen && (
-                    <div className="pt-2 space-y-1 divide-y divide-black/5">
-                      {/* Log germination */}
-                      <div className="pt-3 first:pt-0">
-                        <button
-                          type="button"
-                          onClick={() => toggleAction("germination")}
-                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
-                            selectedActions.has("germination") ? "text-emerald-700" : "text-black/80 hover:text-black"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            Log germination
-                            {firstBatch?.seeds_sprouted != null ? (
-                              <span className="text-xs font-normal text-emerald-600">✓ Logged</span>
-                            ) : (
-                              <span className="text-xs font-normal text-black/50">Not yet logged</span>
-                            )}
-                          </span>
-                          <span aria-hidden>{selectedActions.has("germination") ? "▴" : "▾"}</span>
-                        </button>
-                        {selectedActions.has("germination") && (
-                          <div className="mt-2">
-                            <label className="block text-xs font-medium text-black/60 mb-1">How many sprouted?</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={seedsSprouted}
-                              onChange={(e) => setSeedsSprouted(e.target.value)}
-                              placeholder={firstBatch?.seeds_sown != null ? `of ${firstBatch.seeds_sown}` : "e.g. 10"}
-                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Update plant count */}
-                      <div className="pt-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleAction("plant_count")}
-                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
-                            selectedActions.has("plant_count") ? "text-emerald-700" : "text-black/80 hover:text-black"
-                          }`}
-                        >
-                          Update plant count
-                          <span aria-hidden>{selectedActions.has("plant_count") ? "▴" : "▾"}</span>
-                        </button>
-                        {selectedActions.has("plant_count") && (
-                          <div className="mt-2">
-                            <label className="block text-xs font-medium text-black/60">How many plants now?</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={plantCount}
-                              onChange={(e) => setPlantCount(e.target.value)}
-                              placeholder="e.g. Thinned to 5, gave 2 away"
-                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Transplant */}
-                      <div className="pt-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleAction("transplant")}
-                          className={`w-full min-h-[44px] flex items-center justify-between px-0 py-2 text-sm font-medium ${
-                            selectedActions.has("transplant") ? "text-emerald-700" : "text-black/80 hover:text-black"
-                          }`}
-                        >
-                          Transplant
-                          <span aria-hidden>{selectedActions.has("transplant") ? "▴" : "▾"}</span>
-                        </button>
-                        {selectedActions.has("transplant") && (
-                          <div className="mt-2 space-y-2">
-                            <input
-                              type="number"
-                              min={0}
-                              value={plantCount}
-                              onChange={(e) => setPlantCount(e.target.value)}
-                              placeholder="Plant count"
-                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                            />
-                            <input
-                              type="text"
-                              value={transplantLocation}
-                              onChange={(e) => setTransplantLocation(e.target.value)}
-                              placeholder="New location"
-                              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setGrowthMilestonesOpen((o) => !o)}
+                  className="w-full min-h-[44px] flex items-center justify-between px-0 py-3 text-sm font-medium text-black/80 hover:text-black border-b border-black/5"
+                >
+                  <span>Growth milestones</span>
+                  <span aria-hidden>{growthMilestonesOpen ? "▴" : "▾"}</span>
+                </button>
+                {growthMilestonesOpen && (
+                  <div className="pt-1 space-y-0.5 divide-y divide-black/5">
+                    {/* Log germination */}
+                    <div className="pt-2 first:pt-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleAction("germination")}
+                        className={`w-full min-h-[44px] flex items-center justify-between px-0 py-1.5 text-sm font-medium ${
+                          selectedActions.has("germination") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          Log germination
+                          {firstBatch?.seeds_sprouted != null ? (
+                            <span className="text-xs font-normal text-emerald-600">✓ Logged</span>
+                          ) : (
+                            <span className="text-xs font-normal text-black/50">Not yet logged</span>
+                          )}
+                        </span>
+                        <span aria-hidden>{selectedActions.has("germination") ? "▴" : "▾"}</span>
+                      </button>
+                      {selectedActions.has("germination") && (
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-black/60 mb-1">How many sprouted?</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={seedsSprouted}
+                            onChange={(e) => setSeedsSprouted(e.target.value)}
+                            placeholder={firstBatch?.seeds_sown != null ? `of ${firstBatch.seeds_sown}` : "e.g. 10"}
+                            className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Update plant count */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleAction("plant_count")}
+                        className={`w-full min-h-[44px] flex items-center justify-between px-0 py-1.5 text-sm font-medium ${
+                          selectedActions.has("plant_count") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                        }`}
+                      >
+                        Update plant count
+                        <span aria-hidden>{selectedActions.has("plant_count") ? "▴" : "▾"}</span>
+                      </button>
+                      {selectedActions.has("plant_count") && (
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-black/60">How many plants now?</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={plantCount}
+                            onChange={(e) => setPlantCount(e.target.value)}
+                            placeholder="e.g. Thinned to 5, gave 2 away"
+                            className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Transplant */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleAction("transplant")}
+                        className={`w-full min-h-[44px] flex items-center justify-between px-0 py-1.5 text-sm font-medium ${
+                          selectedActions.has("transplant") ? "text-emerald-700" : "text-black/80 hover:text-black"
+                        }`}
+                      >
+                        Transplant
+                        <span aria-hidden>{selectedActions.has("transplant") ? "▴" : "▾"}</span>
+                      </button>
+                      {selectedActions.has("transplant") && (
+                        <div className="mt-2 space-y-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={plantCount}
+                            onChange={(e) => setPlantCount(e.target.value)}
+                            placeholder="Plant count"
+                            className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={transplantLocation}
+                            onChange={(e) => setTransplantLocation(e.target.value)}
+                            placeholder="New location"
+                            className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Care note (when fertilize/spray selected) */}
               {(selectedActions.has("fertilize") || selectedActions.has("spray")) && (

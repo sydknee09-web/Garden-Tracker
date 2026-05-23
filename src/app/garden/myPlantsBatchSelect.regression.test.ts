@@ -111,9 +111,14 @@ describe("MyPlantsView — batch select state and handlers", () => {
 // MyPlantsView — BatchLogSheet and Selecting bar
 // ---------------------------------------------------------------------------
 describe("MyPlantsView — BatchLogSheet and Selecting bar", () => {
-  it("BatchLogSheet is rendered with isPermanent", () => {
+  it("BatchLogSheet is rendered with onLogHarvest wired to parent (no empty handler)", () => {
     expect(myPlantsView).toContain("<BatchLogSheet");
-    expect(myPlantsView).toContain("isPermanent={true}");
+    // Ship 2026-05-23: removed isPermanent gating so quick-journal menu options
+    // match Active Garden side (parity). Pencil-sheet Harvest now opens the
+    // shared HarvestModal via parent prop, replacing the previous empty `() => {}`.
+    expect(myPlantsView).not.toContain("isPermanent={true}");
+    expect(myPlantsView).toContain("onLogHarvest={(b) => { onLogHarvest?.(b)");
+    expect(myPlantsView).not.toContain("onLogHarvest={() => {}}");
   });
 
   it("Selecting bar shows when batchSelectMode and items selected", () => {

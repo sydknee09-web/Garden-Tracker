@@ -1,6 +1,6 @@
 # Backlog (on hold)
 
-**Last updated:** 2026-05-07 (audit refresh)
+**Last updated:** 2026-05-23 (added warranty/receipt save per-plant feature idea)
 
 Preliminary issues and earlier notes captured for when you're ready. Not part of the phased roadmap; implement in a future sprint or fold into a relevant phase.
 
@@ -10,6 +10,7 @@ Preliminary issues and earlier notes captured for when you're ready. Not part of
 
 ## Plant profile (Vault [id])
 
+- **Plant warranty / receipt save (per-plant document attachment).** *Raised 2026-05-23.* Let the user save a purchase order or receipt against an individual plant for warranty tracking — useful for nursery-purchased fruit trees, perennials, or any plant that came with a warranty. Currently no place to attach a document (PDF, image of receipt, order confirmation) directly to a grow instance or plant profile. Same workstream theme as [BUGS.md](BUGS.md) S2 ("Original uploaded photos / receipts are discarded after AI extraction") — bundle when receipt-retention infrastructure lands. Sized M (storage + DB column on `grow_instances` or new `plant_documents` table + upload UI + view/download UI on profile + grow instance modal). Long-term; revisit post-MVP once memory plane + per-plant retention thinking matures.
 - **Packets tab:** Add **Edit** button next to "Remove packet" (opens EditPacketModal). *Confirmed still open 2026-05-07 — [VaultProfilePacketsTab.tsx](../src/app/vault/[id]/VaultProfilePacketsTab.tsx) has delete-only.*
 - **Plants tab → Edit plant:** In the edit-grow modal, add **link to existing seed packet** (dropdown + include `seed_packet_id` in save).
 - **Too many places to edit a plant's image** — there are multiple paths to change a profile photo (Add Photo / Change Photo on profile, Set Profile Photo modal, Edit Plant Profile → Change Photo, plus implicit via packet image, journal photo, etc.). User reported this as friction. Audit and consolidate. *Reported 2026-05-07.*

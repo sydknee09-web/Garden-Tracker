@@ -1597,7 +1597,6 @@ export default function VaultSeedPage() {
         batches={batchLogTarget ? [batchLogTarget] : []}
         onClose={() => { setBatchLogOpen(false); setBatchLogTarget(null); }}
         onSaved={() => { loadProfile(); showToast("Saved"); }}
-        isPermanent={isPermanent}
         onLogHarvest={(b) => {
           setHarvestTarget({ profileId: b.plant_profile_id, growId: b.id, displayName: b.profile_variety_name?.trim() ? `${b.profile_name} (${b.profile_variety_name})` : b.profile_name });
           setBatchLogOpen(false);
