@@ -548,7 +548,7 @@ export function AddPlantModal({
               ) : (
                 <div className="w-11 shrink-0" aria-hidden />
               )}
-              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add Plant"}</h2>
+              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add plant"}</h2>
               <div className="w-11 shrink-0" aria-hidden />
             </div>
             <p className="text-sm text-neutral-500 text-center">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>

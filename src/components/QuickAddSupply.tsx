@@ -377,7 +377,7 @@ export function SupplyForm({
           <div className="w-11 shrink-0" aria-hidden />
         )}
         <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-          {isEdit ? "Edit Supply" : step === "choose" ? "Add Supply" : step === "link" ? "Import from Link" : "Add Supply"}
+          {isEdit ? "Edit supply" : step === "choose" ? "Add supply" : step === "link" ? "Import from link" : "Add supply"}
         </h2>
       </div>
 
@@ -387,36 +387,36 @@ export function SupplyForm({
           <button
             type="button"
             onClick={() => { setStepDirection("forward"); setStep("form"); }}
-            className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+            className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
-            <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
+            <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
             Manual Entry
           </button>
           {onOpenBatchPhotoImport && (
             <button
               type="button"
               onClick={() => { onClose(); onOpenBatchPhotoImport(); }}
-              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📷</span>
+              <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
               Photo Import
             </button>
           )}
           <button
             type="button"
             onClick={() => { setStepDirection("forward"); setStep("link"); }}
-            className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+            className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
-            <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
+            <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
             Link Import
           </button>
           {onOpenPurchaseOrder && (
             <button
               type="button"
               onClick={() => { onClose(); onOpenPurchaseOrder(); }}
-              className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+              className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
-              <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🧾</span>
+              <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
               Purchase Order
             </button>
           )}

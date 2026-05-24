@@ -265,7 +265,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           <div className="w-11 shrink-0" aria-hidden />
         )}
         <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-          {editTask ? "Edit Task" : "New Task"}
+          {editTask ? "Edit task" : "New task"}
         </h2>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">

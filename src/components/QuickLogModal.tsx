@@ -405,7 +405,7 @@ export function JournalEntryForm({
             <ICON_MAP.Close className="w-5 h-5" />
           </button>
         )}
-        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick Log</h2>
+        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick log</h2>
       </div>
 
       <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />

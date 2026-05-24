@@ -26,7 +26,7 @@ export interface UniversalAddMenuProps {
   onAddPlantManual: (defaultType: "permanent" | "seasonal") => void;
   /** Navigate to /vault/plant with from param */
   onAddPlantFromVault: () => void;
-  /** Open Purchase Order import (screenshot of cart/order with seeds); adds to vault */
+  /** Open Purchase Order import (screenshot of cart/order with plants); adds to vault */
   onAddPlantPurchaseOrder?: () => void;
   /** Open Photo Import (multi-photo, extract plant tags); same flow as Add seed packet Photo Import */
   onAddPlantPhotoImport?: () => void;
@@ -247,7 +247,7 @@ export function UniversalAddMenu({
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
                   <div>
                     <div>Scan purchase order</div>
-                    <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with seeds</div>
+                    <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with plants</div>
                   </div>
                 </button>
               )}
