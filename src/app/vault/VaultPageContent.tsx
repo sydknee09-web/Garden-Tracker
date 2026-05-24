@@ -1700,6 +1700,39 @@ function VaultPageInner() {
             setBatchAddPlantMode(true);
             setBatchAddOpen(true);
           }}
+          onSeedOpenBatch={() => {
+            closeAll();
+            setBatchAddPlantMode(false);
+            setBatchAddOpen(true);
+          }}
+          onSeedOpenLinkImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeAll();
+            router.push("/vault/import?embed=1");
+          }}
+          onSeedStartManualImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeAll();
+            router.push("/vault/import/manual");
+          }}
+          onSeedOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            closeAll();
+            setPurchaseOrderMode("seed");
+            setPurchaseOrderAddPlantMode(false);
+            setPurchaseOrderOpen(true);
+          }}
+          onSupplyOpenPurchaseOrder={() => {
+            skipPopOnNavigateRef.current = true;
+            closeAll();
+            setPurchaseOrderMode("supply");
+            setPurchaseOrderOpen(true);
+          }}
+          onSupplyOpenBatchPhotoImport={() => {
+            skipPopOnNavigateRef.current = true;
+            closeAll();
+            router.push("/shed/review-import");
+          }}
         />
       )}
 

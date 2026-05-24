@@ -30,6 +30,22 @@ export interface UniversalAddMenuProps {
   onAddPlantPurchaseOrder?: () => void;
   /** Open Photo Import (multi-photo, extract plant tags); same flow as Add seed packet Photo Import */
   onAddPlantPhotoImport?: () => void;
+  // U28 fix (2026-05-20): cross-flow callbacks for the in-menu SeedPacketForm + SupplyForm.
+  // Wraps the same callbacks each page already passes to its standalone modal mounts, but
+  // close the MENU (closeAll) instead of the standalone modal (closeActiveModal) since
+  // these fire from the menu's "seed" / "shed" sub-screens, not from a standalone modal.
+  /** In-menu SeedPacketForm Photo Import button (BatchAddSeed). */
+  onSeedOpenBatch?: () => void;
+  /** In-menu SeedPacketForm Link Import button (navigate to /vault/import). */
+  onSeedOpenLinkImport?: () => void;
+  /** In-menu SeedPacketForm Purchase Order button (PurchaseOrderImport modal). */
+  onSeedOpenPurchaseOrder?: () => void;
+  /** In-menu SeedPacketForm save-no-match handoff (navigate to /vault/import/manual). */
+  onSeedStartManualImport?: () => void;
+  /** In-menu SupplyForm Purchase Order button (PurchaseOrderImport modal). */
+  onSupplyOpenPurchaseOrder?: () => void;
+  /** In-menu SupplyForm Photo Import button (BatchAddSupply OR navigate). */
+  onSupplyOpenBatchPhotoImport?: () => void;
 }
 
 /**
@@ -55,6 +71,12 @@ export function UniversalAddMenu({
   onAddPlantFromVault,
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
+  onSeedOpenBatch,
+  onSeedOpenLinkImport,
+  onSeedOpenPurchaseOrder,
+  onSeedStartManualImport,
+  onSupplyOpenPurchaseOrder,
+  onSupplyOpenBatchPhotoImport,
 }: UniversalAddMenuProps) {
   const [screen, setScreen] = useState<UniversalAddMenuScreen>("main");
   // Direction tracks forward / back nav so submenu slide animation reads correctly. See docs/VISION.md §4.
@@ -255,6 +277,10 @@ export function UniversalAddMenu({
               onClose={onClose}
               onSuccess={onClose}
               onBack={goBackToMain}
+              onOpenBatch={onSeedOpenBatch}
+              onOpenLinkImport={onSeedOpenLinkImport}
+              onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
+              onStartManualImport={onSeedStartManualImport}
             />
           </div>
         )}
@@ -265,6 +291,8 @@ export function UniversalAddMenu({
               onClose={onClose}
               onSuccess={onClose}
               onBack={goBackToMain}
+              onOpenPurchaseOrder={onSupplyOpenPurchaseOrder}
+              onOpenBatchPhotoImport={onSupplyOpenBatchPhotoImport}
             />
           </div>
         )}
