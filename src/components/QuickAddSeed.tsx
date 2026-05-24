@@ -103,6 +103,10 @@ export function SeedPacketForm({
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
   const [step, setStep] = useState<SeedPacketFormStep>("choose");
+  // stepDirection drives the slide animation between internal steps; mirrors UniversalAddMenu's
+  // screenDirection pattern. Forward = slide in from right; back = slide in from left.
+  // Set this BEFORE setStep on every transition so the next render plays the right direction.
+  const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward");
   const [plantName, setPlantName] = useState("");
   const [varietyCultivar, setVarietyCultivar] = useState("");
   const [vendor, setVendor] = useState("");
@@ -246,6 +250,7 @@ export function SeedPacketForm({
 
   function goBack() {
     setError(null);
+    setStepDirection("back");
     setStep("choose");
   }
 
@@ -499,6 +504,7 @@ export function SeedPacketForm({
   }
 
   const modalTitle = step === "choose" ? "Add Seed" : "Quick Add Seed";
+  const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
     <>
@@ -531,11 +537,11 @@ export function SeedPacketForm({
       </div>
 
       {step === "choose" && (
-        <div className="space-y-3">
+        <div key="choose" className={`space-y-3 ${slideClass}`}>
           <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a seed.</p>
           <button
             type="button"
-            onClick={() => setStep("manual")}
+            onClick={() => { setStepDirection("forward"); setStep("manual"); }}
             className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
@@ -593,7 +599,7 @@ export function SeedPacketForm({
       )}
 
       {step === "manual" && (
-        <div className="relative">
+        <div key="manual" className={`relative ${slideClass}`}>
           <SubmitLoadingOverlay show={submitting} message={submitMessage} />
           {!preSelectedProfileId && (
           <div className="flex gap-2 mb-4">
