@@ -62,6 +62,11 @@ export function SupplyForm({
 }: SupplyFormProps) {
   const { user, session } = useAuth();
   const [step, setStep] = useState<SupplyFormStep>("choose");
+  // stepDirection drives the slide animation between internal steps; mirrors UniversalAddMenu's
+  // screenDirection pattern. Forward = slide in from right; back = slide in from left.
+  // Set BEFORE setStep on every user-initiated transition (initial-mount setStep calls in the
+  // reset effect can stay as-is since the default direction "forward" is what we want there).
+  const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward");
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState<string>("fertilizer");
@@ -229,6 +234,7 @@ export function SupplyForm({
       if (data.primary_image_path) setImportedImagePath(data.primary_image_path as string);
       setPhotoRemoved(false);
       setImportUrl("");
+      setStepDirection("forward");
       setStep("form");
     } catch (err) {
       setImportError(formatAddFlowError(err));
@@ -335,6 +341,8 @@ export function SupplyForm({
     ]
   );
 
+  const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
+
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
@@ -350,7 +358,7 @@ export function SupplyForm({
         ) : !isEdit && step === "link" ? (
           <button
             type="button"
-            onClick={() => setStep("choose")}
+            onClick={() => { setStepDirection("back"); setStep("choose"); }}
             className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Back to choose method"
           >
@@ -359,7 +367,7 @@ export function SupplyForm({
         ) : !isEdit && step === "form" ? (
           <button
             type="button"
-            onClick={() => setStep("choose")}
+            onClick={() => { setStepDirection("back"); setStep("choose"); }}
             className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Back to add options"
           >
@@ -374,11 +382,11 @@ export function SupplyForm({
       </div>
 
       {!isEdit && step === "choose" && (
-        <div className="space-y-3">
+        <div key="choose" className={`space-y-3 ${slideClass}`}>
           <p className="text-sm text-neutral-500 text-center mb-4">Choose how you want to add a supply.</p>
           <button
             type="button"
-            onClick={() => setStep("form")}
+            onClick={() => { setStepDirection("forward"); setStep("form"); }}
             className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>📝</span>
@@ -396,7 +404,7 @@ export function SupplyForm({
           )}
           <button
             type="button"
-            onClick={() => setStep("link")}
+            onClick={() => { setStepDirection("forward"); setStep("link"); }}
             className="w-full py-4 px-4 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-xl bg-neutral-100 items-center justify-center shrink-0 text-xl" aria-hidden>🌐</span>
@@ -421,7 +429,7 @@ export function SupplyForm({
       )}
 
       {!isEdit && step === "link" && (
-        <div className="space-y-4">
+        <div key="link" className={`space-y-4 ${slideClass}`}>
           <p className="text-sm text-neutral-600">Paste a product page URL. Extracts name, brand, and usage instructions.</p>
           <input
             type="url"
@@ -432,7 +440,7 @@ export function SupplyForm({
             aria-label="Product URL"
           />
           <div className="flex gap-2">
-            <button type="button" onClick={() => setStep("choose")} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
+            <button type="button" onClick={() => { setStepDirection("back"); setStep("choose"); }} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
               Back
             </button>
             <button
@@ -449,7 +457,7 @@ export function SupplyForm({
       )}
 
       {(isEdit || step === "form") && (
-        <div className="relative">
+        <div key="form" className={`relative ${slideClass}`}>
           <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
@@ -665,7 +673,7 @@ export function SupplyForm({
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={!isEdit ? () => setStep("choose") : onClose}
+                onClick={!isEdit ? () => { setStepDirection("back"); setStep("choose"); } : onClose}
                 className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
               >
                 {!isEdit ? "Back" : "Cancel"}
