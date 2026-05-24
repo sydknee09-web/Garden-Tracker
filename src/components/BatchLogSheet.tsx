@@ -358,7 +358,7 @@ export function BatchLogSheet({
         className="bg-white rounded-t-3xl sm:rounded-3xl shadow-lg border border-neutral-200/80 w-full max-w-md max-h-[70vh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-start gap-2 px-6 pt-6 pb-3 shrink-0">
+        <header className="flex items-center gap-2 px-6 pt-4 pb-2 shrink-0">
           <div className="w-11 shrink-0" aria-hidden />
           <div className="flex-1 min-w-0 text-center">
             <h2 className="text-xl font-bold text-neutral-900 truncate">
@@ -378,7 +378,7 @@ export function BatchLogSheet({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-1 space-y-4">
           {/* Hidden file inputs — always in DOM so refs work in both single and bulk */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraPhoto} aria-hidden />
           <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPhotos} aria-hidden />
