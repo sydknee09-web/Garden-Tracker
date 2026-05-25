@@ -23,8 +23,8 @@ type ScheduleView = "roadmap" | "heatmap" | "action";
 
 const TABS: { value: ScheduleView; label: string }[] = [
   { value: "action", label: "Action now" },
-  { value: "heatmap", label: "Monthly pulse" },
-  { value: "roadmap", label: "Annual roadmap" },
+  { value: "heatmap", label: "Monthly view" },
+  { value: "roadmap", label: "Yearly view" },
 ];
 
 function isValidView(v: string | null): v is ScheduleView {

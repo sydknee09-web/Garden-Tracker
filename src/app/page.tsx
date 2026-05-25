@@ -415,7 +415,7 @@ export default function HomePage() {
       {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
       <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
         <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">When to plant (by zone)</h2>
-        <p className="text-xs text-black/50 mb-3">Action now · Monthly pulse · Annual roadmap</p>
+        <p className="text-xs text-black/50 mb-3">Action now · Monthly view · Yearly view</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
             href="/schedule?view=action"
@@ -429,14 +429,14 @@ export default function HomePage() {
             prefetch={false}
             className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-sky-50 border border-sky-100/80 px-4 py-3 text-sm font-semibold text-sky-800 hover:bg-sky-100 transition-colors"
           >
-            Monthly pulse
+            Monthly view
           </Link>
           <Link
             href="/schedule?view=roadmap"
             prefetch={false}
             className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-amber-50 border border-amber-100/80 px-4 py-3 text-sm font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
           >
-            Annual roadmap
+            Yearly view
           </Link>
         </div>
         <p className="text-xs text-black/50 mt-2 text-center">
