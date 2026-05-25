@@ -42,10 +42,10 @@ const QUICK_ACTIONS: {
   defaultNote?: string;
 }[] = [
   // Row 1: Milestones (Creation)
-  { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
-  { id: "sprout", label: "Sprout", icon: "Plant", entryType: "growth", defaultNote: "First sprouts" },
-  { id: "pot_up", label: "Pot Up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
-  { id: "plant_out", label: "Plant Out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
+  { id: "sow", label: "Sow", icon: "Seed", entryType: "planting", defaultNote: "Sowed" },
+  { id: "sprout", label: "Sprout", icon: "Sprout", entryType: "growth", defaultNote: "First sprouts" },
+  { id: "pot_up", label: "Pot Up", icon: "PotUp", entryType: "care", defaultNote: "Potted up" },
+  { id: "plant_out", label: "Plant Out", icon: "Shovel", entryType: "care", defaultNote: "Planted out" },
   // Row 2: Routine (Maintenance)
   { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
@@ -405,6 +405,7 @@ export function JournalEntryForm({
           </button>
         )}
         <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
+        <div className="w-11 shrink-0" aria-hidden />
       </div>
 
       <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
@@ -442,7 +443,7 @@ export function JournalEntryForm({
             type="date"
             value={entryDate}
             onChange={(e) => setEntryDate(e.target.value)}
-            className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm min-h-[44px]"
+            className="w-full rounded-xl border border-black/10 px-3 py-2 pr-12 text-sm min-h-[44px]"
           />
         </div>
 
@@ -565,7 +566,7 @@ export function JournalEntryForm({
         {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
+          <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">
             Cancel
           </button>
           <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">

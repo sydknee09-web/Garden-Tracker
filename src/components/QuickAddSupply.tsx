@@ -379,6 +379,7 @@ export function SupplyForm({
         <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
           {isEdit ? "Edit supply" : step === "choose" ? "Add supply" : step === "link" ? "Import from link" : "Add supply"}
         </h2>
+        <div className="w-11 shrink-0" aria-hidden />
       </div>
 
       {!isEdit && step === "choose" && (
@@ -390,7 +391,7 @@ export function SupplyForm({
             className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-            Manual Entry
+            Manual entry
           </button>
           {onOpenBatchPhotoImport && (
             <button
@@ -399,7 +400,7 @@ export function SupplyForm({
               className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
-              Photo Import
+              Photo import
             </button>
           )}
           <button
@@ -408,7 +409,7 @@ export function SupplyForm({
             className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
-            Link Import
+            Link import
           </button>
           {onOpenPurchaseOrder && (
             <button
@@ -417,11 +418,11 @@ export function SupplyForm({
               className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-              Purchase Order
+              Purchase order
             </button>
           )}
           <div className="pt-4">
-            <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]">
+            <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
               Cancel
             </button>
           </div>
@@ -440,7 +441,7 @@ export function SupplyForm({
             aria-label="Product URL"
           />
           <div className="flex gap-2">
-            <button type="button" onClick={() => { setStepDirection("back"); setStep("choose"); }} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]">
+            <button type="button" onClick={() => { setStepDirection("back"); setStep("choose"); }} className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
               Back
             </button>
             <button
@@ -674,7 +675,7 @@ export function SupplyForm({
               <button
                 type="button"
                 onClick={!isEdit ? () => { setStepDirection("back"); setStep("choose"); } : onClose}
-                className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium min-h-[44px]"
+                className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
               >
                 {!isEdit ? "Back" : "Cancel"}
               </button>

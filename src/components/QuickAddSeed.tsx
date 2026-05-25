@@ -503,7 +503,7 @@ export function SeedPacketForm({
     onStartManualImport?.();
   }
 
-  const modalTitle = "Add seed";
+  const modalTitle = "Add seed packet";
   const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
@@ -534,6 +534,7 @@ export function SeedPacketForm({
         >
           {modalTitle}
         </h2>
+        <div className="w-11 shrink-0" aria-hidden />
       </div>
 
       {step === "choose" && (
@@ -545,7 +546,7 @@ export function SeedPacketForm({
             className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
           >
             <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-            Manual Entry
+            Manual entry
           </button>
           {onOpenBatch && (
             <button
@@ -557,7 +558,7 @@ export function SeedPacketForm({
               className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
-              Photo Import
+              Photo import
             </button>
           )}
           {onOpenLinkImport && (
@@ -570,7 +571,7 @@ export function SeedPacketForm({
               className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
-              Link Import
+              Link import
             </button>
           )}
           {onOpenPurchaseOrder && (
@@ -583,14 +584,14 @@ export function SeedPacketForm({
               className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
             >
               <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-              Purchase Order
+              Purchase order
             </button>
           )}
           <div className="pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
+              className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
             >
               Cancel
             </button>
@@ -932,7 +933,7 @@ export function SeedPacketForm({
               )}
               {error && <p className="text-sm text-citrus font-medium">{error}</p>}
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium">
+                <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
                   Cancel
                 </button>
                 <button
@@ -953,7 +954,7 @@ export function SeedPacketForm({
                   ) : submitting ? (
                     "Adding…"
                   ) : (
-                    "Add to Vault"
+                    "Add to vault"
                   )}
                 </button>
               </div>
@@ -1083,7 +1084,7 @@ export function SeedPacketForm({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
+                    className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
                   >
                     Cancel
                   </button>
@@ -1100,7 +1101,7 @@ export function SeedPacketForm({
                     ) : submitting ? (
                       "Adding…"
                     ) : (
-                      "Add to Vault (with packet)"
+                      "Add to vault (with packet)"
                     )}
                   </button>
                 </div>

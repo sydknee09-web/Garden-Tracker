@@ -5,8 +5,10 @@
  *
  *  Fix A — Submit button label consistency
  *    The "Add Reminder" modal header was paired with a "Save task" button.
- *    The button now reads "Add Task" / "Add Recurring Task" matching the FAB
- *    "Add" verb-pattern (Phase 1 Ship 2 cohesion pass, 2026-05-18).
+ *    The button now reads "Add task" / "Add recurring task" matching the FAB
+ *    "Add" verb-pattern. Initially Title Case (Phase 1 Ship 2 cohesion pass,
+ *    2026-05-18); renamed to sentence case 2026-05-24 as part of FAB polish
+ *    bundle 2 Item A (auto-mode Q4 widened-casing scope).
  *
  *  Feature B — Multi-select batch actions
  *    Long-press a task to enter select mode; tap further tasks to add them
@@ -26,16 +28,16 @@ const newTaskModalSrc = readFileSync(join(ROOT, "src/components/NewTaskModal.tsx
 // Fix A — Submit button label (now in NewTaskModal)
 // ---------------------------------------------------------------------------
 describe("Calendar submit button label consistency", () => {
-  it("Submit button shows 'Add Task' for standard tasks", () => {
-    expect(newTaskModalSrc).toContain('"Add Task"');
+  it("Submit button shows 'Add task' for standard tasks", () => {
+    expect(newTaskModalSrc).toContain('"Add task"');
   });
 
-  it("Submit button shows 'Add Recurring Task' for recurring tasks", () => {
-    expect(newTaskModalSrc).toContain('"Add Recurring Task"');
+  it("Submit button shows 'Add recurring task' for recurring tasks", () => {
+    expect(newTaskModalSrc).toContain('"Add recurring task"');
   });
 
   it("Label is driven by an isRecurring conditional, not hardcoded", () => {
-    expect(newTaskModalSrc).toContain('isRecurring ? "Add Recurring Task" : "Add Task"');
+    expect(newTaskModalSrc).toContain('isRecurring ? "Add recurring task" : "Add task"');
   });
 });
 

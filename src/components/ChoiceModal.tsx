@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 /**
- * Master modal template: unified look for Add Seed, Quick log, Garden add menu, New Task.
+ * Master modal template: unified look for Add seed packet, Add journal, Garden add menu, Add task.
  * Design specs: 24px radius, bold 20px header, 14px muted subtext, action rows with icon in gray box, semi-bold 16px, standard cancel/primary footer.
  */
 

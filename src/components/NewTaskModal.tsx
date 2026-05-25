@@ -267,6 +267,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
         <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
           {editTask ? "Edit task" : "New task"}
         </h2>
+        <div className="w-11 shrink-0" aria-hidden />
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -423,12 +424,12 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             disabled={saving}
             className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
-            {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add Recurring Task" : "Add Task"}
+            {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add recurring task" : "Add task"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl border border-neutral-200 text-neutral-600 font-medium min-h-[44px]"
+            className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
           >
             Cancel
           </button>

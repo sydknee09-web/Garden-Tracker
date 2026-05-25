@@ -504,6 +504,31 @@ function LinkIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Sprout — central stem with 2 cotyledons curving outward (seed-just-emerged). 1.2 stroke. */
+function SproutIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M12 21V13" />
+      <path d="M12 13c-4-1-5-4-5-6 2 0 5 1 5 4" />
+      <path d="M12 13c4-1 5-4 5-6-2 0-5 1-5 4" />
+    </svg>
+  );
+}
+
+/** Pot Up — trapezoid pot with a small plant (stem + 2 outward leaves) above. 1.2 stroke. */
+function PotUpIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M5 14h14l-1.5 8h-11Z" />
+      <path d="M12 14V9" />
+      <path d="M12 9c-3-1-5-3-5-5 3 0 5 2 5 5" />
+      <path d="M12 9c3-1 5-3 5-5-3 0-5 2-5 5" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Link: LinkIcon,
@@ -550,6 +575,8 @@ export const ICON_MAP = {
   Prune: PruneIcon,
   ColdStratify: ColdStratifyIcon,
   Mic: MicIcon,
+  Sprout: SproutIcon,
+  PotUp: PotUpIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

@@ -196,6 +196,7 @@ export function UniversalAddMenu({
                 <ICON_MAP.Back className="w-5 h-5" />
               </button>
               <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
+              <div className="w-11 shrink-0" aria-hidden />
             </div>
             <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
             <div className="flex gap-2 mb-4">
