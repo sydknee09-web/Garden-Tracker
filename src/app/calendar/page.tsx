@@ -1230,7 +1230,7 @@ export default function CalendarPage() {
                     month: "short",
                     day: "numeric",
                   })}`
-                : "Upcoming Tasks"}
+                : "Upcoming tasks"}
             </h2>
             {selectedDate && (
               <button
