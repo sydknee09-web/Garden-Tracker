@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
@@ -405,7 +404,7 @@ export function JournalEntryForm({
             <ICON_MAP.Close className="w-5 h-5" />
           </button>
         )}
-        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Quick log</h2>
+        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
       </div>
 
       <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
@@ -578,9 +577,6 @@ export function JournalEntryForm({
             ) : "Add"}
           </button>
         </div>
-        <p className="text-center text-sm text-neutral-500 mt-3">
-          Need more fields? <Link href="/journal/new" className="text-emerald-600 font-medium hover:underline" onClick={onClose}>Full journal entry</Link>
-        </p>
       </form>
     </>
   );
