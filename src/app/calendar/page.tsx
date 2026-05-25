@@ -996,7 +996,7 @@ export default function CalendarPage() {
             className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left"
           >
             <span className="text-sm font-semibold text-emerald-800">
-              Plantable in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })} ({plantableProfiles.length})
+              Ready to plant in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })} ({plantableProfiles.length})
             </span>
             <span className="text-emerald-600 text-sm">{plantableExpanded ? "Hide" : "Show"}</span>
           </button>
@@ -1025,8 +1025,8 @@ export default function CalendarPage() {
                     router.push(`/vault?sow=${sowParam}`);
                   }}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white border border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors"
-                  title="View plantable in Vault"
-                  aria-label="View plantable for this month in Vault"
+                  title="See plants for this month in Vault"
+                  aria-label="See plants for this month in Vault"
                 >
                   ∞
                 </button>
