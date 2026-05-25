@@ -996,7 +996,7 @@ export default function CalendarPage() {
             className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 text-left"
           >
             <span className="text-sm font-semibold text-emerald-800">
-              Plant in {new Date(month.year, month.month).toLocaleString("default", { month: "long" })} ({plantableProfiles.length})
+              Plant this month ({plantableProfiles.length})
             </span>
             <span className="text-emerald-600 text-sm">{plantableExpanded ? "Hide" : "Show"}</span>
           </button>
