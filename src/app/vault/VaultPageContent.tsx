@@ -30,6 +30,10 @@ const BatchAddSeed = dynamic(
   () => import("@/components/BatchAddSeed").then((m) => ({ default: m.BatchAddSeed })),
   { ssr: false }
 );
+const BatchAddSupply = dynamic(
+  () => import("@/components/BatchAddSupply").then((m) => ({ default: m.BatchAddSupply })),
+  { ssr: false }
+);
 const UniversalAddMenu = dynamic(
   () => import("@/components/UniversalAddMenu").then((m) => ({ default: m.UniversalAddMenu })),
   { ssr: false }
@@ -144,6 +148,7 @@ function VaultPageInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
+  const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
@@ -169,11 +174,12 @@ function VaultPageInner() {
     closeAll,
   } = useUniversalAddModals();
 
-  const anyModalOpen = batchAddOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || addMenuOpen || !!activeModal || packetModalOpen;
+  const anyModalOpen = batchAddOpen || batchAddSupplyOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || addMenuOpen || !!activeModal || packetModalOpen;
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(anyModalOpen, useCallback(() => {
     setQrPrefill(null);
     setBatchAddOpen(false);
+    setBatchAddSupplyOpen(false);
     setPurchaseOrderOpen(false);
     shedActionsRef.current?.closeAllShedModals?.();
     packetActionsRef.current?.closeAllPacketModals?.();
@@ -1729,9 +1735,8 @@ function VaultPageInner() {
             setPurchaseOrderOpen(true);
           }}
           onSupplyOpenBatchPhotoImport={() => {
-            skipPopOnNavigateRef.current = true;
             closeAll();
-            router.push("/shed/review-import");
+            setBatchAddSupplyOpen(true);
           }}
         />
       )}
@@ -1819,9 +1824,8 @@ function VaultPageInner() {
             setPurchaseOrderOpen(true);
           }}
           onOpenBatchPhotoImport={() => {
-            skipPopOnNavigateRef.current = true;
             closeActiveModal();
-            router.push("/shed/review-import");
+            setBatchAddSupplyOpen(true);
           }}
         />
       )}
@@ -1838,6 +1842,14 @@ function VaultPageInner() {
           }}
           addPlantMode={batchAddPlantMode}
           defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
+        />
+      )}
+
+      {batchAddSupplyOpen && (
+        <BatchAddSupply
+          open={batchAddSupplyOpen}
+          onClose={() => setBatchAddSupplyOpen(false)}
+          onSuccess={() => refetch()}
         />
       )}
 
