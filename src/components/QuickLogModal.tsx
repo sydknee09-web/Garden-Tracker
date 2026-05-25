@@ -44,13 +44,13 @@ const QUICK_ACTIONS: {
   // Row 1: Milestones (Creation)
   { id: "sow", label: "Sow", icon: "Seed", entryType: "planting", defaultNote: "Sowed" },
   { id: "sprout", label: "Sprout", icon: "Sprout", entryType: "growth", defaultNote: "First sprouts" },
-  { id: "pot_up", label: "Pot Up", icon: "PotUp", entryType: "care", defaultNote: "Potted up" },
-  { id: "plant_out", label: "Plant Out", icon: "Shovel", entryType: "care", defaultNote: "Planted out" },
+  { id: "pot_up", label: "Pot up", icon: "PotUp", entryType: "care", defaultNote: "Potted up" },
+  { id: "plant_out", label: "Plant out", icon: "Shovel", entryType: "care", defaultNote: "Planted out" },
   // Row 2: Routine (Maintenance)
   { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
   { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
-  { id: "cold_stratify", label: "Cold Stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
+  { id: "cold_stratify", label: "Cold stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
   // Row 3: Status (Outcome/Health) — Pest has no defaultNote, requires custom note
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
   { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
@@ -510,10 +510,10 @@ export function JournalEntryForm({
             selectedIds={selectedSupplyIds}
             onChange={setSelectedSupplyIds}
             placeholder="Type to search supplies…"
-            label="Supply Used"
+            label="Supply used"
             preSelectedIds={preSelectedSupplyId?.trim() ? [preSelectedSupplyId.trim()] : undefined}
             dropdownZIndex={120}
-            emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add New Supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
+            emptyStateAction={onAddSupplyFromEmptyState ? { label: "+ Add new supply", onClick: (searchString) => onAddSupplyFromEmptyState(searchString) } : undefined}
           />
           {suppliesLoading && supplies.length === 0 && <p className="text-xs text-neutral-500 mt-1">Loading supplies…</p>}
         </div>
@@ -552,7 +552,7 @@ export function JournalEntryForm({
                   onClick={() => (isMobile ? cameraMobileRef.current?.click() : startDesktopWebcam())}
                   className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2"
                 >
-                  <ICON_MAP.Camera className="w-5 h-5" /> Take Photo
+                  <ICON_MAP.Camera className="w-5 h-5" /> Take photo
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2">
                   <ICON_MAP.Gallery className="w-5 h-5" /> From gallery

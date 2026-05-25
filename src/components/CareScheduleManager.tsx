@@ -39,7 +39,7 @@ interface Props {
 const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
   fertilizer: "Fertilizer",
   pesticide: "Pesticide",
-  soil_amendment: "Soil Amendment",
+  soil_amendment: "Soil amendment",
   other: "Other",
 };
 

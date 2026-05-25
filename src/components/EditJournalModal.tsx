@@ -36,12 +36,12 @@ type QuickActionType =
 const QUICK_ACTIONS: { id: QuickActionType; label: string; icon: keyof typeof ICON_MAP; entryType: string; defaultNote?: string }[] = [
   { id: "sow", label: "Sow", icon: "Plant", entryType: "planting", defaultNote: "Sowed" },
   { id: "sprout", label: "Sprout", icon: "Plant", entryType: "growth", defaultNote: "First sprouts" },
-  { id: "pot_up", label: "Pot Up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
-  { id: "plant_out", label: "Plant Out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
+  { id: "pot_up", label: "Pot up", icon: "Plant", entryType: "care", defaultNote: "Potted up" },
+  { id: "plant_out", label: "Plant out", icon: "Plant", entryType: "care", defaultNote: "Planted out" },
   { id: "water", label: "Water", icon: "Water", entryType: "quick", defaultNote: "Watered" },
   { id: "fertilize", label: "Fertilize", icon: "Fertilize", entryType: "quick", defaultNote: "Fertilized" },
   { id: "spray", label: "Spray", icon: "Spray", entryType: "quick", defaultNote: "Sprayed" },
-  { id: "cold_stratify", label: "Cold Stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
+  { id: "cold_stratify", label: "Cold stratify", icon: "ColdStratify", entryType: "cold_stratify", defaultNote: "Cold stratified" },
   { id: "growth", label: "Growth", icon: "Plant", entryType: "growth" },
   { id: "prune", label: "Prune", icon: "Prune", entryType: "prune", defaultNote: "Pruned" },
   { id: "harvest", label: "Harvest", icon: "Harvest", entryType: "harvest" },
@@ -558,7 +558,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                     selectedIds={selectedSupplyIds}
                     onChange={setSelectedSupplyIds}
                     placeholder="Type to search supplies…"
-                    label="Supply Used"
+                    label="Supply used"
                     dropdownZIndex={120}
                   />
                 )}
@@ -641,7 +641,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
                         >
                           <ICON_MAP.Camera stroke="currentColor" className="w-[18px] h-[18px]" />
-                          Take Photo
+                          Take photo
                         </button>
                         <button
                           type="button"

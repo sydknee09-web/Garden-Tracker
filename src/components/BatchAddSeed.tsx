@@ -848,7 +848,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                 onClick={() => fileInputRef.current?.click()}
                 className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
               >
-                Upload from Files
+                Upload from files
               </button>
             </div>
             <input

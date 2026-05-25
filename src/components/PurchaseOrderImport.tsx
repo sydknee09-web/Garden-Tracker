@@ -258,7 +258,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black pt-0.5">
-            Purchase Order Import
+            Purchase order import
           </h2>
           <button
             type="button"
@@ -325,7 +325,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
                 onClick={() => fileInputRef.current?.click()}
                 className="flex-1 py-3 rounded-xl border border-black/15 bg-transparent text-black/70 font-medium min-h-[44px] hover:bg-black/5 transition-colors"
               >
-                {previewUrl ? "Replace image" : "Upload from Files"}
+                {previewUrl ? "Replace image" : "Upload from files"}
               </button>
             </div>
             <input

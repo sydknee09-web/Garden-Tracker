@@ -480,7 +480,7 @@ export function SupplyForm({
             />
             <div>
               <label htmlFor="supply-name" className="block text-sm font-medium text-black/80 mb-1">
-                Product Name *
+                Product name *
               </label>
               <input
                 id="supply-name"
@@ -519,7 +519,7 @@ export function SupplyForm({
               >
                 <option value="fertilizer">Fertilizer</option>
                 <option value="pesticide">Pesticide</option>
-                <option value="soil_amendment">Soil Amendment</option>
+                <option value="soil_amendment">Soil amendment</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -585,7 +585,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-rate" className="block text-sm font-medium text-black/80 mb-1">
-                Application Rate (optional)
+                Application rate (optional)
               </label>
               <input
                 id="supply-rate"
@@ -630,7 +630,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
-                Usage Instructions (optional)
+                Usage instructions (optional)
               </label>
               <textarea
                 id="supply-instructions"

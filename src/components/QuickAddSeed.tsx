@@ -689,7 +689,7 @@ export function SeedPacketForm({
                     <>
                   <div>
                     <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                      Vendor / Nursery (optional)
+                      Vendor / nursery (optional)
                     </label>
                     <Combobox
                       id="quick-add-link-vendor"
@@ -697,7 +697,7 @@ export function SeedPacketForm({
                       onChange={setVendor}
                       suggestions={vendorSuggestions}
                       placeholder="e.g. Burpee"
-                      aria-label="Vendor / Nursery"
+                      aria-label="Vendor / nursery"
                       className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
                     />
                   </div>
@@ -854,7 +854,7 @@ export function SeedPacketForm({
                         <>
                       <div>
                         <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                          Vendor / Nursery (optional)
+                          Vendor / nursery (optional)
                         </label>
                         <Combobox
                           id="quick-add-link-vendor"
@@ -862,7 +862,7 @@ export function SeedPacketForm({
                           onChange={setVendor}
                           suggestions={vendorSuggestions}
                           placeholder="e.g. Burpee"
-                          aria-label="Vendor / Nursery"
+                          aria-label="Vendor / nursery"
                           className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
                         />
                       </div>
@@ -963,7 +963,7 @@ export function SeedPacketForm({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="quick-add-name" className="block text-sm font-medium text-black/80 mb-1">
-                  Plant Name *
+                  Plant name *
                 </label>
                 <Combobox
                   id="quick-add-name"
@@ -977,7 +977,7 @@ export function SeedPacketForm({
               </div>
               <div>
                 <label htmlFor="quick-add-variety" className="block text-sm font-medium text-black/80 mb-1">
-                  Variety / Cultivar (optional)
+                  Variety / cultivar (optional)
                 </label>
                 <Combobox
                   id="quick-add-variety"
