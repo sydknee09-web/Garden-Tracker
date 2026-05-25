@@ -609,6 +609,22 @@ Most recent first. For full history, use `git log`.
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
+### 2026-05-24 (latest — `gt-fab-polish-2` chat C1 doc-only ship)
+
+- **Item D locked — gray-fill = dropdown affordance + white-outline = free-text input design convention.** Captured to [VISION.md §8 Design tokens](docs/VISION.md) as new "Field treatments — dropdown vs free-text" subsection. User-locked 2026-05-24 during Phase 1 of FAB polish bundle 2 planning chat. Two field treatments signal two interaction patterns; don't accidentally unify them — the visual distinction is doing semantic work. Doc-only push tier per CLAUDE.md.
+- **Item 3 locked X2 — delete `/journal/new`.** Syd quote: *"I don't think we have another journal entry page."* Entrypoint sweep confirmed: footer link at [QuickLogModal.tsx:582](src/components/QuickLogModal.tsx:582) was the ONLY live consumer of `/journal/new` in src/ — no `router.push`, no sidebar nav, no calendar deep-link, no Vault cross-link. Tests asserting the contract ([permanentPlantProfile.regression.test.ts](src/app/vault/permanentPlantProfile.regression.test.ts) §1.4 — 2 describe blocks at L41-75) being DELETED, not updated. Companion lock: **QuickLog form header rename "Quick log" → "Add journal"** (N2 option, matches menu label, resolves Item B's journal half automatically). [NAVIGATION_MAP.md:429](docs/NAVIGATION_MAP.md:429) gets a 2026-05-24 changelog entry. Code ships in C3 (X2 delete bundle).
+- **Auto-mode Q-picks (FAB polish bundle 2 auto-mode greenlit by Syd via Dispatch).** All 8 open aesthetic decisions ran on Claude's recommended defaults:
+  - Q1 — Lifecycle icons: `Seed` for Sow (reuse), new `Sprout` SVG (sprouting shoot with cotyledons), new `PotUp` SVG (pot with leaf above), `Shovel` for Plant Out (reuse), keep `Plant` for Growth.
+  - Q2 — Chevron alignment: (b) minimal — add `pr-12` to native `<input type="date">` so all 3 Quick log dropdown fields have matching right-edge padding; browser-native date chevron stays as-is (replacing native date picker = M-size scope, parked).
+  - Q4 — Casing scope: widened to option labels in Seed + Supply choose-steps ("Manual Entry" / "Photo Import" / "Link Import" / "Purchase Order" → sentence case) in addition to submit buttons.
+  - Q5 — "Add to Vault" treatment: lowercase "vault" → "Add to vault" / "Add to vault (with packet)" for cohesion with "Add to shed."
+  - Q6 — Form header → menu label precedent: (c) fix Seed only ("Add seed" → "Add seed packet"); other 3 form headers handled separately via Q9 (Journal gets rename via X2) + Task/Supply preserved (each has product reasoning).
+  - Q7 — Cancel/Back unification: (i) all TEXT Cancel/Back buttons use the canonical (rounded-3xl teal-gus from UniversalAddMenu). Icon-only Back arrows in headers stay as-is.
+  - Q8 — Header centering: (a) add `<div className="w-11 shrink-0" aria-hidden />` right spacer to every off-center form header. Matches AddPlantModal:552's existing pattern.
+  - Q9 — QuickLog header rename: N2 "Add journal" (matches menu label exactly).
+  - Q10 — APP_AUDIT_RECOMMENDATIONS.md: skip (legacy doc not load-bearing).
+- **Pass 3 ADJACENT findings parked** for future app-wide casing cohesion pass: 8+ Title Case `<h2>` headings + button labels across Vault profile / Garden modal headers / Settings (Delete Batch / Edit Plant Profile / Add Photo / Confirm Planting / Add Manual / Delete Account / Edit Garden Settings / etc). Out of scope for this FAB-tree-only bundle; flag for future sweep.
+
 ### 2026-05-24 (later)
 
 - **FAB polish bundle ✅ SHIPPED (`intelligent-pare-f7abd4` chat continuation, 1 commit `006dd69`).** 3 small polish items from Syd's phone-dogfood of the earlier same-day sub-form transition bundle. Closes the FAB-surface visual + copy cohesion gaps.

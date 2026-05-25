@@ -426,6 +426,7 @@ See **docs/WHERE_DO_I.md** for the user-facing "Where do I…?" guide.
 | 2025-02-28 | Home: Added plus FAB with Universal Add Menu (same options as Vault, Garden, Journal, Calendar). |
 | 2025-02-28 | Add Plant modal: Standardized fields — Link to existing has Notes + Photos; Create new has Vendor/Nursery, no Qty. Removed Add plant button from vault profile Plantings tab. |
 | 2025-02-28 | Add journal: Removed Snapshot/Quick note/Detailed sub-screen; FAB → Add journal now navigates directly to `/journal/new`. |
+| 2026-05-24 | Add journal: Removed "Full journal entry" footer link from QuickLog; deleted `/journal/new` route + page entirely. QuickLog (renamed to "Add journal" header to match menu) is the canonical journal-entry experience. Sole entrypoint sweep at lock time confirmed footer link was the only live consumer of `/journal/new`. Tests removed: 2 describe blocks in `permanentPlantProfile.regression.test.ts` §1.4 (Quick Log ↔ Full journal entry cross-link + back-reference). |
 | 2025-02-28 | Create flow standardization: Required/optional labels, canonical field order, Source URL + Notes in QuickAddSeed manual, Photos after identity fields. See docs/CREATE_FLOW_CONVENTIONS.md. |
 | 2025-03-02 | Calendar: Added Overdue section at top showing tasks with due_date < today and completed_at = null. Collapsible, amber styling. |
 | 2025-03-02 | Home: Planting calendars (zone charts, SDSC, Farmers' Almanac) moved to /resources. Planting Schedule section stays on home with link to Resources. Settings: Added Resources link. |

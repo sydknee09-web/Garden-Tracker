@@ -236,6 +236,17 @@ Three transition languages, each conveying meaning:
 ### Colors / brand
 - `bg-emerald` (brand emerald, defined in tailwind config) is the canonical primary action color. Not `bg-emerald-600` (Tailwind direct) — *recommendation pending user confirmation, defaulting to brand token for consistency.*
 
+### Field treatments — dropdown vs free-text
+
+**Locked 2026-05-24.** Two field treatments signal two interaction patterns:
+
+- **Gray-filled fields** (`bg-neutral-50` / `bg-black/[0.02]` or similar light gray fill) = **dropdown affordance** (preset options, predefined list, picker UX). Tapping opens a list of choices.
+- **White outline fields** (`bg-white` with `border border-black/10`) = **free-text input.** User types whatever they want.
+
+Don't accidentally unify them — the visual distinction is doing semantic work. When you add a new field, pick the treatment that matches the interaction.
+
+User signal verbatim (2026-05-24): gray-fill = dropdown affordance (preset options); white outline = free-text input. Two field treatments signaling two interaction patterns.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 
