@@ -760,35 +760,42 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         />
       )}
       <div
-        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 flex flex-col overflow-hidden rounded-2xl bg-white shadow-card border border-black/5 max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-add-title"
       >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          {step === "capture" && onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex-shrink-0 p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Back"
-            >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-            </button>
-          ) : null}
-          <h2 id="batch-add-title" className="text-lg font-semibold text-black pt-0.5 flex-1 text-center">
-            {step === "capture" ? "Photo import" : step === "extracting" ? "Extracting…" : "Confirm & Save"}
-          </h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/50 hover:text-black/70 hover:bg-black/5 -m-2"
-            aria-label="Close"
-          >
-            <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-          </button>
+        <div className="flex-shrink-0 px-6 pt-6 pb-4">
+          <div className="flex items-center gap-2">
+            {step === "review" ? (
+              <button
+                type="button"
+                onClick={() => setStep("capture")}
+                className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Back to capture"
+              >
+                <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+              </button>
+            ) : step === "capture" && onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Back"
+              >
+                <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+              </button>
+            ) : (
+              <div className="w-11 shrink-0" aria-hidden />
+            )}
+            <h2 id="batch-add-title" className="text-lg font-semibold text-black flex-1 text-center">
+              {step === "capture" ? "Photo import" : step === "extracting" ? "Extracting…" : "Confirm & Save"}
+            </h2>
+            <div className="w-11 shrink-0" aria-hidden />
+          </div>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
         {step === "extracting" && (
           <div className="py-6">
             <p className="text-sm text-black/70 mb-4">
@@ -922,16 +929,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={goToReview}
-                    disabled={!canGoToReview}
-                    className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium disabled:opacity-50"
-                  >
-                    {loadingCount > 0 ? `Review pending (${pendingCount} ready · ${loadingCount} scanning)` : `Review pending (${pendingCount})`}
-                  </button>
-                </div>
               </>
             )}
             {error && <p className="text-sm text-citrus mt-2">{error}</p>}
@@ -941,10 +938,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         {saveSuccessCount != null ? (
           <div className="py-4 text-center">
             <p className="text-lg font-medium text-emerald-700 mb-2">Saved to vault</p>
-            <p className="text-sm text-black/70 mb-4">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. Add more from the vault or close.</p>
-            <button type="button" onClick={handleClose} className="py-3 px-6 rounded-xl bg-emerald text-white font-medium">
-              Done
-            </button>
+            <p className="text-sm text-black/70">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. Add more from the vault or close.</p>
           </div>
         ) : step === "review" ? (
           <>
@@ -955,7 +949,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                 <span>{loadingCount} more still extracting — they’ll appear below when ready.</span>
               </div>
             )}
-            <ul className="space-y-4 mb-4 max-h-[50vh] overflow-y-auto">
+            <ul className="space-y-4 mb-4">
               {queue
                 .filter((i) => i.status === "pending")
                 .map((item) => (
@@ -1019,27 +1013,52 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                 ))}
             </ul>
             {error && <p className="text-sm text-citrus mb-2">{error}</p>}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("capture");
-                }}
-                className="flex-1 py-2.5 rounded-xl border border-black/10 text-black/80 font-medium"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleLoadPlantProfilePicture}
-                disabled={saving || pendingCount === 0}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? "Preparing…" : "Load Plant Profile Picture"}
-              </button>
-            </div>
           </>
         ) : null}
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
+          {saveSuccessCount != null ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"
+            >
+              Done
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={step === "extracting" || saving}
+                className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              {step === "capture" && queue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={goToReview}
+                  disabled={!canGoToReview}
+                  className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {loadingCount > 0 ? `Review pending (${pendingCount} ready · ${loadingCount} scanning)` : `Review pending (${pendingCount})`}
+                </button>
+              )}
+              {step === "review" && (
+                <button
+                  type="button"
+                  onClick={handleLoadPlantProfilePicture}
+                  disabled={saving || pendingCount === 0}
+                  className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {saving ? "Preparing…" : "Load Plant Profile Picture"}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </>
   );

@@ -281,35 +281,33 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
     <>
       <div className="fixed inset-0 z-[60] bg-black/40" aria-hidden onClick={handleClose} />
       <div
-        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 flex flex-col overflow-hidden rounded-2xl bg-white shadow-card border border-black/5 max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-add-supply-title"
       >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          {step === "capture" && onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="flex-shrink-0 p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Back"
-            >
-              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-            </button>
-          ) : null}
-          <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black pt-0.5 flex-1 text-center">
-            {step === "capture" ? "Photo import" : "Extracting…"}
-          </h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/50 hover:text-black/70 hover:bg-black/5 -m-2"
-            aria-label="Close"
-          >
-            <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-          </button>
+        <div className="flex-shrink-0 px-6 pt-6 pb-4">
+          <div className="flex items-center gap-2">
+            {step === "capture" && onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Back"
+              >
+                <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+              </button>
+            ) : (
+              <div className="w-11 shrink-0" aria-hidden />
+            )}
+            <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black flex-1 text-center">
+              {step === "capture" ? "Photo import" : "Extracting…"}
+            </h2>
+            <div className="w-11 shrink-0" aria-hidden />
+          </div>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
         {step === "extracting" && (
           <div className="py-6">
             <p className="text-sm text-black/70 mb-4">
@@ -457,14 +455,6 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
                     </div>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleExtractAll}
-                  disabled={readyCount === 0}
-                  className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
-                >
-                  Extract & Review ({readyCount} photo{readyCount !== 1 ? "s" : ""})
-                </button>
               </>
             )}
             {error && (
@@ -474,6 +464,28 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
             )}
           </>
         )}
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={step === "extracting"}
+            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          {step === "capture" && (
+            <button
+              type="button"
+              onClick={handleExtractAll}
+              disabled={readyCount === 0}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              Extract &amp; Review ({readyCount} photo{readyCount !== 1 ? "s" : ""})
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

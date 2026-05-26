@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
@@ -251,123 +250,119 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         style={{ pointerEvents: isExtracting ? "none" : undefined }}
       />
       <div
-        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-card border border-black/5 max-w-md mx-auto"
+        className="fixed left-4 right-4 top-1/2 z-[70] max-h-[85vh] -translate-y-1/2 flex flex-col overflow-hidden rounded-2xl bg-white shadow-card border border-black/5 max-w-md mx-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="purchase-order-import-title"
       >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black pt-0.5">
-            Purchase order import
-          </h2>
+        <div className="flex-shrink-0 px-6 pt-6 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-11 shrink-0" aria-hidden />
+            <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black flex-1 text-center">
+              Purchase order import
+            </h2>
+            <div className="w-11 shrink-0" aria-hidden />
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+          {addPlantMode && mode === "seed" && (
+            <div className="mb-4">
+              <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProfileType("permanent")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  My Plants
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfileType("seed")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Active Garden
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-black/70 mb-4">
+            <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We&rsquo;ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
+          </p>
+          <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[320px] mb-4 border-2 border-dashed border-black/15 flex items-center justify-center">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Order preview" className="max-w-full max-h-[280px] object-contain" />
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full min-h-[200px] object-cover"
+              />
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+          <div className="flex gap-2">
+            {!previewUrl && (
+              <button
+                type="button"
+                onClick={captureFrame}
+                className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+              >
+                Capture
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 py-3 rounded-xl border border-black/15 bg-transparent text-black/70 font-medium min-h-[44px] hover:bg-black/5 transition-colors"
+            >
+              {previewUrl ? "Replace image" : "Upload from files"}
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          {error && (
+            <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+              <p className="text-xs text-red-600/90 mt-1">Try a clearer screenshot or replace the image.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
           <button
             type="button"
             onClick={handleClose}
-            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-black/50 hover:text-black/70 hover:bg-black/5 -m-2"
-            aria-label="Close"
+            disabled={isExtracting}
+            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
           >
-            <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleExtract}
+            disabled={!previewUrl || isExtracting}
+            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isExtracting ? (
+              <>
+                <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden />
+                Extracting…
+              </>
+            ) : (
+              "Extract items"
+            )}
           </button>
         </div>
-
-        {addPlantMode && mode === "seed" && (
-          <div className="mb-4">
-            <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setProfileType("permanent")}
-                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                My Plants
-              </button>
-              <button
-                type="button"
-                onClick={() => setProfileType("seed")}
-                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Active Garden
-              </button>
-            </div>
-          </div>
-        )}
-
-        <>
-            <p className="text-sm text-black/70 mb-4">
-              <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We’ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
-            </p>
-            <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[320px] mb-4 border-2 border-dashed border-black/15 flex items-center justify-center">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Order preview" className="max-w-full max-h-[280px] object-contain" />
-              ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full min-h-[200px] object-cover"
-                />
-              )}
-              <canvas ref={canvasRef} className="hidden" />
-            </div>
-            <div className="flex gap-2 mb-3">
-              {!previewUrl && (
-                <button
-                  type="button"
-                  onClick={captureFrame}
-                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
-                >
-                  Capture
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl border border-black/15 bg-transparent text-black/70 font-medium min-h-[44px] hover:bg-black/5 transition-colors"
-              >
-                {previewUrl ? "Replace image" : "Upload from files"}
-              </button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            {previewUrl && (
-              <button
-                type="button"
-                onClick={handleExtract}
-                disabled={isExtracting}
-                className="w-full py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isExtracting ? (
-                  <>
-                    <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden />
-                    Extracting…
-                  </>
-                ) : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-                      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-                      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-                      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-                      <line x1="7" y1="12" x2="17" y2="12" />
-                    </svg>
-                    Extract items
-                  </>
-                )}
-              </button>
-            )}
-            {error && (
-              <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm font-medium text-red-800">{error}</p>
-                <p className="text-xs text-red-600/90 mt-1">Try a clearer screenshot or replace the image.</p>
-              </div>
-            )}
-        </>
       </div>
     </>
   );
