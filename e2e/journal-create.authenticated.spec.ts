@@ -36,10 +36,10 @@ test.describe("Journal — Quick Log entry creation", () => {
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
     await page.getByText("Add journal").click();
 
-    // QuickLogModal should open with "Quick Log" heading
+    // QuickLogModal should open with "Add journal" heading (renamed from "Quick Log" in a78dbd6 + 9a0e9c5)
     await expect(
-      page.getByRole("dialog").getByText("Quick Log"),
-      "Quick Log modal should have a 'Quick Log' heading"
+      page.getByRole("dialog").getByRole("heading", { name: "Add journal" }),
+      "QuickLogModal should have an 'Add journal' heading"
     ).toBeVisible({ timeout: 5000 });
 
     // Quick memo textarea should be present

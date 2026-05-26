@@ -21,7 +21,7 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
 
     // Universal Add Menu dialog should appear
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Add Seed Packet")).toBeVisible();
+    await expect(page.getByText("Add seed packet")).toBeVisible();
     await expect(page.getByText("Add to shed")).toBeVisible();
 
     // Cancel to clean up
@@ -37,12 +37,12 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
-    // Click Add Seed Packet
-    await page.getByText("Add Seed Packet").click();
+    // Click Add seed packet
+    await page.getByText("Add seed packet").click();
 
-    // QuickAddSeed should open with "Add Seed" heading and "Manual Entry" option
-    await expect(page.getByText("Add Seed")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("button", { name: "Manual Entry" })).toBeVisible();
+    // QuickAddSeed should open with "Add seed packet" heading and "Manual entry" option
+    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Manual entry" })).toBeVisible();
   });
 
   test("manual add flow completes and stays on vault or profile page", async ({ page }) => {
@@ -51,13 +51,13 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.goto("/vault");
     await page.waitForLoadState("networkidle");
 
-    // Open FAB → Add Seed Packet
+    // Open FAB → Add seed packet
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await page.getByText("Add Seed Packet").click();
-    await expect(page.getByText("Add Seed")).toBeVisible({ timeout: 5000 });
+    await page.getByText("Add seed packet").click();
+    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
 
-    // Choose Manual Entry
-    await page.getByRole("button", { name: "Manual Entry" }).click();
+    // Choose Manual entry
+    await page.getByRole("button", { name: "Manual entry" }).click();
 
     // Fill required plant name
     const nameInput = page.getByLabel(/plant name|name/i).first();

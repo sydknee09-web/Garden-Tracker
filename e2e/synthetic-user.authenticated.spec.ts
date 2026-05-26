@@ -50,10 +50,10 @@ test.describe("Synthetic User Procedure", () => {
     await fab.waitFor({ state: "visible", timeout: 10000 });
     await fab.click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Add Seed Packet")).toBeVisible();
-    await page.getByText("Add Seed Packet").click();
-    await expect(page.getByText("Add Seed")).toBeVisible({ timeout: 5000 });
-    await page.getByRole("button", { name: "Manual Entry" }).click();
+    await expect(page.getByText("Add seed packet")).toBeVisible();
+    await page.getByText("Add seed packet").click();
+    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "Manual entry" }).click();
 
     const uniqueName = `E2E Synthetic ${Date.now()}`;
     const nameInput = page.getByLabel(/plant name|name/i).first();
