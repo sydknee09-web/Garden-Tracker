@@ -1711,11 +1711,6 @@ function VaultPageInner() {
             setBatchAddPlantMode(false);
             setBatchAddOpen(true);
           }}
-          onSeedOpenLinkImport={() => {
-            skipPopOnNavigateRef.current = true;
-            closeAll();
-            router.push("/vault/import?embed=1");
-          }}
           onSeedStartManualImport={() => {
             skipPopOnNavigateRef.current = true;
             closeAll();
@@ -1790,11 +1785,6 @@ function VaultPageInner() {
             closeActiveModal();
             setBatchAddPlantMode(false);
             setBatchAddOpen(true);
-          }}
-          onOpenLinkImport={() => {
-            skipPopOnNavigateRef.current = true;
-            closeActiveModal();
-            router.push("/vault/import?embed=1");
           }}
           onStartManualImport={() => {
             skipPopOnNavigateRef.current = true;

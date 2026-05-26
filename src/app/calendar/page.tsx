@@ -1929,11 +1929,6 @@ export default function CalendarPage() {
             setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
           }}
-          onSeedOpenLinkImport={() => {
-            skipPopOnNavigateRef.current = true;
-            closeAll();
-            router.push("/vault/import?embed=1");
-          }}
           onSeedStartManualImport={() => {
             skipPopOnNavigateRef.current = true;
             closeAll();
@@ -2000,11 +1995,6 @@ export default function CalendarPage() {
             closeActiveModal();
             setBatchAddPlantMode(false);
             setBatchAddSeedOpen(true);
-          }}
-          onOpenLinkImport={() => {
-            skipPopOnNavigateRef.current = true;
-            closeActiveModal();
-            router.push("/vault/import?embed=1");
           }}
           onStartManualImport={() => {
             skipPopOnNavigateRef.current = true;

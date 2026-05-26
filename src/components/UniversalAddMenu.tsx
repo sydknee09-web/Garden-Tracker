@@ -36,8 +36,6 @@ export interface UniversalAddMenuProps {
   // these fire from the menu's "seed" / "shed" sub-screens, not from a standalone modal.
   /** In-menu SeedPacketForm Photo Import button (BatchAddSeed). */
   onSeedOpenBatch?: () => void;
-  /** In-menu SeedPacketForm Link Import button (navigate to /vault/import). */
-  onSeedOpenLinkImport?: () => void;
   /** In-menu SeedPacketForm Purchase Order button (PurchaseOrderImport modal). */
   onSeedOpenPurchaseOrder?: () => void;
   /** In-menu SeedPacketForm save-no-match handoff (navigate to /vault/import/manual). */
@@ -72,7 +70,6 @@ export function UniversalAddMenu({
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
   onSeedOpenBatch,
-  onSeedOpenLinkImport,
   onSeedOpenPurchaseOrder,
   onSeedStartManualImport,
   onSupplyOpenPurchaseOrder,
@@ -279,7 +276,6 @@ export function UniversalAddMenu({
               onSuccess={onClose}
               onBack={goBackToMain}
               onOpenBatch={onSeedOpenBatch}
-              onOpenLinkImport={onSeedOpenLinkImport}
               onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
               onStartManualImport={onSeedStartManualImport}
             />

@@ -31,7 +31,9 @@ const VOLUME_LABELS: Record<Volume, string> = {
 
 // Internal step machine inside SeedPacketForm — renamed from `screen` to `step` to avoid collision
 // with UniversalAddMenu's outer `screen` state when this form mounts inside the menu.
-type SeedPacketFormStep = "choose" | "manual";
+// "link" step mirrors SupplyForm's step="link" shape: URL input -> POST /api/seed/extract-single-url
+// -> prefill plantName/variety/vendor/sourceUrlToSave -> advance to "manual" for review + save.
+type SeedPacketFormStep = "choose" | "manual" | "link";
 
 export interface QuickAddSuccessOpts {
   /** True when seed was saved but product photo upload was blocked or failed */
@@ -53,8 +55,6 @@ export interface SeedPacketFormProps {
   profileDisplayName?: string | null;
   /** Open the Photo Import (group photo) flow; parent should close this and open BatchAddSeed. */
   onOpenBatch?: () => void;
-  /** Open Link Import (paste URL) flow; parent should close this and navigate to /vault/import. */
-  onOpenLinkImport?: () => void;
   /** Open Purchase Order import (screenshot of cart/order); parent should close this and open PurchaseOrderImport. */
   onOpenPurchaseOrder?: () => void;
   /** When manual add has no matching profile; parent should navigate to /vault/import/manual. */
@@ -97,7 +97,6 @@ export function SeedPacketForm({
   preSelectedProfileId,
   profileDisplayName,
   onOpenBatch,
-  onOpenLinkImport,
   onOpenPurchaseOrder,
   onStartManualImport,
   onBack,
@@ -134,6 +133,10 @@ export function SeedPacketForm({
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestions, setVarietySuggestions] = useState<string[]>([]);
+  // step="link" inline single-URL import state. Mirrors SupplyForm's importUrl/importing/importError.
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Reset step + form state on mount; apply initial prefill and/or preSelectedProfileId from parent.
   useEffect(() => {
@@ -254,6 +257,55 @@ export function SeedPacketForm({
     setError(null);
     setStepDirection("back");
     setStep("choose");
+  }
+
+  /**
+   * Link import single-URL flow. POSTs URL to thin /api/seed/extract-single-url endpoint
+   * (which wraps /api/seed/extract-metadata), prefills plantName/variety/vendor/sourceUrl,
+   * and advances to step="manual" for user review + save via the existing handleSubmit pipeline.
+   */
+  async function handleImportFromLink() {
+    const url = importUrl.trim();
+    if (!url.startsWith("http")) {
+      setImportError("Enter a valid product URL");
+      return;
+    }
+    if (!session?.access_token) {
+      setImportError("Please sign in to import");
+      return;
+    }
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch("/api/seed/extract-single-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setImportError(formatAddFlowError((data?.error as string) ?? undefined));
+        return;
+      }
+      const plant = typeof data?.plant_name === "string" ? data.plant_name.trim() : "";
+      const variety = typeof data?.variety === "string" ? data.variety.trim() : "";
+      const vendorVal = typeof data?.vendor === "string" ? data.vendor.trim() : "";
+      const sourceUrlVal = typeof data?.source_url === "string" ? data.source_url.trim() : url;
+      if (plant) setPlantName(plant);
+      if (variety) setVarietyCultivar(variety);
+      if (vendorVal) setVendor(vendorVal);
+      if (sourceUrlVal) setSourceUrlToSave(sourceUrlVal);
+      setImportUrl("");
+      setStepDirection("forward");
+      setStep("manual");
+    } catch (err) {
+      setImportError(formatAddFlowError(err));
+    } finally {
+      setImporting(false);
+    }
   }
 
   /** Link to existing: either add a new packet (new_packet) or confirm use of an existing packet (use_existing; no insert, just close and refresh). */
@@ -515,7 +567,7 @@ export function SeedPacketForm({
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
-        {step === "manual" ? (
+        {step === "manual" || step === "link" ? (
           <button
             type="button"
             onClick={goBack}
@@ -567,19 +619,14 @@ export function SeedPacketForm({
               Photo import
             </button>
           )}
-          {onOpenLinkImport && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenLinkImport();
-              }}
-              className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-            >
-              <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
-              Link import
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => { setStepDirection("forward"); setStep("link"); }}
+            className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+          >
+            <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Link className="w-5 h-5" /></span>
+            Link import
+          </button>
           {onOpenPurchaseOrder && (
             <button
               type="button"
@@ -602,6 +649,38 @@ export function SeedPacketForm({
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {step === "link" && (
+        <div key="link" className={`space-y-4 ${slideClass}`}>
+          <p className="text-sm text-neutral-600">Paste a seed packet or product page URL. Extracts plant, variety, and vendor.</p>
+          <input
+            type="url"
+            value={importUrl}
+            onChange={(e) => setImportUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
+            aria-label="Seed product URL"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleImportFromLink}
+              disabled={importing}
+              className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
+          </div>
+          {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
         </div>
       )}
 
@@ -1130,8 +1209,6 @@ interface QuickAddSeedProps {
   profileDisplayName?: string | null;
   /** Open the Photo Import (group photo) flow; parent should close this modal and open BatchAddSeed */
   onOpenBatch?: () => void;
-  /** Open Link Import (paste URL) flow; parent should close this modal and navigate to /vault/import */
-  onOpenLinkImport?: () => void;
   /** Open Purchase Order import (screenshot of cart/order); parent should close this modal and open PurchaseOrderImport */
   onOpenPurchaseOrder?: () => void;
   /** When manual add has no matching profile; parent should navigate to /vault/import/manual */
@@ -1140,7 +1217,7 @@ interface QuickAddSeedProps {
   onBackToMenu?: () => void;
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenLinkImport, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
   useBodyScrollLock(open);
 
   if (!open) return null;
@@ -1165,7 +1242,6 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
           preSelectedProfileId={preSelectedProfileId}
           profileDisplayName={profileDisplayName}
           onOpenBatch={onOpenBatch}
-          onOpenLinkImport={onOpenLinkImport}
           onOpenPurchaseOrder={onOpenPurchaseOrder}
           onStartManualImport={onStartManualImport}
           onBack={onBackToMenu}
