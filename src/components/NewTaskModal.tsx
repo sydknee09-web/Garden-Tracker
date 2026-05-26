@@ -9,6 +9,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { FormError } from "@/components/FormError";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import type { TaskType, Task } from "@/types/garden";
 import { logEvent } from "@/lib/debugLog";
@@ -423,7 +424,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             )}
           </>
         )}
-        {error && <p className="text-sm text-citrus font-medium">{error}</p>}
+        {error && <FormError>{error}</FormError>}
         <div className="space-y-2 pt-2">
           <button
             type="submit"

@@ -529,6 +529,18 @@ function PotUpIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Warning triangle — semantic error icon. Uses currentColor so parent text color governs (red for errors, etc.). */
+function WarningIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), stroke: "currentColor", ...props };
+  return (
+    <svg {...p}>
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
 export const ICON_MAP = {
   Add: AddIcon,
   Link: LinkIcon,
@@ -577,6 +589,7 @@ export const ICON_MAP = {
   Mic: MicIcon,
   Sprout: SproutIcon,
   PotUp: PotUpIcon,
+  Warning: WarningIcon,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

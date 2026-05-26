@@ -9,6 +9,7 @@ import { compressImage } from "@/lib/compressImage";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { FormError } from "@/components/FormError";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
@@ -658,7 +659,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                 {webcamError && <p className="text-xs text-citrus mt-1">{webcamError}</p>}
               </div>
 
-              {submitError && <p className="text-sm text-citrus font-medium">{submitError}</p>}
+              {submitError && <FormError>{submitError}</FormError>}
 
               {canEdit && (
                 <div className="flex gap-3 pt-2">

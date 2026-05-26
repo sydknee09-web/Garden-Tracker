@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { FormError } from "@/components/FormError";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
@@ -674,7 +675,7 @@ export function SupplyForm({
                 aria-label="Product URL"
               />
             </div>
-            {error && <p className="text-sm text-amber-600 font-medium">{error}</p>}
+            {error && <FormError>{error}</FormError>}
             <div className="flex gap-2 pt-2">
               <button
                 type="button"

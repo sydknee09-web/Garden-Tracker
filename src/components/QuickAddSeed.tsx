@@ -17,6 +17,7 @@ import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { FormError } from "@/components/FormError";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { logEvent } from "@/lib/debugLog";
 
@@ -936,7 +937,7 @@ export function SeedPacketForm({
                   )}
                 </>
               )}
-              {error && <p className="text-sm text-citrus font-medium">{error}</p>}
+              {error && <FormError>{error}</FormError>}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
                   Cancel
@@ -1069,9 +1070,7 @@ export function SeedPacketForm({
                   aria-label="Packet notes"
                 />
               </div>
-              {error && (
-                <p className="text-sm text-citrus font-medium">{error}</p>
-              )}
+              {error && <FormError>{error}</FormError>}
               <p className="text-xs text-black/60">
                 Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet). Add a packet when you buy.
               </p>

@@ -247,6 +247,24 @@ Don't accidentally unify them — the visual distinction is doing semantic work.
 
 User signal verbatim (2026-05-24): gray-fill = dropdown affordance (preset options); white outline = free-text input. Two field treatments signaling two interaction patterns.
 
+### Form-level error treatment
+
+**Locked 2026-05-26.** Form-level errors (both validation messages like "Title is required." AND save-failure messages from `formatAddFlowError()`) render via the shared [`FormError`](../src/components/FormError.tsx) component.
+
+**Visual contract:**
+- `italic` (semantic: error / blocker, distinct from regular copy)
+- `text-red-600` (error semantic — NOT yellow/amber, which read as warning, not blocker)
+- `text-sm font-medium`
+- Small warning-icon prefix (`ICON_MAP.Warning`, sized 16×16, color inherits via `currentColor`)
+- `role="alert"` for screen reader semantics
+- Placement: **bottom of form**, NOT inline-by-field (the user has typically scrolled past the field by the time the error fires; inline-by-field errors would be missed). Locked 2026-05-26.
+
+**When to use:** any FAB-tree or user-data-entry form that displays a blocking error message at form-submission time. Both validation errors and save/insert failures use the same component — same render slot, same treatment. [`addFlowError.ts`](../src/lib/addFlowError.ts) handles the message text split (save-failure formatting vs validation literal); `FormError` handles the visual.
+
+**Sites using it (initial roll-out 2026-05-26):** NewTaskModal, QuickAddSeed (×2 paths), AddPlantModal, QuickAddSupply, EditJournalModal (submitError only — webcamError remains a field-level inline error, different shape).
+
+**Out-of-scope follow-ups** (logged 2026-05-26 for future polish pass): auth pages (login/signup/reset-password/update-password), AddPlantManualModal, AddItemModal, FeedbackModal, InviteMemberModal, BatchAddSeed/Supply.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 

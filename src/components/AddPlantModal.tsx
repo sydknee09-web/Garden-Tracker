@@ -18,6 +18,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { logEvent } from "@/lib/debugLog";
 
@@ -960,7 +961,7 @@ export function AddPlantModal({
               />
             </div>
 
-            {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+            {error && <FormError>{error}</FormError>}
           </div>
           <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
             <button type="button" onClick={handleClose} disabled={submitting} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
