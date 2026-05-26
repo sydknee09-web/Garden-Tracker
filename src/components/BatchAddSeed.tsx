@@ -1053,7 +1053,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                   disabled={saving || pendingCount === 0}
                   className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {saving ? "Preparing…" : "Load Plant Profile Picture"}
+                  {saving ? "Preparing…" : "Load plant profile picture"}
                 </button>
               )}
             </>

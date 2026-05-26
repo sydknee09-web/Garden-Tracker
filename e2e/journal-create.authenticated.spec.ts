@@ -63,9 +63,9 @@ test.describe("Journal — Quick Log entry creation", () => {
     // Fill in a note (no plant required — saving with no linked plant is valid)
     await page.locator("#quicklog-note").fill("E2E test note with spaces");
 
-    // Submit (QuickLogModal submit button text is "Add" — renamed from "Save" in a78dbd6;
-    // scope to dialog to disambiguate from the FAB which also has accessible name "Add")
-    await page.getByRole("dialog").getByRole("button", { name: "Add", exact: true }).click();
+    // Submit (QuickLogModal submit button text is "Add entry" — renamed in saga follow-up
+    // after Syd dogfood caught bare-verb leak; scope to dialog to be explicit)
+    await page.getByRole("dialog").getByRole("button", { name: "Add entry", exact: true }).click();
 
               // Dialog should close after save (allow up to 30s for Supabase insert in CI)
               await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 30000 });

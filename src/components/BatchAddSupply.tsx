@@ -482,7 +482,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
               disabled={readyCount === 0}
               className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              Extract &amp; Review ({readyCount} photo{readyCount !== 1 ? "s" : ""})
+              Extract &amp; review ({readyCount} photo{readyCount !== 1 ? "s" : ""})
             </button>
           )}
         </div>

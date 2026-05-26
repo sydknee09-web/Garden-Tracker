@@ -693,7 +693,7 @@ export function SupplyForm({
               disabled={importing || !importUrl.trim()}
               className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              {importing ? "Importing…" : "Import"}
+              {importing ? "Importing…" : "Import details"}
             </button>
           </div>
         )}
@@ -713,7 +713,7 @@ export function SupplyForm({
               disabled={submitting || added || !name.trim()}
               className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save" : "Add"}
+              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save changes" : "Add supply"}
             </button>
           </div>
         )}

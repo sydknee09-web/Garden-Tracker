@@ -875,7 +875,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
           onClick={handleConfirm}
           className="w-full min-h-[44px] rounded-xl bg-emerald-600 text-white text-base font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
         >
-          {confirming ? "Planting…" : "Confirm Planting"}
+          {confirming ? "Planting…" : "Confirm planting"}
         </button>
       </div>
     </>
