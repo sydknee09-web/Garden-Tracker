@@ -114,202 +114,218 @@ export function UniversalAddMenu({
       <div className="fixed inset-0 z-[100] bg-black/20 animate-fade-in" aria-hidden onClick={onClose} />
       <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 pointer-events-none">
       <div
-        className={`relative w-full max-w-md rounded-3xl bg-white border border-neutral-200/80 p-6 max-h-[85svh] overflow-y-auto animate-fab-menu-enter pointer-events-auto ${FAB_MENU_SHADOW_CLASS}`}
+        className={`relative w-full max-w-md rounded-3xl bg-white border border-neutral-200/80 max-h-[85svh] flex flex-col overflow-hidden animate-fab-menu-enter pointer-events-auto ${FAB_MENU_SHADOW_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="universal-add-title"
       >
         {screen === "main" && (
-          <div key="main" className={slideClass}>
-            <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add</h2>
-            <p className="text-sm text-neutral-500 text-center mb-4">What would you like to add?</p>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
-                <div>
-                  <div>Add seed packet</div>
-                  <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScreenDirection("forward"); setScreen("add-plant"); }}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
-                <div>
-                  <div>Add plant</div>
-                  <div className="text-xs font-normal text-neutral-500">Trees, perennials, or seasonal</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScreenDirection("forward"); setScreen("shed"); }}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
-                <div>
-                  <div>Add to shed</div>
-                  <div className="text-xs font-normal text-neutral-500">Fertilizer, soil, supplies</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScreenDirection("forward"); setScreen("task"); }}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
-                <div>
-                  <div>Add task</div>
-                  <div className="text-xs font-normal text-neutral-500">Reminder or to-do for calendar</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setScreenDirection("forward"); setScreen("journal"); }}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
-                <div>
-                  <div>Add journal</div>
-                  <div className="text-xs font-normal text-neutral-500">Log growth, harvest, notes</div>
-                </div>
-              </button>
+          <div key="main" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-shrink-0 px-6 pt-6 pb-4">
+              <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900 mb-1">Add</h2>
+              <p className="text-sm text-neutral-500 text-center">What would you like to add?</p>
             </div>
-            <div className="pt-4">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4">
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add seed packet</div>
+                    <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("add-plant"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add plant</div>
+                    <div className="text-xs font-normal text-neutral-500">Trees, perennials, or seasonal</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("shed"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add to shed</div>
+                    <div className="text-xs font-normal text-neutral-500">Fertilizer, soil, supplies</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("task"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add task</div>
+                    <div className="text-xs font-normal text-neutral-500">Reminder or to-do for calendar</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("journal"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add journal</div>
+                    <div className="text-xs font-normal text-neutral-500">Log growth, harvest, notes</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
           </div>
         )}
 
         {screen === "add-plant" && (
-          <div key="add-plant" className={slideClass}>
-            <div className="flex items-center gap-2 mb-4">
-              <button type="button" onClick={goBackToMain} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
-                <ICON_MAP.Back className="w-5 h-5" />
-              </button>
-              <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
-              <div className="w-11 shrink-0" aria-hidden />
-            </div>
-            <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
-            <div className="flex gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setAddPlantDefaultType("permanent")}
-                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                My Plants
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddPlantDefaultType("seasonal")}
-                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-              >
-                Active Garden
-              </button>
-            </div>
-            <p className="text-sm text-neutral-500 text-center mb-4">How do you want to add a plant?</p>
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleAddPlantManual}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
-                <div>
-                  <div>Manual entry</div>
-                  <div className="text-xs font-normal text-neutral-500">Enter name, variety, notes</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={handleAddPlantFromVault}
-                className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-              >
-                <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
-                <div>
-                  <div>From Vault</div>
-                  <div className="text-xs font-normal text-neutral-500">Plant from your existing vault</div>
-                </div>
-              </button>
-              {onAddPlantPurchaseOrder && (
+          <div key="add-plant" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-shrink-0 px-6 pt-6 pb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <button type="button" onClick={goBackToMain} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
+                  <ICON_MAP.Back className="w-5 h-5" />
+                </button>
+                <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
+                <div className="w-11 shrink-0" aria-hidden />
+              </div>
+              <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
+              <div className="flex gap-2 mb-2">
                 <button
                   type="button"
-                  onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
-                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  onClick={() => setAddPlantDefaultType("permanent")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
                 >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
-                  <div>
-                    <div>Scan purchase order</div>
-                    <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with plants</div>
-                  </div>
+                  My Plants
                 </button>
-              )}
-              {onAddPlantPhotoImport && (
                 <button
                   type="button"
-                  onClick={() => { onClose(); onAddPlantPhotoImport(); }}
+                  onClick={() => setAddPlantDefaultType("seasonal")}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+                >
+                  Active Garden
+                </button>
+              </div>
+              <p className="text-sm text-neutral-500 text-center">How do you want to add a plant?</p>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4">
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={handleAddPlantManual}
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
                   <div>
-                    <div>Photo import</div>
-                    <div className="text-xs font-normal text-neutral-500">Multi-photo, extract plant tags</div>
+                    <div>Manual entry</div>
+                    <div className="text-xs font-normal text-neutral-500">Enter name, variety, notes</div>
                   </div>
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={handleAddPlantFromVault}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
+                  <div>
+                    <div>From Vault</div>
+                    <div className="text-xs font-normal text-neutral-500">Plant from your existing vault</div>
+                  </div>
+                </button>
+                {onAddPlantPurchaseOrder && (
+                  <button
+                    type="button"
+                    onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
+                    className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  >
+                    <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
+                    <div>
+                      <div>Scan purchase order</div>
+                      <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with plants</div>
+                    </div>
+                  </button>
+                )}
+                {onAddPlantPhotoImport && (
+                  <button
+                    type="button"
+                    onClick={() => { onClose(); onAddPlantPhotoImport(); }}
+                    className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  >
+                    <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
+                    <div>
+                      <div>Photo import</div>
+                      <div className="text-xs font-normal text-neutral-500">Multi-photo, extract plant tags</div>
+                    </div>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="pt-4">
+            <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
           </div>
         )}
 
         {screen === "seed" && (
-          <div key="seed" className={slideClass}>
-            <SeedPacketForm
-              onClose={onClose}
-              onSuccess={onClose}
-              onBack={goBackToMain}
-              onOpenBatch={onSeedOpenBatch}
-              onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
-              onStartManualImport={onSeedStartManualImport}
-            />
+          <div key="seed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+              <SeedPacketForm
+                onClose={onClose}
+                onSuccess={onClose}
+                onBack={goBackToMain}
+                onOpenBatch={onSeedOpenBatch}
+                onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
+                onStartManualImport={onSeedStartManualImport}
+              />
+            </div>
           </div>
         )}
 
         {screen === "shed" && (
-          <div key="shed" className={slideClass}>
-            <SupplyForm
-              onClose={onClose}
-              onSuccess={onClose}
-              onBack={goBackToMain}
-              onOpenPurchaseOrder={onSupplyOpenPurchaseOrder}
-              onOpenBatchPhotoImport={onSupplyOpenBatchPhotoImport}
-            />
+          <div key="shed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+              <SupplyForm
+                onClose={onClose}
+                onSuccess={onClose}
+                onBack={goBackToMain}
+                onOpenPurchaseOrder={onSupplyOpenPurchaseOrder}
+                onOpenBatchPhotoImport={onSupplyOpenBatchPhotoImport}
+              />
+            </div>
           </div>
         )}
 
         {screen === "task" && (
-          <div key="task" className={slideClass}>
-            <TaskForm
-              onClose={onClose}
-              onBack={goBackToMain}
-            />
+          <div key="task" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+              <TaskForm
+                onClose={onClose}
+                onBack={goBackToMain}
+              />
+            </div>
           </div>
         )}
 
         {screen === "journal" && (
-          <div key="journal" className={slideClass}>
-            <JournalEntryForm
-              onClose={onClose}
-              onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
-              onBack={goBackToMain}
-            />
+          <div key="journal" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
+              <JournalEntryForm
+                onClose={onClose}
+                onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
+                onBack={goBackToMain}
+              />
+            </div>
           </div>
         )}
       </div>
