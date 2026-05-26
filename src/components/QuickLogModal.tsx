@@ -14,6 +14,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
 import { logClientMetrics } from "@/lib/logClientMetrics";
+import { logEvent } from "@/lib/debugLog";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null };
 type SupplyOption = { id: string; name: string; brand: string | null };
@@ -272,6 +273,7 @@ export function JournalEntryForm({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      logEvent("form", "submit", { name: "add_journal" });
       const sessionUserId = user?.id;
       if (!sessionUserId) {
         setSubmitError("You must be signed in to save journal entries.");
@@ -327,6 +329,7 @@ export function JournalEntryForm({
           .select("id")
           .single();
         if (insertErr) {
+          logEvent("form", "error", { name: "add_journal", message: insertErr.message });
           setSubmitError(formatAddFlowError(insertErr));
           hapticError();
           return;
@@ -360,10 +363,12 @@ export function JournalEntryForm({
           await supabase.from("journal_entry_supplies").insert(jesRows);
           logClientMetrics("journal_entry_supplies_insert", performance.now() - jesStart, { row_count: jesRows.length });
         }
+        logEvent("form", "success", { name: "add_journal" });
         hapticSuccess();
         onJournalAdded?.();
         onClose();
       } catch (err) {
+        logEvent("form", "error", { name: "add_journal", message: err instanceof Error ? err.message : String(err) });
         setSubmitError(formatAddFlowError(err));
         hapticError();
       } finally {

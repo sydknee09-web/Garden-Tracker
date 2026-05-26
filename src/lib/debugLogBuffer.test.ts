@@ -29,12 +29,13 @@ describe("debugLogBuffer", () => {
     expect(entries.map((e) => e.message)).toEqual(["hello", "careful", "bad"]);
   });
 
-  it("respects the 50-entry rolling limit", () => {
-    for (let i = 0; i < 75; i++) pushEntry("log", [`msg-${i}`]);
+  it("respects the rolling MAX_ENTRIES limit", () => {
+    const total = __test__.MAX_ENTRIES + 25;
+    for (let i = 0; i < total; i++) pushEntry("log", [`msg-${i}`]);
     const entries = getEntries();
     expect(entries).toHaveLength(__test__.MAX_ENTRIES);
     expect(entries[0].message).toBe("msg-25");
-    expect(entries[entries.length - 1].message).toBe("msg-74");
+    expect(entries[entries.length - 1].message).toBe(`msg-${total - 1}`);
   });
 
   it("safe-stringifies non-string args including circular references", () => {

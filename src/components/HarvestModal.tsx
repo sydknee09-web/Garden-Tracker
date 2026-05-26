@@ -10,6 +10,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { logEvent } from "@/lib/debugLog";
 
 interface Props {
   open: boolean;
@@ -80,6 +81,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
 
   const handleSave = useCallback(async () => {
     if (!user?.id) return;
+    logEvent("form", "submit", { name: "harvest" });
     setSaving(true);
     setErrorMessage(null);
     try {
@@ -110,6 +112,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       }).select("id").single();
 
       if (error) {
+        logEvent("form", "error", { name: "harvest", message: error.message });
         console.error("HarvestModal save error", error.message);
         setSaving(false);
         return;
@@ -124,9 +127,11 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
       photos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
       setPhotos([]);
       setErrorMessage(null);
+      logEvent("form", "success", { name: "harvest" });
       onSaved();
       onClose();
     } catch (err) {
+      logEvent("form", "error", { name: "harvest", message: err instanceof Error ? err.message : String(err) });
       setErrorMessage(formatAddFlowError(err));
     } finally {
       setSaving(false);

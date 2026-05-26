@@ -18,6 +18,7 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { logEvent } from "@/lib/debugLog";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
 const VOLUME_LABELS: Record<Volume, string> = {
@@ -408,6 +409,7 @@ export function SeedPacketForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    logEvent("form", "submit", { name: "add_seed" });
     setError(null);
     const name = plantName.trim();
     if (!name) {
@@ -455,11 +457,13 @@ export function SeedPacketForm({
         ...(priceVal && { price: priceVal }),
       });
       if (packetErr) {
+        logEvent("form", "error", { name: "add_seed", message: packetErr.message });
         setSubmitting(false);
         setError(formatAddFlowError(packetErr));
         return;
       }
       await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", match.id).eq("user_id", userId);
+      logEvent("form", "success", { name: "add_seed", path: "match" });
       setSubmitting(false);
       hapticSuccess();
       setAddedToVault(true);
@@ -481,6 +485,7 @@ export function SeedPacketForm({
     }
 
     // No match: send to loading page → manual import (enrich + hero → save directly)
+    logEvent("form", "success", { name: "add_seed", path: "manual_import" });
     setPendingManualAdd({
       plantName: name.trim(),
       varietyCultivar: varietyCultivar.trim(),

@@ -13,6 +13,7 @@ import { ImageCropModal } from "@/components/ImageCropModal";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import type { SupplyProfile } from "@/types/garden";
+import { logEvent } from "@/lib/debugLog";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
 
@@ -247,6 +248,7 @@ export function SupplyForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!user?.id) return;
+      logEvent("form", "submit", { name: "add_supply", edit: isEdit });
       const nameTrim = name.trim();
       if (!nameTrim) {
         setError("Name is required.");
@@ -306,6 +308,7 @@ export function SupplyForm({
           });
           if (insertErr) throw insertErr;
         }
+        logEvent("form", "success", { name: "add_supply", edit: isEdit });
         hapticSuccess();
         setAdded(true);
         setTimeout(() => {
@@ -313,6 +316,7 @@ export function SupplyForm({
           onClose();
         }, 800);
       } catch (err) {
+        logEvent("form", "error", { name: "add_supply", message: err instanceof Error ? err.message : String(err) });
         setError(formatAddFlowError(err));
       } finally {
         setSubmitting(false);

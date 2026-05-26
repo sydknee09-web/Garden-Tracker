@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { clearCalendarCache } from "@/lib/calendarTasksCache";
+import { logEvent } from "@/lib/debugLog";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
 
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      logEvent("auth", s ? "session_restored" : "no_session", { hasUser: !!s?.user });
       setUserFromSession(s);
       setLoading(false);
     });
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
+      logEvent("auth", _event, { hasSession: !!s });
       setUserFromSession(s);
     });
 
@@ -43,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    logEvent("auth", "sign_out_requested");
     await supabase.auth.signOut();
     clearCalendarCache();
     setUser(null);

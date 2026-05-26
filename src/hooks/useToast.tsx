@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { isSuccessSoundEnabled, playSuccessSound } from "@/lib/successSound";
+import { logEvent } from "@/lib/debugLog";
 
 const TOAST_DURATION_MS = 2500;
 
@@ -53,7 +54,10 @@ export function useToast(durationMs = TOAST_DURATION_MS) {
   );
 
   const showErrorToast = useCallback(
-    (msg: string) => showToast(msg, "error"),
+    (msg: string) => {
+      logEvent("toast", "error", { message: msg });
+      showToast(msg, "error");
+    },
     [showToast]
   );
 

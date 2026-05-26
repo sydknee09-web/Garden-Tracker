@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { getPendingWrites, removeWrite, incrementRetry } from "@/lib/offlineQueue";
 import type { QueuedWrite } from "@/lib/offlineQueue";
+import { logEvent } from "@/lib/debugLog";
 
 const MAX_RETRIES = 5;
 
@@ -20,10 +21,14 @@ export function OfflineIndicator() {
     setIsOnline(navigator.onLine);
 
     const handleOnline = () => {
+      logEvent("net", "online");
       setIsOnline(true);
       setDismissed(false); // Reset so it shows again next time offline
     };
-    const handleOffline = () => setIsOnline(false);
+    const handleOffline = () => {
+      logEvent("net", "offline");
+      setIsOnline(false);
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -47,20 +52,28 @@ export function OfflineIndicator() {
         return;
       }
 
+      logEvent("net", "replay_start", { count: writes.length });
+      let remaining = writes.length;
+
       for (const write of writes) {
         if (write.retries >= MAX_RETRIES) {
           await removeWrite(write.id);
+          remaining -= 1;
           continue;
         }
 
         try {
           await replayOneWrite(write);
           await removeWrite(write.id);
+          remaining -= 1;
           setPendingCount((c) => Math.max(0, c - 1));
+          logEvent("net", "replay_ok", { table: write.table, op: write.operation });
         } catch {
           await incrementRetry(write.id);
+          logEvent("net", "replay_retry", { table: write.table, op: write.operation, retries: write.retries });
         }
       }
+      logEvent("net", "replay_done", { remaining });
     } catch {
       // IndexedDB access failed -- ignore silently
     } finally {

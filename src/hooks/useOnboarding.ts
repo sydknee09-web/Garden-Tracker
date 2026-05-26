@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import { logEvent } from "@/lib/debugLog";
 
 export type OnboardingStep = 1 | 2 | 3;
 
@@ -83,6 +84,7 @@ export function useOnboarding(user: User | null) {
   const reportAction = useCallback(
     async (_action: "zone_set" | "seed_added" | "task_added") => {
       if (!user?.id) return;
+      logEvent("onboard", "action", { action: _action });
       setState((prev) => ({ ...prev, isLoading: true }));
 
       const [settingsRes, packetsRes, profilesRes, tasksRes] = await Promise.all([
@@ -103,6 +105,7 @@ export function useOnboarding(user: User | null) {
           { user_id: user.id, onboarding_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
           { onConflict: "user_id" }
         );
+        logEvent("onboard", "complete", { trigger: completedAt ? "already_complete" : "all_done" });
         setState({ step: 3, completed: true, isLoading: false });
         return;
       }
@@ -115,6 +118,7 @@ export function useOnboarding(user: User | null) {
 
   const dismiss = useCallback(async () => {
     if (!user?.id) return;
+    logEvent("onboard", "dismiss");
     await supabase.from("user_settings").upsert(
       { user_id: user.id, onboarding_completed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       { onConflict: "user_id" }

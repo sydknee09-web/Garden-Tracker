@@ -11,6 +11,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import type { TaskType, Task } from "@/types/garden";
+import { logEvent } from "@/lib/debugLog";
 
 const QUICK_CATEGORIES: { value: TaskType; label: string }[] = [
   { value: "maintenance", label: "Maintenance" },
@@ -136,6 +137,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!user?.id) return;
+      logEvent("form", "submit", { name: "add_task", edit: !!editTask });
       const titleTrim = title.trim();
       if (!titleTrim) {
         setError("Title is required.");
@@ -161,10 +163,12 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             .eq("id", editTask.id)
             .eq("user_id", taskOwnerId);
           if (updateErr) {
+            logEvent("form", "error", { name: "add_task", message: updateErr.message });
             setError(formatAddFlowError(updateErr));
             hapticError();
             return;
           }
+          logEvent("form", "success", { name: "add_task", edit: true });
           hapticSuccess();
           resetForm();
           onClose();
@@ -216,11 +220,13 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             title: titleTrim,
           });
           if (insertErr) {
+            logEvent("form", "error", { name: "add_task", message: insertErr.message });
             setError(formatAddFlowError(insertErr));
             hapticError();
             return;
           }
         }
+        logEvent("form", "success", { name: "add_task", edit: false });
         hapticSuccess();
         resetForm();
         onClose();

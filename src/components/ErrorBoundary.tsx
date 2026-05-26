@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { logEvent } from "@/lib/debugLog";
 
 type Props = {
   children: ReactNode;
@@ -23,6 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logEvent("error_boundary", "caught", { name: error.name, message: error.message });
     console.error("ErrorBoundary caught:", error, errorInfo);
   }
 

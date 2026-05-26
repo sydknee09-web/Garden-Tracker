@@ -5,6 +5,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { enqueueWrite } from "@/lib/offlineQueue";
+import { logEvent } from "@/lib/debugLog";
 
 /** Detect network/connectivity errors from Supabase or thrown errors. */
 export function isNetworkError(err: unknown): boolean {
@@ -31,15 +32,25 @@ export async function insertWithOfflineQueue(
   table: string,
   payload: Record<string, unknown>,
 ): Promise<InsertResult> {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const t0 = Date.now();
+  const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+  if (!online) {
     await enqueueWrite({ table, operation: "insert", payload });
+    logEvent("db", "queued", { table, op: "insert", online });
     return { data: null, error: null };
   }
   const { data, error } = await supabase.from(table).insert(payload);
   if (error && isNetworkError(error)) {
     await enqueueWrite({ table, operation: "insert", payload });
+    logEvent("db", "queued", { table, op: "insert", online, ms: Date.now() - t0 });
     return { data: null, error: null };
   }
+  logEvent("db", error ? "error" : "ok", {
+    table,
+    op: "insert",
+    ms: Date.now() - t0,
+    ...(error ? { message: error.message } : {}),
+  });
   return { data, error };
 }
 
@@ -51,8 +62,11 @@ export async function updateWithOfflineQueue(
   payload: Record<string, unknown>,
   filters: Record<string, string | number | boolean>,
 ): Promise<UpdateResult> {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const t0 = Date.now();
+  const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+  if (!online) {
     await enqueueWrite({ table, operation: "update", payload, filters });
+    logEvent("db", "queued", { table, op: "update", online });
     return { error: null };
   }
   let query = supabase.from(table).update(payload);
@@ -62,8 +76,15 @@ export async function updateWithOfflineQueue(
   const { error } = await query;
   if (error && isNetworkError(error)) {
     await enqueueWrite({ table, operation: "update", payload, filters });
+    logEvent("db", "queued", { table, op: "update", online, ms: Date.now() - t0 });
     return { error: null };
   }
+  logEvent("db", error ? "error" : "ok", {
+    table,
+    op: "update",
+    ms: Date.now() - t0,
+    ...(error ? { message: error.message } : {}),
+  });
   return { error };
 }
 
@@ -75,10 +96,13 @@ export async function insertManyWithOfflineQueue(
   rows: Record<string, unknown>[],
 ): Promise<InsertResult> {
   if (rows.length === 0) return { data: null, error: null };
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const t0 = Date.now();
+  const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+  if (!online) {
     for (const payload of rows) {
       await enqueueWrite({ table, operation: "insert", payload });
     }
+    logEvent("db", "queued", { table, op: "insert_many", count: rows.length, online });
     return { data: null, error: null };
   }
   const { data, error } = await supabase.from(table).insert(rows);
@@ -86,8 +110,16 @@ export async function insertManyWithOfflineQueue(
     for (const payload of rows) {
       await enqueueWrite({ table, operation: "insert", payload });
     }
+    logEvent("db", "queued", { table, op: "insert_many", count: rows.length, online, ms: Date.now() - t0 });
     return { data: null, error: null };
   }
+  logEvent("db", error ? "error" : "ok", {
+    table,
+    op: "insert_many",
+    count: rows.length,
+    ms: Date.now() - t0,
+    ...(error ? { message: error.message } : {}),
+  });
   return { data, error };
 }
 
@@ -99,6 +131,8 @@ export async function upsertWithOfflineQueue(
   payload: Record<string, unknown>,
   options?: { onConflict?: string },
 ): Promise<UpsertResult> {
+  const t0 = Date.now();
+  const online = typeof navigator !== "undefined" ? navigator.onLine : true;
   const enqueue = async () => {
     await enqueueWrite({
       table,
@@ -107,15 +141,23 @@ export async function upsertWithOfflineQueue(
       upsertOnConflict: options?.onConflict,
     });
   };
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  if (!online) {
     await enqueue();
+    logEvent("db", "queued", { table, op: "upsert", online });
     return { data: null, error: null };
   }
   const { data, error } = await supabase.from(table).upsert(payload, options);
   if (error && isNetworkError(error)) {
     await enqueue();
+    logEvent("db", "queued", { table, op: "upsert", online, ms: Date.now() - t0 });
     return { data: null, error: null };
   }
+  logEvent("db", error ? "error" : "ok", {
+    table,
+    op: "upsert",
+    ms: Date.now() - t0,
+    ...(error ? { message: error.message } : {}),
+  });
   return { data, error };
 }
 
@@ -127,8 +169,11 @@ export async function deleteWithOfflineQueue(
   table: string,
   filters: Record<string, string | number | boolean>,
 ): Promise<DeleteResult> {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const t0 = Date.now();
+  const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+  if (!online) {
     await enqueueWrite({ table, operation: "delete", payload: {}, filters });
+    logEvent("db", "queued", { table, op: "delete", online });
     return { error: null };
   }
   let query = supabase.from(table).delete();
@@ -138,7 +183,14 @@ export async function deleteWithOfflineQueue(
   const { error } = await query;
   if (error && isNetworkError(error)) {
     await enqueueWrite({ table, operation: "delete", payload: {}, filters });
+    logEvent("db", "queued", { table, op: "delete", online, ms: Date.now() - t0 });
     return { error: null };
   }
+  logEvent("db", error ? "error" : "ok", {
+    table,
+    op: "delete",
+    ms: Date.now() - t0,
+    ...(error ? { message: error.message } : {}),
+  });
   return { error };
 }

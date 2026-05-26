@@ -19,6 +19,7 @@ import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { logEvent } from "@/lib/debugLog";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
 type PacketOption = { id: string; vendor_name: string | null; qty_status: number; is_archived?: boolean };
@@ -226,6 +227,7 @@ export function AddPlantModal({
 
   const handleSubmit = async () => {
     if (!user?.id) return;
+    logEvent("form", "submit", { name: "add_plant", mode });
     setError(null);
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 0)); // Yield so overlay can render before heavy work
@@ -506,6 +508,7 @@ export function AddPlantModal({
         await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profileId).eq("user_id", user.id);
       }
 
+      logEvent("form", "success", { name: "add_plant", mode });
       hapticSuccess();
       onboardingCtx?.reportAction("seed_added");
       onSuccess?.();
@@ -519,6 +522,7 @@ export function AddPlantModal({
       handleClose();
       router.refresh();
     } catch (e) {
+      logEvent("form", "error", { name: "add_plant", message: e instanceof Error ? e.message : String(e) });
       setError(formatAddFlowError(e));
       hapticError();
     } finally {

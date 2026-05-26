@@ -7,7 +7,7 @@ export type DebugLogEntry = {
 };
 
 const STORAGE_KEY = "garden-tracker-debug-log";
-const MAX_ENTRIES = 50;
+const MAX_ENTRIES = 500;
 
 let installed = false;
 const originals: Partial<Record<DebugLogLevel, (...args: unknown[]) => void>> = {};
