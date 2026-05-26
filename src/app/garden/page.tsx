@@ -1233,7 +1233,6 @@ function GardenPageInner() {
           gardenTab={effectiveViewMode}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             closeAll();
             setPlantingFromVaultOpen(true);

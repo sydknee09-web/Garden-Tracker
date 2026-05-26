@@ -41,6 +41,8 @@ export function AddPlantModal({
   profileDisplayName,
   /** When provided, renders a back-arrow that returns to the FAB menu (instead of closing the flow). */
   onBackToMenu,
+  /** When true, render the 3-section triplet directly without the standalone backdrop + panel wrappers. Menu owns focus trap + body scroll lock + outer chrome. */
+  embedded = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +53,7 @@ export function AddPlantModal({
   profileId?: string;
   profileDisplayName?: string;
   onBackToMenu?: () => void;
+  embedded?: boolean;
 }) {
   const addToExistingProfile = !!profileIdProp;
   const { user, session } = useAuth();
@@ -59,8 +62,8 @@ export function AddPlantModal({
   /** Mobile: opens camera (Law 5). Separate from gallery so users can pick existing photos. */
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const modalRef = useFocusTrap(open);
-  useEscapeKey(open, onClose);
+  const modalRef = useFocusTrap(open && !embedded);
+  useEscapeKey(open && !embedded, onClose);
 
   const [plantType, setPlantType] = useState<"permanent" | "seasonal">(defaultPlantType);
   const [mode, setMode] = useState<"existing" | "new">("new");
@@ -531,14 +534,12 @@ export function AddPlantModal({
     }
   };
 
-  useBodyScrollLock(open);
+  useBodyScrollLock(open && !embedded);
 
   if (!open) return null;
 
-  return (
+  const content = (
     <>
-      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-        <div ref={modalRef} className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
           <div className="flex-shrink-0 px-6 pt-6 pb-4">
             <div className="flex items-center gap-2 mb-2">
               {onBackToMenu ? (
@@ -971,8 +972,20 @@ export function AddPlantModal({
               {submitting ? "Adding…" : plantType === "permanent" ? "Add plant" : "Add planting"}
             </button>
           </div>
+    </>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        content
+      ) : (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
+          <div ref={modalRef} className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
+            {content}
+          </div>
         </div>
-      </div>
+      )}
 
       {enrichmentFailed && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="enrichment-failed-title">

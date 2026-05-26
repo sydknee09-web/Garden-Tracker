@@ -491,8 +491,8 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
   // rather than the form itself.
   const confirmBarClass =
     mode === "page"
-      ? "fixed left-0 right-0 bottom-20 z-[100] px-4 py-2.5 bg-paper border-t border-black/10 shadow-card"
-      : "sticky bottom-0 -mx-6 px-4 py-2.5 bg-paper border-t border-black/10 mt-4";
+      ? "fixed left-0 right-0 bottom-20 z-[100] px-4 py-2.5 bg-paper border-t border-neutral-200 shadow-card"
+      : "sticky bottom-0 -mx-6 px-4 py-2.5 bg-paper border-t border-neutral-200 mt-4";
   const confirmBarStyle =
     mode === "page"
       ? { paddingBottom: "max(0.625rem, calc(0.625rem + env(safe-area-inset-bottom, 0px)))" }
@@ -873,7 +873,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
           type="button"
           disabled={confirmButtonDisabled}
           onClick={handleConfirm}
-          className="w-full min-h-[44px] rounded-xl bg-emerald-500 text-white text-base font-semibold hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
+          className="w-full min-h-[44px] rounded-xl bg-emerald-600 text-white text-base font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-card"
         >
           {confirming ? "Planting…" : "Confirm Planting"}
         </button>

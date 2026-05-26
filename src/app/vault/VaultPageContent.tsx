@@ -173,7 +173,6 @@ function VaultPageInner() {
     openSeed,
     openShed,
     shedInitialName,
-    openPlant,
     closeActiveModal,
     backToMenu,
     closeAll,
@@ -1694,7 +1693,6 @@ function VaultPageInner() {
           pathname={pathname ?? "/vault"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             closeAll();
             setPlantingFromVaultOpen(true);

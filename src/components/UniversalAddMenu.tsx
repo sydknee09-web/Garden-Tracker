@@ -8,8 +8,9 @@ import { TaskForm } from "@/components/NewTaskModal";
 import { JournalEntryForm } from "@/components/QuickLogModal";
 import { SupplyForm } from "@/components/QuickAddSupply";
 import { SeedPacketForm } from "@/components/QuickAddSeed";
+import { AddPlantModal } from "@/components/AddPlantModal";
 
-export type UniversalAddMenuScreen = "main" | "add-plant" | "seed" | "shed" | "task" | "journal";
+export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "seed" | "shed" | "task" | "journal";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -22,8 +23,6 @@ export interface UniversalAddMenuProps {
   addPlantDefaultType: "permanent" | "seasonal";
   /** Update add plant type. From UniversalAddContext. */
   setAddPlantDefaultType: (t: "permanent" | "seasonal") => void;
-  /** Open AddPlantModal with given default type */
-  onAddPlantManual: (defaultType: "permanent" | "seasonal") => void;
   /** Navigate to /vault/plant with from param */
   onAddPlantFromVault: () => void;
   /** Open Purchase Order import (screenshot of cart/order with plants); adds to vault */
@@ -65,7 +64,6 @@ export function UniversalAddMenu({
   gardenTab = "active",
   addPlantDefaultType,
   setAddPlantDefaultType,
-  onAddPlantManual,
   onAddPlantFromVault,
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
@@ -102,12 +100,13 @@ export function UniversalAddMenu({
   };
 
   const handleAddPlantManual = () => {
-    onClose();
-    onAddPlantManual(addPlantDefaultType);
+    setScreenDirection("forward");
+    setScreen("add-plant-manual");
   };
 
   const slideClass = screenDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
   const goBackToMain = () => { setScreenDirection("back"); setScreen("main"); };
+  const goBackToAddPlant = () => { setScreenDirection("back"); setScreen("add-plant"); };
 
   return (
     <>
@@ -274,6 +273,20 @@ export function UniversalAddMenu({
             <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
               <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">Cancel</button>
             </div>
+          </div>
+        )}
+
+        {screen === "add-plant-manual" && (
+          <div key="add-plant-manual" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <AddPlantModal
+              open
+              embedded
+              onClose={onClose}
+              onBackToMenu={goBackToAddPlant}
+              defaultPlantType={addPlantDefaultType}
+              stayInGarden={pathname.startsWith("/garden")}
+              hidePlantTypeToggle={pathname.startsWith("/garden")}
+            />
           </div>
         )}
 

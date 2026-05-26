@@ -276,7 +276,6 @@ export default function JournalPage() {
     closeMenu,
     openShed,
     shedInitialName,
-    openPlant,
     openJournal,
     closeActiveModal,
     backToMenu,
@@ -1067,7 +1066,6 @@ export default function JournalPage() {
           pathname={pathname ?? "/journal"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             closeAll();
             setPlantingFromVaultOpen(true);

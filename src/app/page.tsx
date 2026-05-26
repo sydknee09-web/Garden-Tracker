@@ -145,7 +145,6 @@ export default function HomePage() {
     closeMenu,
     openShed,
     shedInitialName,
-    openPlant,
     closeActiveModal,
     backToMenu,
     closeAll,
@@ -654,7 +653,6 @@ export default function HomePage() {
           pathname={pathname ?? "/"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             closeAll();
             setPlantingFromVaultOpen(true);

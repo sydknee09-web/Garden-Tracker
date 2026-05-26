@@ -135,7 +135,6 @@ export default function CalendarPage() {
     closeMenu,
     openShed,
     shedInitialName,
-    openPlant,
     openTask,
     closeActiveModal,
     backToMenu,
@@ -1912,7 +1911,6 @@ export default function CalendarPage() {
           pathname={pathname ?? "/calendar"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
             closeAll();
             setPlantingFromVaultOpen(true);
