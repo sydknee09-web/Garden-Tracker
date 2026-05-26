@@ -308,24 +308,20 @@ export function UniversalAddMenu({
 
         {screen === "task" && (
           <div key="task" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-              <TaskForm
-                onClose={onClose}
-                onBack={goBackToMain}
-              />
-            </div>
+            <TaskForm
+              onClose={onClose}
+              onBack={goBackToMain}
+            />
           </div>
         )}
 
         {screen === "journal" && (
           <div key="journal" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-              <JournalEntryForm
-                onClose={onClose}
-                onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
-                onBack={goBackToMain}
-              />
-            </div>
+            <JournalEntryForm
+              onClose={onClose}
+              onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
+              onBack={goBackToMain}
+            />
           </div>
         )}
       </div>

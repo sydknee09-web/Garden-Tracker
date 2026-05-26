@@ -387,34 +387,42 @@ export function JournalEntryForm({
     label: p.variety_name?.trim() ? `${p.name} (${p.variety_name})` : p.name,
   }));
 
+  const canSubmit =
+    (selectedQuickAction !== null && selectedQuickAction !== "note") ||
+    note.trim() !== "" ||
+    photos.length > 0 ||
+    selectedProfileIds.size > 0;
+
   return (
-    <>
-      <div className="flex items-center gap-2 mb-4">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
-            aria-label="Back"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
-            aria-label="Close"
-          >
-            <ICON_MAP.Close className="w-5 h-5" />
-          </button>
-        )}
-        <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
-        <div className="w-11 shrink-0" aria-hidden />
+    <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-neutral-600 hover:bg-neutral-100"
+              aria-label="Close"
+            >
+              <ICON_MAP.Close className="w-5 h-5" />
+            </button>
+          )}
+          <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
+          <div className="w-11 shrink-0" aria-hidden />
+        </div>
       </div>
 
-      <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4 relative">
+        <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
         <input
           ref={cameraMobileRef}
           type="file"
@@ -569,22 +577,21 @@ export function JournalEntryForm({
         </div>
 
         {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}
-
-        <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 min-h-[44px] py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">
-            Cancel
-          </button>
-          <button type="submit" disabled={saving || uploadingPhoto} className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">
-            {uploadingPhoto ? "Uploading…" : saving ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
-                Adding…
-              </>
-            ) : "Add"}
-          </button>
-        </div>
-      </form>
-    </>
+      </div>
+      <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
+        <button type="button" onClick={onClose} disabled={saving || uploadingPhoto} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">
+          Cancel
+        </button>
+        <button type="submit" disabled={saving || uploadingPhoto || !canSubmit} className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2">
+          {uploadingPhoto ? "Uploading…" : saving ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
+              Adding…
+            </>
+          ) : "Add"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -622,7 +629,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
     >
       <div
         ref={trapRef}
-        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto shadow-[0_10px_30px_rgba(0,0,0,0.1)] animate-modal-slide-up"
+        className="relative rounded-3xl bg-white border border-neutral-200/80 max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.1)] animate-modal-slide-up"
         role="dialog"
         aria-modal="true"
         aria-labelledby="quicklog-title"

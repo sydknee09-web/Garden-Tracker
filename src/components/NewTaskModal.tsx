@@ -256,27 +256,29 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
   );
 
   return (
-    <div className="relative">
-      <SubmitLoadingOverlay show={saving} message="Saving task…" />
-      <div className="flex items-center gap-2 mb-4">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : (
+    <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-11 shrink-0" aria-hidden />
+          )}
+          <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+            {editTask ? "Edit task" : "New task"}
+          </h2>
           <div className="w-11 shrink-0" aria-hidden />
-        )}
-        <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-          {editTask ? "Edit task" : "New task"}
-        </h2>
-        <div className="w-11 shrink-0" aria-hidden />
+        </div>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4 relative">
+        <SubmitLoadingOverlay show={saving} message="Saving task…" />
         <div>
           <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
             Title *
@@ -425,24 +427,25 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           </>
         )}
         {error && <FormError>{error}</FormError>}
-        <div className="space-y-2 pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-3 rounded-xl bg-emerald text-white font-semibold shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-          >
-            {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add recurring task" : "Add task"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+      <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving || !title.trim()}
+          className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add recurring task" : "Add task"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -475,7 +478,7 @@ export function NewTaskModal({ open, onClose, onSuccess, initialDueDate, initial
       >
         <div
           ref={trapRef}
-          className="relative max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 border border-neutral-200/80 max-w-md w-full animate-modal-slide-up"
+          className="relative max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white border border-neutral-200/80 max-w-md w-full animate-modal-slide-up"
           style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
           role="dialog"
           aria-modal="true"
