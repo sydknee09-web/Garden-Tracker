@@ -279,30 +279,26 @@ export function UniversalAddMenu({
 
         {screen === "seed" && (
           <div key="seed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-              <SeedPacketForm
-                onClose={onClose}
-                onSuccess={onClose}
-                onBack={goBackToMain}
-                onOpenBatch={onSeedOpenBatch}
-                onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
-                onStartManualImport={onSeedStartManualImport}
-              />
-            </div>
+            <SeedPacketForm
+              onClose={onClose}
+              onSuccess={onClose}
+              onBack={goBackToMain}
+              onOpenBatch={onSeedOpenBatch}
+              onOpenPurchaseOrder={onSeedOpenPurchaseOrder}
+              onStartManualImport={onSeedStartManualImport}
+            />
           </div>
         )}
 
         {screen === "shed" && (
           <div key="shed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-              <SupplyForm
-                onClose={onClose}
-                onSuccess={onClose}
-                onBack={goBackToMain}
-                onOpenPurchaseOrder={onSupplyOpenPurchaseOrder}
-                onOpenBatchPhotoImport={onSupplyOpenBatchPhotoImport}
-              />
-            </div>
+            <SupplyForm
+              onClose={onClose}
+              onSuccess={onClose}
+              onBack={goBackToMain}
+              onOpenPurchaseOrder={onSupplyOpenPurchaseOrder}
+              onOpenBatchPhotoImport={onSupplyOpenBatchPhotoImport}
+            />
           </div>
         )}
 

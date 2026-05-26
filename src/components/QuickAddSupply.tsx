@@ -349,43 +349,48 @@ export function SupplyForm({
   const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
-    <>
-      <div className="flex items-center gap-2 mb-4">
-        {!isEdit && step === "choose" && onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : !isEdit && step === "link" ? (
-          <button
-            type="button"
-            onClick={() => { setStepDirection("back"); setStep("choose"); }}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back to choose method"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : !isEdit && step === "form" ? (
-          <button
-            type="button"
-            onClick={() => { setStepDirection("back"); setStep("choose"); }}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back to add options"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : (
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2">
+          {!isEdit && step === "choose" && onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : !isEdit && step === "link" ? (
+            <button
+              type="button"
+              onClick={() => { setStepDirection("back"); setStep("choose"); }}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to choose method"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : !isEdit && step === "form" ? (
+            <button
+              type="button"
+              onClick={() => { setStepDirection("back"); setStep("choose"); }}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to add options"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-11 shrink-0" aria-hidden />
+          )}
+          <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+            {isEdit ? "Edit supply" : step === "choose" ? "Add supply" : step === "link" ? "Import from link" : "Add supply"}
+          </h2>
           <div className="w-11 shrink-0" aria-hidden />
-        )}
-        <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-          {isEdit ? "Edit supply" : step === "choose" ? "Add supply" : step === "link" ? "Import from link" : "Add supply"}
-        </h2>
-        <div className="w-11 shrink-0" aria-hidden />
+        </div>
       </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 relative">
+        <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
 
       {!isEdit && step === "choose" && (
         <div key="choose" className={`space-y-3 ${slideClass}`}>
@@ -426,11 +431,6 @@ export function SupplyForm({
               Purchase order
             </button>
           )}
-          <div className="pt-4">
-            <button type="button" onClick={onClose} className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 
@@ -445,27 +445,13 @@ export function SupplyForm({
             className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
             aria-label="Product URL"
           />
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { setStepDirection("back"); setStep("choose"); }} className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={handleImportFromLink}
-              disabled={importing}
-              className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
-            >
-              {importing ? "Importing…" : "Import"}
-            </button>
-          </div>
           {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
         </div>
       )}
 
       {(isEdit || step === "form") && (
-        <div key="form" className={`relative ${slideClass}`}>
-          <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div key="form" className={slideClass}>
+          <form id="supply-form" onSubmit={handleSubmit} className="space-y-4">
             <input
               ref={fileInputRef}
               type="file"
@@ -676,25 +662,63 @@ export function SupplyForm({
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={!isEdit ? () => { setStepDirection("back"); setStep("choose"); } : onClose}
-                className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
-              >
-                {!isEdit ? "Back" : "Cancel"}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || added}
-                className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-              >
-                {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save" : "Add"}
-              </button>
-            </div>
           </form>
         </div>
       )}
+      </div>
+
+      <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
+        {!isEdit && step === "choose" && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
+          >
+            Cancel
+          </button>
+        )}
+        {!isEdit && step === "link" && (
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={importing}
+              className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImportFromLink}
+              disabled={importing || !importUrl.trim()}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
+          </div>
+        )}
+        {(isEdit || step === "form") && (
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              form="supply-form"
+              type="submit"
+              disabled={submitting || added || !name.trim()}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save" : "Add"}
+            </button>
+          </div>
+        )}
+      </div>
+
       {imagePreviewSrc && (
         <ImageCropModal
           open={cropModalOpen}
@@ -704,7 +728,7 @@ export function SupplyForm({
           onConfirm={handleCropConfirm}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -735,7 +759,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
       onClick={onClose}
     >
       <div
-        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto animate-modal-slide-up"
+        className="relative max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white border border-neutral-200/80 max-w-md w-full animate-modal-slide-up"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-supply-title"

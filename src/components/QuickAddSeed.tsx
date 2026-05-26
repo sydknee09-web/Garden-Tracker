@@ -565,35 +565,42 @@ export function SeedPacketForm({
   const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
-    <>
-      <div className="flex items-center gap-2 mb-4">
-        {step === "manual" || step === "link" ? (
-          <button
-            type="button"
-            onClick={goBack}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back to choose method"
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2">
+          {step === "manual" || step === "link" ? (
+            <button
+              type="button"
+              onClick={goBack}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back to choose method"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-11 shrink-0" aria-hidden />
+          )}
+          <h2
+            id="quick-add-title"
+            className="text-xl font-bold text-neutral-900 flex-1 text-center"
           >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Back"
-          >
-            <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
-          </button>
-        ) : null}
-        <h2
-          id="quick-add-title"
-          className="text-xl font-bold text-neutral-900 flex-1 text-center"
-        >
-          {modalTitle}
-        </h2>
-        <div className="w-11 shrink-0" aria-hidden />
+            {modalTitle}
+          </h2>
+          <div className="w-11 shrink-0" aria-hidden />
+        </div>
       </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 relative">
+        <SubmitLoadingOverlay show={submitting} message={submitMessage} />
 
       {step === "choose" && (
         <div key="choose" className={`space-y-3 ${slideClass}`}>
@@ -640,15 +647,6 @@ export function SeedPacketForm({
               Purchase order
             </button>
           )}
-          <div className="pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 
@@ -663,30 +661,12 @@ export function SeedPacketForm({
             className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
             aria-label="Seed product URL"
           />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={goBack}
-              className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={handleImportFromLink}
-              disabled={importing}
-              className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium min-h-[44px] disabled:opacity-50"
-            >
-              {importing ? "Importing…" : "Import"}
-            </button>
-          </div>
           {importError && <p className="text-sm text-red-600" role="alert">{importError}</p>}
         </div>
       )}
 
       {step === "manual" && (
-        <div key="manual" className={`relative ${slideClass}`}>
-          <SubmitLoadingOverlay show={submitting} message={submitMessage} />
+        <div key="manual" className={slideClass}>
           {!preSelectedProfileId && (
           <div className="flex gap-2 mb-4">
             <button
@@ -706,7 +686,7 @@ export function SeedPacketForm({
           </div>
           )}
           {manualMode === "link" || preSelectedProfileId ? (
-            <form onSubmit={handleLinkToExisting} className="space-y-4">
+            <form id="seed-link-form" onSubmit={handleLinkToExisting} className="space-y-4">
               {preSelectedProfileId ? (
                 <>
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
@@ -1017,35 +997,9 @@ export function SeedPacketForm({
                 </>
               )}
               {error && <FormError>{error}</FormError>}
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10">
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    submitting ||
-                    addedToVault ||
-                    (linkSubChoice === "new_packet" && !preSelectedProfileId && seedProfiles.length === 0) ||
-                    (linkSubChoice === "use_existing" && !selectedPacketId)
-                  }
-                  className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {addedToVault ? (
-                    <>
-                      <CheckmarkIcon className="w-5 h-5" />
-                      Added!
-                    </>
-                  ) : submitting ? (
-                    "Adding…"
-                  ) : (
-                    "Add to vault"
-                  )}
-                </button>
-              </div>
             </form>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="seed-manual-form" onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="quick-add-name" className="block text-sm font-medium text-black/80 mb-1">
                   Plant name *
@@ -1153,47 +1107,117 @@ export function SeedPacketForm({
               <p className="text-xs text-black/60">
                 Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet). Add a packet when you buy.
               </p>
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveForLater}
-                  disabled={submitting}
-                  className="w-full py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Add to vault without a packet — shows as out of stock"
-                >
-                  {submitting ? "Saving…" : "Save for later"}
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || addedToVault}
-                    className="flex-1 py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {addedToVault ? (
-                      <>
-                        <CheckmarkIcon className="w-5 h-5" />
-                        Added!
-                      </>
-                    ) : submitting ? (
-                      "Adding…"
-                    ) : (
-                      "Add to vault (with packet)"
-                    )}
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveForLater}
+                disabled={submitting || !plantName.trim()}
+                className="w-full py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Add to vault without a packet — shows as out of stock"
+              >
+                {submitting ? "Saving…" : "Save for later"}
+              </button>
             </form>
           )}
         </div>
       )}
-    </>
+      </div>
+
+      <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
+        {step === "choose" && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
+          >
+            Cancel
+          </button>
+        )}
+        {step === "link" && (
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={importing}
+              className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImportFromLink}
+              disabled={importing || !importUrl.trim()}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {importing ? "Importing…" : "Import"}
+            </button>
+          </div>
+        )}
+        {step === "manual" && (manualMode === "link" || preSelectedProfileId) && (
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              form="seed-link-form"
+              type="submit"
+              disabled={
+                submitting ||
+                addedToVault ||
+                !selectedProfileIdForLink.trim() ||
+                (linkSubChoice === "new_packet" && !preSelectedProfileId && seedProfiles.length === 0) ||
+                (linkSubChoice === "use_existing" && !selectedPacketId)
+              }
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {addedToVault ? (
+                <>
+                  <CheckmarkIcon className="w-5 h-5" />
+                  Added!
+                </>
+              ) : submitting ? (
+                "Adding…"
+              ) : (
+                "Add to vault"
+              )}
+            </button>
+          </div>
+        )}
+        {step === "manual" && manualMode === "new" && !preSelectedProfileId && (
+          <div className="flex gap-2.5 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              form="seed-manual-form"
+              type="submit"
+              disabled={submitting || addedToVault || !plantName.trim()}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {addedToVault ? (
+                <>
+                  <CheckmarkIcon className="w-5 h-5" />
+                  Added!
+                </>
+              ) : submitting ? (
+                "Adding…"
+              ) : (
+                "Add to vault (with packet)"
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1228,7 +1252,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
       onClick={onClose}
     >
       <div
-        className="relative rounded-3xl bg-white border border-neutral-200/80 p-6 max-w-md w-full max-h-[85vh] overflow-y-auto"
+        className="relative max-h-[85vh] flex flex-col overflow-hidden rounded-3xl bg-white border border-neutral-200/80 max-w-md w-full animate-modal-slide-up"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
         role="dialog"
         aria-labelledby="quick-add-title"
