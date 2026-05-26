@@ -42,6 +42,10 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
+const PlantingFlowModal = dynamic(
+  () => import("@/components/PlantingFlowModal").then((m) => ({ default: m.PlantingFlowModal })),
+  { ssr: false }
+);
 const NewTaskModal = dynamic(
   () => import("@/components/NewTaskModal").then((m) => ({ default: m.NewTaskModal })),
   { ssr: false }
@@ -149,6 +153,7 @@ function VaultPageInner() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [batchAddOpen, setBatchAddOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
+  const [plantingFromVaultOpen, setPlantingFromVaultOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
@@ -1691,9 +1696,8 @@ function VaultPageInner() {
           setAddPlantDefaultType={setAddPlantDefaultType}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
-            skipPopOnNavigateRef.current = true;
             closeAll();
-            router.push("/vault/plant?from=vault");
+            setPlantingFromVaultOpen(true);
           }}
           onAddPlantPurchaseOrder={() => {
             closeAll();
@@ -1840,6 +1844,15 @@ function VaultPageInner() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
+          onBack={backToMenu}
+          onSuccess={() => refetch()}
+        />
+      )}
+
+      {plantingFromVaultOpen && (
+        <PlantingFlowModal
+          open
+          onClose={() => setPlantingFromVaultOpen(false)}
           onBack={backToMenu}
           onSuccess={() => refetch()}
         />

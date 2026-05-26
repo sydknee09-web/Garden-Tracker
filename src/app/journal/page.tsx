@@ -45,6 +45,10 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
+const PlantingFlowModal = dynamic(
+  () => import("@/components/PlantingFlowModal").then((m) => ({ default: m.PlantingFlowModal })),
+  { ssr: false }
+);
 import Image from "next/image";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStateJournal } from "@/components/EmptyStateIllustrations";
@@ -260,6 +264,7 @@ export default function JournalPage() {
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
+  const [plantingFromVaultOpen, setPlantingFromVaultOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const {
     addMenuOpen,
@@ -1064,9 +1069,8 @@ export default function JournalPage() {
           setAddPlantDefaultType={setAddPlantDefaultType}
           onAddPlantManual={openPlant}
           onAddPlantFromVault={() => {
-            skipPopOnNavigateRef.current = true;
             closeAll();
-            router.push("/vault/plant?from=journal");
+            setPlantingFromVaultOpen(true);
           }}
           onAddPlantPurchaseOrder={() => {
             closeAll();
@@ -1210,6 +1214,15 @@ export default function JournalPage() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
+          onBack={backToMenu}
+          onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        />
+      )}
+
+      {plantingFromVaultOpen && (
+        <PlantingFlowModal
+          open
+          onClose={() => setPlantingFromVaultOpen(false)}
           onBack={backToMenu}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
