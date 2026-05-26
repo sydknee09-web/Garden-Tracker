@@ -23,9 +23,11 @@ interface BatchAddSupplyProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** When provided, renders a Back arrow on the capture step that returns to the parent menu (e.g. FAB tree). */
+  onBack?: () => void;
 }
 
-export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps) {
+export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSupplyProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
@@ -285,8 +287,18 @@ export function BatchAddSupply({ open, onClose, onSuccess }: BatchAddSupplyProps
         aria-labelledby="batch-add-supply-title"
       >
         <div className="flex items-start justify-between gap-3 mb-4">
-          <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black pt-0.5">
-            {step === "capture" ? "Import Supplies from Photos" : "Extracting…"}
+          {step === "capture" && onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex-shrink-0 p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+            </button>
+          ) : null}
+          <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black pt-0.5 flex-1 text-center">
+            {step === "capture" ? "Photo import" : "Extracting…"}
           </h2>
           <button
             type="button"

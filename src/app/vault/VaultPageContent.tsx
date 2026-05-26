@@ -1834,6 +1834,7 @@ function VaultPageInner() {
         <BatchAddSeed
           open={batchAddOpen}
           onClose={() => setBatchAddOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => refetch()}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -1849,6 +1850,7 @@ function VaultPageInner() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => refetch()}
         />
       )}

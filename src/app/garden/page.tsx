@@ -1349,6 +1349,7 @@ function GardenPageInner() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -1384,6 +1385,7 @@ function GardenPageInner() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
       )}

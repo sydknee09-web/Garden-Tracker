@@ -2025,6 +2025,7 @@ export default function CalendarPage() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => setRefetch((r) => r + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -2060,6 +2061,7 @@ export default function CalendarPage() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
+          onBack={backToMenu}
           onSuccess={() => setRefetch((r) => r + 1)}
         />
       )}
