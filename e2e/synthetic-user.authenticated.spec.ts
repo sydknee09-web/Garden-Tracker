@@ -78,7 +78,8 @@ test.describe("Synthetic User Procedure", () => {
     await page.getByText("Add journal").click();
     await expect(page.locator("#quicklog-note")).toBeVisible({ timeout: 5000 });
     await page.locator("#quicklog-note").fill(`Synthetic test note ${Date.now()}`);
-    await page.getByRole("button", { name: "Save" }).click();
+    // QuickLogModal submit button text is "Add" — scope to dialog to disambiguate from FAB
+    await page.getByRole("dialog").getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 30000 });
     await expect(page).not.toHaveURL(/\/login/);
     step("Journal Quick Log OK");
