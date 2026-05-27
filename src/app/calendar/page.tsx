@@ -971,19 +971,19 @@ export default function CalendarPage() {
         <button
           type="button"
           onClick={prevMonth}
-          className="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
+          className="flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 hover:bg-black/5"
           aria-label="Previous month"
         >
-          ←
+          <ICON_MAP.ChevronLeft className="w-5 h-5" />
         </button>
         <span className="font-semibold text-black text-base min-w-[140px] text-center">{monthLabel}</span>
         <button
           type="button"
           onClick={nextMonth}
-          className="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 text-sm font-medium hover:bg-black/5"
+          className="flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl border border-black/10 text-black/80 hover:bg-black/5"
           aria-label="Next month"
         >
-          →
+          <ICON_MAP.ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
