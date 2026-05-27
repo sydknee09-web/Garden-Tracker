@@ -10,6 +10,7 @@ import { setSupplyReviewData } from "@/lib/supplyReviewStorage";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import type { SupplyOrderLineItem } from "@/app/api/supply/extract-order/route";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { ICON_MAP } from "@/lib/styleDictionary";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -28,9 +29,12 @@ interface PurchaseOrderImportProps {
   defaultProfileType?: "seed" | "permanent";
   /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Scan Purchase Order. */
   addPlantMode?: boolean;
+  /** When provided, renders a Back arrow on the input step that returns to the parent FAB sub-menu.
+   * Mirrors BatchAddSeed / BatchAddSupply onBack pattern. Non-FAB callers omit; arrow doesn't render. */
+  onBack?: () => void;
 }
 
-export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfileType = "seed", addPlantMode = false }: PurchaseOrderImportProps) {
+export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfileType = "seed", addPlantMode = false, onBack }: PurchaseOrderImportProps) {
   const router = useRouter();
   const { session: authSession } = useAuth();
   const [isExtracting, setIsExtracting] = useState(false);
@@ -257,7 +261,18 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       >
         <div className="flex-shrink-0 px-6 pt-6 pb-4">
           <div className="flex items-center gap-2">
-            <div className="w-11 shrink-0" aria-hidden />
+            {onBack && !isExtracting ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="p-2 rounded-xl text-neutral-600 hover:bg-neutral-100 -ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Back"
+              >
+                <ICON_MAP.Back stroke="currentColor" className="w-5 h-5" />
+              </button>
+            ) : (
+              <div className="w-11 shrink-0" aria-hidden />
+            )}
             <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black flex-1 text-center">
               Purchase order import
             </h2>

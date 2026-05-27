@@ -2092,6 +2092,16 @@ export default function CalendarPage() {
         <PurchaseOrderImport
           open={purchaseOrderOpen}
           onClose={() => setPurchaseOrderOpen(false)}
+          onBack={() => {
+            setPurchaseOrderOpen(false);
+            openMenuOnScreen(
+              purchaseOrderMode === "supply"
+                ? "shed"
+                : purchaseOrderAddPlantMode
+                  ? "add-plant"
+                  : "seed"
+            );
+          }}
           mode={purchaseOrderMode}
           defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
           addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
