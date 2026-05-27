@@ -81,13 +81,19 @@ export function UniversalAddMenu({
   // close the menu and open the standalone QuickAddSupply with prefill. Q1 Option B
   // (locked 2026-05-19) — accept the regression that the menu doesn't auto-resume on
   // the journal sub-screen after QuickAddSupply closes; user re-opens menu manually.
-  const { openShed } = useUniversalAddModals();
+  const { openShed, pendingMenuScreen, clearPendingMenuScreen } = useUniversalAddModals();
 
   useEffect(() => {
     if (open) {
-      setScreen("main");
+      // If a caller requested a specific sub-screen via openMenuOnScreen (e.g. Back arrow on
+      // BatchAddSupply restoring "shed" sub-menu), honor it. Otherwise reset to "main".
+      setScreen(pendingMenuScreen ?? "main");
       setScreenDirection("forward");
+      if (pendingMenuScreen) clearPendingMenuScreen();
     }
+    // Dep list intentionally only watches `open` so a stale-while-open pendingMenuScreen update
+    // doesn't cause mid-flow screen jumps. The screen target is read at the open-transition moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useBodyScrollLock(open);

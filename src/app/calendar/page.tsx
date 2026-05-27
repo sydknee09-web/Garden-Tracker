@@ -139,6 +139,7 @@ export default function CalendarPage() {
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
   } = useUniversalAddModals();
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
@@ -2017,7 +2018,10 @@ export default function CalendarPage() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSeedOpen(false);
+            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+          }}
           onSuccess={() => setRefetch((r) => r + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -2053,7 +2057,10 @@ export default function CalendarPage() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSupplyOpen(false);
+            openMenuOnScreen("shed");
+          }}
           onSuccess={() => setRefetch((r) => r + 1)}
         />
       )}
@@ -2062,7 +2069,10 @@ export default function CalendarPage() {
         <PlantingFlowModal
           open
           onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setPlantingFromVaultOpen(false);
+            openMenuOnScreen("add-plant");
+          }}
           onSuccess={() => setRefetch((r) => r + 1)}
         />
       )}

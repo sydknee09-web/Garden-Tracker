@@ -173,6 +173,7 @@ function GardenPageInner() {
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
   } = useUniversalAddModals();
   const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "list", {
     serialize: (v) => v,
@@ -1342,7 +1343,10 @@ function GardenPageInner() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSeedOpen(false);
+            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -1378,7 +1382,10 @@ function GardenPageInner() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSupplyOpen(false);
+            openMenuOnScreen("shed");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
       )}
@@ -1387,7 +1394,10 @@ function GardenPageInner() {
         <PlantingFlowModal
           open
           onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setPlantingFromVaultOpen(false);
+            openMenuOnScreen("add-plant");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           fromGarden
         />

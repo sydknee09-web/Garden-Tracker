@@ -148,6 +148,7 @@ export default function HomePage() {
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
   } = useUniversalAddModals();
   const { toast, showToast, showErrorToast } = useToast();
   const onboardingCtx = useOnboardingContextOptional();
@@ -759,7 +760,10 @@ export default function HomePage() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSeedOpen(false);
+            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+          }}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -795,7 +799,10 @@ export default function HomePage() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSupplyOpen(false);
+            openMenuOnScreen("shed");
+          }}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
         />
       )}
@@ -804,7 +811,10 @@ export default function HomePage() {
         <PlantingFlowModal
           open
           onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setPlantingFromVaultOpen(false);
+            openMenuOnScreen("add-plant");
+          }}
           onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
         />
       )}

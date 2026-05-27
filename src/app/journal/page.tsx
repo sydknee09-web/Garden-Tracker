@@ -280,6 +280,7 @@ export default function JournalPage() {
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
   } = useUniversalAddModals();
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
@@ -1176,7 +1177,10 @@ export default function JournalPage() {
         <BatchAddSeed
           open={batchAddSeedOpen}
           onClose={() => setBatchAddSeedOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSeedOpen(false);
+            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -1212,7 +1216,10 @@ export default function JournalPage() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSupplyOpen(false);
+            openMenuOnScreen("shed");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
       )}
@@ -1221,7 +1228,10 @@ export default function JournalPage() {
         <PlantingFlowModal
           open
           onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setPlantingFromVaultOpen(false);
+            openMenuOnScreen("add-plant");
+          }}
           onSuccess={() => setRefetchTrigger((t) => t + 1)}
         />
       )}

@@ -176,6 +176,7 @@ function VaultPageInner() {
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
   } = useUniversalAddModals();
 
   const anyModalOpen = batchAddOpen || batchAddSupplyOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || addMenuOpen || !!activeModal || packetModalOpen;
@@ -1826,7 +1827,10 @@ function VaultPageInner() {
         <BatchAddSeed
           open={batchAddOpen}
           onClose={() => setBatchAddOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddOpen(false);
+            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+          }}
           onSuccess={() => refetch()}
           onNavigateToHero={() => {
             skipPopOnNavigateRef.current = true;
@@ -1842,7 +1846,10 @@ function VaultPageInner() {
         <BatchAddSupply
           open={batchAddSupplyOpen}
           onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setBatchAddSupplyOpen(false);
+            openMenuOnScreen("shed");
+          }}
           onSuccess={() => refetch()}
         />
       )}
@@ -1851,7 +1858,10 @@ function VaultPageInner() {
         <PlantingFlowModal
           open
           onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={backToMenu}
+          onBack={() => {
+            setPlantingFromVaultOpen(false);
+            openMenuOnScreen("add-plant");
+          }}
           onSuccess={() => refetch()}
         />
       )}

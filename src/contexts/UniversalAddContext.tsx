@@ -4,6 +4,18 @@ import React, { createContext, useCallback, useContext, useState } from "react";
 
 export type UniversalAddModal = "seed" | "shed" | "plant" | "task" | "journal" | null;
 
+/** Sub-screens of UniversalAddMenu. Mirrors the union in UniversalAddMenu.tsx; lives here so callers can
+ * request a specific sub-screen when reopening the menu (e.g. Back arrow on BatchAddSupply returns to
+ * "shed" sub-menu, not "main"). */
+export type UniversalAddMenuScreenTarget =
+  | "main"
+  | "add-plant"
+  | "add-plant-manual"
+  | "seed"
+  | "shed"
+  | "task"
+  | "journal";
+
 type UniversalAddContextValue = {
   addMenuOpen: boolean;
   setAddMenuOpen: (open: boolean) => void;
@@ -20,10 +32,24 @@ type UniversalAddContextValue = {
   openTask: () => void;
   openJournal: () => void;
   closeActiveModal: () => void;
-  /** Close current add modal and re-open the FAB menu (e.g. back from QuickAddSupply choose screen). */
+  /** Close current add modal and re-open the FAB menu (e.g. back from QuickAddSupply choose screen).
+   * IMPORTANT: only closes `activeModal`-managed modals. For page-local-state modals
+   * (BatchAddSeed/BatchAddSupply/PlantingFlowModal), the caller MUST also close its own local state
+   * BEFORE calling backToMenu — otherwise the menu reopens at z-[100] on top of the still-mounted
+   * modal at z-[60]/[70]. Prefer openMenuOnScreen for those modals — it returns to the correct
+   * parent sub-screen instead of resetting to "main". */
   backToMenu: () => void;
   /** Close menu and any open add modal (e.g. for escape or browser back). */
   closeAll: () => void;
+  /** Request the menu to open on a specific sub-screen. Sets pendingMenuScreen + clears activeModal
+   * + opens menu. UniversalAddMenu's open-transition useEffect reads pendingMenuScreen and clears
+   * it after consumption. For page-local-state modals (BatchAddSeed/BatchAddSupply/PlantingFlow),
+   * caller closes local state BEFORE calling this. */
+  openMenuOnScreen: (screen: UniversalAddMenuScreenTarget) => void;
+  /** Pending sub-screen the menu should open on (consumed by UniversalAddMenu on next open). */
+  pendingMenuScreen: UniversalAddMenuScreenTarget | null;
+  /** Consumer-side clear of pendingMenuScreen (call after reading on menu open). */
+  clearPendingMenuScreen: () => void;
 };
 
 const UniversalAddContext = createContext<UniversalAddContextValue | undefined>(undefined);
@@ -33,6 +59,7 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
   const [activeModal, setActiveModal] = useState<UniversalAddModal>(null);
   const [addPlantDefaultType, setAddPlantDefaultType] = useState<"permanent" | "seasonal">("seasonal");
   const [shedInitialName, setShedInitialName] = useState("");
+  const [pendingMenuScreen, setPendingMenuScreen] = useState<UniversalAddMenuScreenTarget | null>(null);
 
   const closeMenu = useCallback(() => setAddMenuOpen(false), []);
   const openMenu = useCallback(() => setAddMenuOpen(true), []);
@@ -75,6 +102,16 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
     setAddMenuOpen(false);
   }, []);
 
+  const openMenuOnScreen = useCallback((screen: UniversalAddMenuScreenTarget) => {
+    setPendingMenuScreen(screen);
+    setActiveModal(null);
+    setAddMenuOpen(true);
+  }, []);
+
+  const clearPendingMenuScreen = useCallback(() => {
+    setPendingMenuScreen(null);
+  }, []);
+
   const value: UniversalAddContextValue = {
     addMenuOpen,
     setAddMenuOpen,
@@ -92,6 +129,9 @@ export function UniversalAddProvider({ children }: { children: React.ReactNode }
     closeActiveModal,
     backToMenu,
     closeAll,
+    openMenuOnScreen,
+    pendingMenuScreen,
+    clearPendingMenuScreen,
   };
 
   return (
