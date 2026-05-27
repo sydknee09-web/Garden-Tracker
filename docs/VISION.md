@@ -319,6 +319,37 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **Why this rule exists.** The 2026-05-24 all-sentence-case lock was an overcorrection from prior Title-Case-everywhere drift. The right balance is the industry split: Title Case for things you tap or scan as a label; sentence case for things you read as prose. Two failure modes named: (a) Title-Case-everywhere reads as marketing-shouty for body copy ("Take Or Upload Photos Of Product Labels" — wrong); (b) sentence-case-everywhere reads as careless for headers and buttons ("Add plant" feels half-finished where every shipped iOS app says "Add Plant"). Industry-standard split avoids both. Persona walk: Maya (power user, scans labels) reads Title Case as expected; Sydney reads as cohesive; Walter (iPad-primary) reads as standard-iOS-app expectations met; Aria + Sam read empty-state title-vs-body case differential as a clear info hierarchy. All 5 personas pass.
 
+### Empty-cell display convention
+
+**Locked 2026-05-27.** Empty data cells across GT display as **em dash "—"** (single character, U+2014). The convention applies to any data field in a profile / table / detail view that has no value AND where there's no semantic distinction between "missing," "user didn't enter," or "doesn't apply."
+
+**The rule (two branches):**
+
+- **Use "—" for:** unambiguous "no data" cells. Examples: Vault profile About → Germination · Days to Maturity · Spacing · Light · Water · Soil type — all show "—" when no value exists. Plant cards → optional metadata fields. Any data row where the field is structurally present but has no current value.
+- **Preserve semantic strings for:** fields where the displayed value carries meaning the user needs to read.
+  - `"None"` = user deliberately chose none (e.g., a setting they toggled off)
+  - `"N/A"` = column doesn't apply to this row by design (e.g., germination time on an established-plant lifecycle path)
+  - `"Unknown"` = we tried to infer the value but couldn't determine it (a known-unknown distinct from never-entered)
+  Don't collapse semantic meaning into the empty-state symbol.
+
+**Decision criterion at audit time (one question):** *Does this field's absence carry meaning that the user needs to read?*
+
+- No (just "no data here") → **"—"**
+- Yes (user choice / structural distinction / known-unknown) → **preserve the explicit string**
+
+**Not for:**
+
+- **Loading states** — use spinners or skeleton primitives, not "—"
+- **Disabled states** — use opacity / muted color / pointer-events-none, not "—"
+- **Form placeholder text** — placeholders are input prompts ("e.g., 75-85 days"), not empty-state indicators
+- **Empty-state body copy** — full sentences per the 3-part empty-state frame (purpose-describing title / plain next-step body / verb-led CTA), see §3.12 #5 ship `9bad88f`
+
+**Rationale.** Industry-standard typography for missing data in tables and structured data displays (Apple Numbers, Google Sheets, financial dashboards, iOS Settings). Single character avoids the visual weight of `"--"` (which reads as a strikethrough or dashes-as-separator) and the verbal weight of `"N/A"` / `"None"` / `"Unknown"` (which all imply more meaning than the absence actually carries). Em dash is the typographic standard, not en dash ("–", U+2013) or hyphen-minus ("-", U+002D) — use the U+2014 character.
+
+**Persona walk.** All 5 personas pass: Maya (power user) reads "—" as standard table convention without parsing; Sydney sees cohesion across profile views (consistent symbol means consistent meaning); Walter (iPad-primary) reads "—" as universally-recognized "no value" without learning a per-app vocabulary; Aria + Sam (low-data new-user states) see less visual noise than "--" / "N/A" / "None" — empty fields visually recede instead of competing for attention with populated ones.
+
+**GT-only.** Voyager has its own voice; this convention does NOT apply there unless surfaced separately.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 

@@ -809,6 +809,24 @@ GT uses an **industry-standard split**: Title Case (AP-style) for headers + butt
 
 ---
 
+## Empty-cell convention (locked 2026-05-27)
+
+GT displays empty data cells in profile / table / detail views as **em dash "—"** (single character, U+2014). **See [VISION.md §8 "Empty-cell display convention"](docs/VISION.md) for the full rule + criterion + what's NOT covered + rationale + persona walk.**
+
+**Quick lookup for in-chat plans:**
+- Field has no data AND no semantic distinction between missing / didn't-enter / doesn't-apply → **"—"**
+- Field's absence carries meaning ("None" as a user choice / "N/A" as structural / "Unknown" as known-unknown) → **preserve the explicit string**
+
+**NOT for:** loading states (spinners / skeletons), disabled states (opacity / muted color), form placeholder text (input prompts), empty-state body copy (full-sentence 3-part frame).
+
+**Character:** em dash "—" = U+2014. NOT en dash "–" (U+2013), NOT hyphen-minus "-" (U+002D), NOT double-hyphen "--".
+
+**At audit time, ask:** *does this field's absence carry meaning the user needs to read? → preserve the string. Just "no data here"? → "—".*
+
+GT-only — Voyager has its own conventions.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.
