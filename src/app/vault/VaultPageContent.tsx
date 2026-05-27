@@ -1823,50 +1823,45 @@ function VaultPageInner() {
         />
       )}
 
-      {batchAddOpen && (
-        <BatchAddSeed
-          open={batchAddOpen}
-          onClose={() => setBatchAddOpen(false)}
-          onBack={() => {
-            setBatchAddOpen(false);
-            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
-          }}
-          onSuccess={() => refetch()}
-          onNavigateToHero={() => {
-            skipPopOnNavigateRef.current = true;
-            setBatchAddOpen(false);
-            router.push("/vault/import/photos/hero");
-          }}
-          addPlantMode={batchAddPlantMode}
-          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
-        />
-      )}
+      {/* Unconditional mount so React.lazy (next/dynamic) pre-resolves on page hydration —
+          eliminates the Suspense first-render gap when chip-tap flips open=true. */}
+      <BatchAddSeed
+        open={batchAddOpen}
+        onClose={() => setBatchAddOpen(false)}
+        onBack={() => {
+          setBatchAddOpen(false);
+          openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+        }}
+        onSuccess={() => refetch()}
+        onNavigateToHero={() => {
+          skipPopOnNavigateRef.current = true;
+          setBatchAddOpen(false);
+          router.push("/vault/import/photos/hero");
+        }}
+        addPlantMode={batchAddPlantMode}
+        defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
+      />
 
-      {batchAddSupplyOpen && (
-        <BatchAddSupply
-          open={batchAddSupplyOpen}
-          onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={() => {
-            setBatchAddSupplyOpen(false);
-            openMenuOnScreen("shed");
-          }}
-          onSuccess={() => refetch()}
-        />
-      )}
+      <BatchAddSupply
+        open={batchAddSupplyOpen}
+        onClose={() => setBatchAddSupplyOpen(false)}
+        onBack={() => {
+          setBatchAddSupplyOpen(false);
+          openMenuOnScreen("shed");
+        }}
+        onSuccess={() => refetch()}
+      />
 
-      {plantingFromVaultOpen && (
-        <PlantingFlowModal
-          open
-          onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={() => {
-            setPlantingFromVaultOpen(false);
-            openMenuOnScreen("add-plant");
-          }}
-          onSuccess={() => refetch()}
-        />
-      )}
+      <PlantingFlowModal
+        open={plantingFromVaultOpen}
+        onClose={() => setPlantingFromVaultOpen(false)}
+        onBack={() => {
+          setPlantingFromVaultOpen(false);
+          openMenuOnScreen("add-plant");
+        }}
+        onSuccess={() => refetch()}
+      />
 
-      {purchaseOrderOpen && (
       <PurchaseOrderImport
         open={purchaseOrderOpen}
         onClose={() => setPurchaseOrderOpen(false)}
@@ -1884,7 +1879,6 @@ function VaultPageInner() {
         defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
         addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
-      )}
 
       <VaultShedWingModals
         onOpenUniversalAddMenu={openMenu}

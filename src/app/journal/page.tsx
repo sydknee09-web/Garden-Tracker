@@ -1173,24 +1173,24 @@ export default function JournalPage() {
         />
       )}
 
-      {batchAddSeedOpen && (
-        <BatchAddSeed
-          open={batchAddSeedOpen}
-          onClose={() => setBatchAddSeedOpen(false)}
-          onBack={() => {
-            setBatchAddSeedOpen(false);
-            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          onNavigateToHero={() => {
-            skipPopOnNavigateRef.current = true;
-            setBatchAddSeedOpen(false);
-            router.push("/vault/import/photos/hero");
-          }}
-          addPlantMode={batchAddPlantMode}
-          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
-        />
-      )}
+      {/* Unconditional mount so React.lazy (next/dynamic) pre-resolves on page hydration —
+          eliminates the Suspense first-render gap when chip-tap flips open=true. */}
+      <BatchAddSeed
+        open={batchAddSeedOpen}
+        onClose={() => setBatchAddSeedOpen(false)}
+        onBack={() => {
+          setBatchAddSeedOpen(false);
+          openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        onNavigateToHero={() => {
+          skipPopOnNavigateRef.current = true;
+          setBatchAddSeedOpen(false);
+          router.push("/vault/import/photos/hero");
+        }}
+        addPlantMode={batchAddPlantMode}
+        defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
+      />
 
       {activeModal === "shed" && (
         <QuickAddSupply
@@ -1212,29 +1212,25 @@ export default function JournalPage() {
         />
       )}
 
-      {batchAddSupplyOpen && (
-        <BatchAddSupply
-          open={batchAddSupplyOpen}
-          onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={() => {
-            setBatchAddSupplyOpen(false);
-            openMenuOnScreen("shed");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        />
-      )}
+      <BatchAddSupply
+        open={batchAddSupplyOpen}
+        onClose={() => setBatchAddSupplyOpen(false)}
+        onBack={() => {
+          setBatchAddSupplyOpen(false);
+          openMenuOnScreen("shed");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+      />
 
-      {plantingFromVaultOpen && (
-        <PlantingFlowModal
-          open
-          onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={() => {
-            setPlantingFromVaultOpen(false);
-            openMenuOnScreen("add-plant");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        />
-      )}
+      <PlantingFlowModal
+        open={plantingFromVaultOpen}
+        onClose={() => setPlantingFromVaultOpen(false)}
+        onBack={() => {
+          setPlantingFromVaultOpen(false);
+          openMenuOnScreen("add-plant");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+      />
 
       {activeModal === "plant" && (
         <AddPlantModal
@@ -1247,25 +1243,23 @@ export default function JournalPage() {
         />
       )}
 
-      {purchaseOrderOpen && (
-        <PurchaseOrderImport
-          open={purchaseOrderOpen}
-          onClose={() => setPurchaseOrderOpen(false)}
-          onBack={() => {
-            setPurchaseOrderOpen(false);
-            openMenuOnScreen(
-              purchaseOrderMode === "supply"
-                ? "shed"
-                : purchaseOrderAddPlantMode
-                  ? "add-plant"
-                  : "seed"
-            );
-          }}
-          mode={purchaseOrderMode}
-          defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
-          addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
-        />
-      )}
+      <PurchaseOrderImport
+        open={purchaseOrderOpen}
+        onClose={() => setPurchaseOrderOpen(false)}
+        onBack={() => {
+          setPurchaseOrderOpen(false);
+          openMenuOnScreen(
+            purchaseOrderMode === "supply"
+              ? "shed"
+              : purchaseOrderAddPlantMode
+                ? "add-plant"
+                : "seed"
+          );
+        }}
+        mode={purchaseOrderMode}
+        defaultProfileType={purchaseOrderAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : purchaseOrderMode === "seed" ? "seed" : undefined}
+        addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
+      />
 
       {selectionActionsOpen && selectedEntryIds.length > 0 && (
         <>

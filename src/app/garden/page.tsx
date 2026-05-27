@@ -1339,24 +1339,24 @@ function GardenPageInner() {
         />
       )}
 
-      {batchAddSeedOpen && (
-        <BatchAddSeed
-          open={batchAddSeedOpen}
-          onClose={() => setBatchAddSeedOpen(false)}
-          onBack={() => {
-            setBatchAddSeedOpen(false);
-            openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          onNavigateToHero={() => {
-            skipPopOnNavigateRef.current = true;
-            setBatchAddSeedOpen(false);
-            router.push("/vault/import/photos/hero");
-          }}
-          addPlantMode={batchAddPlantMode}
-          defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
-        />
-      )}
+      {/* Unconditional mount so React.lazy (next/dynamic) pre-resolves on page hydration —
+          eliminates the Suspense first-render gap when chip-tap flips open=true. */}
+      <BatchAddSeed
+        open={batchAddSeedOpen}
+        onClose={() => setBatchAddSeedOpen(false)}
+        onBack={() => {
+          setBatchAddSeedOpen(false);
+          openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        onNavigateToHero={() => {
+          skipPopOnNavigateRef.current = true;
+          setBatchAddSeedOpen(false);
+          router.push("/vault/import/photos/hero");
+        }}
+        addPlantMode={batchAddPlantMode}
+        defaultProfileType={batchAddPlantMode ? (addPlantDefaultType === "permanent" ? "permanent" : "seed") : undefined}
+      />
 
       {activeModal === "shed" && (
         <QuickAddSupply
@@ -1378,30 +1378,26 @@ function GardenPageInner() {
         />
       )}
 
-      {batchAddSupplyOpen && (
-        <BatchAddSupply
-          open={batchAddSupplyOpen}
-          onClose={() => setBatchAddSupplyOpen(false)}
-          onBack={() => {
-            setBatchAddSupplyOpen(false);
-            openMenuOnScreen("shed");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        />
-      )}
+      <BatchAddSupply
+        open={batchAddSupplyOpen}
+        onClose={() => setBatchAddSupplyOpen(false)}
+        onBack={() => {
+          setBatchAddSupplyOpen(false);
+          openMenuOnScreen("shed");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+      />
 
-      {plantingFromVaultOpen && (
-        <PlantingFlowModal
-          open
-          onClose={() => setPlantingFromVaultOpen(false)}
-          onBack={() => {
-            setPlantingFromVaultOpen(false);
-            openMenuOnScreen("add-plant");
-          }}
-          onSuccess={() => setRefetchTrigger((t) => t + 1)}
-          fromGarden
-        />
-      )}
+      <PlantingFlowModal
+        open={plantingFromVaultOpen}
+        onClose={() => setPlantingFromVaultOpen(false)}
+        onBack={() => {
+          setPlantingFromVaultOpen(false);
+          openMenuOnScreen("add-plant");
+        }}
+        onSuccess={() => setRefetchTrigger((t) => t + 1)}
+        fromGarden
+      />
 
       {/* Selection actions menu (when items selected): FAB >> opens this */}
       {selectionActionsOpen && ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) && (
