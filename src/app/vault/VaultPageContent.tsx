@@ -54,6 +54,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const AddVarietyModal = dynamic(
+  () => import("@/components/AddVarietyModal").then((m) => ({ default: m.AddVarietyModal })),
+  { ssr: false }
+);
 import { parseSeedFromQR, type SeedQRPrefill } from "@/lib/parseSeedFromQR";
 
 const QRScannerModal = dynamic(
@@ -216,6 +220,7 @@ function VaultPageInner() {
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<GridRefineSection>(null);
+  const [addVarietyOpen, setAddVarietyOpen] = useState(false);
   const [sortBy, setSortBy] = useState<VaultSortBy>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
@@ -1023,6 +1028,15 @@ function VaultPageInner() {
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
+                <button
+                  type="button"
+                  onClick={() => setAddVarietyOpen(true)}
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-emerald-600/40 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 shrink-0"
+                  aria-label="Add a plant variety to your encyclopedia"
+                >
+                  <ICON_MAP.Add className="w-5 h-5 shrink-0" />
+                  Add Variety
+                </button>
                 <button
                   type="button"
                   onClick={() => { setRefineByOpen(true); setRefineBySection(null); }}
@@ -1869,6 +1883,12 @@ function VaultPageInner() {
           setPurchaseOrderOpen(true);
         }}
         skipPopOnNavigateRef={skipPopOnNavigateRef}
+      />
+
+      <AddVarietyModal
+        open={addVarietyOpen}
+        onClose={() => setAddVarietyOpen(false)}
+        onSuccess={() => refetch()}
       />
 
       {activeModal === "plant" && (
