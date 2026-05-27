@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const { data: profile, error: profileError } = await supabase
       .from("plant_profiles")
       .select(
-        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes"
+        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
@@ -143,7 +143,8 @@ export async function POST(req: Request) {
     const stillMissingSowingDepth = !(profile.sowing_depth ?? "").trim() && !u.sowing_depth;
     const stillMissingPropagation = !(profile.propagation_notes ?? "").trim() && !u.propagation_notes;
     const stillMissingSeedSaving = !(profile.seed_saving_notes ?? "").trim() && !u.seed_saving_notes;
-    const hasOtherBlanks = stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving;
+    const stillMissingSeedContext = !(profile.seed_propagation_context ?? "").trim() && !u.seed_propagation_context;
+    const hasOtherBlanks = stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving || stillMissingSeedContext;
     const needAi = (useGemini && (stillMissingHero || stillMissingDescription || hasOtherBlanks)) || overwrite;
 
     if (needAi) {
@@ -192,6 +193,7 @@ export async function POST(req: Request) {
               planting_window?: string;
               propagation_notes?: string;
               seed_saving_notes?: string;
+              seed_propagation_context?: string;
               companion_plants?: string[] | string;
               avoid_plants?: string[] | string;
             };
@@ -207,6 +209,7 @@ export async function POST(req: Request) {
             const aiPlantingWindow = (data.planting_window ?? "").trim();
             const aiPropagation = (data.propagation_notes ?? "").trim();
             const aiSeedSaving = (data.seed_saving_notes ?? "").trim();
+            const aiSeedContext = (data.seed_propagation_context ?? "").trim();
             const aiCompanions = Array.isArray(data.companion_plants)
               ? data.companion_plants.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
               : typeof data.companion_plants === "string"
@@ -217,7 +220,7 @@ export async function POST(req: Request) {
               : typeof data.avoid_plants === "string"
                 ? data.avoid_plants.split(",").map((x) => x.trim()).filter(Boolean)
                 : [];
-            const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow || aiPropagation || aiSeedSaving || aiCompanions.length > 0 || aiAvoid.length > 0;
+            const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow || aiPropagation || aiSeedSaving || aiSeedContext || aiCompanions.length > 0 || aiAvoid.length > 0;
             if (hasAiData) {
               const aiUpdates: Record<string, unknown> = { description_source: "ai" };
               if (aiDesc) aiUpdates.plant_description = aiDesc;
@@ -232,6 +235,7 @@ export async function POST(req: Request) {
               if (aiPlantingWindow) aiUpdates.planting_window = aiPlantingWindow;
               if (aiPropagation) aiUpdates.propagation_notes = aiPropagation;
               if (aiSeedSaving) aiUpdates.seed_saving_notes = aiSeedSaving;
+              if (aiSeedContext) aiUpdates.seed_propagation_context = aiSeedContext;
               if (aiCompanions.length > 0) aiUpdates.companion_plants = aiCompanions;
               if (aiAvoid.length > 0) aiUpdates.avoid_plants = aiAvoid;
               const { error: aiErr } = await supabase
@@ -256,6 +260,7 @@ export async function POST(req: Request) {
                     planting_window: aiPlantingWindow || undefined,
                     propagation_notes: aiPropagation || undefined,
                     seed_saving_notes: aiSeedSaving || undefined,
+                    seed_propagation_context: aiSeedContext || undefined,
                     companion_plants: aiCompanions.length > 0 ? aiCompanions : undefined,
                     avoid_plants: aiAvoid.length > 0 ? aiAvoid : undefined,
                   };

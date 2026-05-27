@@ -267,6 +267,30 @@ User signal verbatim (2026-05-24): gray-fill = dropdown affordance (preset optio
 
 **Out-of-scope follow-ups** (logged 2026-05-26 for future polish pass): auth pages (login/signup/reset-password/update-password), AddPlantManualModal, AddItemModal, FeedbackModal, InviteMemberModal, BatchAddSeed/Supply.
 
+### Info-note treatment (commentary / aside copy)
+
+**Locked 2026-05-27.** When a UI surface needs to render a non-error, non-warning explanatory aside — commentary about *why* a section's data is sparse, *what* alternative path applies, or any "by the way" copy that supports but doesn't dominate the main content — render as `text-sm text-neutral-600 italic` (sentence case per §8 casing rule).
+
+**Visual contract:**
+- `text-sm` (matches body register; doesn't compete with headers)
+- `text-neutral-600` (one step lighter than primary body `text-neutral-700/900` to signal "aside")
+- `italic` (semantic: commentary / aside, distinct from primary copy)
+- No background fill, no border, no icon — keep the visual weight low
+- Sentence case (per §8 — body copy rule)
+
+**Distinct from:**
+- **Form errors** (`italic text-red-600 font-medium` + warning icon, see Form-level error treatment above) — info-notes are NOT errors; tone is calm explanation, not blocker.
+- **Helper text under inputs** (`text-xs text-neutral-500`) — info-notes are wider in scope (whole-section aside, not field hint) and use the larger `text-sm` register.
+- **Empty-state body** (full-sentence 3-part frame) — info-notes appear ALONGSIDE existing content; empty-states REPLACE missing content.
+
+**When to use:** explain why a section reads as it does (e.g., contextual caveats about seed propagation when seed rows are empty), one-line commentary on a card's contents, "by the way" framing. Render at the top of the section body or as a footer below populated content — placement depends on whether the note explains the section or comments on it.
+
+**Sites using it (initial roll-out 2026-05-27):** VaultProfileAboutTab `Propagate / Save Seeds` card body + `How to Grow` card footer (both render `profile.seed_propagation_context` when populated and seed-related rows are empty).
+
+**Why this rule exists.** The Propagate / Save Seeds ship 2026-05-27 needed a contextual aside for plants that don't grow from seed (succulents, grafted fruit trees, sterile hybrids) — explaining why the seed rows show "—". No existing primitive matched: FormError reads as blocker, helper-text is too small, empty-state replaces content rather than commenting on it. Italic body register lands the "aside / commentary" semantic without inventing a callout box that would compete for attention on dense profile cards. All 5 personas pass: Maya (power user) reads as expected aside register; Sydney (cohesion) sees the new primitive nest cleanly within existing body-copy treatments; Walter (iPad-primary) reads italic-body as standard "note" convention from iOS / web typography; Aria + Sam see less visual weight than a callout would add to their already-busy first-profile views.
+
+**GT-only.** Voyager has its own visual register; this convention does NOT apply there.
+
 ### Casing (headers + buttons vs body)
 
 **Locked 2026-05-27** — reverses part of the implicit "all-sentence-case" cohesion bar that operated 2026-05-24 → 2026-05-27 (recorded only in ROADMAP §6 dated entries: 2026-05-24 `006dd69` Item 2 + Q4 widen + 2026-05-25 `a78dbd6` 22-edit sweep). Promotes the rule from previously-only-ROADMAP-dated entries into a durable VISION.md design token, closing the doc-architecture gap flagged via authority-precedence audit.

@@ -81,6 +81,7 @@ export type ProfileForFill = {
   planting_window?: string | null;
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
+  seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
   hero_image_url?: string | null;
@@ -131,6 +132,7 @@ export async function buildUpdatesFromCacheRow(
   if (!(p.planting_window ?? "").trim() && str(ed.planting_window)) updates.planting_window = str(ed.planting_window);
   if (!(p.propagation_notes ?? "").trim() && str(ed.propagation_notes)) updates.propagation_notes = str(ed.propagation_notes);
   if (!(p.seed_saving_notes ?? "").trim() && str(ed.seed_saving_notes)) updates.seed_saving_notes = str(ed.seed_saving_notes);
+  if (!(p.seed_propagation_context ?? "").trim() && str(ed.seed_propagation_context)) updates.seed_propagation_context = str(ed.seed_propagation_context);
   const companionArr = ed.companion_plants;
   if ((!(p.companion_plants ?? []).length) && Array.isArray(companionArr) && companionArr.length > 0) {
     updates.companion_plants = companionArr.filter((x): x is string => typeof x === "string").map((x) => String(x).trim()).filter(Boolean);
@@ -200,6 +202,7 @@ export type EnrichDataForCache = {
   planting_window?: string | null;
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
+  seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
 };
@@ -236,6 +239,7 @@ export async function writeEnrichToGlobalCache(
   if (data.planting_window?.trim()) extract_data.planting_window = data.planting_window.trim();
   if (data.propagation_notes?.trim()) extract_data.propagation_notes = data.propagation_notes.trim();
   if (data.seed_saving_notes?.trim()) extract_data.seed_saving_notes = data.seed_saving_notes.trim();
+  if (data.seed_propagation_context?.trim()) extract_data.seed_propagation_context = data.seed_propagation_context.trim();
   if (Array.isArray(data.companion_plants) && data.companion_plants.length > 0) extract_data.companion_plants = data.companion_plants;
   if (Array.isArray(data.avoid_plants) && data.avoid_plants.length > 0) extract_data.avoid_plants = data.avoid_plants;
 

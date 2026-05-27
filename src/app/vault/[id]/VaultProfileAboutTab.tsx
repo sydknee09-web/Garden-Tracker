@@ -106,6 +106,9 @@ export function VaultProfileAboutTab({
                 <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
               ))}
             </dl>
+            {profile?.seed_propagation_context?.trim() && [...careList, ...growingList].every(({ value }) => value === "—") && (
+              <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
+            )}
           </div>
         )}
       </div>
@@ -181,6 +184,9 @@ export function VaultProfileAboutTab({
           </button>
           {isAboutOpen("propagation") && (
             <div className="px-4 pb-4 pt-0 space-y-4">
+              {profile?.seed_propagation_context?.trim() && (
+                <p className="text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
+              )}
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to propagate</p>
                 {profile?.propagation_notes?.trim() ? (

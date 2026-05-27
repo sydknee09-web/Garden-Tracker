@@ -223,6 +223,8 @@ export interface PlantProfile {
   propagation_notes?: string | null;
   /** How to harvest and save seeds. For seed-grown varieties. */
   seed_saving_notes?: string | null;
+  /** One-sentence AI-generated caveat about seed-propagation suitability. NULL = standard seed-grown variety, no caveat needed. */
+  seed_propagation_context?: string | null;
   /** Source of description/notes: 'vendor' | 'ai' | 'user' for UI attribution. */
   description_source?: string | null;
   created_at?: string;

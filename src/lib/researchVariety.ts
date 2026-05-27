@@ -26,6 +26,12 @@ Extract the following and return a single JSON object only (no markdown, no expl
 - planting_window: when to plant e.g. "Spring: Mar-May", "After last frost", "Fall: Sep-Nov". Use empty string if not found.
 - propagation_notes: how to propagate this plant (cuttings, division, layering, etc.). For perennials and plants that can be multiplied. Use empty string if not applicable or not found.
 - seed_saving_notes: how to harvest and save seeds from this plant (when to harvest, drying, storage). For seed-grown varieties. Use empty string if not applicable or not found.
+- seed_propagation_context: ONE plain sentence (max ~140 chars, sentence case, no marketing language) explaining seed-propagation suitability when it ISN'T the standard path. Use these patterns:
+  (a) Plant doesn't grow from seed at all (e.g. most succulents, hostas): "Doesn't grow from seed — propagate from {leaf cuttings | division | runners | offsets} instead."
+  (b) Grows from seed but offspring vary widely (e.g. apples, many fruit trees): "Grows from seed, but offspring vary widely — for true-to-type, propagate by {grafting | cuttings | layering}."
+  (c) Sterile hybrid or seedlings won't fruit (e.g. seedless watermelon, grafted citrus): "Seedlings may not fruit or breed true — typically propagated by {grafting | cuttings}."
+  (d) Standard seed-grown variety (tomatoes, beans, most annuals): return empty string. Do NOT add a caveat just to fill the field.
+  Pick the case that matches this specific variety. Use empty string when uncertain rather than guessing.
 - companion_plants: comma-separated list of plants that grow well with this variety (e.g. "Basil, Tomatoes, Carrots"). Use empty string if not found.
 - avoid_plants: comma-separated list of plants to avoid planting nearby (e.g. "Potatoes, Fennel"). Use empty string if not found.
 
@@ -48,6 +54,7 @@ export type ResearchVarietyResult = {
   planting_window?: string;
   propagation_notes?: string;
   seed_saving_notes?: string;
+  seed_propagation_context?: string;
   companion_plants?: string;
   avoid_plants?: string;
 };
@@ -102,6 +109,7 @@ export async function researchVariety(
       planting_window: getStr("planting_window") || undefined,
       propagation_notes: getStr("propagation_notes") || undefined,
       seed_saving_notes: getStr("seed_saving_notes") || undefined,
+      seed_propagation_context: getStr("seed_propagation_context") || undefined,
       companion_plants: getStr("companion_plants") || undefined,
       avoid_plants: getStr("avoid_plants") || undefined,
     };

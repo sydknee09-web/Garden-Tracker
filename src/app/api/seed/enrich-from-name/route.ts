@@ -36,6 +36,7 @@ export type EnrichFromNameResponse = {
   growing_notes?: string | null;
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
+  seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
   mature_height?: string | null;
@@ -126,6 +127,7 @@ export async function POST(req: Request) {
       growing_notes: result.growing_notes?.trim() || null,
       propagation_notes: result.propagation_notes?.trim() || null,
       seed_saving_notes: result.seed_saving_notes?.trim() || null,
+      seed_propagation_context: result.seed_propagation_context?.trim() || null,
       companion_plants: parseCommaList(result.companion_plants),
       avoid_plants: parseCommaList(result.avoid_plants),
       mature_height: result.mature_height?.trim() || null,

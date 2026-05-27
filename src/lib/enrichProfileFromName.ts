@@ -36,6 +36,7 @@ type EnrichFromNameResponse = {
   growing_notes?: string | null;
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
+  seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
 };
@@ -88,6 +89,7 @@ export async function enrichProfileFromName(
     }
     if (enrichData.propagation_notes != null) updates.propagation_notes = enrichData.propagation_notes;
     if (enrichData.seed_saving_notes != null) updates.seed_saving_notes = enrichData.seed_saving_notes;
+    if (enrichData.seed_propagation_context != null) updates.seed_propagation_context = enrichData.seed_propagation_context;
     if (Array.isArray(enrichData.companion_plants) && enrichData.companion_plants.length > 0) updates.companion_plants = enrichData.companion_plants;
     if (Array.isArray(enrichData.avoid_plants) && enrichData.avoid_plants.length > 0) updates.avoid_plants = enrichData.avoid_plants;
 
