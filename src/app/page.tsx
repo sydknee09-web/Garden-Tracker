@@ -414,7 +414,7 @@ export default function HomePage() {
 
       {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
       <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">When to Plant (by Zone)</h2>
+        <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">When to Plant (by Zone)</h2>
         <p className="text-xs text-black/50 mb-3">Action now · Monthly view · Yearly view</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
@@ -453,7 +453,7 @@ export default function HomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* ---- Shopping List ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-          <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Shopping List</h2>
+          <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">Shopping List</h2>
           {loadingTasksAndList ? (
             <LoadingState message="Loading…" className="py-4" />
           ) : shoppingList.length === 0 ? (
@@ -561,7 +561,7 @@ export default function HomePage() {
 
         {/* ---- Tasks ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-          <h2 className="text-base font-bold text-black mb-1 pb-2 border-b border-black/5">At a Glance</h2>
+          <h2 className="text-base font-bold text-black mb-1 text-center pb-2 border-b border-black/5">At a Glance</h2>
           <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
           {loadingTasksAndList ? (
             <LoadingState message="Loading…" className="py-4" />

@@ -190,7 +190,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
                   style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
                 >
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center shrink-0 [&>*+*]:-ml-2">
                     <CloudSyncIcon syncing={syncing} offline={!isOnline} />
                     <button
                       type="button"
@@ -205,7 +205,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
                     {getPageTitle(pathname) || " "}
                   </h1>
-                  <div className="flex items-center shrink-0 gap-1">
+                  <div className="flex items-center shrink-0 [&>*+*]:-ml-2">
                     {isInHousehold && (
                       <button
                         type="button"
@@ -282,7 +282,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               className="sticky top-0 z-40 flex items-center justify-between h-11 pl-2 pr-2 bg-paper/90 backdrop-blur border-b border-black/5 gap-2"
               style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
             >
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center shrink-0 [&>*+*]:-ml-2">
                 {showHeaderBackButton ? (
                   <button
                     type="button"
@@ -307,7 +307,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               <h1 className="flex-1 text-center text-base font-semibold text-black truncate min-w-0">
                 {getPageTitle(pathname) || " "}
               </h1>
-              <div className="flex items-center shrink-0 gap-1">
+              <div className="flex items-center shrink-0 [&>*+*]:-ml-2">
                 {isInHousehold && (
                   <button
                     type="button"
