@@ -96,6 +96,22 @@ export function UniversalAddMenu({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Preload page-local-state modal chunks when the FAB menu opens so chip-tap-to-mount has no
+  // perceptible gap. These modals are imported via next/dynamic on every page mount for code-split
+  // bundle savings, but the lazy fetch (~100-300ms first time) shows as a visual void between
+  // menu unmount and modal paint — exactly the gap VISION §7 "No perceptible gap when transitioning
+  // from menu to target modal" (locked 2026-05-08) forbids. Preload-on-open warms the chunk cache
+  // by the time the user navigates the sub-screen + taps the chip (~500ms+ in real usage). Fire-
+  // and-forget; if user closes the menu before preload completes, the next open re-fires (cheap,
+  // browser caches modules after first fetch).
+  useEffect(() => {
+    if (!open) return;
+    void import("@/components/BatchAddSeed").catch(() => {});
+    void import("@/components/BatchAddSupply").catch(() => {});
+    void import("@/components/PurchaseOrderImport").catch(() => {});
+    void import("@/components/PlantingFlowModal").catch(() => {});
+  }, [open]);
+
   useBodyScrollLock(open);
 
   if (!open) return null;
