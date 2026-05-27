@@ -100,31 +100,12 @@ export function VaultProfileAboutTab({
           <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("howToGrow") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
         </button>
         {isAboutOpen("howToGrow") && (
-          <div className="px-4 pb-4 pt-0 space-y-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-2">Planting</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {careList.map(({ label, value }) => (
-                  <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
-                ))}
-              </dl>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-2">Growing</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {growingList.map(({ label, value }) => (
-                  <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
-                ))}
-              </dl>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-400 mb-2">Harvest</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {harvestList.map(({ label, value }) => (
-                  <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
-                ))}
-              </dl>
-            </div>
+          <div className="px-4 pb-4 pt-0">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {[...careList, ...growingList, ...harvestList].map(({ label, value }) => (
+                <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
+              ))}
+            </dl>
           </div>
         )}
       </div>
@@ -195,7 +176,7 @@ export function VaultProfileAboutTab({
       {!isLegacy && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4">
           <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Propagate &amp; Harvest Seeds</h3>
+            <h3 className="text-sm font-semibold text-neutral-700">Propagate / Save Seeds</h3>
             <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
           </button>
           {isAboutOpen("propagation") && (
@@ -211,7 +192,7 @@ export function VaultProfileAboutTab({
                 )}
               </div>
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to harvest / save seeds</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to save seeds</p>
                 {profile?.seed_saving_notes?.trim() ? (
                   <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.seed_saving_notes}</p>
                 ) : fillBlanksAttempted ? (

@@ -28,7 +28,7 @@ Manual click-through checklist and code-review findings for the Phase 1 & 2 flow
 
 ### Checklist
 - [ ] **Care tab** → Companion planting and Tags sections appear (moved from About).
-- [ ] **About tab** → How to Grow above Propagate & Harvest; single merged card for "Propagate & Harvest seeds".
+- [ ] **About tab** → How to Grow above Propagate / Save Seeds; single merged card for "Propagate / Save Seeds".
 - [ ] **Header:** ✨ (Fill blank info) and **Overwrite AI** (amber) visible for own profile, non-legacy.
 - [ ] **Overwrite AI** → Confirmation: "This will replace description, growing notes… Continue?" → Continue runs AI overwrite and refreshes profile.
 - [ ] **Fill blanks (✨)** → Fills empty fields from cache/AI; does not overwrite existing.
