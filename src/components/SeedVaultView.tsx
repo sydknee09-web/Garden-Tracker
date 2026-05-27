@@ -181,35 +181,11 @@ const VOLUME_COLORS: Record<string, string> = {
   empty: "bg-black/5 text-black/50",
 };
 
-/** Returns a color class for the health indicator dot based on best single packet qty. Grey = no packets, yellow ≤25%, orange ≤50%, green >50%. */
-function getHealthColor(seed: VaultCardItem): string {
-  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "bg-neutral-400";
-  const best = seed.max_qty_pct ?? seed.avg_qty_pct ?? 0;
-  if (best <= 25) return "bg-amber-400";
-  if (best <= 50) return "bg-orange-500";
-  return "bg-emerald-500";
-}
-
 /** Card border: green only when active_plantings_count > 0 (status is "active" only when profile has active grow_instances). */
 function getCardBorderClass(seed: VaultCardItem): string {
   if (seed.status === "active") return "border-emerald-500/60 border-2";
   if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-neutral-300 border border-dashed";
   return "border-slate-200/80 border";
-}
-
-function HealthDot({ seed, size = "default" }: { seed: VaultCardItem; size?: "default" | "sm" }) {
-  const color = getHealthColor(seed);
-  const best = seed.max_qty_pct ?? seed.avg_qty_pct ?? 0;
-  const label =
-    seed.packet_count === 0 || seed.status === "out_of_stock"
-      ? "Out of stock"
-      : best <= 25
-        ? "Low inventory (≤25%)"
-        : best <= 50
-          ? "Medium (≤50%)"
-          : "In stock (>50%)";
-  const sizeClass = size === "sm" ? "w-2 h-2" : "w-2.5 h-2.5";
-  return <span className={`inline-block rounded-full ${sizeClass} ${color} shrink-0`} title={label} aria-label={label} />;
 }
 
 function ExternalLinkIcon() {
@@ -1236,8 +1212,6 @@ export function SeedVaultView({
                   <div className="px-2 pt-1 pb-1 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
                     <h3 className="font-semibold text-black text-sm leading-tight w-full min-h-[2rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
                       <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
-                      <HealthDot seed={seed} size="sm" />
-                      <span className="text-[10px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                     </h3>
                     <div className={`text-[11px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                     <div className="mt-auto pt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
@@ -1283,7 +1257,7 @@ export function SeedVaultView({
               );
             }
 
-            /* Condensed: same layout as photo cards (image on top, then name · variety, title, HealthDot + count) but smaller */
+            /* Condensed: same layout as photo cards (image on top, then name · variety, title) but smaller */
             const condensedContent = (
               <>
                 <div className="px-1.5 pt-1.5 shrink-0">
@@ -1320,8 +1294,6 @@ export function SeedVaultView({
                 <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
                   <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
                     <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
-                    <HealthDot seed={seed} size="sm" />
-                    <span className="text-[9px] text-black/40 shrink-0" title={`${seed.packet_count} packet${seed.packet_count !== 1 ? "s" : ""}`}>{seed.packet_count}</span>
                   </h3>
                   <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                   <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
