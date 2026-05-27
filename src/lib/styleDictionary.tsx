@@ -108,12 +108,37 @@ function SeedIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Seed packet: tall envelope rectangle + top seal line + small seed marks inside (stroke-only). */
+function SeedPacketIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <rect x="6" y="3" width="12" height="18" rx="1" />
+      <path d="M6 7h12" />
+      <circle cx="10" cy="13.5" r="0.6" />
+      <circle cx="14" cy="13.5" r="0.6" />
+      <circle cx="12" cy="16.5" r="0.6" />
+    </svg>
+  );
+}
+
 /** Single leaf outline (teardrop leaf, stroke-only). */
 function PlantIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
     <svg {...p}>
       <path d="M12 22c-1.5 0-4-2.5-4-8 0-6 2.5-11 4-12 1.5 1 4 6 4 12 0 5.5-2.5 8-4 8z" />
+    </svg>
+  );
+}
+
+/** Tree (deciduous): cloud-shape canopy + short trunk. Reads as "established plant." Stroke-only. */
+function TreeIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <path d="M8 19a4 4 0 0 1-2.24-7.32A3.5 3.5 0 0 1 9 6.03V6a3 3 0 1 1 6 0v.04a3.5 3.5 0 0 1 3.24 5.65A4 4 0 0 1 16 19Z" />
+      <path d="M12 19v3" />
     </svg>
   );
 }
@@ -551,8 +576,10 @@ export const ICON_MAP = {
   Task: TaskIcon,
   Trash: TrashIcon,
   Seed: SeedIcon,
+  SeedPacket: SeedPacketIcon,
   Seedling: SeedlingIcon,
   Plant: PlantIcon,
+  Tree: TreeIcon,
   Shed: ShedIcon,
   Back: BackIcon,
   Harvest: HarvestIcon,
