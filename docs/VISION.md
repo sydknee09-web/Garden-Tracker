@@ -247,6 +247,8 @@ Don't accidentally unify them — the visual distinction is doing semantic work.
 
 User signal verbatim (2026-05-24): gray-fill = dropdown affordance (preset options); white outline = free-text input. Two field treatments signaling two interaction patterns.
 
+*See "Casing (headers + buttons vs body)" subsection below for header/button vs body-copy convention.*
+
 ### Form-level error treatment
 
 **Locked 2026-05-26.** Form-level errors (both validation messages like "Title is required." AND save-failure messages from `formatAddFlowError()`) render via the shared [`FormError`](../src/components/FormError.tsx) component.
@@ -264,6 +266,58 @@ User signal verbatim (2026-05-24): gray-fill = dropdown affordance (preset optio
 **Sites using it (initial roll-out 2026-05-26):** NewTaskModal, QuickAddSeed (×2 paths), AddPlantModal, QuickAddSupply, EditJournalModal (submitError only — webcamError remains a field-level inline error, different shape).
 
 **Out-of-scope follow-ups** (logged 2026-05-26 for future polish pass): auth pages (login/signup/reset-password/update-password), AddPlantManualModal, AddItemModal, FeedbackModal, InviteMemberModal, BatchAddSeed/Supply.
+
+### Casing (headers + buttons vs body)
+
+**Locked 2026-05-27** — reverses part of the implicit "all-sentence-case" cohesion bar that operated 2026-05-24 → 2026-05-27 (recorded only in ROADMAP §6 dated entries: 2026-05-24 `006dd69` Item 2 + Q4 widen + 2026-05-25 `a78dbd6` 22-edit sweep). Promotes the rule from previously-only-ROADMAP-dated entries into a durable VISION.md design token, closing the doc-architecture gap flagged via authority-precedence audit.
+
+GT uses an **industry-standard casing split**, parallel to Apple HIG / Material Design / iOS Settings:
+
+- **Headers + buttons = Title Case (AP-style).** Examples: `Confirm Planting`, `Add Plant`, `Delete Batch`, `From Vault`, `Add Entry`, `Save Changes`, `Photo Import` (modal h2), `Extract & Review`, `Save to Vault`, `Add to Shed`, `When to Plant (by Zone)`, `Continue to Import Review`, `Overwrite with AI?`, `Save for Later`, `At a Glance`.
+- **Descriptions / paragraphs / inline body copy = sentence case.** Examples: `Confirm your planting from this seed packet`, `Delete batch from your collection`, `Take or upload photos of product labels`, `Where did you get this seed?`.
+
+**Decision criterion (at audit time, one question):** *Is the user expected to TAP it (button) or READ it as a label/title (header)? → Title Case. Is it explanatory copy supporting the UI? → sentence case.*
+
+**AP-style Title Case mechanic (the locked rule):**
+
+- **Capitalize:** nouns, verbs (including `is`, `are`, `be`), adjectives, adverbs, pronouns; **first** and **last** word ALWAYS capitalized regardless of part of speech
+- **Lowercase mid-string:** articles (`a`, `an`, `the`); short conjunctions (`and`, `but`, `or`, `nor`, `for`, `yet`, `so`); prepositions ≤4 letters (`in`, `on`, `to`, `of`, `by`, `at`, `for`, `with`, `from`, `into`, `onto`, `over`, `up`)
+- **Capitalize prepositions 5+ letters** (`After`, `Across`, `Through`, `Behind`, `Without`)
+- **Compound verbs** capitalize the particle (`Sign Up`, `Log Out`, `Set Up` — particle is adverb, not preposition)
+- **Hyphenated open-class words** capitalize both parts (`Re-Extract`, `Set-Up`); lowercase second part only when it's an article/preposition (`Add-on`)
+- **Acronyms / proper nouns** stay as-is (`AI Fill`, `URL Import`, `Active Garden`, `My Plants`, `Friends & Family`)
+
+**Surface-level taxonomy** (each row gets exactly one classification):
+
+| Surface | Classification | Examples |
+|---|---|---|
+| Page h1 / hero title | **Title Case** | `Photo Import` · `Shopping List` · `Help` |
+| Modal h2 / dialog title | **Title Case** | `Add Plant` · `Edit Packet` · `Delete Plant Profile?` |
+| Section h2 / sub-header | **Title Case** | `Adding Things` · `When to Plant (by Zone)` · `At a Glance` |
+| Sidebar settings sub-header (uppercase tracking) | **Title Case** | `Safe Tools` · `Danger Zone` (preserved as ALL-CAPS via `uppercase` utility; Title Case under-the-hood) |
+| Tab labels | **Title Case** | `Plant Profiles` · `Seed Vault` |
+| Button labels (submit + secondary CTA) | **Title Case** | `Save` · `Cancel` · `Add Plant` · `Confirm Planting` · `Save Changes` · `Save to Vault` |
+| Chip / option labels in choosers | **Title Case** | `Manual Entry` · `Photo Import` · `Link Import` · `Purchase Order` |
+| Settings menu row labels | **Title Case** | `Vendor Ratings` · `Photo Imports` · `Cache` |
+| Empty-state titles | **Title Case** | `No Plants Yet` · `Your Library Starts Here` |
+| Empty-state body | **sentence case** | `Add a plant to get started.` · `Long-living plants you keep year after year live here.` |
+| Helper text / placeholder / inline body | **sentence case** | `Take or upload photos of product labels` · `Optional` · `Where did you get this seed?` |
+| Field labels above inputs | **sentence case** | `Plant name` · `Variety / cultivar` · `Vendor / nursery` (already lowercased 2026-05-25 `a78dbd6` — preserved) |
+| ARIA labels matching visible field labels | **sentence case** | Match the visible label's case verbatim |
+| Toast messages | **sentence case** | `Plant saved.` · `Couldn't save changes — please refresh and try again.` |
+| Day-rotating prompts / longer copy | **sentence case** | (Journal day-rotating prompts at [journal/page.tsx:639-650](src/app/journal/page.tsx:639) — kept verbatim) |
+| Volume pills / single-word enum tokens | **sentence case (enum-token style)** | `Full` / `Partial` / `Low` / `Empty` · `Pot up` / `Plant out` / `Cold stratify` · `Fertilizer` / `Pesticide` / `Other` — preserved per 2026-05-25 `a78dbd6` enum-token rule |
+
+**Proper-noun preservations** (stay Title Case regardless of position — page-level labels or canonical noun phrases):
+
+- `Active Garden`, `My Plants`, `Plant Profiles`, `Seed Vault`, `Shed` — page/tab labels per ROADMAP 2026-05-24 `006dd69` Item 2 lock
+- `Plant This Month` (renamed from `Plantable` per ROADMAP 2026-05-25 `b669a2a`) — Title Case applies now
+- `Friends & Family`, `Vista Gardeners` — group names
+- `Vault`, `Garden`, `Calendar`, `Journal`, `Home`, `Settings`, `Help`, `Shopping List` — primary nav labels (already Title; no change)
+
+**GT-only.** Voyager has its own voice (parchment register + in-world vocabulary); this split rule does NOT apply there.
+
+**Why this rule exists.** The 2026-05-24 all-sentence-case lock was an overcorrection from prior Title-Case-everywhere drift. The right balance is the industry split: Title Case for things you tap or scan as a label; sentence case for things you read as prose. Two failure modes named: (a) Title-Case-everywhere reads as marketing-shouty for body copy ("Take Or Upload Photos Of Product Labels" — wrong); (b) sentence-case-everywhere reads as careless for headers and buttons ("Add plant" feels half-finished where every shipped iOS app says "Add Plant"). Industry-standard split avoids both. Persona walk: Maya (power user, scans labels) reads Title Case as expected; Sydney reads as cohesive; Walter (iPad-primary) reads as standard-iOS-app expectations met; Aria + Sam read empty-state title-vs-body case differential as a clear info hierarchy. All 5 personas pass.
 
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.

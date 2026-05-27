@@ -789,6 +789,26 @@ The reason for the final review: between mid-session updates and end-of-session,
 
 ---
 
+## Casing convention (locked 2026-05-27)
+
+GT uses an **industry-standard split**: Title Case (AP-style) for headers + buttons, sentence case for body copy. **See [VISION.md §8 "Casing (headers + buttons vs body)"](docs/VISION.md) for the full rule + surface-level taxonomy + AP-style mechanic + proper-noun preservations.**
+
+**Quick lookup for in-chat plans:**
+- Page h1 / modal h2 / section h2 / button label / chip label / tab label / settings menu row → **Title Case** (AP-style)
+- Helper text / paragraphs / placeholder / field labels above inputs / ARIA labels matching field labels / toast messages / enum tokens (volume pills, supply categories, QUICK_ACTIONS) → **sentence case**
+
+**AP-style mechanic (memorize):**
+- Lowercase mid-string: articles (`a`, `an`, `the`); short conjunctions (`and`, `but`, `or`, `nor`, `for`, `yet`, `so`); prepositions ≤4 letters (`in`, `on`, `to`, `of`, `by`, `at`, `for`, `with`, `from`, `into`, `onto`, `over`, `up`)
+- Capitalize: nouns, verbs, adjectives, adverbs, pronouns, prepositions 5+ letters (`Through`, `Without`, `After`, `Across`), compound-verb particles (`Sign Up`, `Log Out`)
+- First + last word ALWAYS capitalized regardless of part of speech
+- Examples: `Save to Vault` · `Add to Shed` · `When to Plant (by Zone)` · `Continue to Import Review` · `Overwrite with AI?` · `Save for Later` · `At a Glance`
+
+**At audit time, ask:** *user expected to TAP it (button) or READ it as a label/title (header)? → Title Case. Explanatory copy supporting the UI? → sentence case.*
+
+**Reverses** the implicit "all sentence case" cohesion bar that operated 2026-05-24 → 2026-05-27 (recorded in ROADMAP §6 2026-05-24 `006dd69` Item 2 + Q4 widen + 2026-05-25 `a78dbd6` sweep, never promoted to VISION.md). GT-only — Voyager has its own voice rule.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.
