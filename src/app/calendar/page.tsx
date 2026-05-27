@@ -1111,7 +1111,7 @@ export default function CalendarPage() {
         </div>
       ) : (
         <div
-          className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden pl-6 pr-6"
+          className="rounded-2xl bg-white shadow-card border border-black/5 overflow-hidden pl-6 pr-6 touch-pan-y"
           onTouchStart={(e) => {
             swipeStartX.current = e.touches[0]?.clientX ?? null;
           }}
