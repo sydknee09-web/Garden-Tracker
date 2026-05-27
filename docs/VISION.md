@@ -350,6 +350,32 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own voice; this convention does NOT apply there unless surfaced separately.
 
+### Icon style — chrome vs content split
+
+**Locked 2026-05-27.** Garden Tracker uses an **industry-standard split** between UI chrome and content, parallel to Apple HIG (SF Symbols system across native iOS) and Material Design (icon families separated by role).
+
+**The rule (two branches):**
+
+- **Chrome icons** — UI structure that recurs constantly across the app: FAB chips, nav bars (sidebar + bottom), settings gears, tab icons, form-field icons, list-row affordances (chevrons, kebabs, swipe-action icons), modal close-X, header utility icons. These use a **flat, monochromatic line style** (single stroke weight, single color via `currentColor`, no fill, no illustration detail). Calm + clear + non-competing. Chrome icons are *persistent* across the app and must not pull attention from content.
+- **Content icons** — emphasis on specific things the user is actively engaging with: achievement badges, plant-category markers, milestone markers (first sprout / first harvest / 1-year anniversary), journal milestones, seasonal markers, celebratory moments (seedling celebration), illustrated empty-state hero art. These can be **illustrated, colored, or emoji-style**. They are *moments*, not chrome — they invite attention because they ARE the content.
+
+**Decision criterion at audit time (one question):** *Is this icon UI structure (recurring + present across the app + supports the user finding/tapping something) or content (specific + attention-worthy + the thing the user is engaging with)?*
+
+- Chrome → **flat, monochromatic line style**
+- Content → **illustrated / colored / emoji-style OK**
+
+**Why this rule exists.** Industry-standard split (Apple HIG SF Symbols system, Material Design icon families). Mixing styles intentionally **by role** is correct; mixing styles randomly within a single role is drift. Chrome that competes for attention exhausts the user across a long session; content that stays as flat chrome reads as bureaucratic and misses the emotional beat the moment is supposed to land.
+
+**How to apply when introducing a new icon.** Ask the criterion question first; pick the bucket; then pick the specific icon within that bucket per the existing chrome library (Lucide-via-`styleDictionary.tsx`) or commission new illustrated artwork for content moments.
+
+**Worked example — FAB Add plant icon (queued semantic-fix swap).** The current FAB "Add plant" icon visually reads as a seed rather than a plant. Per this convention: the icon is **chrome** (it's the FAB's primary chip, persistent + recurring + UI structure), so the fix stays **flat monotone** — we just need a better-shaped plant icon from the existing Lucide library, NOT a switch to illustrated / colored / emoji-style. This is exactly the rule applying: chrome category locked, semantic shape fixed within the chrome style. *Same shape as 2026-05-12 chunk 3.9 #4 (Garden card "Add journal entry" trigger icon swap, `3de1c2c`) — flat icon swap within the chrome lane to fix semantic mismatch, style unchanged.*
+
+**Relationship to §11 "App-wide icon density" parked decision.** The §11 parked entry (raised 2026-05-08 / widened 2026-05-11) asks which canonical stroke weight + size the **chrome** lane should standardize on (stroke 1.2 from `styleDictionary.tsx` vs stroke 2.0 from `navItems.tsx`). This convention sits **above** that question: §11 settles **unification within the chrome lane**; this convention sets **the chrome-vs-content category split itself**. Both are needed, neither closes the other. When §11 unlocks, its outcome applies to the chrome lane defined here; content icons remain unaffected (illustrated artwork doesn't have a stroke weight).
+
+**Persona walk.** All 5 personas pass. Maya (power user, scans labels) reads chrome that stays calm — doesn't compete with content she's actively engaging with. Sydney (cohesion) sees industry-standard split as the cohesive feel she expects from polished apps. Walter (iPad-primary, standard-iOS-app expectations) reads flat monotone chrome as the SF Symbols convention; illustrated content icons read as moments worth lingering on. Aria (urban houseplant, low-data) sees chrome stay calm — never overwhelmed by FAB / nav even on a Day-1 surface. Sam (beginner, Day 1) experiences chrome that doesn't shout for attention, so the content moments (first sprout, first harvest) actually land emotionally when they appear.
+
+**GT-only.** Voyager has its own visual register (parchment + in-world illustrated artwork); this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 

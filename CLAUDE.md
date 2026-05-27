@@ -835,6 +835,22 @@ GT-only — Voyager has its own conventions.
 
 ---
 
+## Icon style convention (locked 2026-05-27)
+
+GT splits icons into **chrome** (flat, monochromatic line style) vs **content** (illustrated / colored / emoji OK). Industry-standard split parallel to Apple HIG SF Symbols + Material Design icon families. **See [VISION.md §8 "Icon style — chrome vs content split"](docs/VISION.md) for the full rule + criterion + worked example + relationship to §11 stroke-weight parked entry + persona walk.**
+
+**Quick lookup for in-chat plans:**
+- Chrome (FAB chips, nav bars, settings gears, tab icons, form-field icons, list-row affordances, modal close-X, header utility) → **flat, monochromatic line style** (Lucide-via-`styleDictionary.tsx`)
+- Content (achievement badges, plant-category markers, milestone markers, seasonal markers, celebratory moments, illustrated empty-state hero art) → **illustrated / colored / emoji-style OK**
+
+**At audit time, ask:** *is this UI structure (recurring + persistent + supports finding/tapping) or content (specific + attention-worthy + the thing the user is engaging with)? → chrome = flat monotone; content = illustrated OK.*
+
+**Relationship to §11 stroke-weight parked decision.** This convention sets the category split (chrome vs content); §11 settles unification within the chrome lane (canonical stroke weight). Both are needed — when §11 unlocks, its outcome applies to chrome icons defined here.
+
+GT-only — Voyager has its own visual register.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.
