@@ -924,6 +924,14 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => removeFromQueue(item.id)}
+                            className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold hover:bg-red-600"
+                            aria-label="Remove photo"
+                          >
+                            ×
+                          </button>
                         </>
                       )}
                     </div>
