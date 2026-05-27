@@ -96,7 +96,7 @@ export function VaultProfilePacketsTab({
                     aria-expanded={open}
                     aria-label={`${pkt.vendor_name?.trim() || "Packet"} — tap to ${open ? "collapse" : "expand"}`}
                   >
-                    <span className="truncate">{pkt.vendor_name?.trim() || "--"}</span>
+                    <span className="truncate">{pkt.vendor_name?.trim() || "—"}</span>
                     {year != null && <span className="text-neutral-500 text-sm shrink-0">{year}</span>}
                   </button>
                   <div className="shrink-0" onClick={(e) => e.stopPropagation()}>

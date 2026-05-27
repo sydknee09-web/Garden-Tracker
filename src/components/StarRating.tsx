@@ -20,7 +20,7 @@ export function StarRating({ value, interactive = false, onChange, size = "md", 
   const btnSize = size === "sm" ? "min-w-[28px] min-h-[28px]" : "min-w-[36px] min-h-[36px]";
 
   if (!interactive) {
-    if (value == null) return <span className="text-neutral-400 text-sm">--</span>;
+    if (value == null) return <span className="text-neutral-400 text-sm">—</span>;
     return (
       <span className={`inline-flex items-center gap-0.5 ${starSize}`} aria-label={`${value} out of 5 stars`}>
         {Array.from({ length: 5 }, (_, i) => (

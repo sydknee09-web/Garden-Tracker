@@ -35,7 +35,7 @@ function computeAvg(packets: PacketWithProfile[]): number | null {
 }
 
 function formatAvg(avg: number | null): string {
-  if (avg == null) return "--";
+  if (avg == null) return "—";
   return avg.toFixed(1);
 }
 
@@ -311,7 +311,7 @@ export default function VendorScorecardPage() {
                           {group.avgGermination}% germ
                         </span>
                       )}
-                      <span className="text-sm text-neutral-400">--</span>
+                      <span className="text-sm text-neutral-400">—</span>
                       <span className="text-neutral-400 text-xs" aria-hidden>{isOpen ? "▴" : "▾"}</span>
                     </div>
                   </button>
@@ -327,7 +327,7 @@ export default function VendorScorecardPage() {
                             >
                               {label}
                             </Link>
-                            <span className="text-sm text-neutral-400 shrink-0">--</span>
+                            <span className="text-sm text-neutral-400 shrink-0">—</span>
                           </div>
                         );
                       })}

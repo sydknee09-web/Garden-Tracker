@@ -633,7 +633,7 @@ export default function VaultSeedPage() {
     });
     return byUnit;
   }, [journalEntries]);
-  const yieldLabel = Object.entries(totalYield).map(([unit, val]) => `${Math.round(val * 10) / 10} ${unit}`).join(", ") || "--";
+  const yieldLabel = Object.entries(totalYield).map(([unit, val]) => `${Math.round(val * 10) / 10} ${unit}`).join(", ") || "—";
 
   // Care info
   const profileWithBotanical = profile as PlantProfile & { botanical_care_notes?: Record<string, unknown> | null };
@@ -707,18 +707,18 @@ export default function VaultSeedPage() {
   if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href={searchParams.get("gardenTab") === "active" ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to {searchParams.get("gardenTab") === "active" ? "Active Garden" : "My Plants"}</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Calendar</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   const careList = [
-    { label: "Sowing Method", value: displaySowing || "--" },
-    { label: "Planting Window", value: displayWindow || "--" },
-    { label: "Spacing", value: ((effectiveCare?.plant_spacing ?? profile.plant_spacing?.trim()) || "--") },
-    { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "--") },
+    { label: "Sowing Method", value: displaySowing || "—" },
+    { label: "Planting Window", value: displayWindow || "—" },
+    { label: "Spacing", value: ((effectiveCare?.plant_spacing ?? profile.plant_spacing?.trim()) || "—") },
+    { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") },
   ];
   const growingList = [
-    { label: "Sun", value: ((effectiveCare?.sun ?? profile.sun?.trim()) || "--") },
-    { label: "Water", value: ((effectiveCare?.water ?? profileWater?.trim()) || "--") },
-    { label: "Germination", value: ((effectiveCare?.days_to_germination ?? profile.days_to_germination?.trim()) || "--") },
+    { label: "Sun", value: ((effectiveCare?.sun ?? profile.sun?.trim()) || "—") },
+    { label: "Water", value: ((effectiveCare?.water ?? profileWater?.trim()) || "—") },
+    { label: "Germination", value: ((effectiveCare?.days_to_germination ?? profile.days_to_germination?.trim()) || "—") },
   ];
   const harvestList = [
-    { label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "--")) },
+    { label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) },
   ];
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";

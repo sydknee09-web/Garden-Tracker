@@ -746,8 +746,8 @@ export function PacketVaultView({
                         {decodeHtmlEntities(pkt.profile_name)}{varietyDisplay}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-neutral-600">{pkt.vendor_name?.trim() || "--"}</td>
-                    <td className="px-4 py-3 text-neutral-500">{pkt.purchase_date ? new Date(pkt.purchase_date).toLocaleDateString() : "--"}</td>
+                    <td className="px-4 py-3 text-neutral-600">{pkt.vendor_name?.trim() || "—"}</td>
+                    <td className="px-4 py-3 text-neutral-500">{pkt.purchase_date ? new Date(pkt.purchase_date).toLocaleDateString() : "—"}</td>
                     <td className={`px-4 py-3 font-medium ${isArchived ? "text-neutral-500" : qtyColor}`}>
                       {isArchived ? "Out" : qtyStatusToLabel(pkt.qty_status)}
                     </td>

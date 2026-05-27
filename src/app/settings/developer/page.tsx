@@ -750,7 +750,7 @@ export default function SettingsDeveloperPage() {
                         <p className="text-sm text-neutral-500 mt-1">
                           Planted {new Date(item.sown_date).toLocaleDateString()}
                           {" - Harvested "}{item.harvest_count} {item.harvest_count === 1 ? "time" : "times"}
-                          {" - Ended "}{item.ended_at ? new Date(item.ended_at).toLocaleDateString() : "--"}
+                          {" - Ended "}{item.ended_at ? new Date(item.ended_at).toLocaleDateString() : "—"}
                         </p>
                       </div>
                       <button
