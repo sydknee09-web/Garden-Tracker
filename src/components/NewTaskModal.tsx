@@ -272,7 +272,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             <div className="w-11 shrink-0" aria-hidden />
           )}
           <h2 id="new-task-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-            {editTask ? "Edit task" : "New task"}
+            {editTask ? "Edit Task" : "New Task"}
           </h2>
           <div className="w-11 shrink-0" aria-hidden />
         </div>
@@ -442,7 +442,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           disabled={saving || !title.trim()}
           className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
         >
-          {saving ? "Saving…" : editTask ? "Save changes" : isRecurring ? "Add recurring task" : "Add task"}
+          {saving ? "Saving…" : editTask ? "Save Changes" : isRecurring ? "Add Recurring Task" : "Add Task"}
         </button>
       </div>
     </form>

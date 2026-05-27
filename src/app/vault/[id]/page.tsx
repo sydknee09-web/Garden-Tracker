@@ -1191,7 +1191,7 @@ export default function VaultSeedPage() {
               aria-modal="true"
               aria-labelledby="ai-menu-title"
             >
-              <h2 id="ai-menu-title" className="font-semibold text-neutral-900 text-base mb-3">AI fill</h2>
+              <h2 id="ai-menu-title" className="font-semibold text-neutral-900 text-base mb-3">AI Fill</h2>
               <p className="text-sm text-neutral-500 mb-4">Fill empty fields from cache or AI, or replace all AI-filled details.</p>
               <div className="flex flex-col gap-2">
                 <button
@@ -1486,7 +1486,7 @@ export default function VaultSeedPage() {
       {editGrowTarget && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
           <div className="bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl p-6">
-            <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900 mb-4">Edit plant</h2>
+            <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900 mb-4">Edit Plant</h2>
             <div className="space-y-4">
               <div>
                 <label htmlFor="edit-grow-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>

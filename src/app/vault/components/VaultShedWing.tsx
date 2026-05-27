@@ -422,7 +422,7 @@ export function VaultShedWingToolbar() {
             type="button"
             onClick={() => setShedDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-            title={shedDisplayStyle === "grid" ? "List view" : "Grid view"}
+            title={shedDisplayStyle === "grid" ? "List View" : "Grid View"}
             aria-label={shedDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
           >
             {shedDisplayStyle === "grid" ? (
@@ -596,7 +596,7 @@ export function VaultShedWingModals({
             </header>
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div>
-                <h3 className="text-sm font-medium text-black/70 mb-2">Filter by category</h3>
+                <h3 className="text-sm font-medium text-black/70 mb-2">Filter by Category</h3>
                 <div className="space-y-1">
                   {[
                     { value: null, label: "All" },
@@ -624,7 +624,7 @@ export function VaultShedWingModals({
                 </div>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-black/70 mb-2">Sort by</h3>
+                <h3 className="text-sm font-medium text-black/70 mb-2">Sort By</h3>
                 <div className="space-y-1">
                   {[
                     { value: "updated_at" as const, label: "Date added" },

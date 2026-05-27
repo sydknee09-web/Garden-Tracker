@@ -49,7 +49,7 @@ export default function SettingsFeedbackPage() {
       <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
         ← Back to Settings
       </Link>
-      <h1 className="text-xl font-bold text-neutral-900 mb-1">Your feedback</h1>
+      <h1 className="text-xl font-bold text-neutral-900 mb-1">Your Feedback</h1>
       <p className="text-sm text-neutral-500 mb-4">
         Feedback you’ve submitted. To review all user feedback, use the Supabase dashboard → Table Editor → user_feedback.
       </p>

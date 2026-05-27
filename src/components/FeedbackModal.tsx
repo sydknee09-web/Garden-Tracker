@@ -208,7 +208,7 @@ export function FeedbackModal({
             <WrenchIcon />
           </span>
           <h2 id="feedback-title" className="text-lg font-semibold text-black">
-            Send feedback
+            Send Feedback
           </h2>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">

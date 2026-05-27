@@ -577,8 +577,8 @@ export default function JournalPage() {
                 router.replace("/journal?view=table", { scroll: false });
               }}
               className={`min-w-[60px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === "table" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
-              title="Table view"
-              aria-label="Table view"
+              title="Table View"
+              aria-label="Table View"
             >
               <TableIcon />
               <span className="text-[10px] font-medium leading-none">Table</span>
@@ -592,8 +592,8 @@ export default function JournalPage() {
                 router.replace("/journal?view=grid", { scroll: false });
               }}
               className={`min-w-[60px] min-h-[44px] px-2 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"}`}
-              title="Gallery view"
-              aria-label="Gallery view"
+              title="Gallery View"
+              aria-label="Gallery View"
             >
               <ICON_MAP.PhotoCardsGrid stroke="currentColor" className="w-5 h-5" />
               <span className="text-[10px] font-medium leading-none">Gallery</span>

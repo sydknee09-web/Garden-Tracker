@@ -23,7 +23,7 @@ export default function ResourcesPage() {
       <p className="text-sm text-neutral-500 mb-6">Zone charts, planting calendars, and frost dates — open in a new tab to view or print.</p>
 
       <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Planting calendars</h2>
+        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Planting Calendars</h2>
         <p className="text-xs text-black/50 mb-3">Zone charts and frost dates. Or use our in-app <Link href="/schedule" prefetch={false} className="text-emerald-600 font-medium hover:underline">Planting Schedule</Link> (Zone 10b reference).</p>
         <div className="space-y-3">
           {PLANTING_CALENDAR_LINKS.filter((c) => c.primary).map((cal) => (

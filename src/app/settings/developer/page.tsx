@@ -707,7 +707,7 @@ export default function SettingsDeveloperPage() {
       </div>
 
       {/* Safe Tools */}
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Safe tools</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-4">Safe Tools</h2>
       <div className="space-y-6 mb-10">
       {matchesSection({ title: "API Usage", desc: "Gemini OpenAI Perenual Supabase billing limits" }) && (
       <section>
@@ -940,7 +940,7 @@ export default function SettingsDeveloperPage() {
       {matchesSection({ title: "Refill scientific names", desc: "Perenual Latin names" }) && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Refill scientific names</h3>
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Refill Scientific Names</h3>
           <p className="text-sm text-neutral-500 mb-3">
             For profiles or cache rows missing a scientific name (e.g. after cleaning junk), look up Latin names from the Perenual API. Requires PERENUAL_API_KEY. Only saves values that look like real scientific names.
           </p>
@@ -983,7 +983,7 @@ export default function SettingsDeveloperPage() {
       {matchesSection({ title: "Fix scientific display names", desc: "GeoSeed common name" }) && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fix scientific display names (GeoSeed)</h3>
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Fix Scientific Display Names (GeoSeed)</h3>
           <p className="text-sm text-neutral-500 mb-3">
             For profiles where the display name is a scientific name (e.g. Eschscholzia, Helianthus from GeoSeed), look up the common name from Perenual and set <strong>name</strong> to the common name (e.g. California Poppy, Sunflower) and <strong>scientific_name</strong> to the Latin binomial. Variety is left unchanged. Requires PERENUAL_API_KEY.
           </p>
@@ -1008,7 +1008,7 @@ export default function SettingsDeveloperPage() {
       {matchesSection({ title: "Clean orphan packets", desc: "Soft-delete packets for deleted plants" }) && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Clean orphan packets</h3>
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Clean Orphan Packets</h3>
           <p className="text-sm text-neutral-500 mb-3">
             Soft-delete seed packets whose plant profile has been deleted. Fixes packets that still appear as &quot;Unknown&quot; in the Seed Vault.
           </p>
@@ -1037,7 +1037,7 @@ export default function SettingsDeveloperPage() {
       {false && (
       <section>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-800 mb-1">Complete plant details</h3>
+          <h3 className="text-base font-semibold text-neutral-800 mb-1">Complete Plant Details</h3>
           <p className="text-sm text-neutral-500 mb-3">
             Add missing growing info to your plant profiles—sun needs, spacing, days to germination, harvest time, watering, how to sow, and a short description. Uses a shared database first, then AI. Runs in the background; you can leave this page open.
           </p>
@@ -1106,12 +1106,12 @@ export default function SettingsDeveloperPage() {
       </div>
 
       {/* Danger Zone */}
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-red-600 mb-4">Danger zone</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-red-600 mb-4">Danger Zone</h2>
       <div className="space-y-6 rounded-2xl border border-red-200 bg-red-50/30 p-4">
       {matchesSection({ title: "Re-extract URL", desc: "Overwrite cache" }) && (
       <section>
         <div className="rounded-xl border border-red-200/50 bg-white p-5">
-          <h3 className="text-base font-semibold text-red-700 mb-1">Re-extract this URL</h3>
+          <h3 className="text-base font-semibold text-red-700 mb-1">Re-Extract This URL</h3>
           <p className="text-sm text-neutral-600 mb-3">Overwrite the global cache row for a single seed URL. Use when a cached entry is wrong or stale.</p>
           <input
             type="url"
@@ -1190,7 +1190,7 @@ export default function SettingsDeveloperPage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setReExtractConfirmOpen(false)} />
           <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="reextract-confirm-title">
-            <h2 id="reextract-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Re-extract URL?</h2>
+            <h2 id="reextract-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Re-Extract URL?</h2>
             <p className="text-sm text-neutral-600 mb-4">This will overwrite the cached data for this URL. Continue?</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setReExtractConfirmOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Cancel</button>

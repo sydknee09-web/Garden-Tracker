@@ -1048,7 +1048,7 @@ export default function CalendarPage() {
           >
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/10">
               <h2 id="plantable-inventory-title" className="text-lg font-semibold text-black">
-                {plantableInventoryPlantType.plantType} – Seed inventory
+                {plantableInventoryPlantType.plantType} – Seed Inventory
               </h2>
               <button
                 type="button"
@@ -1559,7 +1559,7 @@ export default function CalendarPage() {
               className="w-full min-h-[44px] px-4 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
               role="menuitem"
             >
-              Edit task
+              Edit Task
             </button>
             <button
               type="button"

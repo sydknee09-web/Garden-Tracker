@@ -383,7 +383,7 @@ export function SupplyForm({
             <div className="w-11 shrink-0" aria-hidden />
           )}
           <h2 id="quick-add-supply-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-            {isEdit ? "Edit supply" : step === "choose" ? "Add supply" : step === "link" ? "Import from link" : "Add supply"}
+            {isEdit ? "Edit Supply" : step === "choose" ? "Add Supply" : step === "link" ? "Import from Link" : "Add Supply"}
           </h2>
           <div className="w-11 shrink-0" aria-hidden />
         </div>
@@ -713,7 +713,7 @@ export function SupplyForm({
               disabled={submitting || added || !name.trim()}
               className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save changes" : "Add supply"}
+              {added ? "Saved!" : submitting ? "Saving…" : isEdit ? "Save Changes" : "Add Supply"}
             </button>
           </div>
         )}

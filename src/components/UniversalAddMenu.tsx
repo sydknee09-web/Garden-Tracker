@@ -147,7 +147,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Seed className="w-5 h-5" /></span>
                   <div>
-                    <div>Add seed packet</div>
+                    <div>Add Seed Packet</div>
                     <div className="text-xs font-normal text-neutral-500">Seeds for your vault</div>
                   </div>
                 </button>
@@ -158,7 +158,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
                   <div>
-                    <div>Add plant</div>
+                    <div>Add Plant</div>
                     <div className="text-xs font-normal text-neutral-500">Trees, perennials, or seasonal</div>
                   </div>
                 </button>
@@ -169,7 +169,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
                   <div>
-                    <div>Add to shed</div>
+                    <div>Add to Shed</div>
                     <div className="text-xs font-normal text-neutral-500">Fertilizer, soil, supplies</div>
                   </div>
                 </button>
@@ -180,7 +180,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
                   <div>
-                    <div>Add task</div>
+                    <div>Add Task</div>
                     <div className="text-xs font-normal text-neutral-500">Reminder or to-do for calendar</div>
                   </div>
                 </button>
@@ -191,7 +191,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
                   <div>
-                    <div>Add journal</div>
+                    <div>Add Journal</div>
                     <div className="text-xs font-normal text-neutral-500">Log growth, harvest, notes</div>
                   </div>
                 </button>
@@ -210,7 +210,7 @@ export function UniversalAddMenu({
                 <button type="button" onClick={goBackToMain} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
                   <ICON_MAP.Back className="w-5 h-5" />
                 </button>
-                <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add plant</h2>
+                <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Plant</h2>
                 <div className="w-11 shrink-0" aria-hidden />
               </div>
               <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
@@ -241,7 +241,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
                   <div>
-                    <div>Manual entry</div>
+                    <div>Manual Entry</div>
                     <div className="text-xs font-normal text-neutral-500">Enter name, variety, notes</div>
                   </div>
                 </button>
@@ -264,7 +264,7 @@ export function UniversalAddMenu({
                   >
                     <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
                     <div>
-                      <div>Scan purchase order</div>
+                      <div>Scan Purchase Order</div>
                       <div className="text-xs font-normal text-neutral-500">Screenshot of cart or order with plants</div>
                     </div>
                   </button>
@@ -277,7 +277,7 @@ export function UniversalAddMenu({
                   >
                     <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
                     <div>
-                      <div>Photo import</div>
+                      <div>Photo Import</div>
                       <div className="text-xs font-normal text-neutral-500">Multi-photo, extract plant tags</div>
                     </div>
                   </button>

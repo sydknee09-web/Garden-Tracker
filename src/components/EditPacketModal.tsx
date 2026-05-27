@@ -128,7 +128,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
       <div ref={trapRef} className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
         <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
-          <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit packet</h2>
+          <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit Packet</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading ? (

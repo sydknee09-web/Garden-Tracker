@@ -416,7 +416,7 @@ export function JournalEntryForm({
               <ICON_MAP.Close className="w-5 h-5" />
             </button>
           )}
-          <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add journal</h2>
+          <h2 id="quicklog-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Journal</h2>
           <div className="w-11 shrink-0" aria-hidden />
         </div>
       </div>
@@ -588,7 +588,7 @@ export function JournalEntryForm({
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />
               Adding…
             </>
-          ) : "Add entry"}
+          ) : "Add Entry"}
         </button>
       </div>
     </form>

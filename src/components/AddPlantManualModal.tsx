@@ -113,7 +113,7 @@ export function AddPlantManualModal({
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-manual-title">
       <div className="bg-white rounded-3xl shadow-xl border border-neutral-200/80 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
         <h2 id="add-plant-manual-title" className="text-lg font-bold text-neutral-900 mb-4">
-          Add seed packet
+          Add Seed Packet
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

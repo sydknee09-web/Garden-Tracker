@@ -561,7 +561,7 @@ export function SeedPacketForm({
     onStartManualImport?.();
   }
 
-  const modalTitle = "Add seed packet";
+  const modalTitle = "Add Seed Packet";
   const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
@@ -1114,7 +1114,7 @@ export function SeedPacketForm({
                 className="w-full py-2.5 rounded-xl border border-amber-200 text-amber-800 bg-amber-50 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Add to vault without a packet — shows as out of stock"
               >
-                {submitting ? "Saving…" : "Save for later"}
+                {submitting ? "Saving…" : "Save for Later"}
               </button>
             </form>
           )}
@@ -1182,7 +1182,7 @@ export function SeedPacketForm({
               ) : submitting ? (
                 "Adding…"
               ) : (
-                "Add to vault"
+                "Add to Vault"
               )}
             </button>
           </div>

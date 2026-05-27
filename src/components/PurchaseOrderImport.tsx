@@ -274,7 +274,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
               <div className="w-11 shrink-0" aria-hidden />
             )}
             <h2 id="purchase-order-import-title" className="text-lg font-semibold text-black flex-1 text-center">
-              Purchase order import
+              Purchase Order Import
             </h2>
             <div className="w-11 shrink-0" aria-hidden />
           </div>

@@ -681,7 +681,7 @@ function GardenPageInner() {
                     : setPlantsDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
                 }
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                title={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "List view" : "Grid view") : plantsDisplayStyle === "grid" ? "List view" : "Grid view"}
+                title={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "List View" : "Grid View") : plantsDisplayStyle === "grid" ? "List View" : "Grid View"}
                 aria-label={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view") : plantsDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
               >
                 {(effectiveViewMode === "active" ? activeDisplayStyle : plantsDisplayStyle) === "grid" ? (
@@ -1103,7 +1103,7 @@ function GardenPageInner() {
                     </div>
                     {logGrowthPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take Photo</button>
                         <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
                       </div>
                     )}
@@ -1112,7 +1112,7 @@ function GardenPageInner() {
                   <div className="flex flex-col gap-2">
                     {logGrowthWebcam.webcamError && <p className="text-sm text-amber-600">{logGrowthWebcam.webcamError}</p>}
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take photo</button>
+                      <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take Photo</button>
                       <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium">From gallery</button>
                     </div>
                   </div>
@@ -1196,7 +1196,7 @@ function GardenPageInner() {
                     </div>
                     {quickAddPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take photo</button>
+                        <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take Photo</button>
                         <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
                       </div>
                     )}
@@ -1205,7 +1205,7 @@ function GardenPageInner() {
                   <div className="flex flex-col gap-2">
                     {quickAddWebcam.webcamError && <p className="text-sm text-amber-600">{quickAddWebcam.webcamError}</p>}
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take photo</button>
+                      <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take Photo</button>
                       <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From gallery</button>
                     </div>
                   </div>
@@ -1448,7 +1448,7 @@ function GardenPageInner() {
                   setSelectionActionsOpen(false);
                 }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-amber-700 hover:bg-black/5"
-                aria-label="End batch"
+                aria-label="End Batch"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
                   <path d="M12 22V12" />

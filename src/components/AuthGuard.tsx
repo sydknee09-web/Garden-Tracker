@@ -48,14 +48,14 @@ function getPageTitle(pathname: string | null): string {
   if (pathname === "/shopping-list") return "Shopping List";
   if (pathname === "/garden" || pathname.startsWith("/garden/")) return "Garden";
   if (pathname === "/vault/import" || pathname.startsWith("/vault/import/")) return "Import";
-  if (pathname === "/vault/review-import") return "Review import";
+  if (pathname === "/vault/review-import") return "Review Import";
   if (pathname.startsWith("/vault/plant")) return "Plant";
   if (pathname.startsWith("/vault/shed/")) return "Shed";
   if (pathname.startsWith("/vault/history")) return "History";
   if (pathname.startsWith("/vault/packets")) return "Packets";
   if (pathname.startsWith("/vault/tags")) return "Tags";
   if (pathname.startsWith("/vault")) return "Vault";
-  if (pathname === "/shed/review-import") return "Review supply import";
+  if (pathname === "/shed/review-import") return "Review Supply Import";
   if (pathname.startsWith("/shed")) return "Shed";
   if (pathname.startsWith("/journal")) return "Journal";
   if (pathname.startsWith("/calendar")) return "Calendar";
@@ -197,7 +197,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                       onClick={() => setFeedbackOpen(true)}
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full xl:hidden"
                       aria-label="Send feedback"
-                      title="Send feedback"
+                      title="Send Feedback"
                     >
                       <FeedbackIcon />
                     </button>
@@ -299,7 +299,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   onClick={() => setFeedbackOpen(true)}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black rounded-full xl:hidden"
                   aria-label="Send feedback"
-                  title="Send feedback"
+                  title="Send Feedback"
                 >
                   <FeedbackIcon />
                 </button>

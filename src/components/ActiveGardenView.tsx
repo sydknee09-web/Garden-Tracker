@@ -915,7 +915,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       {bulkEndBatchConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-end-batch-title">
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
-            <h2 id="bulk-end-batch-title" className="text-lg font-semibold text-black mb-2">End {bulkSelected.size} planting{bulkSelected.size !== 1 ? "s" : ""}?</h2>
+            <h2 id="bulk-end-batch-title" className="text-lg font-semibold text-black mb-2">End {bulkSelected.size} Planting{bulkSelected.size !== 1 ? "s" : ""}?</h2>
             <p className="text-sm text-black/70 mb-4">
               Selected plantings will move to Settings → Archived Plantings. History is preserved.
             </p>
@@ -934,7 +934,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                 disabled={bulkEndBatchSaving}
                 className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
               >
-                {bulkEndBatchSaving ? "Ending…" : "End batch"}
+                {bulkEndBatchSaving ? "Ending…" : "End Batch"}
               </button>
             </div>
           </div>
@@ -945,7 +945,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       {bulkDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog" aria-labelledby="bulk-delete-title">
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
-            <h2 id="bulk-delete-title" className="text-lg font-semibold text-black mb-2">Delete {bulkSelected.size} plant{bulkSelected.size !== 1 ? "s" : ""}?</h2>
+            <h2 id="bulk-delete-title" className="text-lg font-semibold text-black mb-2">Delete {bulkSelected.size} Plant{bulkSelected.size !== 1 ? "s" : ""}?</h2>
             <p className="text-sm text-black/70 mb-4">
               All related data (journal entries, tasks) will be removed. If you want to preserve history, use End Crop instead to archive.
             </p>

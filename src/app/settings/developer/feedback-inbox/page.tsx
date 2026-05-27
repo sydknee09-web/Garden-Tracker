@@ -127,7 +127,7 @@ export default function FeedbackInboxPage() {
           ← Back to Settings
         </Link>
         <div className="flex items-center justify-between gap-3 mb-2">
-          <h1 className="text-2xl font-semibold">Feedback inbox</h1>
+          <h1 className="text-2xl font-semibold">Feedback Inbox</h1>
           <button
             type="button"
             onClick={handleRefresh}

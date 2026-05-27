@@ -45,7 +45,7 @@ describe("AddPlantModal", () => {
   it("renders modal when open with Permanent and Seasonal options", async () => {
     render(<AddPlantModal open onClose={vi.fn()} />);
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Add plant" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Add Plant" })).toBeInTheDocument();
     });
     expect(screen.getByText("Permanent")).toBeInTheDocument();
     expect(screen.getByText("Seasonal")).toBeInTheDocument();

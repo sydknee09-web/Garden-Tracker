@@ -23,7 +23,7 @@ export function RouteErrorFallback({
 
   return (
     <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 bg-paper">
-      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something went wrong</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something Went Wrong</h1>
       <p className="text-neutral-600 text-sm mb-4 text-center max-w-md">{message}</p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button

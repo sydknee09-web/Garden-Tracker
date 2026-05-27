@@ -554,7 +554,7 @@ export function AddPlantModal({
               ) : (
                 <div className="w-11 shrink-0" aria-hidden />
               )}
-              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add permanent plant" : "Add to Active Garden") : "Add plant"}</h2>
+              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add Plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add Permanent Plant" : "Add to Active Garden") : "Add Plant"}</h2>
               <div className="w-11 shrink-0" aria-hidden />
             </div>
             <p className="text-sm text-neutral-500 text-center">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
@@ -969,7 +969,7 @@ export function AddPlantModal({
               Cancel
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting || (mode === "new" && !plantName.trim())} className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
-              {submitting ? "Adding…" : plantType === "permanent" ? "Add plant" : "Add planting"}
+              {submitting ? "Adding…" : plantType === "permanent" ? "Add Plant" : "Add Planting"}
             </button>
           </div>
     </>
@@ -990,7 +990,7 @@ export function AddPlantModal({
       {enrichmentFailed && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="enrichment-failed-title">
           <div className="bg-cream rounded-3xl shadow-lg max-w-sm w-full p-3.5">
-            <h2 id="enrichment-failed-title" className="text-lg font-semibold text-neutral-900 mb-2">Details couldn&apos;t be loaded</h2>
+            <h2 id="enrichment-failed-title" className="text-lg font-semibold text-neutral-900 mb-2">Details Couldn&apos;t Be Loaded</h2>
             <p className="text-sm text-neutral-600 mb-4">
               Couldn&apos;t find growing details for this plant. Add them now or edit the profile later.
             </p>

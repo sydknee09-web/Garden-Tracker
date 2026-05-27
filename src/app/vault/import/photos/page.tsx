@@ -309,7 +309,7 @@ export default function ImportPhotosPage() {
   return (
     <div className="min-h-screen bg-neutral-50 p-6 pb-24">
       <div className="mx-auto max-w-2xl">
-        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Photo import</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 mb-2">Photo Import</h1>
         <p className="text-neutral-600 text-sm mb-6">
           Processing your photos. Each image is scanned for seed details, then we find a hero photo for the profile.
         </p>

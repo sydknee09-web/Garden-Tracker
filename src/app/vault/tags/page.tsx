@@ -347,7 +347,7 @@ export default function VaultTagsPage() {
 
             {/* Add tag */}
             <section aria-label="Add tag">
-              <h2 className="text-sm font-semibold text-neutral-700 mb-2">Add tag</h2>
+              <h2 className="text-sm font-semibold text-neutral-700 mb-2">Add Tag</h2>
               <div className="flex flex-wrap items-end gap-3">
                 <div>
                   <label htmlFor="new-tag-name" className="block text-xs font-medium text-neutral-600 mb-1">Tag name</label>

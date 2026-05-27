@@ -132,7 +132,7 @@ export function VaultProfileAboutTab({
       {/* Companion planting */}
       <div className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden">
         <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("companion")}>
-          <h3 className="text-sm font-semibold text-neutral-700">Companion planting</h3>
+          <h3 className="text-sm font-semibold text-neutral-700">Companion Planting</h3>
           <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
         </button>
         {isAboutOpen("companion") && (
@@ -195,7 +195,7 @@ export function VaultProfileAboutTab({
       {!isLegacy && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4">
           <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Propagate &amp; Harvest seeds</h3>
+            <h3 className="text-sm font-semibold text-neutral-700">Propagate &amp; Harvest Seeds</h3>
             <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
           </button>
           {isAboutOpen("propagation") && (
@@ -229,7 +229,7 @@ export function VaultProfileAboutTab({
       {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs as object).length > 0) && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4">
           <button type="button" onClick={() => toggleAboutSection("vendorRecs")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("vendorRecs")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Vendor recommendations</h3>
+            <h3 className="text-sm font-semibold text-neutral-700">Vendor Recommendations</h3>
             <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("vendorRecs") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
           </button>
           {isAboutOpen("vendorRecs") && (
@@ -345,7 +345,7 @@ export function VaultProfileAboutTab({
       {isLegacy && legacySourceUrl?.trim() && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4">
           <button type="button" onClick={() => toggleAboutSection("legacyImport")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyImport")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Import link</h3>
+            <h3 className="text-sm font-semibold text-neutral-700">Import Link</h3>
             <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyImport") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
           </button>
           {isAboutOpen("legacyImport") && (

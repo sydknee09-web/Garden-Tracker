@@ -38,7 +38,7 @@ export default function SignupPage() {
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
       >
-        <h1 className="text-2xl font-semibold text-black mb-1">Create account</h1>
+        <h1 className="text-2xl font-semibold text-black mb-1">Create Account</h1>
         <p className="text-black/60 text-sm mb-6">Join and start your garden</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,7 +81,7 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-xl bg-emerald text-white font-medium shadow-soft disabled:opacity-60"
           >
-            {loading ? "Creating account…" : "Sign up"}
+            {loading ? "Creating account…" : "Sign Up"}
           </button>
         </form>
 

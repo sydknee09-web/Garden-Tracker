@@ -454,10 +454,10 @@ export default function SettingsProfilePage() {
 
       {/* ── Data & Preferences ────────────────────────────────────────── */}
       <section className="mb-8">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Data & preferences</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-3">Data & Preferences</h2>
         <div className="space-y-3">
           <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-800 mb-1">Back up my data</h3>
+            <h3 className="text-base font-semibold text-neutral-800 mb-1">Back Up My Data</h3>
             <p className="text-sm text-neutral-500 mb-3">Download or copy all your garden data for backups and migrations. Includes seeds, supplies, journal, tasks, and settings.</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={handleExportJSON} disabled={exporting} className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-90 border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
@@ -512,7 +512,7 @@ export default function SettingsProfilePage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setUnsavedModalOpen(false)} />
           <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
-            <h2 id="unsaved-title" className="text-lg font-semibold text-neutral-900 mb-2">Unsaved changes</h2>
+            <h2 id="unsaved-title" className="text-lg font-semibold text-neutral-900 mb-2">Unsaved Changes</h2>
             <p className="text-sm text-neutral-600 mb-4">You have unsaved changes. Leave anyway?</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setUnsavedModalOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Stay</button>

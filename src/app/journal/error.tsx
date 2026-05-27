@@ -16,7 +16,7 @@ export default function JournalError({
 
   return (
     <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 bg-paper">
-      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something went wrong</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something Went Wrong</h1>
       <p className="text-neutral-600 text-sm mb-4 text-center max-w-md">
         {error.message || "We couldn&apos;t load the Journal."}
       </p>

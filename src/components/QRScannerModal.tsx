@@ -76,7 +76,7 @@ export function QRScannerModal({ open, onClose, onScan }: QRScannerModalProps) {
       >
         <div className="flex items-center justify-between mb-3">
           <h2 id="qr-scanner-title" className="text-lg font-semibold text-black">
-            Scan seed packet
+            Scan Seed Packet
           </h2>
           <button
             type="button"

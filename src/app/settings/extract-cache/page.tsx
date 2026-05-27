@@ -215,7 +215,7 @@ export default function ExtractCachePage() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" aria-hidden onClick={() => setClearConfirmOpen(false)} />
           <div className="fixed left-4 right-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-lg max-w-sm mx-auto" role="dialog" aria-modal="true" aria-labelledby="clear-confirm-title">
-            <h2 id="clear-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Clear all cache?</h2>
+            <h2 id="clear-confirm-title" className="text-lg font-semibold text-neutral-900 mb-2">Clear All Cache?</h2>
             <p className="text-sm text-neutral-600 mb-4">This will delete all cached plant data. Re-importing URLs will trigger fresh extraction. This cannot be undone.</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setClearConfirmOpen(false)} className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium">Cancel</button>

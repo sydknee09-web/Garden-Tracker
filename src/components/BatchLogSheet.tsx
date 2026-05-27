@@ -362,7 +362,7 @@ export function BatchLogSheet({
           <div className="w-11 shrink-0" aria-hidden />
           <div className="flex-1 min-w-0 text-center">
             <h2 className="text-xl font-bold text-neutral-900 truncate">
-              {isBulk ? `Log for ${batches.length} plants` : (displayName || "Log")}
+              {isBulk ? `Log for ${batches.length} Plants` : (displayName || "Log")}
             </h2>
             {!isBulk && firstBatch?.location?.trim() && (
               <p className="text-xs text-neutral-500 mt-0.5 truncate">{firstBatch.location.trim()}</p>

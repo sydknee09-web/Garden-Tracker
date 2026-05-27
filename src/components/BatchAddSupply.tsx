@@ -301,7 +301,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
               <div className="w-11 shrink-0" aria-hidden />
             )}
             <h2 id="batch-add-supply-title" className="text-lg font-semibold text-black flex-1 text-center">
-              {step === "capture" ? "Photo import" : "Extracting…"}
+              {step === "capture" ? "Photo Import" : "Extracting…"}
             </h2>
             <div className="w-11 shrink-0" aria-hidden />
           </div>

@@ -446,7 +446,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
-          <h2 id="edit-journal-title" className="text-lg font-semibold text-black">Edit entry</h2>
+          <h2 id="edit-journal-title" className="text-lg font-semibold text-black">Edit Entry</h2>
           <button
             type="button"
             onClick={onClose}

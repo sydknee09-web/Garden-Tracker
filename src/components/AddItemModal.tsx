@@ -96,7 +96,7 @@ export function AddItemModal({ open, onClose, onSuccess, onErrorToast }: AddItem
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="add-item-title" className="text-lg font-semibold text-neutral-900 mb-3">
-          Add item
+          Add Item
         </h2>
         <p className="text-sm text-neutral-500 mb-4">
           Add plants or supplies by name.
@@ -123,7 +123,7 @@ export function AddItemModal({ open, onClose, onSuccess, onErrorToast }: AddItem
             className="w-full min-h-[44px] py-2 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <span aria-hidden>+</span>
-            Add another item
+            Add Another Item
           </button>
           {error && (
             <p className="text-sm text-red-600" role="alert">

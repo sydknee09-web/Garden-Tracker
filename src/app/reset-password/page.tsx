@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
           className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
           style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
         >
-          <h1 className="text-2xl font-semibold text-black mb-1">Check your email</h1>
+          <h1 className="text-2xl font-semibold text-black mb-1">Check Your Email</h1>
           <p className="text-black/60 text-sm mb-6">
             We sent a recovery link to <strong>{email}</strong>. Click the link to set a new password.
           </p>
@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
         style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
       >
-        <h1 className="text-2xl font-semibold text-black mb-1">Forgot password?</h1>
+        <h1 className="text-2xl font-semibold text-black mb-1">Forgot Password?</h1>
         <p className="text-black/60 text-sm mb-6">
           Enter your email and we’ll send you a link to reset your password.
         </p>

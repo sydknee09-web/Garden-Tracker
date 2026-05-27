@@ -345,7 +345,7 @@ export function ImageCropModal({
         aria-labelledby="crop-modal-title"
       >
         <h2 id="crop-modal-title" className="text-lg font-semibold text-neutral-900 mb-2 text-center">
-          Crop image
+          Crop Image
         </h2>
         <div className="flex items-center justify-center gap-2 mb-2">
           <button

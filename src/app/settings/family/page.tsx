@@ -387,7 +387,7 @@ export default function SettingsFamilyPage() {
       {/* Your badge */}
       <section className="mb-8">
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-neutral-800 mb-3">Your badge</h2>
+          <h2 className="text-base font-semibold text-neutral-800 mb-3">Your Badge</h2>
           <p className="text-sm text-neutral-500 mb-3">1–4 letters shown next to your plants in Family view.</p>
           <div className="flex items-center gap-2 flex-wrap">
             <input

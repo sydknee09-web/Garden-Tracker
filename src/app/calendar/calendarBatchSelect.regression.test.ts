@@ -5,10 +5,11 @@
  *
  *  Fix A — Submit button label consistency
  *    The "Add Reminder" modal header was paired with a "Save task" button.
- *    The button now reads "Add task" / "Add recurring task" matching the FAB
+ *    The button now reads "Add Task" / "Add Recurring Task" matching the FAB
  *    "Add" verb-pattern. Initially Title Case (Phase 1 Ship 2 cohesion pass,
  *    2026-05-18); renamed to sentence case 2026-05-24 as part of FAB polish
- *    bundle 2 Item A (auto-mode Q4 widened-casing scope).
+ *    bundle 2 Item A; reverted back to Title Case 2026-05-27 per VISION.md §8
+ *    "Casing" lock (AP-style — headers + buttons Title Case, body sentence).
  *
  *  Feature B — Multi-select batch actions
  *    Long-press a task to enter select mode; tap further tasks to add them
@@ -28,16 +29,16 @@ const newTaskModalSrc = readFileSync(join(ROOT, "src/components/NewTaskModal.tsx
 // Fix A — Submit button label (now in NewTaskModal)
 // ---------------------------------------------------------------------------
 describe("Calendar submit button label consistency", () => {
-  it("Submit button shows 'Add task' for standard tasks", () => {
-    expect(newTaskModalSrc).toContain('"Add task"');
+  it("Submit button shows 'Add Task' for standard tasks", () => {
+    expect(newTaskModalSrc).toContain('"Add Task"');
   });
 
-  it("Submit button shows 'Add recurring task' for recurring tasks", () => {
-    expect(newTaskModalSrc).toContain('"Add recurring task"');
+  it("Submit button shows 'Add Recurring Task' for recurring tasks", () => {
+    expect(newTaskModalSrc).toContain('"Add Recurring Task"');
   });
 
   it("Label is driven by an isRecurring conditional, not hardcoded", () => {
-    expect(newTaskModalSrc).toContain('isRecurring ? "Add recurring task" : "Add task"');
+    expect(newTaskModalSrc).toContain('isRecurring ? "Add Recurring Task" : "Add Task"');
   });
 });
 
@@ -177,8 +178,8 @@ describe("Batch select — action bar and sheets", () => {
     expect(src).toContain("Delete");
   });
 
-  it("Edit task option is present in the batch menu", () => {
-    expect(src).toContain("Edit task");
+  it("Edit Task option is present in the batch menu", () => {
+    expect(src).toContain("Edit Task");
   });
 
   it("Reschedule sheet offers 'Tomorrow' quick preset", () => {

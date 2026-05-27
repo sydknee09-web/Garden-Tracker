@@ -40,7 +40,7 @@ export default function AuthCallbackPage() {
           className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-card border border-black/5"
           style={{ boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}
         >
-          <h1 className="text-xl font-semibold text-black mb-2">Link expired</h1>
+          <h1 className="text-xl font-semibold text-black mb-2">Link Expired</h1>
           <p className="text-black/60 text-sm mb-6">
             {error}. Please request a new link.
           </p>

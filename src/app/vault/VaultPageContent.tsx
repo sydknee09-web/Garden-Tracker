@@ -1589,7 +1589,7 @@ function VaultPageInner() {
       {batchDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="alertdialog" aria-modal="true" aria-labelledby="batch-delete-title">
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
-            <h2 id="batch-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedVarietyIds.size} plant profile{selectedVarietyIds.size !== 1 ? "s" : ""}?</h2>
+            <h2 id="batch-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedVarietyIds.size} Plant Profile{selectedVarietyIds.size !== 1 ? "s" : ""}?</h2>
             <p className="text-sm text-black/70 mb-4">
               This will remove the selected profiles and all associated data: seed packets, growing instances, journal entries, and care schedules. This cannot be undone.
             </p>

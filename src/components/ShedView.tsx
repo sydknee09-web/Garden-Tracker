@@ -347,7 +347,7 @@ export function ShedView({
               type="button"
               onClick={() => setInternalDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
               className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white ml-auto hover:bg-black/5"
-              title={displayStyle === "grid" ? "List view" : "Grid view"}
+              title={displayStyle === "grid" ? "List View" : "Grid View"}
               aria-label={displayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
             >
               {displayStyle === "grid" ? (

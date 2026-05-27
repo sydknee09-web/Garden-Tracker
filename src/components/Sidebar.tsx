@@ -124,13 +124,13 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenFeedback }: Sideba
           href="/shopping-list?from=home"
           prefetch={false}
           className={`${itemBase} ${itemLayout} ${itemIdle}`}
-          aria-label="Shopping list"
-          title={collapsed ? "Shopping list" : undefined}
+          aria-label="Shopping List"
+          title={collapsed ? "Shopping List" : undefined}
         >
           <span className="flex items-center justify-center w-6 h-6 flex-shrink-0">
             <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
           </span>
-          {!collapsed && <span className="truncate">Shopping list</span>}
+          {!collapsed && <span className="truncate">Shopping List</span>}
         </Link>
         <Link
           href="/help"
@@ -163,8 +163,8 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenFeedback }: Sideba
           type="button"
           onClick={onOpenFeedback}
           className={`${itemBase} ${itemLayout} ${itemIdle} w-full text-left`}
-          aria-label="Send feedback"
-          title={collapsed ? "Send feedback" : undefined}
+          aria-label="Send Feedback"
+          title={collapsed ? "Send Feedback" : undefined}
         >
           <span className="flex items-center justify-center w-6 h-6 flex-shrink-0">
             <FeedbackIcon />

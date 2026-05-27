@@ -1036,7 +1036,7 @@ export function VaultPacketWingModals() {
       {batchPacketDeleteConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="alertdialog" aria-modal="true" aria-labelledby="batch-packet-delete-title">
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-6">
-            <h2 id="batch-packet-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedPacketIds.size} seed packet{selectedPacketIds.size !== 1 ? "s" : ""}?</h2>
+            <h2 id="batch-packet-delete-title" className="text-lg font-semibold text-black mb-2">Delete {selectedPacketIds.size} Seed Packet{selectedPacketIds.size !== 1 ? "s" : ""}?</h2>
             <p className="text-sm text-black/70 mb-3">Choose how to handle related data:</p>
             <div className="flex flex-col gap-2 mb-4">
               <button

@@ -15,7 +15,7 @@ export default function Error({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-paper">
-      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something went wrong</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 mb-2">Something Went Wrong</h1>
       <p className="text-neutral-600 text-sm mb-4 text-center max-w-md">
         {error.message || "An unexpected error occurred."}
       </p>

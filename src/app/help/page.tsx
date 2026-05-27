@@ -9,11 +9,11 @@ export default function HelpPage() {
       <Link href="/" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
         ← Back to Home
       </Link>
-      <h1 className="text-xl font-bold text-neutral-900 mb-1">Where do I…?</h1>
+      <h1 className="text-xl font-bold text-neutral-900 mb-1">Where Do I…?</h1>
       <p className="text-sm text-neutral-500 mb-6">Quick reference: what you want to do → where to go.</p>
 
       <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5 mb-4">
-        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Adding things</h2>
+        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Adding Things</h2>
         <ul className="space-y-2 text-sm text-black/80">
           <li><strong>Add seeds</strong> — Tap <strong>+</strong> → Add seed packet → Manual, Photo, Link, or Purchase Order.</li>
           <li><strong>Add a plant</strong> — Tap <strong>+</strong> → Add plant → Manual entry or From Vault.</li>
@@ -25,7 +25,7 @@ export default function HelpPage() {
       </section>
 
       <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5 mb-4">
-        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Viewing and planning</h2>
+        <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Viewing and Planning</h2>
         <ul className="space-y-2 text-sm text-black/80">
           <li><strong>When to plant (by zone)</strong> — Home → Planting Schedule. Or <Link href="/resources" className="text-emerald-600 font-medium hover:underline">Resources</Link> for zone charts.</li>
           <li><strong>Tasks</strong> — Bottom nav → Calendar.</li>

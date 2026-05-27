@@ -9,16 +9,16 @@ const USER_ITEMS = [
   { href: "/resources", label: "Resources", subtitle: "Planting calendars, zone charts, frost dates" },
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, account" },
   { href: "/settings/family", label: "Family", subtitle: "Members, approval, view/edit access by page" },
-  { href: "/settings/vendors", label: "Vendor ratings", subtitle: "Average packet ratings by vendor" },
+  { href: "/settings/vendors", label: "Vendor Ratings", subtitle: "Average packet ratings by vendor" },
   { href: "/settings/feedback", label: "Feedback", subtitle: "Your submitted feedback" },
   { href: "/settings/import-catalog", label: "Import Vendor Catalog", subtitle: "Upload a PDF catalog to add to shared plant cache" },
 ] as const;
 
 const DEV_ITEMS = [
   { href: "/settings/developer", label: "Developer", subtitle: "Fill in blanks, repair hero, cache, trash" },
-  { href: "/settings/developer/feedback-inbox", label: "Feedback inbox", subtitle: "All user feedback (admin view)" },
-  { href: "/settings/import-logs", label: "Import logs", subtitle: "Import history and status" },
-  { href: "/settings/extract-cache", label: "Extract cache", subtitle: "Plant data cache" },
+  { href: "/settings/developer/feedback-inbox", label: "Feedback Inbox", subtitle: "All user feedback (admin view)" },
+  { href: "/settings/import-logs", label: "Import Logs", subtitle: "Import history and status" },
+  { href: "/settings/extract-cache", label: "Extract Cache", subtitle: "Plant data cache" },
 ] as const;
 
 export default function SettingsPage() {
