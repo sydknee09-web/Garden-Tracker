@@ -506,6 +506,29 @@ Each required pass-type runs iteratively per the iterative-loop + strict-clean-p
 
 **Pass 1 — Factual.** Every code reference exists. Imports resolve in the target file (verified via Grep, not memory). Functions/utilities/hooks I name are real. API signatures match actual code. Asset paths match disk. Tailwind classes are valid utilities or arbitrary-value syntax. *This is the pass that catches "I planned `ICON_MAP.ChevronDown` but `ICON_MAP` isn't imported in this file" — see drift note below.*
 
+**Bidirectional state-transition tracing — Pass 1 subcategory (locked 2026-05-27).**
+
+For any change touching modal / menu lifecycle (open / close / forward-screen / back-screen / lazy-mount / preload), Pass 1's factual trace must cover state transitions in BOTH directions AND across all relevant axes of React's commit phase. One-direction-or-one-axis tracing is the failure mode this rule catches.
+
+**The rule:** before declaring Pass 1 clean on a modal/menu lifecycle change, build a small matrix in the plan:
+
+- **Rows** = state transitions (open / close / forward-screen / back-screen)
+- **Columns** = React axes (state change + reconciliation, Suspense + lazy resolution, mount + unmount lifecycle)
+
+Verify each cell with a code trace. Missing cells = Pass 1 not yet clean. When a shipped fix doesn't close the reported bug, the next hypothesis MUST move to a different cell — refining the same axis is the drift shape this catches.
+
+**Why this rule exists (specific drift this catches):**
+
+- **2026-05-26 FAB-tree polish bundle items 1+2 (`7c0decf`):** code analysis traced the OPEN path correctly but not the BACK path (same axis, different direction). Bug existed for weeks; caught only by Syd dogfooding the back-arrow z-stack overlap + sub-screen restore on page-local-state modals. A bidirectional trace at Pass 1 would have surfaced both paths pre-commit.
+- **2026-05-26 item 8 (`84df090`) chunk-preload hypothesis:** hypothesis = chunk-fetch latency; preloaded page-local-state modal chunks on FAB menu open. Missed the Suspense first-render gap (different React axis — lazy resolution, not chunk fetch). Shipped, didn't close the reported bug.
+- **2026-05-26 item 9 (`c124213`) unconditional mount:** finally caught the Suspense + lazy-resolution gap via pre-resolving React.lazy through an unconditional mount. Took 3 hypothesis revisions to land what one matrix-driven Pass 1 trace would have surfaced upfront.
+
+All three drift instances had the same root shape: asymmetric tracing across an axis (open-only, chunk-only, batching-only). Each missed a different React-phase axis that only surfaced in dogfood. The matrix forces every relevant axis onto the plan at Pass 1 time so the drift is visible before code lands. Patient-zero pattern locked: when the first fix doesn't close the bug, do NOT refine the same axis — move to a different cell of the matrix.
+
+**Cost calibration:** ~60-90s per modal/menu lifecycle change to draft the matrix and verify each cell with a code trace. Cheaper than even one wasted ship cycle on a wrong-axis hypothesis (item 8 → item 9 alone cost two ship cycles + one Vercel deploy each).
+
+**When to skip:** pure styling / copy-only changes that don't touch state transitions; non-modal-tree work; refactors that preserve state-machine shape verbatim (extract-component, prop-rename, file-move). When in doubt, draft the matrix — the 60s is rounding error against bug-chasing cycles.
+
 **Pass 2 — Concerns / gaps / inconsistencies hunt (formerly "Semantic + edge").** Pass 2 is an ACTIVE HUNT for what could go wrong with the plan, not just a wording check. Before running Pass 2, Claude states out loud the categories being hunted for THIS specific plan; running Pass 2 without naming the hunt categories is the failure mode the user explicitly flagged 2026-05-13. Categories scale with batch shape:
 
   - **Code batch hunt categories:** state transitions (trace step-by-step), race conditions, async ordering / double-fire, null / empty / many states, missing query filters, error handling gaps, missing imports / side effects, optimistic-UI vs. refetch mismatch, RLS / auth assumptions, mobile-vs-desktop behavior split, test coverage gaps for the new path, **cohesion-by-aggregation / micro-aesthetic** (see dedicated subsection below — applies to every code batch, no exception), **persona walk** (see dedicated subsection below — applies to every user-facing change; locked 2026-05-17)
@@ -932,6 +955,8 @@ If something the user says contradicts VISION.md, ask which is canonical — usu
 - Don't silently comply — contradictions must be visible. Same logic as the VISION.md contradiction rule above: parallels exist, central rule catches anything not covered by section-level override clauses.
 
 ---
+
+*Last updated: 2026-05-27 — Added **Bidirectional state-transition tracing — Pass 1 subcategory** to the Plan-audit standard. Three consecutive drift instances in the 2026-05-26 FAB-tree polish bundle (`7c0decf` items 1+2 — open-traced-but-not-back, `84df090` item 8 — chunk-fetch axis hypothesis missed Suspense, `c124213` item 9 — finally caught Suspense+lazy-resolution after 3 hypothesis revisions) all had the same root shape: asymmetric tracing across an axis of state transition. Rule formalizes: for modal/menu lifecycle changes, Pass 1's factual trace builds a matrix (rows = transitions open/close/forward/back; columns = React axes reconciliation/suspense+lazy/mount) and verifies each cell. When a fix doesn't close the bug, the next hypothesis MUST move to a different cell — refining the same axis is the failure mode. ~60-90s cost per affected change, far cheaper than one wasted ship cycle. Pairs with the existing Pass 2 cohesion-by-aggregation + persona-walk subcategories: Pass 1 subcategory catches **factual tracing completeness** (did the plan cover the whole state-transition surface?); Pass 2 subcategories catch **cohesion + persona-exclusion concerns** (does the plan match existing patterns + serve all 5 personas?). Complementary, not redundant.*
 
 *Last updated: 2026-05-25 — Added **AskUserQuestion forbidden** subsection (new top-level rule directly after RULES CARD). Surgically amended every prescriptive `AskUserQuestion` rule in the doc to route through **plain-English ask at end of assistant message** instead: RULES CARD #10 (Role lock), Phase 5 Rule A (close-out asks), Rule B (tie-out-loose-ends gate), Rule C (recommended-option marker — generalized from "every AskUserQuestion" to "every clarifying question"), dogfood "Propose rule now" trigger, Phase 5 close-out gate, role-lock "The fix" subsection, Push-classifier caveat (settings-allowlist bypass paragraph). Substance of every rule preserved (still mark recommended option, still don't decide silently, still close every loose end with a clear ask) — only the delivery vehicle changes. **Why:** the `AskUserQuestion` widget renders only in the Code-tab UI; Garden Tracker chats are increasingly spawned from Dispatch (orchestrator chat) which doesn't render the widget. A chat that calls `AskUserQuestion` from a Dispatch-spawned context silently stalls. Plain-English-at-end works in every context; `AskUserQuestion` is never required and is never safe for Dispatch contexts. Historical/anti-pattern references (the "bundling AskUserQuestion" anti-patterns in Project lead behaviors + Handling feedback batches, the descriptive observation in User communication patterns, drift retrospective on line 579, footer changelog) left as-is — the bundling-shape anti-pattern is vehicle-independent and still applies to plain-English asks.*
 
