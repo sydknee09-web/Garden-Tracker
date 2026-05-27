@@ -441,11 +441,22 @@ export function SeedPacketForm({
       }
       const profileId = (newProfile as { id: string }).id;
       createdProfileId = profileId;
-      await enrichProfileFromName(supabase, profileId, userId, name, varietyCultivar.trim(), {
-        vendor: vendor.trim(),
-        skipHero: false,
-        accessToken: session?.access_token ?? undefined,
-      });
+      // Fire-and-forget background enrichment — modal closes immediately.
+      // Same rationale as AddVarietyModal: modal unmounts before this
+      // resolves; helper writes hero_image_pending=true/false so cards pick
+      // up "Researching..." via existing SeedVaultView getThumbState pattern.
+      const runEnrichment = async () => {
+        try {
+          await enrichProfileFromName(supabase, profileId, userId, name, varietyCultivar.trim(), {
+            vendor: vendor.trim(),
+            skipHero: false,
+            accessToken: session?.access_token ?? undefined,
+          });
+        } catch {
+          /* errors already logged inside helper */
+        }
+      };
+      void runEnrichment();
     }
 
     setSubmitting(false);

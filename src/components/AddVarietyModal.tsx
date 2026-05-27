@@ -136,10 +136,22 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
         return;
       }
       profileId = (newProfile as { id: string }).id;
-      await enrichProfileFromName(supabase, profileId, userId, name, variety.trim(), {
-        skipHero: false,
-        accessToken: session?.access_token ?? undefined,
-      });
+      // Fire-and-forget background enrichment — modal closes immediately so
+      // the user sees the new variety card right away. Modal unmounts before
+      // this resolves; helper logs every lifecycle event + writes
+      // hero_image_pending=true/false so cards pick up "Researching..." via
+      // existing SeedVaultView getThumbState pattern.
+      const runEnrichment = async () => {
+        try {
+          await enrichProfileFromName(supabase, profileId, userId, name, variety.trim(), {
+            skipHero: false,
+            accessToken: session?.access_token ?? undefined,
+          });
+        } catch {
+          /* errors already logged inside helper */
+        }
+      };
+      void runEnrichment();
     }
 
     setSubmitting(false);
