@@ -50,9 +50,10 @@ test.describe("Synthetic User Procedure", () => {
     await fab.waitFor({ state: "visible", timeout: 10000 });
     await fab.click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Add seed packet")).toBeVisible();
-    await page.getByText("Add seed packet").click();
-    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Add Seed Packet")).toBeVisible();
+    await page.getByText("Add Seed Packet").click();
+    await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
+    // QuickAddSeed chip — still sentence case in source per sweep miss
     await page.getByRole("button", { name: "Manual entry" }).click();
 
     const uniqueName = `E2E Synthetic ${Date.now()}`;
@@ -75,11 +76,12 @@ test.describe("Synthetic User Procedure", () => {
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await page.getByText("Add journal").click();
+    await page.getByText("Add Journal").click();
     await expect(page.locator("#quicklog-note")).toBeVisible({ timeout: 5000 });
     await page.locator("#quicklog-note").fill(`Synthetic test note ${Date.now()}`);
-    // QuickLogModal submit button text is "Add entry" — scope to dialog to be explicit
-    await page.getByRole("dialog").getByRole("button", { name: "Add entry", exact: true }).click();
+    // QuickLogModal submit button text is "Add Entry" (Title Case via 5b5617c sweep);
+    // scope to dialog to disambiguate from FAB which also has accessible name "Add"
+    await page.getByRole("dialog").getByRole("button", { name: "Add Entry", exact: true }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 30000 });
     await expect(page).not.toHaveURL(/\/login/);
     step("Journal Quick Log OK");

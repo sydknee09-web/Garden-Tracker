@@ -21,8 +21,8 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
 
     // Universal Add Menu dialog should appear
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Add seed packet")).toBeVisible();
-    await expect(page.getByText("Add to shed")).toBeVisible();
+    await expect(page.getByText("Add Seed Packet")).toBeVisible();
+    await expect(page.getByText("Add to Shed")).toBeVisible();
 
     // Cancel to clean up
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -37,11 +37,13 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
-    // Click Add seed packet
-    await page.getByText("Add seed packet").click();
+    // Click Add Seed Packet
+    await page.getByText("Add Seed Packet").click();
 
-    // QuickAddSeed should open with "Add seed packet" heading and "Manual entry" option
-    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
+    // QuickAddSeed should open with "Add Seed Packet" heading and "Manual entry" option
+    // (NOTE: QuickAddSeed chip is still sentence case in source — sweep 5b5617c flipped
+    // UniversalAddMenu chips but missed QuickAddSeed.tsx:614 + QuickAddSupply.tsx:404)
+    await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("button", { name: "Manual entry" })).toBeVisible();
   });
 
@@ -51,12 +53,12 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.goto("/vault");
     await page.waitForLoadState("networkidle");
 
-    // Open FAB → Add seed packet
+    // Open FAB → Add Seed Packet
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await page.getByText("Add seed packet").click();
-    await expect(page.getByRole("heading", { name: "Add seed packet" })).toBeVisible({ timeout: 5000 });
+    await page.getByText("Add Seed Packet").click();
+    await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
 
-    // Choose Manual entry
+    // Choose Manual entry (QuickAddSeed chip — still sentence case in source)
     await page.getByRole("button", { name: "Manual entry" }).click();
 
     // Fill required plant name

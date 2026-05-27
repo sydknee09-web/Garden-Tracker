@@ -623,6 +623,14 @@ Concrete vocabulary families to grep across when relevant:
 
 The cost of a too-narrow regex = parallel-mechanism failure mode = exactly the cohesion-by-aggregation drift this rule locks against. When in doubt, grep broader; 2 minutes of grep beats a revert-and-rework cycle every time.
 
+**E2E-scope sub-rule (locked 2026-05-27 after `5b5617c` casing sweep).** When a plan touches user-facing strings at scale (any sweep flipping >10 visible-label strings — header / button / chip / modal-title text), Pass 3 sibling-sweep grep scope MUST include `e2e/*.spec.ts` in addition to `src/`. Playwright assertions reference visible labels via `getByText("...")` / `getByRole("...", { name: "..." })` and break silently if the string changes — neither `npm run test:run` nor `npm run build` catches it locally; only CI does, after push.
+
+**The rule:** for every flipped string in the sweep, grep `e2e/` for both the OLD form (will break) and the NEW form (verify intended state). Apply the same edit shape to e2e specs as to src/ — they ship together or CI goes red. Codifies what cc5e65b / 1ad441e / the 2026-05-27 follow-up all learned the hard way: source-only sweeps leave e2e tests dangling.
+
+**Worked example (`5b5617c` 2026-05-27, 133-string sweep across 59 files):** Pass 3 on the source-side flipped `Add seed packet` / `Add journal` / `Add entry` / `Add to shed` / `Manual entry` / `Photo import` etc. e2e/ was NOT in the grep scope, so 3 spec files retained the old sentence-case assertions: `e2e/journal-create.authenticated.spec.ts` (4 assertions), `e2e/vault-add-seed.authenticated.spec.ts` (5 assertions), `e2e/synthetic-user.authenticated.spec.ts` (4 assertions). CI failed on every push between `5b5617c` and the fix. Cost: 2 CI-failure cycles + 1 follow-up chat to repair. A 30-second `grep -r "Add seed packet\|Add journal\|Add entry" e2e/` at plan-time would have caught all 13 stale assertions in one pass.
+
+**Why this rule exists (specific drift this catches):** Three rounds of the same shape — `1ad441e` (cc5e65b retroactive) repaired stale FAB-tree renames + first casing sweep; `cc5e65b` repaired Save→Add follow-up after `3cfb81d` re-renamed; this 2026-05-27 follow-up repairs the `5b5617c` sweep. Each round was the same root cause: e2e/ outside the sibling-sweep scope when source strings flipped. Locked as a Pass 3 extension instead of a separate rule because the underlying mechanism IS sibling pattern coverage — the e2e specs are simply siblings to src/ that live in a peer directory.
+
 **Pass 4 — Lock hygiene.** Does this touch VISION §10 don't-touch? §11 parked decision? Any locked decision in ROADMAP §6? Any operating principle in VISION §4? If yes, surface in the plan and ask before greenlight — don't silently overstep.
 
 ### Plan file vs in-chat plan

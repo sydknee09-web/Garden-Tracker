@@ -20,7 +20,7 @@ test.describe("Journal — Quick Log entry creation", () => {
 
     // Universal Add Menu should appear
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Add journal")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Add Journal")).toBeVisible({ timeout: 5000 });
 
     // Close to clean up
     await page.getByRole("button", { name: "Cancel" }).click();
@@ -31,15 +31,16 @@ test.describe("Journal — Quick Log entry creation", () => {
     await page.goto("/journal");
     await page.waitForLoadState("networkidle");
 
-    // FAB → Add journal
+    // FAB → Add Journal
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await page.getByText("Add journal").click();
+    await page.getByText("Add Journal").click();
 
-    // QuickLogModal should open with "Add journal" heading (renamed from "Quick Log" in a78dbd6 + 9a0e9c5)
+    // QuickLogModal should open with "Add Journal" heading (Title Case from 5b5617c casing sweep;
+    // previously "Add journal" via a78dbd6 + 9a0e9c5; before that "Quick Log")
     await expect(
-      page.getByRole("dialog").getByRole("heading", { name: "Add journal" }),
-      "QuickLogModal should have an 'Add journal' heading"
+      page.getByRole("dialog").getByRole("heading", { name: "Add Journal" }),
+      "QuickLogModal should have an 'Add Journal' heading"
     ).toBeVisible({ timeout: 5000 });
 
     // Quick memo textarea should be present
@@ -56,16 +57,16 @@ test.describe("Journal — Quick Log entry creation", () => {
     // Open Quick Log
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-    await page.getByText("Add journal").click();
+    await page.getByText("Add Journal").click();
 
     await expect(page.locator("#quicklog-note")).toBeVisible({ timeout: 5000 });
 
     // Fill in a note (no plant required — saving with no linked plant is valid)
     await page.locator("#quicklog-note").fill("E2E test note with spaces");
 
-    // Submit (QuickLogModal submit button text is "Add entry" — renamed in saga follow-up
-    // after Syd dogfood caught bare-verb leak; scope to dialog to be explicit)
-    await page.getByRole("dialog").getByRole("button", { name: "Add entry", exact: true }).click();
+    // Submit (QuickLogModal submit button text is "Add Entry" — Title Case via 5b5617c sweep;
+    // scope to dialog to disambiguate from FAB which also has accessible name "Add")
+    await page.getByRole("dialog").getByRole("button", { name: "Add Entry", exact: true }).click();
 
               // Dialog should close after save (allow up to 30s for Supabase insert in CI)
               await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 30000 });
