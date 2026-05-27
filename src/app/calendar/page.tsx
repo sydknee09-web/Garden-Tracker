@@ -42,10 +42,6 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
-const PlantingFlowModal = dynamic(
-  () => import("@/components/PlantingFlowModal").then((m) => ({ default: m.PlantingFlowModal })),
-  { ssr: false }
-);
 import { supabase } from "@/lib/supabase";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useAuth } from "@/contexts/AuthContext";
@@ -124,7 +120,6 @@ export default function CalendarPage() {
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
-  const [plantingFromVaultOpen, setPlantingFromVaultOpen] = useState(false);
   const {
     addMenuOpen,
     setAddMenuOpen,
@@ -1912,10 +1907,6 @@ export default function CalendarPage() {
           pathname={pathname ?? "/calendar"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantFromVault={() => {
-            closeAll();
-            setPlantingFromVaultOpen(true);
-          }}
           onAddPlantPurchaseOrder={() => {
             closeAll();
             setPurchaseOrderMode("seed");
@@ -2059,16 +2050,6 @@ export default function CalendarPage() {
         onBack={() => {
           setBatchAddSupplyOpen(false);
           openMenuOnScreen("shed");
-        }}
-        onSuccess={() => setRefetch((r) => r + 1)}
-      />
-
-      <PlantingFlowModal
-        open={plantingFromVaultOpen}
-        onClose={() => setPlantingFromVaultOpen(false)}
-        onBack={() => {
-          setPlantingFromVaultOpen(false);
-          openMenuOnScreen("add-plant");
         }}
         onSuccess={() => setRefetch((r) => r + 1)}
       />

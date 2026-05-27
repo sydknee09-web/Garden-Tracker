@@ -38,10 +38,6 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
-const PlantingFlowModal = dynamic(
-  () => import("@/components/PlantingFlowModal").then((m) => ({ default: m.PlantingFlowModal })),
-  { ssr: false }
-);
 const GrowInstanceModal = dynamic(
   () => import("@/components/GrowInstanceModal").then((m) => ({ default: m.GrowInstanceModal })),
   { ssr: false }
@@ -211,7 +207,6 @@ function GardenPageInner() {
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
   const [batchAddPlantMode, setBatchAddPlantMode] = useState(false);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
-  const [plantingFromVaultOpen, setPlantingFromVaultOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const skipPopOnNavigateRef = useRef(false);
   useModalBackClose(addMenuOpen, closeMenu, skipPopOnNavigateRef);
@@ -1234,10 +1229,6 @@ function GardenPageInner() {
           gardenTab={effectiveViewMode}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantFromVault={() => {
-            closeAll();
-            setPlantingFromVaultOpen(true);
-          }}
           onAddPlantPurchaseOrder={() => {
             closeAll();
             setPurchaseOrderMode("seed");
@@ -1386,17 +1377,6 @@ function GardenPageInner() {
           openMenuOnScreen("shed");
         }}
         onSuccess={() => setRefetchTrigger((t) => t + 1)}
-      />
-
-      <PlantingFlowModal
-        open={plantingFromVaultOpen}
-        onClose={() => setPlantingFromVaultOpen(false)}
-        onBack={() => {
-          setPlantingFromVaultOpen(false);
-          openMenuOnScreen("add-plant");
-        }}
-        onSuccess={() => setRefetchTrigger((t) => t + 1)}
-        fromGarden
       />
 
       {/* Selection actions menu (when items selected): FAB >> opens this */}

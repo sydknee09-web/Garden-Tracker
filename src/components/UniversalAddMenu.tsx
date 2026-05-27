@@ -9,8 +9,9 @@ import { JournalEntryForm } from "@/components/QuickLogModal";
 import { SupplyForm } from "@/components/QuickAddSupply";
 import { SeedPacketForm } from "@/components/QuickAddSeed";
 import { AddPlantModal } from "@/components/AddPlantModal";
+import { PlantingForm } from "@/components/PlantingForm";
 
-export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "seed" | "shed" | "task" | "journal";
+export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "add-plant-from-vault" | "seed" | "shed" | "task" | "journal";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -23,8 +24,6 @@ export interface UniversalAddMenuProps {
   addPlantDefaultType: "permanent" | "seasonal";
   /** Update add plant type. From UniversalAddContext. */
   setAddPlantDefaultType: (t: "permanent" | "seasonal") => void;
-  /** Navigate to /vault/plant with from param */
-  onAddPlantFromVault: () => void;
   /** Open Purchase Order import (screenshot of cart/order with plants); adds to vault */
   onAddPlantPurchaseOrder?: () => void;
   /** Open Photo Import (multi-photo, extract plant tags); same flow as Add seed packet Photo Import */
@@ -64,7 +63,6 @@ export function UniversalAddMenu({
   gardenTab = "active",
   addPlantDefaultType,
   setAddPlantDefaultType,
-  onAddPlantFromVault,
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
   onSeedOpenBatch,
@@ -109,17 +107,11 @@ export function UniversalAddMenu({
     void import("@/components/BatchAddSeed").catch(() => {});
     void import("@/components/BatchAddSupply").catch(() => {});
     void import("@/components/PurchaseOrderImport").catch(() => {});
-    void import("@/components/PlantingFlowModal").catch(() => {});
   }, [open]);
 
   useBodyScrollLock(open);
 
   if (!open) return null;
-
-  const handleAddPlantFromVault = () => {
-    onClose();
-    onAddPlantFromVault();
-  };
 
   const handleAddPlantManual = () => {
     setScreenDirection("forward");
@@ -255,7 +247,7 @@ export function UniversalAddMenu({
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddPlantFromVault}
+                  onClick={() => { setScreenDirection("forward"); setScreen("add-plant-from-vault"); }}
                   className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
@@ -309,6 +301,33 @@ export function UniversalAddMenu({
               stayInGarden={pathname.startsWith("/garden")}
               hidePlantTypeToggle={pathname.startsWith("/garden")}
             />
+          </div>
+        )}
+
+        {screen === "add-plant-from-vault" && (
+          <div key="add-plant-from-vault" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <div className="flex-shrink-0 px-6 pt-6 pb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goBackToAddPlant}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1"
+                  aria-label="Back"
+                >
+                  <ICON_MAP.Back className="w-5 h-5" />
+                </button>
+                <h2 className="text-xl font-bold text-neutral-900 flex-1 text-center">Planting</h2>
+                <div className="w-11 shrink-0" aria-hidden />
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-2">
+              <PlantingForm
+                profileIds={[]}
+                fromGarden={pathname.startsWith("/garden")}
+                mode="modal"
+                onSaved={onClose}
+              />
+            </div>
           </div>
         )}
 

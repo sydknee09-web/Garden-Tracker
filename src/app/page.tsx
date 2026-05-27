@@ -54,10 +54,6 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
-const PlantingFlowModal = dynamic(
-  () => import("@/components/PlantingFlowModal").then((m) => ({ default: m.PlantingFlowModal })),
-  { ssr: false }
-);
 import { completeTask } from "@/lib/completeSowTask";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
@@ -126,7 +122,6 @@ export default function HomePage() {
   const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
-  const [plantingFromVaultOpen, setPlantingFromVaultOpen] = useState(false);
   const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
   const [purchaseOrderMode, setPurchaseOrderMode] = useState<"seed" | "supply">("seed");
   const [purchaseOrderAddPlantMode, setPurchaseOrderAddPlantMode] = useState(false);
@@ -654,10 +649,6 @@ export default function HomePage() {
           pathname={pathname ?? "/"}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
-          onAddPlantFromVault={() => {
-            closeAll();
-            setPlantingFromVaultOpen(true);
-          }}
           onAddPlantPurchaseOrder={() => {
             closeAll();
             setPurchaseOrderMode("seed");
@@ -802,16 +793,6 @@ export default function HomePage() {
         onBack={() => {
           setBatchAddSupplyOpen(false);
           openMenuOnScreen("shed");
-        }}
-        onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
-      />
-
-      <PlantingFlowModal
-        open={plantingFromVaultOpen}
-        onClose={() => setPlantingFromVaultOpen(false)}
-        onBack={() => {
-          setPlantingFromVaultOpen(false);
-          openMenuOnScreen("add-plant");
         }}
         onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
       />
