@@ -35,7 +35,7 @@ export function MonthlyPulseView() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-black/60">
-        Zone 10b reference: tap a month to see what the guide recommends. Reference only.
+        Tap a month to see what the guide recommends.
       </p>
 
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">

@@ -28,7 +28,7 @@ export function ActionNowView() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-black/60">
-        Zone 10b reference: what to start or plant in {monthName}. Reference only — not your vault.
+        What to start or plant in {monthName}.
       </p>
 
       <section>

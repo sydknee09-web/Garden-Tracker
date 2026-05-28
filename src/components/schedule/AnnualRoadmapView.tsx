@@ -52,7 +52,7 @@ export function AnnualRoadmapView() {
       </div>
 
       <p className="text-sm text-black/60">
-        Zone 10b reference: when to start indoors (blue) vs direct/outdoor (green). Vertical line = today.
+        When to start indoors (blue) vs direct/outdoor (green). Vertical line = today.
       </p>
 
       <div className="rounded-xl border border-black/10 bg-white overflow-hidden">

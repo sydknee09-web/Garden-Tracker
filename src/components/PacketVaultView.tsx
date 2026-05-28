@@ -783,7 +783,7 @@ export function PacketVaultView({
                       )}
                     </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block font-semibold text-neutral-900 truncate">{decodeHtmlEntities(pkt.profile_name)}{varietyDisplay}</span>
+                      <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(pkt.profile_name)}{varietyDisplay}</span>
                       {pkt.vendor_name?.trim() && (
                         <span className="block text-xs text-neutral-500 truncate">{pkt.vendor_name.trim()}</span>
                       )}

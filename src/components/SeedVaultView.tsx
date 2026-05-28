@@ -1228,7 +1228,7 @@ export function SeedVaultView({
                       role="button"
                       tabIndex={0}
                       onClick={() => onToggleVarietySelection?.(seed.id)}
-                      className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
+                      className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 card-interactive ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
                     >
                       {cardContent}
                     </article>
@@ -1248,7 +1248,7 @@ export function SeedVaultView({
                           }
                         : {})}
                     >
-                      <article className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full ${getCardBorderClass(seed)}`}>
+                      <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full card-interactive ${getCardBorderClass(seed)}`}>
                         {cardContent}
                       </article>
                     </div>
@@ -1501,7 +1501,7 @@ export function SeedVaultView({
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
+                    <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
                     <span className="block text-sm text-neutral-600 truncate">{decodeHtmlEntities(seed.variety)}</span>
                     {seed.vendor_display?.trim() && (
                       <span className="block text-xs text-neutral-500 truncate">{seed.vendor_display.trim()}</span>
