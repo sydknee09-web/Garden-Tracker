@@ -394,7 +394,7 @@ export function JournalEntryForm({
     selectedProfileIds.size > 0;
 
   return (
-    <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+    <form onSubmit={handleSubmit} className="relative flex-1 min-h-0 flex flex-col">
       <div className="flex-shrink-0 px-6 pt-6 pb-4">
         <div className="flex items-center gap-2">
           {onBack ? (
@@ -421,8 +421,7 @@ export function JournalEntryForm({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4 relative">
-        <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4">
         <input
           ref={cameraMobileRef}
           type="file"
@@ -591,6 +590,7 @@ export function JournalEntryForm({
           ) : "Add Entry"}
         </button>
       </div>
+      <SubmitLoadingOverlay show={uploadingPhoto} message="Uploading…" />
     </form>
   );
 }

@@ -176,7 +176,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden"
+        className="relative bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden"
         tabIndex={-1}
       >
         <div className="flex-shrink-0 px-6 pt-6 pb-4">
@@ -192,8 +192,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
           </p>
         </div>
 
-        <form id="add-variety-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5 relative">
-          <SubmitLoadingOverlay show={submitting} message="Saving variety…" />
+        <form id="add-variety-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5">
           <div>
             <label htmlFor="add-variety-name" className="block text-sm font-medium text-black/80 mb-1">
               Plant name *
@@ -260,6 +259,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
             {submitting ? "Saving…" : "Add to Vault"}
           </button>
         </div>
+        <SubmitLoadingOverlay show={submitting} message="Saving variety…" />
       </div>
     </div>
   );

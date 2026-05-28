@@ -256,7 +256,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
   );
 
   return (
-    <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+    <form onSubmit={handleSubmit} className="relative flex-1 min-h-0 flex flex-col">
       <div className="flex-shrink-0 px-6 pt-6 pb-4">
         <div className="flex items-center gap-2">
           {onBack ? (
@@ -277,8 +277,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           <div className="w-11 shrink-0" aria-hidden />
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4 relative">
-        <SubmitLoadingOverlay show={saving} message="Saving task…" />
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-4">
         <div>
           <label htmlFor="task-title" className="block text-sm font-medium text-black/80 mb-1">
             Title *
@@ -445,6 +444,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           {saving ? "Saving…" : editTask ? "Save Changes" : isRecurring ? "Add Recurring Task" : "Add Task"}
         </button>
       </div>
+      <SubmitLoadingOverlay show={saving} message="Saving task…" />
     </form>
   );
 }

@@ -349,7 +349,7 @@ export function SupplyForm({
   const slideClass = stepDirection === "forward" ? "animate-submenu-slide-forward" : "animate-submenu-slide-back";
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <div className="relative flex-1 min-h-0 flex flex-col">
       <div className="flex-shrink-0 px-6 pt-6 pb-4">
         <div className="flex items-center gap-2">
           {!isEdit && step === "choose" && onBack ? (
@@ -389,8 +389,7 @@ export function SupplyForm({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 relative">
-        <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
 
       {!isEdit && step === "choose" && (
         <div key="choose" className={`space-y-3 ${slideClass}`}>
@@ -728,6 +727,7 @@ export function SupplyForm({
           onConfirm={handleCropConfirm}
         />
       )}
+      <SubmitLoadingOverlay show={submitting} message={isEdit ? "Saving…" : "Adding…"} />
     </div>
   );
 }

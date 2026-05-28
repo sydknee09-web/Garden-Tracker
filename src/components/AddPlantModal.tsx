@@ -586,8 +586,7 @@ export function AddPlantModal({
               </div>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5 relative">
-            <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5">
             {!addToExistingProfile && (
               <div className="flex gap-2">
                 <button
@@ -975,6 +974,7 @@ export function AddPlantModal({
               {submitting ? "Adding…" : plantType === "permanent" ? "Add Plant" : "Add Planting"}
             </button>
           </div>
+          <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
     </>
   );
 
@@ -984,7 +984,7 @@ export function AddPlantModal({
         content
       ) : (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-title">
-          <div ref={modalRef} className="bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
+          <div ref={modalRef} className="relative bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden" tabIndex={-1}>
             {content}
           </div>
         </div>
