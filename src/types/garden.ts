@@ -171,7 +171,7 @@ export interface PlantVarietyProfile {
 }
 
 // ---------------------------------------------------------------------------
-// Plant Profiles
+// Plant Profiles (Vault Library)
 // ---------------------------------------------------------------------------
 export type PlantProfileType = "seed" | "permanent";
 

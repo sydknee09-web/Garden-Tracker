@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-/** Redirect /shed to vault Shed tab so Shed is inline with Plant Profiles and Seed Vault. */
+/** Redirect /shed to vault Shed tab so Shed is inline with Library and Seed Vault. */
 export default function ShedPage() {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -31,7 +31,7 @@ export interface AddVarietyModalProps {
 /**
  * AddVarietyModal — standalone "create a plant profile (no packet, no grow instance)" entry.
  *
- * Triggered from the Vault Plant Profiles tab toolbar. Creates a `plant_profiles` row with
+ * Triggered from the Vault Library tab toolbar. Creates a `plant_profiles` row with
  * `profile_type: "seed"` + `status: "out_of_stock"`, then runs background enrichment to
  * fill scientific name / hero image / botanical care notes. Mirrors the canonical
  * standalone-profile logic from QuickAddSeed.handleSaveForLater but with a purpose-built

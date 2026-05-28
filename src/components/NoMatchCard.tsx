@@ -12,7 +12,7 @@ interface NoMatchCardProps {
 
 /**
  * Standardized "no match" card for search/filter empty states.
- * Use across Vault (Plant Profiles, Seed Vault, Shed) and Garden (Active, My Plants)
+ * Use across Vault (Library, Seed Vault, Shed) and Garden (Active, My Plants)
  * so users get a consistent experience when nothing matches.
  */
 export function NoMatchCard({ message, actionLabel, onAction, className = "" }: NoMatchCardProps) {

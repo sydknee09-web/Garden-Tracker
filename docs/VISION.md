@@ -154,7 +154,7 @@ The user should never feel lost. Cohesion (Operating principle 7) is the long-te
 
 *Detailed page goals deferred to Phase 5.*
 
-### Vault (Plant Profiles, Packets, Shed)
+### Vault (Library, Packets, Shed)
 - **Plant placeholder asset:** `/public/plant-placeholder.png` (the three-leaf PNG). Canonical placeholder; not the SeedlingIcon component.
 - **Placeholder container background:** `bg-white`. Matches the PNG's white background — no visible seam.
 - **Vault grid card layout:** 3 cards per row.
@@ -166,7 +166,7 @@ The user should never feel lost. Cohesion (Operating principle 7) is the long-te
 - Detect when supplies are running low / depleted (running-out threshold)
 - Connect to the shopping list automatically when something runs out
 
-**Open question (parked 2026-05-07):** Cross-view consistency between Vault Plant Profiles grid, Garden Active Garden gallery, Garden My Plants list. User flagged that names are legible across all three but layout/format/text style differ.
+**Open question (parked 2026-05-07):** Cross-view consistency between Vault Library grid, Garden Active Garden gallery, Garden My Plants list. User flagged that names are legible across all three but layout/format/text style differ.
 
 ### Garden (Active Garden, My Plants)
 - **Active Garden gallery cards:** Names should NOT clip from both sides (a `truncate` + center-aligned bug). Use `line-clamp-2` instead so longer names wrap to two lines.
@@ -319,7 +319,7 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 | Modal h2 / dialog title | **Title Case** | `Add Plant` · `Edit Packet` · `Delete Plant Profile?` |
 | Section h2 / sub-header | **Title Case** | `Adding Things` · `When to Plant (by Zone)` · `At a Glance` |
 | Sidebar settings sub-header (uppercase tracking) | **Title Case** | `Safe Tools` · `Danger Zone` (preserved as ALL-CAPS via `uppercase` utility; Title Case under-the-hood) |
-| Tab labels | **Title Case** | `Plant Profiles` · `Seed Vault` |
+| Tab labels | **Title Case** | `Library` · `Packets` · `Shed` |
 | Button labels (submit + secondary CTA) | **Title Case** | `Save` · `Cancel` · `Add Plant` · `Confirm Planting` · `Save Changes` · `Save to Vault` |
 | Chip / option labels in choosers | **Title Case** | `Manual Entry` · `Photo Import` · `Link Import` · `Purchase Order` |
 | Settings menu row labels | **Title Case** | `Vendor Ratings` · `Photo Imports` · `Cache` |
@@ -334,7 +334,7 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **Proper-noun preservations** (stay Title Case regardless of position — page-level labels or canonical noun phrases):
 
-- `Active Garden`, `My Plants`, `Plant Profiles`, `Seed Vault`, `Shed` — page/tab labels per ROADMAP 2026-05-24 `006dd69` Item 2 lock
+- `Active Garden`, `My Plants`, `Library` (renamed from `Plant Profiles` 2026-05-27), `Seed Vault`, `Shed` — page/tab labels per ROADMAP 2026-05-24 `006dd69` Item 2 lock
 - `Plant This Month` (renamed from `Plantable` per ROADMAP 2026-05-25 `b669a2a`) — Title Case applies now
 - `Friends & Family`, `Vista Gardeners` — group names
 - `Vault`, `Garden`, `Calendar`, `Journal`, `Home`, `Settings`, `Help`, `Shopping List` — primary nav labels (already Title; no change)

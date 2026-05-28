@@ -363,7 +363,7 @@ function VaultPageInner() {
     } else if (tab === "table") {
       setViewMode("list");
     } else if (tab === "active" || tab === "plants") {
-      // Legacy tab values — fall back to Plant Profiles (grid) and refresh
+      // Legacy tab values — fall back to Library (grid) and refresh
       setViewMode("grid");
       if (tab === "active") refetch();
     }
@@ -403,7 +403,7 @@ function VaultPageInner() {
       const savedView = sessionStorage.getItem("vault-view-mode");
       if (savedView === "grid" || savedView === "list" || savedView === "shed") setViewMode(savedView);
       else if (savedView === "table") setViewMode("list");
-      // Legacy values ("active", "plants") fall back to the default "grid" (Plant Profiles)
+      // Legacy values ("active", "plants") fall back to the default "grid" (Library)
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
@@ -978,7 +978,7 @@ function VaultPageInner() {
                   : "text-black/60 hover:text-black"
               }`}
             >
-              Plant Profiles
+              Library
             </button>
             <button
               type="button"
@@ -1123,7 +1123,7 @@ function VaultPageInner() {
         {viewMode === "shed" && <VaultShedWingToolbar />}
       </div>
 
-      {/* Refine By pop-up modal (Plant Profiles grid only; Seed Vault list uses VaultPacketWingRefineModal) */}
+      {/* Refine By pop-up modal (Library grid only; Seed Vault list uses VaultPacketWingRefineModal) */}
       {refineByOpen && viewMode === "grid" && (
         <VaultGridRefineModal
           open={refineByOpen}
