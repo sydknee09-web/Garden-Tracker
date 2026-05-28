@@ -1258,13 +1258,8 @@ export function SeedVaultView({
               );
             }
 
-            /* List row: thumbnail + name + variety/packet-count subtitle. Mirrors Packets list pattern. */
-            const subtitleParts: string[] = [];
-            if (varietyDisplay) subtitleParts.push(varietyDisplay);
-            if (typeof seed.packet_count === "number" && seed.packet_count > 0) {
-              subtitleParts.push(`${seed.packet_count} packet${seed.packet_count === 1 ? "" : "s"}`);
-            }
-            const subtitle = subtitleParts.join(" · ");
+            /* List row: thumbnail + name + variety subtitle. Packet count is scoped to the Packets tab. */
+            const subtitle = varietyDisplay;
             const rowInner = (
               <>
                 {batchSelectMode && (
