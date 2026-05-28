@@ -171,7 +171,7 @@ export function PacketVaultView({
           longPressFiredRef.current = false;
           return;
         }
-        router.push(`/vault/${pkt.plant_profile_id}`);
+        router.push(`/vault/${pkt.plant_profile_id}?from=vault&vaultTab=list`);
       },
     }),
     [onLongPressPacket, clearLongPressTimer, router]
@@ -563,7 +563,7 @@ export function PacketVaultView({
   }, [packets.length, loading, onEmptyStateChange]);
 
   const goToProfile = useCallback((profileId: string) => {
-    router.push(`/vault/${profileId}`);
+    router.push(`/vault/${profileId}?from=vault&vaultTab=list`);
   }, [router]);
 
   const handleRowClick = useCallback((pkt: PacketVaultItem) => {

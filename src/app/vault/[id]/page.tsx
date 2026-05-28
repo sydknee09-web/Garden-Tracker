@@ -684,6 +684,11 @@ export default function VaultSeedPage() {
     let from = "";
     if (fromParam === "garden") from = (tab ? `&from=garden` : `?from=garden`) + (gardenTab ? `&gardenTab=${gardenTab}` : "");
     else if (fromParam === "calendar") from = (tab ? `&from=calendar` : `?from=calendar`) + (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? `&date=${dateParam}` : "");
+    else if (fromParam === "vault") {
+      const vaultTab = searchParams.get("vaultTab");
+      const validVaultTab = vaultTab === "grid" || vaultTab === "list" || vaultTab === "shed";
+      from = (tab ? `&from=vault` : `?from=vault`) + (validVaultTab ? `&vaultTab=${vaultTab}` : "");
+    }
     if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}${from}`);
     else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}${from}`);
   }, [modalOpen, nextId, prevId, router, validTab, fromParam, searchParams]);
@@ -704,7 +709,7 @@ export default function VaultSeedPage() {
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
-  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href={searchParams.get("gardenTab") === "active" ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to {searchParams.get("gardenTab") === "active" ? "Active Garden" : "My Plants"}</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Calendar</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
+  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href={searchParams.get("gardenTab") === "active" ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to {searchParams.get("gardenTab") === "active" ? "Active Garden" : "My Plants"}</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Calendar</Link> : fromParam === "vault" ? <Link href={searchParams.get("vaultTab") === "grid" || searchParams.get("vaultTab") === "list" || searchParams.get("vaultTab") === "shed" ? `/vault?tab=${searchParams.get("vaultTab")}` : "/vault"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to {searchParams.get("vaultTab") === "grid" ? "Library" : searchParams.get("vaultTab") === "list" ? "Packets" : searchParams.get("vaultTab") === "shed" ? "Shed" : "Vault"}</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back to Vault</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   const careList = [
     { label: "Sowing Method", value: displaySowing || "—" },
@@ -1093,6 +1098,18 @@ export default function VaultSeedPage() {
           })()
         ) : fromParam === "journal" ? (
           <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Journal</Link>
+        ) : fromParam === "vault" ? (
+          (() => {
+            const vaultTab = searchParams.get("vaultTab");
+            const isValidVaultTab = vaultTab === "grid" || vaultTab === "list" || vaultTab === "shed";
+            const label = vaultTab === "grid" ? "Library" : vaultTab === "list" ? "Packets" : vaultTab === "shed" ? "Shed" : "Vault";
+            const href = isValidVaultTab ? `/vault?tab=${vaultTab}` : "/vault";
+            return (
+              <Link href={href} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+                &larr; Back to {label}
+              </Link>
+            );
+          })()
         ) : (
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
         )}
