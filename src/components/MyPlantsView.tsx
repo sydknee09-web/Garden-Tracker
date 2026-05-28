@@ -843,7 +843,8 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
           )}
 
           {displayStyle === "list" ? (
-            <ul className="space-y-4" role="list">
+            <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
+            <ul className="divide-y divide-black/5" role="list">
               {sortedPlants.map((plant) => {
                 const imgUrl = getPlantImageUrl(plant);
                 const handlers = getLongPressHandlers(plant.id, plant.plant_profile_id, plant.user_id);
@@ -856,23 +857,22 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                       onClick={(e) => handlers.handleClick(e as unknown as React.MouseEvent)}
                       onKeyDown={(e) => e.key === "Enter" && handlers.handleClick()}
                       {...handlers}
-                      className={`flex items-center gap-3 rounded-xl border p-4 shadow-sm transition-all group cursor-pointer min-h-[44px] ${
-                        selected ? "ring-2 ring-emerald-500 border-2 border-emerald-500 bg-emerald-50/50" : "border-emerald-200/80 bg-white hover:border-emerald-300 hover:shadow-md"
+                      className={`flex items-center gap-3 px-3 py-2 min-h-[44px] hover:bg-gray-50 transition-colors group cursor-pointer ${
+                        selected ? "bg-emerald-50/80 ring-inset ring-2 ring-emerald-500" : ""
                       }`}
-                      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
                     >
                       {batchSelectMode && (
                         <span className="shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                           {selected ? <span className="w-3 h-3 rounded-full bg-blue-600" /> : null}
                         </span>
                       )}
-                      <div className="relative shrink-0 w-12 h-12 rounded-xl overflow-hidden">
-                        <PlantImage imageUrl={imgUrl} alt="" size="md" variant="emerald" className="group-hover:scale-105 transition-transform" />
+                      <div className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden">
+                        <PlantImage imageUrl={imgUrl} alt="" size="sm" variant="emerald" className="group-hover:scale-105 transition-transform" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-neutral-900 truncate">{plant.profile_name}</h3>
-                        {plant.profile_variety_name && <p className="text-sm text-neutral-500 truncate">{plant.profile_variety_name}</p>}
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-neutral-500">
+                        <h3 className="font-semibold text-sm text-neutral-900 truncate">{plant.profile_name}</h3>
+                        {plant.profile_variety_name && <p className="text-xs text-neutral-500 truncate">{plant.profile_variety_name}</p>}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-neutral-500">
                           {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                           {plant.care_count > 0 && <span>{plant.care_count} care</span>}
                           {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
@@ -902,6 +902,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                 );
               })}
             </ul>
+            </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {sortedPlants.map((plant) => {

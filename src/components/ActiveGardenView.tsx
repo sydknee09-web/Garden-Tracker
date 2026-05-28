@@ -1120,7 +1120,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
           </div>
         ) : (
           <>
-          <ul className="space-y-4">
+          <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
+          <ul className="divide-y divide-black/5">
             {sortedBatches.map((batch) => {
               const sown = new Date(batch.sown_date).getTime();
               const rawExpected = batch.expected_harvest_date
@@ -1143,10 +1144,15 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                 <li
                   key={batch.id}
                   ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
-                  className={`rounded-xl border bg-white p-4 shadow-sm transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-emerald-200/80"}`}
                 >
                   <div
-                    className={`flex items-start justify-between gap-3 ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}
+                    className={`flex items-center gap-3 px-3 py-2 min-h-[44px] hover:bg-gray-50 transition-colors ${
+                      highlightGrowId === batch.id
+                        ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
+                        : bulkMode && bulkSelected.has(batch.id)
+                        ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
+                        : ""
+                    } ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}
                     onClick={
                       bulkMode && canEditPage(batch.user_id ?? "", "garden")
                         ? (e) => {
@@ -1160,18 +1166,18 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                   >
                     {/* Bulk selection bubble — only for editable batches */}
                     {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
-                      <span className="mt-1 shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                      <span className="shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                         {bulkSelected.has(batch.id) ? (
                           <span className="w-3 h-3 rounded-full bg-blue-600" />
                         ) : null}
                       </span>
                     )}
                     {/* Plant profile thumbnail (Law 7 hierarchy) */}
-                    <div className="shrink-0 w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
                       {thumbUrl ? (
                         <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <PlantPlaceholderIcon size="md" />
+                        <PlantPlaceholderIcon size="sm" />
                       )}
                     </div>
                     <Link
@@ -1219,7 +1225,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       } : undefined}
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-black/90 group-hover:text-emerald-700">
+                        <span className="font-semibold text-sm text-neutral-900 group-hover:text-emerald-700">
                           {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
                         </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
@@ -1267,6 +1273,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
               );
             })}
           </ul>
+          </div>
           </>
         )}
       </section>
