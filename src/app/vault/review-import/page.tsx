@@ -1244,7 +1244,7 @@ export default function ReviewImportPage() {
             type="button"
             onClick={handleGoToHeroPhotos}
             disabled={saving}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Find Hero Photos
           </button>

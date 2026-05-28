@@ -235,6 +235,7 @@ Three transition languages, each conveying meaning:
 
 ### Colors / brand
 - `bg-emerald` (brand emerald, defined in tailwind config) is the canonical primary action color. Not `bg-emerald-600` (Tailwind direct) — *recommendation pending user confirmation, defaulting to brand token for consistency.*
+- *Superseded 2026-05-27 — see "Emerald primary-emphasis token split" subsection below for the locked emerald-500/emerald-600 semantic split. Actual codebase canonical for CTAs settled on `bg-emerald-600` (Tailwind direct) via the FAB-form submit saga (locked 2026-05-26); the brand-token aspiration above remains academic.*
 
 ### Field treatments — dropdown vs free-text
 
@@ -424,6 +425,32 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own visual register; this convention does NOT apply there.
 
+### Emerald primary-emphasis token split
+
+**Locked 2026-05-27.** Semantically distinct affordances use semantically distinct emerald shades, parallel to the chrome-vs-content split (icon-style, chrome-control framing) — same principle applied to the color-token layer of primary-emphasis surfaces.
+
+**The rule (two branches):**
+
+- **`bg-emerald-500 text-white` = STATE / SELECTION.** Tab nav active state, selection pills, "you are here" indicators, batch-selection checkbox fill, toggle-switch checked state. The lighter shade signals current-state, not action.
+- **`bg-emerald-600 hover:bg-emerald-700 text-white` = CTA / SUBMIT.** Save buttons, primary form submits, "do this action" CTAs, "Go to X" navigation triggers, primary call-to-action in empty-state cards. Canonicalized in the FAB-form submit saga (locked 2026-05-26 across [`fc1463d` → `ba9319f`](https://github.com/sydknee09-web/Garden-Tracker)); 41+ files use this pattern app-wide.
+
+**Decision criterion at audit time (one question):** *Is the user expected to TAP to perform an ACTION (button, CTA, submit)? → `bg-emerald-600`. Is the element communicating a STATE (selected, active, current)? → `bg-emerald-500`.*
+
+**Why the split.** The 1-step shade difference is barely perceptible side-by-side, but it carries semantic meaning when the eye scans the page: current-state surfaces should not read as call-to-action surfaces. Same chrome-vs-content principle as the icon-style + chrome-control-framing rules — distinct roles deserve distinct tokens within a unified family.
+
+**Sites using the split (audited 2026-05-27):**
+
+- **State / selection (`bg-emerald-500`):** [schedule/page.tsx:74](src/app/schedule/page.tsx:74) (tab nav active), [MonthlyPulseView.tsx:53](src/components/schedule/MonthlyPulseView.tsx:53) (selected month pill), [calendar/page.tsx:2473](src/app/calendar/page.tsx:2473) (batch-selection checkbox), [FeedbackModal.tsx:378](src/components/FeedbackModal.tsx:378) + [SettingsSuccessSoundToggle.tsx:39](src/components/SettingsSuccessSoundToggle.tsx:39) + [NewTaskModal.tsx:336](src/components/NewTaskModal.tsx:336) (toggle-switch checked state).
+- **CTA / submit (`bg-emerald-600 hover:bg-emerald-700`):** [ActiveGardenView.tsx:991](src/components/ActiveGardenView.tsx:991) + [1010](src/components/ActiveGardenView.tsx:1010) (empty-state CTAs), [NoMatchCard.tsx:30](src/components/NoMatchCard.tsx:30) (primary CTA), [vault/review-import/page.tsx:1247](src/app/vault/review-import/page.tsx:1247) ("Find Hero Photos" CTA), plus 40+ existing canonical sites (Save buttons across AddPlantModal / EditPacketModal / BatchAddSeed / BatchAddSupply / FeedbackModal / etc.; "Add" CTAs in CareScheduleManager + EmptyStateCard; error-recovery CTAs in ErrorBoundary + global-error / route-error fallbacks).
+
+**Not covered by the split:** semantic non-CTA usages of `bg-emerald-500` stay as-is — progress-bar fills, full-screen success-flash overlays (`bg-emerald-500/90`), color-legend swatches in Schedule views (`AnnualRoadmapView` direct/outdoor color), small status indicator dots, column-resize-handle active states, calendar entry-type color helper. These are NOT primary-emphasis affordances; they're semantic color usage where the shade is the meaning.
+
+**Persona walk.** All 5 personas pass. Maya (power user, scans labels) sees the action/state split as the expected industry-standard tonal distinction. Sydney (cohesion-driver) sees primary-emphasis surfaces now obey one rule across the app instead of drifting per-component. Walter (iPad-primary, standard-iOS-app expectations) reads the slightly-deeper CTA shade as the universal Apple HIG "filled prominent button" convention; state surfaces read as the lighter "selected segment" convention. Aria + Sam (low-data new-user states) see action buttons in empty-state cards (the primary affordance pushing them toward first plant / first seed) carry the slightly-stronger visual weight that signals "tap me" — without the surface being shouty.
+
+**Why this rule exists.** Surfaced during the cohesion polish bundle (`4c92e68` 2026-05-27) as a Pass 3 sibling-sweep finding: 7+ primary-emphasis sites used `bg-emerald-500` while the FAB-form submit saga had already canonicalized `bg-emerald-600` as Save-button-and-CTA across 41+ files. Two possible directions: (a) unify all primary-emphasis surfaces to one shade (loses the state/CTA semantic distinction), or (b) preserve the distinction by classifying each site as STATE or CTA and applying the matching shade. Syd locked direction (b) per Rule A ask + plain-English close-out 2026-05-27 — distinction carries semantic value worth preserving; 4 CTA sites flipped to canonical emerald-600 in the same ship that locked this sub-rule. The remaining state/selection sites (tab nav + pills + toggles + selection checkboxes) stay at emerald-500 by design.
+
+**GT-only.** Voyager has its own visual register; this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 
@@ -493,7 +520,7 @@ Items deferred to a later session, with the WHY of deferral preserved.
 
 ### Other parked items
 - **Calendar task fatigue approach** (partially unparked 2026-05-11; remainder still deferred). **Locked & shipped 2026-05-11 (`a7dadb7`):** default-collapse rules on Calendar load — overdue=collapsed, today=open, all other days=collapsed. Count badges on collapsed headers preserve at-a-glance scan. Tap-grid-day still switches to existing single-day view (preserved, not eliminated). Still parked: group-by-day reflow beyond the current per-date sections, collapse-completed-today auto-hide, lazy-load older completions, Today/Week vs full-month default window.
-- **Cross-view consistency: Vault grid / Garden gallery / My Plants list** (deferred 2026-05-07).
+- **Cross-view consistency: Vault grid / Garden gallery / My Plants list** (deferred 2026-05-07). **Update 2026-05-27:** JournalView ([src/app/journal/page.tsx](src/app/journal/page.tsx)) stays in its own format register (action-log shape — grouped by entry/date/plant across 3 view modes: table mobile-card / timeline plant-gallery / grid Instagram-feed) by design — different mental model from the collection-list surfaces (Library / Packets / Shed / Active Garden / My Plants are all inventory views; Journal is an event-history view). Already shares design tokens with the unified list pattern (`rounded-xl border bg-white p-4 shadow-card card-interactive` on mobile-card mode at [journal/page.tsx:685+](src/app/journal/page.tsx:685)) so visual cohesion is preserved at the token level; shape divergence is intentional. Decision: keep distinct; don't force-fit into the condensed-list wrapper. Surfaced + closed in the 4c92e68 cohesion polish bundle close-out per Syd Q2 lock 2026-05-27.
 - **Too many places to edit a plant's image** (in `BACKLOG.md`, deferred 2026-05-07).
 - **App-wide icon density / canonical stroke weight** (raised 2026-05-08 as "FAB icon consistency"; widened 2026-05-11 after the same issue surfaced in the new sidebar nav). Two icon libraries collide in the app: `navItems.tsx` (24×24, stroke 2.0, 5 primary nav icons) vs `styleDictionary.tsx` (24×24, stroke 1.2, 42 icons used app-wide in FAB, modals, headers). Sidebar today renders four distinct rendering systems in one component: primary nav (24×24 @ 2.0), Shopping list (20×20 @ 1.2), Settings/Feedback (20×20 @ 2.0), Help (text glyph `?`, not an SVG at all). *Recommended direction: standardize on stroke 1.2 + render 24×24 + convert Help to SVG — because `styleDictionary.tsx` is the larger library, so picking 1.2 as canonical pulls the rest of the app toward sidebar (less rework long-term). Counter-option: stroke 2.0 canonical. Awaiting user decision on canonical stroke weight.*
 - ~~**Save / Cancel button consistency**~~ ✅ **CLOSED 2026-05-26** (raised 2026-05-08, locked in FAB-form submit saga commits `fc1463d` → `ba9319f`). Final lock: side-by-side Cancel-left + Save-right + `bg-emerald-600 hover:bg-emerald-700` Save + `border-teal-gus/40 text-teal-gus` Cancel + `border-t border-neutral-200` separator + disable-until-valid on every form. AddPlantModal C1 deferral (asymmetric Manual entry path) closed in same saga via `embedded?: boolean` prop + new `add-plant-manual` screen in UniversalAddMenu. Companion ADJACENT findings parked for future cohesion pass: AddPlantManualModal (Vault Packets tab), HarvestModal, EditJournalModal, EditPacketModal, AddItemModal, FeedbackModal, InviteMemberModal — all non-FAB-tree edit/utility modals with similar submit-shape. See ROADMAP §6 2026-05-26 entry for full saga decision log.

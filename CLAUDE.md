@@ -867,6 +867,22 @@ GT-only — Voyager has its own visual register.
 
 ---
 
+## Emerald primary-emphasis token convention (locked 2026-05-27)
+
+GT splits emerald primary-emphasis surfaces into **STATE / SELECTION** (`bg-emerald-500`) vs **CTA / SUBMIT** (`bg-emerald-600 hover:bg-emerald-700`). The 1-step shade difference carries semantic meaning. **See [VISION.md §8 "Emerald primary-emphasis token split"](docs/VISION.md) for the full rule + criterion + audited site list + persona walk + relationship to the FAB-form submit saga lock (2026-05-26).**
+
+**Quick lookup for in-chat plans:**
+- Tab nav active state / selection pill / "you are here" indicator / batch-selection checkbox fill / toggle-switch checked state → **`bg-emerald-500 text-white`**
+- Save button / primary form submit / "do this action" CTA / "Go to X" navigation trigger / primary call-to-action in empty-state card → **`bg-emerald-600 hover:bg-emerald-700 text-white`** (canonical across 40+ files via FAB-form submit saga)
+
+**At audit time, ask:** *user expected to TAP to perform an ACTION (button / CTA / submit)? → emerald-600. Element communicating STATE (selected / active / current)? → emerald-500.*
+
+**Not for:** semantic non-CTA usages (progress-bar fills, full-screen success-flash overlays at `/90` opacity, color-legend swatches in Schedule views, small status indicator dots, column-resize-handle active states, calendar entry-type color helper). These stay at `bg-emerald-500` (or its opacity variants) by design — the shade IS the semantic, not the affordance role.
+
+GT-only — Voyager has its own visual register.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.
