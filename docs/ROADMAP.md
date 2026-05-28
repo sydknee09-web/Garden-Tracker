@@ -659,6 +659,22 @@ Most recent first. For full history, use `git log`.
 
 Chronological log of key decisions made during design and build. New decisions append here. *Provides historical context — different from VISION.md (which is current state).*
 
+### 2026-05-27 (newest — chrome control framing sub-conventions lock — doc-only)
+
+- **VISION §8 new subsection "Chrome control framing — sub-conventions" locked.** Captures the framed-vs-unframed split for chrome controls that surfaced organically from two 2026-05-27 ships: `b339f56` (Calendar month-nav arrows dropped square frame → bare chevron-icon-only — established the UNFRAMED chevron principle) and `fc338c2` (Packets list↔grid toggle added with framed pill `rounded-xl border border-black/10 bg-white` — established the FRAMED toggle principle alongside the existing Library tab toggle). Two distinct sub-conventions named with explicit decision criterion: chrome controls representing STATE wear a frame; chrome controls representing ACTION read unframed.
+
+- **Relationship to existing §8 subsections.** Sub-rule WITHIN the chrome lane of the chrome-vs-content icon-style split (locked earlier 2026-05-27 in `gt-icon-style-convention` chat — `cea6c71`). Icon-style sets the visual treatment of the icon (flat monotone for chrome); this convention sets the framing of the control around that icon. Orthogonal axes — both apply to chrome icons in chevron and toggle controls. Independent of §11 "App-wide icon density" parked stroke-weight decision (framing ≠ stroke weight; both can lock independently).
+
+- **Exception captured:** photo-overlay nav (Vault profile prev/next, Shed product prev/next) keeps framed chevrons (`rounded-full bg-white/90 border w-6 h-6`) where chrome aids legibility over a photo. Honored as documented carve-out, not a contradiction of the unframed-chevron rule.
+
+- **Quick-lookup pointer added to CLAUDE.md** as sibling to the existing Casing / Empty-cell / Icon style convention quick-lookup sections — same shape so future-Claude scans them as a coherent §8 design-token quick-reference set.
+
+- **Persona walk:** all 5 personas pass (Maya — stateful-vs-action distinction reads as expected; Sydney — cohesion expectation met; Walter — universal-iOS convention for both shapes; Aria + Sam — less visual noise on unframed prev/next; only stateful toggles announce with a frame).
+
+- **3-pass plan-audit terminated clean iter 1** (Pass 1 factual: both cited commits verified via `git log --oneline`, Lucide chevron usage verified in `src/app/calendar/page.tsx`, toggle pill pattern verified in PacketVaultView.tsx L745 + SeedVaultView.tsx L1466; Pass 2 doc-batch concerns hunt clean; Pass 4 lock hygiene clean — §10/§11 unbrushed). Pass 3 sibling sweep on doc structure: new subsection matches the established 4-subsection shape (Info-note / Casing / Empty-cell / Icon style) verbatim — title with lock date / rule with two branches / decision criterion / why / relationships / persona walk / GT-only.
+
+- **Doc-only ship**, zero code touched. 3 files (VISION.md + CLAUDE.md + ROADMAP.md). Tests N/A; build N/A. Push tier per CLAUDE.md push-tiers (doc-only = push immediately, no per-push greenlight needed). Concurrent-fetch validation at preflight: 0 commits behind origin/main.
+
 ### 2026-05-27 (newest — `gt-plant-profiles-to-library` chat — Vault tab rename "Plant Profiles" → "Library")
 
 - **Vault sub-tab "Plant Profiles" renamed to "Library" surgically.** Locked in Dispatch after boyfriend-dogfood surfaced Profile-vs-Packet confusion (Library / Packets / Shed reads cleaner as three distinct concepts than Plant Profiles / Packets / Shed). **Conceptual model preserved:** "A Library contains many plant profiles" — the SECTION renamed, the INDIVIDUAL ENTRY noun stays "plant profile" (one per variety; encyclopedia entry; matches locked GT vocabulary). DB table `plant_profiles`, TypeScript `PlantProfile` type, `plantProfiles` state variable, body-copy "plant profile" noun usage — all preserved verbatim.

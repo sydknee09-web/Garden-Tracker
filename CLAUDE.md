@@ -851,6 +851,22 @@ GT-only — Voyager has its own visual register.
 
 ---
 
+## Chrome control framing convention (locked 2026-05-27)
+
+GT chrome controls split by purpose: chevron navigation (prev/next, transient) reads **unframed**; toggle controls (view-switcher, stateful mode) read **framed**. **See [VISION.md §8 "Chrome control framing — sub-conventions"](docs/VISION.md) for the full rule + criterion + persona walk + relationship to icon-style + §11 stroke-weight parked entry.**
+
+**Quick lookup for in-chat plans:**
+- Chevron navigation (prev/next, breadcrumb, section toggle, list-row chevron) → **unframed** Lucide `ChevronLeft` / `ChevronRight` at `w-3` to `w-5`; 44×44 invisible tap padding. Exception: photo-overlay nav (Vault/Shed profile prev/next) is framed for legibility over a photo.
+- Toggle chrome (view-switcher, mode-switcher) → **framed** pill `rounded-xl border border-black/10 bg-white` (or matching theme tokens); icon-only inside; sits in toolbar alongside search/filter.
+
+**At audit time, ask:** *does this chrome control represent STATE (sticky mode, "you are HERE") or ACTION (transient trigger)? → STATE = framed; ACTION = unframed.*
+
+**Relationship to icon-style convention above.** Icon-style sets the visual treatment of the icon (flat monotone for chrome); this convention sets the framing of the control around that icon. Orthogonal axes — both apply to chrome icons in chevron and toggle controls.
+
+GT-only — Voyager has its own visual register.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.

@@ -400,6 +400,30 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own visual register (parchment + in-world illustrated artwork); this convention does NOT apply there.
 
+### Chrome control framing — sub-conventions
+
+**Locked 2026-05-27.** GT chrome controls come in two distinct flavors with different framing conventions. Establishes a sub-rule WITHIN the chrome lane of the icon-style chrome-vs-content split (see preceding subsection): which chrome controls wear a frame, which read as inline affordances.
+
+**The rule (two branches):**
+
+- **Chevron navigation (prev/next, breadcrumb-style, section toggles) → UNFRAMED.** Use Lucide `ChevronLeft` / `ChevronRight` at `w-3` to `w-5` proportional to surrounding text; no square frame, no border, no fill; 44×44 invisible tap padding via flex centering for accessibility. Examples: Calendar month prev/next (locked via `b339f56` 2026-05-27 — `polish(calendar): drop square frame on month-nav arrows — icon-only chevrons`), breadcrumb chevrons, list-row navigation chevrons. **Exception:** framed chevrons (`rounded-full bg-white/90 border w-6 h-6`) are reserved for photo-overlay nav contexts where chrome aids legibility over a photo (Vault profile prev/next, Shed product prev/next).
+- **Toggle chrome controls (view-switcher, mode-switcher) → FRAMED.** Use the pill toggle pattern: `rounded-xl border border-black/10 bg-white` (or matching theme tokens); icon-only inside, with optional border between toggle states; sits in toolbar positions, often alongside search/filter affordances. Examples: Library tab grid/list toggle (existing); Seed Packets tab grid/list toggle (locked via `fc338c2` 2026-05-27 — `polish(vault): Packets list↔grid toggle + Library photo-card active outline parity`).
+
+**Decision criterion at audit time (one question):** *Does this chrome control represent STATE (a sticky mode the user is currently in) or ACTION (a transient trigger to go somewhere or do something)?*
+
+- STATE → **framed** (the frame visually communicates "this is a stateful control; you are HERE")
+- ACTION → **unframed** (reads as inline affordance; doesn't compete for attention)
+
+**Why this rule exists.** Same chrome-vs-content semantic from the preceding icon-style convention, applied at the *control* level rather than the icon level. Chrome that holds state needs visual weight to signal stickiness; chrome that triggers transient navigation reads cleanest as bare inline glyphs. Mixing the two randomly produces a control vocabulary the user can't pattern-match against — exactly the cohesion-by-aggregation failure mode named in CLAUDE.md Pass 2.
+
+**Relationship to preceding "Icon style — chrome vs content split" subsection.** Icon-style sets the *visual treatment* of icons (flat monotone vs illustrated); this convention sets the *framing* of chrome controls (frame vs no-frame). Both rules apply to chrome icons inside chevron and toggle controls: the icons stay flat monotone per icon-style, AND the controls follow the framing rule here. Orthogonal axes, both must be satisfied.
+
+**Relationship to §11 "App-wide icon density" parked decision.** §11 asks which canonical stroke weight the chrome lane should standardize on; this convention is independent of that question (framing ≠ stroke weight). Both can lock independently. When §11 unlocks, its outcome applies to the icons inside both unframed chevrons and framed toggles.
+
+**Persona walk.** All 5 personas pass. Maya (power user, scans labels) reads the framed/unframed split as expected stateful-vs-action distinction without parsing. Sydney (cohesion) sees the split as the cohesive feel she expects from polished apps where chrome behaves predictably. Walter (iPad-primary, standard-iOS-app expectations) reads bare-chevron prev/next as the universal navigation convention; framed view-toggle pills as the universal mode-switcher convention. Aria + Sam (low-data new-user states) see less visual noise on prev/next chevrons (unframed) — chrome stays calm; only stateful toggles announce themselves with a frame.
+
+**GT-only.** Voyager has its own visual register; this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 
