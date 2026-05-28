@@ -1076,7 +1076,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         {batch.planting_method_badge && (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
                         )}
-                        {viewMode === "family" && batch.user_id && (
+                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
                           <span className="absolute top-0.5 left-0.5 z-10">
                             <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                           </span>
@@ -1213,7 +1213,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
                         </span>
                         {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
-                        {viewMode === "family" && batch.user_id && (
+                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
                           <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                         )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}

@@ -78,9 +78,9 @@ export function VaultListSkeleton() {
   );
 }
 
-/** Compact grid skeleton for SeedVaultView loading state (no header). Matches gridDisplayStyle: photo=2-col, condensed=3-col. */
-export function VaultGridSkeleton({ gridDisplayStyle = "condensed" }: { gridDisplayStyle?: "photo" | "condensed" }) {
-  const gridClass = gridDisplayStyle === "photo" ? "grid-cols-2 gap-2" : "grid-cols-2 sm:grid-cols-3 gap-2";
+/** Compact grid skeleton for SeedVaultView loading state (no header). Matches gridDisplayStyle: photo=2-col gallery, list=rows. */
+export function VaultGridSkeleton({ gridDisplayStyle = "photo" }: { gridDisplayStyle?: "photo" | "list" }) {
+  const gridClass = gridDisplayStyle === "photo" ? "grid-cols-2 gap-2" : "grid-cols-1 gap-0";
   return (
     <div className={`grid ${gridClass}`}>
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (

@@ -451,6 +451,32 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own visual register; this convention does NOT apply there.
 
+### Default sort by use case (discovery vs lookup)
+
+**Locked 2026-05-28.** Inventory surfaces split into two semantic categories. Default sort follows the user's mental model for that category — discovery surfaces surface fresh signal, lookup surfaces enable name-based finding.
+
+**The rule (two branches):**
+
+- **Discovery surfaces** = sort by **most-recent first**. Library / Active Garden / My Plants. User intent: *"what's new / what did I just add / what am I monitoring."* Recent-first surfaces the freshest signal at the top — the just-added variety, the just-planted batch, the plant whose photo I just logged.
+- **Lookup surfaces** = sort by **alphabetical by item name**. Packets / Shed. User intent: *"I want to find a specific thing fast."* Alphabetical lookup wins over recent-first because the user knows what they want and the catalog has enough items that scrolling-by-recency isn't a viable find path.
+
+**Decision criterion at audit time (one question):** *Is the user BROWSING for what's new (discovery), or LOOKING UP a specific item (lookup)? Discovery → most-recent. Lookup → alphabetical.*
+
+**Behavior on lookup surfaces with OOS-equivalent concept:** when sorted alphabetically, push OOS/out-of-stock rows to the bottom (regardless of asc/desc direction). Semantically: alphabetical reads as "show me actionable items by name first." Currently applies to Packets (`is_archived || qty_status <= 0` rows). Shed has no OOS-equivalent — supply_profiles has no stock column; alphabetical default with no OOS-bottom handling.
+
+**Sites using the framework (audited 2026-05-28):**
+
+- **Discovery (most-recent first):** [garden/page.tsx:113](src/app/garden/page.tsx:113) (Active Garden, `sown_date desc`), [garden/page.tsx:121](src/app/garden/page.tsx:121) (My Plants, `name asc` — see note below), [VaultPageContent.tsx:225](src/app/vault/VaultPageContent.tsx:225) (Library, parent default `name asc` — see note below).
+- **Lookup (alphabetical):** [PacketVaultView.tsx:73-74](src/components/PacketVaultView.tsx:73) (Packets, `variety asc` + OOS-bottom), [VaultPacketWing.tsx:211-212](src/app/vault/components/VaultPacketWing.tsx:211) (Packets embedded wrapper, `variety asc`), [VaultShedWing.tsx:162-163](src/app/vault/components/VaultShedWing.tsx:162) (Shed embedded wrapper, `name asc`), [ShedView.tsx:125-126](src/components/ShedView.tsx:125) (Shed standalone, `name asc`).
+
+**Note on Library + My Plants discovery defaults.** Both currently default to alphabetical (`name asc`) in code, predating this framework. Per Syd's lock 2026-05-28, this is technically a discovery surface that *should* be most-recent default. Currently parked — flagging the gap to revisit alongside future Library/My Plants polish; the framework is the source of truth even when current state hasn't caught up.
+
+**Persona walk.** All 5 personas pass. Maya (power user, many items) sees lookup surfaces resolve fast via alphabetical scan + OOS-bottom hides spent packets. Sydney (cohesion-driver, the originator) sees inventory surfaces obey one rule per category instead of drifting per-surface. Walter (familiar-pattern preference, iOS standard) sees alphabetical = Contacts / Music / Notes default = expected. Aria (sparse data, houseplants only) sees the framework apply but with little visible impact at her data scale. Sam (first-time, ~0-3 items per surface) sees no visible impact at small N; framework activates as collection grows.
+
+**Why this rule exists.** Surfaced during the Inventory polish bundle (Item 2) 2026-05-28. Original Item 2 brief framed only Packets default-sort; Syd articulated the broader framework mid-build as the lookup-surface lock and extended Item 2 to include Shed by the same logic. The framework names what was already implicit in each surface's design intent — codifying it as a VISION §8 sub-rule means future inventory surfaces (new lookup catalogs, new discovery feeds) inherit the default sort decision instead of re-asking it per-surface. Pairs with VISION §8 chrome-vs-content + emerald-token-split convention pattern: a per-surface decision becomes a per-category decision becomes a one-time framework lock.
+
+**GT-only.** Voyager has its own surface taxonomy; this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 

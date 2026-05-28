@@ -159,9 +159,9 @@ export function VaultShedWingProvider({
   const [shedBatchSelectMode, setShedBatchSelectMode] = useState(false);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
   const [shedFilterOpen, setShedFilterOpen] = useState(false);
-  const [shedSortBy, setShedSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("updated_at");
-  const [shedSortDir, setShedSortDir] = useState<"asc" | "desc">("desc");
-  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("list");
+  const [shedSortBy, setShedSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("name");
+  const [shedSortDir, setShedSortDir] = useState<"asc" | "desc">("asc");
+  const [shedDisplayStyle, setShedDisplayStyle] = useState<"grid" | "list">("grid");
   const [shedBatchDeleting, setShedBatchDeleting] = useState(false);
   const [filteredSupplyIds, setFilteredSupplyIds] = useState<string[]>([]);
   const [shedSelectionActionsOpen, setShedSelectionActionsOpen] = useState(false);

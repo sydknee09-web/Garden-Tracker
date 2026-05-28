@@ -883,6 +883,22 @@ GT-only — Voyager has its own visual register.
 
 ---
 
+## Default sort convention — discovery vs lookup (locked 2026-05-28)
+
+GT splits inventory surfaces into **discovery** (Library, Active Garden, My Plants — sort by most-recent first) vs **lookup** (Packets, Shed — sort alphabetical by name). On lookup surfaces with an OOS-equivalent concept (Packets has `is_archived || qty_status <= 0`; Shed has none), OOS rows push to bottom when sorted alphabetically. **See [VISION.md §8 "Default sort by use case (discovery vs lookup)"](docs/VISION.md) for the full rule + criterion + audited site list + persona walk + Library/My Plants gap note.**
+
+**Quick lookup for in-chat plans:**
+- Discovery surface (user BROWSING for what's new) → most-recent first.
+- Lookup surface (user LOOKING UP a specific item by name) → alphabetical asc.
+- Lookup + OOS-equivalent concept exists → OOS at bottom regardless of direction.
+- New inventory surface? Classify first (discovery vs lookup), apply the matching default. Don't re-ask per-surface.
+
+**At audit time, ask:** *will the user usually BROWSE this surface for recent/new items, or LOOK UP a specific known item by name? → discovery = recent-first; lookup = alphabetical.*
+
+GT-only — Voyager has its own surface taxonomy.
+
+---
+
 ## Capture-doc boundaries (locked 2026-05-13)
 
 When a new user signal arrives during a chat, this table maps signal-type → destination doc. Codifies what's been implicit practice; useful as a quick lookup instead of judgment call.

@@ -217,8 +217,8 @@ function VaultPageInner() {
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0);
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
-  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
-  const [packetDisplayStyle, setPacketDisplayStyle] = useState<"list" | "grid">("list");
+  const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "list">("photo");
+  const [packetDisplayStyle, setPacketDisplayStyle] = useState<"list" | "grid">("grid");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<GridRefineSection>(null);
   const [addVarietyOpen, setAddVarietyOpen] = useState(false);
@@ -406,8 +406,8 @@ function VaultPageInner() {
       else if (savedView === "table") setViewMode("list");
       // Legacy values ("active", "plants") fall back to the default "grid" (Library)
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
-      if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
-      else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
+      if (savedGridStyle === "photo" || savedGridStyle === "list") setGridDisplayStyle(savedGridStyle);
+      else if (savedGridStyle === "gallery" || savedGridStyle === "condensed") setGridDisplayStyle("photo"); // migrate legacy values to gallery default
       const savedPacketStyle = sessionStorage.getItem("vault-packet-display-style");
       if (savedPacketStyle === "grid") setPacketDisplayStyle("grid");
       else if (savedPacketStyle === "list") setPacketDisplayStyle("list");
@@ -1118,12 +1118,18 @@ function VaultPageInner() {
                 )}
                 <button
                     type="button"
-                    onClick={() => setGridDisplayStyle((s) => (s === "condensed" ? "photo" : "condensed"))}
+                    onClick={() => setGridDisplayStyle((s) => (s === "photo" ? "list" : "photo"))}
                     className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                    title={gridDisplayStyle === "condensed" ? "Photo cards" : "Condensed grid"}
-                    aria-label={gridDisplayStyle === "condensed" ? "Switch to photo cards" : "Switch to condensed grid"}
+                    title={gridDisplayStyle === "photo" ? "List View" : "Gallery View"}
+                    aria-label={gridDisplayStyle === "photo" ? "Switch to list view" : "Switch to gallery view"}
                   >
-                    {gridDisplayStyle === "condensed" ? <ICON_MAP.PhotoCardsGrid className="w-5 h-5" /> : <ICON_MAP.CondensedGrid className="w-5 h-5" />}
+                    {gridDisplayStyle === "photo" ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                    ) : (
+                      <ICON_MAP.PhotoCardsGrid className="w-5 h-5" />
+                    )}
                   </button>
               </div>
             </div>

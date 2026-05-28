@@ -70,8 +70,8 @@ export function PacketVaultView({
   searchQuery = "",
   statusFilter = "",
   vendorFilter = null,
-  sortBy = "date",
-  sortDirection = "desc",
+  sortBy = "variety",
+  sortDirection = "asc",
   sowMonth = null,
   batchSelectMode = false,
   selectedPacketIds,
@@ -427,6 +427,10 @@ export function PacketVaultView({
     const mult = sortDirection === "asc" ? 1 : -1;
     list.sort((a, b) => {
       if (sortBy === "variety") {
+        // Lookup-surface lock (VISION §8): alphabetical sort pushes OOS to bottom regardless of direction.
+        const aOos = a.is_archived || (a.qty_status ?? 0) <= 0;
+        const bOos = b.is_archived || (b.qty_status ?? 0) <= 0;
+        if (aOos !== bOos) return aOos ? 1 : -1;
         const va = (a.profile_name + (a.variety_name ?? "")).toLowerCase();
         const vb = (b.profile_name + (b.variety_name ?? "")).toLowerCase();
         return mult * va.localeCompare(vb, undefined, { sensitivity: "base" });
@@ -682,7 +686,7 @@ export function PacketVaultView({
                           {isSelected ? <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> : null}
                         </span>
                       )}
-                      {ownerBadge && (
+                      {ownerBadge && pkt.owner_user_id !== user?.id && (
                         <span className="absolute top-0.5 left-0.5 z-10 pointer-events-none">
                           <OwnerBadge shorthand={ownerBadge} canEdit={pkt.owner_user_id ? canEditPage(pkt.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>
@@ -774,7 +778,7 @@ export function PacketVaultView({
                       ) : (
                         <img src={thumbUrl!} alt="" className="w-full h-full object-cover transition-opacity duration-200" style={{ opacity: imageLoadedIds.has(pkt.id) ? 1 : 0 }} loading="lazy" onLoad={() => markThumbLoaded(pkt.id)} onError={() => markThumbError(pkt.id)} />
                       )}
-                      {ownerBadge && (
+                      {ownerBadge && pkt.owner_user_id !== user?.id && (
                         <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
                           <OwnerBadge shorthand={ownerBadge} canEdit={pkt.owner_user_id ? canEditPage(pkt.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>

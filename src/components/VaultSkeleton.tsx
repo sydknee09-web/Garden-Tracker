@@ -27,12 +27,11 @@ export function ShedSkeleton() {
   );
 }
 
-/** Seed Vault: grid matching photo (2-col) or condensed (2–3 col). */
-export function GridSkeleton({ gridDisplayStyle = "condensed" }: { gridDisplayStyle?: "photo" | "condensed" }) {
-  const gridClass =
-    gridDisplayStyle === "photo" ? "grid-cols-2 gap-2" : "grid-cols-2 sm:grid-cols-3 gap-2";
+/** Seed Vault: photo (2-col gallery) or list (rows). */
+export function GridSkeleton({ gridDisplayStyle = "photo" }: { gridDisplayStyle?: "photo" | "list" }) {
+  if (gridDisplayStyle === "list") return <ListSkeleton />;
   return (
-    <div className={`grid ${gridClass}`}>
+    <div className="grid grid-cols-2 gap-2">
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
         <div key={i} className="rounded-xl overflow-hidden bg-white border border-black/5 shadow-card">
           <ShimmerCard className="w-full aspect-square" />

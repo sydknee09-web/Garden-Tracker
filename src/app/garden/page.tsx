@@ -171,9 +171,9 @@ function GardenPageInner() {
     closeAll,
     openMenuOnScreen,
   } = useUniversalAddModals();
-  const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "list", {
+  const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "grid", {
     serialize: (v) => v,
-    deserialize: (s) => (s === "grid" || s === "list" ? s : "list"),
+    deserialize: (s) => (s === "grid" || s === "list" ? s : "grid"),
   });
   const [plantsDisplayStyle, setPlantsDisplayStyle] = useSessionStorage<"grid" | "list">("garden-plants-display-style", "grid", {
     serialize: (v) => v,

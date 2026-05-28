@@ -239,7 +239,7 @@ export function SeedVaultView({
   plantNowFilter = false,
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth = null,
-  gridDisplayStyle = "condensed" as const,
+  gridDisplayStyle = "photo" as const,
   onSeedTypeChipsLoaded,
   varietyFilter = null,
   vendorFilter = null,
@@ -288,8 +288,8 @@ export function SeedVaultView({
   plantNowFilter?: boolean;
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth?: string | null;
-  /** When mode is "grid", "photo" = image-dominant 2-col cards, "condensed" = compact 3-col. */
-  gridDisplayStyle?: "photo" | "condensed";
+  /** When mode is "grid", "photo" = 2-col gallery cards, "list" = condensed rows (matches peer surfaces). */
+  gridDisplayStyle?: "photo" | "list";
   /** Called when seed type chips (Vegetable, Herb, Flower, etc. with counts) are computed, for Refine By panel. */
   onSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
@@ -1160,13 +1160,15 @@ export function SeedVaultView({
 
   if (mode === "grid") {
     const isPhotoCards = gridDisplayStyle === "photo";
-    /* Tight gap (8px) for both views so cards sit closer like My Garden. */
-    const gridClass = isPhotoCards ? "grid-cols-2 gap-2" : "grid-cols-3 gap-2";
+    /* Photo cards = 2-col gallery grid; list = vertical rows with divider. */
+    const containerClass = isPhotoCards
+      ? "grid grid-cols-2 gap-2"
+      : "rounded-xl border border-black/10 bg-white overflow-hidden divide-y divide-black/5";
 
     return (
       <div className="relative z-10 space-y-2">
         {memberPills}
-        <ul className={`grid ${gridClass}`} role="list">
+        <ul className={containerClass} role="list">
           {sortedGridSeeds.map((seed, idx) => {
             const { thumbUrl, showResearching } = getThumbState(seed);
             const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
@@ -1202,7 +1204,7 @@ export function SeedVaultView({
                           ) : null}
                         </span>
                       )}
-                      {ownerBadge && (
+                      {ownerBadge && seed.owner_user_id !== user?.id && (
                         <span className="absolute top-0.5 left-0.5 z-10 pointer-events-none">
                           <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditPage(seed.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>
@@ -1214,7 +1216,7 @@ export function SeedVaultView({
                       <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
                     </h3>
                     <div className={`text-[11px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
-                    <div className="mt-auto pt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
+                    <div className="pt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                     </div>
                   </div>
@@ -1257,77 +1259,52 @@ export function SeedVaultView({
               );
             }
 
-            /* Condensed: same layout as photo cards (image on top, then name · variety, title) but smaller */
-            const condensedContent = (
+            /* List row: thumbnail + name + variety/packet-count subtitle. Mirrors Packets list pattern. */
+            const subtitleParts: string[] = [];
+            if (varietyDisplay) subtitleParts.push(varietyDisplay);
+            if (typeof seed.packet_count === "number" && seed.packet_count > 0) {
+              subtitleParts.push(`${seed.packet_count} packet${seed.packet_count === 1 ? "" : "s"}`);
+            }
+            const subtitle = subtitleParts.join(" · ");
+            const rowInner = (
               <>
-                <div className="px-1.5 pt-1.5 shrink-0">
-                  <div className="relative w-full aspect-square overflow-hidden rounded-xl">
-                    {showResearching ? (
-                      <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center rounded-xl">
-                        <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
-                      </div>
-                    ) : (
-                      <PlantImage
-                        imageUrl={thumbUrl}
-                        alt=""
-                        fill
-                        size="lg"
-                        variant="neutral"
-                        onLoad={() => markThumbLoaded(seed.id)}
-                        onError={() => markThumbError(seed.id)}
-                      />
-                    )}
-                    {batchSelectMode && (
-                      <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
-                        {selectedVarietyIds?.has(seed.id) ? (
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                        ) : null}
-                      </span>
-                    )}
-                    {ownerBadge && (
-                      <span className="absolute top-0.5 left-0.5 z-10 pointer-events-none">
-                        <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditPage(seed.owner_user_id ?? "", "seed_vault") : true} size="xs" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                  <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
-                    <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
-                  </h3>
-                  <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
-                  <div className="mt-auto pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
-                    {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
-                  </div>
-                </div>
+                {batchSelectMode && (
+                  <span className="shrink-0 flex items-center min-w-[44px] min-h-[44px] justify-center">
+                    <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${selectedVarietyIds?.has(seed.id) ? "border-emerald-500" : "border-black/20"}`} aria-hidden>
+                      {selectedVarietyIds?.has(seed.id) ? <span className="w-3 h-3 rounded-full bg-emerald-600" /> : null}
+                    </span>
+                  </span>
+                )}
+                <span className="shrink-0 relative w-10 h-10 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                  {showResearching ? (
+                    <span className="text-[8px] font-medium text-neutral-500 text-center">AI…</span>
+                  ) : (
+                    <PlantImage imageUrl={thumbUrl} alt="" fill size="sm" variant="neutral" onLoad={() => markThumbLoaded(seed.id)} onError={() => markThumbError(seed.id)} />
+                  )}
+                  {ownerBadge && seed.owner_user_id !== user?.id && (
+                    <span className="absolute top-0.5 right-0.5 z-10 pointer-events-none">
+                      <OwnerBadge shorthand={ownerBadge} canEdit={seed.owner_user_id ? canEditPage(seed.owner_user_id ?? "", "seed_vault") : true} size="xs" />
+                    </span>
+                  )}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
+                  {subtitle && <span className="block text-xs text-neutral-500 truncate">{subtitle}</span>}
+                </span>
+                {seed.hasF1Packet && <span className="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
               </>
             );
 
             return (
-              <li key={seed.id} className="min-w-0 animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
-                {batchSelectMode ? (
-                  <article
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onToggleVarietySelection?.(seed.id)}
-                    className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 card-interactive ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
-                  >
-                    {condensedContent}
-                  </article>
-                ) : (
-                  <div
-                    role="link"
-                    tabIndex={0}
-                    className="block cursor-pointer"
-                    onClick={lp ? () => lp.handleClick() : () => goToProfile(seed.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(seed.id); } }}
-                    {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
-                  >
-                    <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full card-interactive ${getCardBorderClass(seed)}`}>
-                      {condensedContent}
-                    </article>
-                  </div>
-                )}
+              <li key={seed.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
+                <button
+                  type="button"
+                  onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5 border-2 border-emerald-500" : ""}`}
+                  {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
+                >
+                  {rowInner}
+                </button>
               </li>
             );
           })}

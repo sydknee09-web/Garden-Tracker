@@ -121,9 +121,9 @@ export function ShedView({
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
-  const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("list");
-  const [internalSortBy, setInternalSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("updated_at");
-  const [internalSortDir, setInternalSortDir] = useState<"asc" | "desc">("desc");
+  const [internalDisplayStyle, setInternalDisplayStyle] = useState<"grid" | "list">("grid");
+  const [internalSortBy, setInternalSortBy] = useState<"name" | "updated_at" | "last_used" | "category">("name");
+  const [internalSortDir, setInternalSortDir] = useState<"asc" | "desc">("asc");
   const searchQuery = embedded && externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const categoryFilter = embedded && externalCategoryFilter !== undefined ? externalCategoryFilter : internalCategoryFilter;
   const displayStyle = embedded && externalDisplayStyle !== undefined ? externalDisplayStyle : internalDisplayStyle;
@@ -430,7 +430,7 @@ export function ShedView({
                       {lastUsed && <span className="shrink-0">Last: {lastUsed}</span>}
                     </div>
                   </div>
-                  {isFamilyView && s.user_id && (
+                  {isFamilyView && s.user_id && s.user_id !== user?.id && (
                     <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
                   )}
                 </>
@@ -499,7 +499,7 @@ export function ShedView({
                       </span>
                     )}
                     <SupplyThumb thumbUrl={thumbUrl} imgClassName="w-full h-full object-cover" iconClassName="w-12 h-12 text-neutral-400" />
-                    {isFamilyView && s.user_id && (
+                    {isFamilyView && s.user_id && s.user_id !== user?.id && (
                       <span className="absolute top-0.5 left-0.5 z-10">
                         <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
                       </span>
@@ -511,7 +511,7 @@ export function ShedView({
                   {s.brand && (
                     <div className="text-[10px] leading-tight text-black/60 italic w-full line-clamp-1 break-words">{s.brand}</div>
                   )}
-                  <div className="mt-auto pt-0.5 flex flex-col items-center gap-0 w-full text-[9px] text-black/60">
+                  <div className="pt-0.5 flex flex-col items-center gap-0 w-full text-[9px] text-black/60">
                     <span className="line-clamp-1 break-words">
                       {CATEGORY_LABELS[s.category] ?? s.category}
                       {npk && ` · N ${npk.n}% P ${npk.p}% K ${npk.k}%`}

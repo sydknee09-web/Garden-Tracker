@@ -208,8 +208,8 @@ export function VaultPacketWingProvider({
   const [packetSearchQuery, setPacketSearchQuery] = useState("");
   const [packetStatusFilter, setPacketStatusFilter] = useState<PacketStatusFilter>("");
   const [packetVendorFilter, setPacketVendorFilter] = useState<string | null>(null);
-  const [packetSortBy, setPacketSortBy] = useState<"date" | "variety" | "vendor" | "qty" | "rating">("date");
-  const [packetSortDirection, setPacketSortDirection] = useState<"asc" | "desc">("desc");
+  const [packetSortBy, setPacketSortBy] = useState<"date" | "variety" | "vendor" | "qty" | "rating">("variety");
+  const [packetSortDirection, setPacketSortDirection] = useState<"asc" | "desc">("asc");
   const [packetSowMonth, setPacketSowMonth] = useState<string | null>(null);
   const [packetHasDefault, setPacketHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets));
   const [packetStatusChips, setPacketStatusChips] = useState<{ value: PacketStatusFilter; label: string; count: number }[]>([]);
@@ -303,8 +303,8 @@ export function VaultPacketWingProvider({
     const status = typeof loaded.status === "string" ? (loaded.status as PacketStatusFilter) : "";
     const vendor = typeof loaded.vendor === "string" ? loaded.vendor : loaded.vendor === null ? null : null;
     const sowMonth = typeof loaded.sowMonth === "string" && /^\d{4}-\d{2}$/.test(loaded.sowMonth) ? loaded.sowMonth : null;
-    const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy as "date" | "variety" | "vendor" | "qty" | "rating" : "date";
-    const sortDirection = loaded.sortDirection === "asc" || loaded.sortDirection === "desc" ? loaded.sortDirection : "desc";
+    const sortBy = ["date", "variety", "vendor", "qty", "rating"].includes(loaded.sortBy) ? loaded.sortBy as "date" | "variety" | "vendor" | "qty" | "rating" : "variety";
+    const sortDirection = loaded.sortDirection === "asc" || loaded.sortDirection === "desc" ? loaded.sortDirection : "asc";
     setPacketStatusFilter(status);
     setPacketVendorFilter(vendor);
     setPacketSowMonth(sowMonth);
