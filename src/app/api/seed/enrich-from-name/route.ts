@@ -41,6 +41,7 @@ export type EnrichFromNameResponse = {
   avoid_plants?: string[] | null;
   mature_height?: string | null;
   mature_width?: string | null;
+  zoneUsed?: string | null;
 };
 
 /** Enrich plant profile from name + variety only (no vendor in search). Used for store-bought new profiles. */
@@ -59,10 +60,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
 
+    // Read user's planting zone for zone-aware enrichment (BUGS.md Post-Launch #1).
+    // The library cache (global_plant_library) is keyed on identity only, not zone,
+    // so for non-10b users we skip the cache and let AI regenerate a zone-keyed window.
+    let userZone: string | null = null;
+    if (auth?.supabase && auth?.user?.id) {
+      try {
+        const { data: zoneRow } = await auth.supabase
+          .from("user_settings")
+          .select("planting_zone")
+          .eq("user_id", auth.user.id)
+          .maybeSingle();
+        const rawZone = (zoneRow as { planting_zone?: string | null } | null)?.planting_zone?.trim();
+        userZone = rawZone || null;
+      } catch {
+        // user_settings read failure → fall through with userZone null
+      }
+    }
+    const zoneNormalized = userZone?.toLowerCase().replace(/^zone\s+/, "") ?? null;
+    const skipLibrary = zoneNormalized != null && zoneNormalized !== "10b";
+
     const identityKey = identityKeyFromVariety(name, variety);
 
     // Botany brain: check global_plant_library before AI (fallback to AI if table missing or unreachable)
-    if (auth?.supabase && identityKey) {
+    if (auth?.supabase && identityKey && !skipLibrary) {
       try {
         const { data: libRow } = await auth.supabase
           .from("global_plant_library")
@@ -90,6 +111,7 @@ export async function POST(req: Request) {
             growing_notes: null,
             mature_height: row.mature_height?.trim() || null,
             mature_width: row.mature_width?.trim() || null,
+            zoneUsed: userZone,
           };
           return NextResponse.json({ enriched: true, ...response } satisfies { enriched: true } & EnrichFromNameResponse);
         }
@@ -106,11 +128,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Search with name + variety only (no vendor) for better results
-    const result = await researchVariety(apiKey, name, variety, "");
+    // Search with name + variety only (no vendor) for better results.
+    // Pass userZone so the AI prompt biases planting_window to the user's USDA zone.
+    const result = await researchVariety(apiKey, name, variety, "", userZone ?? undefined);
     if (!result) {
       return NextResponse.json({ enriched: false } satisfies { enriched: false });
     }
+
+    console.log(`[enrich-from-name] zone=${userZone ?? "unset"} librarySkipped=${skipLibrary} ai=true`);
 
     const harvestDays = parseDaysToMaturity(result.days_to_maturity);
     const response: EnrichFromNameResponse = {
@@ -132,6 +157,7 @@ export async function POST(req: Request) {
       avoid_plants: parseCommaList(result.avoid_plants),
       mature_height: result.mature_height?.trim() || null,
       mature_width: result.mature_width?.trim() || null,
+      zoneUsed: userZone,
     };
     if (auth?.user?.id) {
       logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });

@@ -12,6 +12,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
@@ -44,6 +45,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
   const modalRef = useFocusTrap(open);
   useEscapeKey(open, onClose);
   useBodyScrollLock(open);
+  const { zone: userZone } = useUserPlantingZone();
 
   const [plantName, setPlantName] = useState("");
   const [variety, setVariety] = useState("");
@@ -146,6 +148,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
           await enrichProfileFromName(supabase, profileId, userId, name, variety.trim(), {
             skipHero: false,
             accessToken: session?.access_token ?? undefined,
+            userZone,
           });
         } catch {
           /* errors already logged inside helper */

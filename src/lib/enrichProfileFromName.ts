@@ -15,6 +15,13 @@ export type EnrichProfileFromNameOptions = {
   existingGrowingNotes?: string | null;
   /** For API usage logging and find-hero-photo cache. */
   accessToken?: string | null;
+  /**
+   * Client-known USDA hardiness zone for observability only. The enrich-from-name
+   * API route reads user_settings.planting_zone server-side as the authoritative
+   * value for the AI prompt; this field is logged via debugLog so the lifecycle
+   * is visible from the caller side. Pass `useUserPlantingZone().zone`.
+   */
+  userZone?: string | null;
 };
 
 export type EnrichProfileFromNameResult = {
@@ -40,6 +47,7 @@ type EnrichFromNameResponse = {
   seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
+  zoneUsed?: string | null;
 };
 
 function authHeaders(accessToken?: string | null): Record<string, string> {
@@ -116,8 +124,14 @@ export async function enrichProfileFromName(
   const { vendor = "", skipHero = false, existingGrowingNotes, accessToken } = options;
   const varietyTrim = (variety ?? "").trim();
   const nameTrim = (name ?? "").trim();
+  const userZoneTrim = (options.userZone ?? "").trim();
 
   logEvent("enrich", "start", { profileId, name: nameTrim, variety: varietyTrim, skipHero });
+  if (userZoneTrim) {
+    logEvent("enrich", "zone_requested", { profileId, userZone: userZoneTrim });
+  } else {
+    logEvent("enrich", "zone_fallback", { profileId, reason: "no_user_zone" });
+  }
 
   try {
     await supabase
@@ -150,6 +164,16 @@ export async function enrichProfileFromName(
 
     if (enrichData?.enriched) {
       enriched = true;
+      const aiPlantingWindow = (enrichData.planting_window ?? "").trim();
+      if (userZoneTrim && aiPlantingWindow) {
+        logEvent("enrich", "zone_window_generated", {
+          profileId,
+          userZone: enrichData.zoneUsed ?? userZoneTrim,
+          window: aiPlantingWindow,
+        });
+      } else if (userZoneTrim && !aiPlantingWindow) {
+        logEvent("enrich", "zone_fallback", { profileId, reason: "ai_no_zone_data" });
+      }
       const updates: Record<string, unknown> = {};
       if (enrichData.sun != null) updates.sun = enrichData.sun;
       if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;

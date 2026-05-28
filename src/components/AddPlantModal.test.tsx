@@ -29,6 +29,9 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/lib/compressImage", () => ({ compressImage: vi.fn(() => Promise.resolve({ blob: new Blob(), fileName: "test.jpg" })) }));
 vi.mock("@/lib/haptics", () => ({ hapticSuccess: vi.fn(), hapticError: vi.fn() }));
 vi.mock("@/hooks/useEscapeKey", () => ({ useEscapeKey: vi.fn() }));
+vi.mock("@/hooks/useUserPlantingZone", () => ({
+  useUserPlantingZone: () => ({ zone: null, loaded: true }),
+}));
 
 describe("AddPlantModal", () => {
   beforeEach(() => {

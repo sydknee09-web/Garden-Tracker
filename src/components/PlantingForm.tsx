@@ -11,6 +11,7 @@ import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { SupplyPicker } from "@/components/SupplyPicker";
 import { LoadingState } from "@/components/LoadingState";
+import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
@@ -52,6 +53,7 @@ export interface PlantingFormProps {
  */
 export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: PlantingFormProps) {
   const { user, session } = useAuth();
+  const { zone: userZone } = useUserPlantingZone();
   const [rows, setRows] = useState<PlantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -263,6 +265,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                 vendor: (newPacketVendorByProfileId[row.rowId] ?? "").trim(),
                 skipHero: true,
                 accessToken: session?.access_token ?? undefined,
+                userZone,
               }),
               new Promise((_, reject) => setTimeout(() => reject(new Error("enrich_timeout")), enrichTimeout)),
             ]);

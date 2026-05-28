@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
+import { researchVariety as mockResearchVariety } from "@/app/api/seed/extract/route";
 
 const mockGetSupabaseUser = vi.hoisted(() => vi.fn());
 const mockCheckRateLimit = vi.hoisted(() => vi.fn());
@@ -34,6 +35,38 @@ function makeSupabaseWithNullLibrary() {
     supabase: {
       from: vi.fn(() => chain),
     },
+  };
+}
+
+/**
+ * Per-table mock factory. Routes from(table) to a table-specific chain so we can
+ * make user_settings.maybeSingle() return a zone string while global_plant_library
+ * returns null (forcing the AI path).
+ */
+function makeSupabaseWithZone(zone: string | null) {
+  const userSettingsChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: zone ? { planting_zone: zone } : null,
+      error: null,
+    }),
+  };
+  const libraryChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  const from = vi.fn((table: string) => {
+    if (table === "user_settings") return userSettingsChain;
+    return libraryChain;
+  });
+  return {
+    user: { id: "user-1" },
+    supabase: { from },
+    _libraryChain: libraryChain,
+    _userSettingsChain: userSettingsChain,
+    _from: from,
   };
 }
 
@@ -92,5 +125,115 @@ describe("POST /api/seed/enrich-from-name", () => {
     expect(res.status).toBe(503);
     const data = await res.json();
     expect(data.error).toMatch(/api.?key|not configured/i);
+  });
+
+  describe("zone-aware enrichment (Phase 2)", () => {
+    beforeEach(() => {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
+      // Default: researchVariety returns a usable result so we can reach the response payload.
+      vi.mocked(mockResearchVariety).mockResolvedValue({
+        planting_window: "Indoor sow Feb-Mar, transplant May-Jun",
+        sun_requirement: "Full sun",
+      });
+    });
+
+    it("passes userZone to researchVariety when user_settings has a zone", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      await POST(req);
+      expect(mockResearchVariety).toHaveBeenCalledWith(
+        "test-key",
+        "Tomato",
+        "Cherokee Purple",
+        "",
+        "5a"
+      );
+    });
+
+    it("passes userZone undefined when user_settings has no zone", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone(null));
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      await POST(req);
+      expect(mockResearchVariety).toHaveBeenCalledWith(
+        "test-key",
+        "Tomato",
+        "Cherokee Purple",
+        "",
+        undefined
+      );
+    });
+
+    it("skips library lookup when zone is non-10b", async () => {
+      const ctx = makeSupabaseWithZone("5a");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      await POST(req);
+      // user_settings was consulted; global_plant_library was NOT.
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      expect(tablesConsulted).toContain("user_settings");
+      expect(tablesConsulted).not.toContain("global_plant_library");
+    });
+
+    it("keeps library lookup when zone is 10b", async () => {
+      const ctx = makeSupabaseWithZone("10b");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      await POST(req);
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      expect(tablesConsulted).toContain("user_settings");
+      expect(tablesConsulted).toContain("global_plant_library");
+    });
+
+    it("response includes zoneUsed field reflecting the server-read zone", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.enriched).toBe(true);
+      expect(data.zoneUsed).toBe("5a");
+    });
+
+    it("normalizes 'Zone 5a' prefix when deciding library-skip", async () => {
+      const ctx = makeSupabaseWithZone("Zone 5a");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      await POST(req);
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      // "Zone 5a" normalizes to "5a" → skipLibrary = true → library NOT consulted.
+      expect(tablesConsulted).not.toContain("global_plant_library");
+      // researchVariety still receives the raw "Zone 5a" string (server passes userZone as-is).
+      expect(mockResearchVariety).toHaveBeenCalledWith(
+        "test-key",
+        "Tomato",
+        "Cherokee Purple",
+        "",
+        "Zone 5a"
+      );
+    });
   });
 });

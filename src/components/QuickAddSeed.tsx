@@ -19,6 +19,7 @@ import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { logEvent } from "@/lib/debugLog";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
@@ -103,6 +104,7 @@ export function SeedPacketForm({
 }: SeedPacketFormProps) {
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
+  const { zone: userZone } = useUserPlantingZone();
   const [step, setStep] = useState<SeedPacketFormStep>("choose");
   // stepDirection drives the slide animation between internal steps; mirrors UniversalAddMenu's
   // screenDirection pattern. Forward = slide in from right; back = slide in from left.
@@ -451,6 +453,7 @@ export function SeedPacketForm({
             vendor: vendor.trim(),
             skipHero: false,
             accessToken: session?.access_token ?? undefined,
+            userZone,
           });
         } catch {
           /* errors already logged inside helper */

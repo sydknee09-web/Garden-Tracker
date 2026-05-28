@@ -17,6 +17,7 @@ import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
@@ -59,6 +60,7 @@ export function AddPlantModal({
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
   const router = useRouter();
+  const { zone: userZone } = useUserPlantingZone();
   /** Mobile: opens camera (Law 5). Separate from gallery so users can pick existing photos. */
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -345,6 +347,7 @@ export function AddPlantModal({
                 skipHero: photoFiles.length > 0,
                 existingGrowingNotes: notes.trim() || null,
                 accessToken: session?.access_token ?? undefined,
+                userZone,
               }
             );
             if (!enriched) setEnrichmentFailed(true);

@@ -66,13 +66,18 @@ export async function researchVariety(
   apiKey: string,
   plantType: string,
   variety: string,
-  vendor: string
+  vendor: string,
+  userZone?: string
 ): Promise<ResearchVarietyResult | null> {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const searchQuery =
       [vendor, plantType, variety].filter(Boolean).join(" ") || "seed planting guide";
-    const prompt = `${RESEARCH_PROMPT}\n\nSearch for: ${searchQuery}`;
+    const zoneNormalized = (userZone ?? "").trim();
+    const zoneClause = zoneNormalized
+      ? `\n\nIMPORTANT — Zone-specific planting window: The user gardens in USDA Hardiness Zone ${zoneNormalized}. For the planting_window field above, return a window calibrated to Zone ${zoneNormalized} frost dates and growing season — NOT a generic window. Always use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec) so downstream parsing works. Examples: "Indoor sow Feb-Mar, transplant after last frost May-Jun" for cold zones; "Direct sow Mar-Apr or Aug-Sep" for mild zones; "Year-round" for tropical zones. If you cannot find zone-specific guidance for Zone ${zoneNormalized}, return empty string for planting_window rather than a generic window.`
+      : "";
+    const prompt = `${RESEARCH_PROMPT}\n\nSearch for: ${searchQuery}${zoneClause}`;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
