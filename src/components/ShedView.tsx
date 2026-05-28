@@ -486,36 +486,40 @@ export function ShedView({
               : null;
             const detailHref = `/vault/shed/${s.id}${categoryFilter ? `?category=${categoryFilter}` : ""}`;
             const isSelected = batchSelectMode && selectedIds.has(s.id);
-            const cardClassName = `group rounded-xl bg-white border overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all min-h-[88px] flex flex-col text-left w-full card-interactive ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/10"}`;
+            const cardClassName = `group rounded-lg bg-white shadow-card overflow-hidden hover:border-emerald-500/40 transition-colors flex flex-col w-full card-interactive border ${isSelected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-black/5"}`;
             const cardInner = (
               <>
-                <div className="aspect-square bg-neutral-100 relative flex items-center justify-center min-h-0">
-                  {batchSelectMode && (
-                    <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white" aria-hidden>
-                      {isSelected ? (
-                        <span className="w-3 h-3 rounded-full bg-emerald-600" />
-                      ) : null}
-                    </span>
-                  )}
-                  <SupplyThumb thumbUrl={thumbUrl} imgClassName="w-full h-full object-cover" iconClassName="w-12 h-12 text-neutral-400" />
-                  {isFamilyView && s.user_id && (
-                    <span className="absolute top-1 right-1">
-                      <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
-                    </span>
-                  )}
+                <div className="px-1.5 pt-1.5 shrink-0">
+                  <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-xl flex items-center justify-center">
+                    {batchSelectMode && (
+                      <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                        {isSelected ? (
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                        ) : null}
+                      </span>
+                    )}
+                    <SupplyThumb thumbUrl={thumbUrl} imgClassName="w-full h-full object-cover" iconClassName="w-12 h-12 text-neutral-400" />
+                    {isFamilyView && s.user_id && (
+                      <span className="absolute top-0.5 left-0.5 z-10">
+                        <OwnerBadge shorthand={getShorthandForUser(s.user_id)} canEdit={canEditPage(s.user_id, "shed")} size="xs" />
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="p-1.5 flex-1 flex flex-col min-w-0">
-                  <span className="font-medium text-neutral-900 text-xs leading-tight line-clamp-2 break-words block">{s.name}</span>
+                <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                  <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 break-words text-center mb-0">{s.name}</h3>
                   {s.brand && (
-                    <span className="text-[11px] text-neutral-500 truncate block">{s.brand}</span>
+                    <div className="text-[10px] leading-tight text-black/60 italic w-full line-clamp-1 break-words">{s.brand}</div>
                   )}
-                  <span className="text-[11px] text-neutral-500 mt-0.5">
-                    {CATEGORY_LABELS[s.category] ?? s.category}
-                    {npk && ` · N ${npk.n}% P ${npk.p}% K ${npk.k}%`}
-                  </span>
-                  {lastUsed && (
-                    <span className="text-[10px] text-neutral-400 mt-0.5">Last: {lastUsed}</span>
-                  )}
+                  <div className="mt-auto pt-0.5 flex flex-col items-center gap-0 w-full text-[9px] text-black/60">
+                    <span className="line-clamp-1 break-words">
+                      {CATEGORY_LABELS[s.category] ?? s.category}
+                      {npk && ` · N ${npk.n}% P ${npk.p}% K ${npk.k}%`}
+                    </span>
+                    {lastUsed && (
+                      <span className="text-black/50">Last: {lastUsed}</span>
+                    )}
+                  </div>
                 </div>
               </>
             );

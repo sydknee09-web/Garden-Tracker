@@ -647,7 +647,7 @@ export function PacketVaultView({
       )}
 
       {displayStyle === "grid" && (
-        <ul className="grid grid-cols-2 gap-2" role="list">
+        <ul className="grid grid-cols-3 gap-2" role="list">
           {sortedPackets
             .filter((pkt) => !selectedOwnerFilter || pkt.owner_user_id === selectedOwnerFilter)
             .map((pkt, idx) => {
@@ -660,7 +660,7 @@ export function PacketVaultView({
               const varietyDisplay = pkt.variety_name?.trim() ?? "";
               const cardContent = (
                 <>
-                  <div className="p-1 shrink-0">
+                  <div className="px-1.5 pt-1.5 shrink-0">
                     <div className="relative w-full aspect-square overflow-hidden rounded-xl bg-white">
                       {showSeedling ? (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -678,34 +678,32 @@ export function PacketVaultView({
                         />
                       )}
                       {batchSelectMode && (
-                        <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
-                          {isSelected ? <span className="w-3 h-3 rounded-full bg-emerald-600" /> : null}
+                        <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                          {isSelected ? <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> : null}
                         </span>
                       )}
                       {ownerBadge && (
-                        <span className="absolute top-1 right-1 z-10 pointer-events-none">
+                        <span className="absolute top-0.5 left-0.5 z-10 pointer-events-none">
                           <OwnerBadge shorthand={ownerBadge} canEdit={pkt.owner_user_id ? canEditPage(pkt.owner_user_id ?? "", "seed_vault") : true} size="xs" />
                         </span>
                       )}
-                    </div>
-                  </div>
-                  <div className="px-2 pt-1 pb-1 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-sm leading-tight w-full min-h-[2rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(pkt.profile_name)}>
-                      <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(pkt.profile_name)}</span>
-                    </h3>
-                    {varietyDisplay && (
-                      <div className="text-[11px] leading-tight text-black/60 italic w-full min-h-0 line-clamp-2 break-words" title={varietyDisplay}>{decodeHtmlEntities(varietyDisplay)}</div>
-                    )}
-                    {pkt.vendor_name?.trim() && (
-                      <div className="text-[11px] leading-tight text-black/50 w-full min-h-0 line-clamp-1 break-words pt-0.5" title={pkt.vendor_name.trim()}>{pkt.vendor_name.trim()}</div>
-                    )}
-                    <div className="mt-auto pt-1 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
                       {isArchived ? (
-                        <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 shrink-0">Out</span>
+                        <span className="absolute top-1 right-1 z-10 text-[8px] font-semibold px-1 py-px rounded bg-neutral-100 text-neutral-500 shrink-0">Out</span>
                       ) : (
-                        <span className="inline-flex items-center justify-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/10 text-neutral-700 shrink-0">{qtyStatusToLabel(pkt.qty_status)}</span>
+                        <span className="absolute top-1 right-1 z-10 text-[8px] font-medium px-1 py-px rounded bg-black/10 text-neutral-700 shrink-0">{qtyStatusToLabel(pkt.qty_status)}</span>
                       )}
                     </div>
+                  </div>
+                  <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 break-words text-center mb-0" title={decodeHtmlEntities(pkt.profile_name)}>
+                      {decodeHtmlEntities(pkt.profile_name)}
+                    </h3>
+                    {varietyDisplay && (
+                      <div className="text-[10px] leading-tight text-black/60 italic w-full min-h-0 line-clamp-2 break-words" title={varietyDisplay}>{decodeHtmlEntities(varietyDisplay)}</div>
+                    )}
+                    {pkt.vendor_name?.trim() && (
+                      <div className="text-[10px] leading-tight text-black/50 w-full min-h-0 line-clamp-1 break-words pt-0.5" title={pkt.vendor_name.trim()}>{pkt.vendor_name.trim()}</div>
+                    )}
                   </div>
                 </>
               );
@@ -716,7 +714,7 @@ export function PacketVaultView({
                       role="button"
                       tabIndex={0}
                       onClick={() => onTogglePacketSelection?.(pkt.id)}
-                      className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col cursor-pointer border border-black/5 ${isSelected ? "ring-2 ring-emerald-500" : ""} ${isArchived ? "opacity-50" : ""}`}
+                      className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col cursor-pointer border border-black/5 card-interactive ${isSelected ? "ring-2 ring-emerald-500" : ""} ${isArchived ? "opacity-50" : ""}`}
                     >
                       {cardContent}
                     </article>
@@ -729,7 +727,7 @@ export function PacketVaultView({
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(pkt.plant_profile_id); } }}
                       {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                     >
-                      <article className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full ${isArchived ? "opacity-50" : ""}`}>
+                      <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full card-interactive ${isArchived ? "opacity-50" : ""}`}>
                         {cardContent}
                       </article>
                     </div>

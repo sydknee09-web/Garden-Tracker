@@ -1067,7 +1067,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                     } : undefined}
                   >
                     <div className="px-1.5 pt-1.5 shrink-0">
-                      <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-md">
+                      <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-xl">
                         {thumbUrl ? (
                           <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" />
                         ) : (
@@ -1077,14 +1077,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
                         )}
                         {viewMode === "family" && batch.user_id && (
-                          <span className="absolute top-0.5 right-0.5">
+                          <span className="absolute top-0.5 left-0.5 z-10">
                             <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                           </span>
                         )}
                         {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
-                          <span className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                          <span className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
                             {bulkSelected.has(batch.id) ? (
-                              <span className="w-3 h-3 rounded-full bg-blue-600" />
+                              <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                             ) : null}
                           </span>
                         )}
@@ -1098,22 +1098,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                       </p>
                     </div>
                   </Link>
-                  {canEditPage(batch.user_id ?? "", "garden") && (
-                    <div className="px-1.5 pb-1 pt-0 border-t border-black/5 flex gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setBatchLogBatches([toBatchLogBatch(batch)]);
-                          setBatchLogOpen(true);
-                        }}
-                        className="min-w-[44px] min-h-[36px] flex-1 flex items-center justify-center rounded-md border border-black/10 bg-white text-emerald-900 hover:bg-emerald-900/10"
-                        aria-label="Add journal entry"
-                      >
-                        <ICON_MAP.Edit className="w-5 h-5" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
