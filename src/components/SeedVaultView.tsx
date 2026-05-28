@@ -1160,9 +1160,9 @@ export function SeedVaultView({
 
   if (mode === "grid") {
     const isPhotoCards = gridDisplayStyle === "photo";
-    /* Photo cards = 2-col gallery grid; list = vertical rows with divider. */
+    /* Gallery = 3-col grid matching peer surfaces (Packets/Shed/Active Garden/My Plants); list = vertical rows with divider. */
     const containerClass = isPhotoCards
-      ? "grid grid-cols-2 gap-2"
+      ? "grid grid-cols-3 gap-2"
       : "rounded-xl border border-black/10 bg-white overflow-hidden divide-y divide-black/5";
 
     return (
@@ -1179,19 +1179,18 @@ export function SeedVaultView({
             if (isPhotoCards) {
               const cardContent = (
                 <>
-                  {/* Frame: 8px padding so photo doesn’t go edge-to-edge; consistent bg for placeholder and image */}
-                  <div className="p-1 shrink-0">
+                  <div className="px-1.5 pt-1.5 shrink-0">
                     <div className="relative w-full aspect-square overflow-hidden rounded-xl">
                       {showResearching ? (
                         <div className="absolute inset-0 animate-pulse bg-neutral-200 flex items-center justify-center rounded-xl">
-                          <span className="text-xs font-medium text-neutral-500 px-2 text-center">AI Researching…</span>
+                          <span className="text-[10px] font-medium text-neutral-500 px-1 text-center">AI…</span>
                         </div>
                       ) : (
                         <PlantImage
                           imageUrl={thumbUrl}
                           alt=""
                           fill
-                          size="xl"
+                          size="lg"
                           variant="neutral"
                           onLoad={() => markThumbLoaded(seed.id)}
                           onError={() => markThumbError(seed.id)}
@@ -1211,13 +1210,13 @@ export function SeedVaultView({
                       )}
                     </div>
                   </div>
-                  <div className="px-2 pt-1 pb-1 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-sm leading-tight w-full min-h-[2rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
+                  <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
                       <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
                     </h3>
-                    <div className={`text-[11px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
-                    <div className="pt-0.5 flex items-center gap-1.5 flex-wrap justify-center min-w-0 w-full">
-                      {seed.hasF1Packet && <span className="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
+                    <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
+                    <div className="pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
+                      {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                     </div>
                   </div>
                 </>
