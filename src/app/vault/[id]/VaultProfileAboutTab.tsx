@@ -101,11 +101,21 @@ export function VaultProfileAboutTab({
         </button>
         {isAboutOpen("howToGrow") && (
           <div className="px-4 pb-4 pt-0">
+            {profile?.planting_window?.trim().startsWith("Not viable in Zone") && (
+              <p className="mb-3 text-sm text-neutral-600 italic">
+                This plant won&apos;t survive outdoor growing in Zone {profile.planting_window_zone || "your zone"}. Consider growing indoors or in a greenhouse.
+              </p>
+            )}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
               {[...careList, ...growingList, ...harvestList].map(({ label, value }) => (
                 <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
               ))}
             </dl>
+            {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && (
+              <p className="mt-3 text-sm text-neutral-600 italic">
+                Generated for Zone {profile.planting_window_zone}.
+              </p>
+            )}
             {profile?.seed_propagation_context?.trim() && [...careList, ...growingList].every(({ value }) => value === "—") && (
               <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
             )}

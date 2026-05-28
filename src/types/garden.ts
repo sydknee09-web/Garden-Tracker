@@ -201,6 +201,8 @@ export interface PlantProfile {
   status?: string | null;
   sowing_method?: string | null;
   planting_window?: string | null;
+  /** USDA zone the AI used when generating planting_window. NULL = pre-Phase-2 or zone-agnostic. */
+  planting_window_zone?: string | null;
   /** Seed sowing depth (e.g. "1/4 inch"). From vendor, AI, or cache. */
   sowing_depth?: string | null;
   purchase_date?: string | null;

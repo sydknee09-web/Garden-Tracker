@@ -182,6 +182,7 @@ export async function enrichProfileFromName(
       if (enrichData.sowing_depth != null) updates.sowing_method = enrichData.sowing_depth;
       if (enrichData.sowing_method != null) updates.sowing_method = enrichData.sowing_method;
       if (enrichData.planting_window != null) updates.planting_window = enrichData.planting_window;
+      if (enrichData.zoneUsed != null) updates.planting_window_zone = enrichData.zoneUsed;
       if (enrichData.water != null) updates.water = enrichData.water;
       if (enrichData.plant_description != null) updates.plant_description = enrichData.plant_description;
 

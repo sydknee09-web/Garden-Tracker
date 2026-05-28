@@ -50,6 +50,7 @@ export default function SettingsProfilePage() {
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [showAdvancedCoords, setShowAdvancedCoords] = useState(false);
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+  const [zoneChangeNotice, setZoneChangeNotice] = useState<{ oldZone: string; newZone: string } | null>(null);
   const pendingNavigateRef = useRef<string | null>(null);
 
   // Garden settings load
@@ -119,6 +120,8 @@ export default function SettingsProfilePage() {
       timezone: gardenSettings.timezone || "America/Los_Angeles",
       location_name: gardenSettings.location_name || null,
     };
+    const previousZone = (lastSavedSettings?.planting_zone ?? "").trim();
+    const newZone = (toSave.planting_zone ?? "").trim();
     const { error } = await supabase.from("user_settings").upsert({
       user_id: user.id,
       ...toSave,
@@ -131,11 +134,14 @@ export default function SettingsProfilePage() {
       setGardenEditing(false);
       setGardenSaveError(null);
       onboardingCtx?.reportAction("zone_set");
+      if (previousZone && newZone && previousZone !== newZone) {
+        setZoneChangeNotice({ oldZone: previousZone, newZone });
+      }
       setTimeout(() => setGardenSaved(false), 2500);
     } else {
       setGardenSaveError(error.message || "Could not save settings. Please try again.");
     }
-  }, [user?.id, gardenSettings, onboardingCtx]);
+  }, [user?.id, gardenSettings, lastSavedSettings, onboardingCtx]);
 
   const handleUseMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -383,6 +389,21 @@ export default function SettingsProfilePage() {
               </dl>
               {gardenSaved && (
                 <p className="text-xs text-emerald-600 mt-3">Saved!</p>
+              )}
+              {zoneChangeNotice && (
+                <div className="mt-3 flex items-start justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                  <p className="text-sm text-neutral-600 italic">
+                    Your zone changed from Zone {zoneChangeNotice.oldZone} to Zone {zoneChangeNotice.newZone}. Existing plant profiles still use the old zone. To update them, open each profile and tap ✨ Fill Blanks.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setZoneChangeNotice(null)}
+                    aria-label="Dismiss zone change notice"
+                    className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-500 hover:text-neutral-700"
+                  >
+                    <ICON_MAP.Close className="w-4 h-4" />
+                  </button>
+                </div>
               )}
             </div>
           ) : (
