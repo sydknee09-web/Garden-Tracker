@@ -55,6 +55,7 @@ import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import type { Task } from "@/types/garden";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useToast } from "@/hooks/useToast";
+import { useUserPlantingZone, isReferenceZone } from "@/hooks/useUserPlantingZone";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
 import { getCachedTasks, setCachedTasks } from "@/lib/calendarTasksCache";
 import { localDateString, firstDayOfMonth, lastDayOfMonth } from "@/lib/calendarDate";
@@ -146,6 +147,8 @@ export default function CalendarPage() {
   const [plantingCelebration, setPlantingCelebration] = useState<string | null>(null);
   const [plantableProfiles, setPlantableProfiles] = useState<{ id: string; name: string; variety_name: string | null }[]>([]);
   const [plantableExpanded, setPlantableExpanded] = useState(false);
+  const { zone: userPlantingZone, loaded: userPlantingZoneLoaded } = useUserPlantingZone();
+  const showZoneMismatchNote = userPlantingZoneLoaded && !isReferenceZone(userPlantingZone);
   const [plantableInventoryPlantType, setPlantableInventoryPlantType] = useState<{ plantType: string; profiles: { id: string; name: string; variety_name: string | null }[] } | null>(null);
   const [inventoryPackets, setInventoryPackets] = useState<{ plant_profile_id: string; vendor_name: string | null; qty_status: number }[]>([]);
   const [inventoryPacketsLoading, setInventoryPacketsLoading] = useState(false);
@@ -1031,6 +1034,11 @@ export default function CalendarPage() {
                   ∞
                 </button>
               </div>
+              {showZoneMismatchNote && (
+                <p className="mt-3 text-sm text-neutral-600 italic">
+                  Showing plants with empty windows defaulted from Zone 10b. Edit a plant&apos;s profile to set a custom window.
+                </p>
+              )}
             </div>
           )}
         </div>

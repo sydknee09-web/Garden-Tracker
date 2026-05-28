@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { LoadingState } from "@/components/LoadingState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useUserPlantingZone, isReferenceZone } from "@/hooks/useUserPlantingZone";
 
 /** Lazy-load schedule views so zone10b/scheduleUtils chunk never loads on vault or home. */
 const ActionNowView = dynamic(
@@ -35,6 +36,8 @@ export default function SchedulePage() {
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view");
   const view: ScheduleView = isValidView(viewParam) ? viewParam : "action";
+  const { zone, loaded } = useUserPlantingZone();
+  const showMismatch = loaded && !isReferenceZone(zone);
 
   return (
     <div className="px-4 pt-2 pb-6 max-w-2xl mx-auto">
@@ -50,7 +53,9 @@ export default function SchedulePage() {
       </div>
 
       <p className="text-sm text-black/60 mb-4">
-        Zone 10b reference guide — when to start indoors or plant outside. Not your vault.
+        {showMismatch
+          ? `Showing Zone 10b reference — your zone is ${zone}. Recommendations may not match your microclimate yet. (Coming soon: zone-aware schedule.)`
+          : "Zone 10b reference guide — when to start indoors or plant outside. Not your vault."}
       </p>
 
       <nav
