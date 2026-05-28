@@ -1234,7 +1234,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         )}
                         {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
-                      <p className="text-xs text-black/50 mt-0.5 space-y-0.5">
+                      <p className="text-xs text-neutral-500 mt-0.5 space-y-0.5">
                         <span className="block">Sown {new Date(batch.sown_date).toLocaleDateString()}</span>
                         <span className="block">
                           {label}
