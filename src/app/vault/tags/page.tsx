@@ -194,11 +194,11 @@ export default function VaultTagsPage() {
             href="/settings"
             className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 font-medium"
           >
-            ← Back to Settings
+            ← Back
           </Link>
           <span className="text-neutral-400">|</span>
           <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium">
-            ← Back to Vault
+            ← Back
           </Link>
         </div>
 

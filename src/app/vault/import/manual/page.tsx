@@ -166,7 +166,7 @@ export default function ImportManualPage() {
           href="/vault"
           className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald text-white font-medium inline-flex items-center gap-2"
         >
-          ← Back to Vault
+          ← Back
         </Link>
       </div>
     );

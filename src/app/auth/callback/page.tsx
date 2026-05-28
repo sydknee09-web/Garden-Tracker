@@ -48,7 +48,7 @@ export default function AuthCallbackPage() {
             href="/login"
             className="block w-full py-2.5 rounded-xl bg-emerald text-white font-medium text-center shadow-soft"
           >
-            Back to sign in
+            Back
           </a>
         </div>
       </div>

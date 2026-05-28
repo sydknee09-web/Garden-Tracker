@@ -81,7 +81,7 @@ export default function ImportLogsPage() {
         href="/settings"
         className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
       >
-        ← Back to Settings
+        ← Back
       </Link>
       <h1 className="text-2xl font-bold text-neutral-900 mb-2">Import Logs</h1>
       <p className="text-sm text-neutral-600 mb-4">

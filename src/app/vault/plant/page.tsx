@@ -22,7 +22,7 @@ function VaultPlantPageInner() {
         href={fromGarden ? "/garden?tab=active" : "/vault"}
         className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px]"
       >
-        ← {fromGarden ? "Back to Garden" : "Back to Vault"}
+        ← Back
       </Link>
       <div className="text-center mb-4">
         <h1 className="text-xl font-semibold text-black mb-1">Planting</h1>

@@ -142,7 +142,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading]);
 
-  // Pages use their own page-level back links (e.g. "← Back to Vault"); no header back button
+  // Pages use their own page-level back links (e.g. "← Back"); no header back button
   const showHeaderBackButton = false;
 
   // Clear filters when navigating between sections (runs before children render so useSessionStorage reads cleared values)

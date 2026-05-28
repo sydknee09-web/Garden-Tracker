@@ -221,7 +221,7 @@ export default function ShedReviewImportPage() {
             href="/vault?tab=shed"
             className="text-emerald-600 font-medium hover:underline"
           >
-            ← Back to Shed
+            ← Back
           </Link>
         </div>
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">

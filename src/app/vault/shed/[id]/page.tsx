@@ -369,7 +369,7 @@ export default function VaultShedDetailPage() {
         {!loading && !supply ? (
           <div>
             <Link href={backHref} className="text-emerald-600 font-medium hover:underline mb-4 inline-block">
-              ← Back to Shed
+              ← Back
             </Link>
             <p className="text-neutral-600">Supply not found.</p>
           </div>
@@ -487,7 +487,7 @@ export default function VaultShedDetailPage() {
           </>
         )}
         <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
-          ← Back to Shed
+          ← Back
         </Link>
 
       {!isOwn && householdViewMode === "family" && (

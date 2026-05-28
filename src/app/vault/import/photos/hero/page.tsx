@@ -194,7 +194,7 @@ export default function HeroImportPage() {
           href="/vault"
           className="text-emerald-600 font-medium hover:underline min-h-[44px] min-w-[44px] flex items-center justify-center gap-2"
         >
-          ← Back to Vault
+          ← Back
         </Link>
       </div>
     );
@@ -215,7 +215,7 @@ export default function HeroImportPage() {
           href="/vault"
           className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
         >
-          ← Back to Vault
+          ← Back
         </Link>
 
         <h1 className="text-2xl font-bold text-neutral-900 mb-2">Find Hero Photos</h1>
@@ -363,7 +363,7 @@ export default function HeroImportPage() {
               href="/vault"
               className="inline-flex items-center gap-2 text-center text-sm text-neutral-500 hover:text-neutral-700"
             >
-              ← Back to Vault
+              ← Back
             </Link>
           </div>
         )}

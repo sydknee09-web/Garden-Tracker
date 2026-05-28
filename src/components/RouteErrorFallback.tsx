@@ -37,7 +37,7 @@ export function RouteErrorFallback({
           href="/"
           className="min-h-[44px] min-w-[120px] px-4 py-2 rounded-xl border border-black/15 bg-white text-neutral-700 font-medium hover:bg-black/5 transition-colors flex items-center justify-center"
         >
-          Back to Home
+          Back
         </Link>
       </div>
     </div>

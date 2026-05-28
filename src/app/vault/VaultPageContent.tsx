@@ -908,7 +908,7 @@ function VaultPageInner() {
     const { data } = await supabase.from("plant_profiles").select("id").eq("id", possibleId).maybeSingle();
     if (data?.id) {
       setScannerOpen(false);
-      router.push(`/vault/${data.id}?from=vault&vaultTab=${viewMode}`);
+      router.push(`/vault/${data.id}`);
       return;
     }
     const prefill = parseSeedFromQR(trimmed);
@@ -1793,7 +1793,7 @@ function VaultPageInner() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1&from=vault&vaultTab=${viewMode}`);
+              router.push(`/vault/${opts.newProfileId}?added=1`);
               return;
             }
             refetch();

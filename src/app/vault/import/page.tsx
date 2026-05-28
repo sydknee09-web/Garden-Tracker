@@ -1335,7 +1335,7 @@ export default function VaultImportPage() {
             href="/vault"
             className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-6"
           >
-            ← Back to Vault
+            ← Back
           </Link>
         )}
         {!embed && (

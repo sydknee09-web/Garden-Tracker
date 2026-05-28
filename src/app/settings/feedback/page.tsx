@@ -47,7 +47,7 @@ export default function SettingsFeedbackPage() {
   return (
     <div className="px-4 py-6 max-w-2xl mx-auto pb-24">
       <Link href="/settings" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px] items-center">
-        ← Back to Settings
+        ← Back
       </Link>
       <h1 className="text-xl font-bold text-neutral-900 mb-1">Your Feedback</h1>
       <p className="text-sm text-neutral-500 mb-4">

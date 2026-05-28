@@ -66,7 +66,7 @@ export default function DebugLogPage() {
     <div className="w-full min-w-0 px-6 pt-2 pb-24 box-border">
       <div className="mb-4">
         <Link href="/settings/developer" className="text-sm text-emerald-700 hover:underline">
-          &larr; Back to Developer
+          &larr; Back
         </Link>
       </div>
       <h1 className="text-2xl font-bold text-neutral-900 mb-2">Debug Log</h1>

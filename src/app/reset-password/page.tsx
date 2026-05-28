@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
             href="/login"
             className="block w-full py-2.5 rounded-xl bg-emerald text-white font-medium text-center shadow-soft"
           >
-            Back to sign in
+            Back
           </Link>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function ResetPasswordPage() {
 
         <p className="mt-6 text-center text-sm text-black/60">
           <Link href="/login" className="font-medium text-emerald hover:underline">
-            Back to sign in
+            Back
           </Link>
         </p>
       </div>

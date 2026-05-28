@@ -111,7 +111,7 @@ export default function UpdatePasswordPage() {
           </Link>
           <p className="mt-4 text-center text-sm text-black/60">
             <Link href="/login" className="font-medium text-emerald hover:underline">
-              Back to sign in
+              Back
             </Link>
           </p>
         </div>
@@ -176,7 +176,7 @@ export default function UpdatePasswordPage() {
 
         <p className="mt-6 text-center text-sm text-black/60">
           <Link href="/login" className="font-medium text-emerald hover:underline">
-            Back to sign in
+            Back
           </Link>
         </p>
       </div>

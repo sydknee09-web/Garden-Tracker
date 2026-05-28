@@ -150,7 +150,7 @@ export default function ScraperAuditPage() {
         )}
         <div className="mt-6">
           <Link href="/vault" className="inline-flex items-center gap-2 text-blue-600 underline">
-            ← Back to Vault
+            ← Back
           </Link>
         </div>
       </div>

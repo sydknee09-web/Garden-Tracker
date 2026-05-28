@@ -80,7 +80,7 @@ export default function PlantingHistoryPage() {
 
   return (
     <div className="px-6 py-8 max-w-3xl mx-auto">
-      <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back to Vault</Link>
+      <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
       <h1 className="text-2xl font-bold text-neutral-900 mb-2">Planting History</h1>
       <p className="text-sm text-neutral-500 mb-6">Every grow instance across all plants.</p>
 
