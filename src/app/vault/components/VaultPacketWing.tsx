@@ -102,6 +102,8 @@ export type VaultPacketWingContextValue = {
   setEditPacketModalOpen: (v: boolean) => void;
   batchPacketDeleting: boolean;
   handleBatchDeletePackets: (deleteGrowInstances: boolean) => Promise<void>;
+  packetDisplayStyle: "list" | "grid";
+  setPacketDisplayStyle: (v: "list" | "grid") => void;
 };
 
 const VaultPacketWingContext = createContext<VaultPacketWingContextValue | null>(null);
@@ -183,6 +185,8 @@ type VaultPacketWingProviderProps = {
   onAddFirst?: () => void;
   sharedSearchQuery?: string;
   onSyncSearchToGrid?: (query: string) => void;
+  packetDisplayStyle?: "list" | "grid";
+  onPacketDisplayStyleChange?: (v: "list" | "grid") => void;
 };
 
 export function VaultPacketWingProvider({
@@ -195,6 +199,8 @@ export function VaultPacketWingProvider({
   onAddFirst,
   sharedSearchQuery,
   onSyncSearchToGrid,
+  packetDisplayStyle = "list",
+  onPacketDisplayStyleChange,
 }: VaultPacketWingProviderProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -404,6 +410,8 @@ export function VaultPacketWingProvider({
     setEditPacketModalOpen,
     batchPacketDeleting,
     handleBatchDeletePackets,
+    packetDisplayStyle,
+    setPacketDisplayStyle: onPacketDisplayStyleChange ?? (() => {}),
   };
 
   return (
@@ -429,6 +437,8 @@ export function VaultPacketWingToolbar() {
     filteredPacketIds,
     setFilteredPacketIds,
     filteredPacketCount,
+    packetDisplayStyle,
+    setPacketDisplayStyle,
   } = ctx;
   return (
     <>
@@ -506,6 +516,15 @@ export function VaultPacketWingToolbar() {
               Select All
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setPacketDisplayStyle(packetDisplayStyle === "list" ? "grid" : "list")}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
+            title={packetDisplayStyle === "list" ? "Card grid" : "List view"}
+            aria-label={packetDisplayStyle === "list" ? "Switch to card grid" : "Switch to list view"}
+          >
+            {packetDisplayStyle === "list" ? <ICON_MAP.PhotoCardsGrid className="w-5 h-5" /> : <ICON_MAP.ListRows className="w-5 h-5" />}
+          </button>
         </div>
       </div>
     </>
@@ -537,6 +556,7 @@ export function VaultPacketWingContent() {
     setPacketRefineChips,
     onOpenScanner,
     onAddFirst,
+    packetDisplayStyle,
   } = ctx ?? {};
 
   const togglePacketSelection = useCallback((packetId: string) => {
@@ -588,6 +608,7 @@ export function VaultPacketWingContent() {
         onEmptyStateChange={onEmptyStateChange}
         onOpenScanner={onOpenScanner}
         onAddFirst={onAddFirst}
+        displayStyle={packetDisplayStyle}
         onPacketStatusChipsLoaded={setPacketStatusChips}
         onPacketVendorChipsLoaded={setPacketVendorChips}
         tagFilters={vaultFilters!.filters.tags}

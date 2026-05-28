@@ -218,6 +218,7 @@ function VaultPageInner() {
   const [availablePlantTypes, setAvailablePlantTypes] = useState<string[]>([]);
   const [hasPendingReview, setHasPendingReview] = useState(false);
   const [gridDisplayStyle, setGridDisplayStyle] = useState<"photo" | "condensed">("condensed");
+  const [packetDisplayStyle, setPacketDisplayStyle] = useState<"list" | "grid">("list");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<GridRefineSection>(null);
   const [addVarietyOpen, setAddVarietyOpen] = useState(false);
@@ -407,6 +408,9 @@ function VaultPageInner() {
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "condensed") setGridDisplayStyle(savedGridStyle);
       else if (savedGridStyle === "gallery") setGridDisplayStyle("photo"); // migrate away from removed gallery view
+      const savedPacketStyle = sessionStorage.getItem("vault-packet-display-style");
+      if (savedPacketStyle === "grid") setPacketDisplayStyle("grid");
+      else if (savedPacketStyle === "list") setPacketDisplayStyle("list");
       const savedStatus = sessionStorage.getItem("vault-status-filter");
       if (savedStatus === "active" || savedStatus === "low_inventory" || savedStatus === "archived") {
         gridFilters.setStatus(savedStatus);
@@ -463,6 +467,14 @@ function VaultPageInner() {
       /* ignore */
     }
   }, [gridDisplayStyle]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("vault-packet-display-style", packetDisplayStyle);
+    } catch {
+      /* ignore */
+    }
+  }, [packetDisplayStyle]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -919,6 +931,8 @@ function VaultPageInner() {
         onAddFirst={openMenu}
         sharedSearchQuery={searchQuery}
         onSyncSearchToGrid={setSearchQuery}
+        packetDisplayStyle={packetDisplayStyle}
+        onPacketDisplayStyleChange={setPacketDisplayStyle}
       >
         <VaultPacketWingBridge
           onPacketModalOpenChange={setPacketModalOpen}

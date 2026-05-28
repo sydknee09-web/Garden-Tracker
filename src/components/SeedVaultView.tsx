@@ -1228,7 +1228,7 @@ export function SeedVaultView({
                       role="button"
                       tabIndex={0}
                       onClick={() => onToggleVarietySelection?.(seed.id)}
-                      className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""}`}
+                      className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col cursor-pointer border border-black/5 ${selectedVarietyIds?.has(seed.id) ? "ring-2 ring-emerald-500" : ""} ${getCardBorderClass(seed)}`}
                     >
                       {cardContent}
                     </article>
@@ -1248,7 +1248,7 @@ export function SeedVaultView({
                           }
                         : {})}
                     >
-                      <article className="rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full">
+                      <article className={`rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full ${getCardBorderClass(seed)}`}>
                         {cardContent}
                       </article>
                     </div>

@@ -444,6 +444,18 @@ function PhotoCardsGridIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** List rows = 3 horizontal stripes for list-view toggle (1.2 stroke). Chrome lane per VISION §8. */
+function ListRowsIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
 /** Condensed grid = 3x2 denser cells (1.2 stroke). */
 function CondensedGridIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
@@ -609,6 +621,7 @@ export const ICON_MAP = {
   ShoppingList: ShoppingListIcon,
   PhotoCardsGrid: PhotoCardsGridIcon,
   CondensedGrid: CondensedGridIcon,
+  ListRows: ListRowsIcon,
   Filter: FilterIcon,
   Search: SearchIcon,
   Prune: PruneIcon,
