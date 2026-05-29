@@ -10,8 +10,9 @@ import { SupplyForm } from "@/components/QuickAddSupply";
 import { SeedPacketForm } from "@/components/QuickAddSeed";
 import { AddPlantModal } from "@/components/AddPlantModal";
 import { PlantingForm } from "@/components/PlantingForm";
+import { AddVarietyForm } from "@/components/AddVarietyModal";
 
-export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "add-plant-from-vault" | "seed" | "shed" | "task" | "journal";
+export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "add-plant-from-vault" | "seed" | "shed" | "task" | "journal" | "variety";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -140,6 +141,17 @@ export function UniversalAddMenu({
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4">
               <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => { setScreenDirection("forward"); setScreen("variety"); }}
+                  className="w-full py-4 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                >
+                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
+                  <div>
+                    <div>Add Variety</div>
+                    <div className="text-xs font-normal text-neutral-500">Save to your plant encyclopedia</div>
+                  </div>
+                </button>
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
@@ -370,6 +382,16 @@ export function UniversalAddMenu({
             <JournalEntryForm
               onClose={onClose}
               onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
+              onBack={goBackToMain}
+            />
+          </div>
+        )}
+
+        {screen === "variety" && (
+          <div key="variety" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+            <AddVarietyForm
+              onClose={onClose}
+              onSuccess={onClose}
               onBack={goBackToMain}
             />
           </div>

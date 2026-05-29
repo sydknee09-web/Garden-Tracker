@@ -29,22 +29,27 @@ export interface AddVarietyModalProps {
   onSuccess?: (opts: AddVarietySuccessOpts) => void;
 }
 
+export interface AddVarietyFormProps {
+  /** Close handler (parent menu / shell owns dismissal). */
+  onClose: () => void;
+  /** Optional success callback after profile created. */
+  onSuccess?: (opts: AddVarietySuccessOpts) => void;
+  /** Back arrow handler (return to FAB menu main screen). When omitted, no back arrow renders. */
+  onBack?: () => void;
+}
+
 /**
- * AddVarietyModal — standalone "create a plant profile (no packet, no grow instance)" entry.
+ * AddVarietyForm — Path Y in-menu form extraction of AddVarietyModal.
  *
- * Triggered from the Vault Library tab toolbar. Creates a `plant_profiles` row with
- * `profile_type: "seed"` + `status: "out_of_stock"`, then runs background enrichment to
- * fill scientific name / hero image / botanical care notes. Mirrors the canonical
- * standalone-profile logic from QuickAddSeed.handleSaveForLater but with a purpose-built
- * 3-field form (no packet-specific fields) and a Vault-tab entry point so Maya-style users
- * can build their encyclopedia without entering through the seed-packet flow.
+ * Embeds inside UniversalAddMenu's "variety" sub-screen. Mirrors the TaskForm /
+ * SupplyForm / SeedPacketForm extraction pattern locked 2026-05-20 (`bee5338`).
+ * No focus trap / escape / body scroll lock — the parent UniversalAddMenu owns
+ * those at the outer modal level. Standalone AddVarietyModal (below) wraps this
+ * for backward-compat callers (none in tree today; preserved for safety).
  */
-export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalProps) {
+export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormProps) {
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
-  const modalRef = useFocusTrap(open);
-  useEscapeKey(open, onClose);
-  useBodyScrollLock(open);
   const { zone: userZone } = useUserPlantingZone();
 
   const [plantName, setPlantName] = useState("");
@@ -165,6 +170,117 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
     onClose();
   }
 
+  return (
+    <>
+      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center gap-2 mb-2">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1"
+              aria-label="Back"
+            >
+              <ICON_MAP.Back className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-11 shrink-0" aria-hidden />
+          )}
+          <h2 id="add-variety-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
+            Add Variety
+          </h2>
+          <div className="w-11 shrink-0" aria-hidden />
+        </div>
+        <p className="text-sm text-neutral-500 text-center">
+          Save a variety to your plant encyclopedia. Add a packet later when you buy.
+        </p>
+      </div>
+
+      <form id="add-variety-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5">
+        <div>
+          <label htmlFor="add-variety-name" className="block text-sm font-medium text-black/80 mb-1">
+            Plant name *
+          </label>
+          <input
+            ref={nameInputRef}
+            id="add-variety-name"
+            type="text"
+            value={plantName}
+            onChange={(e) => setPlantName(e.target.value)}
+            placeholder="e.g. Tomato, Basil, Rose"
+            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+            aria-label="Plant name"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label htmlFor="add-variety-cultivar" className="block text-sm font-medium text-black/80 mb-1">
+            Variety / cultivar (optional)
+          </label>
+          <input
+            id="add-variety-cultivar"
+            type="text"
+            value={variety}
+            onChange={(e) => setVariety(e.target.value)}
+            placeholder="e.g. Cherokee Purple, Genovese, Cecile Brunner"
+            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+            aria-label="Variety or cultivar"
+          />
+        </div>
+        <div>
+          <label htmlFor="add-variety-source" className="block text-sm font-medium text-black/80 mb-1">
+            Where did you hear about it? (optional)
+          </label>
+          <input
+            id="add-variety-source"
+            type="text"
+            value={sourceNote}
+            onChange={(e) => setSourceNote(e.target.value)}
+            placeholder="e.g. Sister's garden, podcast, seed catalog"
+            className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
+            aria-label="Source or origin note"
+          />
+        </div>
+        {error && <FormError>{error}</FormError>}
+      </form>
+
+      <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
+        <button
+          type="button"
+          onClick={handleClose}
+          disabled={submitting}
+          className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          form="add-variety-form"
+          type="submit"
+          disabled={submitting || !plantName.trim()}
+          className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <ICON_MAP.Add className="w-5 h-5 shrink-0" stroke="currentColor" />
+          {submitting ? "Saving…" : "Save to Plants"}
+        </button>
+      </div>
+      <SubmitLoadingOverlay show={submitting} message="Saving variety…" />
+    </>
+  );
+}
+
+/**
+ * AddVarietyModal — standalone modal-shell wrapper around AddVarietyForm.
+ *
+ * Preserved for backward-compat callers (none in tree post Ship A — the inline
+ * Vault toolbar trigger was removed when Library moved to /plants and the
+ * canonical Add Variety entry point became the FAB chip). Kept cheap to retain
+ * for potential future deep-link or standalone usage.
+ */
+export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalProps) {
+  const modalRef = useFocusTrap(open);
+  useEscapeKey(open, onClose);
+  useBodyScrollLock(open);
+
   if (!open) return null;
 
   return (
@@ -179,87 +295,7 @@ export function AddVarietyModal({ open, onClose, onSuccess }: AddVarietyModalPro
         className="relative bg-white rounded-3xl border border-neutral-200/80 shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden"
         tabIndex={-1}
       >
-        <div className="flex-shrink-0 px-6 pt-6 pb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-11 shrink-0" aria-hidden />
-            <h2 id="add-variety-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-              Add Plant Variety
-            </h2>
-            <div className="w-11 shrink-0" aria-hidden />
-          </div>
-          <p className="text-sm text-neutral-500 text-center">
-            Save a variety to your encyclopedia without a packet. Add a packet later when you buy.
-          </p>
-        </div>
-
-        <form id="add-variety-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5">
-          <div>
-            <label htmlFor="add-variety-name" className="block text-sm font-medium text-black/80 mb-1">
-              Plant name *
-            </label>
-            <input
-              ref={nameInputRef}
-              id="add-variety-name"
-              type="text"
-              value={plantName}
-              onChange={(e) => setPlantName(e.target.value)}
-              placeholder="e.g. Tomato, Basil, Rose"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Plant name"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label htmlFor="add-variety-cultivar" className="block text-sm font-medium text-black/80 mb-1">
-              Variety / cultivar (optional)
-            </label>
-            <input
-              id="add-variety-cultivar"
-              type="text"
-              value={variety}
-              onChange={(e) => setVariety(e.target.value)}
-              placeholder="e.g. Cherokee Purple, Genovese, Cecile Brunner"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Variety or cultivar"
-            />
-          </div>
-          <div>
-            <label htmlFor="add-variety-source" className="block text-sm font-medium text-black/80 mb-1">
-              Where did you hear about it? (optional)
-            </label>
-            <input
-              id="add-variety-source"
-              type="text"
-              value={sourceNote}
-              onChange={(e) => setSourceNote(e.target.value)}
-              placeholder="e.g. Sister's garden, podcast, seed catalog"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-              aria-label="Source or origin note"
-            />
-          </div>
-          {error && <FormError>{error}</FormError>}
-        </form>
-
-        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={submitting}
-            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            form="add-variety-form"
-            type="submit"
-            disabled={submitting || !plantName.trim()}
-            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <ICON_MAP.Add className="w-5 h-5 shrink-0" stroke="currentColor" />
-            {submitting ? "Saving…" : "Add to Vault"}
-          </button>
-        </div>
-        <SubmitLoadingOverlay show={submitting} message="Saving variety…" />
+        <AddVarietyForm onClose={onClose} onSuccess={onSuccess} />
       </div>
     </div>
   );

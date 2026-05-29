@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useState } from "react";
 
-export type UniversalAddModal = "seed" | "shed" | "plant" | "task" | "journal" | null;
+export type UniversalAddModal = "seed" | "shed" | "plant" | "task" | "journal" | "variety" | null;
 
 /** Sub-screens of UniversalAddMenu. Mirrors the union in UniversalAddMenu.tsx; lives here so callers can
  * request a specific sub-screen when reopening the menu (e.g. Back arrow on BatchAddSupply returns to
@@ -14,7 +14,8 @@ export type UniversalAddMenuScreenTarget =
   | "seed"
   | "shed"
   | "task"
-  | "journal";
+  | "journal"
+  | "variety";
 
 type UniversalAddContextValue = {
   addMenuOpen: boolean;
