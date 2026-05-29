@@ -121,8 +121,8 @@ export interface NavItem {
 
 export const primaryNavItems: NavItem[] = [
   { href: "/", label: "Home", Icon: HomeIcon },
+  { href: "/plants", label: "Library", Icon: SproutIcon },
   { href: "/garden?tab=active", label: "Garden", Icon: LeafIcon },
-  { href: "/plants", label: "Plants", Icon: SproutIcon },
   { href: "/vault", label: "Vault", Icon: VaultIcon },
   { href: "/calendar", label: "Calendar", Icon: CalendarIcon },
   { href: "/journal", label: "Journal", Icon: JournalIcon },
