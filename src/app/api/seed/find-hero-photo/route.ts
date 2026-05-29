@@ -12,6 +12,19 @@ export const maxDuration = 30;
 /** Gallery mode: filter broken tiles before showing to the user (short timeout). */
 const GALLERY_IMAGE_CHECK_TIMEOUT_MS = 2_500;
 
+/** Visible tile count returned to the gallery UI after shuffle. */
+const GALLERY_VISIBLE_LIMIT = 12;
+
+/** Fisher-Yates shuffle for varying refresh results from the deterministic Wikimedia pool. */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /** Check if an image URL responds 200 on HEAD (used only in gallery mode). */
 async function checkImageAccessible(
   url: string,
@@ -245,15 +258,18 @@ export async function POST(req: Request) {
       const searchQueries = [...new Set([specificQuery, genericQuery].filter(Boolean))];
 
       // ---- Wikimedia Commons API ----
+      // Collect into a larger pool than we show so each refresh can sample a
+      // visibly-different subset. Wikimedia's response is deterministic per
+      // query, so without sampling the same 9–12 tiles repeat on every refresh.
       const wikimediaUrls: string[] = [];
       for (const q of searchQueries) {
-        if (wikimediaUrls.length >= 9) break;
+        if (wikimediaUrls.length >= 36) break;
         try {
           const wikiApiUrl =
             `https://commons.wikimedia.org/w/api.php` +
             `?action=query&generator=search` +
             `&gsrsearch=${encodeURIComponent(q)}` +
-            `&gsrnamespace=6&gsrlimit=20` +
+            `&gsrnamespace=6&gsrlimit=50` +
             `&prop=imageinfo&iiprop=url|mime` +
             `&format=json&origin=*`;
           const wikiRes = await fetch(wikiApiUrl, {
@@ -271,16 +287,16 @@ export async function POST(req: Request) {
             // Skip SVG, GIF, and non-images
             if (!mime.startsWith("image/") || mime.includes("svg") || mime.includes("gif")) continue;
             if (!wikimediaUrls.includes(info.url)) wikimediaUrls.push(info.url);
-            if (wikimediaUrls.length >= 12) break;
+            if (wikimediaUrls.length >= 36) break;
           }
         } catch { /* non-fatal */ }
       }
 
       console.log(`[hero] Gallery Wikimedia: ${logLabel} → ${wikimediaUrls.length} urls`);
 
-      // If Wikimedia gave us plenty, return immediately — no Gemini needed
+      // If Wikimedia gave us plenty, return a shuffled sample — no Gemini needed
       if (wikimediaUrls.length >= 4) {
-        return NextResponse.json({ urls: wikimediaUrls });
+        return NextResponse.json({ urls: shuffle(wikimediaUrls).slice(0, GALLERY_VISIBLE_LIMIT) });
       }
 
       // ---- Gemini supplement (for plants with few Wikimedia photos) ----
