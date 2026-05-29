@@ -8,12 +8,13 @@ config({ path: ".env.local" });
  * Run: npm run test:e2e
  * Install browsers (first time): npx playwright install
  *
- * Authenticated smoke tests (vault, garden, etc.) run only when
- * E2E_TEST_EMAIL and E2E_TEST_PASSWORD are set (e.g. in .env.local)
- * AND we are NOT in CI — authenticated specs hit prod Supabase and
- * burn Free-plan egress quota (P0a stopgap; P0b = second Supabase project).
+ * Authenticated smoke tests (vault, garden, etc.) run when
+ * E2E_TEST_EMAIL and E2E_TEST_PASSWORD are set (e.g. in .env.local OR in CI
+ * via GH Actions secrets). In CI, Supabase storage egress is blocked at the
+ * Playwright route layer via the e2e/test-base.ts fixture (P0c, 2026-05-29).
+ * See docs/SUPABASE_OPS.md §11.
  */
-const hasAuthCreds = !!(process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD) && !process.env.CI;
+const hasAuthCreds = !!(process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD);
 
 export default defineConfig({
   testDir: "./e2e",

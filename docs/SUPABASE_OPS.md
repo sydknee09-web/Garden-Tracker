@@ -247,6 +247,7 @@ Documented so they don't get lost. Each is a separable item — work them in sub
 - **R1.2 / R1.3 (composite indexes) not addressed here.** Those are separate ships per the audit doc; see `.claude/plans/supabase_library_load_audit.md`.
 - **R1.6 (migration-collision guard).** Shipped 2026-05-28 — `npm run migration:check` is wired into the `unit` CI job. The `20260528120000` doublet that prompted the ship was resolved separately by `c81c3ab` (renamed `plant_profiles_planting_window_zone` to `20260528120001_*`); the allowlist entry is now inert and retained as a worked example of the mechanism. **R1.6 follow-up:** confirm `c81c3ab`'s rename was paired with `supabase migration repair --status applied 20260528120001` on remote — otherwise `migration_history` holds an orphan row for the original `20260528120000` version (same pattern as the historical `20250330000000` orphan documented in CLAUDE.md "SQL migrations").
 - **CLI version drift.** v2.98.2 was used for this audit. v2.101.0 is current at write time. Bump opportunistically; not urgent.
+- **P0b (test project) deferred — tracked in §11.** P0c (Playwright route block) is the active mitigation as of 2026-05-29; full canonical fix steps documented in §11.f. Surface to Syd when she has computer time + appetite for the new-org admin step (~15 min).
 
 ---
 
@@ -260,7 +261,71 @@ Documented so they don't get lost. Each is a separable item — work them in sub
 
 ---
 
-*Created 2026-05-28 closing audit R1.1. Update §2 dashboard-confirmed cells once Syd confirms tier + retention. Re-stamp §6 with each drill run.*
+## 11. CI egress mitigation — P0c shipped 2026-05-29
+
+> **Status:** active. P0a stopgap (`f070ce8`) reverted in this ship; auth coverage restored.
+> Egress kept flat via Playwright network-layer route block.
+
+### 11.a Problem (egress investigation, 2026-05-28)
+
+The CI workflow (`.github/workflows/test.yml`) runs Playwright authenticated e2e specs on every push. Pre-P0a, each CI run loaded multiple authenticated pages (Library / Garden / Calendar / etc.), each rendering a card grid that fetches plant hero images from Supabase Storage via Next/Image. Net egress: ~3 MB per CI run × ~20 CI runs/day = 60+ MB/day. Free-tier monthly quota = 5 GB; CI alone was on track to consume a meaningful chunk.
+
+### 11.b Stopgap → canonical fork
+
+- **P0a (`f070ce8`, 2026-05-28):** added `&& !process.env.CI` to `hasAuthCreds` in `playwright.config.ts:16`. CI skipped auth specs entirely. Stopped the egress but blew away CI auth coverage.
+- **P0b (deferred):** stand up a second Supabase project for tests, point CI at it via secrets. Canonical fix but requires Syd to create a new Supabase organization (current org is at 2/2 free-tier projects — Garden Tracker + Voyager Sanctuary) + apply migrations to the new project + create fixture user + repoint GH Actions secrets. Held as a v1 launch checklist item.
+- **P0c (this ship, 2026-05-29):** block Supabase image-fetch network requests at the Playwright route layer in CI; revert the P0a stopgap so auth specs run again. Restores CI auth coverage with prod egress kept flat.
+
+### 11.c What P0c actually intercepts
+
+The Playwright fixture at [`e2e/test-base.ts`](../e2e/test-base.ts) extends the base `test` with a CI-gated `page.route()` block:
+
+```ts
+if (process.env.CI) {
+  await page.route(/\/_next\/image.*supabase\.co/, (route) => route.abort());
+  await page.route("**/storage/v1/object/public/**", (route) => route.abort());
+}
+```
+
+Two patterns, both gated on `process.env.CI` (local dev unchanged):
+
+1. **`/_next/image.*supabase\.co/` (regex).** This is the path the egress actually flows through. `PlantImage.tsx` routes Supabase URLs through Next/Image optimization (`unoptimized={imageUrl.startsWith("data:") || !imageUrl.includes("supabase.co")}` per audit Section 2.1). The browser request is to `/_next/image?url=https%3A%2F%2Focupjwbksaqmujbpolwp.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2F...` — the Supabase URL is URL-encoded inside the query param. The Next server then proxies the fetch to Supabase server-side, which is where egress originates. Blocking the browser request prevents the server proxy from being asked.
+2. **`**/storage/v1/object/public/**` (glob).** Belt-and-suspenders for any future code path that fetches Supabase storage URLs directly (today dormant; PlantImage always proxies).
+
+**The glob alone would NOT have worked.** Encoded slashes (`%2F`) in the `/_next/image` query param don't match unencoded path segments in a Playwright glob. The regex is load-bearing — flagged during the P0c audit pre-commit.
+
+### 11.d Trade-off accepted with P0c
+
+- **Image rendering NOT verified in CI.** Authenticated specs cover navigation, form flows, button interactions, dialog visibility. They do NOT assert on plant hero images appearing. **Relies on Syd's phone dogfood** to catch image-rendering regressions (broken paths, wrong `<Image>` priority, optimization config drift). If image rendering becomes load-bearing for an assertion, ship P0b first.
+- **Prod data pollution from synthetic-user-class specs.** The `synthetic-user.authenticated.spec.ts` flow creates a real `seed_packets` row + `journal_entries` row per CI run. P0a stopped this; P0c does NOT — write paths still go to prod. Mitigation when this becomes load-bearing: tag CI-written rows with a marker field for trivial cleanup SQL, or ship P0b. For now: accept the pollution; trivial to query out by `E2E_TEST_EMAIL`'s user_id.
+- **CI still authenticates against prod.** Each CI run makes 1 auth POST to prod Supabase. Negligible egress (kilobytes) but real auth-API call. Vanishes when P0b ships.
+
+### 11.e Expected egress after P0c
+
+Per CI run with the route block in place:
+- Auth POST: few KB
+- HTML/JS/CSS for navigation: served by Next server, not Supabase
+- Supabase Postgres query egress: ~10-100 KB (Library metadata only — image columns are paths, not blobs)
+- Supabase storage egress: **near-zero (blocked)**
+- Write paths from synthetic-user: KB-level headers + small row payloads
+
+Total per CI run: well under 1 MB vs prior 3 MB+. For ~20 CI runs/day, daily egress falls from 60+ MB to <20 MB. Comfortably within free-tier budget.
+
+### 11.f Deferred — P0b (full canonical fix)
+
+When Syd has computer time + appetite for the ~15-min dashboard step:
+
+1. Create a new Supabase organization (Settings → Organizations → Create new org). Name suggestion: `garden-tracker-testing`. Free tier allows multiple orgs per user; each gets its own 2-project allowance.
+2. Inside the new org: create a project, e.g. `garden-tracker-test`. Same region as prod (West US Oregon).
+3. Apply migrations: `supabase link --project-ref <new-ref>` → `supabase db push` → re-link back to prod project.
+4. Create fixture auth user (Auth dashboard → invite by email, or use service-role-key admin API).
+5. Update GH Actions secrets to point at test project values: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `E2E_TEST_EMAIL`, `E2E_TEST_PASSWORD`.
+6. Remove the P0c route block from [`e2e/test-base.ts`](../e2e/test-base.ts) (CI image fetches now hit test project; egress on prod = zero).
+7. Update §11 with "P0b shipped" stamp; preserve §11.a-§11.e as historical record.
+
+---
+
+*§11 created 2026-05-29 alongside P0c ship. Update §11.f closure stamp when P0b lands.*
 
 
 

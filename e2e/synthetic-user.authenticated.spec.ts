@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test-base";
 
 /**
  * Synthetic User Procedure — single sequential user journey.

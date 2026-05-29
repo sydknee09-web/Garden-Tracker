@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test-base";
 
 /**
  * Critical path: Shopping List — add from vault profile, verify item, remove.

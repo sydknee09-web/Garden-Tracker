@@ -1,4 +1,4 @@
-import { test as setup } from "@playwright/test";
+import { test as setup } from "./test-base";
 
 /**
  * Authenticates for E2E tests via the browser login form.
