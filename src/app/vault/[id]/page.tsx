@@ -159,7 +159,7 @@ export default function VaultSeedPage() {
   // Plantable now
   const [isPlantableNow, setIsPlantableNow] = useState(false);
 
-  // E2: First-time "Added to Vault" celebration (one-time per device)
+  // E2: First-time "Added to Garden" celebration (one-time per device)
   const [addedToVaultCelebration, setAddedToVaultCelebration] = useState(false);
   useEffect(() => {
     if (searchParams.get("added") !== "1") return;
@@ -1118,7 +1118,7 @@ export default function VaultSeedPage() {
                 <span className="absolute text-4xl seedling-celebration-seed" aria-hidden>🌰</span>
                 <span className="text-5xl seedling-celebration-sprout" aria-hidden>🌱</span>
               </div>
-              <p className="text-white font-semibold text-lg">Added to Vault!</p>
+              <p className="text-white font-semibold text-lg">Added to Garden!</p>
             </div>
           </div>
         )}
@@ -1295,6 +1295,11 @@ export default function VaultSeedPage() {
                 <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-4 py-2 rounded-xl bg-emerald-900 text-white text-sm font-medium shadow hover:opacity-90 min-w-[44px] min-h-[44px]">Add Photo</button>
               )}
               {findHeroError && <p className="text-sm text-amber-700 text-center max-w-xs" role="alert">{findHeroError}</p>}
+              {canEdit && !findHeroError && (
+                <p className="text-sm text-neutral-600 italic text-center max-w-xs">
+                  Couldn&rsquo;t find a photo automatically &mdash; try Add Photo or edit details to fill them in yourself.
+                </p>
+              )}
             </div>
           )}
         </div>

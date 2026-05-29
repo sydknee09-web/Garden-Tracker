@@ -98,7 +98,7 @@ function getActionFromNote(note: string | null, entryType?: string | null): Acti
     if (n.includes("pruned")) return { label: "Pruned", icon: "prune" };
     return { label: "Care", icon: "care" };
   }
-  if (n.includes("added") && n.includes("vault")) return { label: "Added to Vault", icon: "archive" };
+  if (n.includes("added") && (n.includes("vault") || n.includes("garden"))) return { label: "Added to Garden", icon: "archive" };
   if (n.includes("planted") || n.includes("sown") || n.includes("sow")) return { label: "Planted", icon: "plant" };
   if (n.includes("harvest")) return { label: "Harvest", icon: "harvest" };
   if (n.includes("growth") || n.includes("transplant") || n.includes("progress")) return { label: "Growth", icon: "growth" };
@@ -128,7 +128,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
   if (has("planting")) return { label: "Planted", icon: "plant" };
   if (has("prune")) return { label: "Pruned", icon: "prune" };
   if (has("cold_stratify")) return { label: "Cold stratify", icon: "cold_stratify" };
-  if (has("vault_add")) return { label: "Added to Vault", icon: "archive" };
+  if (has("vault_add")) return { label: "Added to Garden", icon: "archive" };
   if (has("quick") || has("care")) return { label: "Care", icon: "care" };
   if (has("growth")) return { label: "Growth", icon: "growth" };
   const first = group[0];

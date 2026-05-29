@@ -373,7 +373,7 @@ function VaultPageInner() {
       const tab = searchParams.get("tab");
       if (tab === "list") listFilters.setStatus(status);
       else gridFilters.setStatus(status);
-      if (searchParams.get("added") === "1") setSaveToastMessage("Added to Vault!");
+      if (searchParams.get("added") === "1") setSaveToastMessage("Added to Garden!");
     }
     const sow = searchParams.get("sow");
     if (sow) {

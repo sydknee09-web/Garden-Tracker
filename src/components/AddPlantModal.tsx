@@ -308,6 +308,7 @@ export function AddPlantModal({
 
         // Upload photos: first sets hero; all create journal entries (Law 7, no overwrite)
         let heroPath: string | null = null;
+        let vaultAddCreated = false;
         for (let i = 0; i < photoFiles.length; i++) {
           const file = photoFiles[i];
           const { blob } = await compressImage(file);
@@ -322,13 +323,27 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: i === 0 ? (plantType === "permanent" ? "Added to Vault (permanent plant)." : "Added to Vault (store-bought).") : null,
+            note: i === 0 ? (plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).") : null,
             entry_type: i === 0 ? "vault_add" : "growth",
             image_file_path: path,
           });
+          if (i === 0) vaultAddCreated = true;
         }
         if (heroPath) {
           await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
+        }
+        // Guarantee one vault_add journal entry per growing_instance creation, even when
+        // no photo was uploaded (or every photo upload failed). Matches the "existing" mode
+        // fallback at line 469-479.
+        if (!vaultAddCreated) {
+          await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growInstanceIdNew,
+            seed_packet_id: null,
+            note: plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).",
+            entry_type: "vault_add",
+          });
         }
 
         // Enrichment before seasonal tasks so harvest_days is available for harvest task.
@@ -450,7 +465,7 @@ export function AddPlantModal({
             if (uploadErr) continue;
             if (i === 0) heroPath = path;
             const vaultAddNote = i === 0 && displayName
-              ? (notes.trim() ? `Added ${displayName} to vault. ${notes.trim()}` : `Added ${displayName} to vault`)
+              ? (notes.trim() ? `Added ${displayName} to garden. ${notes.trim()}` : `Added ${displayName} to garden`)
               : null;
             await supabase.from("journal_entries").insert({
               user_id: user.id,
@@ -467,7 +482,7 @@ export function AddPlantModal({
             await supabase.from("plant_profiles").update({ hero_image_path: heroPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
           }
         } else {
-          const vaultAddNote = notes.trim() ? `Added ${displayName} to vault. ${notes.trim()}` : `Added ${displayName} to vault`;
+          const vaultAddNote = notes.trim() ? `Added ${displayName} to garden. ${notes.trim()}` : `Added ${displayName} to garden`;
           await supabase.from("journal_entries").insert({
             user_id: user.id,
             plant_profile_id: profileId,

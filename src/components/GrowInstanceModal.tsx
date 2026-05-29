@@ -135,7 +135,7 @@ function TASK_CATEGORY_LABELS(cat: string): string {
 function ENTRY_TYPE_LABELS(type: string | null | undefined): string {
   const map: Record<string, string> = {
     planting: "Planted",
-    vault_add: "Added to Vault",
+    vault_add: "Added to Garden",
     growth: "Growth update",
     harvest: "Harvested",
     note: "Note",
@@ -609,21 +609,23 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       {/* ------------------------------------------------------------------ */}
       {/* HERO — full-bleed from top; minimal controls overlay; serif name + age */}
       {/* ------------------------------------------------------------------ */}
-      <div className="relative w-full h-[240px] bg-neutral-100 overflow-hidden shrink-0">
+      <div className={`relative w-full h-[240px] overflow-hidden shrink-0 ${heroUrl ? "bg-neutral-100" : "bg-white"}`}>
         {heroUrl ? (
-          <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
+          <>
+            <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <PlantPlaceholderIcon size="lg" />
+            <PlantPlaceholderIcon size="2xl" className="opacity-90" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-        {/* Minimal header overlay: back, About variety, Log, Archive */}
+        {/* Minimal header overlay: back, Profile, Log, Archive Plant */}
         <div className="absolute top-0 left-0 right-0 flex items-center gap-1 px-2 py-2 z-10">
           <button
             type="button"
             onClick={handleBack}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20 -ml-1"
+            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full -ml-1 ${heroUrl ? "text-white/95 hover:bg-white/20" : "text-neutral-700 hover:bg-neutral-100"}`}
             aria-label="Back"
           >
             <ICON_MAP.ChevronDown className="w-5 h-5 rotate-90" />
@@ -632,10 +634,10 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           {profile && (
             <Link
               href={`/vault/${profile.id}`}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20 text-xs font-medium shrink-0"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
               aria-label="View plant profile"
             >
-              About
+              Profile
             </Link>
           )}
           {allowEdits && (
@@ -652,22 +654,22 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             <button
               type="button"
               onClick={() => setArchiveOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full text-white/95 hover:bg-white/20"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
               aria-label="Archive this plant"
             >
-              <ICON_MAP.Trash className="w-5 h-5" />
+              Archive Plant
             </button>
           )}
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-4 pb-4">
-          <h1 className="font-serif text-white text-xl leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
+          <h1 className={`font-serif text-xl leading-tight ${heroUrl ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" : "text-neutral-900"}`}>
             {displayTitle}
           </h1>
-          <p className="font-serif text-white/95 text-sm mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+          <p className={`font-serif text-sm mt-1 ${heroUrl ? "text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" : "text-neutral-600"}`}>
             {formatAge(firstPlantedDate(journalEntries, grow.sown_date), grow.ended_at)}
           </p>
           {grow.location?.trim() ? (
-            <p className="font-serif text-white/80 text-xs mt-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+            <p className={`font-serif text-xs mt-0.5 ${heroUrl ? "text-white/80 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" : "text-neutral-500"}`}>
               {grow.location.trim()}
             </p>
           ) : null}

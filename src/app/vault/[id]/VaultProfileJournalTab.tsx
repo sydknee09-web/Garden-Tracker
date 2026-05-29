@@ -90,7 +90,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                               className={`px-1.5 py-0.5 rounded text-xs font-medium ${journalEntryTypeBadgeClass(j.entry_type)}`}
                             >
                               {j.entry_type === "vault_add"
-                                ? "Added to Vault"
+                                ? "Added to Garden"
                                 : j.entry_type === "prune"
                                   ? "Pruned"
                                   : j.entry_type === "cold_stratify"
