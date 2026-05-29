@@ -12,6 +12,7 @@ import {
   countEditCascadeTargets,
   fetchEligibleInstanceIdsForProfile,
   generateCareTasks,
+  isCopyLocallyEdited,
   type CascadeTemplateValues,
 } from "@/lib/generateCareTasks";
 import { CareCascadeConfirm, type CascadeAction } from "@/components/CareCascadeConfirm";
@@ -43,6 +44,10 @@ interface Props {
   extraActions?: React.ReactNode;
   /** When set, scrolls the matching schedule into view once it's rendered (used for calendar deep-link). */
   focusScheduleId?: string;
+  /** Instance-level mode: when set, new schedules attach to this grow_instance_id (NOT a template). */
+  growInstanceId?: string;
+  /** Instance-level mode: lookup map of source_template_id → original template values, for Inherited/Overridden badge logic. */
+  templateLookup?: Map<string, CascadeTemplateValues>;
 }
 
 const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
@@ -52,7 +57,7 @@ const SUPPLY_CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false, extraActions, focusScheduleId }: Props) {
+export function CareScheduleManager({ profileId, userId, schedules, onChanged, isTemplate = true, readOnly = false, growInstances = [], isPermanent = false, extraActions, focusScheduleId, growInstanceId, templateLookup }: Props) {
   const { viewMode: householdViewMode } = useHousehold();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -192,6 +197,9 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
       if (isPermanent && growInstances.length > 1) {
         payload.grow_instance_ids = selectedPlantIds.size > 0 ? [...selectedPlantIds] : null;
         payload.grow_instance_id = null;
+      } else if (!editingId && growInstanceId) {
+        // Instance-level Add (Care tab on GrowInstanceModal): attach the new schedule to this instance only.
+        payload.grow_instance_id = growInstanceId;
       }
 
       const { error } = editingId
@@ -330,6 +338,27 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     return "One-time";
   };
 
+  const getInheritanceBadge = (s: CareSchedule): "inherited" | "overridden" | null => {
+    if (!templateLookup) return null;
+    const sourceId = s.source_template_id ?? null;
+    if (!sourceId) return null;
+    const tplValues = templateLookup.get(sourceId);
+    if (!tplValues) return null;
+    const copyValues: CascadeTemplateValues = {
+      title: s.title,
+      category: s.category,
+      recurrence_type: s.recurrence_type,
+      interval_days: s.interval_days ?? null,
+      months: s.months ?? null,
+      day_of_month: s.day_of_month ?? null,
+      custom_dates: s.custom_dates ?? null,
+      notes: s.notes ?? null,
+      supply_profile_id: s.supply_profile_id ?? null,
+      end_date: s.end_date ?? null,
+    };
+    return isCopyLocallyEdited(copyValues, tplValues) ? "overridden" : "inherited";
+  };
+
   const getApplyToLabel = (s: CareSchedule) => {
     if (!isPermanent || !growInstances.length) return null;
     const ids = s.grow_instance_ids;
@@ -374,7 +403,15 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                 <div className="flex items-start gap-3">
                   <span className="text-2xl shrink-0" aria-hidden>{getCategoryIcon(s.category ?? "other")}</span>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-neutral-900 text-sm">{s.title}</h4>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-semibold text-neutral-900 text-sm">{s.title}</h4>
+                      {(() => {
+                        const badge = getInheritanceBadge(s);
+                        if (badge === "inherited") return <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200">Inherited</span>;
+                        if (badge === "overridden") return <span className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Overridden</span>;
+                        return null;
+                      })()}
+                    </div>
                     <p className="text-xs text-neutral-500 mt-0.5">{getRecurrenceLabel(s)}</p>
                     {getApplyToLabel(s) && (
                       <p className="text-xs text-neutral-600 mt-0.5">Applies to: {getApplyToLabel(s)}</p>

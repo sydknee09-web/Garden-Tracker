@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { InstanceCareTab } from "@/components/InstanceCareTab";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -32,7 +33,9 @@ export interface GrowInstanceModalProps {
   /** Hide logging, editing, archive, and deletes — browse-only (e.g. opened from Vault profile). */
   readOnly?: boolean;
   /** Which tab to show first when the modal opens. */
-  initialTab?: "overview" | "journal" | "history";
+  initialTab?: "overview" | "journal" | "care" | "history";
+  /** Care-tab deep-link: scrolls the matching care_schedule card into view once rendered. */
+  focusScheduleId?: string;
   /**
    * When set (e.g. from Vault profile), used for "Open in Garden" so the host can
    * navigate without double back-stack issues with modal history.pushState.
@@ -53,7 +56,7 @@ interface PlantProfileSummary {
   tags?: string[] | null;
 }
 
-type ActiveTab = "overview" | "journal" | "history";
+type ActiveTab = "overview" | "journal" | "care" | "history";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,7 +174,7 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
-export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, onOpenInGarden }: GrowInstanceModalProps) {
+export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, focusScheduleId, onOpenInGarden }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast, showToast, showErrorToast } = useToast();
@@ -723,8 +726,8 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white border-b border-neutral-100 sticky top-0 z-10">
         <div className="flex">
-          {(["overview", "journal", "history"] as const).map((tab) => {
-            const label = tab === "journal" ? "Journal" : tab === "history" ? "Task History" : "Overview";
+          {(["overview", "journal", "care", "history"] as const).map((tab) => {
+            const label = tab === "journal" ? "Journal" : tab === "care" ? "Care" : tab === "history" ? "Task History" : "Overview";
             return (
               <button
                 key={tab}
@@ -935,6 +938,17 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
               </ul>
             )}
           </>
+        )}
+
+        {/* CARE TAB */}
+        {activeTab === "care" && grow && user && (
+          <InstanceCareTab
+            growInstanceId={grow.id}
+            profileId={grow.plant_profile_id ?? null}
+            userId={user.id}
+            readOnly={readOnly}
+            focusScheduleId={focusScheduleId}
+          />
         )}
 
         {/* TASK HISTORY TAB */}

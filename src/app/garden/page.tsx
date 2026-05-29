@@ -1563,6 +1563,11 @@ function GardenPageInner() {
       {growParam && (
         <GrowInstanceModal
           growId={growParam}
+          initialTab={(() => {
+            const t = searchParams.get("instanceTab");
+            return t === "care" || t === "journal" || t === "history" || t === "overview" ? t : undefined;
+          })()}
+          focusScheduleId={searchParams.get("schedule") ?? undefined}
           onClose={() => {
             if (fromParam === "profile" && profileParam) router.push(`/vault/${profileParam}`);
             else router.replace(`/garden?tab=${effectiveViewMode}`);

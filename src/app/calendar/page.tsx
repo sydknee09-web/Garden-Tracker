@@ -1801,8 +1801,15 @@ export default function CalendarPage() {
                   onClick={() => {
                     const pid = taskDetailTask.plant_profile_id;
                     const sid = taskDetailTask.care_schedule_id;
+                    const gid = taskDetailTask.grow_instance_id;
                     setTaskDetailTask(null);
-                    router.push(`/vault/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
+                    // Instance-scoped care tasks deep-link to GrowInstanceModal Care tab; profile-scoped
+                    // (no grow_instance_id) deep-link to the Vault profile Care tab.
+                    if (gid) {
+                      router.push(`/garden?tab=active&grow=${gid}&instanceTab=care&schedule=${sid}`);
+                    } else {
+                      router.push(`/vault/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
+                    }
                   }}
                   className="w-full min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700"
                 >
