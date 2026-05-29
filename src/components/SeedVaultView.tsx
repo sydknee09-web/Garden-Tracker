@@ -1211,10 +1211,12 @@ export function SeedVaultView({
                     </div>
                   </div>
                   <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={decodeHtmlEntities(seed.name)}>
-                      <span className="line-clamp-2 break-words text-center">{decodeHtmlEntities(seed.name)}</span>
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={`${decodeHtmlEntities(seed.name)}${varietyDisplay ? ` (${varietyDisplay})` : ""}`}>
+                      <span className="line-clamp-2 break-words text-center">
+                        {decodeHtmlEntities(seed.name)}
+                        {varietyDisplay && <span className="font-normal italic text-black/60"> ({varietyDisplay})</span>}
+                      </span>
                     </h3>
-                    <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${varietyDisplay ? "italic" : ""}`} title={varietyDisplay || undefined}>{varietyDisplay}</div>
                     <div className="pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                       {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
                     </div>
@@ -1258,8 +1260,8 @@ export function SeedVaultView({
               );
             }
 
-            /* List row: thumbnail + name + variety subtitle. Packet count is scoped to the Packets tab. */
-            const subtitle = varietyDisplay;
+            /* List row: thumbnail + inline "Name (Variety)". Packet count is scoped to the Packets tab. */
+            const inlineVariety = varietyDisplay ? ` (${varietyDisplay})` : "";
             const rowInner = (
               <>
                 {batchSelectMode && (
@@ -1282,8 +1284,7 @@ export function SeedVaultView({
                   )}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
-                  {subtitle && <span className="block text-xs text-neutral-500 truncate">{subtitle}</span>}
+                  <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}{inlineVariety}</span>
                 </span>
                 {seed.hasF1Packet && <span className="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
               </>
@@ -1472,11 +1473,10 @@ export function SeedVaultView({
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
-                    <span className="block text-sm text-neutral-600 truncate">{decodeHtmlEntities(seed.variety)}</span>
-                    {seed.vendor_display?.trim() && (
-                      <span className="block text-xs text-neutral-500 truncate">{seed.vendor_display.trim()}</span>
-                    )}
+                    <span className="block text-sm font-semibold text-neutral-900 truncate">
+                      {decodeHtmlEntities(seed.name)}
+                      {seed.variety?.trim() && seed.variety.trim() !== "—" && ` (${decodeHtmlEntities(seed.variety)})`}
+                    </span>
                   </span>
                   <span className="shrink-0 inline-flex items-center gap-1.5">
                     <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>

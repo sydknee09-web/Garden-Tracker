@@ -874,8 +874,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-neutral-500 leading-tight">
                           {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                           {plant.care_count > 0 && <span>{plant.care_count} care</span>}
-                          {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
-                          {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
+                          {plant.care_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
                         </div>
                       </div>
                       {householdViewMode === "family" && plant.user_id && plant.user_id !== user?.id && (
@@ -939,13 +938,14 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] text-center line-clamp-2 break-words mb-0" title={plant.profile_name}>{plant.profile_name}</h3>
-                      <div className={`text-[10px] leading-tight text-black/60 w-full min-h-0 line-clamp-2 break-words ${plant.profile_variety_name ? "italic" : ""}`} title={plant.profile_variety_name || undefined}>{plant.profile_variety_name || "—"}</div>
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] text-center line-clamp-2 break-words mb-0" title={formatBatchDisplayName(plant.profile_name, plant.profile_variety_name)}>
+                        {plant.profile_name}
+                        {plant.profile_variety_name?.trim() && <span className="font-normal italic text-black/60"> ({plant.profile_variety_name})</span>}
+                      </h3>
                       <div className="pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full text-[9px] text-black/60">
                         {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                         {plant.care_count > 0 && <span>{plant.care_count} care</span>}
-                        {plant.journal_count > 0 && <span>{plant.journal_count} journal</span>}
-                        {plant.care_count === 0 && plant.journal_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
+                        {plant.care_count === 0 && !formatPlantedAgo(plant.sown_date) && <span>No activity</span>}
                       </div>
                     </div>
                   </div>
