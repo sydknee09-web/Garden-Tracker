@@ -9,6 +9,7 @@ const USER_ITEMS = [
   { href: "/resources", label: "Resources", subtitle: "Planting calendars, zone charts, frost dates" },
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, account" },
   { href: "/settings/family", label: "Family", subtitle: "Members, approval, view/edit access by page" },
+  { href: "/vault/history", label: "Planting History", subtitle: "Active and archived plantings" },
   { href: "/settings/vendors", label: "Vendor Ratings", subtitle: "Average packet ratings by vendor" },
   { href: "/settings/feedback", label: "Feedback", subtitle: "Your submitted feedback" },
   { href: "/settings/import-catalog", label: "Import Vendor Catalog", subtitle: "Upload a PDF catalog to add to shared plant cache" },
