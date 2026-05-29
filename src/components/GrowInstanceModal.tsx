@@ -322,11 +322,6 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     onClose();
   }, [backHref, onClose, router]);
 
-  const handleGoToVault = useCallback(() => {
-    onClose();
-    if (profile?.id) router.push(`/vault/${profile.id}`);
-  }, [profile?.id, onClose, router]);
-
   useEscapeKey(true, onClose);
   const trapRef = useFocusTrap(true);
 
@@ -518,7 +513,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
         <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
         <div className="fixed inset-0 z-[81] overflow-auto bg-neutral-50 p-6 pb-24">
           <button type="button" onClick={handleBack} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4 min-h-[44px]">
-            <ICON_MAP.ChevronDown className="w-4 h-4 rotate-90" />
+            <ICON_MAP.Back className="w-4 h-4" />
             Back
           </button>
           <p className="text-red-600">{error ?? "Plant not found."}</p>
@@ -603,13 +598,13 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   return (
     <>
       {toast}
-      <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
-      <div ref={trapRef} className="fixed inset-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
+      <div className="fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
+      <div ref={trapRef} className="fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
         <div className="flex-1 overflow-auto pb-28 min-h-0">
       {/* ------------------------------------------------------------------ */}
       {/* HERO — full-bleed from top; minimal controls overlay; serif name + age */}
       {/* ------------------------------------------------------------------ */}
-      <div className={`relative w-full h-[240px] overflow-hidden shrink-0 ${heroUrl ? "bg-neutral-100" : "bg-white"}`}>
+      <div className={`relative w-full h-[180px] overflow-hidden shrink-0 ${heroUrl ? "bg-neutral-100" : "bg-white"}`}>
         {heroUrl ? (
           <>
             <img src={heroUrl} alt={displayTitle} className="w-full h-full object-cover" />
@@ -620,46 +615,16 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             <PlantPlaceholderIcon size="2xl" className="opacity-90" />
           </div>
         )}
-        {/* Minimal header overlay: back, Profile, Log, Archive Plant */}
-        <div className="absolute top-0 left-0 right-0 flex items-center gap-1 px-2 py-2 z-10">
+        {/* Hero overlay: back arrow only — pill chrome relocated below hero for legibility. */}
+        <div className="absolute top-0 left-0 right-0 flex items-center px-2 py-2 z-10">
           <button
             type="button"
             onClick={handleBack}
             className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full -ml-1 ${heroUrl ? "text-white/95 hover:bg-white/20" : "text-neutral-700 hover:bg-neutral-100"}`}
             aria-label="Back"
           >
-            <ICON_MAP.ChevronDown className="w-5 h-5 rotate-90" />
+            <ICON_MAP.Back className="w-5 h-5" />
           </button>
-          <div className="flex-1 min-w-0" />
-          {profile && (
-            <Link
-              href={`/vault/${profile.id}`}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
-              aria-label="View plant profile"
-            >
-              Profile
-            </Link>
-          )}
-          {allowEdits && (
-            <button
-              type="button"
-              onClick={() => setBatchLogOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
-              aria-label="Log care, germination, or harvest"
-            >
-              Log
-            </button>
-          )}
-          {allowEdits && (
-            <button
-              type="button"
-              onClick={() => setArchiveOpen(true)}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-white/90 text-emerald-800 hover:bg-white font-medium text-sm px-3 shrink-0"
-              aria-label="Archive this plant"
-            >
-              Archive Plant
-            </button>
-          )}
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-4 pb-4">
           <h1 className={`font-serif text-xl leading-tight ${heroUrl ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" : "text-neutral-900"}`}>
@@ -668,88 +633,85 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           <p className={`font-serif text-sm mt-1 ${heroUrl ? "text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" : "text-neutral-600"}`}>
             {formatAge(firstPlantedDate(journalEntries, grow.sown_date), grow.ended_at)}
           </p>
-          {grow.location?.trim() ? (
-            <p className={`font-serif text-xs mt-0.5 ${heroUrl ? "text-white/80 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" : "text-neutral-500"}`}>
-              {grow.location.trim()}
-            </p>
-          ) : null}
         </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* VITALITY BAR — horizontal scroll */}
+      {/* CHROME STRIP — Profile / Log / Archive Plant (framed pills below hero) */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border-b border-neutral-100 overflow-x-auto">
-        <div className="flex gap-0 divide-x divide-neutral-100 px-2 py-1 min-w-max">
+      <div className="bg-white border-b border-neutral-100 px-2 py-2 flex items-center justify-end gap-1">
+        {profile && (
+          <Link
+            href={`/vault/${profile.id}`}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
+            aria-label="View plant profile"
+          >
+            Profile
+          </Link>
+        )}
+        {readOnly && (
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenInGarden) {
+                onOpenInGarden();
+                return;
+              }
+              onClose();
+              if (profile?.id && grow?.id) {
+                router.push(`/garden?grow=${grow.id}&from=profile&profile=${profile.id}`);
+              }
+            }}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
+            aria-label="Open in Garden"
+          >
+            <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
+            Open in Garden
+          </button>
+        )}
+        {allowEdits && (
+          <button
+            type="button"
+            onClick={() => setBatchLogOpen(true)}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
+            aria-label="Log care, germination, or harvest"
+          >
+            Log
+          </button>
+        )}
+        {allowEdits && (
+          <button
+            type="button"
+            onClick={() => setArchiveOpen(true)}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
+            aria-label="Archive this plant"
+          >
+            Archive Plant
+          </button>
+        )}
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* VITALITY BAR — 3-cell flex: Age | Status | Milestone (no scroll)    */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-white border-b border-neutral-100">
+        <div className="flex divide-x divide-neutral-100 px-2 py-1">
           {/* Age */}
-          <div className="flex flex-col items-center px-4 py-2 min-w-[80px]">
+          <div className="flex-1 min-w-0 flex flex-col items-center px-2 py-2">
             <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Age</span>
             <span className="text-sm font-semibold text-neutral-900 mt-0.5 text-center">{formatAge(firstPlantedDate(journalEntries, grow.sown_date), grow.ended_at)}</span>
           </div>
           {/* Status */}
-          <div className="flex flex-col items-center px-4 py-2 min-w-[80px]">
+          <div className="flex-1 min-w-0 flex flex-col items-center px-2 py-2">
             <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Status</span>
             <span className={`mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors(grow.status)}`}>
               {statusLabel(grow.status)}
             </span>
           </div>
-          {/* Germination */}
-          {germinationLabel && (
-            <div className="flex flex-col items-center px-4 py-2 min-w-[120px]">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Germination</span>
-              <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center">{germinationLabel}</span>
-            </div>
-          )}
-          {/* Days to germinate (when sprout_date exists) */}
-          {daysToGerminate != null && (
-            <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Germinated in</span>
-              <span className="text-xs font-medium text-neutral-700 mt-0.5 text-center">{daysToGerminate} days</span>
-            </div>
-          )}
-          {/* Next milestone */}
-          {milestone && (
-            <div className="flex flex-col items-center px-4 py-2 min-w-[120px] max-w-[200px]">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Milestone</span>
-              <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center leading-tight">{milestone}</span>
-            </div>
-          )}
-          {/* Last watered */}
-          {lastWateredAt && (
-            <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Last watered</span>
-              <span className="text-xs font-medium text-neutral-700 mt-0.5 text-center">{formatShortDate(lastWateredAt)}</span>
-            </div>
-          )}
-          {/* Location */}
-          <div className="flex flex-col items-center px-4 py-2 min-w-[90px]">
-            <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Location</span>
-            {allowEdits && editingLocation ? (
-              <div className="flex items-center gap-1 mt-0.5">
-                <input
-                  ref={locationInputRef}
-                  type="text"
-                  value={locationDraft}
-                  onChange={(e) => setLocationDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") saveLocation(); if (e.key === "Escape") setEditingLocation(false); }}
-                  className="text-xs border border-emerald-400 rounded px-1 py-0.5 w-24 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  placeholder="e.g. Back patio"
-                  maxLength={60}
-                />
-                <button type="button" onClick={saveLocation} disabled={savingLocation} className="text-emerald-600 hover:text-emerald-800 min-w-[24px] min-h-[24px] flex items-center justify-center" aria-label="Save location">
-                  {savingLocation ? <span className="w-3 h-3 border border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <span className="text-xs font-semibold">✓</span>}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={allowEdits ? () => { setLocationDraft(grow.location ?? ""); setEditingLocation(true); } : undefined}
-                className={`text-xs font-medium mt-0.5 text-center min-h-[24px] ${allowEdits ? "text-emerald-700 hover:text-emerald-900 hover:underline" : "text-neutral-700"}`}
-                aria-label={allowEdits ? "Edit location" : undefined}
-              >
-                {grow.location?.trim() || (allowEdits ? "Add location" : "—")}
-              </button>
-            )}
+          {/* Milestone */}
+          <div className="flex-1 min-w-0 flex flex-col items-center px-2 py-2">
+            <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Milestone</span>
+            <span className="text-xs font-medium text-emerald-700 mt-0.5 text-center leading-tight line-clamp-2">{milestone ?? "—"}</span>
           </div>
         </div>
       </div>
@@ -790,21 +752,62 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                 <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Harvested</span>
                 <span className="text-sm text-neutral-900">{formatShortDate(lastHarvestedDate(journalEntries))}</span>
               </div>
-              {grow.location?.trim() && (
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Location</span>
+                {allowEdits && editingLocation ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      ref={locationInputRef}
+                      type="text"
+                      value={locationDraft}
+                      onChange={(e) => setLocationDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveLocation(); if (e.key === "Escape") setEditingLocation(false); }}
+                      className="flex-1 min-w-0 text-sm border border-emerald-400 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      placeholder="e.g. Back patio"
+                      maxLength={60}
+                    />
+                    <button type="button" onClick={saveLocation} disabled={savingLocation} className="text-emerald-600 hover:text-emerald-800 min-w-[24px] min-h-[24px] flex items-center justify-center shrink-0" aria-label="Save location">
+                      {savingLocation ? <span className="w-3 h-3 border border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <span className="text-xs font-semibold">✓</span>}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={allowEdits ? () => { setLocationDraft(grow.location ?? ""); setEditingLocation(true); } : undefined}
+                    className={`text-sm text-left ${allowEdits ? "text-emerald-700 hover:text-emerald-900 hover:underline" : "text-neutral-900"}`}
+                    aria-label={allowEdits ? "Edit location" : undefined}
+                  >
+                    {grow.location?.trim() || (allowEdits ? "Add Location" : "—")}
+                  </button>
+                )}
+              </div>
+              {germinationLabel && (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Location</span>
-                  <span className="text-sm text-neutral-900">{grow.location.trim()}</span>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Germination</span>
+                  <span className="text-sm text-neutral-900">{germinationLabel}</span>
+                </div>
+              )}
+              {daysToGerminate != null && (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Germinated In</span>
+                  <span className="text-sm text-neutral-900">{daysToGerminate} days</span>
+                </div>
+              )}
+              {lastWateredAt && (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Watered</span>
+                  <span className="text-sm text-neutral-900">{formatShortDate(lastWateredAt)}</span>
                 </div>
               )}
               {sowBadge && (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Sow method</span>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Sow Method</span>
                   <span className="text-sm text-neutral-900">{sowBadge}</span>
                 </div>
               )}
               {grow.plant_count != null && grow.plant_count > 0 && (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Plant count</span>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Plant Count</span>
                   <span className="text-sm text-neutral-900">{grow.plant_count}</span>
                 </div>
               )}
@@ -816,13 +819,13 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
               )}
               {grow.expected_harvest_date && (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Est. harvest</span>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Est. Harvest</span>
                   <span className="text-sm text-neutral-900">{formatShortDate(grow.expected_harvest_date)}</span>
                 </div>
               )}
               {fertInfo && (
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last fertilized</span>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Fertilized</span>
                   <span className="text-sm text-neutral-900">
                     {formatShortDate(fertInfo.date)}
                     {fertInfo.productName && <span className="text-neutral-500"> · {fertInfo.productName}</span>}
@@ -860,7 +863,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                       onClick={() => setBatchLogOpen(true)}
                       className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 min-h-[44px] min-w-[44px]"
                     >
-                      Add a photo
+                      Add a Photo
                     </button>
                   )}
                 </div>
@@ -877,7 +880,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
               <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 flex items-start gap-3">
                 <span className="text-xl shrink-0" aria-hidden>🌿</span>
                 <div>
-                  <p className="text-xs font-semibold text-emerald-800 uppercase">Last fertilized</p>
+                  <p className="text-xs font-semibold text-emerald-800 uppercase">Last Fertilized</p>
                   <p className="text-sm text-emerald-900 font-medium mt-0.5">
                     {formatShortDate(fertInfo.date)}
                     {fertInfo.productName && <span className="font-normal text-emerald-700"> · {fertInfo.productName}</span>}
@@ -888,7 +891,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
 
             {upcomingTasks.length > 0 && (
               <div className="bg-white rounded-xl border border-neutral-200 p-4">
-                <p className="text-xs font-semibold uppercase text-neutral-500 mb-2">Scheduled care</p>
+                <p className="text-xs font-semibold uppercase text-neutral-500 mb-2">Scheduled Care</p>
                 <ul className="space-y-2">
                   {upcomingTasks.map((t) => {
                     const label = (t.title ?? TASK_CATEGORY_LABELS(t.category)).trim() || TASK_CATEGORY_LABELS(t.category);
@@ -999,63 +1002,6 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           </>
         )}
 
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* BOTTOM NAV: Navigate to Vault (plant profile) / Navigate to Garden    */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="px-4 pb-8 pt-4 border-t border-neutral-100 bg-white">
-        <div className="flex gap-2">
-          {readOnly ? (
-            <>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (onOpenInGarden) {
-                    onOpenInGarden();
-                    return;
-                  }
-                  onClose();
-                  if (profile?.id && grow?.id) {
-                    router.push(`/garden?grow=${grow.id}&from=profile&profile=${profile.id}`);
-                  }
-                }}
-                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-emerald-900 text-white text-sm font-medium hover:opacity-90"
-              >
-                <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-                Open in Garden
-              </button>
-            </>
-          ) : (
-            <>
-              {profile && (
-                <button
-                  type="button"
-                  onClick={handleGoToVault}
-                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-                >
-                  <ICON_MAP.Seedling className="w-4 h-4 shrink-0" />
-                  To Vault
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50"
-              >
-                <ICON_MAP.Plant className="w-4 h-4 shrink-0" />
-                To Garden
-              </button>
-            </>
-          )}
-        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
