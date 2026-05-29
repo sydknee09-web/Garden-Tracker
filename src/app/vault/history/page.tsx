@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingState } from "@/components/LoadingState";
+import { useToast } from "@/hooks/useToast";
 
 type GrowRow = {
   id: string;
@@ -29,6 +30,32 @@ export default function PlantingHistoryPage() {
   const { user } = useAuth();
   const [grows, setGrows] = useState<GrowRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restoreOpen, setRestoreOpen] = useState<GrowRow | null>(null);
+  const [restoreSaving, setRestoreSaving] = useState(false);
+  const { toast, showToast, showErrorToast } = useToast();
+
+  async function handleRestore(row: GrowRow) {
+    if (!user) return;
+    setRestoreSaving(true);
+    const { error: err } = await supabase
+      .from("grow_instances")
+      .update({ status: "growing", ended_at: null, end_reason: null })
+      .eq("id", row.id)
+      .eq("user_id", user.id);
+    setRestoreSaving(false);
+    if (err) {
+      console.error("PlantingHistoryPage.handleRestore: update failed", err);
+      showErrorToast("Couldn't restore — please try again");
+      return;
+    }
+    setGrows((prev) =>
+      prev.map((g) =>
+        g.id === row.id ? { ...g, status: "growing", ended_at: null, end_reason: null } : g
+      )
+    );
+    showToast("Restored");
+    setRestoreOpen(null);
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -79,6 +106,7 @@ export default function PlantingHistoryPage() {
 
   return (
     <div className="px-6 py-8 max-w-3xl mx-auto">
+      {toast}
       <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
       <h1 className="text-2xl font-bold text-neutral-900 mb-2">Planting History</h1>
       <p className="text-sm text-neutral-500 mb-6">Every grow instance across all plants.</p>
@@ -120,9 +148,23 @@ export default function PlantingHistoryPage() {
                       <td className="px-4 py-3 text-neutral-600">{sownDate.toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-neutral-500">{g.location || "—"}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
-                          {statusLabel(g.status)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[g.status ?? ""] ?? "bg-neutral-100 text-neutral-600"}`}>
+                            {statusLabel(g.status)}
+                          </span>
+                          {g.status === "archived" && (
+                            <span className="inline-flex min-h-[44px] items-center">
+                              <button
+                                type="button"
+                                onClick={() => setRestoreOpen(g)}
+                                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline whitespace-nowrap px-2 py-1"
+                                aria-label={`Restore ${g.profile_name} to Growing`}
+                              >
+                                Restore
+                              </button>
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-neutral-600 text-xs">
                         {[
@@ -140,6 +182,36 @@ export default function PlantingHistoryPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {restoreOpen && (
+        <>
+          <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setRestoreOpen(null)} />
+          <div className="fixed left-4 right-4 bottom-4 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm">
+            <h2 className="font-semibold text-neutral-900 text-base mb-1">Restore to Growing?</h2>
+            <p className="text-sm text-neutral-500 mb-4">
+              This plant will be active in your garden again. You can archive it any time.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRestoreOpen(null)}
+                className="flex-1 min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => restoreOpen && handleRestore(restoreOpen)}
+                disabled={restoreSaving}
+                className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {restoreSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
+                Restore
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
