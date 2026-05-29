@@ -29,7 +29,8 @@
     "backfill-plant-descriptions": "tsx scripts/backfill-plant-descriptions.ts",
     "backfill-cache": "tsx scripts/backfill-global-cache.ts",
     "recompress-storage-images": "tsx scripts/recompress-storage-images.ts",
-    "cleanup-duplicate-care-tasks": "tsx scripts/cleanup-duplicate-care-tasks.ts"
+    "cleanup-duplicate-care-tasks": "tsx scripts/cleanup-duplicate-care-tasks.ts",
+    "migration:check": "node scripts/check-migration-prefixes.js"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",

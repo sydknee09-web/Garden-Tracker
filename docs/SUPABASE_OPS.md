@@ -228,7 +228,7 @@ Not enforced — having it documented means future-Claude or future-Syd can pick
 
 This doc does NOT canonicalize migration discipline. The canon lives in [`CLAUDE.md`](../CLAUDE.md) under the "SQL migrations" subsection. Key points (paraphrased — `CLAUDE.md` wins on conflict):
 
-- Migration filename format = `YYYYMMDDHHMMSS_<description>.sql` (14-digit timestamp). **Duplicate prefixes cause silent skip on apply** — verified to have produced the U24-era bug. The collision-guard recommendation from the audit (R1.6 — `npm run migration:check`) is a parked follow-up.
+- Migration filename format = `YYYYMMDDHHMMSS_<description>.sql` (14-digit timestamp). **Duplicate prefixes cause silent skip on apply** — verified to have produced the U24-era bug. Mechanical guard shipped 2026-05-28 (R1.6): `npm run migration:check` runs locally and in CI (`.github/workflows/test.yml` `unit` job) and fails non-zero on duplicate prefixes. Known historical collisions already applied on remote are exempted via an explicit allowlist in [`scripts/check-migration-prefixes.js`](../scripts/check-migration-prefixes.js).
 - Additive / idempotent SQL (CREATE TABLE IF NOT EXISTS, ALTER TABLE ADD COLUMN IF NOT EXISTS, etc.) → code-tier push; needs the standard "yes build" greenlight per push.
 - Destructive / non-idempotent SQL (DROP TABLE, DROP COLUMN, TRUNCATE, RLS policy replacements) → always-ask tier; explicit per-push approval required EVEN after a general "yes build" on the broader change set.
 - Migration history was reconciled 2026-05-17; `supabase migration list --linked` shows Local|Remote columns matching for every applied version.
@@ -245,7 +245,7 @@ Documented so they don't get lost. Each is a separable item — work them in sub
 - **Restore drill 6.a is PARTIAL.** Full §4.c → §5.a replay drill is queued (drill 6.b). Dashboard-clone drill is queued (drill 6.c). The connectivity validation drill 6.a does NOT substitute for a full replay test.
 - **No automated backup-validation alert.** Today there's no monitoring on whether daily backups continue to land. The monthly dashboard skim (§7) is the manual proxy. Audit doc R1.8 (Management API quota snapshot script) is the natural future home for this.
 - **R1.2 / R1.3 (composite indexes) not addressed here.** Those are separate ships per the audit doc; see `.claude/plans/supabase_library_load_audit.md`.
-- **R1.6 (migration-collision guard) not addressed here.** Separate ship; see audit doc.
+- **R1.6 (migration-collision guard).** Shipped 2026-05-28 — `npm run migration:check` is wired into the `unit` CI job. The existing `20260528120000` doublet is on the allowlist (both files already applied on remote; renaming would orphan a migration_history row). Resolving that doublet is a separate follow-up ship.
 - **CLI version drift.** v2.98.2 was used for this audit. v2.101.0 is current at write time. Bump opportunistically; not urgent.
 
 ---
