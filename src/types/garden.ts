@@ -344,6 +344,8 @@ export interface CareSchedule {
   is_template: boolean;
   notes?: string | null;
   supply_profile_id?: string | null;
+  /** Self-FK: template this row was cloned from. NULL = standalone schedule, profile-level template, or pre-C1 clone. */
+  source_template_id?: string | null;
   deleted_at?: string | null;
   created_at?: string;
   updated_at?: string;

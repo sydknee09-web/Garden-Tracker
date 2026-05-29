@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { localDateString, addDays } from "@/lib/calendarDate";
+import type { CareSchedule } from "@/types/garden";
 
 type ScheduleForEffectiveIds = {
   grow_instance_ids?: string[] | null;
@@ -377,6 +378,301 @@ export async function advanceCareSchedule(
   } catch (err) {
     console.error("advanceCareSchedule: unexpected error", err);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Phase C C2+C3 — template cascade helpers
+// ---------------------------------------------------------------------------
+
+export type CascadeTemplateValues = {
+  title: string;
+  category: string;
+  recurrence_type: string;
+  interval_days: number | null;
+  months: number[] | null;
+  day_of_month: number | null;
+  custom_dates: string[] | null;
+  notes: string | null;
+  supply_profile_id: string | null;
+  end_date: string | null;
+};
+
+/** Fields compared between an instance-copy and its source template to detect "locally edited". */
+const CASCADE_DIFF_FIELDS: ReadonlyArray<keyof CascadeTemplateValues> = [
+  "title",
+  "category",
+  "recurrence_type",
+  "interval_days",
+  "day_of_month",
+  "notes",
+  "supply_profile_id",
+  "end_date",
+];
+
+function arraysEqual(a: number[] | string[] | null, b: number[] | string[] | null): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Returns true when copy diverges from template values on any compared field. */
+export function isCopyLocallyEdited(copy: CascadeTemplateValues, template: CascadeTemplateValues): boolean {
+  for (const field of CASCADE_DIFF_FIELDS) {
+    if ((copy[field] ?? null) !== (template[field] ?? null)) return true;
+  }
+  if (!arraysEqual(copy.months ?? null, template.months ?? null)) return true;
+  if (!arraysEqual(copy.custom_dates ?? null, template.custom_dates ?? null)) return true;
+  return false;
+}
+
+/** Compute next_due_date FROM TODAY for a freshly cascaded copy (Q3 = from today, not sow_date). */
+export function computeCascadeNextDueDate(template: CascadeTemplateValues): string | null {
+  const today = new Date();
+  if (template.recurrence_type === "interval" && template.interval_days != null && template.interval_days > 0) {
+    const next = new Date(today.getTime() + template.interval_days * 86400000);
+    return localDateString(next);
+  }
+  if (template.recurrence_type === "monthly" && template.day_of_month) {
+    const dom = Math.min(template.day_of_month, 28);
+    const next = new Date(today.getFullYear(), today.getMonth() + 1, dom);
+    return localDateString(next);
+  }
+  if (template.recurrence_type === "yearly" && template.months?.length) {
+    const currentMonth = today.getMonth() + 1;
+    const futureMonths = template.months.filter((m) => m > currentMonth);
+    const nextMonth = futureMonths.length > 0 ? futureMonths[0]! : template.months[0]!;
+    const nextYear = futureMonths.length > 0 ? today.getFullYear() : today.getFullYear() + 1;
+    const dom = Math.min(template.day_of_month ?? 1, 28);
+    return localDateString(new Date(nextYear, nextMonth - 1, dom));
+  }
+  if (template.recurrence_type === "one_off" && template.interval_days != null && template.interval_days > 0) {
+    const next = new Date(today.getTime() + template.interval_days * 86400000);
+    return localDateString(next);
+  }
+  return null;
+}
+
+/** Fetch grow_instance ids eligible for cascade on a profile: status active, not soft-deleted. */
+export async function fetchEligibleInstanceIdsForProfile(profileId: string, userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("grow_instances")
+    .select("id")
+    .eq("plant_profile_id", profileId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .in("status", ["pending", "growing", "harvested"]);
+  if (error) {
+    console.error("fetchEligibleInstanceIdsForProfile: query failed", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => (r as { id: string }).id);
+}
+
+/**
+ * C2 — Apply a newly created profile template to existing eligible instances.
+ * Returns the count of instance-copies created (excludes any that errored).
+ * Skips instances that already have a copy of this template (defensive against double-apply).
+ */
+export async function applyTemplateCreateCascade(
+  template: CareSchedule,
+  eligibleInstanceIds: string[],
+  userId: string,
+): Promise<number> {
+  if (!eligibleInstanceIds.length) return 0;
+
+  const { data: existingCopies } = await supabase
+    .from("care_schedules")
+    .select("grow_instance_id")
+    .eq("source_template_id", template.id)
+    .eq("user_id", userId)
+    .is("deleted_at", null);
+  const alreadyCovered = new Set(
+    (existingCopies ?? []).map((r) => (r as { grow_instance_id: string | null }).grow_instance_id).filter(Boolean) as string[],
+  );
+
+  const targets = eligibleInstanceIds.filter((id) => !alreadyCovered.has(id));
+  if (!targets.length) return 0;
+
+  const templateValues: CascadeTemplateValues = {
+    title: template.title,
+    category: template.category,
+    recurrence_type: template.recurrence_type,
+    interval_days: template.interval_days ?? null,
+    months: template.months ?? null,
+    day_of_month: template.day_of_month ?? null,
+    custom_dates: template.custom_dates ?? null,
+    notes: template.notes ?? null,
+    supply_profile_id: template.supply_profile_id ?? null,
+    end_date: template.end_date ?? null,
+  };
+  const nextDue = computeCascadeNextDueDate(templateValues);
+
+  let created = 0;
+  for (const instanceId of targets) {
+    if (template.recurrence_type === "one_off" && !nextDue) continue;
+    const { error } = await supabase.from("care_schedules").insert({
+      plant_profile_id: template.plant_profile_id,
+      grow_instance_id: instanceId,
+      user_id: userId,
+      title: templateValues.title,
+      category: templateValues.category,
+      recurrence_type: templateValues.recurrence_type,
+      interval_days: templateValues.interval_days,
+      months: templateValues.months,
+      day_of_month: templateValues.day_of_month,
+      custom_dates: templateValues.custom_dates,
+      next_due_date: nextDue,
+      is_active: true,
+      is_template: false,
+      notes: templateValues.notes,
+      supply_profile_id: templateValues.supply_profile_id,
+      end_date: templateValues.end_date,
+      source_template_id: template.id,
+    });
+    if (!error) created++;
+    else console.error("applyTemplateCreateCascade: insert failed", error.message);
+  }
+  return created;
+}
+
+/**
+ * C3 — Apply an edited profile template to existing eligible instance-copies.
+ * `oldTemplateValues` is the pre-edit snapshot used to detect locally-edited copies.
+ * `forceOverwrite=true` updates ALL copies including locally-edited ones; default (false) preserves local edits.
+ * Returns { updated, skippedLocallyEdited }.
+ */
+export async function applyTemplateEditCascade(
+  template: CareSchedule,
+  oldTemplateValues: CascadeTemplateValues,
+  userId: string,
+  forceOverwrite: boolean,
+): Promise<{ updated: number; skippedLocallyEdited: number }> {
+  const eligibleInstanceIds = template.plant_profile_id
+    ? await fetchEligibleInstanceIdsForProfile(template.plant_profile_id, userId)
+    : [];
+  if (!eligibleInstanceIds.length) return { updated: 0, skippedLocallyEdited: 0 };
+
+  const { data: copies, error: copiesErr } = await supabase
+    .from("care_schedules")
+    .select("id, title, category, recurrence_type, interval_days, months, day_of_month, custom_dates, notes, supply_profile_id, end_date, grow_instance_id")
+    .eq("source_template_id", template.id)
+    .eq("user_id", userId)
+    .eq("is_template", false)
+    .is("deleted_at", null);
+  if (copiesErr) {
+    console.error("applyTemplateEditCascade: copies fetch failed", copiesErr.message);
+    return { updated: 0, skippedLocallyEdited: 0 };
+  }
+
+  const eligibleSet = new Set(eligibleInstanceIds);
+  const eligibleCopies = (copies ?? []).filter((c) => {
+    const giId = (c as { grow_instance_id: string | null }).grow_instance_id;
+    return giId != null && eligibleSet.has(giId);
+  });
+
+  const newValues: CascadeTemplateValues = {
+    title: template.title,
+    category: template.category,
+    recurrence_type: template.recurrence_type,
+    interval_days: template.interval_days ?? null,
+    months: template.months ?? null,
+    day_of_month: template.day_of_month ?? null,
+    custom_dates: template.custom_dates ?? null,
+    notes: template.notes ?? null,
+    supply_profile_id: template.supply_profile_id ?? null,
+    end_date: template.end_date ?? null,
+  };
+
+  let updated = 0;
+  let skippedLocallyEdited = 0;
+  for (const copy of eligibleCopies) {
+    const copyValues: CascadeTemplateValues = {
+      title: (copy as { title: string }).title,
+      category: (copy as { category: string }).category,
+      recurrence_type: (copy as { recurrence_type: string }).recurrence_type,
+      interval_days: (copy as { interval_days: number | null }).interval_days,
+      months: (copy as { months: number[] | null }).months,
+      day_of_month: (copy as { day_of_month: number | null }).day_of_month,
+      custom_dates: (copy as { custom_dates: string[] | null }).custom_dates,
+      notes: (copy as { notes: string | null }).notes,
+      supply_profile_id: (copy as { supply_profile_id: string | null }).supply_profile_id,
+      end_date: (copy as { end_date: string | null }).end_date,
+    };
+    const locallyEdited = isCopyLocallyEdited(copyValues, oldTemplateValues);
+    if (locallyEdited && !forceOverwrite) {
+      skippedLocallyEdited++;
+      continue;
+    }
+    const { error } = await supabase
+      .from("care_schedules")
+      .update({
+        title: newValues.title,
+        category: newValues.category,
+        recurrence_type: newValues.recurrence_type,
+        interval_days: newValues.interval_days,
+        months: newValues.months,
+        day_of_month: newValues.day_of_month,
+        custom_dates: newValues.custom_dates,
+        notes: newValues.notes,
+        supply_profile_id: newValues.supply_profile_id,
+        end_date: newValues.end_date,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", (copy as { id: string }).id)
+      .eq("user_id", userId);
+    if (!error) updated++;
+    else console.error("applyTemplateEditCascade: update failed", error.message);
+  }
+  return { updated, skippedLocallyEdited };
+}
+
+/**
+ * C3 helper — count eligible copies + locally-edited copies for popup display, BEFORE running the cascade.
+ * Uses the pre-edit `oldTemplateValues` snapshot to detect locally-edited.
+ */
+export async function countEditCascadeTargets(
+  templateId: string,
+  profileId: string | null,
+  oldTemplateValues: CascadeTemplateValues,
+  userId: string,
+): Promise<{ eligibleCount: number; locallyEditedCount: number }> {
+  if (!profileId) return { eligibleCount: 0, locallyEditedCount: 0 };
+  const eligibleInstanceIds = await fetchEligibleInstanceIdsForProfile(profileId, userId);
+  if (!eligibleInstanceIds.length) return { eligibleCount: 0, locallyEditedCount: 0 };
+
+  const { data: copies } = await supabase
+    .from("care_schedules")
+    .select("id, title, category, recurrence_type, interval_days, months, day_of_month, custom_dates, notes, supply_profile_id, end_date, grow_instance_id")
+    .eq("source_template_id", templateId)
+    .eq("user_id", userId)
+    .eq("is_template", false)
+    .is("deleted_at", null);
+
+  const eligibleSet = new Set(eligibleInstanceIds);
+  const eligibleCopies = (copies ?? []).filter((c) => {
+    const giId = (c as { grow_instance_id: string | null }).grow_instance_id;
+    return giId != null && eligibleSet.has(giId);
+  });
+
+  let locallyEditedCount = 0;
+  for (const copy of eligibleCopies) {
+    const copyValues: CascadeTemplateValues = {
+      title: (copy as { title: string }).title,
+      category: (copy as { category: string }).category,
+      recurrence_type: (copy as { recurrence_type: string }).recurrence_type,
+      interval_days: (copy as { interval_days: number | null }).interval_days,
+      months: (copy as { months: number[] | null }).months,
+      day_of_month: (copy as { day_of_month: number | null }).day_of_month,
+      custom_dates: (copy as { custom_dates: string[] | null }).custom_dates,
+      notes: (copy as { notes: string | null }).notes,
+      supply_profile_id: (copy as { supply_profile_id: string | null }).supply_profile_id,
+      end_date: (copy as { end_date: string | null }).end_date,
+    };
+    if (isCopyLocallyEdited(copyValues, oldTemplateValues)) locallyEditedCount++;
+  }
+  return { eligibleCount: eligibleCopies.length, locallyEditedCount };
 }
 
 /**

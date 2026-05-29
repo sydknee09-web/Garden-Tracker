@@ -6,6 +6,15 @@ import { supabase } from "@/lib/supabase";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import {
+  applyTemplateCreateCascade,
+  applyTemplateEditCascade,
+  countEditCascadeTargets,
+  fetchEligibleInstanceIdsForProfile,
+  generateCareTasks,
+  type CascadeTemplateValues,
+} from "@/lib/generateCareTasks";
+import { CareCascadeConfirm, type CascadeAction } from "@/components/CareCascadeConfirm";
 import type { CareSchedule, GrowInstance, SupplyProfile } from "@/types/garden";
 
 const CARE_CATEGORIES = ["fertilize", "prune", "water", "spray", "repot", "harvest", "mulch", "other"] as const;
@@ -122,12 +131,48 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // C2+C3 cascade popup state — set after a template save succeeds with eligible existing instances.
+  const [pendingCascade, setPendingCascade] = useState<{
+    action: CascadeAction;
+    template: CareSchedule;
+    oldValues: CascadeTemplateValues | null;
+    eligibleCount: number;
+    locallyEditedCount: number;
+  } | null>(null);
+
+  const buildTemplateValues = useCallback((s: CareSchedule | undefined): CascadeTemplateValues | null => {
+    if (!s) return null;
+    return {
+      title: s.title,
+      category: s.category,
+      recurrence_type: s.recurrence_type,
+      interval_days: s.interval_days ?? null,
+      months: s.months ?? null,
+      day_of_month: s.day_of_month ?? null,
+      custom_dates: s.custom_dates ?? null,
+      notes: s.notes ?? null,
+      supply_profile_id: s.supply_profile_id ?? null,
+      end_date: s.end_date ?? null,
+    };
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!userId || !title.trim()) return;
     setSaving(true);
     setSaveError(null);
 
     try {
+      const existingForEdit = editingId ? (schedules.find((s) => s.id === editingId) as CareSchedule | undefined) : undefined;
+      const oldTemplateSnapshot = editingId ? buildTemplateValues(existingForEdit) : null;
+      const effectiveIsTemplate = editingId
+        ? (existingForEdit?.is_template ?? isTemplate)
+        : isTemplate;
+
+      // Pre-generate id for new rows so cascade can target them without a follow-up read.
+      const newId = !editingId && typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : null;
+
       const payload: Record<string, unknown> = {
         plant_profile_id: profileId,
         user_id: userId,
@@ -140,9 +185,10 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         next_due_date: recurrenceType === "one_off" ? null : (nextDueDate || null),
         notes: notes.trim() || null,
         is_active: true,
-        is_template: editingId ? ((schedules.find((s) => s.id === editingId) as { is_template?: boolean })?.is_template ?? isTemplate) : isTemplate,
+        is_template: effectiveIsTemplate,
         supply_profile_id: supplyProfileId || null,
       };
+      if (!editingId && newId) payload.id = newId;
       if (isPermanent && growInstances.length > 1) {
         payload.grow_instance_ids = selectedPlantIds.size > 0 ? [...selectedPlantIds] : null;
         payload.grow_instance_id = null;
@@ -154,6 +200,66 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
 
       if (error) { setSaveError(formatAddFlowError(error)); setSaving(false); return; }
 
+      // Cascade detection — only fires for profile-level templates on permanent-not-with-instance-ids
+      // (single-FK templates). Permanent-multi-instance schedules already write directly to instances via
+      // grow_instance_ids and don't go through the copy-on-plant flow.
+      const isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
+      const isMultiInstanceWrite = isPermanent && growInstances.length > 1;
+      const canCascade = effectiveIsTemplate && !isMultiInstanceWrite && isOnline && profileId;
+
+      if (canCascade) {
+        const savedTemplate: CareSchedule = {
+          id: editingId ?? (newId ?? ""),
+          plant_profile_id: profileId,
+          user_id: userId,
+          title: title.trim(),
+          category,
+          recurrence_type: recurrenceType as CareSchedule["recurrence_type"],
+          interval_days: (recurrenceType === "interval" || recurrenceType === "one_off") ? parseInt(intervalDays) || 30 : null,
+          months: recurrenceType === "yearly" ? selectedMonths : null,
+          day_of_month: (recurrenceType === "monthly" || recurrenceType === "yearly") ? Math.min(parseInt(dayOfMonth) || 1, 28) : null,
+          custom_dates: existingForEdit?.custom_dates ?? null,
+          next_due_date: recurrenceType === "one_off" ? null : (nextDueDate || null),
+          notes: notes.trim() || null,
+          supply_profile_id: supplyProfileId || null,
+          end_date: existingForEdit?.end_date ?? null,
+          is_active: true,
+          is_template: true,
+        };
+
+        if (savedTemplate.id) {
+          if (editingId && oldTemplateSnapshot) {
+            const counts = await countEditCascadeTargets(savedTemplate.id, profileId, oldTemplateSnapshot, userId);
+            if (counts.eligibleCount > 0) {
+              setPendingCascade({
+                action: "edit",
+                template: savedTemplate,
+                oldValues: oldTemplateSnapshot,
+                eligibleCount: counts.eligibleCount,
+                locallyEditedCount: counts.locallyEditedCount,
+              });
+              resetForm();
+              setSaving(false);
+              return;
+            }
+          } else if (!editingId) {
+            const eligibleIds = await fetchEligibleInstanceIdsForProfile(profileId, userId);
+            if (eligibleIds.length > 0) {
+              setPendingCascade({
+                action: "create",
+                template: savedTemplate,
+                oldValues: null,
+                eligibleCount: eligibleIds.length,
+                locallyEditedCount: 0,
+              });
+              resetForm();
+              setSaving(false);
+              return;
+            }
+          }
+        }
+      }
+
       resetForm();
       onChanged();
     } catch (err) {
@@ -161,7 +267,26 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     } finally {
       setSaving(false);
     }
-  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, schedules, isTemplate, resetForm, onChanged]);
+  }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, schedules, isTemplate, resetForm, onChanged, buildTemplateValues]);
+
+  const handleCascadeCancel = useCallback(() => {
+    setPendingCascade(null);
+    onChanged();
+  }, [onChanged]);
+
+  const handleCascadeApply = useCallback(async (forceOverwrite: boolean) => {
+    const cascade = pendingCascade;
+    if (!cascade) return;
+    if (cascade.action === "create") {
+      const eligibleIds = await fetchEligibleInstanceIdsForProfile(profileId, userId);
+      await applyTemplateCreateCascade(cascade.template, eligibleIds, userId);
+    } else if (cascade.action === "edit" && cascade.oldValues) {
+      await applyTemplateEditCascade(cascade.template, cascade.oldValues, userId, forceOverwrite);
+    }
+    await generateCareTasks(userId);
+    setPendingCascade(null);
+    onChanged();
+  }, [pendingCascade, profileId, userId, onChanged]);
 
   const handleDelete = useCallback(async (scheduleId: string) => {
     if (!userId) return;
@@ -419,6 +544,15 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           </div>
         </div>
       )}
+
+      <CareCascadeConfirm
+        open={pendingCascade != null}
+        action={pendingCascade?.action ?? "create"}
+        eligibleCount={pendingCascade?.eligibleCount ?? 0}
+        locallyEditedCount={pendingCascade?.locallyEditedCount ?? 0}
+        onCancel={handleCascadeCancel}
+        onApply={handleCascadeApply}
+      />
     </div>
   );
 }
