@@ -870,7 +870,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                         <PlantImage imageUrl={imgUrl} alt="" size="sm" variant="emerald" className="group-hover:scale-105 transition-transform" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-sm text-neutral-900 truncate">{formatBatchDisplayName(plant.profile_name, plant.profile_variety_name)}</h3>
+                        <h3 className="font-semibold text-sm text-neutral-900 line-clamp-2 break-words">{formatBatchDisplayName(plant.profile_name, plant.profile_variety_name)}</h3>
                         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-[11px] text-neutral-500 leading-tight">
                           {formatPlantedAgo(plant.sown_date) && <span>{formatPlantedAgo(plant.sown_date)}</span>}
                           {plant.care_count > 0 && <span>{plant.care_count} care</span>}
@@ -938,7 +938,7 @@ export const MyPlantsView = forwardRef<MyPlantsViewHandle, {
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] text-center line-clamp-2 break-words mb-0" title={formatBatchDisplayName(plant.profile_name, plant.profile_variety_name)}>
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] text-center line-clamp-2 mb-0" title={formatBatchDisplayName(plant.profile_name, plant.profile_variety_name)}>
                         {plant.profile_name}
                         {plant.profile_variety_name?.trim() && <span className="font-normal italic text-black/60"> ({plant.profile_variety_name})</span>}
                       </h3>

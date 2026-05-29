@@ -699,12 +699,12 @@ export function PacketVaultView({
                     </div>
                   </div>
                   <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 break-words text-center mb-0" title={decodeHtmlEntities(pkt.profile_name)}>
-                      {decodeHtmlEntities(pkt.profile_name)}
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={`${decodeHtmlEntities(pkt.profile_name)}${varietyDisplay ? ` (${decodeHtmlEntities(varietyDisplay)})` : ""}`}>
+                      <span className="line-clamp-2 break-words text-center">
+                        {decodeHtmlEntities(pkt.profile_name)}
+                        {varietyDisplay && <span className="font-normal italic text-black/60"> ({decodeHtmlEntities(varietyDisplay)})</span>}
+                      </span>
                     </h3>
-                    {varietyDisplay && (
-                      <div className="text-[10px] leading-tight text-black/60 italic w-full min-h-0 line-clamp-2 break-words" title={varietyDisplay}>{decodeHtmlEntities(varietyDisplay)}</div>
-                    )}
                     {pkt.vendor_name?.trim() && (
                       <div className="text-[10px] leading-tight text-black/50 w-full min-h-0 line-clamp-1 break-words pt-0.5" title={pkt.vendor_name.trim()}>{pkt.vendor_name.trim()}</div>
                     )}
