@@ -24,6 +24,7 @@ import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useToast } from "@/hooks/useToast";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
+import { isEdiblePlant } from "@/constants/seedTypes";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantImage } from "@/components/PlantImage";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
@@ -717,9 +718,12 @@ export default function VaultSeedPage() {
     { label: "Water", value: ((effectiveCare?.water ?? profileWater?.trim()) || "—") },
     { label: "Germination", value: ((effectiveCare?.days_to_germination ?? profile.days_to_germination?.trim()) || "—") },
   ];
-  const harvestList = [
-    { label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) },
-  ];
+  // Edibles-only fields: only render when the plant is classified as edible (tag-based + name-inference per getEffectiveSeedTypes).
+  const harvestList = isEdiblePlant(profile)
+    ? [
+        { label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) },
+      ]
+    : [];
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
   // canEdit = true when it's the user's own profile OR they have an edit grant from the owner

@@ -14,6 +14,7 @@ import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWi
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile } from "@/types/garden";
 import type { BatchLogBatch } from "@/components/BatchLogSheet";
+import { isEdiblePlant } from "@/constants/seedTypes";
 import dynamic from "next/dynamic";
 
 const BatchLogSheet = dynamic(
@@ -31,7 +32,7 @@ export interface GrowInstanceModalProps {
   /** Hide logging, editing, archive, and deletes — browse-only (e.g. opened from Vault profile). */
   readOnly?: boolean;
   /** Which tab to show first when the modal opens. */
-  initialTab?: "overview" | "history";
+  initialTab?: "overview" | "journal" | "history";
   /**
    * When set (e.g. from Vault profile), used for "Open in Garden" so the host can
    * navigate without double back-stack issues with modal history.pushState.
@@ -49,9 +50,10 @@ interface PlantProfileSummary {
   hero_image_url?: string | null;
   hero_image_path?: string | null;
   primary_image_path?: string | null;
+  tags?: string[] | null;
 }
 
-type ActiveTab = "overview" | "history";
+type ActiveTab = "overview" | "journal" | "history";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -243,7 +245,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       if (growData.plant_profile_id) {
         const { data: profileData } = await supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, hero_image_url, hero_image_path, primary_image_path")
+          .select("id, name, variety_name, hero_image_url, hero_image_path, primary_image_path, tags")
           .eq("id", growData.plant_profile_id)
           .single();
         if (profileData) setProfile(profileData as PlantProfileSummary);
@@ -526,8 +528,10 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   const milestone = nextMilestone();
   const fertInfo = lastFertilized();
   const lastWateredAt = lastWatered();
+  const lastHarvestedAt = lastHarvestedDate(journalEntries);
   const canEdit = grow.user_id === user?.id;
   const allowEdits = canEdit && !readOnly;
+  const isEdible = isEdiblePlant(profile);
   const germinationLabel =
     grow.seeds_sown != null && grow.seeds_sown > 0
       ? grow.seeds_sprouted != null
@@ -572,28 +576,26 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   // Journal entries with photos (for gallery, newest first)
   const photoEntries = journalEntries.filter((e) => e.image_file_path || e.photo_url);
 
-  // Timeline: all journal entries + completed tasks merged, sorted newest first
-  type TimelineItem =
-    | { kind: "journal"; entry: JournalEntry }
-    | { kind: "task"; task: Task & { plant_name?: string } };
-
   const toTime = (v: string | null | undefined) => {
     if (v == null || String(v).trim() === "") return 0;
     const t = new Date(v.includes("T") ? v : v + "T12:00:00").getTime();
     return Number.isNaN(t) ? 0 : t;
   };
-  const timelineItems: TimelineItem[] = [
-    ...journalEntries.map((e) => ({ kind: "journal" as const, entry: e })),
-    ...tasks.filter((t) => t.completed_at).map((t) => ({ kind: "task" as const, task: t })),
-  ].sort((a, b) => {
-    const aDate = a.kind === "journal" ? a.entry.created_at : (a.task.completed_at ?? a.task.due_date);
-    const bDate = b.kind === "journal" ? b.entry.created_at : (b.task.completed_at ?? b.task.due_date);
-    return toTime(bDate) - toTime(aDate);
-  });
 
+  // Journal tab — user-written entries for this grow. System-generated `vault_add` excluded
+  // per Syd 2026-05-28 mental-model lock (Task History owns task completions; Journal owns user logs).
+  const userJournalEntries = journalEntries
+    .filter((e) => e.entry_type !== "vault_add")
+    .sort((a, b) => toTime(b.created_at) - toTime(a.created_at));
+
+  // Task History tab — Scheduled Care (upcoming) + Completed (peer sections; no journal mix).
   const upcomingTasks = tasks
     .filter((t) => !t.completed_at)
     .sort((a, b) => toTime(a.due_date) - toTime(b.due_date));
+
+  const completedTasks = tasks
+    .filter((t) => t.completed_at)
+    .sort((a, b) => toTime(b.completed_at) - toTime(a.completed_at));
 
   return (
     <>
@@ -721,16 +723,19 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white border-b border-neutral-100 sticky top-0 z-10">
         <div className="flex">
-          {(["overview", "history"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-sm font-medium capitalize transition-colors min-h-[44px] border-b-2 ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}
-            >
-              {tab === "history" ? "Task History" : "Overview"}
-            </button>
-          ))}
+          {(["overview", "journal", "history"] as const).map((tab) => {
+            const label = tab === "journal" ? "Journal" : tab === "history" ? "Task History" : "Overview";
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-sm font-medium transition-colors min-h-[44px] border-b-2 ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -748,10 +753,12 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                 <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">First Planted</span>
                 <span className="text-sm text-neutral-900">{formatShortDate(firstPlantedDate(journalEntries, grow.sown_date))}</span>
               </div>
-              <div className="flex items-center gap-3 px-4 py-3">
-                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Harvested</span>
-                <span className="text-sm text-neutral-900">{formatShortDate(lastHarvestedDate(journalEntries))}</span>
-              </div>
+              {isEdible && (
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Harvested</span>
+                  <span className="text-sm text-neutral-900">{formatShortDate(lastHarvestedAt)}</span>
+                </div>
+              )}
               <div className="flex items-center gap-3 px-4 py-3">
                 <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Location</span>
                 {allowEdits && editingLocation ? (
@@ -817,7 +824,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                   <span className="text-sm text-neutral-900">{grow.vendor.trim()}</span>
                 </div>
               )}
-              {grow.expected_harvest_date && (
+              {isEdible && grow.expected_harvest_date && (
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Est. Harvest</span>
                   <span className="text-sm text-neutral-900">{formatShortDate(grow.expected_harvest_date)}</span>
@@ -872,6 +879,64 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           </>
         )}
 
+        {/* JOURNAL TAB */}
+        {activeTab === "journal" && (
+          <>
+            {userJournalEntries.length === 0 ? (
+              <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+                <p className="text-sm text-neutral-500">No journal entries yet.</p>
+                <p className="text-xs text-neutral-400 mt-1">Notes, photos, and care you log show up here.</p>
+                {allowEdits && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchLogOpen(true)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 min-h-[44px] min-w-[44px]"
+                  >
+                    Add an Entry
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {userJournalEntries.map((e) => {
+                  const imgUrl = getJournalImageUrl(e);
+                  const supplyIdsForEntry = entrySupplyIds[e.id] ?? (e.supply_profile_id ? [e.supply_profile_id] : []);
+                  const supplyNames = supplyIdsForEntry
+                    .map((sid) => supplyMap[sid])
+                    .filter(Boolean)
+                    .map((s) => [s!.brand, s!.name].filter(Boolean).join(" ") || s!.name);
+                  const supplyName = supplyNames.length > 0 ? supplyNames.join(", ") : null;
+                  return (
+                    <li key={`jt-${e.id}`} className="bg-white rounded-xl border border-neutral-200 p-3 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs font-semibold text-neutral-700">{ENTRY_TYPE_LABELS(e.entry_type)}</span>
+                          <span className="text-xs text-neutral-400">{formatShortDate(e.created_at)}</span>
+                          {supplyName && <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full">{supplyName}</span>}
+                        </div>
+                        {e.note?.trim() && <p className="text-sm text-neutral-700 break-words">{e.note.trim()}</p>}
+                        {imgUrl && (
+                          <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-40 object-cover" />
+                        )}
+                      </div>
+                      {allowEdits && e.user_id === user?.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteJournalEntry(e.id)}
+                          className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
+                          aria-label="Delete entry"
+                        >
+                          <ICON_MAP.Trash className="w-5 h-5" />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        )}
+
         {/* TASK HISTORY TAB */}
         {activeTab === "history" && (
           <>
@@ -906,99 +971,40 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
               </div>
             )}
 
-            {timelineItems.length === 0 ? (
-              upcomingTasks.length === 0 ? (
-                <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
-                  <p className="text-neutral-500 text-sm">No history for this plant yet.</p>
-                  <p className="text-neutral-400 text-xs mt-1">Journal entries and completed tasks will show up here as you log them.</p>
-                </div>
-              ) : (
-                <p className="text-sm text-neutral-500 text-center py-2 px-2">No journal entries or completed tasks yet.</p>
-              )
-            ) : (
-              <div className="relative">
-                {/* Vertical timeline line */}
-                <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-emerald-900/20 rounded-full" aria-hidden />
-                <ul className="space-y-3 relative">
-                  {timelineItems.map((item, idx) => {
-                    if (item.kind === "journal") {
-                      const e = item.entry;
-                      const imgUrl = getJournalImageUrl(e);
-                      const supplyIdsForEntry = entrySupplyIds[e.id] ?? (e.supply_profile_id ? [e.supply_profile_id] : []);
-                      const supplyNames = supplyIdsForEntry
-                        .map((sid) => supplyMap[sid])
-                        .filter(Boolean)
-                        .map((s) => [s!.brand, s!.name].filter(Boolean).join(" ") || s!.name);
-                      const supplyName = supplyNames.length > 0 ? supplyNames.join(", ") : null;
-                      return (
-                        <li key={`j-${e.id}`} className="flex gap-3 pl-1">
-                          {/* dot */}
-                          <div className="shrink-0 w-10 flex flex-col items-center pt-1">
-                            <div className="w-4 h-4 rounded-full bg-emerald-900 border-2 border-white shadow-sm z-10 relative" />
-                          </div>
-                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0 flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className="text-xs font-semibold text-neutral-700">{ENTRY_TYPE_LABELS(e.entry_type)}</span>
-                                <span className="text-xs text-neutral-400">{formatShortDate(e.created_at)}</span>
-                                {supplyName && <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full">{supplyName}</span>}
-                              </div>
-                              {e.note?.trim() && <p className="text-sm text-neutral-700 break-words">{e.note.trim()}</p>}
-                              {imgUrl && (
-                                <img src={imgUrl} alt="" className="mt-2 rounded-lg w-full max-h-40 object-cover" />
-                              )}
-                            </div>
-                            {allowEdits && e.user_id === user?.id && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteJournalEntry(e.id)}
-                                className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
-                                aria-label="Delete entry"
-                              >
-                                <ICON_MAP.Trash className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    } else {
-                      const t = item.task;
-                      const label = (t.title ?? TASK_CATEGORY_LABELS(t.category)).trim() || TASK_CATEGORY_LABELS(t.category);
-                      return (
-                        <li key={`t-${t.id}-${idx}`} className="flex gap-3 pl-1">
-                          <div className="shrink-0 w-10 flex flex-col items-center pt-1">
-                            <div className="w-4 h-4 rounded-full bg-emerald-200 border-2 border-emerald-900/40 shadow-sm z-10 relative flex items-center justify-center">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-900/60" aria-hidden />
-                            </div>
-                          </div>
-                          <div className="flex-1 bg-white rounded-xl border border-neutral-200 p-3 mb-0.5 min-w-0 flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-neutral-700">{label}</span>
-                                <span className="text-xs text-neutral-400">
-                                  {t.completed_at ? formatShortDate(t.completed_at) : `Due ${formatShortDate(t.due_date)}`}
-                                </span>
-                                <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">completed</span>
-                              </div>
-                            </div>
-                            {allowEdits && (t as Task & { user_id?: string }).user_id === user?.id && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTask(t.id, (t as Task & { user_id?: string }).user_id ?? user!.id)}
-                                className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
-                                aria-label="Delete task"
-                              >
-                                <ICON_MAP.Trash className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    }
+            {completedTasks.length > 0 ? (
+              <div className="bg-white rounded-xl border border-neutral-200 p-4">
+                <p className="text-xs font-semibold uppercase text-neutral-500 mb-2">Completed</p>
+                <ul className="space-y-2">
+                  {completedTasks.map((t) => {
+                    const label = (t.title ?? TASK_CATEGORY_LABELS(t.category)).trim() || TASK_CATEGORY_LABELS(t.category);
+                    const taskUserId = (t as Task & { user_id?: string }).user_id;
+                    return (
+                      <li key={`ct-${t.id}`} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="font-medium text-neutral-800 min-w-0 truncate">{label}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-neutral-500">{formatShortDate(t.completed_at)}</span>
+                          {allowEdits && taskUserId === user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTask(t.id, taskUserId ?? user!.id)}
+                              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50"
+                              aria-label="Delete task"
+                            >
+                              <ICON_MAP.Trash className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
                   })}
                 </ul>
               </div>
-            )}
+            ) : upcomingTasks.length === 0 ? (
+              <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+                <p className="text-neutral-500 text-sm">No task history for this plant yet.</p>
+                <p className="text-neutral-400 text-xs mt-1">Completed care tasks will show up here as you log them.</p>
+              </div>
+            ) : null}
           </>
         )}
 

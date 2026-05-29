@@ -195,3 +195,24 @@ export function getEffectiveSeedTypes(
   if (fromTags.length > 0) return fromTags;
   return inferSeedTypesFromPlantName(plantName);
 }
+
+/** Seed-type tags that signal an edible plant. */
+const EDIBLE_TAGS = new Set<SeedTypeTag>([
+  "Edible",
+  "Vegetable",
+  "Fruit",
+  "Herb",
+  "Edible Flower",
+]);
+
+/**
+ * True when the plant's effective seed types include any edible classification.
+ * Used to gate edibles-only key-facts fields (Last Harvested, Est. Harvest, Days to Maturity).
+ */
+export function isEdiblePlant(
+  profile: { tags?: string[] | null; name?: string | null } | null | undefined
+): boolean {
+  if (!profile) return false;
+  const types = getEffectiveSeedTypes(profile.tags, profile.name);
+  return types.some((t) => EDIBLE_TAGS.has(t as SeedTypeTag));
+}
