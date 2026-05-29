@@ -1276,11 +1276,6 @@ export default function VaultSeedPage() {
               {!heroImageLoaded && (
                 <div className="absolute inset-0 bg-neutral-100/80 animate-pulse" aria-hidden />
               )}
-              {canEdit && heroImageLoaded && (
-                <div className="absolute bottom-3 right-3">
-                  <button type="button" onClick={() => setShowSetPhotoModal(true)} className="px-3 py-1.5 rounded-xl bg-white/90 border border-neutral-200 text-neutral-700 shadow hover:bg-white min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Change photo"><ICON_MAP.Camera className="w-4 h-4" /></button>
-                </div>
-              )}
             </>
           ) : showHeroResearching ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 relative bg-white">
