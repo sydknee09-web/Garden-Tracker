@@ -9,9 +9,11 @@ config({ path: ".env.local" });
  * Install browsers (first time): npx playwright install
  *
  * Authenticated smoke tests (vault, garden, etc.) run only when
- * E2E_TEST_EMAIL and E2E_TEST_PASSWORD are set (e.g. in .env.local).
+ * E2E_TEST_EMAIL and E2E_TEST_PASSWORD are set (e.g. in .env.local)
+ * AND we are NOT in CI — authenticated specs hit prod Supabase and
+ * burn Free-plan egress quota (P0a stopgap; P0b = second Supabase project).
  */
-const hasAuthCreds = !!(process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD);
+const hasAuthCreds = !!(process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD) && !process.env.CI;
 
 export default defineConfig({
   testDir: "./e2e",
