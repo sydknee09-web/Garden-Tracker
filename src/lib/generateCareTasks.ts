@@ -403,6 +403,7 @@ export async function copyCareTemplatesToInstance(
 
     for (const t of templates) {
       const tmpl = t as {
+        id: string;
         title: string;
         category: string;
         recurrence_type: string;
@@ -411,6 +412,8 @@ export async function copyCareTemplatesToInstance(
         day_of_month: number | null;
         custom_dates: string[] | null;
         notes: string | null;
+        supply_profile_id: string | null;
+        end_date: string | null;
       };
 
       let nextDue: string | null = null;
@@ -451,6 +454,9 @@ export async function copyCareTemplatesToInstance(
         is_active: true,
         is_template: false,
         notes: tmpl.notes,
+        supply_profile_id: tmpl.supply_profile_id,
+        end_date: tmpl.end_date,
+        source_template_id: tmpl.id,
       });
     }
   } catch (err) {
