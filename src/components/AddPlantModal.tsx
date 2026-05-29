@@ -368,15 +368,6 @@ export function AddPlantModal({
           const hDays = (pRow as { harvest_days?: number | null })?.harvest_days;
           const expHarvest = hDays != null && hDays > 0 ? new Date(new Date(plantedDate).getTime() + hDays * 86400000).toISOString().slice(0, 10) : null;
           const displayNameNew = variety.trim() ? `${name} (${variety.trim()})` : name;
-          await supabase.from("tasks").insert({
-            user_id: user.id,
-            plant_profile_id: profileId,
-            grow_instance_id: growInstanceIdNew,
-            category: "sow",
-            due_date: plantedDate,
-            completed_at: new Date().toISOString(),
-            title: `Sow ${displayNameNew}`,
-          });
           if (expHarvest) {
             await supabase.from("tasks").insert({
               user_id: user.id,
@@ -491,16 +482,6 @@ export function AddPlantModal({
           await copyCareTemplatesToInstance(profileId, growId, user.id, plantedDate);
         }
 
-        const nowIso = new Date().toISOString();
-        await supabase.from("tasks").insert({
-          user_id: user.id,
-          plant_profile_id: profileId,
-          grow_instance_id: growId,
-          category: "sow",
-          due_date: plantedDate,
-          completed_at: nowIso,
-          title: `Sow ${displayName}`,
-        });
         if (expectedHarvestDate) {
           await supabase.from("tasks").insert({
             user_id: user.id,

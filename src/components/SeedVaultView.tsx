@@ -894,7 +894,7 @@ export function SeedVaultView({
         .from("grow_instances")
         .select("plant_profile_id")
         .in("plant_profile_id", profileIds)
-        .in("status", ["pending", "growing"])
+        .eq("status", "growing")
         .is("deleted_at", null);
       if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
 

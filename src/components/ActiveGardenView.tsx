@@ -263,7 +263,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       .from("grow_instances")
       .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting")
       .is("deleted_at", null)
-      .in("status", ["growing", "pending"])
+      .eq("status", "growing")
       .or("is_permanent_planting.is.null,is_permanent_planting.eq.false")
       .order("sown_date", { ascending: false })
       .limit(100);

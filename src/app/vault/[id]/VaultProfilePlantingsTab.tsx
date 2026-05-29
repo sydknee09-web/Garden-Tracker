@@ -69,7 +69,7 @@ export function VaultProfilePlantingsTab({
       ) : (
         <div className="space-y-3">
           {growInstances.map((gi, giIdx) => {
-            const statusColor = gi.status === "growing" ? "bg-emerald-100 text-emerald-800" : gi.status === "harvested" ? "bg-amber-100 text-amber-800" : gi.status === "dead" ? "bg-red-100 text-red-800" : "bg-neutral-100 text-neutral-700";
+            const statusColor = gi.status === "growing" ? "bg-emerald-100 text-emerald-800" : "bg-neutral-100 text-neutral-600";
             const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
             const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
             const loc = gi.location?.trim() ?? "";

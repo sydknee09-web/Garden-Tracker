@@ -96,7 +96,7 @@ export function AddPlantManualModal({
         .eq("plant_profile_id", profileId)
         .eq("user_id", owner)
         .is("deleted_at", null)
-        .in("status", ["pending", "growing"]);
+        .eq("status", "growing");
       const status = (activeGrows?.length ?? 0) > 0 ? "active" : "in_stock";
       await supabase.from("plant_profiles").update({ status }).eq("id", profileId).eq("user_id", owner);
       onSuccess?.();

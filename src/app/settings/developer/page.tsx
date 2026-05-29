@@ -167,7 +167,7 @@ export default function SettingsDeveloperPage() {
       .select("id, plant_profile_id, sown_date, ended_at")
       .eq("user_id", user.id)
       .is("deleted_at", null)
-      .in("status", ["archived", "dead"])
+      .eq("status", "archived")
       .order("ended_at", { ascending: false });
     if (!rows?.length) { setArchivedPlantings([]); setPlantingsLoading(false); return; }
     const profileIds = Array.from(new Set((rows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id)));

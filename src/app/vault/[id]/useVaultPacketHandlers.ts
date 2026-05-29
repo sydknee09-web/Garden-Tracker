@@ -72,7 +72,7 @@ export function useVaultPacketHandlers({
         .eq("plant_profile_id", profileId)
         .eq("user_id", owner)
         .is("deleted_at", null)
-        .in("status", ["pending", "growing"]);
+        .eq("status", "growing");
       const inGarden = (activeGrows?.length ?? 0) > 0;
       if (inGarden) {
         await supabase.from("plant_profiles").update({ status: "active" }).eq("id", profileId).eq("user_id", owner);

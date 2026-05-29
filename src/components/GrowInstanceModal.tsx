@@ -71,6 +71,23 @@ function formatAge(sowDate: string, endDate?: string | null): string {
   return remMonths > 0 ? `${years} yr ${remMonths} mo` : `${years} yr`;
 }
 
+// AGE source: first planting journal entry > sown_date fallback.
+function firstPlantedDate(journalEntries: JournalEntry[], sownDate: string): string {
+  const plantingEntries = journalEntries
+    .filter((e) => e.entry_type === "planting")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const earliest = plantingEntries[0]?.created_at;
+  if (!earliest) return sownDate;
+  return earliest.includes("T") ? earliest.slice(0, 10) : earliest;
+}
+
+function lastHarvestedDate(journalEntries: JournalEntry[]): string | null {
+  const harvestEntries = journalEntries
+    .filter((e) => e.entry_type === "harvest")
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return harvestEntries[0]?.created_at ?? null;
+}
+
 function formatShortDate(value: string | null | undefined): string {
   if (value == null || String(value).trim() === "") return "—";
   const d = new Date(value.includes("T") ? value : value + "T12:00:00");
@@ -91,13 +108,14 @@ function daysFromToday(dateStr: string): number {
 
 function statusColors(status: string | null | undefined): string {
   switch (status) {
-    case "growing": return "bg-emerald-100 text-emerald-800";
-    case "pending": return "bg-blue-100 text-blue-800";
-    case "harvested": return "bg-amber-100 text-amber-800";
-    case "dead": return "bg-red-100 text-red-800";
+    case "growing":  return "bg-emerald-100 text-emerald-800";
     case "archived": return "bg-neutral-100 text-neutral-600";
-    default: return "bg-neutral-100 text-neutral-600";
+    default:         return "bg-neutral-100 text-neutral-600";
   }
+}
+
+function statusLabel(status: string | null | undefined): string {
+  return status === "archived" ? "Archived" : "Growing";
 }
 
 function TASK_CATEGORY_LABELS(cat: string): string {
@@ -646,7 +664,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             {displayTitle}
           </h1>
           <p className="font-serif text-white/95 text-sm mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-            {formatAge(grow.sown_date, grow.ended_at)}
+            {formatAge(firstPlantedDate(journalEntries, grow.sown_date), grow.ended_at)}
           </p>
           {grow.location?.trim() ? (
             <p className="font-serif text-white/80 text-xs mt-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
@@ -664,13 +682,13 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
           {/* Age */}
           <div className="flex flex-col items-center px-4 py-2 min-w-[80px]">
             <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Age</span>
-            <span className="text-sm font-semibold text-neutral-900 mt-0.5 text-center">{formatAge(grow.sown_date, grow.ended_at)}</span>
+            <span className="text-sm font-semibold text-neutral-900 mt-0.5 text-center">{formatAge(firstPlantedDate(journalEntries, grow.sown_date), grow.ended_at)}</span>
           </div>
           {/* Status */}
           <div className="flex flex-col items-center px-4 py-2 min-w-[80px]">
             <span className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wide">Status</span>
-            <span className={`mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${statusColors(grow.status)}`}>
-              {grow.status ?? "unknown"}
+            <span className={`mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors(grow.status)}`}>
+              {statusLabel(grow.status)}
             </span>
           </div>
           {/* Germination */}
@@ -763,8 +781,12 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             {/* Key facts */}
             <div className="bg-white rounded-xl border border-neutral-200 divide-y divide-neutral-100">
               <div className="flex items-center gap-3 px-4 py-3">
-                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Date planted</span>
-                <span className="text-sm text-neutral-900">{formatShortDate(grow.sown_date)}</span>
+                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">First Planted</span>
+                <span className="text-sm text-neutral-900">{formatShortDate(firstPlantedDate(journalEntries, grow.sown_date))}</span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Last Harvested</span>
+                <span className="text-sm text-neutral-900">{formatShortDate(lastHarvestedDate(journalEntries))}</span>
               </div>
               {grow.location?.trim() && (
                 <div className="flex items-center gap-3 px-4 py-3">
@@ -1049,7 +1071,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
               <button
                 type="button"
                 onClick={() => setArchiveOpen(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-neutral-300 text-neutral-700 font-medium text-sm"
+                className="flex-1 min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10"
               >
                 Cancel
               </button>
@@ -1057,7 +1079,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                 type="button"
                 onClick={handleArchive}
                 disabled={archiveSaving}
-                className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {archiveSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
                 Archive

@@ -412,16 +412,6 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
 
         await copyCareTemplatesToInstance(profile.id, growRow.id, user.id, today);
 
-        const nowIso = new Date().toISOString();
-        await supabase.from("tasks").insert({
-          user_id: user.id,
-          plant_profile_id: profile.id,
-          grow_instance_id: growRow.id,
-          category: "sow",
-          due_date: today,
-          completed_at: nowIso,
-          title: `Sow ${displayName}`,
-        });
         if (expectedHarvestDate) {
           await supabase.from("tasks").insert({
             user_id: user.id,

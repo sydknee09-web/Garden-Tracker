@@ -112,7 +112,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
         .eq("plant_profile_id", profileId)
         .eq("user_id", user.id)
         .is("deleted_at", null)
-        .in("status", ["growing", "pending"])
+        .eq("status", "growing")
         .order("sown_date", { ascending: false });
       if (!cancelled) {
         setGrowInstances((data ?? []) as { id: string; sown_date: string; location: string | null; status: string }[]);

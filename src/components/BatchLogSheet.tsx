@@ -202,16 +202,12 @@ export function BatchLogSheet({
         }
       }
 
-      // Transplant: plant count + location; set status to growing if currently pending
+      // Transplant: plant count + location update only.
       if (selectedActions.has("transplant")) {
         const count = plantCount.trim() ? parseInt(plantCount, 10) : null;
         const updates: Record<string, unknown> = {};
         if (count != null && !Number.isNaN(count) && count >= 0) updates.plant_count = count;
         if (transplantLocation.trim()) updates.location = transplantLocation.trim();
-        // When transplanting from pending (e.g. pot up), set status to growing
-        const { data: current, error: selErr } = await supabase.from("grow_instances").select("status").eq("id", batch.id).eq("user_id", batchOwnerId).single();
-        if (selErr) { showErrorToast("Could not load plant status. Try again."); setSaving(false); return; }
-        if (current?.status === "pending") updates.status = "growing";
         if (Object.keys(updates).length > 0) {
           const { error: transErr } = await supabase.from("grow_instances").update(updates).eq("id", batch.id).eq("user_id", batchOwnerId);
           if (transErr) { showErrorToast("Could not save transplant. Try again."); setSaving(false); return; }

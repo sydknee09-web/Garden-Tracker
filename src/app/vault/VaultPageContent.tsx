@@ -728,7 +728,6 @@ function VaultPageInner() {
     if (!user?.id || plantModalRows.length === 0) return;
     setPlantConfirming(true);
     const sownDate = plantDate;
-    const nowIso = new Date().toISOString();
     const weatherSnapshot = await fetchWeatherSnapshot();
     let errMsg: string | null = null;
     for (const row of plantModalRows) {
@@ -800,16 +799,6 @@ function VaultPageInner() {
           entry_type: "care",
         });
       }
-
-      await supabase.from("tasks").insert({
-        user_id: user.id,
-        plant_profile_id: p.id,
-        grow_instance_id: growRow.id,
-        category: "sow",
-        due_date: sownDate,
-        completed_at: nowIso,
-        title: `Sow ${displayName}`,
-      });
 
       if (expectedHarvestDate) {
         await supabase.from("tasks").insert({

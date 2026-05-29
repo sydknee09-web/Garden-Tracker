@@ -165,7 +165,7 @@ export async function generateCareTasks(userId: string): Promise<number> {
       .from("grow_instances")
       .select("id")
       .eq("user_id", userId)
-      .in("status", ["dead", "archived"])
+      .eq("status", "archived")
       .is("deleted_at", null);
     const { data: trashedGrows } = await supabase
       .from("grow_instances")

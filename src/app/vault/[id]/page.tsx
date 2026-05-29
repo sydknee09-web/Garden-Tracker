@@ -327,7 +327,7 @@ export default function VaultSeedPage() {
 
       // Repair: if plant is in garden but profile status was overwritten (e.g. by packet qty update),
       // restore status to "active" so the green rim shows in Vault.
-      const hasActiveGrow = allGrows.some((g) => g.status === "pending" || g.status === "growing");
+      const hasActiveGrow = allGrows.some((g) => g.status === "growing");
       const currentStatus = (profileData.status as string) ?? "";
       if (hasActiveGrow && !currentStatus.toLowerCase().includes("active")) {
         await supabase.from("plant_profiles").update({ status: "active" }).eq("id", id).eq("user_id", ownerIdFromData);

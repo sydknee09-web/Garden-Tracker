@@ -878,15 +878,6 @@ export default function ReviewImportPage() {
             const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
             const hDays = (pRow as { harvest_days?: number | null })?.harvest_days;
             const expHarvest = hDays != null && hDays > 0 ? new Date(new Date(purchaseDate).getTime() + hDays * 86400000).toISOString().slice(0, 10) : null;
-            await supabase.from("tasks").insert({
-              user_id: user.id,
-              plant_profile_id: profileId,
-              grow_instance_id: growId,
-              category: "sow",
-              due_date: purchaseDate,
-              completed_at: new Date().toISOString(),
-              title: `Sow ${displayName}`,
-            });
             if (expHarvest) {
               await supabase.from("tasks").insert({
                 user_id: user.id,

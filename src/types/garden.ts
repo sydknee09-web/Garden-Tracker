@@ -46,12 +46,7 @@ export interface Task {
 // ---------------------------------------------------------------------------
 // Grow Instances
 // ---------------------------------------------------------------------------
-export type GrowInstanceStatus =
-  | "pending"
-  | "growing"
-  | "harvested"
-  | "dead"
-  | "archived";
+export type GrowInstanceStatus = "growing" | "archived";
 
 export interface GrowInstance {
   id: string;

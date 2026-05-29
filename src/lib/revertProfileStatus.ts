@@ -15,7 +15,7 @@ export async function revertProfileStatusIfNoActiveGrows(
       .from("grow_instances")
       .select("id")
       .eq("plant_profile_id", profileId)
-      .in("status", ["growing", "pending"])
+      .eq("status", "growing")
       .is("deleted_at", null);
 
     if (activeGrows?.length) return;
