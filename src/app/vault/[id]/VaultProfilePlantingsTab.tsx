@@ -92,7 +92,7 @@ export function VaultProfilePlantingsTab({
                         {qtyLabel}
                       </span>
                     )}
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${statusColor}`}>{gi.status ?? "unknown"}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${statusColor}`}>{gi.status === "archived" ? "Archived" : "Growing"}</span>
                     {sowBadge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{sowBadge}</span>}
                   </div>
                   <span className="text-xs text-neutral-500 shrink-0">{formatDisplayDate(gi.sown_date)}</span>
