@@ -129,23 +129,26 @@ import {
 import { VaultGridRefineModal, type GridRefineSection } from "@/app/vault/components/VaultGridRefineModal";
 
 
-function getInitialViewMode(searchParams: URLSearchParams | null): "grid" | "list" | "shed" {
-  if (!searchParams) return "grid";
-  const sow = searchParams.get("sow");
-  if (sow && /^\d{4}-\d{2}$/.test(sow)) return "grid";
+function getInitialViewMode(searchParams: URLSearchParams | null, isPlantsSurface: boolean): "grid" | "list" | "shed" {
+  // Plants surface: always Library/grid (single mode; no tab switcher).
+  if (isPlantsSurface) return "grid";
+  // Vault surface: Library moved to /plants. Default to Packets ("list"); legacy ?tab=grid|active|plants is handled by a mount-time redirect to /plants.
+  if (!searchParams) return "list";
   const tab = searchParams.get("tab");
-  if (tab === "list" || tab === "table") return "list";
   if (tab === "shed") return "shed";
-  if (tab === "grid") return "grid";
-  if (tab === "active" || tab === "plants") return "grid";
-  return "grid";
+  return "list";
 }
 
 function VaultPageInner() {
   const { user } = useAuth();
   const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams));
+  const pathname = usePathname();
+  // Surface detection: /plants mounts this same component but in single-mode Library/grid.
+  // /vault renders Packets + Shed only. Drives initial viewMode, tab switcher render, and URL ops.
+  const isPlantsSurface = pathname?.startsWith("/plants") ?? false;
+  const basePath = isPlantsSurface ? "/plants" : "/vault";
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams, isPlantsSurface));
   const [shedModalOpen, setShedModalOpen] = useState(false);
   const [shedSelectionState, setShedSelectionState] = useState<{ shedBatchSelectMode: boolean; selectedSupplyIds: Set<string> }>({ shedBatchSelectMode: false, selectedSupplyIds: new Set() });
   const shedActionsRef = useRef<{ openSelectionActions: () => void; openQuickAdd: () => void; closeAllShedModals: () => void } | null>(null);
@@ -209,7 +212,6 @@ function VaultPageInner() {
   const [plantModalOpen, setPlantModalOpen] = useState(false);
   const [plantConfirming, setPlantConfirming] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
@@ -242,15 +244,15 @@ function VaultPageInner() {
   const gridFilters = useFilterState({
     schema: "vault",
     onClear: useCallback(() => {
-      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace("/vault", { scroll: false });
-    }, [sowParam, router]),
+      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
+    }, [sowParam, router, basePath]),
     isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
     storageKey: FILTER_DEFAULT_KEYS.vaultProfiles,
   });
   const listFilters = useFilterState({
     schema: "vault",
     onClear: useCallback(() => {
-      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace("/vault", { scroll: false });
+      if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
     }, [sowParam, router]),
     isFilterActive: useCallback(() => !!(sowParam && /^\d{4}-\d{2}$/.test(sowParam)), [sowParam]),
     storageKey: FILTER_DEFAULT_KEYS.vaultPackets,
@@ -332,41 +334,56 @@ function VaultPageInner() {
     else refetch();
   }, [user?.id]);
 
+  // Surface migration: /vault?tab=grid|active|plants (legacy Library URLs) redirect to /plants,
+  // preserving other query params (sow, status, etc.). Mount-time only; runs before tab-sync effect below.
+  useEffect(() => {
+    if (isPlantsSurface) return;
+    const tab = searchParams.get("tab");
+    if (tab === "grid" || tab === "active" || tab === "plants") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("tab");
+      const qs = params.toString();
+      router.replace(qs ? `/plants?${qs}` : "/plants", { scroll: false });
+    }
+  }, [isPlantsSurface, searchParams, router]);
+
   // When landing on vault after a profile delete, refetch list and clean URL
   useEffect(() => {
     if (searchParams.get("deleted") === "1") {
       refetch();
-      router.replace("/vault", { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, basePath]);
 
   // When landing after adding packets from Import Review, force refetch so new packet shows
   useEffect(() => {
     if (searchParams.get("added") === "1") {
       refetch();
-      router.replace("/vault?status=vault", { scroll: false });
+      router.replace(`${basePath}?status=vault`, { scroll: false });
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, basePath]);
 
   // Open Quick Add when linked from home "Add a variety I don't have"
   useEffect(() => {
     if (searchParams.get("open") === "quickadd") {
       openSeed();
-      router.replace("/vault", { scroll: false });
+      router.replace(basePath, { scroll: false });
     }
-  }, [searchParams, router, openSeed]);
+  }, [searchParams, router, openSeed, basePath]);
 
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "grid" || tab === "list" || tab === "shed") {
-      setViewMode(tab);
-    } else if (tab === "table") {
-      setViewMode("list");
-    } else if (tab === "active" || tab === "plants") {
-      // Legacy tab values — fall back to Library (grid) and refresh
+    if (isPlantsSurface) {
+      // /plants is single-mode Library; no tab sync. Status + sow still apply via gridFilters below.
       setViewMode("grid");
-      if (tab === "active") refetch();
+    } else {
+      const tab = searchParams.get("tab");
+      // Legacy tab=grid|active|plants is handled by the surface-migration redirect effect above.
+      if (tab === "list" || tab === "shed") {
+        setViewMode(tab);
+      } else if (tab === "table") {
+        setViewMode("list");
+      }
     }
     const status = searchParams.get("status");
     if (status === "vault" || status === "active" || status === "low_inventory" || status === "archived") {
@@ -377,10 +394,13 @@ function VaultPageInner() {
     }
     const sow = searchParams.get("sow");
     if (sow) {
-      setViewMode("grid");
-      gridFilters.setStatus("vault");
+      // sow filter is grid-only — only meaningful on /plants. On /vault, redirect effect already moved us.
+      if (isPlantsSurface) {
+        setViewMode("grid");
+        gridFilters.setStatus("vault");
+      }
     }
-  }, [searchParams, gridFilters.setStatus, listFilters.setStatus]);
+  }, [searchParams, gridFilters.setStatus, listFilters.setStatus, isPlantsSurface]);
 
   // Clear filters when arriving from a different section (must run before restore effects)
   const hasRestoredSession = useRef(false);
@@ -883,8 +903,8 @@ function VaultPageInner() {
     gridFilters.clearAllFilters();
     setRefineByOpen(false);
     setRefineBySection(null);
-    if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace("/vault", { scroll: false });
-  }, [gridFilters.clearAllFilters, sowParam, router]);
+    if (sowParam && /^\d{4}-\d{2}$/.test(sowParam)) router.replace(basePath, { scroll: false });
+  }, [gridFilters.clearAllFilters, sowParam, router, basePath]);
 
   const hasActiveFilters = viewMode === "grid" ? gridFilters.hasActiveFilters : listFilters.hasActiveFilters;
 
@@ -968,49 +988,40 @@ function VaultPageInner() {
           )}
         </div>
 
-        <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
-          <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === "grid"}
-              onClick={() => { setViewMode("grid"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=grid", { scroll: false }); }}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === "grid"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-black/60 hover:text-black"
-              }`}
-            >
-              Library
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === "list"}
-              onClick={() => { setViewMode("list"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=list", { scroll: false }); }}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === "list"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-black/60 hover:text-black"
-              }`}
-            >
-              Packets
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === "shed"}
-              onClick={() => { setViewMode("shed"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=shed", { scroll: false }); }}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === "shed"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-black/60 hover:text-black"
-              }`}
-            >
-              Shed
-            </button>
+        {/* Tab switcher: /vault shows Packets + Shed only (Library promoted to /plants Ship A 2026-05-28).
+            /plants is single-mode (Library) — no switcher row rendered. */}
+        {!isPlantsSurface && (
+          <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === "list"}
+                onClick={() => { setViewMode("list"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=list", { scroll: false }); }}
+                className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === "list"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-black/60 hover:text-black"
+                }`}
+              >
+                Packets
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === "shed"}
+                onClick={() => { setViewMode("shed"); setSelectedVarietyIds(new Set()); setPacketSelectionState({ batchSelectMode: false, selectedPacketIds: new Set() }); router.replace("/vault?tab=shed", { scroll: false }); }}
+                className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === "shed"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-black/60 hover:text-black"
+                }`}
+              >
+                Shed
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Unified toolbar: grid only; list uses VaultPacketWingToolbar */}
         {viewMode === "grid" && vaultHasSeeds && (
