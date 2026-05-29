@@ -17,7 +17,7 @@ interface StarRatingProps {
  */
 export function StarRating({ value, interactive = false, onChange, size = "md", label = "Rating" }: StarRatingProps) {
   const starSize = size === "sm" ? "text-base" : "text-xl";
-  const btnSize = size === "sm" ? "min-w-[28px] min-h-[28px]" : "min-w-[36px] min-h-[36px]";
+  const btnSize = size === "sm" ? "min-h-[28px]" : "min-w-[36px] min-h-[36px]";
 
   if (!interactive) {
     if (value == null) return <span className="text-neutral-400 text-sm">—</span>;
