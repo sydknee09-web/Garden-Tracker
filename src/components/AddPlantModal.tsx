@@ -46,6 +46,8 @@ export function AddPlantModal({
   onBackToMenu,
   /** When true, render the 3-section triplet directly without the standalone backdrop + panel wrappers. Menu owns focus trap + body scroll lock + outer chrome. */
   embedded = false,
+  /** When true, render as Established Plant flow (pre-acquired nursery/gift/division plant). Forces permanent type semantically; relabels date as "Acquired date"; adjusts journal vault_add note + submit button. */
+  establishedMode = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -57,6 +59,7 @@ export function AddPlantModal({
   profileDisplayName?: string;
   onBackToMenu?: () => void;
   embedded?: boolean;
+  establishedMode?: boolean;
 }) {
   const addToExistingProfile = !!profileIdProp;
   const { user, session } = useAuth();
@@ -380,7 +383,7 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: i === 0 ? (plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).") : null,
+            note: i === 0 ? (establishedMode ? "Added to Garden (established plant)." : plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).") : null,
             entry_type: i === 0 ? "vault_add" : "growth",
             image_file_path: path,
           });
@@ -398,7 +401,7 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).",
+            note: establishedMode ? "Added to Garden (established plant)." : plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).",
             entry_type: "vault_add",
           });
         }
@@ -611,10 +614,10 @@ export function AddPlantModal({
               ) : (
                 <div className="w-11 shrink-0" aria-hidden />
               )}
-              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{addToExistingProfile ? "Add Plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add Permanent Plant" : "Add to Active Garden") : "Add Plant"}</h2>
+              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{establishedMode ? "Add Established Plant" : addToExistingProfile ? "Add Plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add Permanent Plant" : "Add to Active Garden") : "Add Plant"}</h2>
               <div className="w-11 shrink-0" aria-hidden />
             </div>
-            <p className="text-sm text-neutral-500 text-center">{hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
+            <p className="text-sm text-neutral-500 text-center">{establishedMode ? "Add a plant you've already acquired (nursery, gift, division)." : hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
             {!hidePlantTypeToggle && (
               <div className="flex gap-2 mt-3">
                 <button
@@ -858,7 +861,7 @@ export function AddPlantModal({
             )}
 
             <div>
-              <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
+              <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{establishedMode ? "Acquired date *" : plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
               <input
                 id="add-plant-date"
                 type="date"
@@ -1099,7 +1102,7 @@ export function AddPlantModal({
               Cancel
             </button>
             <button type="button" onClick={handleSubmit} disabled={submitting || (mode === "new" && !plantName.trim())} className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
-              {submitting ? "Adding…" : plantType === "permanent" ? "Add Plant" : "Add Planting"}
+              {submitting ? "Adding…" : establishedMode ? "Add Established Plant" : plantType === "permanent" ? "Add Plant" : "Add Planting"}
             </button>
           </div>
           <SubmitLoadingOverlay show={submitting} message="Adding plant…" />
