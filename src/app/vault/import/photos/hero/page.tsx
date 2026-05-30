@@ -188,7 +188,7 @@ export default function HeroImportPage() {
     return (
       <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-6 gap-4">
         <p className="text-neutral-600 text-center">
-          No import data found. If you just clicked &quot;Load plant profile pictures&quot;, try again with fewer photos.
+          No import data found. If you just clicked &quot;Save to Vault&quot;, try again with fewer photos.
         </p>
         <Link
           href="/vault"
