@@ -152,6 +152,31 @@ export async function renameGroup(
 }
 
 /**
+ * Update group positions in bulk. Used by B3 Manage Groups reorder UI.
+ * Loops sequential updates; group count per user is small (<20 typical) so cost is bounded.
+ */
+export async function updateGroupPositions(
+  supabase: SupabaseClient,
+  positions: Array<{ id: string; position: number }>
+): Promise<void> {
+  try {
+    for (const { id, position } of positions) {
+      const { error } = await supabase
+        .from("groups")
+        .update({ position, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) {
+        console.error("updateGroupPositions: update failed", error);
+        throw error;
+      }
+    }
+  } catch (err) {
+    console.error("updateGroupPositions: unexpected error", err);
+    throw err;
+  }
+}
+
+/**
  * Soft-delete the group AND hard-delete its plant_groups assignments.
  * FK CASCADE on plant_groups.group_id only fires when groups row is hard-deleted;
  * since we soft-delete (set deleted_at), we must explicitly remove junction rows

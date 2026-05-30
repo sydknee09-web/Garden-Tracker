@@ -7,6 +7,7 @@ import {
   createGroup,
   renameGroup,
   deleteGroup,
+  updateGroupPositions,
   fetchAllUserGrowInstances,
 } from "./groups";
 
@@ -159,6 +160,36 @@ describe("groups helpers", () => {
     expect(calls).toEqual([
       { table: "plant_groups", op: "delete" },
       { table: "groups", op: "update" },
+    ]);
+  });
+
+  it("updateGroupPositions issues sequential UPDATE per group with new position + updated_at", async () => {
+    const updateCalls: Array<{ id: string; position: number }> = [];
+    const sb = {
+      from: vi.fn(() => {
+        const chain = makeChain();
+        const originalUpdate = chain.update;
+        chain.update = vi.fn((arg: { position: number; updated_at: string }) => {
+          const eqOriginal = chain.eq;
+          chain.eq = vi.fn((col: string, val: string) => {
+            if (col === "id") updateCalls.push({ id: val, position: arg.position });
+            return eqOriginal(col, val);
+          });
+          return originalUpdate(arg);
+        });
+        return chain;
+      }),
+    };
+    await updateGroupPositions(sb as never, [
+      { id: "g-1", position: 0 },
+      { id: "g-2", position: 1 },
+      { id: "g-3", position: 2 },
+    ]);
+
+    expect(updateCalls).toEqual([
+      { id: "g-1", position: 0 },
+      { id: "g-2", position: 1 },
+      { id: "g-3", position: 2 },
     ]);
   });
 

@@ -22,6 +22,8 @@ import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { logEvent } from "@/lib/debugLog";
+import { assignInstanceToGroup, createGroup, fetchUserGroups } from "@/lib/groups";
+import type { Group } from "@/types/garden";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
 type PacketOption = { id: string; vendor_name: string | null; qty_status: number; is_archived?: boolean };
@@ -93,6 +95,12 @@ export function AddPlantModal({
   const [addPacketVendor, setAddPacketVendor] = useState("");
   const [addPacketSaving, setAddPacketSaving] = useState(false);
 
+  // B3 Group autocomplete (multi-select + inline create)
+  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [groupQuery, setGroupQuery] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
   const profileTypeFilter = plantType === "permanent" ? "permanent" : "seed";
 
   const loadProfiles = useCallback(async (profileType?: "permanent" | "seed") => {
@@ -132,6 +140,52 @@ export function AddPlantModal({
   useEffect(() => {
     if (open && user?.id && !hidePlantTypeToggle) loadProfiles();
   }, [open, user?.id, hidePlantTypeToggle, plantType, loadProfiles]);
+
+  // B3 — load groups when modal opens
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    fetchUserGroups(supabase, user.id).then((rows) => {
+      if (!cancelled) setAvailableGroups(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user?.id]);
+
+  const assignSelectedGroupsToInstance = useCallback(
+    async (growInstanceId: string) => {
+      if (!user?.id || selectedGroupIds.length === 0) return;
+      for (const gid of selectedGroupIds) {
+        try {
+          await assignInstanceToGroup(supabase, growInstanceId, gid, user.id);
+        } catch (e) {
+          // Don't block on group-assign errors; the instance is created.
+          // Surface in console for debugging.
+          console.error("AddPlantModal: assignInstanceToGroup failed", { gid, error: e });
+        }
+      }
+    },
+    [user?.id, selectedGroupIds]
+  );
+
+  const handleCreateGroupInline = useCallback(async () => {
+    const name = groupQuery.trim();
+    if (!name || !user?.id) return;
+    setCreatingGroup(true);
+    try {
+      const newGroup = await createGroup(supabase, user.id, name);
+      if (newGroup) {
+        setAvailableGroups((prev) => [...prev, newGroup]);
+        setSelectedGroupIds((prev) => [...prev, newGroup.id]);
+        setGroupQuery("");
+      }
+    } catch (e) {
+      setError(formatAddFlowError(e));
+    } finally {
+      setCreatingGroup(false);
+    }
+  }, [groupQuery, user?.id]);
 
   const loadPacketsForProfile = useCallback(async (profileId: string) => {
     if (!user?.id || plantType !== "seasonal") return;
@@ -206,6 +260,8 @@ export function AddPlantModal({
     setError(null);
     setEnrichmentFailed(false);
     setCreatedProfileId(null);
+    setSelectedGroupIds([]);
+    setGroupQuery("");
   }, []);
 
   const handleClose = useCallback(() => {
@@ -305,6 +361,7 @@ export function AddPlantModal({
           return;
         }
         const growInstanceIdNew = (growRow as { id: string }).id;
+        await assignSelectedGroupsToInstance(growInstanceIdNew);
 
         // Upload photos: first sets hero; all create journal entries (Law 7, no overwrite)
         let heroPath: string | null = null;
@@ -435,6 +492,7 @@ export function AddPlantModal({
           return;
         }
         const growId = (growRow as { id: string }).id;
+        await assignSelectedGroupsToInstance(growId);
 
         if (primaryPacketId && plantType === "seasonal" && packetsForProfile.length > 0) {
           await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", primaryPacketId).eq("user_id", user.id);
@@ -848,6 +906,80 @@ export function AddPlantModal({
                 placeholder="e.g. Bed 2, Patio"
                 className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
               />
+            </div>
+
+            <div>
+              <label htmlFor="add-plant-groups" className="block text-sm font-medium text-neutral-700 mb-1">Groups (optional)</label>
+              {selectedGroupIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {selectedGroupIds.map((gid) => {
+                    const g = availableGroups.find((x) => x.id === gid);
+                    if (!g) return null;
+                    return (
+                      <span
+                        key={gid}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-medium"
+                      >
+                        {g.name}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGroupIds((prev) => prev.filter((x) => x !== gid))}
+                          className="text-emerald-700 hover:text-emerald-900 leading-none"
+                          aria-label={`Remove ${g.name}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <input
+                id="add-plant-groups"
+                type="text"
+                value={groupQuery}
+                onChange={(e) => setGroupQuery(e.target.value)}
+                placeholder="Search or add a group"
+                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                aria-label="Search groups"
+              />
+              {(() => {
+                const q = groupQuery.trim().toLowerCase();
+                const unselected = availableGroups.filter((g) => !selectedGroupIds.includes(g.id));
+                const matches = q
+                  ? unselected.filter((g) => g.name.toLowerCase().includes(q))
+                  : unselected;
+                const exactMatch = availableGroups.some((g) => g.name.toLowerCase() === q);
+                const showCreate = q.length > 0 && !exactMatch;
+                if (matches.length === 0 && !showCreate) return null;
+                return (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {matches.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGroupIds((prev) => [...prev, g.id]);
+                          setGroupQuery("");
+                        }}
+                        className="inline-flex items-center px-2 py-1 rounded-full border border-neutral-300 text-neutral-700 text-xs hover:bg-neutral-50"
+                      >
+                        + {g.name}
+                      </button>
+                    ))}
+                    {showCreate && (
+                      <button
+                        type="button"
+                        onClick={handleCreateGroupInline}
+                        disabled={creatingGroup}
+                        className="inline-flex items-center px-2 py-1 rounded-full border border-dashed border-emerald-400 text-emerald-700 text-xs hover:bg-emerald-50 disabled:opacity-50"
+                      >
+                        {creatingGroup ? "Creating…" : `+ Create "${groupQuery.trim()}"`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div>

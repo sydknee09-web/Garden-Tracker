@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchUserGroups } from "@/lib/groups";
+import { ManageGroupsModal } from "@/components/ManageGroupsModal";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import type { Group } from "@/types/garden";
 
 /**
@@ -31,6 +33,8 @@ export function GroupTabs({
 }) {
   const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [localRefetchKey, setLocalRefetchKey] = useState(0);
 
   useEffect(() => {
     if (!user?.id) {
@@ -44,7 +48,7 @@ export function GroupTabs({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, refetchTrigger]);
+  }, [user?.id, refetchTrigger, localRefetchKey]);
 
   // If currently-selected group disappears (rare: deleted in B3 from another tab),
   // fall back to "all" to avoid a filter that matches nothing.
@@ -57,45 +61,61 @@ export function GroupTabs({
   }, [groups, selectedGroup, onSelectGroup]);
 
   return (
-    <div
-      className="flex mb-3 -mx-6 px-6 overflow-x-auto scrollbar-hide"
-      role="tablist"
-      aria-label="Filter plants by group"
-    >
+    <>
       <div
-        className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5"
-        role="group"
+        className="flex mb-3 -mx-6 px-6 overflow-x-auto scrollbar-hide items-center gap-2"
+        role="tablist"
+        aria-label="Filter plants by group"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedGroup === "all"}
-          onClick={() => onSelectGroup("all")}
-          className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-            selectedGroup === "all"
-              ? "bg-white text-emerald-700 shadow-sm"
-              : "text-black/60 hover:text-black"
-          }`}
+        <div
+          className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5"
+          role="group"
         >
-          All
-        </button>
-        {groups.map((g) => (
           <button
-            key={g.id}
             type="button"
             role="tab"
-            aria-selected={selectedGroup === g.id}
-            onClick={() => onSelectGroup(g.id)}
+            aria-selected={selectedGroup === "all"}
+            onClick={() => onSelectGroup("all")}
             className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              selectedGroup === g.id
+              selectedGroup === "all"
                 ? "bg-white text-emerald-700 shadow-sm"
                 : "text-black/60 hover:text-black"
             }`}
           >
-            {g.name}
+            All
           </button>
-        ))}
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              role="tab"
+              aria-selected={selectedGroup === g.id}
+              onClick={() => onSelectGroup(g.id)}
+              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                selectedGroup === g.id
+                  ? "bg-white text-emerald-700 shadow-sm"
+                  : "text-black/60 hover:text-black"
+              }`}
+            >
+              {g.name}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setManageOpen(true)}
+          className="min-h-[44px] px-3 py-2 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 whitespace-nowrap inline-flex items-center gap-1.5 shrink-0"
+          aria-label="Manage groups"
+        >
+          <ICON_MAP.Edit stroke="currentColor" className="w-4 h-4" />
+          Manage
+        </button>
       </div>
-    </div>
+      <ManageGroupsModal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        onMutated={() => setLocalRefetchKey((k) => k + 1)}
+      />
+    </>
   );
 }
