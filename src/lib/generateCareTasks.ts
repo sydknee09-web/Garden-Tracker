@@ -675,6 +675,385 @@ export async function countEditCascadeTargets(
   return { eligibleCount: eligibleCopies.length, locallyEditedCount };
 }
 
+// ---------------------------------------------------------------------------
+// Phase C C5 — Skip-today / Catch-up / Retro-apply helpers
+// ---------------------------------------------------------------------------
+
+type RecurrenceLite = {
+  recurrence_type: string;
+  interval_days?: number | null;
+  months?: number[] | null;
+  day_of_month?: number | null;
+};
+
+/**
+ * Compute next_due_date from a baseline Date (today for skip; backdate for retro).
+ * Mirrors advanceCareSchedule's recurrence math but parameterized so retro-apply can
+ * recompute from a past completion date.
+ */
+function computeNextDueFromBaseline(s: RecurrenceLite, baseline: Date): string | null {
+  if (s.recurrence_type === "interval" && s.interval_days != null && s.interval_days > 0) {
+    const next = new Date(baseline.getTime() + s.interval_days * 86400000);
+    return localDateString(next);
+  }
+  if (s.recurrence_type === "monthly" && s.day_of_month) {
+    const dom = Math.min(s.day_of_month, 28);
+    const next = new Date(baseline.getFullYear(), baseline.getMonth() + 1, dom);
+    return localDateString(next);
+  }
+  if (s.recurrence_type === "yearly" && s.months?.length) {
+    const currentMonth = baseline.getMonth() + 1;
+    const futureMonths = s.months.filter((m) => m > currentMonth);
+    const nextMonth = futureMonths.length > 0 ? futureMonths[0]! : s.months[0]!;
+    const nextYear = futureMonths.length > 0 ? baseline.getFullYear() : baseline.getFullYear() + 1;
+    const dom = Math.min(s.day_of_month ?? 1, 28);
+    return localDateString(new Date(nextYear, nextMonth - 1, dom));
+  }
+  return null;
+}
+
+/**
+ * Build the list of overdue occurrence dates for a schedule between its next_due_date
+ * and today (inclusive of next_due_date, exclusive of today). Capped at `cap` (default 12)
+ * so a year of missed weeklies doesn't explode the UI.
+ */
+export function buildOverdueOccurrenceDates(
+  s: RecurrenceLite & { next_due_date?: string | null },
+  today: string,
+  cap = 12,
+): string[] {
+  if (!s.next_due_date || s.next_due_date >= today) return [];
+  if (s.recurrence_type === "one_off") return [s.next_due_date];
+  const dates: string[] = [];
+  if (s.recurrence_type === "interval" && s.interval_days != null && s.interval_days > 0) {
+    let cursor = s.next_due_date;
+    while (cursor < today && dates.length < cap) {
+      dates.push(cursor);
+      cursor = addDays(cursor, s.interval_days);
+    }
+    return dates;
+  }
+  if (s.recurrence_type === "monthly" && s.day_of_month) {
+    const dom = Math.min(s.day_of_month, 28);
+    let cursor = new Date(s.next_due_date + "T12:00:00");
+    const todayDate = new Date(today + "T12:00:00");
+    while (cursor < todayDate && dates.length < cap) {
+      dates.push(localDateString(cursor));
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, dom);
+    }
+    return dates;
+  }
+  if (s.recurrence_type === "yearly" && s.months?.length) {
+    let cursor = new Date(s.next_due_date + "T12:00:00");
+    const todayDate = new Date(today + "T12:00:00");
+    const dom = Math.min(s.day_of_month ?? 1, 28);
+    while (cursor < todayDate && dates.length < cap) {
+      dates.push(localDateString(cursor));
+      cursor = new Date(cursor.getFullYear() + 1, cursor.getMonth(), dom);
+    }
+    return dates;
+  }
+  return [s.next_due_date];
+}
+
+/**
+ * C5 Skip — soft-delete the soonest pending occurrence + advance next_due_date FROM TODAY.
+ * Does NOT update last_completed_at (skip != complete).
+ * one_off recurrence is deactivated outright per advanceCareSchedule precedent.
+ */
+export async function skipNextCareOccurrence(scheduleId: string, userId: string): Promise<void> {
+  try {
+    const { data: schedule } = await supabase
+      .from("care_schedules")
+      .select("id, recurrence_type, interval_days, next_due_date, months, day_of_month, end_date")
+      .eq("id", scheduleId)
+      .eq("user_id", userId)
+      .single();
+    if (!schedule) return;
+
+    const s = schedule as RecurrenceLite & {
+      next_due_date: string | null;
+      end_date: string | null;
+    };
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const today = localDateString();
+
+    const { data: pendingTasks } = await supabase
+      .from("tasks")
+      .select("id, due_date")
+      .eq("care_schedule_id", scheduleId)
+      .eq("user_id", userId)
+      .is("completed_at", null)
+      .is("deleted_at", null)
+      .order("due_date", { ascending: true })
+      .limit(1);
+    if (pendingTasks && pendingTasks.length > 0) {
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: nowISO })
+        .eq("id", (pendingTasks[0] as { id: string }).id)
+        .eq("user_id", userId);
+    }
+
+    if (s.recurrence_type === "one_off") {
+      await supabase
+        .from("care_schedules")
+        .update({ is_active: false, updated_at: nowISO })
+        .eq("id", scheduleId)
+        .eq("user_id", userId);
+      return;
+    }
+
+    const nextDue = computeNextDueFromBaseline(s, now);
+    const isExpired = nextDue != null && s.end_date != null && nextDue > s.end_date;
+
+    await supabase
+      .from("care_schedules")
+      .update({
+        next_due_date: isExpired ? s.end_date : nextDue,
+        updated_at: nowISO,
+        ...(isExpired ? { is_active: false } : {}),
+      })
+      .eq("id", scheduleId)
+      .eq("user_id", userId);
+
+    if (!isExpired) {
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: nowISO })
+        .eq("care_schedule_id", scheduleId)
+        .eq("user_id", userId)
+        .is("completed_at", null)
+        .gt("due_date", today)
+        .is("deleted_at", null);
+      await generateCareTasks(userId);
+    }
+  } catch (err) {
+    console.error("skipNextCareOccurrence: unexpected error", err);
+  }
+}
+
+/**
+ * C5 Catch-up — apply a per-occurrence list of complete/skip decisions for overdue dates,
+ * then advance next_due_date FROM TODAY. Inserts backdated task rows with completed_at set
+ * for "complete" decisions (preserves history). Skipped occurrences just bump the schedule.
+ * Existing overdue pending tasks for this schedule are swept first to avoid double-up.
+ */
+export async function catchUpCareSchedule(
+  scheduleId: string,
+  userId: string,
+  decisions: { date: string; action: "complete" | "skip" }[],
+): Promise<{ completed: number; skipped: number }> {
+  try {
+    const { data: schedule } = await supabase
+      .from("care_schedules")
+      .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, recurrence_type, interval_days, next_due_date, months, day_of_month, end_date, supply_profile_id")
+      .eq("id", scheduleId)
+      .eq("user_id", userId)
+      .single();
+    if (!schedule) return { completed: 0, skipped: 0 };
+
+    const s = schedule as RecurrenceLite & {
+      id: string;
+      plant_profile_id: string | null;
+      grow_instance_id: string | null;
+      grow_instance_ids: string[] | null;
+      title: string;
+      category: string;
+      next_due_date: string | null;
+      end_date: string | null;
+      supply_profile_id: string | null;
+    };
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const today = localDateString();
+    const taskCategory = taskCategoryFromSchedule(s.category);
+    const supplyId = s.supply_profile_id?.trim() ? s.supply_profile_id.trim() : null;
+    const effectiveIds = getEffectiveInstanceIds(s);
+    const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
+    const taskTitle = effectiveIds && effectiveIds.length > 1
+      ? `${s.title} (${effectiveIds.length} plants)`
+      : s.title;
+
+    await supabase
+      .from("tasks")
+      .update({ deleted_at: nowISO })
+      .eq("care_schedule_id", scheduleId)
+      .eq("user_id", userId)
+      .is("completed_at", null)
+      .lt("due_date", today)
+      .is("deleted_at", null);
+
+    let completed = 0;
+    let skipped = 0;
+    let lastCompletedAt: string | null = null;
+    for (const d of decisions) {
+      if (d.action === "complete") {
+        const completedAtISO = new Date(d.date + "T12:00:00").toISOString();
+        const { error } = await supabase.from("tasks").insert({
+          user_id: userId,
+          plant_profile_id: s.plant_profile_id,
+          grow_instance_id: taskGrowInstanceId,
+          category: taskCategory,
+          due_date: d.date,
+          title: taskTitle,
+          care_schedule_id: scheduleId,
+          completed_at: completedAtISO,
+          ...(supplyId ? { supply_profile_id: supplyId } : {}),
+        });
+        if (!error) {
+          completed++;
+          if (lastCompletedAt == null || completedAtISO > lastCompletedAt) lastCompletedAt = completedAtISO;
+        } else {
+          console.error("catchUpCareSchedule: insert failed", error.message);
+        }
+      } else {
+        skipped++;
+      }
+    }
+
+    if (s.recurrence_type === "one_off") {
+      await supabase
+        .from("care_schedules")
+        .update({
+          is_active: false,
+          ...(lastCompletedAt ? { last_completed_at: lastCompletedAt } : {}),
+          updated_at: nowISO,
+        })
+        .eq("id", scheduleId)
+        .eq("user_id", userId);
+      return { completed, skipped };
+    }
+
+    const nextDue = computeNextDueFromBaseline(s, now);
+    const isExpired = nextDue != null && s.end_date != null && nextDue > s.end_date;
+    await supabase
+      .from("care_schedules")
+      .update({
+        next_due_date: isExpired ? s.end_date : nextDue,
+        ...(lastCompletedAt ? { last_completed_at: lastCompletedAt } : {}),
+        updated_at: nowISO,
+        ...(isExpired ? { is_active: false } : {}),
+      })
+      .eq("id", scheduleId)
+      .eq("user_id", userId);
+
+    if (!isExpired) {
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: nowISO })
+        .eq("care_schedule_id", scheduleId)
+        .eq("user_id", userId)
+        .is("completed_at", null)
+        .gt("due_date", today)
+        .is("deleted_at", null);
+      await generateCareTasks(userId);
+    }
+    return { completed, skipped };
+  } catch (err) {
+    console.error("catchUpCareSchedule: unexpected error", err);
+    return { completed: 0, skipped: 0 };
+  }
+}
+
+/**
+ * C5 Retro-apply — log a completion at a past date and recompute next_due_date FROM
+ * the back-dated completion. Inserts a backdated completed task row for history.
+ * one_off recurrence is deactivated (completion is the whole point of one_off).
+ */
+export async function applyRetroactiveCompletion(
+  scheduleId: string,
+  userId: string,
+  completedDate: string,
+): Promise<void> {
+  try {
+    const { data: schedule } = await supabase
+      .from("care_schedules")
+      .select("id, plant_profile_id, grow_instance_id, grow_instance_ids, title, category, recurrence_type, interval_days, next_due_date, months, day_of_month, end_date, supply_profile_id")
+      .eq("id", scheduleId)
+      .eq("user_id", userId)
+      .single();
+    if (!schedule) return;
+
+    const s = schedule as RecurrenceLite & {
+      id: string;
+      plant_profile_id: string | null;
+      grow_instance_id: string | null;
+      grow_instance_ids: string[] | null;
+      title: string;
+      category: string;
+      next_due_date: string | null;
+      end_date: string | null;
+      supply_profile_id: string | null;
+    };
+
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const today = localDateString();
+    const completedAtISO = new Date(completedDate + "T12:00:00").toISOString();
+    const taskCategory = taskCategoryFromSchedule(s.category);
+    const supplyId = s.supply_profile_id?.trim() ? s.supply_profile_id.trim() : null;
+    const effectiveIds = getEffectiveInstanceIds(s);
+    const taskGrowInstanceId = effectiveIds?.length === 1 ? effectiveIds[0]! : null;
+    const taskTitle = effectiveIds && effectiveIds.length > 1
+      ? `${s.title} (${effectiveIds.length} plants)`
+      : s.title;
+
+    await supabase.from("tasks").insert({
+      user_id: userId,
+      plant_profile_id: s.plant_profile_id,
+      grow_instance_id: taskGrowInstanceId,
+      category: taskCategory,
+      due_date: completedDate,
+      title: taskTitle,
+      care_schedule_id: scheduleId,
+      completed_at: completedAtISO,
+      ...(supplyId ? { supply_profile_id: supplyId } : {}),
+    });
+
+    if (s.recurrence_type === "one_off") {
+      await supabase
+        .from("care_schedules")
+        .update({ is_active: false, last_completed_at: completedAtISO, updated_at: nowISO })
+        .eq("id", scheduleId)
+        .eq("user_id", userId);
+      return;
+    }
+
+    const baseline = new Date(completedDate + "T12:00:00");
+    const nextDue = computeNextDueFromBaseline(s, baseline);
+    const isExpired = nextDue != null && s.end_date != null && nextDue > s.end_date;
+
+    await supabase
+      .from("care_schedules")
+      .update({
+        next_due_date: isExpired ? s.end_date : nextDue,
+        last_completed_at: completedAtISO,
+        updated_at: nowISO,
+        ...(isExpired ? { is_active: false } : {}),
+      })
+      .eq("id", scheduleId)
+      .eq("user_id", userId);
+
+    if (!isExpired) {
+      await supabase
+        .from("tasks")
+        .update({ deleted_at: nowISO })
+        .eq("care_schedule_id", scheduleId)
+        .eq("user_id", userId)
+        .is("completed_at", null)
+        .gt("due_date", today)
+        .is("deleted_at", null);
+      await generateCareTasks(userId);
+    }
+  } catch (err) {
+    console.error("applyRetroactiveCompletion: unexpected error", err);
+  }
+}
+
 /**
  * Copy care_schedule templates from a profile to a new grow instance.
  * Called during the Plant flow.

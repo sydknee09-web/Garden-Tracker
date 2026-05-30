@@ -7,14 +7,19 @@ import { formatAddFlowError } from "@/lib/addFlowError";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import {
+  applyRetroactiveCompletion,
   applyTemplateCreateCascade,
   applyTemplateEditCascade,
+  buildOverdueOccurrenceDates,
+  catchUpCareSchedule,
   countEditCascadeTargets,
   fetchEligibleInstanceIdsForProfile,
   generateCareTasks,
   isCopyLocallyEdited,
+  skipNextCareOccurrence,
   type CascadeTemplateValues,
 } from "@/lib/generateCareTasks";
+import { localDateString } from "@/lib/calendarDate";
 import { CareCascadeConfirm, type CascadeAction } from "@/components/CareCascadeConfirm";
 import type { CareSchedule, GrowInstance, SupplyProfile } from "@/types/garden";
 
@@ -277,6 +282,99 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
     }
   }, [userId, profileId, title, category, recurrenceType, intervalDays, dayOfMonth, selectedMonths, nextDueDate, notes, supplyProfileId, editingId, isPermanent, growInstances.length, selectedPlantIds, schedules, isTemplate, resetForm, onChanged, buildTemplateValues]);
 
+  // C5 — Skip-today / Catch-up / Retro-apply state. Only renders affordances when growInstanceId is set.
+  const [skipConfirmId, setSkipConfirmId] = useState<string | null>(null);
+  const [skipBusy, setSkipBusy] = useState(false);
+  const [catchUpOpenId, setCatchUpOpenId] = useState<string | null>(null);
+  const [catchUpDecisions, setCatchUpDecisions] = useState<Map<string, "complete" | "skip">>(() => new Map());
+  const [catchUpBusy, setCatchUpBusy] = useState(false);
+  const [retroOpenId, setRetroOpenId] = useState<string | null>(null);
+  const [retroDate, setRetroDate] = useState<string>(() => localDateString());
+  const [retroBusy, setRetroBusy] = useState(false);
+
+  const handleSkipToday = useCallback(async () => {
+    const id = skipConfirmId;
+    if (!id || !userId) return;
+    setSkipBusy(true);
+    try {
+      await skipNextCareOccurrence(id, userId);
+      setSkipConfirmId(null);
+      onChanged();
+    } catch (err) {
+      setSaveError(formatAddFlowError(err));
+    } finally {
+      setSkipBusy(false);
+    }
+  }, [skipConfirmId, userId, onChanged]);
+
+  const openCatchUp = useCallback((s: CareSchedule) => {
+    const today = localDateString();
+    const dates = buildOverdueOccurrenceDates(s, today);
+    const next = new Map<string, "complete" | "skip">();
+    for (const d of dates) next.set(d, "complete");
+    setCatchUpDecisions(next);
+    setCatchUpOpenId(s.id);
+    setRetroOpenId(null);
+  }, []);
+
+  const toggleCatchUpDecision = useCallback((date: string) => {
+    setCatchUpDecisions((prev) => {
+      const next = new Map(prev);
+      next.set(date, prev.get(date) === "complete" ? "skip" : "complete");
+      return next;
+    });
+  }, []);
+
+  const setAllCatchUpDecisions = useCallback((action: "complete" | "skip") => {
+    setCatchUpDecisions((prev) => {
+      const next = new Map(prev);
+      for (const k of next.keys()) next.set(k, action);
+      return next;
+    });
+  }, []);
+
+  const handleCatchUpApply = useCallback(async () => {
+    const id = catchUpOpenId;
+    if (!id || !userId) return;
+    setCatchUpBusy(true);
+    try {
+      const decisions = [...catchUpDecisions.entries()].map(([date, action]) => ({ date, action }));
+      await catchUpCareSchedule(id, userId, decisions);
+      setCatchUpOpenId(null);
+      setCatchUpDecisions(new Map());
+      onChanged();
+    } catch (err) {
+      setSaveError(formatAddFlowError(err));
+    } finally {
+      setCatchUpBusy(false);
+    }
+  }, [catchUpOpenId, catchUpDecisions, userId, onChanged]);
+
+  const openRetro = useCallback((s: CareSchedule) => {
+    setRetroDate(s.next_due_date && s.next_due_date < localDateString() ? s.next_due_date : localDateString());
+    setRetroOpenId(s.id);
+    setCatchUpOpenId(null);
+  }, []);
+
+  const handleRetroApply = useCallback(async () => {
+    const id = retroOpenId;
+    if (!id || !userId || !retroDate) return;
+    if (retroDate > localDateString()) {
+      setSaveError("Pick today or a past date for a back-dated completion.");
+      return;
+    }
+    setRetroBusy(true);
+    try {
+      await applyRetroactiveCompletion(id, userId, retroDate);
+      setRetroOpenId(null);
+      onChanged();
+    } catch (err) {
+      setSaveError(formatAddFlowError(err));
+    } finally {
+      setRetroBusy(false);
+    }
+  }, [retroOpenId, userId, retroDate, onChanged]);
+
   const handleCascadeCancel = useCallback(() => {
     setPendingCascade(null);
     onChanged();
@@ -444,6 +542,104 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
                     <p className="text-sm text-neutral-600 whitespace-pre-wrap">{s.notes}</p>
                   </div>
                 )}
+
+                {growInstanceId && !readOnly && (() => {
+                  const today = localDateString();
+                  const overdueDates = buildOverdueOccurrenceDates(s, today);
+                  const isOverdue = overdueDates.length > 0;
+                  const isCatchUpOpen = catchUpOpenId === s.id;
+                  const isRetroOpen = retroOpenId === s.id;
+                  return (
+                    <>
+                      <div className="mt-3 pt-3 border-t border-neutral-100 flex flex-wrap items-center gap-2">
+                        {isOverdue && (
+                          <button
+                            type="button"
+                            onClick={() => (isCatchUpOpen ? setCatchUpOpenId(null) : openCatchUp(s))}
+                            className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium hover:bg-amber-100 min-h-[44px]"
+                            aria-expanded={isCatchUpOpen}
+                            aria-controls={`catchup-${s.id}`}
+                          >
+                            {overdueDates.length} overdue · {isCatchUpOpen ? "Hide" : "Catch up"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSkipConfirmId(s.id)}
+                          className="px-3 py-1.5 rounded-lg bg-white text-neutral-600 border border-neutral-200 text-xs font-medium hover:bg-neutral-50 min-h-[44px]"
+                        >
+                          Skip Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => (isRetroOpen ? setRetroOpenId(null) : openRetro(s))}
+                          className="px-3 py-1.5 rounded-lg bg-white text-neutral-600 border border-neutral-200 text-xs font-medium hover:bg-neutral-50 min-h-[44px]"
+                          aria-expanded={isRetroOpen}
+                          aria-controls={`retro-${s.id}`}
+                        >
+                          {isRetroOpen ? "Hide Log" : "Log Past Completion"}
+                        </button>
+                      </div>
+
+                      {isCatchUpOpen && (
+                        <div id={`catchup-${s.id}`} className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <p className="text-xs font-medium text-amber-800">Catch up on {overdueDates.length} missed {overdueDates.length === 1 ? "occurrence" : "occurrences"}</p>
+                            <div className="flex gap-1 shrink-0">
+                              <button type="button" onClick={() => setAllCatchUpDecisions("complete")} className="px-2 py-1 rounded-lg bg-white text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-50 min-h-[44px]">All Done</button>
+                              <button type="button" onClick={() => setAllCatchUpDecisions("skip")} className="px-2 py-1 rounded-lg bg-white text-neutral-600 border border-neutral-200 text-xs font-medium hover:bg-neutral-50 min-h-[44px]">Skip All</button>
+                            </div>
+                          </div>
+                          <ul className="space-y-1.5 mb-3">
+                            {overdueDates.map((d) => {
+                              const action = catchUpDecisions.get(d) ?? "complete";
+                              return (
+                                <li key={d} className="flex items-center justify-between gap-2 bg-white rounded-lg border border-neutral-200 px-3 py-2">
+                                  <span className="text-xs text-neutral-700">{new Date(d + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCatchUpDecision(d)}
+                                    className={`px-2 py-1 rounded-md text-xs font-medium min-h-[44px] min-w-[88px] ${action === "complete" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-neutral-100 text-neutral-600 border border-neutral-200"}`}
+                                    aria-label={`Mark ${d} as ${action === "complete" ? "done" : "skipped"} — tap to toggle`}
+                                  >
+                                    {action === "complete" ? "Done" : "Skip"}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => setCatchUpOpenId(null)} disabled={catchUpBusy} className="px-3 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-xs font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50">Cancel</button>
+                            <button type="button" onClick={handleCatchUpApply} disabled={catchUpBusy} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 min-h-[44px]">
+                              {catchUpBusy ? "Applying…" : "Apply"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isRetroOpen && (
+                        <div id={`retro-${s.id}`} className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                          <label htmlFor={`retro-date-${s.id}`} className="block text-xs font-medium text-neutral-700 mb-1">Completion date</label>
+                          <input
+                            id={`retro-date-${s.id}`}
+                            type="date"
+                            value={retroDate}
+                            max={localDateString()}
+                            onChange={(e) => setRetroDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm min-h-[44px]"
+                          />
+                          <p className="text-[11px] text-neutral-500 mt-1">Schedule advances from this date.</p>
+                          <div className="flex gap-2 justify-end mt-3">
+                            <button type="button" onClick={() => setRetroOpenId(null)} disabled={retroBusy} className="px-3 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-xs font-medium hover:bg-neutral-50 min-h-[44px] disabled:opacity-50">Cancel</button>
+                            <button type="button" onClick={handleRetroApply} disabled={retroBusy || !retroDate} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 min-h-[44px]">
+                              {retroBusy ? "Logging…" : "Log Completion"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -590,6 +786,39 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
         onCancel={handleCascadeCancel}
         onApply={handleCascadeApply}
       />
+
+      {skipConfirmId && (() => {
+        const target = schedules.find((s) => s.id === skipConfirmId);
+        const titleText = target?.title?.trim() || "this care task";
+        return (
+          <>
+            <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => skipBusy ? undefined : setSkipConfirmId(null)} />
+            <div className="fixed left-4 right-4 bottom-4 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm">
+              <h2 className="font-semibold text-neutral-900 text-base mb-1">Skip Today&rsquo;s {titleText}?</h2>
+              <p className="text-sm text-neutral-500 mb-4">The next occurrence advances on the schedule. Nothing is marked as completed.</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSkipConfirmId(null)}
+                  disabled={skipBusy}
+                  className="flex-1 min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSkipToday}
+                  disabled={skipBusy}
+                  className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {skipBusy && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
+                  Skip Today
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
