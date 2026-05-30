@@ -75,6 +75,33 @@ export interface GrowInstance {
   purchase_quantity?: number | null;
   /** Store or nursery where this planting was purchased (e.g. Home Depot, Briggs Tree Nursery). */
   vendor?: string | null;
+  /** User-defined organization labels assigned to this planting; populated by joins via plant_groups. Optional — only present when the query selected groups. */
+  groups?: Group[];
+}
+
+// ---------------------------------------------------------------------------
+// Groups (user-defined plant organization labels)
+// ---------------------------------------------------------------------------
+
+/** User-defined organization label for plantings (e.g. "Patio", "Bedroom"). Per-user; no household sharing in v1. M-N to grow_instances via plant_groups. */
+export interface Group {
+  id: string;
+  user_id: string;
+  name: string;
+  /** User-defined ordering; lower = leftward. Nullable; new groups default null and sort to end via "position NULLS LAST, created_at ASC". */
+  position?: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+/** M-N join row: a single (grow_instance, group) assignment. Denormalized user_id for RLS. Hard-deleted on unassign. */
+export interface PlantGroup {
+  id: string;
+  grow_instance_id: string;
+  group_id: string;
+  user_id: string;
+  created_at: string;
 }
 
 // ---------------------------------------------------------------------------
