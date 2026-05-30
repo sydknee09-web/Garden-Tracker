@@ -3,13 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
-import {
-  useReactTable,
-  getCoreRowModel,
-  type ColumnDef,
-  type ColumnSizingState,
-  type Header,
-} from "@tanstack/react-table";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -46,50 +39,6 @@ import { GridSkeleton } from "@/components/VaultSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
-
-/** List table state: column order + widths persisted to localStorage. See docs/SEED_VAULT_TABLE.md. */
-const SEED_VAULT_TABLE_STORAGE_KEY = "seed-vault-table-state";
-const DEFAULT_LIST_COLUMN_ORDER: ListDataColumnId[] = ["name", "variety", "vendor", "sun", "spacing", "germination", "maturity", "pkts", "rating"];
-const DEFAULT_LIST_COLUMN_WIDTHS: Record<ListDataColumnId, number> = {
-  name: 140,
-  variety: 160,
-  vendor: 100,
-  sun: 88,
-  spacing: 100,
-  germination: 100,
-  maturity: 88,
-  pkts: 64,
-  rating: 88,
-};
-type ListDataColumnId = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts" | "rating";
-
-function loadListTableState(): { columnOrder: ListDataColumnId[]; columnWidths: Record<string, number> } {
-  if (typeof window === "undefined") return { columnOrder: [...DEFAULT_LIST_COLUMN_ORDER], columnWidths: { ...DEFAULT_LIST_COLUMN_WIDTHS } };
-  try {
-    const raw = localStorage.getItem(SEED_VAULT_TABLE_STORAGE_KEY);
-    if (!raw) return { columnOrder: [...DEFAULT_LIST_COLUMN_ORDER], columnWidths: { ...DEFAULT_LIST_COLUMN_WIDTHS } };
-    const parsed = JSON.parse(raw) as { columnOrder?: string[]; columnWidths?: Record<string, number> };
-    const rawOrder = Array.isArray(parsed.columnOrder)
-      ? parsed.columnOrder.filter((id): id is ListDataColumnId => DEFAULT_LIST_COLUMN_ORDER.includes(id as ListDataColumnId))
-      : [];
-    const seen = new Set<ListDataColumnId>();
-    const mergedOrder: ListDataColumnId[] = [];
-    for (const id of rawOrder) if (!seen.has(id)) { mergedOrder.push(id); seen.add(id); }
-    for (const id of DEFAULT_LIST_COLUMN_ORDER) if (!seen.has(id)) { mergedOrder.push(id); seen.add(id); }
-    const widths = { ...DEFAULT_LIST_COLUMN_WIDTHS, ...(parsed.columnWidths && typeof parsed.columnWidths === "object" ? parsed.columnWidths : {}) };
-    return { columnOrder: mergedOrder, columnWidths: widths };
-  } catch {
-    return { columnOrder: [...DEFAULT_LIST_COLUMN_ORDER], columnWidths: { ...DEFAULT_LIST_COLUMN_WIDTHS } };
-  }
-}
-
-function saveListTableState(columnOrder: ListDataColumnId[], columnWidths: Record<string, number>) {
-  try {
-    localStorage.setItem(SEED_VAULT_TABLE_STORAGE_KEY, JSON.stringify({ columnOrder, columnWidths }));
-  } catch {
-    /* ignore */
-  }
-}
 
 /** Unified vault card item sourced from plant_profiles. */
 export type VaultCardItem = {
@@ -132,8 +81,6 @@ export type VaultCardItem = {
   /** Best (max) packet_rating 1–5 across packets for this profile; null if none rated. */
   best_rating?: number | null;
 };
-
-export type ListSortColumn = "name" | "variety" | "vendor" | "sun" | "spacing" | "germination" | "maturity" | "pkts" | "rating";
 
 /** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
 function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
@@ -219,7 +166,6 @@ function SortArrowIcon({ dir }: { dir: "asc" | "desc" | "off" }) {
 
 
 export function SeedVaultView({
-  mode,
   refetchTrigger = 0,
   searchQuery = "",
   statusFilter = "",
@@ -258,7 +204,6 @@ export function SeedVaultView({
   scrollContainerRef,
   onClearFilters,
 }: {
-  mode: "grid" | "list";
   refetchTrigger?: number;
   /** Optional ref to scroll container for pull-to-refresh (vault page). */
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
@@ -288,7 +233,7 @@ export function SeedVaultView({
   plantNowFilter?: boolean;
   /** When plantNowFilter is true, use this month (YYYY-MM) instead of current month. */
   sowMonth?: string | null;
-  /** When mode is "grid", "photo" = 2-col gallery cards, "list" = condensed rows (matches peer surfaces). */
+  /** "photo" = 2-col gallery cards, "list" = condensed rows (matches peer surfaces). */
   gridDisplayStyle?: "photo" | "list";
   /** Called when seed type chips (Vegetable, Herb, Flower, etc. with counts) are computed, for Refine By panel. */
   onSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
@@ -336,8 +281,6 @@ export function SeedVaultView({
   const [error, setError] = useState<string | null>(null);
   const pendingSinceRef = useRef<Map<string, number>>(new Map());
   const [tick, setTick] = useState(0);
-  const [listSortColumn, setListSortColumn] = useState<ListSortColumn | null>("name");
-  const [listSortDir, setListSortDir] = useState<"asc" | "desc">("asc");
   const [plantTypeFilter, setPlantTypeFilter] = useState<string | null>(null);
   const [selectedOwnerFilter, setSelectedOwnerFilter] = useState<string | null>(null);
   const [plantFilterOpen, setPlantFilterOpen] = useState(false);
@@ -346,46 +289,10 @@ export function SeedVaultView({
   const [gridSortBy, setGridSortBy] = useState<GridSortBy>("name");
   const [imageErrorIds, setImageErrorIds] = useState<Set<string>>(new Set());
   const [imageLoadedIds, setImageLoadedIds] = useState<Set<string>>(new Set());
-  const [listColumnOrder, setListColumnOrder] = useState<ListDataColumnId[]>(() => loadListTableState().columnOrder);
-  const [listColumnWidths, setListColumnWidths] = useState<Record<string, number>>(() => loadListTableState().columnWidths);
   const isOnline = useOnlineStatus();
   const { announce } = useAnnouncer();
-  const [draggedColId, setDraggedColId] = useState<string | null>(null);
-  const dragOverColIdRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
-
-  const listColumns = useMemo<ColumnDef<VaultCardItem, unknown>[]>(
-    () =>
-      (DEFAULT_LIST_COLUMN_ORDER as ListDataColumnId[]).map((id) => {
-        const accessorKey =
-          id === "name" ? "name" : id === "variety" ? "variety" : id === "vendor" ? "vendor_display"
-          : id === "sun" ? "sun" : id === "spacing" ? "plant_spacing" : id === "germination" ? "days_to_germination"
-          : id === "maturity" ? "harvest_days" : id === "pkts" ? "packet_count" : id === "rating" ? "best_rating"
-          : id;
-        return {
-          id,
-          accessorKey,
-          size: DEFAULT_LIST_COLUMN_WIDTHS[id],
-          minSize: 60,
-          enableResizing: true,
-          header: () => null,
-        };
-      }),
-    [],
-  );
-
-  const saveStateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (saveStateTimeoutRef.current) clearTimeout(saveStateTimeoutRef.current);
-    saveStateTimeoutRef.current = setTimeout(() => {
-      saveStateTimeoutRef.current = null;
-      saveListTableState(listColumnOrder, listColumnWidths);
-    }, 150);
-    return () => {
-      if (saveStateTimeoutRef.current) clearTimeout(saveStateTimeoutRef.current);
-    };
-  }, [listColumnOrder, listColumnWidths]);
 
   const LONG_PRESS_MS = 500;
   const clearLongPressTimer = useCallback(() => {
@@ -429,30 +336,6 @@ export function SeedVaultView({
 
   const markThumbLoaded = useCallback((seedId: string) => {
     setImageLoadedIds((prev) => (prev.has(seedId) ? prev : new Set(prev).add(seedId)));
-  }, []);
-
-  const handleListSort = (col: ListSortColumn) => {
-    if (listSortColumn !== col) {
-      setListSortColumn(col);
-      setListSortDir("asc");
-    } else if (listSortDir === "asc") {
-      setListSortDir("desc");
-    } else {
-      setListSortColumn(null);
-    }
-  };
-
-  const handleColumnReorder = useCallback((fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    setListColumnOrder((prev) => {
-      const i = prev.indexOf(fromId as ListDataColumnId);
-      const j = prev.indexOf(toId as ListDataColumnId);
-      if (i < 0 || j < 0) return prev;
-      const next = [...prev];
-      next.splice(i, 1);
-      next.splice(j, 0, fromId as ListDataColumnId);
-      return next;
-    });
   }, []);
 
   const q = searchQuery.trim().toLowerCase();
@@ -698,85 +581,6 @@ export function SeedVaultView({
     },
     [sortByProp, sortDirectionProp]
   );
-
-  const sortedListSeeds = useMemo(() => {
-    const list = [...filteredSeeds];
-    if (sortByProp) {
-      list.sort(vaultSortCmp);
-      return list;
-    }
-    if (listSortColumn == null) return list;
-    const cmp = (a: VaultCardItem, b: VaultCardItem): number => {
-      let va: string | number | null | undefined;
-      let vb: string | number | null | undefined;
-      switch (listSortColumn) {
-        case "name":
-          va = a.name?.trim() ?? "";
-          vb = b.name?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "variety":
-          va = a.variety?.trim() ?? "";
-          vb = b.variety?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "vendor":
-          va = a.vendor_display?.trim() ?? "";
-          vb = b.vendor_display?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "sun":
-          va = a.sun?.trim() ?? "";
-          vb = b.sun?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "spacing":
-          va = a.plant_spacing?.trim() ?? "";
-          vb = b.plant_spacing?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "germination":
-          va = a.days_to_germination?.trim() ?? "";
-          vb = b.days_to_germination?.trim() ?? "";
-          return String(va).localeCompare(String(vb), undefined, { sensitivity: "base" });
-        case "maturity":
-          va = a.harvest_days ?? -1;
-          vb = b.harvest_days ?? -1;
-          return (Number(va) - Number(vb));
-        case "pkts":
-          va = a.packet_count ?? 0;
-          vb = b.packet_count ?? 0;
-          return Number(va) - Number(vb);
-        case "rating": {
-          const ra = a.best_rating ?? -1;
-          const rb = b.best_rating ?? -1;
-          return ra - rb;
-        }
-        default:
-          return 0;
-      }
-    };
-    list.sort((a, b) => {
-      const v = cmp(a, b);
-      return listSortDir === "asc" ? v : -v;
-    });
-    return list;
-  }, [filteredSeeds, listSortColumn, listSortDir, sortByProp, vaultSortCmp]);
-
-  const listTable = useReactTable({
-    data: sortedListSeeds,
-    columns: listColumns,
-    state: {
-      columnOrder: listColumnOrder,
-      columnSizing: listColumnWidths as ColumnSizingState,
-    },
-    onColumnOrderChange: (updater) => {
-      setListColumnOrder((prev) => {
-        const next = typeof updater === "function" ? updater(prev) : prev;
-        return next.filter((id): id is ListDataColumnId => DEFAULT_LIST_COLUMN_ORDER.includes(id as ListDataColumnId));
-      });
-    },
-    onColumnSizingChange: (updater) => {
-      setListColumnWidths((prev) => (typeof updater === "function" ? updater(prev) : prev));
-    },
-    getCoreRowModel: getCoreRowModel(),
-    columnResizeMode: "onChange",
-  });
 
   const sortedGridSeeds = useMemo(() => {
     const list = [...filteredSeeds];
@@ -1102,30 +906,21 @@ export function SeedVaultView({
   if (filteredSeeds.length === 0) {
     const hasFilters = !!(q || statusFilter || tagFilters.length > 0 || seedTypeFilters.length > 0);
     if (hasFilters) {
-      const message = mode === "grid"
-        ? "No plant profiles match your search or filters."
-        : "No packets match your search or filters.";
       return (
         <NoMatchCard
-          message={message}
+          message="No plant profiles match your search or filters."
           actionLabel={onClearFilters ? "Clear filters" : undefined}
           onAction={onClearFilters}
         />
       );
     }
-    const emptyVaultTitle = mode === "grid"
-      ? "No plant varieties here yet."
-      : "No packets in your library yet.";
-    const emptyVaultBody = mode === "grid"
-      ? "Add a variety by scanning a packet or typing it in."
-      : "Scan a packet, upload a photo, or add details by hand.";
     return (
       <EmptyStateCard
-        title={emptyVaultTitle}
-        body={emptyVaultBody}
-        actionLabel={onAddFirst ? (mode === "grid" ? "Add a plant" : "Add a packet") : undefined}
+        title="No plant varieties here yet."
+        body="Add a variety by scanning a packet or typing it in."
+        actionLabel={onAddFirst ? "Add a plant" : undefined}
         onAction={onAddFirst}
-        illustration={mode === "grid" ? <EmptyStateSprout /> : <EmptyStateVault />}
+        illustration={<EmptyStateSprout />}
       />
     );
   }
@@ -1158,8 +953,7 @@ export function SeedVaultView({
     </div>
   ) : null;
 
-  if (mode === "grid") {
-    const isPhotoCards = gridDisplayStyle === "photo";
+  const isPhotoCards = gridDisplayStyle === "photo";
     /* Gallery = 3-col grid matching peer surfaces (Packets/Shed/Active Garden/My Plants); list = vertical rows with divider. */
     const containerClass = isPhotoCards
       ? "grid grid-cols-3 gap-2"
@@ -1306,259 +1100,4 @@ export function SeedVaultView({
         </ul>
       </div>
     );
-  }
-
-  function formatGermination(val: string | null | undefined): string {
-    if (!val || !String(val).trim()) return "";
-    const s = String(val).trim();
-    if (/\d+\s*d/i.test(s)) return s.replace(/\s*d\b/i, " d").slice(0, 12);
-    return s.slice(0, 12);
-  }
-
-  function formatMaturity(days: number | null | undefined): string {
-    if (days == null || !Number.isFinite(days)) return "";
-    return `${days} d`;
-  }
-
-  const renderHeader = (colId: ListDataColumnId, header?: Header<VaultCardItem, unknown>) => {
-    const w = header ? header.getSize() : (listColumnWidths[colId] ?? DEFAULT_LIST_COLUMN_WIDTHS[colId]);
-    const isDragging = draggedColId === colId;
-    const label =
-      colId === "name" ? "Plant Type" : colId === "variety" ? "Variety" : colId === "vendor" ? "Vendor" : colId === "sun" ? "Sun" : colId === "spacing" ? "Spacing" : colId === "germination" ? "Germination" : colId === "maturity" ? "Maturity" : colId === "pkts" ? "Pkts" : "Rating";
-    const content =
-      colId === "name" ? (
-        <div className="relative flex items-center gap-1" ref={plantFilterRef}>
-          <button type="button" onClick={() => handleListSort("name")} className="inline-flex items-center hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
-            Plant Type
-            <SortArrowIcon dir={listSortColumn === "name" ? listSortDir : "off"} />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPlantFilterOpen((o) => {
-                if (!o) setPlantFilterSearch("");
-                return !o;
-              });
-            }}
-            className={`p-0.5 rounded hover:bg-neutral-200 ${plantTypeFilter ? "text-emerald-600" : "text-neutral-400"}`}
-            aria-label="Filter by plant type"
-            aria-expanded={plantFilterOpen}
-          >
-            <ICON_MAP.Search stroke="currentColor" className="w-[14px] h-[14px]" />
-          </button>
-          {plantFilterOpen && (
-            <div className="absolute left-0 top-full mt-1 py-1 min-w-[160px] max-h-[280px] overflow-hidden flex flex-col bg-white border border-neutral-200 rounded-lg shadow-lg z-30">
-              <input type="text" value={plantFilterSearch} onChange={(e) => setPlantFilterSearch(e.target.value)} placeholder="Search categories…" className="mx-2 mb-1 px-2 py-1.5 text-sm border border-neutral-200 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
-              <div className="overflow-y-auto max-h-[200px]">
-                <button type="button" onClick={() => { setPlantTypeFilter(null); setPlantFilterOpen(false); }} className={`block w-full text-left px-3 py-1.5 text-sm ${plantTypeFilter === null ? "bg-emerald/10 font-medium text-emerald-800" : "text-neutral-700 hover:bg-neutral-50"}`}>All</button>
-                {filteredPlantNames.map((name) => (
-                  <button key={name} type="button" onClick={() => { setPlantTypeFilter(name); setPlantFilterOpen(false); }} className={`block w-full text-left px-3 py-1.5 text-sm truncate ${plantTypeFilter === name ? "bg-emerald/10 font-medium text-emerald-800" : "text-neutral-700 hover:bg-neutral-50"}`}>{name}</button>
-                ))}
-                {filteredPlantNames.length === 0 && plantFilterSearch.trim() && <p className="px-3 py-2 text-xs text-neutral-500">No match</p>}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <button type="button" onClick={() => handleListSort(colId)} className="inline-flex items-center hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
-          {label}
-          <SortArrowIcon dir={listSortColumn === colId ? listSortDir : "off"} />
-        </button>
-      );
-    return (
-      <th
-        key={colId}
-        scope="col"
-        style={{ width: w, minWidth: 60 }}
-        className={`text-left py-2.5 px-3 font-medium text-neutral-600 whitespace-nowrap bg-white select-none relative group ${isDragging ? "opacity-50" : ""}`}
-        draggable
-        onDragStart={(e) => { setDraggedColId(colId); e.dataTransfer.setData("text/plain", colId); e.dataTransfer.effectAllowed = "move"; }}
-        onDragEnd={() => { setDraggedColId(null); dragOverColIdRef.current = null; }}
-        onDragOver={(e) => { e.preventDefault(); if (draggedColId && draggedColId !== colId) dragOverColIdRef.current = colId; }}
-        onDrop={(e) => { e.preventDefault(); const from = e.dataTransfer.getData("text/plain"); if (from) handleColumnReorder(from, colId); dragOverColIdRef.current = null; }}
-      >
-        {content}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-emerald-400/50 active:bg-emerald-500 shrink-0"
-          onMouseDown={header?.getResizeHandler()}
-          onTouchStart={header?.getResizeHandler()}
-          title="Drag to resize column"
-        />
-      </th>
-    );
-  };
-
-  const renderCell = (colId: ListDataColumnId, seed: VaultCardItem) => {
-    switch (colId) {
-      case "name":
-        return <td key="name" className="py-2 px-3 align-middle text-neutral-900">{decodeHtmlEntities(seed.name)}</td>;
-      case "variety":
-        return (
-          <td key="variety" className="py-2 px-3 align-middle font-semibold text-neutral-900">
-            <span className="inline-flex items-center gap-1.5 flex-wrap">
-              {decodeHtmlEntities(seed.variety)}
-              {seed.hasF1Packet && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
-            </span>
-          </td>
-        );
-      case "vendor":
-        return <td key="vendor" className="py-2 px-3 align-middle text-neutral-700 truncate" title={seed.vendor_display ?? ""}>{seed.vendor_display?.trim() || "—"}</td>;
-      case "sun":
-        return <td key="sun" className="py-2 px-3 align-middle text-neutral-700">{seed.sun?.trim() || ""}</td>;
-      case "spacing":
-        return <td key="spacing" className="py-2 px-3 align-middle text-neutral-700">{seed.plant_spacing?.trim() || ""}</td>;
-      case "germination":
-        return <td key="germination" className="py-2 px-3 align-middle text-neutral-700">{formatGermination(seed.days_to_germination)}</td>;
-      case "maturity":
-        return <td key="maturity" className="py-2 px-3 align-middle text-neutral-700">{formatMaturity(seed.harvest_days)}</td>;
-      case "pkts":
-        return (
-          <td key="pkts" className="py-2 px-3 align-middle">
-            <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
-          </td>
-        );
-      case "rating":
-        return (
-          <td key="rating" className="py-2 px-3 align-middle">
-            <StarRating value={seed.best_rating} size="sm" />
-          </td>
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="relative z-10 space-y-2">
-      {memberPills}
-      {/* Compact list for small screens (no horizontal scroll) */}
-      <div className="sm:hidden rounded-xl border border-black/10 bg-white overflow-hidden">
-        <ul className="divide-y divide-black/5" role="list">
-          {sortedListSeeds.map((seed) => {
-            const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
-            const { thumbUrl, showResearching } = getThumbState(seed);
-            const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
-            return (
-              <li key={seed.id}>
-                <button
-                  type="button"
-                  onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
-                  className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5 border-2 border-emerald-500" : ""}`}
-                  {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
-                >
-                  {batchSelectMode && (
-                    <span className="shrink-0 flex items-center min-w-[44px] min-h-[44px] justify-center">
-                      <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white ${selectedVarietyIds?.has(seed.id) ? "border-emerald-500" : "border-black/20"}`} aria-hidden>
-                        {selectedVarietyIds?.has(seed.id) ? (
-                          <span className="w-3 h-3 rounded-full bg-emerald-600" />
-                        ) : null}
-                      </span>
-                    </span>
-                  )}
-                  <span className="shrink-0 w-10 h-10 rounded-xl overflow-hidden">
-                    {showResearching ? (
-                      <span className="w-full h-full flex items-center justify-center bg-neutral-200 text-[9px] font-medium text-neutral-500">🔍</span>
-                    ) : (
-                      <PlantImage
-                        imageUrl={thumbUrl}
-                        alt=""
-                        size="sm"
-                        variant="neutral"
-                        onLoad={() => markThumbLoaded(seed.id)}
-                        onError={() => markThumbError(seed.id)}
-                      />
-                    )}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-semibold text-neutral-900 truncate">
-                      {decodeHtmlEntities(seed.name)}
-                      {seed.variety?.trim() && seed.variety.trim() !== "—" && ` (${decodeHtmlEntities(seed.variety)})`}
-                    </span>
-                  </span>
-                  <span className="shrink-0 inline-flex items-center gap-1.5">
-                    <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-800">{seed.packet_count}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      {/* Full table for sm and up */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white">
-      <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: (batchSelectMode ? 40 : 0) + 44 + (listTable.getHeaderGroups()[0]?.headers.reduce((s, h) => s + h.getSize(), 0) ?? 0) }}>
-        <colgroup>
-          {batchSelectMode && <col style={{ width: 40 }} />}
-          <col style={{ width: 44 }} />
-          {listTable.getHeaderGroups()[0]?.headers.map((h) => (
-            <col key={h.id} style={{ width: h.getSize() }} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr className="border-b border-black/10 bg-white shadow-sm sticky top-0 z-20">
-            {batchSelectMode && onToggleVarietySelection && (
-              <th className="text-left py-2.5 px-3 w-10 bg-white" scope="col"><span className="sr-only">Select</span></th>
-            )}
-            <th className="text-left py-2.5 px-3 w-10 bg-white shrink-0" scope="col"><span className="sr-only">Icon</span></th>
-            {listTable.getHeaderGroups()[0]?.headers.map((h) => renderHeader(h.column.id as ListDataColumnId, h))}
-          </tr>
-        </thead>
-        <tbody>
-          {listTable.getRowModel().rows.map((row) => {
-            const seed = row.original;
-            const lp = onLongPressVariety ? getLongPressHandlers(seed.id) : null;
-            return (
-            <tr
-              key={seed.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => batchSelectMode ? onToggleVarietySelection?.(seed.id) : (lp ? lp.handleClick() : goToProfile(seed.id))}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); batchSelectMode ? onToggleVarietySelection?.(seed.id) : goToProfile(seed.id); } }}
-              className={`group border-b border-black/5 hover:bg-gray-50 cursor-pointer transition-colors ${batchSelectMode && selectedVarietyIds?.has(seed.id) ? "bg-emerald/5 ring-2 ring-emerald-500 border-l-4 border-l-emerald-500" : ""}`}
-              {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
-            >
-              {batchSelectMode && (
-                <td className="py-2 px-3">
-                  <span className={`inline-flex w-6 h-6 rounded-full border-2 items-center justify-center bg-white ${selectedVarietyIds?.has(seed.id) ? "border-emerald-500" : "border-black/20"}`} aria-hidden>
-                    {selectedVarietyIds?.has(seed.id) ? (
-                      <span className="w-3 h-3 rounded-full bg-emerald-600" />
-                    ) : null}
-                  </span>
-                </td>
-              )}
-              <td className="py-2 px-3 align-middle shrink-0">
-                {(() => {
-                  const { thumbUrl, showResearching } = getThumbState(seed);
-                  const showSeedling = !thumbUrl || imageErrorIds.has(seed.id);
-                  return showResearching ? (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-200 shrink-0 flex items-center justify-center relative" title="Gemini is researching a photo for this variety">
-                      <div className="absolute inset-0 animate-pulse bg-neutral-200" aria-hidden />
-                      <span className="text-[9px] font-medium text-neutral-500 z-10">🔍</span>
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0">
-                      <PlantImage
-                        imageUrl={thumbUrl}
-                        alt=""
-                        size="sm"
-                        variant="neutral"
-                        onLoad={() => markThumbLoaded(seed.id)}
-                        onError={() => markThumbError(seed.id)}
-                      />
-                    </div>
-                  );
-                })()}
-              </td>
-              {row.getVisibleCells().map((cell) => renderCell(cell.column.id as ListDataColumnId, seed))}
-            </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      </div>
-    </div>
-  );
 }

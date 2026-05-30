@@ -1179,7 +1179,6 @@ function VaultPageInner() {
               </div>
             )}
             <SeedVaultView
-              mode="grid"
               refetchTrigger={refetchTrigger}
               scrollContainerRef={scrollContainerRef}
               searchQuery={searchQuery}
