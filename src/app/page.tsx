@@ -470,7 +470,7 @@ export default function HomePage() {
                 onClick={() => setAddItemModalOpen(true)}
                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
               >
-                Add item
+                Add an Item
               </button>
             </div>
           ) : (
@@ -545,7 +545,7 @@ export default function HomePage() {
                   View full list &rarr;
                 </Link>
                 <button type="button" onClick={() => setAddItemModalOpen(true)} className="text-sm text-emerald-600 font-medium hover:underline">
-                  Add item
+                  Add an Item
                 </button>
               </div>
             </>

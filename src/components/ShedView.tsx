@@ -373,7 +373,7 @@ export function ShedView({
           <EmptyStateCard
             title="Your supplies live here."
             body="Add fertilizers, pesticides, or anything else you use on your plants. We&rsquo;ll track how often and on what."
-            actionLabel="Add a supply"
+            actionLabel="Add a Supply"
             onAction={() => setQuickAddOpen(true)}
             illustration={<ShedSupplyIcon className="w-16 h-16 text-neutral-300" />}
           />

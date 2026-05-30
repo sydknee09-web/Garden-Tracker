@@ -896,7 +896,7 @@ export function SeedVaultView({
       <EmptyStateCard
         title="Your seed library starts here."
         body="Add a packet by scanning, uploading a photo, or typing the details."
-        actionLabel={onAddFirst ? "Add a packet" : undefined}
+        actionLabel={onAddFirst ? "Add a Packet" : undefined}
         onAction={onAddFirst}
         illustration={<EmptyStateVault />}
       />
@@ -918,7 +918,7 @@ export function SeedVaultView({
       <EmptyStateCard
         title="No plant varieties here yet."
         body="Add a variety by scanning a packet or typing it in."
-        actionLabel={onAddFirst ? "Add a plant" : undefined}
+        actionLabel={onAddFirst ? "Add a Plant" : undefined}
         onAction={onAddFirst}
         illustration={<EmptyStateSprout />}
       />

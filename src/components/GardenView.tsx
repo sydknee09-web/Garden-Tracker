@@ -1052,9 +1052,11 @@ export const GardenView = forwardRef<GardenViewHandle, {
       {/* Empty / no-match / planting-not-found / batches */}
       <section>
         {batches.length === 0 ? (
-          // True empty state per VISION §8 em-dash convention
+          // True empty state — 3-part frame per ROADMAP §6 9bad88f canonical
+          // (sentence-case title + period, matching SeedVaultView/ShedView peers).
+          // VISION §8 em-dash convention is for missing-data CELL display, not title decoration.
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-            <p className="text-black/70 font-medium mb-2">— Your garden is empty —</p>
+            <p className="text-black/70 font-medium mb-2">Your garden is empty.</p>
             <p className="text-sm text-black/50 mb-6">Add a plant or set up a group to organize your garden.</p>
             <Link
               href="/vault"
@@ -1077,9 +1079,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
           </div>
         ) : sortedBatches.length === 0 ? (
           groupFilter !== "all" && filteredBySearch.length === 0 && !categoryFilter && !varietyFilter && !sunFilter && !spacingFilter && !germinationFilter && !maturityFilter && tagFilters.length === 0 && !q ? (
-            // Empty group state per VISION §8 em-dash convention
+            // Empty group state — 3-part frame per ROADMAP §6 9bad88f canonical
+            // (sentence-case title + period, matching SeedVaultView/ShedView peers).
             <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-              <p className="text-black/70 font-medium mb-2">— No plants in this group yet —</p>
+              <p className="text-black/70 font-medium mb-2">No plants in this group yet.</p>
               <p className="text-sm text-black/50 mb-6">Add a plant or move existing plants here from Manage Groups.</p>
               <Link
                 href="/vault"

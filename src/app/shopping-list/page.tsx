@@ -187,7 +187,7 @@ export default function ShoppingListPage() {
           <EmptyStateCard
             title="Your shopping list is clear."
             body="Add seeds, supplies, or anything else you want to remember to pick up. Mark items purchased once you have them."
-            actionLabel="Add item"
+            actionLabel="Add an Item"
             onAction={() => setAddItemModalOpen(true)}
             illustration={<EmptyStateCart />}
           />
