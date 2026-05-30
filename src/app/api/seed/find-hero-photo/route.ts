@@ -294,8 +294,10 @@ export async function POST(req: Request) {
 
       console.log(`[hero] Gallery Wikimedia: ${logLabel} → ${wikimediaUrls.length} urls`);
 
-      // If Wikimedia gave us plenty, return a shuffled sample — no Gemini needed
-      if (wikimediaUrls.length >= 4) {
+      // If Wikimedia gave us a deep pool, return a shuffled sample — no Gemini needed.
+      // Threshold = 2× visible (24) so each refresh has shuffle headroom; smaller pools
+      // are returned all-12-each-time which reads as "same photos" to the user (MUST #11).
+      if (wikimediaUrls.length >= GALLERY_VISIBLE_LIMIT * 2) {
         return NextResponse.json({ urls: shuffle(wikimediaUrls).slice(0, GALLERY_VISIBLE_LIMIT) });
       }
 
@@ -346,7 +348,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ urls: [], error: "No images found. Try again." });
       }
       if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "find-hero-photo-gallery" });
-      return NextResponse.json({ urls: combined });
+      // Shuffle the merged wikimedia+gemini pool so each refresh returns a different mix
+      // even when the combined pool is small (MUST #11). Without this, gemini URLs always
+      // appended at the end of the deterministic wikimedia order.
+      return NextResponse.json({ urls: shuffle(combined).slice(0, GALLERY_VISIBLE_LIMIT) });
     }
 
     // -----------------------------------------------------------------------

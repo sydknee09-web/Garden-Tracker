@@ -99,7 +99,10 @@ export function VaultProfilePacketsTab({
                     <span className="truncate">{pkt.vendor_name?.trim() || "—"}</span>
                     {year != null && <span className="text-neutral-500 text-sm shrink-0">{year}</span>}
                   </button>
-                  <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* MUST #12: lock width to fit the interactive (button-padded) star row so
+                      the title's `flex-1 min-w-0` zone stays identical between collapsed +
+                      expanded states. 5 × min-h-[28px] + 4 × gap-0.5 ≈ 148px. */}
+                  <div className="shrink-0 flex justify-end min-w-[148px]" onClick={(e) => e.stopPropagation()}>
                     <StarRating
                       value={pkt.packet_rating ?? null}
                       interactive={canEdit && open}
