@@ -57,7 +57,7 @@ export function VaultProfilePacketsTab({
               onClick={() => setAddPlantManualOpen(true)}
               className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium text-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:ring-offset-2"
             >
-              Add a packet
+              Add a Packet
             </button>
           </>
         )}
@@ -255,7 +255,7 @@ export function VaultProfilePacketsTab({
             onClick={() => setAddPlantManualOpen(true)}
             className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            + Add another packet
+            + Add Another Packet
           </button>
         </div>
       )}

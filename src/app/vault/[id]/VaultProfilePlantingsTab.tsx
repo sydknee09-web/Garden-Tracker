@@ -9,7 +9,6 @@ export interface VaultProfilePlantingsTabProps {
   profileOwnerId: string;
   growInstances: GrowInstance[];
   isPermanent: boolean;
-  nonEmptyPacketsCount: number;
   canEditPage: (userId: string, permission: PageKey) => boolean;
   onPlantAgain: () => void;
   onEditGrow: (gi: GrowInstance) => void;
@@ -23,7 +22,6 @@ export function VaultProfilePlantingsTab({
   profileOwnerId,
   growInstances,
   isPermanent,
-  nonEmptyPacketsCount,
   canEditPage,
   onPlantAgain,
   onEditGrow,
@@ -54,7 +52,7 @@ export function VaultProfilePlantingsTab({
         <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
           <p className="text-neutral-500 text-sm">{isPermanent ? "No plants of this variety yet." : "Not planted yet."}</p>
           <p className="text-neutral-400 text-xs mt-1 mb-4">
-            {isPermanent ? "Add a planting to track when and where you put it in." : nonEmptyPacketsCount === 0 ? "Add a seed packet first, then start a planting from it." : "Start a planting from one of your packets to begin tracking."}
+            {isPermanent ? "Add a planting to track when and where you put it in." : "Add a planting to start tracking — link a seed packet if you have one."}
           </p>
           <button
             type="button"
@@ -63,7 +61,7 @@ export function VaultProfilePlantingsTab({
             aria-label="Add a planting"
           >
             <ICON_MAP.Add className="w-4 h-4" />
-            Add a planting
+            Add a Planting
           </button>
         </div>
       ) : (

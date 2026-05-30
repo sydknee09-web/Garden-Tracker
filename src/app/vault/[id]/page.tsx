@@ -658,15 +658,13 @@ export default function VaultSeedPage() {
 
   // Swipe to prev/next profile (mobile); only when no modal is open
   const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget || !!growViewId;
-  const nonEmptyPackets = useMemo(() => packets.filter((p) => (p.qty_status ?? 0) > 0 && !p.is_archived), [packets]);
 
+  // VISION §8 "Profile-tab contextual add actions" (locked 2026-05-30): Plants tab
+  // "Add Plant" always opens AddPlantModal pre-filled for this profile. AddPlantModal
+  // handles zero-packet seasonal mode via inline +Add packet (Sprint 4 MUST #5).
   const handlePlantAgain = useCallback(() => {
-    if (nonEmptyPackets.length === 0) {
-      setAddPlantManualOpen(true);
-      return;
-    }
     setPlantAgainAddPlantOpen(true);
-  }, [nonEmptyPackets.length]);
+  }, []);
   const handleSwipeStart = useCallback((e: React.TouchEvent) => {
     swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
   }, []);
@@ -1400,7 +1398,6 @@ export default function VaultSeedPage() {
             profileOwnerId={profileOwnerId}
             growInstances={growInstances}
             isPermanent={isPermanent}
-            nonEmptyPacketsCount={nonEmptyPackets.length}
             canEditPage={canEditPage}
             onPlantAgain={handlePlantAgain}
             onEditGrow={handleEditGrowOpen}

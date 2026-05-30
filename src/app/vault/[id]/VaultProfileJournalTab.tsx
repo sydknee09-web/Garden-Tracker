@@ -51,7 +51,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
               aria-label="Add journal entry"
             >
               <ICON_MAP.Journal className="w-4 h-4" />
-              Add journal
+              Add Journal
             </button>
           </div>
         )}
@@ -67,7 +67,7 @@ export const VaultProfileJournalTab = forwardRef<HTMLDivElement, VaultProfileJou
                 aria-label="Add journal entry"
               >
                 <ICON_MAP.Journal className="w-4 h-4" />
-                Add a journal entry
+                Add a Journal Entry
               </button>
             )}
           </div>

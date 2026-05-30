@@ -477,6 +477,28 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own surface taxonomy; this convention does NOT apply there.
 
+### Profile-tab contextual add actions
+
+**Locked 2026-05-30.** On a plant profile page ([vault/[id]](src/app/vault/[id]/page.tsx)), each tab's primary "Add X" CTA creates an entity of that tab's thing-type, pre-filled with the current profile as context. The handler is always the canonical create-X flow with the profile pre-selected — never a different create-Y flow even when current state suggests Y is a prerequisite. Prerequisite guardrails (e.g. "you need a packet first") live INSIDE the create-X flow, never in the entry handler.
+
+**The rule (one branch per tab):**
+
+- **Packets tab** → "Add packet" / "+ Add another packet" → [`AddPlantManualModal`](src/components/AddPlantManualModal.tsx) w/ `profileId` + `profileOwnerId`. Inserts into `seed_packets` with `plant_profile_id` pre-set.
+- **Plantings tab** ("Plants") → "Add Plant" / "Add a planting" → [`AddPlantModal`](src/components/AddPlantModal.tsx) w/ `profileId` + `profileDisplayName` + `defaultPlantType` (`'permanent' | 'seasonal'`). `addToExistingProfile=true` forces `mode="existing"` + skips From-Library picker, landing the user directly on planting details (date / location / photo / quantity / packet-select-if-any). Zero-packet seasonal mode handled via inline `+ Add packet` affordance inside the same modal (Sprint 4 MUST #5 ship).
+- **Journal tab** → "Add journal" / "Add a journal entry" → [`QuickLogModal`](src/components/QuickLogModal.tsx) w/ `preSelectedProfileId`.
+- **Care tab** → no top-level "Add X" CTA. Add affordances live inside [`CareScheduleManager`](src/components/CareScheduleManager.tsx) per the Phase C internal-manager lock (Sprint 2-3).
+- **About tab** → no add action. Read-only profile content.
+
+**Decision criterion at audit time (one question):** *Does this tab's "Add X" handler open the canonical create-X flow with profile pre-filled, or does it route through a different create-Y flow because of current state? If the latter — wrong handler. Fix it.*
+
+**Future tabs apply the same rule.** Adding a new profile tab (Care tab top-level affordance once it gets one, or any future tab)? The tab's add-action creates the tab's thing-type with profile pre-filled. Don't bounce through a sibling tab's flow.
+
+**Persona walk.** All 5 personas pass. Maya (power user with many packets) gets the same `AddPlantModal` flow she's used to from other surfaces. Sydney (cohesion-driver + the reporter) sees the bug she flagged close — "Add Plant" no longer opens the seed-packet form. Walter (iPad-primary, plain-language) sees one modal per action — no surprising routings between create-X and create-Y forms. Aria (houseplant urban, `isPermanent=true` profiles) opens `AddPlantModal` in permanent mode — no packet UI surfaces. Sam (first-time, profile with zero packets) opens `AddPlantModal` seasonal, sees the inline `+ Add packet` affordance and graceful path forward — no dead end, no relabeled-form confusion.
+
+**Why this rule exists.** Sprint 5 MUST #9 (locked 2026-05-30, [gt_v1_scope §2.1 row #9](.claude/plans/gt_v1_scope.md)): Plants tab "Add Plant" routed to the `AddPlantManualModal` ("Add Seed Packet" form) when zero non-empty packets existed — violating the rule. Branch A of `handlePlantAgain` dropped; modal selection now flows through the one canonical handler. Codifies the existing pattern that Packets / Journal / Plantings-with-packets tabs already followed; the unique violator was the zero-packet short-circuit on Plantings. Pattern lock means future profile tabs inherit the rule instead of re-deriving it.
+
+**GT-only.** Voyager has its own profile taxonomy; this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 
