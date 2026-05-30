@@ -128,7 +128,8 @@ describe("Calendar deep-link routing (C4)", () => {
   const CAL_SRC = readFileSync(join(__dirname, "..", "app", "calendar", "page.tsx"), "utf8");
 
   it("routes instance-scoped care tasks (grow_instance_id set) to /garden Care tab", () => {
-    expect(CAL_SRC).toMatch(/\/garden\?tab=active&grow=\$\{gid\}&instanceTab=care&schedule=\$\{sid\}/);
+    // B2 2026-05-29: /garden?tab=active|plants is gone; canonical instance deep-link is ?grow=<id>.
+    expect(CAL_SRC).toMatch(/\/garden\?grow=\$\{gid\}&instanceTab=care&schedule=\$\{sid\}/);
   });
 
   it("preserves /vault Care-tab routing fallback when no grow_instance_id", () => {

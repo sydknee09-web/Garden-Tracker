@@ -29,7 +29,7 @@ function parseNameVariety(text: string): { name: string; variety_name: string | 
 export interface PlantingFormProps {
   /** Pre-selected profile ids — from URL ?ids= in page mode, empty in modal-from-FAB mode (user picks via Add Seed). */
   profileIds: string[];
-  /** When true, post-save redirect goes to /garden?tab=active (page mode); ignored in modal mode. */
+  /** When true, post-save redirect goes to /garden (page mode); ignored in modal mode. */
   fromGarden: boolean;
   /**
    * "page": fixed bottom-bar (z-100, viewport pinned), hard-navigation redirect on save.
@@ -445,7 +445,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
       setError(null);
       setShowSeedlingCelebration(true);
       if (mode === "page") {
-        const redirectUrl = fromGarden ? "/garden?tab=active" : "/vault";
+        const redirectUrl = fromGarden ? "/garden" : "/vault";
         setTimeout(() => {
           setShowSeedlingCelebration(false);
           // Hard navigation for reliable post-submit redirect (avoids PWA/client-router quirks)

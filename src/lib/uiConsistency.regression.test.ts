@@ -39,7 +39,10 @@ describe("Tab wrapper consistency — no justify-center floating island", () => 
   });
 
   it("Garden tab wrapper uses left-aligned flex mb-3 to match Vault", () => {
-    expect(gardenPage).toContain("flex mb-3");
+    // B2 2026-05-29: the Garden tab-row primitive moved into the GroupTabs component.
+    // Check it there — same shape, just in a peer file.
+    const groupTabs = readFileSync(join(process.cwd(), "src/components/GroupTabs.tsx"), "utf-8");
+    expect(groupTabs).toContain("flex mb-3");
   });
 
   it("Calendar page does not use justify-center on a tab wrapper", () => {

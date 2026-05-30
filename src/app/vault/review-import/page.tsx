@@ -1143,7 +1143,7 @@ export default function ReviewImportPage() {
     const t = setTimeout(() => {
       clearReviewImportData();
       const goToGarden = addPlantMode || defaultProfileType === "permanent";
-      router.replace(goToGarden ? "/garden?tab=plants" : "/vault?status=vault&added=1");
+      router.replace(goToGarden ? "/garden" : "/vault?status=vault&added=1");
     }, 1500);
     saveSuccessTimeoutRef.current = t;
   }, [user?.id, items, router, defaultProfileType, addPlantMode, onboardingCtx]);

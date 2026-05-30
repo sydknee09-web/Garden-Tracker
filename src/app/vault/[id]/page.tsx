@@ -705,7 +705,7 @@ export default function VaultSeedPage() {
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
-  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href={searchParams.get("gardenTab") === "active" ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
+  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   const careList = [
     { label: "Sowing Method", value: displaySowing || "—" },
@@ -1076,15 +1076,9 @@ export default function VaultSeedPage() {
         )}
         {/* N1: fromParam always wins — back destination reflects where user came from, never the active tab. Label is always "Back" (iOS-standard); HREF carries the source-aware destination. */}
         {fromParam === "garden" ? (
-          (() => {
-            const gardenTab = searchParams.get("gardenTab");
-            const isActive = gardenTab === "active";
-            return (
-              <Link href={isActive ? "/garden?tab=active" : "/garden?tab=plants"} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
-                &larr; Back
-              </Link>
-            );
-          })()
+          <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
+            &larr; Back
+          </Link>
         ) : fromParam === "calendar" ? (
           (() => {
             const dateParam = searchParams.get("date");

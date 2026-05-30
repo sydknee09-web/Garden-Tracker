@@ -19,7 +19,7 @@ function VaultPlantPageInner() {
   return (
     <div className="px-6 pt-8 pb-40 max-w-2xl mx-auto">
       <Link
-        href={fromGarden ? "/garden?tab=active" : "/vault"}
+        href={fromGarden ? "/garden" : "/vault"}
         className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4 min-h-[44px]"
       >
         ← Back

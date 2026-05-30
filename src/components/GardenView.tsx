@@ -7,7 +7,6 @@ import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
@@ -16,11 +15,13 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
-import type { WeatherSnapshotData } from "@/types/garden";
+import { fetchAllUserGrowInstances } from "@/lib/groups";
+import type { WeatherSnapshotData, Group } from "@/types/garden";
+import type { SelectedGroup } from "@/components/GroupTabs";
 
 const LONG_PRESS_MS = 500;
 
-/** Law 7: hero_image_url → hero_image_path → primary_image_path → sprout fallback */
+/** Law 7: hero_image_url → hero_image_path → primary_image_path → placeholder fallback */
 function getBatchImageUrl(batch: { hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }): string | null {
   const url = (batch.hero_image_url ?? "").trim();
   if (url && url.startsWith("http")) {
@@ -32,23 +33,39 @@ function getBatchImageUrl(batch: { hero_image_url?: string | null; hero_image_pa
   return null;
 }
 
-type PendingItem = {
-  id: string;
-  plant_profile_id: string | null;
-  due_date: string;
-  title: string;
-};
+function formatPlantedAgo(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const years = Math.floor((now.getTime() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  if (years < 1) {
+    const months = Math.floor((now.getTime() - d.getTime()) / (30.44 * 24 * 60 * 60 * 1000));
+    if (months < 1) return "Planted this month";
+    return `Planted ${months} month${months !== 1 ? "s" : ""} ago`;
+  }
+  return `Planted ${years} year${years !== 1 ? "s" : ""} ago`;
+}
 
-type GrowingBatch = {
+/**
+ * Unified Garden batch — one grow_instance + its enrichment + groups.
+ * Replaces the prior dual GrowingBatch (Active Garden) + PermanentPlanting (My Plants) types.
+ *
+ * is_permanent_planting drives render branches: Perennial pill + planted-ago format for perennials;
+ * planting method badge + harvest progress for annuals.
+ */
+type GardenBatch = {
   id: string;
   plant_profile_id: string;
   sown_date: string;
   expected_harvest_date: string | null;
   status: string | null;
+  is_permanent_planting: boolean;
   profile_name: string;
   profile_variety_name: string | null;
   weather_snapshot: WeatherSnapshotData;
   harvest_count: number;
+  care_count: number;
   planting_method_badge: string | null;
   location?: string | null;
   sun?: string | null;
@@ -64,24 +81,26 @@ type GrowingBatch = {
   hero_image_url?: string | null;
   hero_image_path?: string | null;
   primary_image_path?: string | null;
+  groups: Group[];
 };
 
-export type ActiveGardenViewHandle = {
+export type GardenViewHandle = {
   exitBulkMode: () => void;
   enterBulkMode: () => void;
   openBulkDeleteConfirm: () => void;
   openBulkEndBatchConfirm: () => void;
   moveSelectedToPermanentPlants: () => Promise<void>;
+  moveSelectedToGrowingGarden: () => Promise<void>;
 };
 
-export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
+export const GardenView = forwardRef<GardenViewHandle, {
   refetchTrigger: number;
   /** When set, scroll to this grow instance and clear the URL param. Used when navigating from plant profile. */
   highlightGrowId?: string | null;
   searchQuery?: string;
-  onLogGrowth: (batch: GrowingBatch) => void;
-  onLogHarvest: (batch: GrowingBatch) => void;
-  onEndCrop: (batch: GrowingBatch) => void;
+  /** "all" or a group UUID — client-side filter via instance.groups[] membership. */
+  groupFilter: SelectedGroup;
+  onLogHarvest: (batch: GardenBatch) => void;
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
   varietyFilter?: string | null;
@@ -125,9 +144,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   refetchTrigger,
   highlightGrowId = null,
   searchQuery = "",
-  onLogGrowth,
+  groupFilter,
   onLogHarvest,
-  onEndCrop,
   categoryFilter = null,
   onCategoryChipsLoaded,
   varietyFilter = null,
@@ -148,38 +166,33 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   openBulkLogRequest = false,
   onBulkLogRequestHandled,
   onBulkModeChange,
-  displayStyle = "list",
+  displayStyle = "grid",
   sortBy = "sown_date",
   sortDir = "desc",
   onSaveMessage,
 }, ref) => {
   const { user } = useAuth();
-  const { viewMode, getShorthandForUser, canEditPage } = useHousehold();
-  const onboardingCtx = useOnboardingContextOptional();
-  const isNewUser = onboardingCtx && !onboardingCtx.completed;
+  const { viewMode: householdViewMode, getShorthandForUser, canEditPage } = useHousehold();
   const highlightBatchRef = useRef<HTMLElement | null>(null);
-  const [pending, setPending] = useState<PendingItem[]>([]);
-  const [growing, setGrowing] = useState<GrowingBatch[]>([]);
+  const [batches, setBatches] = useState<GardenBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Bulk select state
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
-  const [bulkNote, setBulkNote] = useState("");
-  const [bulkSaving, setBulkSaving] = useState(false);
 
   // Quick-tap toast
   const [quickToast, setQuickToast] = useState<string | null>(null);
 
   // End batch modal
-  const [endBatchTarget, setEndBatchTarget] = useState<GrowingBatch | null>(null);
+  const [endBatchTarget, setEndBatchTarget] = useState<GardenBatch | null>(null);
   const [endReason, setEndReason] = useState<string>("season_ended");
   const [endNote, setEndNote] = useState("");
   const [endSaving, setEndSaving] = useState(false);
 
   // Delete batch confirmation
-  const [deleteBatchTarget, setDeleteBatchTarget] = useState<GrowingBatch | null>(null);
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<GardenBatch | null>(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
 
   // Bulk delete confirmation
@@ -214,7 +227,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
   const formatBatchDisplayName = (name: string, variety: string | null) => (variety?.trim() ? `${name} (${variety})` : name);
 
-  const toBatchLogBatch = (b: GrowingBatch): BatchLogBatch => ({
+  const toBatchLogBatch = (b: GardenBatch): BatchLogBatch => ({
     id: b.id,
     plant_profile_id: b.plant_profile_id,
     profile_name: b.profile_name,
@@ -226,8 +239,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     user_id: b.user_id ?? null,
   });
 
-  // Scroll to highlighted batch when navigating from plant profile (e.g. /garden?tab=active&grow=xxx)
-  // Keep grow param in URL so user sees "Viewing" chip and can cancel; do not auto-clear
+  // Scroll to highlighted batch when navigating from plant profile (e.g. /garden?grow=xxx)
   useEffect(() => {
     if (!highlightGrowId || !highlightBatchRef.current) return;
     const el = highlightBatchRef.current;
@@ -241,99 +253,176 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     }
     setLoadError(null);
     setLoading(true);
-    const today = new Date().toISOString().slice(0, 10);
-
-    const isFamilyView = viewMode === "family";
+    const isFamilyView = householdViewMode === "family";
 
     try {
-    let pendingQuery = supabase
-      .from("tasks")
-      .select("id, plant_profile_id, due_date, title")
-      .is("deleted_at", null)
-      .eq("category", "sow")
-      .is("completed_at", null)
-      .gte("due_date", today)
-      .order("due_date", { ascending: true })
-      .limit(50);
-    if (!isFamilyView) pendingQuery = pendingQuery.eq("user_id", user.id);
-    const { data: taskRows } = await pendingQuery;
-    setPending((taskRows ?? []) as PendingItem[]);
-
-    let growQuery = supabase
-      .from("grow_instances")
-      .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting")
-      .is("deleted_at", null)
-      .eq("status", "growing")
-      .or("is_permanent_planting.is.null,is_permanent_planting.eq.false")
-      .order("sown_date", { ascending: false })
-      .limit(100);
-    if (!isFamilyView) growQuery = growQuery.eq("user_id", user.id);
-    const { data: growRows } = await growQuery;
-
-    if (!growRows?.length) { setGrowing([]); return; }
-
-    const profileIds = Array.from(new Set((growRows as { plant_profile_id: string }[]).map((r) => r.plant_profile_id).filter(Boolean)));
-    const { data: profiles } = await supabase.from("plant_profiles").select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path, profile_type").in("id", profileIds);
-    const profileMap = new Map((profiles ?? []).map((p: { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null; profile_type?: string | null }) => [p.id, p]));
-
-    const growIds = (growRows as { id: string }[]).map((r) => r.id);
-    const [weatherRes, harvestRes] = await Promise.all([
-      supabase.from("journal_entries").select("grow_instance_id, weather_snapshot, note").in("grow_instance_id", growIds).like("note", "Planted%").order("created_at", { ascending: true }),
-      supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).eq("entry_type", "harvest"),
-    ]);
-
-    const weatherByGrow = new Map<string, WeatherSnapshotData>();
-    const plantingNoteByGrow = new Map<string, string>();
-    (weatherRes.data ?? []).forEach((j: { grow_instance_id: string; weather_snapshot: WeatherSnapshotData; note?: string }) => {
-      if (j.grow_instance_id && !weatherByGrow.has(j.grow_instance_id)) {
-        weatherByGrow.set(j.grow_instance_id, j.weather_snapshot ?? null);
-        if (j.note?.trim()) plantingNoteByGrow.set(j.grow_instance_id, j.note.trim());
-      }
-    });
-    const badgeFromNote = (note: string | undefined): string | null => {
-      if (!note) return null;
-      const hasDirect = /direct\s*sow|direct\s*&|direct\s*and/i.test(note);
-      const hasGreenhouse = /greenhouse/i.test(note);
-      if (hasDirect && hasGreenhouse) return "Direct & Greenhouse";
-      if (hasGreenhouse) return "Greenhouse";
-      if (hasDirect) return "Direct";
-      return null;
-    };
-    const harvestCountByGrow = new Map<string, number>();
-    (harvestRes.data ?? []).forEach((h: { grow_instance_id: string | null }) => {
-      if (h.grow_instance_id) harvestCountByGrow.set(h.grow_instance_id, (harvestCountByGrow.get(h.grow_instance_id) ?? 0) + 1);
-    });
-
-    const batches: GrowingBatch[] = (growRows as { id: string; plant_profile_id: string; sown_date: string; expected_harvest_date: string | null; status: string | null; location?: string | null; user_id?: string | null; sow_method?: "direct_sow" | "seed_start" | null; seeds_sown?: number | null; seeds_sprouted?: number | null; plant_count?: number | null }[])
-      .filter((r) => !!profileMap.get(r.plant_profile_id))
-      .map((r) => {
-        const p = profileMap.get(r.plant_profile_id);
-        const note = plantingNoteByGrow.get(r.id);
-        const sowBadge = r.sow_method === "direct_sow" ? "Direct sow" : r.sow_method === "seed_start" ? "Seed start" : badgeFromNote(note);
-        return {
-          id: r.id, plant_profile_id: r.plant_profile_id, sown_date: r.sown_date,
-          expected_harvest_date: r.expected_harvest_date, status: r.status,
-          profile_name: p?.name ?? "Unknown", profile_variety_name: p?.variety_name ?? null,
-          weather_snapshot: weatherByGrow.get(r.id) ?? null, harvest_count: harvestCountByGrow.get(r.id) ?? 0,
-          planting_method_badge: sowBadge, location: r.location,
-          sun: p?.sun ?? null, plant_spacing: p?.plant_spacing ?? null,
-          days_to_germination: p?.days_to_germination ?? null, harvest_days: p?.harvest_days ?? null,
-          tags: p?.tags ?? null, user_id: r.user_id ?? null,
-          sow_method: r.sow_method ?? null, seeds_sown: r.seeds_sown ?? null, seeds_sprouted: r.seeds_sprouted ?? null, plant_count: r.plant_count ?? null,
-          hero_image_url: p?.hero_image_url ?? null, hero_image_path: p?.hero_image_path ?? null, primary_image_path: p?.primary_image_path ?? null,
+      // 1. Fetch all grow_instances with groups joined (B1 helper for per-user; custom query for family).
+      let rawGrows: Array<{
+        id: string;
+        plant_profile_id: string;
+        sown_date: string;
+        expected_harvest_date: string | null;
+        status: string | null;
+        location?: string | null;
+        user_id?: string | null;
+        sow_method?: "direct_sow" | "seed_start" | null;
+        seeds_sown?: number | null;
+        seeds_sprouted?: number | null;
+        plant_count?: number | null;
+        is_permanent_planting?: boolean | null;
+        groups?: Group[];
+      }> = [];
+      if (isFamilyView) {
+        const { data, error } = await supabase
+          .from("grow_instances")
+          .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting, plant_groups(groups(id, user_id, name, position, created_at, updated_at, deleted_at))")
+          .is("deleted_at", null)
+          .order("sown_date", { ascending: false });
+        if (error) {
+          setLoadError(error.message);
+          return;
+        }
+        type RawWithJoin = {
+          id: string;
+          plant_profile_id: string;
+          sown_date: string;
+          expected_harvest_date: string | null;
+          status: string | null;
+          location?: string | null;
+          user_id?: string | null;
+          sow_method?: "direct_sow" | "seed_start" | null;
+          seeds_sown?: number | null;
+          seeds_sprouted?: number | null;
+          plant_count?: number | null;
+          is_permanent_planting?: boolean | null;
+          plant_groups?: Array<{ groups: Group | null }> | null;
         };
+        rawGrows = ((data ?? []) as unknown as RawWithJoin[]).map((row) => {
+          const { plant_groups, ...rest } = row;
+          const groups = (plant_groups ?? [])
+            .map((pg) => pg.groups)
+            .filter((g): g is Group => g !== null && g.deleted_at == null);
+          return { ...rest, groups };
+        });
+      } else {
+        const instances = await fetchAllUserGrowInstances(supabase, user.id);
+        rawGrows = instances.map((i) => ({
+          id: i.id,
+          plant_profile_id: i.plant_profile_id ?? "",
+          sown_date: i.sown_date,
+          expected_harvest_date: i.expected_harvest_date,
+          status: i.status ?? null,
+          location: i.location ?? null,
+          user_id: i.user_id ?? null,
+          sow_method: i.sow_method ?? null,
+          seeds_sown: i.seeds_sown ?? null,
+          seeds_sprouted: i.seeds_sprouted ?? null,
+          plant_count: i.plant_count ?? null,
+          is_permanent_planting: i.is_permanent_planting ?? false,
+          groups: i.groups ?? [],
+        }));
+      }
+
+      // Carry-forward filter: only show currently-growing instances (status='growing' OR null/unknown).
+      // Archived/dead instances live in Settings → Archived Plantings, not on Garden tab.
+      const activeGrows = rawGrows.filter((r) => r.status === "growing" || r.status == null);
+
+      if (activeGrows.length === 0) {
+        setBatches([]);
+        return;
+      }
+
+      // 2. plant_profiles for display + filter chips.
+      const profileIds = Array.from(new Set(activeGrows.map((r) => r.plant_profile_id).filter(Boolean)));
+      const { data: profiles } = await supabase
+        .from("plant_profiles")
+        .select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path")
+        .in("id", profileIds);
+      type ProfileShape = { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null };
+      const profileMap = new Map<string, ProfileShape>((profiles ?? []).map((p: ProfileShape) => [p.id, p]));
+
+      // 3. Parallel enrichment: weather snapshots + harvest counts + care counts.
+      const growIds = activeGrows.map((r) => r.id);
+      const [weatherRes, harvestRes, careRes] = await Promise.all([
+        supabase.from("journal_entries").select("grow_instance_id, weather_snapshot, note").in("grow_instance_id", growIds).like("note", "Planted%").order("created_at", { ascending: true }),
+        supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).eq("entry_type", "harvest").is("deleted_at", null),
+        supabase.from("care_schedules").select("grow_instance_id").in("grow_instance_id", growIds).eq("is_active", true),
+      ]);
+
+      const weatherByGrow = new Map<string, WeatherSnapshotData>();
+      const plantingNoteByGrow = new Map<string, string>();
+      (weatherRes.data ?? []).forEach((j: { grow_instance_id: string; weather_snapshot: WeatherSnapshotData; note?: string }) => {
+        if (j.grow_instance_id && !weatherByGrow.has(j.grow_instance_id)) {
+          weatherByGrow.set(j.grow_instance_id, j.weather_snapshot ?? null);
+          if (j.note?.trim()) plantingNoteByGrow.set(j.grow_instance_id, j.note.trim());
+        }
       });
-    setGrowing(batches);
+      const badgeFromNote = (note: string | undefined): string | null => {
+        if (!note) return null;
+        const hasDirect = /direct\s*sow|direct\s*&|direct\s*and/i.test(note);
+        const hasGreenhouse = /greenhouse/i.test(note);
+        if (hasDirect && hasGreenhouse) return "Direct & Greenhouse";
+        if (hasGreenhouse) return "Greenhouse";
+        if (hasDirect) return "Direct";
+        return null;
+      };
+      const harvestCountByGrow = new Map<string, number>();
+      (harvestRes.data ?? []).forEach((h: { grow_instance_id: string | null }) => {
+        if (h.grow_instance_id) harvestCountByGrow.set(h.grow_instance_id, (harvestCountByGrow.get(h.grow_instance_id) ?? 0) + 1);
+      });
+      const careCountByGrow = new Map<string, number>();
+      (careRes.data ?? []).forEach((c: { grow_instance_id: string | null }) => {
+        if (c.grow_instance_id) careCountByGrow.set(c.grow_instance_id, (careCountByGrow.get(c.grow_instance_id) ?? 0) + 1);
+      });
+
+      // 4. Compose enriched batches.
+      const enriched: GardenBatch[] = activeGrows
+        .filter((r) => !!profileMap.get(r.plant_profile_id))
+        .map((r) => {
+          const p = profileMap.get(r.plant_profile_id);
+          const note = plantingNoteByGrow.get(r.id);
+          const sowBadge = r.sow_method === "direct_sow" ? "Direct sow" : r.sow_method === "seed_start" ? "Seed start" : badgeFromNote(note);
+          return {
+            id: r.id,
+            plant_profile_id: r.plant_profile_id,
+            sown_date: r.sown_date,
+            expected_harvest_date: r.expected_harvest_date,
+            status: r.status,
+            is_permanent_planting: r.is_permanent_planting === true,
+            profile_name: p?.name ?? "Unknown",
+            profile_variety_name: p?.variety_name ?? null,
+            weather_snapshot: weatherByGrow.get(r.id) ?? null,
+            harvest_count: harvestCountByGrow.get(r.id) ?? 0,
+            care_count: careCountByGrow.get(r.id) ?? 0,
+            planting_method_badge: sowBadge,
+            location: r.location,
+            sun: p?.sun ?? null,
+            plant_spacing: p?.plant_spacing ?? null,
+            days_to_germination: p?.days_to_germination ?? null,
+            harvest_days: p?.harvest_days ?? null,
+            tags: p?.tags ?? null,
+            user_id: r.user_id ?? null,
+            sow_method: r.sow_method ?? null,
+            seeds_sown: r.seeds_sown ?? null,
+            seeds_sprouted: r.seeds_sprouted ?? null,
+            plant_count: r.plant_count ?? null,
+            hero_image_url: p?.hero_image_url ?? null,
+            hero_image_path: p?.hero_image_path ?? null,
+            primary_image_path: p?.primary_image_path ?? null,
+            groups: r.groups ?? [],
+          };
+        });
+      setBatches(enriched);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-    setLoading(false);
+      setLoading(false);
     }
-  }, [user?.id, viewMode]);
+  }, [user?.id, householdViewMode]);
 
   useEffect(() => { load(); }, [load, refetchTrigger]);
 
-  // Escape hatch: if loading for >10s, show error so user can switch tabs
+  // Escape hatch: if loading for >10s, surface error so user can recover
   useEffect(() => {
     if (!loading) return;
     const t = setTimeout(() => {
@@ -352,14 +441,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
   const categoryChips = useMemo(() => {
     const map = new Map<string, number>();
-    for (const b of growing) {
+    for (const b of batches) {
       const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
       map.set(first, (map.get(first) ?? 0) + 1);
     }
     return Array.from(map.entries())
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
-  }, [growing]);
+  }, [batches]);
 
   const refineChips = useMemo(() => {
     const varietyMap = new Map<string, number>();
@@ -368,7 +457,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     const germinationMap = new Map<string, number>();
     const maturityMap = new Map<string, number>();
     const tagSet = new Set<string>();
-    for (const b of growing) {
+    for (const b of batches) {
       const v = (b.profile_variety_name ?? "").trim() || "—";
       varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
       const sun = (b.sun ?? "").trim();
@@ -389,10 +478,15 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
       tags: Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
     };
-  }, [growing]);
+  }, [batches]);
 
-  const filteredGrowing = useMemo(() => {
-    return growing.filter((b) => {
+  const filteredByGroup = useMemo(() => {
+    if (groupFilter === "all") return batches;
+    return batches.filter((b) => b.groups.some((g) => g.id === groupFilter));
+  }, [batches, groupFilter]);
+
+  const filteredByRefine = useMemo(() => {
+    return filteredByGroup.filter((b) => {
       if (categoryFilter) {
         const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
@@ -422,26 +516,26 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       }
       return true;
     });
-  }, [growing, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
+  }, [filteredByGroup, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
 
   const q = (searchQuery ?? "").trim().toLowerCase();
   const filteredBySearch = useMemo(() => {
-    if (!q) return filteredGrowing;
-    return filteredGrowing.filter((b) => {
+    if (!q) return filteredByRefine;
+    return filteredByRefine.filter((b) => {
       const name = (b.profile_name ?? "").toLowerCase();
       const variety = (b.profile_variety_name ?? "").toLowerCase();
       return name.includes(q) || variety.includes(q);
     });
-  }, [filteredGrowing, q]);
+  }, [filteredByRefine, q]);
 
   /** When highlightGrowId is set, filter to only that batch so user sees applied filter and can cancel to full view. */
   const displayBatches = useMemo(() => {
     if (!highlightGrowId) return filteredBySearch;
     const match = filteredBySearch.find((b) => b.id === highlightGrowId);
     if (match) return [match];
-    const fromGrowing = growing.find((b) => b.id === highlightGrowId);
-    return fromGrowing ? [fromGrowing] : [];
-  }, [highlightGrowId, filteredBySearch, growing]);
+    const fromAll = batches.find((b) => b.id === highlightGrowId);
+    return fromAll ? [fromAll] : [];
+  }, [highlightGrowId, filteredBySearch, batches]);
 
   // Report highlighted batch for "Viewing" chip when highlightGrowId matches; only call when loading done
   useEffect(() => {
@@ -450,7 +544,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       onHighlightedBatch(null);
       return;
     }
-    const batch = displayBatches[0] ?? growing.find((b) => b.id === highlightGrowId);
+    const batch = displayBatches[0] ?? batches.find((b) => b.id === highlightGrowId);
     if (batch) {
       onHighlightedBatch({
         id: batch.id,
@@ -460,20 +554,18 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     } else {
       onHighlightedBatch(null);
     }
-  }, [highlightGrowId, loading, displayBatches, growing, onHighlightedBatch]);
+  }, [highlightGrowId, loading, displayBatches, batches, onHighlightedBatch]);
 
   const sortedBatches = useMemo(() => {
     const list = [...displayBatches];
-    const cmp = (a: GrowingBatch, b: GrowingBatch): number => {
+    const cmp = (a: GardenBatch, b: GardenBatch): number => {
       switch (sortBy) {
         case "name": {
           const na = (a.profile_name ?? "").trim().toLowerCase();
           const nb = (b.profile_name ?? "").trim().toLowerCase();
           const va = (a.profile_variety_name ?? "").trim().toLowerCase();
           const vb = (b.profile_variety_name ?? "").trim().toLowerCase();
-          const keyA = `${na} ${va}`;
-          const keyB = `${nb} ${vb}`;
-          return keyA.localeCompare(keyB, undefined, { sensitivity: "base" });
+          return `${na} ${va}`.localeCompare(`${nb} ${vb}`, undefined, { sensitivity: "base" });
         }
         case "sown_date": {
           const da = new Date(a.sown_date).getTime();
@@ -493,11 +585,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     return list;
   }, [displayBatches, sortBy, sortDir]);
 
-  const filteredPending = useMemo(() => {
-    if (!q) return pending;
-    return pending.filter((p) => (p.title ?? "").toLowerCase().includes(q));
-  }, [pending, q]);
-
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
@@ -507,12 +594,12 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   }, [refineChips, onRefineChipsLoaded]);
 
   useEffect(() => {
-    onFilteredCountChange?.(filteredPending.length + displayBatches.length);
-  }, [filteredPending.length, displayBatches.length, onFilteredCountChange]);
+    onFilteredCountChange?.(filteredBySearch.length);
+  }, [filteredBySearch.length, onFilteredCountChange]);
 
   useEffect(() => {
-    if (!loading) onEmptyStateChange?.(filteredPending.length === 0 && displayBatches.length === 0);
-  }, [loading, filteredPending.length, displayBatches.length, onEmptyStateChange]);
+    if (!loading) onEmptyStateChange?.(filteredBySearch.length === 0);
+  }, [loading, filteredBySearch.length, onEmptyStateChange]);
 
   // Enter bulk mode when parent requests it (e.g. FAB "Add journal entry").
   useEffect(() => {
@@ -529,16 +616,15 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
 
   useEffect(() => {
     if (openBulkLogRequest && bulkSelected.size > 0) {
-      const selected = growing.filter((b) => bulkSelected.has(b.id));
+      const selected = batches.filter((b) => bulkSelected.has(b.id));
       setBatchLogBatches(selected.map(toBatchLogBatch));
       setBatchLogOpen(true);
       onBulkLogRequestHandled?.();
     }
-  }, [openBulkLogRequest, bulkSelected, growing, onBulkLogRequestHandled]);
-
+  }, [openBulkLogRequest, bulkSelected, batches, onBulkLogRequestHandled]);
 
   // Quick-tap handler
-  const handleQuickTap = useCallback(async (batch: GrowingBatch, action: "water" | "fertilize" | "spray") => {
+  const handleQuickTap = useCallback(async (batch: GardenBatch, action: "water" | "fertilize" | "spray") => {
     if (!user?.id) return;
     try {
       const weather = await fetchWeatherSnapshot();
@@ -559,45 +645,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     }
   }, [user?.id]);
 
-  // Bulk journal
-  const handleBulkSubmit = useCallback(async () => {
-    if (!user?.id || bulkSelected.size === 0 || !bulkNote.trim()) return;
-    setBulkSaving(true);
-    try {
-      const weather = await fetchWeatherSnapshot();
-      const entries = Array.from(bulkSelected).map((growId) => {
-        const batch = growing.find((b) => b.id === growId);
-        return {
-          user_id: user.id,
-          plant_profile_id: batch?.plant_profile_id ?? null,
-          grow_instance_id: growId,
-          note: bulkNote.trim(),
-          entry_type: "note" as const,
-          weather_snapshot: weather ?? undefined,
-        };
-      });
-      const { error } = await insertManyWithOfflineQueue("journal_entries", entries);
-      if (error) { setQuickToast("Failed to save journal entries"); setTimeout(() => setQuickToast(null), 2500); }
-      setBulkNote("");
-      setBulkSelected(new Set());
-      setBulkMode(false);
-    } catch {
-      setQuickToast("Failed to save — try again");
-      setTimeout(() => setQuickToast(null), 2500);
-    } finally {
-      setBulkSaving(false);
-    }
-  }, [user?.id, bulkSelected, bulkNote, growing]);
-
   // Bulk quick actions (water / fertilize / spray on all selected)
   const handleBulkQuickTap = useCallback(async (action: "water" | "fertilize" | "spray") => {
     if (!user?.id || bulkSelected.size === 0) return;
-    setBulkSaving(true);
     try {
       const weather = await fetchWeatherSnapshot();
       const notes: Record<string, string> = { water: "Watered", fertilize: "Fertilized", spray: "Sprayed" };
       const entries = Array.from(bulkSelected).map((growId) => {
-        const batch = growing.find((b) => b.id === growId);
+        const batch = batches.find((b) => b.id === growId);
         return {
           user_id: user.id,
           plant_profile_id: batch?.plant_profile_id ?? null,
@@ -622,10 +677,8 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     } catch {
       setQuickToast("Failed to save — try again");
       setTimeout(() => setQuickToast(null), 2000);
-    } finally {
-      setBulkSaving(false);
     }
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange]);
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange]);
 
   // End batch with reason
   const handleEndBatch = useCallback(async () => {
@@ -635,12 +688,13 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
     const now = new Date().toISOString();
     const isDead = endReason === "plant_died";
     const status = isDead ? "dead" : "archived";
+    const batchUserId = endBatchTarget.user_id ?? user.id;
 
     const { error: updateErr } = await updateWithOfflineQueue("grow_instances", {
       status,
       ended_at: now,
       end_reason: endReason,
-    }, { id: batchId, user_id: user.id });
+    }, { id: batchId, user_id: batchUserId });
 
     if (updateErr) {
       setEndSaving(false);
@@ -649,7 +703,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       return;
     }
 
-    await softDeleteTasksForGrowInstance(batchId, user.id);
+    await softDeleteTasksForGrowInstance(batchId, batchUserId);
 
     if (endNote.trim() || isDead) {
       const weather = await fetchWeatherSnapshot();
@@ -663,22 +717,24 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       });
     }
 
+    await revertProfileStatusIfNoActiveGrows(supabase, endBatchTarget.plant_profile_id);
+
     setEndSaving(false);
     setEndBatchTarget(null);
     setEndReason("season_ended");
     setEndNote("");
-    setGrowing((prev) => prev.filter((b) => b.id !== batchId));
-    onSaveMessage?.("Batch ended");
-    load();
-  }, [user?.id, endBatchTarget, endReason, endNote, load, onSaveMessage]);
+    setBatches((prev) => prev.filter((b) => b.id !== batchId));
+  }, [user?.id, endBatchTarget, endReason, endNote]);
 
   const handleDeleteBatch = useCallback(async () => {
     if (!user?.id || !deleteBatchTarget) return;
     setDeleteSaving(true);
     const batchId = deleteBatchTarget.id;
     const now = new Date().toISOString();
-    const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batchId, user_id: user.id });
-    if (!error) await softDeleteTasksForGrowInstance(batchId, user.id);
+    const batchUserId = deleteBatchTarget.user_id ?? user.id;
+    const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batchId, user_id: batchUserId });
+    if (!error) await softDeleteTasksForGrowInstance(batchId, batchUserId);
+    if (!error) await revertProfileStatusIfNoActiveGrows(supabase, deleteBatchTarget.plant_profile_id);
     setDeleteSaving(false);
     setDeleteBatchTarget(null);
     if (error) {
@@ -686,15 +742,15 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       setTimeout(() => setQuickToast(null), 3000);
       return;
     }
-    setGrowing((prev) => prev.filter((b) => b.id !== batchId));
-    load();
-  }, [user?.id, deleteBatchTarget, load]);
+    setBatches((prev) => prev.filter((b) => b.id !== batchId));
+  }, [user?.id, deleteBatchTarget]);
 
   const handleBulkDelete = useCallback(async () => {
     if (!user?.id || bulkSelected.size === 0) return;
     setBulkDeleteSaving(true);
+    const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
+    const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     const now = new Date().toISOString();
-    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
     let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
@@ -702,6 +758,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       await softDeleteTasksForGrowInstance(batch.id, batchUserId);
       const { error } = await updateWithOfflineQueue("grow_instances", { deleted_at: now }, { id: batch.id, user_id: batchUserId });
       if (error) hadError = true;
+    }
+    if (!hadError) {
+      for (const profileId of profileIds) {
+        await revertProfileStatusIfNoActiveGrows(supabase, profileId);
+      }
     }
     setBulkDeleteSaving(false);
     setBulkDeleteConfirmOpen(false);
@@ -718,38 +779,12 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     }
     load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
-
-  const moveSelectedToPermanentPlants = useCallback(async () => {
-    if (!user?.id || bulkSelected.size === 0) return;
-    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
-    let hadError = false;
-    for (const batch of selectedBatches) {
-      const batchUserId = batch.user_id ?? user.id;
-      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: true }, { id: batch.id, user_id: batchUserId });
-      if (error) hadError = true;
-    }
-    setBulkSelected(new Set());
-    setBulkMode(false);
-    onBulkSelectionChange?.(0);
-    onBulkModeChange?.(false);
-    if (hadError) {
-      setQuickToast("Couldn't move some plantings — please refresh and try again");
-      setTimeout(() => setQuickToast(null), 3000);
-    } else {
-      const msg = `Moved ${selectedBatches.length} to My Plants`;
-      if (onSaveMessage) onSaveMessage(msg);
-      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
-    }
-    load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
-
-  useImperativeHandle(ref, () => ({ exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants]);
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 
   const handleBulkEndBatch = useCallback(async () => {
     if (!user?.id || bulkSelected.size === 0) return;
     setBulkEndBatchSaving(true);
-    const selectedBatches = growing.filter((b) => bulkSelected.has(b.id));
+    const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
     const now = new Date().toISOString();
     const profileIds = [...new Set(selectedBatches.map((b) => b.plant_profile_id).filter(Boolean))] as string[];
     let hadError = false;
@@ -762,7 +797,7 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         .eq("user_id", batchUserId)
         .select("id");
       if (error || !data || data.length === 0) {
-        console.error("ActiveGardenView.handleBulkEndBatch: update failed", { batchId: batch.id, error });
+        console.error("GardenView.handleBulkEndBatch: update failed", { batchId: batch.id, error });
         hadError = true;
         continue;
       }
@@ -788,7 +823,64 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
       else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
     }
     load();
-  }, [user?.id, bulkSelected, growing, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
+
+  const moveSelectedToPermanentPlants = useCallback(async () => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
+    let hadError = false;
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: true }, { id: batch.id, user_id: batchUserId });
+      if (error) hadError = true;
+    }
+    setBulkSelected(new Set());
+    setBulkMode(false);
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+    if (hadError) {
+      setQuickToast("Couldn't mark some plantings perennial — please refresh and try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      const msg = `Marked ${selectedBatches.length} as perennial`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    }
+    load();
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
+
+  const moveSelectedToGrowingGarden = useCallback(async () => {
+    if (!user?.id || bulkSelected.size === 0) return;
+    const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
+    let hadError = false;
+    for (const batch of selectedBatches) {
+      const batchUserId = batch.user_id ?? user.id;
+      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: false }, { id: batch.id, user_id: batchUserId });
+      if (error) hadError = true;
+    }
+    setBulkSelected(new Set());
+    setBulkMode(false);
+    onBulkSelectionChange?.(0);
+    onBulkModeChange?.(false);
+    if (hadError) {
+      setQuickToast("Couldn't mark some plantings annual — please refresh and try again");
+      setTimeout(() => setQuickToast(null), 3000);
+    } else {
+      const msg = `Marked ${selectedBatches.length} as annual`;
+      if (onSaveMessage) onSaveMessage(msg);
+      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
+    }
+    load();
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
+
+  useImperativeHandle(ref, () => ({
+    exitBulkMode,
+    enterBulkMode,
+    openBulkDeleteConfirm,
+    openBulkEndBatchConfirm,
+    moveSelectedToPermanentPlants,
+    moveSelectedToGrowingGarden,
+  }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants, moveSelectedToGrowingGarden]);
 
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -797,36 +889,23 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
   if (!user) return null;
   if (loading) {
     return (
-      <div className="py-8 px-4 space-y-4">
+      <div className="py-8 px-4">
         <ListSkeleton />
-        <p className="text-sm text-black/60 text-center">
-          <Link href="/garden?tab=plants" className="text-emerald-600 font-medium underline hover:text-emerald-700">
-            Switch to My Plants
-          </Link>
-        </p>
       </div>
     );
   }
   if (loadError) {
     return (
       <div className="py-8 px-4 text-center space-y-4">
-        <p className="text-black/70 font-medium mb-2">Couldn&apos;t load Active Garden</p>
+        <p className="text-black/70 font-medium mb-2">Couldn&apos;t load Garden</p>
         <p className="text-sm text-black/50">{loadError}</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-          <button
-            type="button"
-            onClick={() => load()}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-          >
-            Try again
-          </button>
-          <Link
-            href="/garden?tab=plants"
-            className="min-h-[44px] px-4 py-2 rounded-xl border border-emerald-600 text-emerald-600 text-sm font-medium hover:bg-emerald-50 inline-flex items-center justify-center"
-          >
-            Switch to My Plants
-          </Link>
-        </div>
+        <button
+          type="button"
+          onClick={() => load()}
+          className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -881,9 +960,9 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         batches={batchLogBatches}
         onClose={() => { setBatchLogOpen(false); setBatchLogBatches([]); }}
         onSaved={() => { load(); onSaveMessage?.("Saved"); }}
-        onLogHarvest={(b) => { onLogHarvest(b as GrowingBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onQuickCare={(batch, action) => { handleQuickTap(batch as GrowingBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
-        onBulkQuickCare={(batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onLogHarvest={(b) => { onLogHarvest(b as GardenBatch); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onQuickCare={(batch, action) => { handleQuickTap(batch as GardenBatch, action); setBatchLogOpen(false); setBatchLogBatches([]); }}
+        onBulkQuickCare={(_batches, action) => { handleBulkQuickTap(action); setBatchLogOpen(false); setBatchLogBatches([]); }}
       />
 
       {/* Delete Batch Confirmation */}
@@ -904,7 +983,6 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         </div>
       )}
 
-      {/* Bulk mode: Cancel is in parent Filter row. Selecting bar only; actions via FAB >> menu. */}
       {bulkMode && bulkSelected.size > 0 && (
         <div className="flex items-center justify-end gap-3 flex-wrap mb-3">
           <span className="text-sm text-black/60">Selecting ({bulkSelected.size})</span>
@@ -971,35 +1049,20 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
         </div>
       )}
 
-      {/* Growing batches */}
+      {/* Empty / no-match / planting-not-found / batches */}
       <section>
-        {filteredBySearch.length === 0 && filteredPending.length === 0 ? (
-          growing.length === 0 && pending.length === 0 ? (
-            <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
-              <div className="flex justify-center mb-4" aria-hidden>
-                <svg width="96" height="96" viewBox="0 0 64 64" fill="none" className="text-emerald-300" aria-hidden>
-                  <rect x="6" y="36" width="52" height="22" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path d="M10 36V26c0-2 2-4 4-4h36c2 0 4 2 4 4v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                  <path d="M18 50v-2M32 50v-2M46 50v-2" stroke="#78716c" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-                  <path d="M28 18c0-2 2-4 4-4s4 2 4 4-2 4-4 4-4-2-4-4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
-                </svg>
-              </div>
-              <p className="text-black/70 font-medium mb-2">Your garden is ready for its first seeds.</p>
-              <p className="text-sm text-black/50 mb-6">You haven&apos;t planted anything yet.</p>
-              <Link
-                href="/vault"
-                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
-              >
-                Go to Seed Vault
-              </Link>
-            </div>
-          ) : (
-            <NoMatchCard
-              message="No plantings match your search or filters."
-              actionLabel={onClearFilters ? "Clear filters" : undefined}
-              onAction={onClearFilters}
-            />
-          )
+        {batches.length === 0 ? (
+          // True empty state per VISION §8 em-dash convention
+          <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+            <p className="text-black/70 font-medium mb-2">— Your garden is empty —</p>
+            <p className="text-sm text-black/50 mb-6">Add a plant or set up a group to organize your garden.</p>
+            <Link
+              href="/vault"
+              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+            >
+              Add a Plant
+            </Link>
+          </div>
         ) : highlightGrowId && displayBatches.length === 0 ? (
           <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
             <p className="text-black/70 font-medium mb-2">Planting not found</p>
@@ -1013,18 +1076,34 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             </button>
           </div>
         ) : sortedBatches.length === 0 ? (
-          <div className="py-4 text-center">
-            <p className="text-black/70 text-sm font-medium">No plantings growing right now.</p>
-            <p className="text-black/50 text-xs mt-1">Add a plant from your library — every planting tracks where, when, and how it grew.</p>
-          </div>
+          groupFilter !== "all" && filteredBySearch.length === 0 && !categoryFilter && !varietyFilter && !sunFilter && !spacingFilter && !germinationFilter && !maturityFilter && tagFilters.length === 0 && !q ? (
+            // Empty group state per VISION §8 em-dash convention
+            <div className="rounded-2xl bg-white border border-black/10 p-8 text-center max-w-md mx-auto" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+              <p className="text-black/70 font-medium mb-2">— No plants in this group yet —</p>
+              <p className="text-sm text-black/50 mb-6">Add a plant or move existing plants here from Manage Groups.</p>
+              <Link
+                href="/vault"
+                className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                Add a Plant
+              </Link>
+            </div>
+          ) : (
+            <NoMatchCard
+              message="No plantings match your search or filters."
+              actionLabel={onClearFilters ? "Clear filters" : undefined}
+              onAction={onClearFilters}
+            />
+          )
         ) : displayStyle === "grid" ? (
           <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {
               const thumbUrl = getBatchImageUrl(batch);
+              const isPerennial = batch.is_permanent_planting === true;
               return (
                 <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
                   <Link
-                    href={`/garden?tab=active&grow=${batch.id}`}
+                    href={`/garden?grow=${batch.id}`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
                     onClick={(e) => {
                       if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
@@ -1073,10 +1152,14 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                         )}
-                        {batch.planting_method_badge && (
+                        {isPerennial ? (
+                          <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
+                            Perennial
+                          </span>
+                        ) : batch.planting_method_badge ? (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
-                        )}
-                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
+                        ) : null}
+                        {householdViewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
                           <span className="absolute top-0.5 left-0.5 z-10">
                             <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
                           </span>
@@ -1093,8 +1176,11 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
                       <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 mb-0">{formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}</h3>
                       <p className="text-[10px] text-black/60 leading-tight line-clamp-2 w-full min-h-0">
-                        Sown {new Date(batch.sown_date).toLocaleDateString()}
-                        {batch.harvest_count > 0 && ` · ${batch.harvest_count} harvest`}
+                        {isPerennial
+                          ? (formatPlantedAgo(batch.sown_date) ?? "Planted")
+                          : `Sown ${new Date(batch.sown_date).toLocaleDateString()}`}
+                        {!isPerennial && batch.harvest_count > 0 && ` · ${batch.harvest_count} harvest`}
+                        {isPerennial && batch.care_count > 0 && ` · ${batch.care_count} care`}
                       </p>
                     </div>
                   </Link>
@@ -1103,166 +1189,174 @@ export const ActiveGardenView = forwardRef<ActiveGardenViewHandle, {
             })}
           </div>
         ) : (
-          <>
           <div className="rounded-xl border border-black/10 bg-white overflow-hidden">
-          <ul className="divide-y divide-black/5">
-            {sortedBatches.map((batch) => {
-              const sown = new Date(batch.sown_date).getTime();
-              const rawExpected = batch.expected_harvest_date
-                ? new Date(batch.expected_harvest_date).getTime()
-                : batch.harvest_days
-                ? sown + batch.harvest_days * 86400000
-                : null;
-              const now = Date.now();
-              const daysTotal = rawExpected ? Math.max(1, (rawExpected - sown) / 86400000) : null;
-              const daysElapsed = (now - sown) / 86400000;
-              const progress = daysTotal ? Math.min(1, Math.max(0, daysElapsed / daysTotal)) : null;
-              const label = batch.expected_harvest_date
-                ? `Harvest ~${new Date(batch.expected_harvest_date).toLocaleDateString()}`
-                : rawExpected
-                ? `Est. harvest ~${new Date(rawExpected).toLocaleDateString()}`
-                : "No maturity set";
-              const thumbUrl = getBatchImageUrl(batch);
+            <ul className="divide-y divide-black/5">
+              {sortedBatches.map((batch) => {
+                const sown = new Date(batch.sown_date).getTime();
+                const isPerennial = batch.is_permanent_planting === true;
+                const rawExpected = batch.expected_harvest_date
+                  ? new Date(batch.expected_harvest_date).getTime()
+                  : batch.harvest_days
+                  ? sown + batch.harvest_days * 86400000
+                  : null;
+                const now = Date.now();
+                const daysTotal = rawExpected ? Math.max(1, (rawExpected - sown) / 86400000) : null;
+                const daysElapsed = (now - sown) / 86400000;
+                const progress = !isPerennial && daysTotal ? Math.min(1, Math.max(0, daysElapsed / daysTotal)) : null;
+                const label = batch.expected_harvest_date
+                  ? `Harvest ~${new Date(batch.expected_harvest_date).toLocaleDateString()}`
+                  : rawExpected
+                  ? `Est. harvest ~${new Date(rawExpected).toLocaleDateString()}`
+                  : "No maturity set";
+                const thumbUrl = getBatchImageUrl(batch);
 
-              return (
-                <li
-                  key={batch.id}
-                  ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
-                >
-                  <div
-                    className={`flex items-center gap-3 px-3 py-2 min-h-[44px] hover:bg-gray-50 transition-colors ${
-                      highlightGrowId === batch.id
-                        ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
-                        : bulkMode && bulkSelected.has(batch.id)
-                        ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
-                        : ""
-                    } ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}
-                    onClick={
-                      bulkMode && canEditPage(batch.user_id ?? "", "garden")
-                        ? (e) => {
-                            if (!(e.target as HTMLElement).closest("a")) {
-                              e.preventDefault();
-                              toggleBulkSelect(batch.id);
-                            }
-                          }
-                        : undefined
-                    }
+                return (
+                  <li
+                    key={batch.id}
+                    ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLLIElement>) : undefined}
                   >
-                    {/* Bulk selection bubble — only for editable batches */}
-                    {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
-                      <span className="shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
-                        {bulkSelected.has(batch.id) ? (
-                          <span className="w-3 h-3 rounded-full bg-blue-600" />
-                        ) : null}
-                      </span>
-                    )}
-                    {/* Plant profile thumbnail (Law 7 hierarchy) */}
-                    <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
-                      {thumbUrl ? (
-                        <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <PlantPlaceholderIcon size="sm" />
-                      )}
-                    </div>
-                    <Link
-                      href={`/garden?tab=active&grow=${batch.id}`}
-                      className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
-                      aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
-                      onClick={(e) => {
-                        if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
-                          e.preventDefault();
-                          toggleBulkSelect(batch.id);
-                        }
-                        if (longPressFiredRef.current) {
-                          e.preventDefault();
-                          longPressFiredRef.current = false;
-                        }
-                      }}
-                      onTouchStart={canEditPage(batch.user_id ?? "", "garden") ? () => {
-                        longPressFiredRef.current = false;
-                        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-                        longPressTimerRef.current = setTimeout(() => {
-                          longPressTimerRef.current = null;
-                          longPressFiredRef.current = true;
-                          setBulkMode(true);
-                          setBulkSelected((prev) => new Set(prev).add(batch.id));
-                          onBulkModeChange?.(true);
-                        }, LONG_PRESS_MS);
-                      } : undefined}
-                      onTouchMove={canEditPage(batch.user_id ?? "", "garden") ? () => {
-                        if (longPressTimerRef.current) {
-                          clearTimeout(longPressTimerRef.current);
-                          longPressTimerRef.current = null;
-                        }
-                      } : undefined}
-                      onTouchEnd={canEditPage(batch.user_id ?? "", "garden") ? () => {
-                        if (longPressTimerRef.current) {
-                          clearTimeout(longPressTimerRef.current);
-                          longPressTimerRef.current = null;
-                        }
-                      } : undefined}
-                      onTouchCancel={canEditPage(batch.user_id ?? "", "garden") ? () => {
-                        if (longPressTimerRef.current) {
-                          clearTimeout(longPressTimerRef.current);
-                          longPressTimerRef.current = null;
-                        }
-                      } : undefined}
+                    <div
+                      className={`flex items-center gap-3 px-3 py-2 min-h-[44px] hover:bg-gray-50 transition-colors ${
+                        highlightGrowId === batch.id
+                          ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
+                          : bulkMode && bulkSelected.has(batch.id)
+                          ? "ring-inset ring-2 ring-emerald-500 bg-emerald-50/80"
+                          : ""
+                      } ${bulkMode && canEditPage(batch.user_id ?? "", "garden") ? "cursor-pointer" : ""}`}
+                      onClick={
+                        bulkMode && canEditPage(batch.user_id ?? "", "garden")
+                          ? (e) => {
+                              if (!(e.target as HTMLElement).closest("a")) {
+                                e.preventDefault();
+                                toggleBulkSelect(batch.id);
+                              }
+                            }
+                          : undefined
+                      }
                     >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-neutral-900 group-hover:text-emerald-700">
-                          {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
+                      {bulkMode && canEditPage(batch.user_id ?? "", "garden") && (
+                        <span className="shrink-0 w-6 h-6 rounded-full border-2 border-black/20 flex items-center justify-center bg-white" aria-hidden>
+                          {bulkSelected.has(batch.id) ? (
+                            <span className="w-3 h-3 rounded-full bg-blue-600" />
+                          ) : null}
                         </span>
-                        {batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
-                        {viewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
-                          <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
+                      )}
+                      <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
+                        {thumbUrl ? (
+                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <PlantPlaceholderIcon size="sm" />
                         )}
-                        {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
                       </div>
-                      <p className="text-xs text-neutral-500 mt-0.5 space-y-0.5">
-                        <span className="block">Sown {new Date(batch.sown_date).toLocaleDateString()}</span>
-                        <span className="block">
-                          {label}
-                          {batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sown} sown</span>}
-                          {batch.seeds_sprouted != null && batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sprouted} of {batch.seeds_sown} sprouted</span>}
-                          {batch.seeds_sprouted != null && batch.seeds_sown == null && <span className="ml-1"> · {batch.seeds_sprouted} sprouted</span>}
-                          {batch.plant_count != null && <span className="ml-1 font-medium text-emerald-600"> · {batch.plant_count} plants</span>}
-                          {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> · Harvested {batch.harvest_count}x</span>}
-                        </span>
-                      </p>
-                      {progress != null && (
-                        <div className="mt-2 h-2 rounded-full bg-black/10 overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress * 100}%` }} />
+                      <Link
+                        href={`/garden?grow=${batch.id}`}
+                        className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
+                        aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
+                        onClick={(e) => {
+                          if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
+                            e.preventDefault();
+                            toggleBulkSelect(batch.id);
+                          }
+                          if (longPressFiredRef.current) {
+                            e.preventDefault();
+                            longPressFiredRef.current = false;
+                          }
+                        }}
+                        onTouchStart={canEditPage(batch.user_id ?? "", "garden") ? () => {
+                          longPressFiredRef.current = false;
+                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = setTimeout(() => {
+                            longPressTimerRef.current = null;
+                            longPressFiredRef.current = true;
+                            setBulkMode(true);
+                            setBulkSelected((prev) => new Set(prev).add(batch.id));
+                            onBulkModeChange?.(true);
+                          }, LONG_PRESS_MS);
+                        } : undefined}
+                        onTouchMove={canEditPage(batch.user_id ?? "", "garden") ? () => {
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                        } : undefined}
+                        onTouchEnd={canEditPage(batch.user_id ?? "", "garden") ? () => {
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                        } : undefined}
+                        onTouchCancel={canEditPage(batch.user_id ?? "", "garden") ? () => {
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                        } : undefined}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-neutral-900 group-hover:text-emerald-700">
+                            {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
+                          </span>
+                          {isPerennial && <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium">Perennial</span>}
+                          {!isPerennial && batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
+                          {householdViewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
+                            <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />
+                          )}
+                          {batch.location && <span className="text-xs text-neutral-500">{batch.location}</span>}
+                        </div>
+                        <p className="text-xs text-neutral-500 mt-0.5 space-y-0.5">
+                          <span className="block">
+                            {isPerennial
+                              ? (formatPlantedAgo(batch.sown_date) ?? `Planted ${new Date(batch.sown_date).toLocaleDateString()}`)
+                              : `Sown ${new Date(batch.sown_date).toLocaleDateString()}`}
+                          </span>
+                          {!isPerennial && (
+                            <span className="block">
+                              {label}
+                              {batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sown} sown</span>}
+                              {batch.seeds_sprouted != null && batch.seeds_sown != null && <span className="ml-1"> · {batch.seeds_sprouted} of {batch.seeds_sown} sprouted</span>}
+                              {batch.seeds_sprouted != null && batch.seeds_sown == null && <span className="ml-1"> · {batch.seeds_sprouted} sprouted</span>}
+                              {batch.plant_count != null && <span className="ml-1 font-medium text-emerald-600"> · {batch.plant_count} plants</span>}
+                              {batch.harvest_count > 0 && <span className="ml-1 text-emerald-600 font-medium"> · Harvested {batch.harvest_count}x</span>}
+                            </span>
+                          )}
+                          {isPerennial && batch.care_count > 0 && (
+                            <span className="block">{batch.care_count} care</span>
+                          )}
+                        </p>
+                        {progress != null && (
+                          <div className="mt-2 h-2 rounded-full bg-black/10 overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress * 100}%` }} />
+                          </div>
+                        )}
+                      </Link>
+                      {canEditPage(batch.user_id ?? "", "garden") && (
+                        <div className="relative flex-shrink-0 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setBatchLogBatches([toBatchLogBatch(batch)]);
+                              setBatchLogOpen(true);
+                            }}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-900 hover:bg-emerald-900/10"
+                            aria-label="Add journal entry"
+                          >
+                            <ICON_MAP.Edit className="w-5 h-5" />
+                          </button>
                         </div>
                       )}
-                    </Link>
-                    {canEditPage(batch.user_id ?? "", "garden") && (
-                      <div className="relative flex-shrink-0 flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setBatchLogBatches([toBatchLogBatch(batch)]);
-                            setBatchLogOpen(true);
-                          }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-900 hover:bg-emerald-900/10"
-                          aria-label="Add journal entry"
-                        >
-                          <ICON_MAP.Edit className="w-5 h-5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          </>
         )}
       </section>
+
     </div>
   );
 });
 
-ActiveGardenView.displayName = "ActiveGardenView";
+GardenView.displayName = "GardenView";

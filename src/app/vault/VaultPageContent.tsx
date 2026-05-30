@@ -855,7 +855,7 @@ function VaultPageInner() {
     setBatchSelectMode(false);
     refetch();
     setSaveToastMessage("Planted!");
-    setTimeout(() => router.push("/garden?tab=active"), 600);
+    setTimeout(() => router.push("/garden"), 600);
   }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantPlantCountByProfileId, plantSelectedSupplyIds, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {

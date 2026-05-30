@@ -3,8 +3,8 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ActiveGardenView, type ActiveGardenViewHandle } from "@/components/ActiveGardenView";
-import { MyPlantsView, type MyPlantsViewHandle } from "@/components/MyPlantsView";
+import { GardenView, type GardenViewHandle } from "@/components/GardenView";
+import { GroupTabs, type SelectedGroup } from "@/components/GroupTabs";
 import { HarvestModal } from "@/components/HarvestModal";
 import dynamic from "next/dynamic";
 import { AddPlantModal } from "@/components/AddPlantModal";
@@ -71,27 +71,24 @@ function GardenPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useSessionStorage<"active" | "plants">("garden-view-mode", "active", {
+  // B2: unified Garden tab; selected group drives client-side filter via instance.groups[].
+  // sessionStorage key: "all" sentinel or a group UUID. Legacy values ("active"/"plants") from
+  // pre-B2 dual-tab era map → "all" so users don't get stuck on a stale tab indicator.
+  const [selectedGroup, setSelectedGroup] = useSessionStorage<SelectedGroup>("garden-selected-group", "all", {
     serialize: (v) => v,
-    deserialize: (s) => (s === "active" || s === "plants" ? s : "active"),
+    deserialize: (s) => (s === "active" || s === "plants" ? "all" : (s || "all") as SelectedGroup),
   });
   const tabParam = searchParams.get("tab");
-  const viewModeFromUrl = tabParam === "active" || tabParam === "plants" ? tabParam : null;
-  const effectiveViewMode = viewModeFromUrl ?? viewMode;
+  const groupParam = searchParams.get("group");
+  const effectiveGroup: SelectedGroup = groupParam || (tabParam === "active" || tabParam === "plants" ? "all" : selectedGroup);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const { toast, showToast } = useToast();
-  const [activeSearchQuery, setActiveSearchQuery] = useState("");
-  const [plantsSearchQuery, setPlantsSearchQuery] = useState("");
-  const [activeCategoryChips, setActiveCategoryChips] = useState<{ type: string; count: number }[]>([]);
-  const [activeFilteredCount, setActiveFilteredCount] = useState(0);
-  const [plantsCategoryChips, setPlantsCategoryChips] = useState<{ type: string; count: number }[]>([]);
-  const [plantsFilteredCount, setPlantsFilteredCount] = useState(0);
-  const [plantsHasItems, setPlantsHasItems] = useState(false);
-  const [activeHasItems, setActiveHasItems] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [filteredCount, setFilteredCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
-  const [activeRefineChips, setActiveRefineChips] = useState<RefineChips | null>(null);
-  const [plantsRefineChips, setPlantsRefineChips] = useState<RefineChips | null>(null);
+  const [refineChips, setRefineChips] = useState<RefineChips | null>(null);
 
   const profileParam = searchParams.get("profile");
   const fromParam = searchParams.get("from");
@@ -99,62 +96,39 @@ function GardenPageInner() {
     setRefineByOpen(false);
     setRefineBySection(null);
   }, []);
-  const activeFilters = useFilterState({
-    schema: "garden",
-    onClear: closeRefinePanel,
-    storageKey: FILTER_DEFAULT_KEYS.gardenActive,
-  });
-  const plantsFilters = useFilterState({
+  // B2: single unified filter state (replaces the prior dual per-tab filter pair).
+  // Sort default `sown_date desc` per VISION §8 default-sort-by-use-case lock (Garden is a
+  // discovery surface — most-recent first). `care_count` axis dropped vs. legacy My Plants.
+  const filters = useFilterState({
     schema: "garden",
     onClear: closeRefinePanel,
     isFilterActive: () => !!profileParam,
-    storageKey: FILTER_DEFAULT_KEYS.gardenPlants,
+    storageKey: FILTER_DEFAULT_KEYS.gardenActive,
   });
-  const [activeSortBy, setActiveSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-active-sort", "sown_date", {
+  const [sortBy, setSortBy] = useSessionStorage<"name" | "sown_date" | "harvest_date">("garden-sort-by", "sown_date", {
     serialize: (v) => v,
     deserialize: (s) => (s === "name" || s === "sown_date" || s === "harvest_date" ? s : "sown_date"),
   });
-  const [activeSortDir, setActiveSortDir] = useSessionStorage<"asc" | "desc">("garden-active-sort-dir", "desc", {
+  const [sortDir, setSortDir] = useSessionStorage<"asc" | "desc">("garden-sort-dir", "desc", {
     serialize: (v) => v,
     deserialize: (s) => (s === "asc" || s === "desc" ? s : "desc"),
   });
-  const [plantsSortBy, setPlantsSortBy] = useSessionStorage<"name" | "planted_date" | "care_count">("garden-plants-sort", "name", {
-    serialize: (v) => v,
-    deserialize: (s) => (s === "name" || s === "planted_date" || s === "care_count" ? s : "name"),
-  });
-  const [plantsSortDir, setPlantsSortDir] = useSessionStorage<"asc" | "desc">("garden-plants-sort-dir", "asc", {
-    serialize: (v) => v,
-    deserialize: (s) => (s === "asc" || s === "desc" ? s : "asc"),
-  });
-  const activeSortRef = useRef(false);
-  const plantsSortRef = useRef(false);
+  const sortLoadedRef = useRef(false);
   useEffect(() => {
-    const ls = activeFilters.loadedSort;
-    if (ls && !activeSortRef.current) {
-      activeSortRef.current = true;
+    const ls = filters.loadedSort;
+    if (ls && !sortLoadedRef.current) {
+      sortLoadedRef.current = true;
       if (["name", "sown_date", "harvest_date"].includes(ls.sortBy)) {
-        setActiveSortBy(ls.sortBy as "name" | "sown_date" | "harvest_date");
-        setActiveSortDir(ls.sortDir);
+        setSortBy(ls.sortBy as "name" | "sown_date" | "harvest_date");
+        setSortDir(ls.sortDir);
       }
     }
-  }, [activeFilters.loadedSort, setActiveSortBy, setActiveSortDir]);
-  useEffect(() => {
-    const ls = plantsFilters.loadedSort;
-    if (ls && !plantsSortRef.current) {
-      plantsSortRef.current = true;
-      if (["name", "planted_date", "care_count"].includes(ls.sortBy)) {
-        setPlantsSortBy(ls.sortBy as "name" | "planted_date" | "care_count");
-        setPlantsSortDir(ls.sortDir);
-      }
-    }
-  }, [plantsFilters.loadedSort, setPlantsSortBy, setPlantsSortDir]);
-  const [openBulkJournalForActive, setOpenBulkJournalForActive] = useState(false);
+  }, [filters.loadedSort, setSortBy, setSortDir]);
+  const [openBulkJournal, setOpenBulkJournal] = useState(false);
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
   const [bulkModeActive, setBulkModeActive] = useState(false);
-  const [openBulkLogForActive, setOpenBulkLogForActive] = useState(false);
-  const [openBulkLogForPlants, setOpenBulkLogForPlants] = useState(false);
-  const [addedToMyPlantsToast, setAddedToMyPlantsToast] = useState(false);
-  const [moveToActiveGardenToast, setMoveToActiveGardenToast] = useState<string | null>(null);
+  const [openBulkLog, setOpenBulkLog] = useState(false);
+  const [perennialToast, setPerennialToast] = useState<string | null>(null);
   const {
     addMenuOpen,
     setAddMenuOpen,
@@ -171,32 +145,17 @@ function GardenPageInner() {
     closeAll,
     openMenuOnScreen,
   } = useUniversalAddModals();
-  const [activeDisplayStyle, setActiveDisplayStyle] = useSessionStorage<"grid" | "list">("garden-active-display-style", "grid", {
-    serialize: (v) => v,
-    deserialize: (s) => (s === "grid" || s === "list" ? s : "grid"),
-  });
-  const [plantsDisplayStyle, setPlantsDisplayStyle] = useSessionStorage<"grid" | "list">("garden-plants-display-style", "grid", {
+  const [displayStyle, setDisplayStyle] = useSessionStorage<"grid" | "list">("garden-display-style", "grid", {
     serialize: (v) => v,
     deserialize: (s) => (s === "grid" || s === "list" ? s : "grid"),
   });
 
   const MAX_JOURNAL_PHOTOS = 10;
-  const [logGrowthBatch, setLogGrowthBatch] = useState<GrowingBatchForLog | null>(null);
-  const [logGrowthNote, setLogGrowthNote] = useState("");
-  const [logGrowthPhotos, setLogGrowthPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
-  const [logGrowthSaving, setLogGrowthSaving] = useState(false);
-  const [logGrowthError, setLogGrowthError] = useState<string | null>(null);
-  const fileInputLogGrowthRef = useRef<HTMLInputElement>(null);
-  const galleryInputLogGrowthRef = useRef<HTMLInputElement>(null);
   const quickAddFileRef = useRef<HTMLInputElement>(null);
   const quickAddGalleryRef = useRef<HTMLInputElement>(null);
-  const activeGardenRef = useRef<ActiveGardenViewHandle | null>(null);
-  const myPlantsRef = useRef<MyPlantsViewHandle | null>(null);
+  const gardenRef = useRef<GardenViewHandle | null>(null);
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [logHarvestBatch, setLogHarvestBatch] = useState<GrowingBatchForLog | null>(null);
-  const [endCropConfirmBatch, setEndCropConfirmBatch] = useState<GrowingBatchForLog | null>(null);
-  const [selectedPlantGrows, setSelectedPlantGrows] = useState<Array<{ growId: string; profileId: string; userId?: string | null }>>([]);
-  const [plantsBatchSelectMode, setPlantsBatchSelectMode] = useState(false);
   const [quickAddJournalOpen, setQuickAddJournalOpen] = useState(false);
   const [quickAddNote, setQuickAddNote] = useState("");
   const [quickAddPhotos, setQuickAddPhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
@@ -215,13 +174,9 @@ function GardenPageInner() {
   const [highlightedBatch, setHighlightedBatch] = useState<{ id: string; profile_name: string; profile_variety_name: string | null } | null>(null);
   const [highlightResolved, setHighlightResolved] = useState(false);
 
-  const addLogGrowthPhoto = useCallback((file: File) => {
-    setLogGrowthPhotos((prev) => (prev.length >= MAX_JOURNAL_PHOTOS ? prev : [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]));
-  }, []);
   const addQuickAddPhoto = useCallback((file: File) => {
     setQuickAddPhotos((prev) => (prev.length >= MAX_JOURNAL_PHOTOS ? prev : [...prev, { id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) }]));
   }, []);
-  const logGrowthWebcam = useDesktopPhotoCapture(addLogGrowthPhoto);
   const quickAddWebcam = useDesktopPhotoCapture(addQuickAddPhoto);
 
   const growParam = searchParams.get("grow");
@@ -230,12 +185,13 @@ function GardenPageInner() {
     if (user?.id) generateCareTasks(user.id);
   }, [user?.id]);
 
-  // Seed add plant type from Garden tab when menu opens
+  // B2: unified Garden tab has no lifecycle-based default for add-plant type.
+  // Default to "seasonal" (the more common path) — user picks perennial via the form's toggle.
   useEffect(() => {
     if (addMenuOpen) {
-      setAddPlantDefaultType(effectiveViewMode === "plants" ? "permanent" : "seasonal");
+      setAddPlantDefaultType("seasonal");
     }
-  }, [addMenuOpen, effectiveViewMode, setAddPlantDefaultType]);
+  }, [addMenuOpen, setAddPlantDefaultType]);
 
   useEffect(() => {
     if (!profileParam) {
@@ -263,33 +219,48 @@ function GardenPageInner() {
   useEffect(() => {
     if (highlightResolved && !highlightedBatch && growParam && !hasClearedStaleGrowRef.current) {
       hasClearedStaleGrowRef.current = true;
-      router.replace("/garden?tab=active");
+      router.replace("/garden");
     }
     if (!growParam) hasClearedStaleGrowRef.current = false;
   }, [highlightResolved, highlightedBatch, growParam, router]);
 
-  // Sync tab from URL; only refetch when switching TO active (avoid infinite loop from unstable searchParams)
-  const prevTabRef = useRef<string | null>(null);
+  // B2: one-time URL migration — legacy /garden?tab=active|plants → /garden (clean URL).
+  // Preserves grow/profile/from params if present.
+  const hasMigratedTabParamRef = useRef(false);
   useEffect(() => {
-    if (tabParam === "active" || tabParam === "plants") setViewMode(tabParam);
-    if (tabParam === "active" && prevTabRef.current !== "active") {
-      prevTabRef.current = "active";
-      setRefetchTrigger((t) => t + 1);
+    if (hasMigratedTabParamRef.current) return;
+    if (tabParam === "active" || tabParam === "plants") {
+      hasMigratedTabParamRef.current = true;
+      const preserved: string[] = [];
+      if (growParam) preserved.push(`grow=${encodeURIComponent(growParam)}`);
+      if (profileParam) preserved.push(`profile=${encodeURIComponent(profileParam)}`);
+      if (fromParam) preserved.push(`from=${encodeURIComponent(fromParam)}`);
+      const qs = preserved.length > 0 ? `?${preserved.join("&")}` : "";
+      router.replace(`/garden${qs}`);
     }
-    if (tabParam !== "active") prevTabRef.current = tabParam;
-  }, [tabParam, setViewMode]);
+  }, [tabParam, growParam, profileParam, fromParam, router]);
 
-  const setTab = useCallback(
-    (tab: "active" | "plants") => {
-      setViewMode(tab);
-      const preserve = tab === "active" && growParam ? `&grow=${encodeURIComponent(growParam)}` : tab === "plants" && profileParam ? `&profile=${encodeURIComponent(profileParam)}` : "";
-      router.replace(tab === "active" ? `/garden?tab=active${preserve}` : `/garden?tab=plants${preserve}`);
+  // B2: sync sessionStorage from URL group param when present (URL is source of truth per Library
+  // regression lock `c45d6c6` — URL wins on every render; sessionStorage fills the gap only when
+  // URL is bare).
+  useEffect(() => {
+    if (groupParam) setSelectedGroup(groupParam as SelectedGroup);
+  }, [groupParam, setSelectedGroup]);
+
+  const setGroup = useCallback(
+    (group: SelectedGroup) => {
+      setSelectedGroup(group);
+      const preserved: string[] = [];
+      if (group !== "all") preserved.push(`group=${encodeURIComponent(group)}`);
+      if (growParam) preserved.push(`grow=${encodeURIComponent(growParam)}`);
+      if (profileParam) preserved.push(`profile=${encodeURIComponent(profileParam)}`);
+      const qs = preserved.length > 0 ? `?${preserved.join("&")}` : "";
+      router.replace(`/garden${qs}`);
     },
-    [setViewMode, router, growParam, profileParam]
+    [setSelectedGroup, router, growParam, profileParam]
   );
 
-  const activeSearchDebounced = useDebounce(activeSearchQuery, 300);
-  const plantsSearchDebounced = useDebounce(plantsSearchQuery, 300);
+  const searchDebounced = useDebounce(searchQuery, 300);
 
   useEscapeKey(addMenuOpen || !!activeModal, closeAll);
   useEscapeKey(refineByOpen, () => { setRefineByOpen(false); setRefineBySection(null); });
@@ -298,135 +269,44 @@ function GardenPageInner() {
     () => { if (profileParam) clearProfileFilter(); else if (growParam) clearGrowView(); }
   );
 
-  const handleActiveCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setActiveCategoryChips(chips);
+  const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
+    setCategoryChips(chips);
   }, []);
-  const handlePlantsCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
-    setPlantsCategoryChips(chips);
+  const handleRefineChipsLoaded = useCallback((chips: RefineChips) => {
+    setRefineChips(chips);
   }, []);
-  const handleActiveRefineChipsLoaded = useCallback((chips: RefineChips) => {
-    setActiveRefineChips(chips);
-  }, []);
-  const handlePlantsRefineChipsLoaded = useCallback((chips: RefineChips) => {
-    setPlantsRefineChips(chips);
-  }, []);
+
+  const buildGardenUrl = useCallback(() => {
+    const preserved: string[] = [];
+    if (effectiveGroup !== "all") preserved.push(`group=${encodeURIComponent(effectiveGroup)}`);
+    return preserved.length > 0 ? `/garden?${preserved.join("&")}` : "/garden";
+  }, [effectiveGroup]);
 
   const clearAllFilters = useCallback(() => {
-    activeFilters.clearAllFilters();
-    plantsFilters.clearAllFilters();
-    if (effectiveViewMode === "plants" && profileParam) {
-      router.replace("/garden?tab=plants");
-    }
-  }, [activeFilters.clearAllFilters, plantsFilters.clearAllFilters, effectiveViewMode, profileParam, router]);
+    filters.clearAllFilters();
+    if (profileParam) router.replace(buildGardenUrl());
+  }, [filters.clearAllFilters, profileParam, router, buildGardenUrl]);
 
   const clearProfileFilter = useCallback(() => {
-    plantsFilters.clearAllFilters();
-    if (profileParam) router.replace("/garden?tab=plants");
-  }, [plantsFilters.clearAllFilters, profileParam, router]);
+    filters.clearAllFilters();
+    if (profileParam) router.replace(buildGardenUrl());
+  }, [filters.clearAllFilters, profileParam, router, buildGardenUrl]);
 
-  const clearPlantsSearchAndFilters = useCallback(() => {
-    setPlantsSearchQuery("");
-    plantsFilters.clearAllFilters();
-    if (profileParam) router.replace("/garden?tab=plants");
-  }, [plantsFilters.clearAllFilters, profileParam, router]);
+  const clearSearchAndFilters = useCallback(() => {
+    setSearchQuery("");
+    filters.clearAllFilters();
+    if (growParam || profileParam) router.replace(buildGardenUrl());
+  }, [filters.clearAllFilters, growParam, profileParam, router, buildGardenUrl]);
 
   const clearGrowView = useCallback(() => {
-    if (growParam) router.replace("/garden?tab=active");
-  }, [growParam, router]);
+    if (growParam) router.replace(buildGardenUrl());
+  }, [growParam, router, buildGardenUrl]);
 
-  const clearActiveSearchAndFilters = useCallback(() => {
-    setActiveSearchQuery("");
-    activeFilters.clearAllFilters();
-    if (growParam) router.replace("/garden?tab=active");
-  }, [activeFilters.clearAllFilters, growParam, router]);
-
-  const activeFilterCount = activeFilters.filterCount;
-  const plantsFilterCount = plantsFilters.filterCount;
-
-  const openLogGrowth = useCallback((batch: GrowingBatchForLog) => {
-    setLogGrowthBatch(batch);
-    setLogGrowthNote("");
-    setLogGrowthPhotos((prev) => {
-      prev.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
-      return [];
-    });
-    setLogGrowthError(null);
-  }, []);
+  const filterCount = filters.filterCount;
 
   const openLogHarvest = useCallback((batch: GrowingBatchForLog) => {
     setLogHarvestBatch(batch);
   }, []);
-
-  const handleEndCrop = useCallback((batch: GrowingBatchForLog) => {
-    setEndCropConfirmBatch(batch);
-  }, []);
-
-  const handlePermanentPlantAdded = useCallback(() => {
-    if (effectiveViewMode === "active") {
-      setTab("plants");
-      setAddedToMyPlantsToast(true);
-      setTimeout(() => setAddedToMyPlantsToast(false), 2500);
-    }
-  }, [effectiveViewMode, setTab]);
-
-  const confirmEndCrop = useCallback(async () => {
-    if (!user?.id || !endCropConfirmBatch) return;
-    const { error } = await supabase
-      .from("grow_instances")
-      .update({ status: "archived", ended_at: new Date().toISOString() })
-      .eq("id", endCropConfirmBatch.id)
-      .eq("user_id", user.id);
-    if (error) return;
-    await softDeleteTasksForGrowInstance(endCropConfirmBatch.id, user.id);
-
-    await revertProfileStatusIfNoActiveGrows(supabase, endCropConfirmBatch.plant_profile_id);
-
-    setEndCropConfirmBatch(null);
-    setRefetchTrigger((t) => t + 1);
-  }, [user?.id, endCropConfirmBatch]);
-
-  const handleLogGrowthSubmit = useCallback(async () => {
-    if (!user?.id || !logGrowthBatch) return;
-    setLogGrowthSaving(true);
-    setLogGrowthError(null);
-    const uploadedPaths: string[] = [];
-    for (const p of logGrowthPhotos) {
-      const { blob } = await compressImage(p.file);
-      const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-      const { error: upErr } = await supabase.storage.from("journal-photos").upload(path, blob, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
-      if (upErr) {
-        setLogGrowthError(upErr.message || "Failed to upload photo. Try again.");
-        setLogGrowthSaving(false);
-        return;
-      }
-      uploadedPaths.push(path);
-    }
-    const firstPath = uploadedPaths[0] ?? null;
-    const weatherSnapshot = await fetchWeatherSnapshot();
-    const noteTrim = logGrowthNote.trim() || null;
-    const { data: journalEntry, error: journalErr } = await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      plant_profile_id: logGrowthBatch.plant_profile_id,
-      grow_instance_id: logGrowthBatch.id,
-      note: noteTrim,
-      entry_type: "growth",
-      image_file_path: firstPath,
-      weather_snapshot: weatherSnapshot ?? undefined,
-    }).select("id").single();
-    setLogGrowthSaving(false);
-    if (journalErr) {
-      setLogGrowthError(journalErr.message || "Failed to save. Try again.");
-      return;
-    }
-    if (journalEntry && uploadedPaths.length > 0) {
-      const entryId = (journalEntry as { id: string }).id;
-      await supabase.from("journal_entry_photos").insert(uploadedPaths.map((path, i) => ({ journal_entry_id: entryId, image_file_path: path, sort_order: i, user_id: user.id })));
-    }
-    setLogGrowthBatch(null);
-    setLogGrowthPhotos([]);
-    logGrowthPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
-    setRefetchTrigger((t) => t + 1);
-  }, [user?.id, logGrowthBatch, logGrowthNote, logGrowthPhotos]);
 
   const handleQuickAddSubmit = useCallback(async () => {
     if (!user?.id) return;
@@ -452,9 +332,7 @@ function GardenPageInner() {
     setQuickAddSaving(true);
     setQuickAddError(null);
     const weatherSnapshot = await fetchWeatherSnapshot();
-    const toInsert: Array<{ growId: string | null; profileId: string | null; userId?: string | null }> = selectedPlantGrows.length > 0
-      ? selectedPlantGrows
-      : [{ growId: null, profileId: null }];
+    const toInsert: Array<{ growId: string | null; profileId: string | null; userId?: string | null }> = [{ growId: null, profileId: null }];
     let insertErr: { message: string } | null = null;
     const hasPhoto = uploadedPaths.length > 0;
     try {
@@ -505,80 +383,56 @@ function GardenPageInner() {
     setQuickAddNote("");
     quickAddPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); });
     setQuickAddPhotos([]);
-    setSelectedPlantGrows([]);
-    setPlantsBatchSelectMode(false);
     setRefetchTrigger((t) => t + 1);
-  }, [user?.id, quickAddNote, quickAddPhotos, selectedPlantGrows]);
+  }, [user?.id, quickAddNote, quickAddPhotos]);
 
-  const handleMoveToGrowingGarden = useCallback(async () => {
-    if (!user?.id || selectedPlantGrows.length === 0) return;
-    let hadError = false;
-    for (const { growId, userId } of selectedPlantGrows) {
-      const batchUserId = userId ?? user.id;
-      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: false }, { id: growId, user_id: batchUserId });
-      if (error) hadError = true;
+  // B2: move-to-permanent / move-to-growing-garden bulk actions are wired to the GardenView
+  // imperative handle (no longer a parent-state operation since the unified view owns selection).
+  const handleMoveSelectedPerennial = useCallback(async (toPerennial: boolean) => {
+    if (toPerennial) {
+      await gardenRef.current?.moveSelectedToPermanentPlants();
+      setPerennialToast("Marked as perennial");
+    } else {
+      await gardenRef.current?.moveSelectedToGrowingGarden();
+      setPerennialToast("Marked as annual");
     }
-    setSelectedPlantGrows([]);
-    setPlantsBatchSelectMode(false);
-    setRefetchTrigger((t) => t + 1);
     setSelectionActionsOpen(false);
-    setMoveToActiveGardenToast(hadError ? "Couldn't move some plantings — please refresh and try again" : "Moved to Active Garden");
-    setTimeout(() => setMoveToActiveGardenToast(null), hadError ? 3000 : 2000);
-  }, [user?.id, selectedPlantGrows]);
+    setRefetchTrigger((t) => t + 1);
+    setTimeout(() => setPerennialToast(null), 2000);
+  }, []);
 
   return (
     <div className="min-h-screen pb-24">
       {toast}
       <div className="px-6 pt-0 pb-6">
         <div className="sticky top-11 z-40 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
-          <div className="flex mb-3" role="tablist" aria-label="View">
-            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveViewMode === "active"}
-              onClick={() => router.replace(growParam ? `/garden?tab=active&grow=${encodeURIComponent(growParam)}` : "/garden?tab=active")}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                effectiveViewMode === "active" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
-              }`}
-            >
-              Active Garden
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveViewMode === "plants"}
-              onClick={() => router.replace(profileParam ? `/garden?tab=plants&profile=${encodeURIComponent(profileParam)}` : "/garden?tab=plants")}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                effectiveViewMode === "plants" ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
-              }`}
-            >
-              My Plants
-            </button>
-          </div>
-        </div>
+          {/* B2: GroupTabs replaces Active Garden / My Plants dual-tab toggle.
+              Vault sub-tab primitive cohesion anchor — same emerald-500 STATE token (VISION §8). */}
+          <GroupTabs
+            selectedGroup={effectiveGroup}
+            onSelectGroup={setGroup}
+            refetchTrigger={refetchTrigger}
+          />
 
         {/* Always show toolbar (search, filter, toggle) so users can search/add even when list is empty */}
-        {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
-          <>
             <div className="flex gap-2 mb-2 mt-2">
               <div className="flex-1 relative">
                 <ICON_MAP.Search stroke="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none w-[18px] h-[18px]" />
                 <input
                   type="search"
-                  value={effectiveViewMode === "active" ? activeSearchQuery : plantsSearchQuery}
-                  onChange={(e) => (effectiveViewMode === "active" ? setActiveSearchQuery(e.target.value) : setPlantsSearchQuery(e.target.value))}
-                  placeholder={effectiveViewMode === "active" ? "Search your garden…" : "Search plants…"}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search your garden…"
                   className="w-full rounded-xl bg-neutral-100 border-0 pl-10 pr-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:ring-inset"
-                  aria-label={effectiveViewMode === "active" ? "Search batches" : "Search plants"}
+                  aria-label="Search plants"
                 />
               </div>
             </div>
 
-            {/* Filter/view chips: show when navigating from plant profile with profile or grow param */}
-            {(effectiveViewMode === "plants" && profileParam) || (effectiveViewMode === "active" && growParam) ? (
+            {/* Filter/view chips: show when navigating from plant profile or instance deep-link */}
+            {(profileParam || growParam) ? (
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                {effectiveViewMode === "plants" && profileParam && (
+                {profileParam && (
                   <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
                     Showing: {profileFilterEmpty ? "No plants match" : (profileFilteredPlantName ?? "Loading…")}
                     <button
@@ -591,7 +445,7 @@ function GardenPageInner() {
                     </button>
                   </span>
                 )}
-                {effectiveViewMode === "active" && growParam && (
+                {growParam && (
                   <span className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm font-medium">
                     Viewing: {!highlightResolved ? "Loading…" : highlightedBatch ? (highlightedBatch.profile_variety_name?.trim() ? `${highlightedBatch.profile_name} (${highlightedBatch.profile_variety_name})` : highlightedBatch.profile_name) : "Planting not found"}
                     <button
@@ -608,12 +462,12 @@ function GardenPageInner() {
             ) : null}
 
             {/* Mobile rescue: when 0 items and filter applied, show prominent "Show all" so user can clear without scrolling */}
-            {((effectiveViewMode === "active" && activeFilteredCount === 0 && growParam) || (effectiveViewMode === "plants" && plantsFilteredCount === 0 && profileParam)) && (
+            {filteredCount === 0 && (growParam || profileParam) && (
               <div className="flex items-center justify-between gap-3 mb-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
                 <span className="text-sm text-amber-800">No items match. Clear to see all.</span>
                 <button
                   type="button"
-                  onClick={effectiveViewMode === "active" ? clearGrowView : clearProfileFilter}
+                  onClick={growParam ? clearGrowView : clearProfileFilter}
                   className="min-h-[44px] min-w-[44px] shrink-0 px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
                 >
                   Show all
@@ -629,38 +483,28 @@ function GardenPageInner() {
                 aria-label="Filter by plant type"
               >
                 Filter
-                {(effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0) ? (
+                {filterCount > 0 ? (
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
-                    {effectiveViewMode === "active" ? activeFilterCount : plantsFilterCount}
+                    {filterCount}
                   </span>
                 ) : null}
               </button>
-              {(effectiveViewMode === "active" || effectiveViewMode === "plants") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (effectiveViewMode === "active") {
-                      bulkModeActive ? activeGardenRef.current?.exitBulkMode() : activeGardenRef.current?.enterBulkMode();
-                    } else {
-                      if (plantsBatchSelectMode) {
-                        setPlantsBatchSelectMode(false);
-                        setSelectedPlantGrows([]);
-                      } else {
-                        setPlantsBatchSelectMode(true);
-                      }
-                    }
-                  }}
-                  className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium flex items-center gap-2 ${
-                    (effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode)
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                      : "border-black/10 bg-white text-black/80 hover:bg-black/5"
-                  }`}
-                  aria-label={(effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode) ? "Cancel selection" : "Select items"}
-                >
-                  {(effectiveViewMode === "active" && bulkModeActive) || (effectiveViewMode === "plants" && plantsBatchSelectMode) ? "Cancel" : "Select"}
-                </button>
-              )}
-              {((effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0)) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (bulkModeActive) gardenRef.current?.exitBulkMode();
+                  else gardenRef.current?.enterBulkMode();
+                }}
+                className={`min-h-[44px] min-w-[44px] rounded-xl border px-4 py-2 text-sm font-medium flex items-center gap-2 ${
+                  bulkModeActive
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                    : "border-black/10 bg-white text-black/80 hover:bg-black/5"
+                }`}
+                aria-label={bulkModeActive ? "Cancel selection" : "Select items"}
+              >
+                {bulkModeActive ? "Cancel" : "Select"}
+              </button>
+              {filterCount > 0 && (
                 <button
                   type="button"
                   onClick={clearAllFilters}
@@ -671,20 +515,16 @@ function GardenPageInner() {
                 </button>
               )}
               <span className="text-sm text-black/50">
-                {effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount} item{(effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount) !== 1 ? "s" : ""}
+                {filteredCount} item{filteredCount !== 1 ? "s" : ""}
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  effectiveViewMode === "active"
-                    ? setActiveDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
-                    : setPlantsDisplayStyle((s) => (s === "grid" ? "list" : "grid"))
-                }
+                onClick={() => setDisplayStyle((s) => (s === "grid" ? "list" : "grid"))}
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white ml-auto hover:bg-black/5 transition-colors"
-                title={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "List View" : "Grid View") : plantsDisplayStyle === "grid" ? "List View" : "Grid View"}
-                aria-label={effectiveViewMode === "active" ? (activeDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view") : plantsDisplayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
+                title={displayStyle === "grid" ? "List View" : "Grid View"}
+                aria-label={displayStyle === "grid" ? "Switch to list view" : "Switch to grid view"}
               >
-                {(effectiveViewMode === "active" ? activeDisplayStyle : plantsDisplayStyle) === "grid" ? (
+                {displayStyle === "grid" ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
@@ -693,8 +533,6 @@ function GardenPageInner() {
                 )}
               </button>
             </div>
-          </>
-        )}
         </div>
 
         {refineByOpen && (
@@ -704,7 +542,7 @@ function GardenPageInner() {
               <header className="flex items-center justify-between gap-2 p-4 border-b border-black/10">
                 <h2 id="refine-by-title" className="text-lg font-semibold text-black">Filter</h2>
                 <div className="flex items-center gap-1">
-                  {((effectiveViewMode === "active" && activeFilterCount > 0) || (effectiveViewMode === "plants" && plantsFilterCount > 0)) && (
+                  {filterCount > 0 && (
                     <button
                       type="button"
                       onClick={clearAllFilters}
@@ -732,49 +570,26 @@ function GardenPageInner() {
                   </button>
                   {refineBySection === "sort" && (
                     <div className="px-4 pb-3 pt-0 space-y-0.5">
-                      {effectiveViewMode === "active" ? (
-                        <>
-                          {(["name", "sown_date", "harvest_date"] as const).map((opt) => {
-                            const selected = activeSortBy === opt;
-                            const label = opt === "name" ? "Name" : opt === "sown_date" ? "Date sown" : "Harvest date";
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                  if (activeSortBy === opt) setActiveSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                                  else setActiveSortBy(opt);
-                                }}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                              >
-                                {label}
-                                {selected && <span className="text-xs text-black/50">{activeSortDir === "asc" ? "↑" : "↓"}</span>}
-                              </button>
-                            );
-                          })}
-                        </>
-                      ) : (
-                        <>
-                          {(["name", "planted_date", "care_count"] as const).map((opt) => {
-                            const selected = plantsSortBy === opt;
-                            const label = opt === "name" ? "Name" : opt === "planted_date" ? "Date planted" : "Care count";
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => {
-                                  if (plantsSortBy === opt) setPlantsSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                                  else setPlantsSortBy(opt);
-                                }}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
-                              >
-                                {label}
-                                {selected && <span className="text-xs text-black/50">{plantsSortDir === "asc" ? "↑" : "↓"}</span>}
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
+                      <>
+                        {(["name", "sown_date", "harvest_date"] as const).map((opt) => {
+                          const selected = sortBy === opt;
+                          const label = opt === "name" ? "Name" : opt === "sown_date" ? "Date sown" : "Harvest date";
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => {
+                                if (sortBy === opt) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                                else setSortBy(opt);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                            >
+                              {label}
+                              {selected && <span className="text-xs text-black/50">{sortDir === "asc" ? "↑" : "↓"}</span>}
+                            </button>
+                          );
+                        })}
+                      </>
                     </div>
                   )}
                 </div>
@@ -792,18 +607,18 @@ function GardenPageInner() {
                     <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
                       <button
                         type="button"
-                        onClick={() => (effectiveViewMode === "active" ? activeFilters.setCategory(null) : plantsFilters.setCategory(null))}
+                        onClick={() => filters.setCategory(null)}
                         className="w-full text-left px-3 py-2 rounded-lg text-sm bg-emerald/10 text-emerald-800 font-medium"
                       >
                         All
                       </button>
-                      {(effectiveViewMode === "active" ? activeCategoryChips : plantsCategoryChips).map(({ type, count }) => {
-                        const selected = effectiveViewMode === "active" ? activeFilters.filters.category === type : plantsFilters.filters.category === type;
+                      {categoryChips.map(({ type, count }) => {
+                        const selected = filters.filters.category === type;
                         return (
                           <button
                             key={type}
                             type="button"
-                            onClick={() => (effectiveViewMode === "active" ? activeFilters.setCategory(type) : plantsFilters.setCategory(type))}
+                            onClick={() => filters.setCategory(type)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
                           >
                             {type} ({count})
@@ -814,8 +629,8 @@ function GardenPageInner() {
                   )}
                 </div>
                 {(() => {
-                  const chips = effectiveViewMode === "active" ? activeRefineChips : plantsRefineChips;
-                  const f = effectiveViewMode === "active" ? activeFilters : plantsFilters;
+                  const chips = refineChips;
+                  const f = filters;
                   const setVariety = f.setVariety;
                   const setSun = f.setSun;
                   const setSpacing = f.setSpacing;
@@ -938,9 +753,7 @@ function GardenPageInner() {
               </div>
               <footer className="flex-shrink-0 border-t border-black/10 px-4 py-3 space-y-2">
                 {(() => {
-                  const f = effectiveViewMode === "active" ? activeFilters : plantsFilters;
-                  const sortBy = effectiveViewMode === "active" ? activeSortBy : plantsSortBy;
-                  const sortDir = effectiveViewMode === "active" ? activeSortDir : plantsSortDir;
+                  const f = filters;
                   const handleSaveDefault = () => f.saveAsDefault({ sortBy, sortDir });
                   return (
                     <div className="flex items-center gap-2">
@@ -972,165 +785,54 @@ function GardenPageInner() {
                   onClick={() => { setRefineByOpen(false); setRefineBySection(null); }}
                   className="w-full min-h-[48px] rounded-xl bg-emerald text-white font-medium text-sm"
                 >
-                  Show results ({effectiveViewMode === "active" ? activeFilteredCount : plantsFilteredCount})
+                  Show results ({filteredCount})
                 </button>
               </footer>
             </div>
           </>
         )}
 
-        {effectiveViewMode === "active" && (
-          <div className="pt-2">
-            <ActiveGardenView
-              ref={activeGardenRef}
-              refetchTrigger={refetchTrigger}
-              highlightGrowId={growParam}
-              onHighlightedBatch={handleHighlightedBatch}
-              onClearGrowView={clearGrowView}
-              onClearFilters={clearActiveSearchAndFilters}
-              onSaveMessage={showToast}
-              searchQuery={activeSearchDebounced}
-              onLogGrowth={openLogGrowth}
-              onLogHarvest={openLogHarvest}
-              onEndCrop={handleEndCrop}
-              categoryFilter={activeFilters.filters.category}
-              onCategoryChipsLoaded={handleActiveCategoryChipsLoaded}
-              varietyFilter={activeFilters.filters.variety}
-              sunFilter={activeFilters.filters.sun}
-              spacingFilter={activeFilters.filters.spacing}
-              germinationFilter={activeFilters.filters.germination}
-              maturityFilter={activeFilters.filters.maturity}
-              tagFilters={activeFilters.filters.tags}
-              onRefineChipsLoaded={handleActiveRefineChipsLoaded}
-              onFilteredCountChange={setActiveFilteredCount}
-              onEmptyStateChange={(empty) => setActiveHasItems(!empty)}
-              openBulkJournalRequest={openBulkJournalForActive}
-              onBulkJournalRequestHandled={() => setOpenBulkJournalForActive(false)}
-              onBulkSelectionChange={setBulkSelectedCount}
-              openBulkLogRequest={openBulkLogForActive}
-              onBulkLogRequestHandled={() => setOpenBulkLogForActive(false)}
-              onBulkModeChange={setBulkModeActive}
-              displayStyle={activeDisplayStyle}
-              sortBy={activeSortBy}
-              sortDir={activeSortDir}
-            />
-          </div>
-        )}
-
-        {effectiveViewMode === "plants" && (
-          <div className="pt-2">
-            <MyPlantsView
-              ref={myPlantsRef}
-              refetchTrigger={refetchTrigger}
-              searchQuery={plantsSearchDebounced}
-              onPermanentPlantAdded={handlePermanentPlantAdded}
-              categoryFilter={plantsFilters.filters.category}
-              profileIdFilter={profileParam}
-              onProfileFilteredPlantName={(name) => {
-                setProfileFilteredPlantName(name);
-                if (name) setProfileFilterEmpty(false);
-              }}
-              onProfileFilterEmpty={() => setProfileFilterEmpty(true)}
-              onClearProfileFilter={clearProfileFilter}
-              onClearFilters={clearPlantsSearchAndFilters}
-              onCategoryChipsLoaded={handlePlantsCategoryChipsLoaded}
-              varietyFilter={plantsFilters.filters.variety}
-              sunFilter={plantsFilters.filters.sun}
-              spacingFilter={plantsFilters.filters.spacing}
-              germinationFilter={plantsFilters.filters.germination}
-              maturityFilter={plantsFilters.filters.maturity}
-              tagFilters={plantsFilters.filters.tags}
-              onRefineChipsLoaded={handlePlantsRefineChipsLoaded}
-              onFilteredCountChange={setPlantsFilteredCount}
-              onEmptyStateChange={(empty) => setPlantsHasItems(!empty)}
-              onAddClick={() => openPlant("permanent")}
-              batchSelectMode={plantsBatchSelectMode}
-              selectedGrowIds={new Set(selectedPlantGrows.map((g) => g.growId))}
-              onToggleGrowSelection={(growId, profileId, userId) => setSelectedPlantGrows((prev) => {
-                const idx = prev.findIndex((g) => g.growId === growId);
-                if (idx >= 0) return prev.filter((_, i) => i !== idx);
-                return [...prev, { growId, profileId, userId }];
-              })}
-              onLongPressGrow={(growId, profileId, userId) => { setPlantsBatchSelectMode(true); setSelectedPlantGrows((prev) => prev.some((g) => g.growId === growId) ? prev : [...prev, { growId, profileId, userId }]); }}
-              displayStyle={plantsDisplayStyle}
-              sortBy={plantsSortBy}
-              sortDir={plantsSortDir}
-              openBulkLogRequest={openBulkLogForPlants}
-              onBulkLogRequestHandled={() => setOpenBulkLogForPlants(false)}
-              onRefetch={() => {
-                setRefetchTrigger((t) => t + 1);
-                setSelectedPlantGrows([]);
-                setPlantsBatchSelectMode(false);
-              }}
-              onSaveMessage={showToast}
-              onLogHarvest={openLogHarvest}
-            />
-          </div>
-        )}
+        {/* B2: unified view consumes fetchAllUserGrowInstances (B1 helper).
+            Card-tap → /garden?grow=<id> (instance modal everywhere — fixes the prior
+            My-Plants → /vault/<profile> divergence flagged by Syd 2026-05-29). */}
+        <div className="pt-2">
+          <GardenView
+            ref={gardenRef}
+            refetchTrigger={refetchTrigger}
+            highlightGrowId={growParam}
+            onHighlightedBatch={handleHighlightedBatch}
+            onClearGrowView={clearGrowView}
+            onClearFilters={clearSearchAndFilters}
+            onSaveMessage={showToast}
+            searchQuery={searchDebounced}
+            groupFilter={effectiveGroup}
+            onLogHarvest={openLogHarvest}
+            categoryFilter={filters.filters.category}
+            onCategoryChipsLoaded={handleCategoryChipsLoaded}
+            varietyFilter={filters.filters.variety}
+            sunFilter={filters.filters.sun}
+            spacingFilter={filters.filters.spacing}
+            germinationFilter={filters.filters.germination}
+            maturityFilter={filters.filters.maturity}
+            tagFilters={filters.filters.tags}
+            onRefineChipsLoaded={handleRefineChipsLoaded}
+            onFilteredCountChange={setFilteredCount}
+            onEmptyStateChange={() => { /* not used in B2; reserved for future */ }}
+            openBulkJournalRequest={openBulkJournal}
+            onBulkJournalRequestHandled={() => setOpenBulkJournal(false)}
+            onBulkSelectionChange={setBulkSelectedCount}
+            openBulkLogRequest={openBulkLog}
+            onBulkLogRequestHandled={() => setOpenBulkLog(false)}
+            onBulkModeChange={setBulkModeActive}
+            displayStyle={displayStyle}
+            sortBy={sortBy}
+            sortDir={sortDir}
+          />
+        </div>
       </div>
 
-      {logGrowthBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
-          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-black/10">
-              <h2 className="text-lg font-semibold text-black">Log Growth</h2>
-              <p className="text-sm text-black/60 mt-1">{logGrowthBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(logGrowthBatch.profile_name)} (${decodeHtmlEntities(logGrowthBatch.profile_variety_name)})` : decodeHtmlEntities(logGrowthBatch.profile_name)}</p>
-            </div>
-            <div className="p-4 overflow-y-auto flex-1 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Photo (optional, max {MAX_JOURNAL_PHOTOS})</label>
-                <input ref={fileInputLogGrowthRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && logGrowthPhotos.length < MAX_JOURNAL_PHOTOS) { setLogGrowthPhotos((prev) => [...prev, { id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }]); } e.target.value = ""; }} />
-                <input ref={galleryInputLogGrowthRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const files = e.target.files; if (files?.length) { const toAdd = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, MAX_JOURNAL_PHOTOS - logGrowthPhotos.length); setLogGrowthPhotos((prev) => [...prev, ...toAdd.map((f) => ({ id: crypto.randomUUID(), file: f, previewUrl: URL.createObjectURL(f) }))]); } e.target.value = ""; }} />
-                {logGrowthWebcam.webcamActive ? (
-                  <div className="space-y-2">
-                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
-                      <video ref={logGrowthWebcam.videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={logGrowthWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-lg bg-emerald text-white text-sm font-medium">Capture</button>
-                      <button type="button" onClick={logGrowthWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
-                    </div>
-                  </div>
-                ) : logGrowthPhotos.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {logGrowthPhotos.map((p) => (
-                        <div key={p.id} className="relative w-20 h-20 rounded-lg overflow-hidden bg-black/5">
-                          <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
-                          <button type="button" onClick={() => { setLogGrowthPhotos((prev) => { const x = prev.find((i) => i.id === p.id); if (x?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(x.previewUrl); return prev.filter((i) => i.id !== p.id); }); }} className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">×</button>
-                        </div>
-                      ))}
-                    </div>
-                    {logGrowthPhotos.length < MAX_JOURNAL_PHOTOS && (
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take Photo</button>
-                        <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {logGrowthWebcam.webcamError && <p className="text-sm text-amber-600">{logGrowthWebcam.webcamError}</p>}
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { if (logGrowthWebcam.isMobile) fileInputLogGrowthRef.current?.click(); else logGrowthWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium">Take Photo</button>
-                      <button type="button" onClick={() => galleryInputLogGrowthRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium">From gallery</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-black/60 mb-1">Note</label>
-                <textarea value={logGrowthNote} onChange={(e) => setLogGrowthNote(e.target.value)} placeholder="Growth update, note…" rows={3} className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none" />
-              </div>
-              {logGrowthError && <p className="text-sm text-red-600" role="alert">{logGrowthError}</p>}
-            </div>
-            <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
-              <button type="button" onClick={() => { setLogGrowthBatch(null); setLogGrowthError(null); logGrowthPhotos.forEach((p) => { if (p.previewUrl.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl); }); setLogGrowthPhotos([]); }} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
-              <button type="button" disabled={logGrowthSaving} onClick={handleLogGrowthSubmit} className="px-4 py-2 rounded-lg bg-emerald text-white text-sm font-medium disabled:opacity-60">{logGrowthSaving ? "Saving…" : "Save"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* B2: Log Growth standalone modal removed — BatchLogSheet inside GardenView handles
+          quick journal entries via the row Edit button. */}
 
       <HarvestModal
         open={!!logHarvestBatch}
@@ -1141,28 +843,16 @@ function GardenPageInner() {
         displayName={logHarvestBatch ? (logHarvestBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(logHarvestBatch.profile_name)} (${decodeHtmlEntities(logHarvestBatch.profile_variety_name)})` : decodeHtmlEntities(logHarvestBatch.profile_name)) : ""}
       />
 
-      {endCropConfirmBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
-          <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full p-4">
-            <h2 className="text-lg font-semibold text-black">End Crop?</h2>
-            <p className="text-sm text-black/70 mt-2">
-              {endCropConfirmBatch.profile_variety_name?.trim() ? `${decodeHtmlEntities(endCropConfirmBatch.profile_name)} (${decodeHtmlEntities(endCropConfirmBatch.profile_variety_name)})` : decodeHtmlEntities(endCropConfirmBatch.profile_name)} will move to Settings → Archived Plantings.
-            </p>
-            <div className="flex gap-2 justify-end mt-4">
-              <button type="button" onClick={() => setEndCropConfirmBatch(null)} className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80">Cancel</button>
-              <button type="button" onClick={confirmEndCrop} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700">End Crop</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* B2: End Crop standalone confirm removed — GardenView's End Batch modal handles it
+          via the bulk-end-batch and single-row End Batch paths. */}
 
       {quickAddJournalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true" role="dialog">
           <div className="bg-white rounded-2xl shadow-lg border border-black/10 max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-black/10">
               <h2 className="text-lg font-semibold text-black">Add Journal Entry</h2>
-              {selectedPlantGrows.length > 0 && (
-                <p className="text-sm text-black/60 mt-1">{selectedPlantGrows.length} plant{selectedPlantGrows.length !== 1 ? "s" : ""} selected</p>
+              {bulkSelectedCount > 0 && (
+                <p className="text-sm text-black/60 mt-1">{bulkSelectedCount} plant{bulkSelectedCount !== 1 ? "s" : ""} selected</p>
               )}
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
@@ -1226,7 +916,6 @@ function GardenPageInner() {
           open={addMenuOpen}
           onClose={closeMenu}
           pathname={pathname ?? "/garden"}
-          gardenTab={effectiveViewMode}
           addPlantDefaultType={addPlantDefaultType}
           setAddPlantDefaultType={setAddPlantDefaultType}
           onAddPlantPurchaseOrder={() => {
@@ -1379,8 +1068,10 @@ function GardenPageInner() {
         onSuccess={() => setRefetchTrigger((t) => t + 1)}
       />
 
-      {/* Selection actions menu (when items selected): FAB >> opens this */}
-      {selectionActionsOpen && ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) && (
+      {/* Selection actions menu (when items selected): FAB >> opens this.
+          B2: unified action set — Mark as Perennial / Mark as Annual / Delete / End Batch / Journal.
+          Bulk handlers route through GardenView's imperative handle. */}
+      {selectionActionsOpen && bulkModeActive && bulkSelectedCount > 0 && (
         <>
           <div
             className="fixed inset-0 z-[99] bg-black/40"
@@ -1395,43 +1086,35 @@ function GardenPageInner() {
           >
             <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
               <p className="text-sm font-medium text-black/70">
-                {effectiveViewMode === "active" ? bulkSelectedCount : selectedPlantGrows.length} selected
+                {bulkSelectedCount} selected
               </p>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
-              {effectiveViewMode === "active" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    activeGardenRef.current?.moveSelectedToPermanentPlants();
-                    setSelectionActionsOpen(false);
-                  }}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
-                  aria-label="Move to permanent plants"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+              <button
+                type="button"
+                onClick={() => handleMoveSelectedPerennial(true)}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
+                aria-label="Mark as perennial"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
                   <path d="M12 22v-4" />
                   <path d="M12 18a4 4 0 0 0 4-4 4 4 0 0 0-8 0 4 4 0 0 0 4 4Z" />
                 </svg>
-                  Move to permanent plants
-                </button>
-              )}
-              {effectiveViewMode === "plants" && (
-                <button
-                  type="button"
-                  onClick={() => handleMoveToGrowingGarden()}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
-                  aria-label="Move to growing garden"
-                >
-                  <span className="w-5 h-5 shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
-                  Move to growing garden
-                </button>
-              )}
+                Mark as perennial
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMoveSelectedPerennial(false)}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
+                aria-label="Mark as annual"
+              >
+                <span className="w-5 h-5 shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
+                Mark as annual
+              </button>
               <button
                 type="button"
                 onClick={() => {
-                  if (effectiveViewMode === "active") activeGardenRef.current?.openBulkDeleteConfirm();
-                  else myPlantsRef.current?.openBulkDeleteConfirm();
+                  gardenRef.current?.openBulkDeleteConfirm();
                   setSelectionActionsOpen(false);
                 }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-black/5"
@@ -1443,8 +1126,7 @@ function GardenPageInner() {
               <button
                 type="button"
                 onClick={() => {
-                  if (effectiveViewMode === "active") activeGardenRef.current?.openBulkEndBatchConfirm();
-                  else myPlantsRef.current?.openBulkEndBatchConfirm();
+                  gardenRef.current?.openBulkEndBatchConfirm();
                   setSelectionActionsOpen(false);
                 }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-amber-700 hover:bg-black/5"
@@ -1460,8 +1142,7 @@ function GardenPageInner() {
               <button
                 type="button"
                 onClick={() => {
-                  setOpenBulkLogForActive(effectiveViewMode === "active");
-                  setOpenBulkLogForPlants(effectiveViewMode === "plants");
+                  setOpenBulkLog(true);
                   setSelectionActionsOpen(false);
                 }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
@@ -1475,18 +1156,18 @@ function GardenPageInner() {
         </>
       )}
 
-      {!(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount === 0) && !(effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length === 0) && (
+      {!(bulkModeActive && bulkSelectedCount === 0) && (
         <button
           type="button"
           onClick={() => {
-            if ((effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)) {
+            if (bulkModeActive && bulkSelectedCount > 0) {
               setSelectionActionsOpen(true);
             } else {
               setAddMenuOpen(!addMenuOpen);
             }
           }}
           className={`fixed right-6 z-30 w-14 h-14 rounded-full shadow-card flex items-center justify-center hover:opacity-90 transition-all ${
-            (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
+            bulkModeActive && bulkSelectedCount > 0
               ? "bg-amber-500 text-white"
               : addMenuOpen
                 ? "bg-emerald-700 text-white"
@@ -1494,16 +1175,14 @@ function GardenPageInner() {
           }`}
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))", boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}
           aria-label={
-            (effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0)
+            bulkModeActive && bulkSelectedCount > 0
               ? "Selection actions"
               : addMenuOpen
                 ? "Close menu"
-                : effectiveViewMode === "plants"
-                  ? "Add permanent plant"
-                  : "Add to garden"
+                : "Add to garden"
           }
         >
-          {(effectiveViewMode === "active" && bulkModeActive && bulkSelectedCount > 0) || (effectiveViewMode === "plants" && plantsBatchSelectMode && selectedPlantGrows.length > 0) ? (
+          {bulkModeActive && bulkSelectedCount > 0 ? (
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-slide-in-chevron" aria-hidden>
               <path d="M7 6l4 6-4 6" />
               <path d="M13 6l4 6-4 6" />
@@ -1528,14 +1207,9 @@ function GardenPageInner() {
         </button>
       )}
 
-      {addedToMyPlantsToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-lg animate-fade-in" role="status" aria-live="polite">
-          Added to My Plants
-        </div>
-      )}
-      {moveToActiveGardenToast && (
-        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg animate-fade-in ${moveToActiveGardenToast.includes("failed") ? "bg-amber-600" : "bg-emerald-600"}`} role="status" aria-live="polite">
-          {moveToActiveGardenToast}
+      {perennialToast && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg animate-fade-in ${perennialToast.includes("Couldn") ? "bg-amber-600" : "bg-emerald-600"}`} role="status" aria-live="polite">
+          {perennialToast}
         </div>
       )}
 
@@ -1570,11 +1244,11 @@ function GardenPageInner() {
           focusScheduleId={searchParams.get("schedule") ?? undefined}
           onClose={() => {
             if (fromParam === "profile" && profileParam) router.push(`/vault/${profileParam}`);
-            else router.replace(`/garden?tab=${effectiveViewMode}`);
+            else router.replace(buildGardenUrl());
           }}
           backHref={fromParam === "profile" && profileParam ? `/vault/${profileParam}` : undefined}
           onLogHarvest={(batch) => {
-            router.replace(`/garden?tab=${effectiveViewMode}`);
+            router.replace(buildGardenUrl());
             setLogHarvestBatch({
               id: batch.id,
               plant_profile_id: batch.plant_profile_id,
