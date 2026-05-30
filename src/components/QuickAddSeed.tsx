@@ -1118,7 +1118,7 @@ export function SeedPacketForm({
               </div>
               {error && <FormError>{error}</FormError>}
               <p className="text-xs text-black/60">
-                Don&apos;t have seeds yet? <strong>Save for later</strong> adds the variety to your vault (no packet). Add a packet when you buy.
+                Don&apos;t have seeds yet? <strong>Save for Later</strong> adds the variety to your vault (no packet). Add a packet when you buy.
               </p>
               <button
                 type="button"

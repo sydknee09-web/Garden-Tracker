@@ -618,11 +618,11 @@ export function BatchLogSheet({
                         <div className="flex gap-2">
                           <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium flex items-center gap-2">
                             <ICON_MAP.Camera className="w-5 h-5" />
-                            Take photo
+                            Take Photo
                           </button>
                           <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2">
                             <ICON_MAP.Gallery className="w-5 h-5" />
-                            From gallery
+                            From Gallery
                           </button>
                         </div>
                       )}
@@ -658,7 +658,7 @@ export function BatchLogSheet({
                     selectedActions.has("note") ? "text-emerald-700" : "text-black/80 hover:text-black"
                   }`}
                 >
-                  Add note
+                  Add Note
                   <span aria-hidden>{selectedActions.has("note") ? "▴" : "▾"}</span>
                 </button>
                 {selectedActions.has("note") && (
@@ -681,7 +681,7 @@ export function BatchLogSheet({
                     selectedActions.has("photo") ? "text-emerald-700" : "text-black/80 hover:text-black"
                   }`}
                 >
-                  Add photo
+                  Add Photo
                   <span aria-hidden>{selectedActions.has("photo") ? "▴" : "▾"}</span>
                 </button>
                 {selectedActions.has("photo") && (
@@ -711,11 +711,11 @@ export function BatchLogSheet({
                           <div className="flex gap-2">
                             <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">
                               <ICON_MAP.Camera className="w-5 h-5" />
-                              Take photo
+                              Take Photo
                             </button>
                             <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">
                               <ICON_MAP.Gallery className="w-5 h-5" />
-                              From gallery
+                              From Gallery
                             </button>
                           </div>
                         )}
@@ -726,11 +726,11 @@ export function BatchLogSheet({
                         <div className="flex gap-2">
                           <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
                             <ICON_MAP.Camera className="w-5 h-5" />
-                            Take photo
+                            Take Photo
                           </button>
                           <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
                             <ICON_MAP.Gallery className="w-5 h-5" />
-                            From gallery
+                            From Gallery
                           </button>
                         </div>
                       </div>

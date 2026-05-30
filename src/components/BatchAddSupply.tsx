@@ -376,7 +376,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
                   onClick={() => cameraInputRef.current?.click()}
                   className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
                 >
-                  Take photo
+                  Take Photo
                 </button>
               )}
               <button
@@ -384,7 +384,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
                 onClick={() => galleryInputRef.current?.click()}
                 className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
               >
-                From gallery
+                From Gallery
               </button>
             </div>
             <input
@@ -459,7 +459,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
             )}
             {error && (
               <p className="text-sm text-red-600 mt-2" role="alert">
-                {error.includes("Camera") ? "Camera unavailable. Use Take photo or From gallery." : error}
+                {error.includes("Camera") ? "Camera unavailable. Use Take Photo or From Gallery." : error}
               </p>
             )}
           </>

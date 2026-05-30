@@ -493,7 +493,7 @@ describe("Consolidated overdue row — bulk handlers and state", () => {
 describe("Consolidated overdue row — confirm sheets", () => {
   it("'Mark all N as done?' confirm sheet renders when groupAction.kind === 'complete'", () => {
     expect(src).toContain('groupAction?.kind === "complete"');
-    expect(src).toContain("Mark all {groupAction.tasks.length} as done?");
+    expect(src).toContain("Mark All {groupAction.tasks.length} as Done?");
   });
 
   it("'Mark all as done?' sheet has Cancel and Mark done buttons", () => {
@@ -502,12 +502,12 @@ describe("Consolidated overdue row — confirm sheets", () => {
     // Normalize line endings so CRLF (Windows) and LF (Unix) both work.
     const normalized = sheet.replace(/\r\n/g, "\n");
     expect(normalized).toContain(">\n                Cancel");
-    expect(normalized).toContain('"Saving…" : "Mark done"');
+    expect(normalized).toContain('"Saving…" : "Mark Done"');
   });
 
   it("'Snooze all N tasks' sheet renders when groupAction.kind === 'snooze'", () => {
     expect(src).toContain('groupAction?.kind === "snooze"');
-    expect(src).toContain("Snooze all {groupAction.tasks.length} task");
+    expect(src).toContain("Snooze All {groupAction.tasks.length} Task");
   });
 
   it("'Snooze all' sheet offers Tomorrow / In 3 days / Next week quick chips + date picker", () => {

@@ -1073,9 +1073,9 @@ function VaultPageInner() {
                     type="button"
                     onClick={clearAllFilters}
                     className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
-                    aria-label="Clear all filters"
+                    aria-label="Clear All Filters"
                   >
-                    Clear filters
+                    Clear Filters
                   </button>
                 )}
                 {batchSelectMode && (
@@ -1175,7 +1175,7 @@ function VaultPageInner() {
                     return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
                   })()})
                 </span>
-                <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</Link>
+                <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</Link>
               </div>
             )}
             <SeedVaultView

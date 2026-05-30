@@ -642,7 +642,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
                         >
                           <ICON_MAP.Camera stroke="currentColor" className="w-[18px] h-[18px]" />
-                          Take photo
+                          Take Photo
                         </button>
                         <button
                           type="button"
@@ -650,7 +650,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                           className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
                         >
                           <UploadIcon />
-                          From gallery
+                          From Gallery
                         </button>
                       </div>
                     )}

@@ -26,7 +26,7 @@ export default function CalendarError({
           onClick={reset}
           className="min-h-[44px] min-w-[120px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
         >
-          Try again
+          Try Again
         </button>
         <Link
           href="/"

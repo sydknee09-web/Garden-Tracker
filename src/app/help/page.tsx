@@ -15,19 +15,19 @@ export default function HelpPage() {
       <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5 mb-4">
         <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Adding Things</h2>
         <ul className="space-y-2 text-sm text-black/80">
-          <li><strong>Add seeds</strong> — Tap <strong>+</strong> → Add seed packet → Manual, Photo, Link, or Purchase Order.</li>
-          <li><strong>Add a plant</strong> — Tap <strong>+</strong> → Add plant → Manual entry or From Vault.</li>
-          <li><strong>Add supplies</strong> — Tap <strong>+</strong> → Add to shed.</li>
-          <li><strong>Add a task</strong> — Tap <strong>+</strong> → Add task.</li>
-          <li><strong>Log a quick note</strong> — Tap <strong>+</strong> → Add journal. Or on Journal page, tap <strong>+ Entry</strong>.</li>
-          <li><strong>Add to shopping list</strong> — Home → Shopping list → Add item, or from a plant/supply page.</li>
+          <li><strong>Add seeds</strong> — Tap <strong>+</strong> → Add Seed Packet → Manual, Photo, Link, or Purchase Order.</li>
+          <li><strong>Add a plant</strong> — Tap <strong>+</strong> → Add Plant → Manual Entry or From Vault.</li>
+          <li><strong>Add supplies</strong> — Tap <strong>+</strong> → Add to Shed.</li>
+          <li><strong>Add a task</strong> — Tap <strong>+</strong> → Add Task.</li>
+          <li><strong>Log a quick note</strong> — Tap <strong>+</strong> → Add Journal. Or on Journal page, tap <strong>+ Entry</strong>.</li>
+          <li><strong>Add to shopping list</strong> — Home → Shopping List → Add Item, or from a plant/supply page.</li>
         </ul>
       </section>
 
       <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5 mb-4">
         <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Viewing and Planning</h2>
         <ul className="space-y-2 text-sm text-black/80">
-          <li><strong>When to plant (by zone)</strong> — Home → Planting Schedule. Or <Link href="/resources" className="text-emerald-600 font-medium hover:underline">Resources</Link> for zone charts.</li>
+          <li><strong>When to Plant (by Zone)</strong> — Home → Planting Schedule. Or <Link href="/resources" className="text-emerald-600 font-medium hover:underline">Resources</Link> for zone charts.</li>
           <li><strong>Tasks</strong> — Bottom nav → Calendar.</li>
           <li><strong>Seeds and packets</strong> — Bottom nav → Vault (Plants or Packets tab).</li>
           <li><strong>Supplies</strong> — Vault → Shed tab.</li>

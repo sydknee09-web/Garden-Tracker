@@ -234,7 +234,7 @@ export default function HeroImportPage() {
               className="text-emerald-600 hover:text-emerald-800 font-medium text-sm min-h-[44px] min-w-[44px] flex items-center"
               aria-label="Skip hero photos and go to review"
             >
-              Skip to review
+              Skip to Review
             </button>
             {processing ? (
               <button

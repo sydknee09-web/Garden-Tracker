@@ -84,7 +84,7 @@ export function VaultProfileCareTab({
       {!isLegacy && (
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
           <button type="button" onClick={() => toggleAboutSection("historicalTasks")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80" aria-expanded={isAboutOpen("historicalTasks")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Historical tasks</h3>
+            <h3 className="text-sm font-semibold text-neutral-700">Historical Tasks</h3>
             <span className="text-neutral-500 text-sm">{standaloneTasks.length > 0 ? `(${standaloneTasks.length})` : ""}</span>
             <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("historicalTasks") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
           </button>

@@ -1586,7 +1586,7 @@ export default function CalendarPage() {
         <>
           <div className="fixed inset-0 z-[100] bg-black/40" onClick={() => setBatchActionOpen(null)} />
           <div className="fixed bottom-0 left-0 right-0 z-[100] bg-cream rounded-t-3xl px-4 pt-5 pb-10 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-            <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}</h3>
+            <h3 className="text-base font-bold text-black">Reschedule {selectedIds.size} Task{selectedIds.size !== 1 ? "s" : ""}</h3>
             <div className="grid grid-cols-3 gap-2">
               {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {
                 const d = new Date(); d.setDate(d.getDate() + days);
@@ -1623,7 +1623,7 @@ export default function CalendarPage() {
             aria-describedby="delete-dialog-desc"
           >
             <h3 id="delete-dialog-title" className="text-base font-bold text-black">
-              Delete {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""}?
+              Delete {selectedIds.size} Task{selectedIds.size !== 1 ? "s" : ""}?
             </h3>
             <p id="delete-dialog-desc" className="text-sm text-black/60">This cannot be undone.</p>
             {Array.from(selectedIds).some((id) => {
@@ -1680,7 +1680,7 @@ export default function CalendarPage() {
             aria-describedby="group-complete-desc"
           >
             <h3 id="group-complete-title" className="text-base font-bold text-black">
-              Mark all {groupAction.tasks.length} as done?
+              Mark All {groupAction.tasks.length} as Done?
             </h3>
             <p id="group-complete-desc" className="text-sm text-black/60">
               All {groupAction.tasks.length} overdue tasks in this group will be marked complete.
@@ -1700,7 +1700,7 @@ export default function CalendarPage() {
                 onClick={handleCompleteAllInGroup}
                 className="flex-1 py-3 rounded-3xl bg-emerald text-white text-sm font-semibold min-h-[44px] disabled:opacity-40"
               >
-                {groupActionSaving ? "Saving…" : "Mark done"}
+                {groupActionSaving ? "Saving…" : "Mark Done"}
               </button>
             </div>
           </div>
@@ -1717,7 +1717,7 @@ export default function CalendarPage() {
             aria-labelledby="group-snooze-title"
           >
             <h3 id="group-snooze-title" className="text-base font-bold text-black">
-              Snooze all {groupAction.tasks.length} task{groupAction.tasks.length !== 1 ? "s" : ""}
+              Snooze All {groupAction.tasks.length} Task{groupAction.tasks.length !== 1 ? "s" : ""}
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {([{ label: "Tomorrow", days: 1 }, { label: "In 3 days", days: 3 }, { label: "Next week", days: 7 }] as { label: string; days: number }[]).map(({ label, days }) => {

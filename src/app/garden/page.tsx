@@ -470,7 +470,7 @@ function GardenPageInner() {
                   onClick={growParam ? clearGrowView : clearProfileFilter}
                   className="min-h-[44px] min-w-[44px] shrink-0 px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
                 >
-                  Show all
+                  Show All
                 </button>
               </div>
             )}
@@ -509,7 +509,7 @@ function GardenPageInner() {
                   type="button"
                   onClick={clearAllFilters}
                   className="min-h-[44px] min-w-[44px] rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald/10 shrink-0"
-                  aria-label="Clear all filters"
+                  aria-label="Clear All Filters"
                 >
                   Clear filters
                 </button>
@@ -547,9 +547,9 @@ function GardenPageInner() {
                       type="button"
                       onClick={clearAllFilters}
                       className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                      aria-label="Clear all filters"
+                      aria-label="Clear All Filters"
                     >
-                      Clear filters
+                      Clear Filters
                     </button>
                   )}
                   <button type="button" onClick={() => { setRefineByOpen(false); setRefineBySection(null); }} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-black/60 hover:bg-black/5" aria-label="Close">
@@ -565,7 +565,7 @@ function GardenPageInner() {
                     className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
                     aria-expanded={refineBySection === "sort"}
                   >
-                    <span>Sort by</span>
+                    <span>Sort By</span>
                     <span className="text-black/50 shrink-0 ml-2" aria-hidden>{refineBySection === "sort" ? "▴" : "▾"}</span>
                   </button>
                   {refineBySection === "sort" && (
@@ -887,7 +887,7 @@ function GardenPageInner() {
                     {quickAddPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take Photo</button>
-                        <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From gallery</button>
+                        <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From Gallery</button>
                       </div>
                     )}
                   </div>
@@ -896,7 +896,7 @@ function GardenPageInner() {
                     {quickAddWebcam.webcamError && <p className="text-sm text-amber-600">{quickAddWebcam.webcamError}</p>}
                     <div className="flex gap-2">
                       <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take Photo</button>
-                      <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From gallery</button>
+                      <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From Gallery</button>
                     </div>
                   </div>
                 )}

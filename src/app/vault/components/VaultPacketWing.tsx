@@ -587,7 +587,7 @@ export function VaultPacketWingContent() {
               return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
             })()})
           </span>
-          <button type="button" onClick={() => ctx.setPacketSowMonth(null)} className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show all</button>
+          <button type="button" onClick={() => ctx.setPacketSowMonth(null)} className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</button>
         </div>
       )}
       <PacketVaultLazy

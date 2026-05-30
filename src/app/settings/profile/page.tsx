@@ -317,7 +317,7 @@ export default function SettingsProfilePage() {
               onClick={signOut}
               className="shrink-0 min-h-[44px] min-w-[44px] px-4 rounded-lg text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors self-start sm:self-auto"
             >
-              Sign out
+              Sign Out
             </button>
           </div>
           <div className="mt-3 pt-3 border-t border-neutral-100">

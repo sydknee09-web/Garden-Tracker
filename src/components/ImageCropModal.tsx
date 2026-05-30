@@ -475,7 +475,7 @@ export function ImageCropModal({
             onClick={handleConfirm}
             className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-emerald-600 text-white font-medium"
           >
-            Apply crop
+            Apply Crop
           </button>
         </div>
       </div>

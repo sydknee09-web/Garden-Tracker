@@ -1044,7 +1044,7 @@ export function AddPlantModal({
                             aria-label="Take photo with camera"
                           >
                             <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
-                            Take photo
+                            Take Photo
                           </button>
                           <button
                             type="button"
@@ -1053,7 +1053,7 @@ export function AddPlantModal({
                             aria-label="Choose photos from gallery"
                           >
                             <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
-                            From gallery
+                            From Gallery
                           </button>
                         </>
                       ) : (
@@ -1065,7 +1065,7 @@ export function AddPlantModal({
                             aria-label="Use webcam"
                           >
                             <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
-                            Use camera
+                            Use Camera
                           </button>
                           <button
                             type="button"
@@ -1074,7 +1074,7 @@ export function AddPlantModal({
                             aria-label="Choose photos from gallery"
                           >
                             <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
-                            From gallery
+                            From Gallery
                           </button>
                         </>
                       )}

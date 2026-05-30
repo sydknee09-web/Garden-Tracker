@@ -1245,7 +1245,7 @@ export default function ReviewImportPage() {
             disabled={saving || saveSuccess || items.length === 0}
             className="min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-neutral-300 bg-white text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Save without hero photos
+            Save Without Hero Photos
           </button>
         </div>
       )}
@@ -1460,7 +1460,7 @@ export default function ReviewImportPage() {
                                 className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                               >
                                 <span className="text-base" aria-hidden>📷</span>
-                                Take photo
+                                Take Photo
                               </button>
                               <button
                                 type="button"
@@ -1468,7 +1468,7 @@ export default function ReviewImportPage() {
                                 className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                               >
                                 <span className="text-base" aria-hidden>🖼</span>
-                                From gallery
+                                From Gallery
                               </button>
                             </div>
                           </>

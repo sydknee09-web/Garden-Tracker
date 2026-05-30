@@ -778,18 +778,18 @@ export default function VaultSeedPage() {
                   <>
                     {isMobileHero ? (
                       <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                        Take photo
+                        Take Photo
                       </label>
                     ) : (
                       <button type="button" onClick={startHeroWebcam} disabled={heroUploading || heroCropOpen} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}>
-                        Take photo
+                        Take Photo
                       </button>
                     )}
                     {heroWebcamError && <p className="text-sm text-amber-600">{heroWebcamError}</p>}
                   </>
                 )}
                 <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "From gallery"}
+                  {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "From Gallery"}
                 </label>
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Choose from web images</p>

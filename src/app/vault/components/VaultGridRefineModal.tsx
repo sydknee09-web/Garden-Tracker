@@ -118,9 +118,9 @@ export function VaultGridRefineModal({
                 type="button"
                 onClick={clearAllFilters}
                 className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium text-emerald-700 hover:bg-emerald/10"
-                aria-label="Clear all filters"
+                aria-label="Clear All Filters"
               >
-                Clear filters
+                Clear Filters
               </button>
             )}
             <button

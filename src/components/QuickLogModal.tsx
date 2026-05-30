@@ -564,10 +564,10 @@ export function JournalEntryForm({
                   onClick={() => (isMobile ? cameraMobileRef.current?.click() : startDesktopWebcam())}
                   className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2"
                 >
-                  <ICON_MAP.Camera className="w-5 h-5" /> Take photo
+                  <ICON_MAP.Camera className="w-5 h-5" /> Take Photo
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2">
-                  <ICON_MAP.Gallery className="w-5 h-5" /> From gallery
+                  <ICON_MAP.Gallery className="w-5 h-5" /> From Gallery
                 </button>
               </div>
             </>

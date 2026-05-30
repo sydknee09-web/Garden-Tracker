@@ -339,14 +339,14 @@ export default function ShedReviewImportPage() {
                         onClick={() => photoInputRefs.current[item.id]?.click()}
                         className="flex-1 min-h-[44px] py-3 rounded-lg border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
                       >
-                        Take photo
+                        Take Photo
                       </button>
                       <button
                         type="button"
                         onClick={() => photoGalleryInputRefs.current[item.id]?.click()}
                         className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
                       >
-                        From gallery
+                        From Gallery
                       </button>
                     </div>
                   )}

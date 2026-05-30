@@ -576,7 +576,7 @@ export default function HomePage() {
                     </svg>
                     <p className="text-sm text-black/70 text-center font-medium">Nothing scheduled right now.</p>
                     <p className="text-xs text-black/50 text-center">Tasks show up as your plants grow, or you can add reminders yourself.</p>
-                    <Link href="/calendar" className="text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
+                    <Link href="/calendar" className="text-xs font-medium text-emerald-600 hover:underline">View Calendar →</Link>
                   </div>
                 ) : (
                   <>
@@ -606,7 +606,7 @@ export default function HomePage() {
                       );
                     })}
                   </ul>
-                  <Link href="/calendar" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:underline">View calendar →</Link>
+                  <Link href="/calendar" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:underline">View Calendar →</Link>
                   </>
                 )}
               </div>

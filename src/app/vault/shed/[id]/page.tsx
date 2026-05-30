@@ -428,7 +428,7 @@ export default function VaultShedDetailPage() {
                   onClick={() => { if (isMobileShedPhoto) shedCameraInputRef.current?.click(); else startShedPhotoWebcam(); }}
                   className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : ""}`}
                 >
-                  Take photo
+                  Take Photo
                 </button>
                 <input
                   ref={shedCameraInputRef}
@@ -440,7 +440,7 @@ export default function VaultShedDetailPage() {
                   onChange={handleAddPhoto}
                 />
                 <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
-                  {photoSaving ? "Uploading…" : "From gallery"}
+                  {photoSaving ? "Uploading…" : "From Gallery"}
                 </label>
                 <input
                   id="shed-photo-gallery"
@@ -610,7 +610,7 @@ export default function VaultShedDetailPage() {
           ) : (
             supply.notes?.trim() && (
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-black/80 mb-1">Your notes</h3>
+                <h3 className="text-sm font-medium text-black/80 mb-1">Your Notes</h3>
                 <p className="text-neutral-700 whitespace-pre-wrap">{supply.notes}</p>
               </div>
             )
