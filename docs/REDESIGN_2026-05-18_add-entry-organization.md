@@ -1,5 +1,9 @@
 # Redesign — Add-entry + Organization (2026-05-18)
 
+> **2026-05-29 rename — "Zones" → "Groups."** The location-tab primitive was renamed from "Zones" to "Groups" by Syd on 2026-05-28 (during Sprint 3 Ship B implementation) to avoid the USDA-hardiness-zone collision flagged in the original §3.4 rationale and to read more naturally as a user-defined grouping primitive. Per CLAUDE.md authority precedence (current ROADMAP §6 + the user override stand above older locked design docs), this file is swept noun-by-noun: "zone" → "group" throughout. Schema column names (`is_permanent_planting`, `lifecycle_pattern`) and proper-noun group NAMES ("Garden", "Permanent") are unchanged. Sprint 3 ships (B1 schema `f5c7c76` + B2 unified Garden + GroupTabs `04ef744` + B3 Manage Groups + AddPlantModal autocomplete `cb6f050` + B4 onboarding tooltip + ICON_MAP + this rename) collectively realize the §3.4 location-primitive as **Groups**.
+
+---
+
 ## 1. Context
 
 Today (2026-05-18), six read-only audits ran on Garden Tracker:
@@ -18,9 +22,9 @@ Together they surfaced **11 bugs, ~25 friction items, and ~25 open product decis
 ## 2. Vocabulary — locked
 
 - **Plant profile** — the encyclopedia entry. One per variety. Lives in the **Vault**. Holds variety reference info (name, growing instructions, canonical hero photo, pooled photos, days to maturity, planting window, sun/water/spacing, companion plants). DB: `plant_profiles` row.
-- **Planting instance** (or just **planting**) — a specific `grow_instance`. Lives in **Zones** (the user-defined location tabs). Holds this specific planting's location, stage, dates, photos, journal entries.
+- **Planting instance** (or just **planting**) — a specific `grow_instance`. Lives in **Groups** (the user-defined location tabs). Holds this specific planting's location, stage, dates, photos, journal entries.
 - **Card** — a UI element of either type (plant profile card or planting instance card).
-- **Zone** — a user-defined location tab. The primary navigation in the new design. Replaces today's Active Garden / My Plants split.
+- **Group** — a user-defined location tab. The primary navigation in the new design. Replaces today's Active Garden / My Plants split.
 
 One profile → many instances. Example: 10 zinnias in planter bed + 10 zinnias in front yard = 2 planting instances pointing to the same Vault profile.
 
@@ -76,28 +80,28 @@ Auto-task generation adapts:
 - Direct sow → germination check + harvest task
 - Started elsewhere → germination check + hardening-off task + transplant task + harvest task
 
-### 3.4 — Zones (location-based navigation)
+### 3.4 — Groups (location-based navigation)
 
-**Zones replace today's Active Garden / My Plants tabs.**
+**Groups replace today's Active Garden / My Plants tabs.**
 
 - User-defined location tabs (e.g. "Planter bed," "Front," "Greenhouse," "Orchard")
 - Drag-reorder
-- Soft cap: **10 zones, 15-char names**
+- Soft cap: **10 groups, 15-char names**
 - Tab creation entry points:
-  1. **At add-plant time** — location field autocomplete; typing a new zone name creates it inline ("+ Create 'Greenhouse'")
-  2. **From the tab bar** — "+" button at end of tab row creates an empty zone (user names it)
-  3. **From Manage Zones** — for bulk operations
-- Tab deletion: **only from Manage Zones** (avoids accidental tab-bar swipes-into-oblivion)
-- Rename / reorder / delete: all from Manage Zones screen (not long-press on tab bar — avoids conflict with long-press-to-select on plant cards)
+  1. **At add-plant time** — location field autocomplete; typing a new group name creates it inline ("+ Create 'Greenhouse'")
+  2. **From the tab bar** — "+" button at end of tab row creates an empty group (user names it)
+  3. **From Manage Groups** — for bulk operations
+- Tab deletion: **only from Manage Groups** (avoids accidental tab-bar swipes-into-oblivion)
+- Rename / reorder / delete: all from Manage Groups screen (not long-press on tab bar — avoids conflict with long-press-to-select on plant cards)
 
-**System default "Garden" zone — smart show/hide:** (locked: default name is **"Garden"**, matches the auto-created zone for migrated existing users in §3.10)
+**System default "Garden" group — smart show/hide:** (locked: default name is **"Garden"**, matches the auto-created group for migrated existing users in §3.10)
 
-- Brand new user (no plants, no zones): no tabs visible. Empty-state copy: *"Add a plant or set up a garden zone to get started."*
-- User adds first plant without picking/creating a zone: "Garden" materializes as a real zone and the plant lands there
-- User creates own zones AND no plants remain in "Garden": "Garden" auto-hides
+- Brand new user (no plants, no groups): no tabs visible. Empty-state copy: *"Add a plant or set up a group to get started."*
+- User adds first plant without picking/creating a group: "Garden" materializes as a real group and the plant lands there
+- User creates own groups AND no plants remain in "Garden": "Garden" auto-hides
 - If user later adds a plant without specifying location: "Garden" reappears
 
-**On the word "Zones":** chosen over "Locations," "Areas," "Spots," "Beds," or generic "Tabs." Garden-domain flavor. Mild concern: conflicts with USDA hardiness zones (Zone 10b, Zone 7). Mitigation: empty-state and onboarding copy clarifies *"garden zones — your labeled areas like Planter bed or Greenhouse"* to head off the hardiness confusion.
+**On the word "Groups":** renamed from "Zones" on 2026-05-28 (per Syd lock at Sprint 3 implementation time). Original §3.4 considered "Locations," "Areas," "Spots," "Beds," or generic "Tabs"; landed on "Zones" with a USDA-hardiness-zone collision concern noted as mitigation work. Syd's 2026-05-28 rename cuts the collision at the noun: "Groups" reads as a user-defined grouping primitive without zone-vocabulary overlap, and is short enough that the tab-bar primitive stays compact. Authority precedence: this rename supersedes the original Zones rationale (see CLAUDE.md § "Authority precedence").
 
 ### 3.5 — Logging IS state management
 
@@ -135,7 +139,7 @@ DTM only displays for plants where *"matures on day N"* is meaningful. Continuou
 
 **Every log action that has a count makes the count optional. Partial count auto-splits the `grow_instance`.**
 
-- "Transplant 10 of these to planter bed" → original 20-plant record becomes 10 still in old zone + 10 new record transplanted to planter bed
+- "Transplant 10 of these to planter bed" → original 20-plant record becomes 10 still in old group + 10 new record transplanted to planter bed
 - "Plant out 5 direct sow" → 15 stay, 5 new direct-sown record
 - "Harvest 3 of these" → no split needed, just partial harvest log
 
@@ -159,16 +163,16 @@ End-lifecycle is a stage transition (terminal). Standalone log action available 
 - "End lifecycle — Cleared bed"
 - "End lifecycle — Other (with note)"
 
-Also triggered as a bulk option when deleting a Zone with plants in it. Tab-delete-with-plants flow has 4 options:
+Also triggered as a bulk option when deleting a Group with plants in it. Tab-delete-with-plants flow has 4 options:
 
-- **Move plants** → pick another zone
+- **Move plants** → pick another group
 - **End lifecycle** → with optional reason (Died / Harvested out / Cleared bed / Other)
 - **Delete permanently** → destructive removal (loses history; should be rare)
 - **Cancel**
 
 Ended plantings:
 
-- Leave active Zone views
+- Leave active Group views
 - **DO** remain in Vault profile's Plantings tab (history toggle)
 - **DO** remain in journal history
 - **DO** remain in year-over-year comparison views
@@ -176,11 +180,11 @@ Ended plantings:
 
 ### 3.10 — Migration plan (existing users)
 
-- Auto-create **"Garden"** zone → assign all existing seasonal `grow_instances`
-- Auto-create **"Permanent"** zone → assign all existing permanent `grow_instances`
+- Auto-create **"Garden"** group → assign all existing seasonal `grow_instances`
+- Auto-create **"Permanent"** group → assign all existing permanent `grow_instances`
 - Existing ended/inactive `grow_instances` → enter the new "ended" lifecycle state with reason "Migrated"
-- Existing users can rename / reorganize / delete the auto-created zones after migration
-- One-time onboarding tooltip on first login post-migration: *"Your garden was reorganized into Garden + Permanent zones. You can rename or add new zones anytime."*
+- Existing users can rename / reorganize / delete the auto-created groups after migration
+- One-time onboarding tooltip on first login post-migration: *"Your garden was reorganized into Garden + Permanent groups. You can rename or add new groups anytime."*
 
 ### 3.11 — Compare tab (analytics)
 
@@ -357,7 +361,7 @@ Originally numbered 1-26 below. This list now annotates each with status: **OPEN
 1. **Per-instance card layout** — **OPEN.** The planting instance card is underdeveloped today. Need to sketch what the new card contains (stage badge + location + dates + journal thread + photos) and how info ranks visually. Both mobile and desktop layouts.
 2. ~~**"Add already-grown" source options**~~ — **RESOLVED by §3.2.** Locked 5-value enum: Nursery / Gift / Propagation / Transplanted in / Other.
 3. ~~**Sow method chip count**~~ — **RESOLVED by §3.3.** Keep all 4 in locked order: Direct sow → Indoor start → Greenhouse start → Outdoor start.
-4. ~~**Default zone name**~~ — **RESOLVED by §3.4.** Locked: **"Garden"** (matches the auto-created migration zone in §3.10).
+4. ~~**Default group name**~~ — **RESOLVED by §3.4.** Locked: **"Garden"** (matches the auto-created migration group in §3.10).
 5. ~~**Onboarding tooltip on post-migration first login**~~ — **RESOLVED by §3.10.** Yes, include the one-time tooltip.
 6. ~~**Notification engine** (`TQ2`/`CQ1`)~~ — **RESOLVED by §6 Phase 3.** Push notifications are Phase 3+, NOT MVP. Rationale: see actual usage patterns first; Phase 2 is higher value per token; notifications become the standout Phase 3 ship.
 7. ~~**Recurring task interval editability** (`CAL-F7`)~~ — **RESOLVED by §3.19.** Locked option (b): keep `NewTaskModal` edit mode simple, add "Manage schedule" deep-link from Calendar task popup to plant profile's Care tab.
@@ -378,7 +382,7 @@ Originally numbered 1-26 below. This list now annotates each with status: **OPEN
 22. **Sow→harvest pair migrate to `care_schedules`** (`T9`) — **OPEN.** Direction locked by §3.13 (continuous-pick stays harvestable; single-harvest gets harvest-window task); remaining is the technical migration question.
 23. **Per-plant "stop auto-tasks" toggle** — **OPEN** (also `TQ4`). Surface on plant profile?
 24. **`tasks.title` denormalized** (`T11`) — **OPEN** (also `TQ3`). Fix on read or accept stale history?
-25. **Tags + filters layer for power users** (Maya-persona) — **OPEN.** "Show me all tomatoes across all zones" — when to build, MVP or later?
+25. **Tags + filters layer for power users** (Maya-persona) — **OPEN.** "Show me all tomatoes across all groups" — when to build, MVP or later?
 26. **Frost-date data source** (§3.15) — **OPEN.** NWS API (US-only, accurate), OpenWeather (global, paid tier maybe), or built-in zone-to-frost-dates dataset (offline-friendly, USDA reference). Choose at Ship 5 implementation time.
 
 ### Residual open list (the carry-forward set after today's session)
@@ -435,27 +439,27 @@ These were surfaced by audits and don't depend on the redesign. Ship them in the
   - **Plant-instance identity in Calendar task rows** (§3.18, `CAL-3`)
   - **`/schedule` cross-link from Calendar header** (§3.18, `CQ4`)
   - **Frost overlay on Calendar grid cells** (§3.18, `CQ2`)
-- **Ship 3** — **Merge Active Garden + My Plants into a single Garden page** with filters. Remove the Permanent/Seasonal UI toggle from Add Plant; smart defaults derive from `profile.lifecycle_type` (§3.13). UI consolidation — schema-edits scoped to enabling the merged view. This is the bridge to Phase 2's Zones (the merged Garden page becomes the surface Zones replace later).
+- **Ship 3** — **Merge Active Garden + My Plants into a single Garden page** with filters. Remove the Permanent/Seasonal UI toggle from Add Plant; smart defaults derive from `profile.lifecycle_type` (§3.13). UI consolidation — schema-edits scoped to enabling the merged view. This is the bridge to Phase 2's Groups (the merged Garden page becomes the surface Groups replace later).
 - **Ship 4** — **App voice sweep** across remaining surfaces. Chatty copy → plain action-led labels per the locked voice rule (§3.12). Audit and rewrite any *"Do you want to...?"* / *"Would you like to...?"* / conversational-AI framing.
 - **Ship 5** — **Plant profile redesign** (§3.13 + §3.14 + §3.15 + §3.16 + §3.17). Schema: add `lifecycle_pattern` enum (`annual` / `perennial-single-harvest` / `perennial-continuous-pick` / `biennial`) to `plant_profiles`; backfill from variety enrichment with `annual` fallback. Capture user's zone at signup or in Settings; drop the hardcoded `zone10b` default everywhere. Profile UI: vendor-derived field set (botanical name, mature spread, light requirement, hardiness zone range, growth habit, chill hours, pollination, fruit-bearing season, foliage description, etc.); variety-type-aware visibility; collapsible groups (Identity / Key Attributes / Variety-type details / Care / Notes); all new fields optional; surfaces silently-captured `scientific_name` + `mature_spread` + `mature_height`. Add the *"When You Grow"* zone-aware timing section. Auto-derive `grow_instance` permanence from `profile.lifecycle_pattern`; deprecate per-planting `is_permanent_planting` UI surface. Seed-count field becomes optional + AI-enriched from photo/scan-receipt. Packet tier-decrement applied consistently across all plant actions (§3.17).
 - **Ship 6** — **Website parity sweep.** Both app + website pass cohesion + functionality so the marketing/landing surface matches the in-app experience post-redesign.
 
 ### Phase 2 — The redesign rollout (months)
 
-- **Zones / location-tabs as primary nav** — replaces Phase 1's merged Garden page from Ship 3.
+- **Groups / location-tabs as primary nav** — replaces Phase 1's merged Garden page from Ship 3.
 - **Log-driven state derivation** — logging IS state management (§3.5).
 - **Stage-aware lifecycle (data model only)** — the stage-as-data layer locks in; **stage-as-UI representation TBD** in coordination with family-mode rework (§3.5 UI options + must-pass criteria).
 - **Split-on-partial-count** (§3.7) — schema add (`split_from` FK) + log forms.
 - **Add Plant subcategories** (Start from seed / Add already-grown) + **sow method chips** (§3.2, §3.3).
 - **End-lifecycle terminal state** (§3.9) — terminal stage + reasons + tab-delete-with-plants flow.
-- **Migration plan** — auto-create Garden + Permanent zones for existing users; one-time onboarding tooltip locked: *"Your garden was reorganized into Garden + Permanent zones. You can rename or add new zones anytime."* (§3.10).
+- **Migration plan** — auto-create Garden + Permanent groups for existing users; one-time onboarding tooltip locked: *"Your garden was reorganized into Garden + Permanent groups. You can rename or add new groups anytime."* (§3.10).
 - **Compare / analytics tab** on Plant profile (§3.11).
 
 ### Phase 3 — Push notifications (post-Phase-2 standout ship)
 
 **Locked: push notifications are Phase 3+, NOT MVP** (resolves `Q6`/`TQ2`/`CQ1`).
 
-Rationale: Syd wants to see actual app usage patterns first before committing weeks of work to a notification engine. Phase 2 (Zones + log-driven state + Compare tab) is higher value per token. Notifications become the standout Phase 3 ship — engaging users back into the app after they've built habits via Phase 1 + 2.
+Rationale: Syd wants to see actual app usage patterns first before committing weeks of work to a notification engine. Phase 2 (Groups + log-driven state + Compare tab) is higher value per token. Notifications become the standout Phase 3 ship — engaging users back into the app after they've built habits via Phase 1 + 2.
 
 Scope when it ships: push notification engine, task reminders (with quiet-hours respect), frost warnings (joins §3.18 frost overlay → push), harvest-window reminders for `perennial-single-harvest` plants, optional digest cadence.
 

@@ -8,6 +8,8 @@ import { ManageGroupsModal } from "@/components/ManageGroupsModal";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import type { Group } from "@/types/garden";
 
+const MANAGE_TOOLTIP_KEY = "gt-groups-manage-tooltip-seen";
+
 /**
  * Sprint 3 Ship B B2 — Garden tab sub-tab row for user-defined Groups.
  *
@@ -35,6 +37,24 @@ export function GroupTabs({
   const [groups, setGroups] = useState<Group[]>([]);
   const [manageOpen, setManageOpen] = useState(false);
   const [localRefetchKey, setLocalRefetchKey] = useState(0);
+  const [showManageTooltip, setShowManageTooltip] = useState(false);
+
+  // B4 first-visit hint: reveal a one-time tooltip pointing at the Manage button
+  // so Sam-persona discovers group creation without an in-app walkthrough.
+  // Read on mount only (useEffect avoids SSR / hydration mismatch).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!localStorage.getItem(MANAGE_TOOLTIP_KEY)) {
+      setShowManageTooltip(true);
+    }
+  }, []);
+
+  const dismissManageTooltip = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(MANAGE_TOOLTIP_KEY, "1");
+    }
+    setShowManageTooltip(false);
+  };
 
   useEffect(() => {
     if (!user?.id) {
@@ -101,15 +121,40 @@ export function GroupTabs({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => setManageOpen(true)}
-          className="min-h-[44px] px-3 py-2 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 whitespace-nowrap inline-flex items-center gap-1.5 shrink-0"
-          aria-label="Manage groups"
-        >
-          <ICON_MAP.Edit stroke="currentColor" className="w-4 h-4" />
-          Manage
-        </button>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              dismissManageTooltip();
+              setManageOpen(true);
+            }}
+            className="min-h-[44px] px-3 py-2 rounded-xl border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 whitespace-nowrap inline-flex items-center gap-1.5"
+            aria-label="Manage groups"
+          >
+            <ICON_MAP.Edit stroke="currentColor" className="w-4 h-4" />
+            Manage
+          </button>
+          {showManageTooltip && (
+            <div
+              role="status"
+              className="absolute top-full right-0 mt-2 z-50 bg-neutral-900 text-white text-xs font-medium rounded-lg shadow-lg px-3 py-2 inline-flex items-center gap-2 whitespace-nowrap"
+            >
+              <span
+                aria-hidden
+                className="absolute -top-1 right-4 w-2 h-2 bg-neutral-900 rotate-45"
+              />
+              <span>Tap Manage to create your own groups</span>
+              <button
+                type="button"
+                onClick={dismissManageTooltip}
+                aria-label="Dismiss hint"
+                className="min-w-[44px] min-h-[44px] -my-2 -mr-2 inline-flex items-center justify-center text-white/80 hover:text-white"
+              >
+                <ICON_MAP.Close stroke="currentColor" className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <ManageGroupsModal
         open={manageOpen}

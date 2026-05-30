@@ -233,6 +233,15 @@ function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function ChevronUpIcon(props: SVGProps<SVGSVGElement>) {
+  const p = { ...iconProps(props), ...props };
+  return (
+    <svg {...p}>
+      <polyline points="6 15 12 9 18 15" />
+    </svg>
+  );
+}
+
 function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
   const p = { ...iconProps(props), ...props };
   return (
@@ -587,6 +596,8 @@ export const ICON_MAP = {
   Shopping: ShoppingIcon,
   Task: TaskIcon,
   Trash: TrashIcon,
+  /** Semantic alias of Trash — use in delete-affordance contexts where "Delete" reads more clearly than "Trash". */
+  Delete: TrashIcon,
   Seed: SeedIcon,
   SeedPacket: SeedPacketIcon,
   Seedling: SeedlingIcon,
@@ -601,6 +612,7 @@ export const ICON_MAP = {
   Sparkle: SparkleIcon,
   Camera: CameraIcon,
   ChevronDown: ChevronDownIcon,
+  ChevronUp: ChevronUpIcon,
   ChevronRight: ChevronRightIcon,
   ChevronLeft: ChevronLeftIcon,
   /** For "Add journal entry" / log care on cards. */

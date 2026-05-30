@@ -293,9 +293,9 @@ export function ManageGroupsModal({
                           className="min-w-[28px] min-h-[20px] text-neutral-500 hover:text-neutral-800 disabled:opacity-30 flex items-center justify-center"
                           aria-label={`Move ${row.group.name} up`}
                         >
-                          <ICON_MAP.ChevronDown
+                          <ICON_MAP.ChevronUp
                             stroke="currentColor"
-                            className="w-4 h-4 rotate-180"
+                            className="w-4 h-4"
                           />
                         </button>
                         <button
