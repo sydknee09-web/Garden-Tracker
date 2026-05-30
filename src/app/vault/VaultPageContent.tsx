@@ -219,8 +219,11 @@ function VaultPageInner() {
   const [packetDisplayStyle, setPacketDisplayStyle] = useState<"list" | "grid">("grid");
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<GridRefineSection>(null);
-  const [sortBy, setSortBy] = useState<VaultSortBy>("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  // Sort default `date_added desc` per VISION §8 default-sort-by-use-case lock
+  // (Library is a discovery surface — most-recent first). User can still re-sort
+  // via the Filter modal; sessionStorage + saved-default override paths unchanged.
+  const [sortBy, setSortBy] = useState<VaultSortBy>("date_added");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [seedTypeChips, setSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
