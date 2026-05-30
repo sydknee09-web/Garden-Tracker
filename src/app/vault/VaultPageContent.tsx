@@ -417,8 +417,14 @@ function VaultPageInner() {
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
-      if (savedView === "grid" || savedView === "list" || savedView === "shed") setViewMode(savedView);
-      else if (savedView === "table") setViewMode("list");
+      // /plants is single-mode Library; viewMode is force-locked to "grid" by init + tab-sync.
+      // Skip the restore here so a stale "list" written during a prior /vault?tab=list visit can't
+      // flip /plants to render the Packets surface on mount. (Bug: sessionStorage-shared namespace
+      // between /plants and /vault leaked Packets viewMode onto /plants until next searchParams change.)
+      if (!isPlantsSurface) {
+        if (savedView === "grid" || savedView === "list" || savedView === "shed") setViewMode(savedView);
+        else if (savedView === "table") setViewMode("list");
+      }
       // Legacy values ("active", "plants") fall back to the default "grid" (Library)
       const savedGridStyle = sessionStorage.getItem("vault-grid-style");
       if (savedGridStyle === "photo" || savedGridStyle === "list") setGridDisplayStyle(savedGridStyle);
