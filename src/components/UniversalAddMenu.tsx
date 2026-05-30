@@ -134,7 +134,7 @@ export function UniversalAddMenu({
         aria-labelledby="universal-add-title"
       >
         {screen === "main" && (
-          <div key="main" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="main" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <div className="flex-shrink-0 px-6 pt-5 pb-3">
               <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900">Add</h2>
             </div>
@@ -215,7 +215,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "add-plant" && (
-          <div key="add-plant" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="add-plant" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <div className="flex-shrink-0 px-6 pt-6 pb-4">
               <div className="flex items-center gap-2 mb-4">
                 <button type="button" onClick={goBackToMain} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-teal-gus hover:bg-teal-gus/10 -ml-1" aria-label="Back">
@@ -313,7 +313,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "add-plant-manual" && (
-          <div key="add-plant-manual" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="add-plant-manual" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <AddPlantModal
               open
               embedded
@@ -326,7 +326,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "add-plant-established" && (
-          <div key="add-plant-established" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="add-plant-established" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <AddPlantModal
               open
               embedded
@@ -340,7 +340,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "add-plant-from-vault" && (
-          <div key="add-plant-from-vault" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="add-plant-from-vault" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <div className="flex-shrink-0 px-6 pt-6 pb-4">
               <div className="flex items-center gap-2">
                 <button
@@ -367,7 +367,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "seed" && (
-          <div key="seed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="seed" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <SeedPacketForm
               onClose={onClose}
               onSuccess={onClose}
@@ -380,7 +380,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "shed" && (
-          <div key="shed" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="shed" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <SupplyForm
               onClose={onClose}
               onSuccess={onClose}
@@ -392,7 +392,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "task" && (
-          <div key="task" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="task" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <TaskForm
               onClose={onClose}
               onBack={goBackToMain}
@@ -401,7 +401,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "journal" && (
-          <div key="journal" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="journal" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <JournalEntryForm
               onClose={onClose}
               onAddSupplyFromEmptyState={(name) => { onClose(); openShed(name); }}
@@ -411,7 +411,7 @@ export function UniversalAddMenu({
         )}
 
         {screen === "variety" && (
-          <div key="variety" className={`${slideClass} flex-1 min-h-0 flex flex-col`}>
+          <div key="variety" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
             <AddVarietyForm
               onClose={onClose}
               onSuccess={onClose}

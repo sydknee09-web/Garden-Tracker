@@ -615,7 +615,7 @@ export function PacketVaultView({
             onClick={onAddFirst}
             className="min-h-[44px] min-w-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors"
           >
-            Add a packet
+            Add a Packet
           </button>
         )}
       </div>
