@@ -9,7 +9,7 @@ import { copyCareTemplatesToInstance } from "@/lib/generateCareTasks";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
-import { SupplyPicker } from "@/components/SupplyPicker";
+import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import { LoadingState } from "@/components/LoadingState";
 import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 
@@ -771,11 +771,9 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
       </div>
 
       <div className="w-full mb-4">
-        <SupplyPicker
+        <CollapsibleSupplies
           selectedIds={selectedSupplyIds}
           onChange={setSelectedSupplyIds}
-          label="Supplies used (optional)"
-          placeholder="e.g. seed starter, fertilizer at sowing"
         />
       </div>
 

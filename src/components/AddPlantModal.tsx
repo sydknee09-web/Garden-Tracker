@@ -23,6 +23,7 @@ import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { logEvent } from "@/lib/debugLog";
 import { assignInstanceToGroup, createGroup, fetchUserGroups } from "@/lib/groups";
+import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import type { Group } from "@/types/garden";
 
 type ProfileOption = { id: string; name: string; variety_name: string | null; profile_type: string };
@@ -36,8 +37,6 @@ export function AddPlantModal({
   defaultPlantType = "seasonal",
   /** When true, do not redirect to vault after add (e.g. when opened from Garden). */
   stayInGarden = false,
-  /** When true, hide the Permanent/Seasonal toggle (e.g. when opened from Garden — type is inferred from tab). */
-  hidePlantTypeToggle = false,
   /** When set, add a plant to this existing profile. Skips mode toggle and profile selector; shows date, location, photo, quantity only. */
   profileId: profileIdProp,
   /** Optional display name for the profile (e.g. "Rose (Cecile Brunner)"). When profileIdProp is set, used for journal note if provided. */
@@ -54,7 +53,6 @@ export function AddPlantModal({
   onSuccess?: () => void;
   defaultPlantType?: "permanent" | "seasonal";
   stayInGarden?: boolean;
-  hidePlantTypeToggle?: boolean;
   profileId?: string;
   profileDisplayName?: string;
   onBackToMenu?: () => void;
@@ -104,6 +102,9 @@ export function AddPlantModal({
   const [groupQuery, setGroupQuery] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  // Supplies-used (Sprint 4 MUST #5 symmetry with PlantingForm — collapsible).
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
+
   const profileTypeFilter = plantType === "permanent" ? "permanent" : "seed";
 
   const loadProfiles = useCallback(async (profileType?: "permanent" | "seed") => {
@@ -141,8 +142,8 @@ export function AddPlantModal({
   }, [open, user?.id, defaultPlantType, loadProfiles, addToExistingProfile, profileIdProp]);
 
   useEffect(() => {
-    if (open && user?.id && !hidePlantTypeToggle) loadProfiles();
-  }, [open, user?.id, hidePlantTypeToggle, plantType, loadProfiles]);
+    if (open && user?.id && !addToExistingProfile) loadProfiles();
+  }, [open, user?.id, addToExistingProfile, plantType, loadProfiles]);
 
   // B3 — load groups when modal opens
   useEffect(() => {
@@ -265,6 +266,7 @@ export function AddPlantModal({
     setCreatedProfileId(null);
     setSelectedGroupIds([]);
     setGroupQuery("");
+    setSelectedSupplyIds(new Set());
   }, []);
 
   const handleClose = useCallback(() => {
@@ -365,6 +367,18 @@ export function AddPlantModal({
         }
         const growInstanceIdNew = (growRow as { id: string }).id;
         await assignSelectedGroupsToInstance(growInstanceIdNew);
+
+        // Supplies-used journal entries (mirrors PlantingForm.tsx:402-411 — entry_type "care").
+        for (const supplyId of selectedSupplyIds) {
+          await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growInstanceIdNew,
+            supply_profile_id: supplyId,
+            note: "Used at planting",
+            entry_type: "care",
+          });
+        }
 
         // Upload photos: first sets hero; all create journal entries (Law 7, no overwrite)
         let heroPath: string | null = null;
@@ -497,6 +511,18 @@ export function AddPlantModal({
         const growId = (growRow as { id: string }).id;
         await assignSelectedGroupsToInstance(growId);
 
+        // Supplies-used journal entries (mirrors PlantingForm.tsx:402-411 — entry_type "care").
+        for (const supplyId of selectedSupplyIds) {
+          await supabase.from("journal_entries").insert({
+            user_id: user.id,
+            plant_profile_id: profileId,
+            grow_instance_id: growId,
+            supply_profile_id: supplyId,
+            note: "Used at planting",
+            entry_type: "care",
+          });
+        }
+
         if (primaryPacketId && plantType === "seasonal" && packetsForProfile.length > 0) {
           await supabase.from("seed_packets").update({ qty_status: 0, is_archived: true }).eq("id", primaryPacketId).eq("user_id", user.id);
         }
@@ -614,34 +640,10 @@ export function AddPlantModal({
               ) : (
                 <div className="w-11 shrink-0" aria-hidden />
               )}
-              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{establishedMode ? "Add Established Plant" : addToExistingProfile ? "Add Plant" : hidePlantTypeToggle ? (plantType === "permanent" ? "Add Permanent Plant" : "Add to Active Garden") : "Add Plant"}</h2>
+              <h2 id="add-plant-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">{establishedMode ? "Add Established Plant" : "Add Plant"}</h2>
               <div className="w-11 shrink-0" aria-hidden />
             </div>
-            <p className="text-sm text-neutral-500 text-center">{establishedMode ? "Add a plant you've already acquired (nursery, gift, division)." : hidePlantTypeToggle ? (plantType === "permanent" ? "Add trees, perennials, or other long-lived plants." : "Link to an existing variety or add a new one.") : "Add a new plant — permanent (trees, perennials) or seasonal (annuals)."}</p>
-            {!hidePlantTypeToggle && (
-              <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlantType("permanent");
-                    loadProfiles("permanent");
-                  }}
-                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
-                >
-                  Permanent
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlantType("seasonal");
-                    loadProfiles("seed");
-                  }}
-                  className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
-                >
-                  Seasonal
-                </button>
-              </div>
-            )}
+            <p className="text-sm text-neutral-500 text-center">{establishedMode ? "Add a plant you've already acquired (nursery, gift, division)." : "Link to an existing variety or add a new one."}</p>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-2.5">
             {!addToExistingProfile && (
@@ -1082,6 +1084,11 @@ export function AddPlantModal({
                 {webcamError && !webcamActive && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
               <p className="text-xs text-neutral-500 mt-1">First photo becomes the profile hero. All appear in the journal.</p>
             </div>
+
+            <CollapsibleSupplies
+              selectedIds={selectedSupplyIds}
+              onChange={setSelectedSupplyIds}
+            />
 
             <div>
               <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>

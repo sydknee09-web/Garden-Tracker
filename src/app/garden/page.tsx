@@ -1214,7 +1214,7 @@ function GardenPageInner() {
       )}
 
       {activeModal === "plant" && (
-        <AddPlantModal open onClose={closeActiveModal} onBackToMenu={backToMenu} onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }} defaultPlantType={addPlantDefaultType} stayInGarden hidePlantTypeToggle />
+        <AddPlantModal open onClose={closeActiveModal} onBackToMenu={backToMenu} onSuccess={() => { closeActiveModal(); setRefetchTrigger((t) => t + 1); }} defaultPlantType={addPlantDefaultType} stayInGarden />
       )}
       <PurchaseOrderImport
         open={purchaseOrderOpen}

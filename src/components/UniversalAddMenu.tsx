@@ -321,7 +321,6 @@ export function UniversalAddMenu({
               onBackToMenu={goBackToAddPlant}
               defaultPlantType={addPlantDefaultType}
               stayInGarden={pathname.startsWith("/garden")}
-              hidePlantTypeToggle={pathname.startsWith("/garden")}
             />
           </div>
         )}
@@ -336,7 +335,6 @@ export function UniversalAddMenu({
               onBackToMenu={goBackToAddPlant}
               defaultPlantType="permanent"
               stayInGarden={pathname.startsWith("/garden")}
-              hidePlantTypeToggle
             />
           </div>
         )}
