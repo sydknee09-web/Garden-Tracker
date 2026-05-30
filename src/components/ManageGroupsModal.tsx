@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -28,7 +29,11 @@ import type { Group } from "@/types/garden";
  *   - Reorder (↑↓ adjacent swap; writes explicit positions for ALL groups so future ordering is deterministic)
  *
  * Modal shell mirrors AddPlantModal pattern (fixed inset-0 z-[60] backdrop + rounded-3xl panel,
- * useFocusTrap + useEscapeKey + useBodyScrollLock).
+ * useFocusTrap + useEscapeKey + useBodyScrollLock). Rendered via createPortal to document.body
+ * because the trigger (GroupTabs) is mounted inside a `backdrop-blur-md sticky` bar — that
+ * `backdrop-filter` ancestor creates a containing block for `position: fixed` descendants,
+ * which clips the backdrop + leaves the FAB/garden interactable. Portal escapes the trap;
+ * pattern anchor at SearchableMultiSelect.tsx:232.
  */
 
 type RowState = {
@@ -196,8 +201,9 @@ export function ManageGroupsModal({
   );
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20"
       role="dialog"
@@ -271,9 +277,12 @@ export function ManageGroupsModal({
             {loading && rows.length === 0 ? (
               <p className="text-sm text-neutral-500">Loading…</p>
             ) : rows.length === 0 ? (
-              <p className="text-sm text-neutral-500">
-                No groups yet. Add one above to start organizing plants.
-              </p>
+              <div className="py-6 text-center space-y-1">
+                <p className="text-sm text-neutral-500">— No groups yet —</p>
+                <p className="text-xs text-neutral-400">
+                  Add one above to start organizing plants.
+                </p>
+              </div>
             ) : (
               <ul className="space-y-2">
                 {rows.map((row, idx) => {
@@ -392,16 +401,17 @@ export function ManageGroupsModal({
           {error && <FormError>{error}</FormError>}
         </div>
 
-        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex justify-end">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"
+            className="w-full min-h-[48px] rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"
           >
             Done
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
