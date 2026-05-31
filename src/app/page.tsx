@@ -512,16 +512,7 @@ export default function HomePage() {
 
                   return (
                     <li key={item.id} className="flex items-center gap-3 group">
-                      <input
-                        type="checkbox"
-                        id={`purchased-${item.id}`}
-                        checked={false}
-                        onChange={() => handleMarkPurchased(item)}
-                        disabled={markingPurchasedId === item.id}
-                        className="min-w-[44px] min-h-[44px] w-[44px] h-[44px] rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
-                        aria-label={`Mark ${label} as purchased`}
-                      />
-                      <label htmlFor={`purchased-${item.id}`} className="flex-1 cursor-pointer text-sm text-black/90 min-w-0">
+                      <span className="flex-1 text-sm text-black/90 min-w-0">
                         {isSupply ? (
                           supplyLinkDisabled ? (
                             <span>{label}</span>
@@ -535,7 +526,18 @@ export default function HomePage() {
                             {label}
                           </Link>
                         )}
-                      </label>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleMarkPurchased(item)}
+                        disabled={markingPurchasedId === item.id}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                        aria-label={`Mark ${label} as purchased`}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </button>
                     </li>
                   );
                 })}
