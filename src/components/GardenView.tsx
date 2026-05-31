@@ -15,6 +15,7 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
+import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { fetchAllUserGrowInstances } from "@/lib/groups";
 import type { WeatherSnapshotData, Group } from "@/types/garden";
 import type { SelectedGroup } from "@/components/GroupTabs";
@@ -1177,9 +1178,9 @@ export const GardenView = forwardRef<GardenViewHandle, {
                       </div>
                     </div>
                     <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 mb-0">
-                        {batch.profile_name}
-                        {batch.profile_variety_name?.trim() && <span className="font-normal italic text-black/60"> ({batch.profile_variety_name})</span>}
+                      <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] line-clamp-2 mb-0" title={`${decodeHtmlEntities(batch.profile_name)}${batch.profile_variety_name?.trim() ? ` (${decodeHtmlEntities(batch.profile_variety_name)})` : ""}`}>
+                        {decodeHtmlEntities(batch.profile_name)}
+                        {batch.profile_variety_name?.trim() && <span className="font-normal italic text-black/60"> ({decodeHtmlEntities(batch.profile_variety_name)})</span>}
                       </h3>
                       <p className="text-[10px] text-black/60 leading-tight line-clamp-2 w-full min-h-0">
                         {isPerennial
@@ -1257,7 +1258,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                       <Link
                         href={`/garden?grow=${batch.id}`}
                         className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
-                        aria-label={`View plant: ${formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}`}
+                        aria-label={`View plant: ${decodeHtmlEntities(formatBatchDisplayName(batch.profile_name, batch.profile_variety_name))}`}
                         onClick={(e) => {
                           if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
                             e.preventDefault();
@@ -1300,7 +1301,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                       >
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm text-neutral-900 group-hover:text-emerald-700">
-                            {formatBatchDisplayName(batch.profile_name, batch.profile_variety_name)}
+                            {decodeHtmlEntities(formatBatchDisplayName(batch.profile_name, batch.profile_variety_name))}
                           </span>
                           {isPerennial && <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium">Perennial</span>}
                           {!isPerennial && batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
