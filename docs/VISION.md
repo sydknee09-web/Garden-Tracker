@@ -477,6 +477,54 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own surface taxonomy; this convention does NOT apply there.
 
+### Variety presentation — stacked italic
+
+**Locked 2026-05-30** — reverses the prior implicit inline `Name (Variety)` parens-wrapped pattern that operated across inventory list surfaces.
+
+On gallery cards + list rows across ALL inventory surfaces (Library/Plants, Packets, Garden), variety renders as a **separate stacked line beneath the plant name, italic, with no parentheses**.
+
+**The rule (two branches):**
+
+- Plant name on its own line (existing register: bold gallery h3, semibold list-row)
+- Variety on the next line — italic, no parens, muted color register
+- Conditional render: variety line only appears when `variety_name?.trim()` is truthy
+
+**Decision criterion at audit time (one question):** *Does this surface render a LIST of named-with-variation items (multiple plants, multiple packets, multiple batches stacked vertically)? → stack the variety line under the name, italic, no parens.*
+
+**Tokens:**
+
+- **Gallery cards:** variety = `block font-normal italic text-black/60 truncate text-center w-full` (extends the existing gallery card variety register from `2e9df79` — drops parens + ensures stacked)
+- **List rows + desktop table:** variety = `block text-sm font-normal italic text-neutral-600 truncate` (anchors VISION §8 info-note primitive `text-sm text-neutral-600 italic`)
+
+**Example:**
+
+```
+Tomato                    ← name (bold gallery / semibold row, no change)
+Cherokee Purple           ← variety (italic, no parens, muted, on own line)
+```
+
+NOT this (prior pattern, now reversed):
+
+```
+Tomato (Cherokee Purple)  ← inline with parens (rejected — see rationale)
+```
+
+**Not for:** title tooltips, aria-labels, toasts, modal body copy, single-item profile headers. Those stay inline `Name (Variety)` via `formatBatchDisplayName` or equivalent string concat — they are body-copy-equivalent single-line text where parenthetical reads naturally and there's no skimming axis to preserve.
+
+**Why this rule exists.** Syd verbatim 2026-05-30: *"I like the variety under plant type because it's easier to skim and read. These pages get incredibly long so being able to easily skim the variety OR the name was nice."*
+
+The principle: **independent skimmability of two axes.** Inventory lists grow long (a mature gardener accumulates dozens of plant types, hundreds of packets across years). Users need to scan by EITHER the plant-type name OR the variety without parens visually merging them into a single hybrid token. Inline `Name (Variety)` forces the eye to parse the whole compound string left-to-right on every row; stacked-with-distinct-register lets the eye sweep down either column independently — the bold left-aligned names form one scannable axis, the italic muted varieties form a second.
+
+Italic + muted register signals "structurally distinct but subordinate axis" — botanist convention (`Solanum lycopersicum / 'Cherokee Purple'`), iOS Contacts (first-name + last-name stacked), Apple Music (song / artist stacked), iOS Settings sub-rows. The visual vocabulary is universally recognized.
+
+**Generalizes beyond the 4 surfaces audited at lock time.** Any future list surface rendering named-with-variation items inherits this rule — don't re-derive the decision per surface. Single-item profile views (where there's only one row visible at a time and no skimming axis exists) are exempt; they can render inline `Name (Variety)` as body copy.
+
+**Supersedes:** ROADMAP §6 2026-05-27 "Variety presentation standardization across list views" chapter (Sprint 5 SHOULD #19 — was inline parens-wrapped standardization, marked VERIFIED CLOSED 2026-05-30 in polish bundle `332f0d6`). Stack-italic-no-parens is the new canonical; reversal is acknowledged + transparent per CLAUDE.md authority-precedence — not silent drift. Prior ship work landed the inline-uniform pattern as intermediate state; this amendment flips the target.
+
+**Persona walk.** All 5 personas pass. Maya (power user, many varieties on many plant types, lookup-heavy on Packets) — independent skimmability is the core win; she scans names OR varieties down the column without parsing compound tokens. Sydney (cohesion-driver, the reverser) — sees the lock land verbatim from her signal. Walter (iPad-primary, plain-language) — italic muted register reads as universal iOS "secondary detail" convention (Contacts / Notes / Settings); slightly taller rows aid tap targets. Aria (urban houseplant, low variety usage) — most of her plants have no variety field, so cards/rows render single-line as before — cleaner empty register without parens visual scaffolding. Sam (first-time, ~0-3 items) — no impact at empty-state scale; framework activates as her library grows.
+
+**GT-only.** Voyager has its own conventions; this rule does NOT apply there.
+
 ### Profile-tab contextual add actions
 
 **Locked 2026-05-30.** On a plant profile page ([vault/[id]](src/app/vault/[id]/page.tsx)), each tab's primary "Add X" CTA creates an entity of that tab's thing-type, pre-filled with the current profile as context. The handler is always the canonical create-X flow with the profile pre-selected — never a different create-Y flow even when current state suggests Y is a prerequisite. Prerequisite guardrails (e.g. "you need a packet first") live INSIDE the create-X flow, never in the entry handler.

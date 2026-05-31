@@ -1005,11 +1005,15 @@ export function SeedVaultView({
                     </div>
                   </div>
                   <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={`${decodeHtmlEntities(seed.name)}${varietyDisplay ? ` (${varietyDisplay})` : ""}`}>
-                      <span className="line-clamp-2 break-words text-center">
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-col items-center justify-center min-w-0 mb-0" title={`${decodeHtmlEntities(seed.name)}${varietyDisplay ? ` (${varietyDisplay})` : ""}`}>
+                      <span className="block line-clamp-2 break-words text-center">
                         {decodeHtmlEntities(seed.name)}
-                        {varietyDisplay && <span className="font-normal italic text-black/60"> ({varietyDisplay})</span>}
                       </span>
+                      {varietyDisplay && (
+                        <span className="block w-full font-normal italic text-black/60 truncate text-center">
+                          {varietyDisplay}
+                        </span>
+                      )}
                     </h3>
                     <div className="pt-0.5 flex items-center gap-1 flex-wrap justify-center min-w-0 w-full">
                       {seed.hasF1Packet && <span className="text-[8px] font-semibold px-0.5 py-px rounded bg-amber-100 text-amber-800 shrink-0">F1</span>}
@@ -1054,8 +1058,7 @@ export function SeedVaultView({
               );
             }
 
-            /* List row: thumbnail + inline "Name (Variety)". Packet count is scoped to the Packets tab. */
-            const inlineVariety = varietyDisplay ? ` (${varietyDisplay})` : "";
+            /* List row: thumbnail + stacked name / italic variety (VISION §8 variety presentation lock 2026-05-30). Packet count is scoped to the Packets tab. */
             const rowInner = (
               <>
                 {batchSelectMode && (
@@ -1078,7 +1081,10 @@ export function SeedVaultView({
                   )}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}{inlineVariety}</span>
+                  <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(seed.name)}</span>
+                  {varietyDisplay && (
+                    <span className="block text-sm font-normal italic text-neutral-600 truncate">{varietyDisplay}</span>
+                  )}
                 </span>
                 {seed.hasF1Packet && <span className="shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800">F1</span>}
               </>

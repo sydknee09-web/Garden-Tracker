@@ -699,11 +699,15 @@ export function PacketVaultView({
                     </div>
                   </div>
                   <div className="px-1.5 pt-1 pb-0.5 flex flex-col flex-1 min-h-0 items-center text-center min-w-0">
-                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-wrap items-center justify-center gap-1 min-w-0 mb-0" title={`${decodeHtmlEntities(pkt.profile_name)}${varietyDisplay ? ` (${decodeHtmlEntities(varietyDisplay)})` : ""}`}>
-                      <span className="line-clamp-2 break-words text-center">
+                    <h3 className="font-semibold text-black text-xs leading-tight w-full min-h-[1.75rem] flex flex-col items-center justify-center min-w-0 mb-0" title={`${decodeHtmlEntities(pkt.profile_name)}${varietyDisplay ? ` (${decodeHtmlEntities(varietyDisplay)})` : ""}`}>
+                      <span className="block line-clamp-2 break-words text-center">
                         {decodeHtmlEntities(pkt.profile_name)}
-                        {varietyDisplay && <span className="font-normal italic text-black/60"> ({decodeHtmlEntities(varietyDisplay)})</span>}
                       </span>
+                      {varietyDisplay && (
+                        <span className="block w-full font-normal italic text-black/60 truncate text-center">
+                          {decodeHtmlEntities(varietyDisplay)}
+                        </span>
+                      )}
                     </h3>
                     {pkt.vendor_name?.trim() && (
                       <div className="text-[10px] leading-tight text-black/50 w-full min-h-0 line-clamp-1 break-words pt-0.5" title={pkt.vendor_name.trim()}>{pkt.vendor_name.trim()}</div>
@@ -752,7 +756,7 @@ export function PacketVaultView({
               const lp = onLongPressPacket ? getLongPressHandlers(pkt) : null;
               const thumbUrl = getThumbUrl(pkt);
               const showSeedling = !thumbUrl || imageErrorIds.has(pkt.id);
-              const varietyDisplay = pkt.variety_name?.trim() ? ` (${pkt.variety_name})` : "";
+              const varietyDisplay = pkt.variety_name?.trim() ?? "";
               const ownerBadge = pkt.owner_user_id ? getShorthandForUser(pkt.owner_user_id) : null;
               const isSelected = selectedPacketIds?.has(pkt.id);
               const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
@@ -785,7 +789,10 @@ export function PacketVaultView({
                       )}
                     </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(pkt.profile_name)}{varietyDisplay}</span>
+                      <span className="block text-sm font-semibold text-neutral-900 truncate">{decodeHtmlEntities(pkt.profile_name)}</span>
+                      {varietyDisplay && (
+                        <span className="block text-sm font-normal italic text-neutral-600 truncate">{decodeHtmlEntities(varietyDisplay)}</span>
+                      )}
                       {pkt.vendor_name?.trim() && (
                         <span className="block text-xs text-neutral-500 truncate">{pkt.vendor_name.trim()}</span>
                       )}
@@ -824,7 +831,7 @@ export function PacketVaultView({
               .filter((pkt) => !selectedOwnerFilter || pkt.owner_user_id === selectedOwnerFilter)
               .map((pkt) => {
                 const qtyColor = pkt.qty_status > 50 ? "text-emerald-600" : pkt.qty_status > 20 ? "text-amber-600" : "text-red-600";
-                const varietyDisplay = pkt.variety_name?.trim() ? ` (${pkt.variety_name})` : "";
+                const varietyDisplay = pkt.variety_name?.trim() ?? "";
                 const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
                 const isSelected = selectedPacketIds?.has(pkt.id);
 
@@ -843,9 +850,14 @@ export function PacketVaultView({
                     className={`hover:bg-neutral-50 cursor-pointer transition-colors ${pkt.is_archived ? "opacity-50" : ""} ${batchSelectMode && isSelected ? "bg-emerald/5 ring-2 ring-emerald-500" : ""}`}
                   >
                     <td className="px-4 py-3">
-                      <span className="font-medium text-neutral-800">
-                        {decodeHtmlEntities(pkt.profile_name)}{varietyDisplay}
+                      <span className="block font-medium text-neutral-800">
+                        {decodeHtmlEntities(pkt.profile_name)}
                       </span>
+                      {varietyDisplay && (
+                        <span className="block font-normal italic text-neutral-600">
+                          {decodeHtmlEntities(varietyDisplay)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-neutral-600">{pkt.vendor_name?.trim() || "—"}</td>
                     <td className="px-4 py-3 text-neutral-500">{pkt.purchase_date ? new Date(pkt.purchase_date).toLocaleDateString() : "—"}</td>
