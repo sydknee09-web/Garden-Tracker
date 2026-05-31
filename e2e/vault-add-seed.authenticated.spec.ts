@@ -40,11 +40,9 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     // Click Add Seed Packet
     await page.getByText("Add Seed Packet").click();
 
-    // QuickAddSeed should open with "Add Seed Packet" heading and "Manual entry" option
-    // (NOTE: QuickAddSeed chip is still sentence case in source — sweep 5b5617c flipped
-    // UniversalAddMenu chips but missed QuickAddSeed.tsx:614 + QuickAddSupply.tsx:404)
+    // QuickAddSeed should open with "Add Seed Packet" heading and "Manual Entry" chip
     await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("button", { name: "Manual entry" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Manual Entry" })).toBeVisible();
   });
 
   test("manual add flow completes and stays on vault or profile page", async ({ page }) => {
@@ -58,8 +56,7 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     await page.getByText("Add Seed Packet").click();
     await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
 
-    // Choose Manual entry (QuickAddSeed chip — still sentence case in source)
-    await page.getByRole("button", { name: "Manual entry" }).click();
+    await page.getByRole("button", { name: "Manual Entry" }).click();
 
     // Fill required plant name
     const nameInput = page.getByLabel(/plant name|name/i).first();

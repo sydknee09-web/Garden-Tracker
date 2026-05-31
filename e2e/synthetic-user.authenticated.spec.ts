@@ -53,8 +53,7 @@ test.describe("Synthetic User Procedure", () => {
     await expect(page.getByText("Add Seed Packet")).toBeVisible();
     await page.getByText("Add Seed Packet").click();
     await expect(page.getByRole("heading", { name: "Add Seed Packet" })).toBeVisible({ timeout: 5000 });
-    // QuickAddSeed chip — still sentence case in source per sweep miss
-    await page.getByRole("button", { name: "Manual entry" }).click();
+    await page.getByRole("button", { name: "Manual Entry" }).click();
 
     const uniqueName = `E2E Synthetic ${Date.now()}`;
     const nameInput = page.getByLabel(/plant name|name/i).first();
