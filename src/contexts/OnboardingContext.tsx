@@ -29,15 +29,26 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const { toast, showToast } = useToast();
   const onboarding = useOnboarding(user ?? null);
   const [initialTaskTitle, setInitialTaskTitle] = useState<string | null>(null);
-  const prevCompletedRef = useRef<boolean>(false);
+  // null = baseline not yet recorded for this user. Prevents the DB-loaded
+  // "completed=true" state from being misread as a fresh in-session completion
+  // and firing the celebration toast on every app open (VISION §10 no-auto-popups).
+  const prevCompletedRef = useRef<boolean | null>(null);
 
   useEffect(() => {
+    prevCompletedRef.current = null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (onboarding.isLoading) return;
+    if (prevCompletedRef.current === null) {
+      prevCompletedRef.current = onboarding.completed;
+      return;
+    }
     if (onboarding.completed && !prevCompletedRef.current) {
-      prevCompletedRef.current = true;
       showToast("Your garden is ready!", { icon: "🌱" });
     }
-    if (!onboarding.completed) prevCompletedRef.current = false;
-  }, [onboarding.completed, showToast]);
+    prevCompletedRef.current = onboarding.completed;
+  }, [onboarding.isLoading, onboarding.completed, showToast]);
 
   const openTaskForOnboarding = useCallback(() => {
     setInitialTaskTitle(ONBOARDING_TASK_TITLE);
