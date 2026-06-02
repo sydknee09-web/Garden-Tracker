@@ -271,7 +271,6 @@ export default function JournalPage() {
     closeMenu,
     openShed,
     shedInitialName,
-    openJournal,
     closeActiveModal,
     backToMenu,
     closeAll,
@@ -615,14 +614,6 @@ export default function JournalPage() {
             </button>
           </div>
           </div>
-          <button
-            type="button"
-            onClick={() => openJournal()}
-            className="shrink-0 min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-            aria-label="New journal entry"
-          >
-            <span aria-hidden>+</span> Entry
-          </button>
         </div>
       </div>
 
@@ -647,7 +638,7 @@ export default function JournalPage() {
                   return prompts[day % prompts.length];
                 })()}
               </p>
-              <p className="text-xs text-slate-400">Tap the + button below or <strong>+ Entry</strong> above to log your first entry.</p>
+              <p className="text-xs text-slate-400">Tap the + button below to log your first entry.</p>
             </>
           }
         />

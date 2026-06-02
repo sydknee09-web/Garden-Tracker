@@ -141,7 +141,7 @@ export function VaultGridRefineModal({
               className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
               aria-expanded={refineBySection === "sort"}
             >
-              <span>Sort</span>
+              <span>Sort By</span>
               <span className="text-black/50 shrink-0 ml-2" aria-hidden>
                 {refineBySection === "sort" ? "▼" : "▸"}
               </span>

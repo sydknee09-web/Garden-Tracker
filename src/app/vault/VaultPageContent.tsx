@@ -1133,7 +1133,7 @@ function VaultPageInner() {
           </>
         )}
 
-        {viewMode === "list" && vaultHasSeeds && <VaultPacketWingToolbar />}
+        {viewMode === "list" && <VaultPacketWingToolbar />}
 
         {/* Shed toolbar */}
         {viewMode === "shed" && <VaultShedWingToolbar />}

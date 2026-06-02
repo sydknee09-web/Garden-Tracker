@@ -584,7 +584,7 @@ export function VaultShedWingModals({
             onClick={(e) => e.stopPropagation()}
           >
             <header className="flex-shrink-0 flex items-center justify-between gap-2 px-4 py-3 border-b border-black/10">
-              <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter & Sort</h2>
+              <h2 id="shed-filter-title" className="text-lg font-semibold text-black">Filter</h2>
               <button
                 type="button"
                 onClick={() => setShedFilterOpen(false)}
