@@ -60,7 +60,6 @@ import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
 import type { Task } from "@/types/garden";
 import type { ShoppingListItem } from "@/types/garden";
-import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 type TaskWithPlant = Task & { plant_name?: string };
 type ShoppingItemWithName = ShoppingListItem & {
@@ -110,14 +109,6 @@ export default function HomePage() {
   const [markingPurchasedId, setMarkingPurchasedId] = useState<string | null>(null);
   const [markingTaskDoneId, setMarkingTaskDoneId] = useState<string | null>(null);
   const [userSettings, setUserSettings] = useState<UserSettingsRow | null>(null);
-  const [insightDismissed, setInsightDismissed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("home-insight-dismissed") === "1";
-    } catch {
-      return false;
-    }
-  });
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
   const [shoppingListRefreshKey, setShoppingListRefreshKey] = useState(0);
   const [batchAddSeedOpen, setBatchAddSeedOpen] = useState(false);
@@ -269,9 +260,6 @@ export default function HomePage() {
     return weather.daily.filter((d) => d.low <= 32);
   }, [weather?.daily]);
   const frostAlert = frostDays.length > 0;
-  const sowingOk = currentTemp != null && currentTemp >= 40 && currentTemp <= 90 && !frostAlert;
-
-  const locationLabel = userSettings?.location_name?.trim() || "Set location in Settings";
 
   async function handleMarkPurchased(item: ShoppingItemWithName) {
     if (!user?.id) return;
@@ -316,46 +304,12 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ---- Insight Banner (dismissible, compact) ---- */}
-      {weather && sowingOk && !heatAlert && !insightDismissed && (() => {
-        const insights = [
-          "Great weather for sowing!",
-          "Good day for watering.",
-          "Time to check your seedlings.",
-          "Ideal conditions for transplanting.",
-        ];
-        const day = new Date().getDay();
-        const message = insights[day % insights.length];
-        return (
-        <div className="mb-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2 shadow-card-soft flex items-center gap-2">
-          <span className="shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium text-emerald-100 uppercase tracking-wide">Insight of the day</p>
-            <p className="text-sm font-semibold text-white truncate">{message}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setInsightDismissed(true);
-              try {
-                localStorage.setItem("home-insight-dismissed", "1");
-              } catch {}
-            }}
-            className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 rounded-lg text-white/90 hover:bg-white/20 hover:text-white transition-colors"
-            aria-label="Dismiss insight"
-          >
-            <span className="text-lg font-bold leading-none">×</span>
-          </button>
-        </div>
-        );
-      })()}
-
       {/* ---- Sanctuary Quick Start dock (3-step onboarding) ---- */}
       {onboardingCtx && <OnboardingDock />}
 
       {/* ---- Weather (compact, mesh gradient) ---- */}
       <section className="rounded-xl bg-gradient-to-br from-sky-50 via-blue-50/50 to-amber-50/30 p-5 shadow-card-soft border border-black/5 mb-6">
-        <h2 className="text-base font-bold text-black/90 mb-3 text-center pb-2 border-b border-black/5">Weather &amp; Forecast, {locationLabel}</h2>
+        <h2 className="text-base font-bold text-black/90 mb-3 text-center pb-2 border-b border-black/5">Weather &amp; Forecast</h2>
         {weather ? (
           <>
             <div className="flex items-center justify-center gap-3 mb-2">
@@ -405,6 +359,13 @@ export default function HomePage() {
                   Extreme Heat: Check irrigation.
                 </span>
               )}
+              {!userSettings?.location_name?.trim() && (
+                <p className="text-center">
+                  <Link href="/settings/profile" className="text-xs text-emerald-600 font-medium hover:underline">
+                    Set your location in Settings &rarr;
+                  </Link>
+                </p>
+              )}
             </div>
           </>
         ) : (
@@ -414,7 +375,7 @@ export default function HomePage() {
 
       {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
       <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-        <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">When to Plant (by Zone)</h2>
+        <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">When to Plant</h2>
         <p className="text-xs text-black/50 mb-3">Action now · Monthly view · Yearly view</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
@@ -440,7 +401,7 @@ export default function HomePage() {
           </Link>
         </div>
         <p className="text-xs text-black/50 mt-2 text-center">
-          <Link href="/schedule" prefetch={false} className="text-emerald-600 font-medium hover:underline">
+          <Link href="/schedule?view=roadmap" prefetch={false} className="text-emerald-600 font-medium hover:underline">
             View full schedule &rarr;
           </Link>
           {" · "}
@@ -564,7 +525,9 @@ export default function HomePage() {
         {/* ---- Tasks ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
           <h2 className="text-base font-bold text-black mb-1 text-center pb-2 border-b border-black/5">At a Glance</h2>
-          <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
+          {!loadingTasksAndList && pendingTasks.length > 0 && (
+            <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
+          )}
           {loadingTasksAndList ? (
             <LoadingState message="Loading…" className="py-4" />
           ) : (
