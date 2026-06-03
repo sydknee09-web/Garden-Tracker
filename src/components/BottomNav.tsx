@@ -15,7 +15,7 @@ export function BottomNav() {
         paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
       }}
     >
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+      <div className="flex items-center h-16 max-w-lg mx-auto px-2">
         {primaryNavItems.map(({ href, label, Icon }) => {
           const isActive = isNavItemActive(href, pathname);
           return (
@@ -23,7 +23,7 @@ export function BottomNav() {
               key={href}
               href={href}
               prefetch={false}
-              className={`flex flex-col items-center justify-center min-w-[64px] min-h-[44px] py-2 rounded-xl transition-colors ${
+              className={`flex flex-1 flex-col items-center justify-center min-h-[44px] py-2 rounded-xl transition-colors ${
                 isActive ? "text-emerald" : "text-black/50 hover:text-black/80"
               }`}
               aria-current={isActive ? "page" : undefined}

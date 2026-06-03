@@ -224,14 +224,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                       <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
                     </Link>
                     <Link
-                      href="/help"
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black xl:hidden"
-                      aria-label="Help"
-                      title="Where do I…?"
-                    >
-                      <span className="text-lg font-medium">?</span>
-                    </Link>
-                    <Link
                       href="/settings"
                       className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black xl:hidden"
                       aria-label="Settings"
@@ -324,14 +316,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                   aria-label="Shopping list"
                 >
                   <ICON_MAP.ShoppingList stroke="currentColor" className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="/help"
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-black/60 hover:text-black xl:hidden"
-                  aria-label="Help"
-                  title="Where do I…?"
-                >
-                  <span className="text-lg font-medium">?</span>
                 </Link>
                 <Link
                   href="/settings"

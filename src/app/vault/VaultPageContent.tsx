@@ -1027,6 +1027,25 @@ function VaultPageInner() {
           </div>
         )}
 
+        {/* Library single-state tab slot: /plants renders one inert "Library" tab so the
+            top-of-page tab-toggle slot stays visually consistent with Garden (All/groups) +
+            Vault (Packets/Shed). Tap is a no-op — it's always the active/only view.
+            Cohesion convention: VISION §8 "Single-state tab-slot for cross-surface cohesion". */}
+        {isPlantsSurface && (
+          <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={true}
+                className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-emerald-700 shadow-sm"
+              >
+                Library
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Unified toolbar: grid only; list uses VaultPacketWingToolbar */}
         {viewMode === "grid" && vaultHasSeeds && (
           <>

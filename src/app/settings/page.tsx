@@ -6,6 +6,7 @@ import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import { SettingsSuccessSoundToggle } from "@/components/SettingsSuccessSoundToggle";
 
 const USER_ITEMS = [
+  { href: "/help", label: "Help", subtitle: '"Where do I…?" — quick reference for finding things' },
   { href: "/resources", label: "Resources", subtitle: "Planting calendars, zone charts, frost dates" },
   { href: "/settings/profile", label: "Profile", subtitle: "Zone, export, tags, schedule, account" },
   { href: "/settings/family", label: "Family", subtitle: "Members, approval, view/edit access by page" },

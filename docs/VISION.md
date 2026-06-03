@@ -425,6 +425,22 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own visual register; this convention does NOT apply there.
 
+### Single-state tab-slot for cross-surface cohesion
+
+**Locked 2026-06-01 (Sprint 5 cont Ship 2b).** When a surface has only ONE view but its sibling surfaces render a top-of-page tab-toggle row, the single-state surface STILL renders the tab-toggle slot (one inert tab) so the spatial layout reads consistently across siblings.
+
+**The rule:** if surface A (single-view) sits in the same family as surfaces B/C that show a tab-toggle row in the top-of-page slot, A renders a one-tab version of that same toggle primitive rather than omitting the row. The lone tab is always-selected (`aria-selected={true}`), styled with the active token (`bg-white text-emerald-700 shadow-sm` inside the `inline-flex rounded-xl p-1 bg-neutral-100` pill), and its tap is a no-op (the user is already on the only view).
+
+**Worked example.** Library (`/plants`) shows one "Library" tab; Garden shows "All" + user groups (`GroupTabs`); Vault shows "Packets" + "Shed" (`VaultPageContent` switcher). All three render the identical pill primitive in the same slot, so moving between the three inventory surfaces feels continuous instead of each having a different header shape.
+
+**Decision criterion at audit time:** *Does this surface belong to a family where peers render a tab-toggle row? If yes and this surface has a single view → still render the one-tab slot. If the surface is standalone (no tab-bearing peers) → no slot needed.*
+
+**Why this rule exists.** Syd dogfood 2026-05-30: Library had no top tab/menu element while Garden + Vault did, making the three inventory surfaces feel like different page templates. The lone tab costs one inert control and buys cross-surface spatial continuity — the same cohesion-by-aggregation principle as the chrome-control-framing + emerald-token conventions, applied at the layout-slot level.
+
+**Persona walk.** All 5 pass. Maya/Sydney — the three inventory surfaces now share one header rhythm (cohesion). Walter — consistent layout reduces re-orientation cost between surfaces; the lone tab reads as "you're in Library", same as tapping the tab you're already on (no dead-tap confusion). Aria/Sam — no added complexity; one calm always-on label, not an interactive maze.
+
+**GT-only.** Voyager has its own visual register; this convention does NOT apply there.
+
 ### Emerald primary-emphasis token split
 
 **Locked 2026-05-27.** Semantically distinct affordances use semantically distinct emerald shades, parallel to the chrome-vs-content split (icon-style, chrome-control framing) — same principle applied to the color-token layer of primary-emphasis surfaces.

@@ -133,21 +133,6 @@ export function Sidebar({ collapsed, onToggleCollapsed, onOpenFeedback }: Sideba
           {!collapsed && <span className="truncate">Shopping List</span>}
         </Link>
         <Link
-          href="/help"
-          prefetch={false}
-          className={`${itemBase} ${itemLayout} ${itemIdle}`}
-          aria-label="Help"
-          title={collapsed ? "Help" : undefined}
-        >
-          <span
-            className="flex items-center justify-center w-6 h-6 flex-shrink-0 text-lg font-medium"
-            aria-hidden
-          >
-            ?
-          </span>
-          {!collapsed && <span className="truncate">Help</span>}
-        </Link>
-        <Link
           href="/settings"
           prefetch={false}
           className={`${itemBase} ${itemLayout} ${itemIdle}`}
