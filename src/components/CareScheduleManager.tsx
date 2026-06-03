@@ -717,7 +717,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           )}
 
           <div>
-            <label htmlFor="care-supply" className="block text-xs font-medium text-neutral-600 mb-1">Product from shed (optional)</label>
+            <label htmlFor="care-supply" className="block text-xs font-medium text-neutral-600 mb-1">Product from shed</label>
             <select
               id="care-supply"
               value={supplyProfileId ?? ""}
@@ -742,7 +742,7 @@ export function CareScheduleManager({ profileId, userId, schedules, onChanged, i
           </div>
 
           <div>
-            <label htmlFor="care-notes" className="block text-xs font-medium text-neutral-600 mb-1">Notes (optional)</label>
+            <label htmlFor="care-notes" className="block text-xs font-medium text-neutral-600 mb-1">Notes</label>
             <textarea id="care-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional details..." className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm resize-none" />
           </div>
 

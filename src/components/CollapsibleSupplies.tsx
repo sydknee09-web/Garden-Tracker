@@ -28,7 +28,7 @@ export function CollapsibleSupplies({
         aria-expanded={isOpen}
         aria-controls={bodyId}
       >
-        <span>Supplies used (optional)</span>
+        <span>Supplies used</span>
         {isOpen ? (
           <ICON_MAP.ChevronUp className="w-4 h-4 shrink-0" />
         ) : (

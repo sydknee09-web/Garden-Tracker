@@ -170,7 +170,7 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
 
           {/* Quantity */}
           <div>
-            <label htmlFor="harvest-qty" className="block text-sm font-medium text-neutral-700 mb-1">Count (optional)</label>
+            <label htmlFor="harvest-qty" className="block text-sm font-medium text-neutral-700 mb-1">Count</label>
             <input id="harvest-qty" type="number" step="1" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 12 tomatoes" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm focus:ring-emerald-500 focus:border-emerald-500" />
           </div>
 
@@ -207,8 +207,8 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
                 </div>
                 {photos.length < MAX_JOURNAL_PHOTOS && (
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-medium">Take Photo</button>
-                    <button type="button" onClick={() => photoGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald-600 text-white text-sm font-medium">From Gallery</button>
+                    <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Take Photo</button>
+                    <button type="button" onClick={() => photoGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">From Gallery</button>
                   </div>
                 )}
               </div>
@@ -216,8 +216,8 @@ export function HarvestModal({ open, onClose, onSaved, profileId, growInstanceId
               <div className="flex flex-col gap-2">
                 {webcamError && <p className="text-sm text-amber-600">{webcamError}</p>}
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Take Photo</button>
-                  <button type="button" onClick={() => photoGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">From Gallery</button>
+                  <button type="button" onClick={() => { if (isMobile) photoInputRef.current?.click(); else startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-lg border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">Take Photo</button>
+                  <button type="button" onClick={() => photoGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-lg border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">From Gallery</button>
                 </div>
               </div>
             )}

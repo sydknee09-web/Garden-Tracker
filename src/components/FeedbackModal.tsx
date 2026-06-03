@@ -250,8 +250,7 @@ export function FeedbackModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-black/80 mb-1">
-              Screenshot (optional)
-            </label>
+              Screenshot            </label>
             {screenshotPreview ? (
               <div className="relative rounded-xl border border-black/10 overflow-hidden bg-neutral-50">
                 <div className="relative aspect-video max-h-40">
@@ -291,8 +290,7 @@ export function FeedbackModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-black/80 mb-1">
-              Voice memo (optional)
-            </label>
+              Voice memo            </label>
             {!voice.supported ? (
               <p className="text-xs text-black/50">
                 Voice recording isn&apos;t supported on this browser. Typing and screenshots still work.

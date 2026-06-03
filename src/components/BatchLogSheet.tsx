@@ -595,7 +595,7 @@ export function BatchLogSheet({
                           <ICON_MAP.Camera className="w-5 h-5" />
                           Capture
                         </button>
-                        <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                        <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Cancel</button>
                       </div>
                     </div>
                   ) : photos.length > 0 ? (
@@ -616,11 +616,11 @@ export function BatchLogSheet({
                       </div>
                       {photos.length < MAX_JOURNAL_PHOTOS && (
                         <div className="flex gap-2">
-                          <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-xl border border-black/10 text-black/80 text-sm font-medium flex items-center gap-2">
+                          <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium flex items-center gap-2 hover:bg-teal-gus/10">
                             <ICON_MAP.Camera className="w-5 h-5" />
                             Take Photo
                           </button>
-                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-xl bg-emerald text-white text-sm font-medium flex items-center gap-2">
+                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium flex items-center gap-2 hover:bg-teal-gus/10">
                             <ICON_MAP.Gallery className="w-5 h-5" />
                             From Gallery
                           </button>
@@ -631,11 +631,11 @@ export function BatchLogSheet({
                     <div className="flex flex-col gap-2">
                       {batchLogWebcam.webcamError && <p className="text-sm text-amber-600">{batchLogWebcam.webcamError}</p>}
                       <div className="flex gap-2">
-                        <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                        <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2">
                           <ICON_MAP.Camera className="w-5 h-5" />
                           Take photo
                         </button>
-                        <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                        <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2">
                           <ICON_MAP.Gallery className="w-5 h-5" />
                           From gallery
                         </button>
@@ -694,7 +694,7 @@ export function BatchLogSheet({
                         </div>
                         <div className="flex gap-2">
                           <button type="button" onClick={batchLogWebcam.captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-xl bg-emerald text-white text-sm font-medium">Capture</button>
-                          <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">Cancel</button>
+                          <button type="button" onClick={batchLogWebcam.stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Cancel</button>
                         </div>
                       </div>
                     ) : photos.length > 0 ? (
@@ -709,11 +709,11 @@ export function BatchLogSheet({
                         </div>
                         {photos.length < MAX_JOURNAL_PHOTOS && (
                           <div className="flex gap-2">
-                            <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">
+                            <button type="button" onClick={handleTakePhotoClick} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">
                               <ICON_MAP.Camera className="w-5 h-5" />
                               Take Photo
                             </button>
-                            <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">
+                            <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">
                               <ICON_MAP.Gallery className="w-5 h-5" />
                               From Gallery
                             </button>
@@ -724,11 +724,11 @@ export function BatchLogSheet({
                       <div className="flex flex-col gap-2">
                         {batchLogWebcam.webcamError && <p className="text-sm text-amber-600">{batchLogWebcam.webcamError}</p>}
                         <div className="flex gap-2">
-                          <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                          <button type="button" onClick={handleTakePhotoClick} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2">
                             <ICON_MAP.Camera className="w-5 h-5" />
                             Take Photo
                           </button>
-                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-black/10 text-black/60 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2">
+                          <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-w-[44px] min-h-[44px] flex-1 py-4 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2">
                             <ICON_MAP.Gallery className="w-5 h-5" />
                             From Gallery
                           </button>

@@ -426,7 +426,7 @@ export default function VaultShedDetailPage() {
                   type="button"
                   disabled={photoSaving}
                   onClick={() => { if (isMobileShedPhoto) shedCameraInputRef.current?.click(); else startShedPhotoWebcam(); }}
-                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : ""}`}
+                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   Take Photo
                 </button>
@@ -439,7 +439,7 @@ export default function VaultShedDetailPage() {
                   aria-hidden
                   onChange={handleAddPhoto}
                 />
-                <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                <label htmlFor={photoSaving ? undefined : "shed-photo-gallery"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 min-h-[44px] ${photoSaving ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {photoSaving ? "Uploading…" : "From Gallery"}
                 </label>
                 <input

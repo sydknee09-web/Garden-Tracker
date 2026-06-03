@@ -359,8 +359,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
                 </div>
                 <div>
                   <label htmlFor="recurring-end" className="block text-sm font-medium text-black/80 mb-1">
-                    End date <span className="text-black/40 font-normal">(optional)</span>
-                  </label>
+                    End date                  </label>
                   <input
                     id="recurring-end"
                     type="date"
@@ -384,8 +383,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
           <>
             <div>
               <label htmlFor="task-profile" className="block text-sm font-medium text-black/80 mb-1">
-                Link to plant (optional)
-              </label>
+                Link to plant              </label>
               <select
                 id="task-profile"
                 value={profileId}
@@ -406,8 +404,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             {growInstances.length > 0 && (
               <div>
                 <label htmlFor="task-grow" className="block text-sm font-medium text-black/80 mb-1">
-                  Active planting (optional)
-                </label>
+                  Active planting                </label>
                 <select
                   id="task-grow"
                   value={growId}

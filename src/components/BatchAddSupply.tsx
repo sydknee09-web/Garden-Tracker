@@ -374,7 +374,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
                 <button
                   type="button"
                   onClick={() => cameraInputRef.current?.click()}
-                  className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                  className="flex-1 py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
                 >
                   Take Photo
                 </button>
@@ -382,7 +382,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
               <button
                 type="button"
                 onClick={() => galleryInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
+                className="flex-1 py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
               >
                 From Gallery
               </button>

@@ -771,8 +771,7 @@ export function SeedPacketForm({
                     <>
                   <div>
                     <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                      Vendor / nursery (optional)
-                    </label>
+                      Vendor / nursery                    </label>
                     <Combobox
                       id="quick-add-link-vendor"
                       value={vendor}
@@ -784,7 +783,7 @@ export function SeedPacketForm({
                     />
                   </div>
                   <div>
-                    <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
+                    <span className="block text-sm font-medium text-black/80 mb-2">Volume</span>
                     <div className="flex gap-2 flex-wrap">
                       {VOLUMES.map((v) => (
                         <button
@@ -802,8 +801,7 @@ export function SeedPacketForm({
                   </div>
                   <div>
                     <label htmlFor="quick-add-link-source-url" className="block text-sm font-medium text-black/80 mb-1">
-                      Source URL (optional)
-                    </label>
+                      Source URL                    </label>
                     <input
                       id="quick-add-link-source-url"
                       type="url"
@@ -816,8 +814,7 @@ export function SeedPacketForm({
                   </div>
                   <div>
                     <label htmlFor="quick-add-link-price" className="block text-sm font-medium text-black/80 mb-1">
-                      Price (optional)
-                    </label>
+                      Price                    </label>
                     <input
                       id="quick-add-link-price"
                       type="text"
@@ -825,13 +822,12 @@ export function SeedPacketForm({
                       onChange={(e) => setPriceToSave(e.target.value)}
                       placeholder="e.g. $3.50"
                       className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                      aria-label="Price (optional)"
+                      aria-label="Price"
                     />
                   </div>
                   <div>
                     <label htmlFor="quick-add-link-notes" className="block text-sm font-medium text-black/80 mb-1">
-                      Notes (optional)
-                    </label>
+                      Notes                    </label>
                     <textarea
                       id="quick-add-link-notes"
                       value={notesToSave}
@@ -936,8 +932,7 @@ export function SeedPacketForm({
                         <>
                       <div>
                         <label htmlFor="quick-add-link-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                          Vendor / nursery (optional)
-                        </label>
+                          Vendor / nursery                        </label>
                         <Combobox
                           id="quick-add-link-vendor"
                           value={vendor}
@@ -949,7 +944,7 @@ export function SeedPacketForm({
                         />
                       </div>
                       <div>
-                        <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
+                        <span className="block text-sm font-medium text-black/80 mb-2">Volume</span>
                         <div className="flex gap-2 flex-wrap">
                           {VOLUMES.map((v) => (
                             <button
@@ -967,8 +962,7 @@ export function SeedPacketForm({
                       </div>
                       <div>
                         <label htmlFor="quick-add-link-source-url-2" className="block text-sm font-medium text-black/80 mb-1">
-                          Source URL (optional)
-                        </label>
+                          Source URL                        </label>
                         <input
                           id="quick-add-link-source-url-2"
                           type="url"
@@ -981,8 +975,7 @@ export function SeedPacketForm({
                       </div>
                       <div>
                         <label htmlFor="quick-add-link-price-2" className="block text-sm font-medium text-black/80 mb-1">
-                          Price (optional)
-                        </label>
+                          Price                        </label>
                         <input
                           id="quick-add-link-price-2"
                           type="text"
@@ -990,13 +983,12 @@ export function SeedPacketForm({
                           onChange={(e) => setPriceToSave(e.target.value)}
                           placeholder="e.g. $3.50"
                           className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                          aria-label="Price (optional)"
+                          aria-label="Price"
                         />
                       </div>
                       <div>
                         <label htmlFor="quick-add-link-notes-2" className="block text-sm font-medium text-black/80 mb-1">
-                          Notes (optional)
-                        </label>
+                          Notes                        </label>
                         <textarea
                           id="quick-add-link-notes-2"
                           value={notesToSave}
@@ -1033,8 +1025,7 @@ export function SeedPacketForm({
               </div>
               <div>
                 <label htmlFor="quick-add-variety" className="block text-sm font-medium text-black/80 mb-1">
-                  Variety / cultivar (optional)
-                </label>
+                  Variety / cultivar                </label>
                 <Combobox
                   id="quick-add-variety"
                   value={varietyCultivar}
@@ -1047,8 +1038,7 @@ export function SeedPacketForm({
               </div>
               <div>
                 <label htmlFor="quick-add-vendor" className="block text-sm font-medium text-black/80 mb-1">
-                  Vendor (optional)
-                </label>
+                  Vendor                </label>
                 <Combobox
                   id="quick-add-vendor"
                   value={vendor}
@@ -1060,7 +1050,7 @@ export function SeedPacketForm({
                 />
               </div>
               <div>
-                <span className="block text-sm font-medium text-black/80 mb-2">Volume (optional)</span>
+                <span className="block text-sm font-medium text-black/80 mb-2">Volume</span>
                 <div className="flex gap-2 flex-wrap">
                   {VOLUMES.map((v) => (
                     <button
@@ -1080,8 +1070,7 @@ export function SeedPacketForm({
               </div>
               <div>
                 <label htmlFor="quick-add-source-url" className="block text-sm font-medium text-black/80 mb-1">
-                  Source URL (optional)
-                </label>
+                  Source URL                </label>
                 <input
                   id="quick-add-source-url"
                   type="url"
@@ -1094,8 +1083,7 @@ export function SeedPacketForm({
               </div>
               <div>
                 <label htmlFor="quick-add-price" className="block text-sm font-medium text-black/80 mb-1">
-                  Price (optional)
-                </label>
+                  Price                </label>
                 <input
                   id="quick-add-price"
                   type="text"
@@ -1103,13 +1091,12 @@ export function SeedPacketForm({
                   onChange={(e) => setPriceToSave(e.target.value)}
                   placeholder="e.g. $3.50"
                   className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald min-h-[44px]"
-                  aria-label="Price (optional)"
+                  aria-label="Price"
                 />
               </div>
               <div>
                 <label htmlFor="quick-add-notes" className="block text-sm font-medium text-black/80 mb-1">
-                  Notes (optional)
-                </label>
+                  Notes                </label>
                 <textarea
                   id="quick-add-notes"
                   value={notesToSave}

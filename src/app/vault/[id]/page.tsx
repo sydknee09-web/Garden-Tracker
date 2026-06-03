@@ -769,24 +769,24 @@ export default function VaultSeedPage() {
                     </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={captureHeroFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium">Capture</button>
-                      <button type="button" onClick={stopHeroWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
+                      <button type="button" onClick={stopHeroWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <>
                     {isMobileHero ? (
-                      <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                      <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-camera-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                         Take Photo
                       </label>
                     ) : (
-                      <button type="button" onClick={startHeroWebcam} disabled={heroUploading || heroCropOpen} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}>
+                      <button type="button" onClick={startHeroWebcam} disabled={heroUploading || heroCropOpen} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 min-h-[44px] disabled:opacity-50 disabled:pointer-events-none`}>
                         Take Photo
                       </button>
                     )}
                     {heroWebcamError && <p className="text-sm text-amber-600">{heroWebcamError}</p>}
                   </>
                 )}
-                <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-500 hover:text-emerald-700 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
+                <label htmlFor={heroUploading || heroCropOpen ? undefined : "hero-files-input"} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10 min-h-[44px] ${heroUploading || heroCropOpen ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}>
                   {heroUploading ? "Uploading..." : heroCropOpen ? "Crop photo..." : "From Gallery"}
                 </label>
                 <div className="space-y-2">
@@ -978,7 +978,7 @@ export default function VaultSeedPage() {
               )}
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <div>
-                  <label htmlFor="edit-purchase-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                  <label htmlFor="edit-purchase-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
                   <input id="edit-purchase-vendor" type="text" value={editForm.purchaseVendor} onChange={(e) => setEditForm((f) => ({ ...f, purchaseVendor: e.target.value }))} placeholder="e.g. Briggs Tree Nursery, Home Depot" className="w-full min-h-[44px] px-3 py-2 rounded-xl border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Vendor or nursery" />
                 </div>
               )}
@@ -997,11 +997,11 @@ export default function VaultSeedPage() {
                     <input id="edit-avoid-plants" type="text" value={editForm.avoidPlants} onChange={(e) => setEditForm((f) => ({ ...f, avoidPlants: e.target.value }))} placeholder="e.g. Fennel, Potato" className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Avoid plants" />
                   </div>
                   <div>
-                    <label htmlFor="edit-propagation" className="block text-sm font-medium text-neutral-700 mb-1">Propagation (optional)</label>
+                    <label htmlFor="edit-propagation" className="block text-sm font-medium text-neutral-700 mb-1">Propagation</label>
                     <textarea id="edit-propagation" rows={2} value={editForm.propagationNotes} onChange={(e) => setEditForm((f) => ({ ...f, propagationNotes: e.target.value }))} placeholder="e.g. Cuttings, division, layering" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="How to propagate" />
                   </div>
                   <div>
-                    <label htmlFor="edit-seed-saving" className="block text-sm font-medium text-neutral-700 mb-1">Harvest / Save seeds (optional)</label>
+                    <label htmlFor="edit-seed-saving" className="block text-sm font-medium text-neutral-700 mb-1">Harvest / Save seeds</label>
                     <textarea id="edit-seed-saving" rows={2} value={editForm.seedSavingNotes} onChange={(e) => setEditForm((f) => ({ ...f, seedSavingNotes: e.target.value }))} placeholder="e.g. When to harvest, drying, storage" className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="How to harvest and save seeds" />
                   </div>
                 </>
@@ -1494,7 +1494,7 @@ export default function VaultSeedPage() {
                 />
               </div>
               <div>
-                <label htmlFor="edit-grow-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                <label htmlFor="edit-grow-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
                 <input
                   id="edit-grow-vendor"
                   type="text"
@@ -1506,7 +1506,7 @@ export default function VaultSeedPage() {
                 />
               </div>
               <div>
-                <label htmlFor="edit-grow-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                <label htmlFor="edit-grow-price" className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
                 <input
                   id="edit-grow-price"
                   type="text"
@@ -1518,7 +1518,7 @@ export default function VaultSeedPage() {
                 />
               </div>
               <div>
-                <label htmlFor="edit-grow-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
+                <label htmlFor="edit-grow-location" className="block text-sm font-medium text-neutral-700 mb-1">Location</label>
                 <input
                   id="edit-grow-location"
                   type="text"

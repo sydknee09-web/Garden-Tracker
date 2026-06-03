@@ -1457,7 +1457,7 @@ export default function ReviewImportPage() {
                               <button
                                 type="button"
                                 onClick={() => addPhotoInputRefs.current[item.id]?.click()}
-                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-teal-gus/40 bg-white text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                               >
                                 <span className="text-base" aria-hidden>📷</span>
                                 Take Photo
@@ -1465,7 +1465,7 @@ export default function ReviewImportPage() {
                               <button
                                 type="button"
                                 onClick={() => addPhotoGalleryRefs.current[item.id]?.click()}
-                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-black/10 bg-white text-black/80 hover:bg-black/5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                                className="min-w-[44px] min-h-[44px] flex-1 py-3 rounded-xl border border-teal-gus/40 bg-white text-teal-gus hover:bg-teal-gus/10 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                               >
                                 <span className="text-base" aria-hidden>🖼</span>
                                 From Gallery
@@ -1514,8 +1514,8 @@ export default function ReviewImportPage() {
                         value={item.vendor}
                         onChange={(v) => updateItem(item.id, { vendor: v })}
                         suggestions={vendorSuggestions}
-                        placeholder={addPlantMode && importSource === "purchase_order" ? "Vendor" : "Vendor (optional)"}
-                        aria-label="Vendor (optional)"
+                        placeholder={addPlantMode && importSource === "purchase_order" ? "Vendor" : "Vendor"}
+                        aria-label="Vendor"
                         className={`w-full min-w-0 rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       />
                       {mergedSourceCount > 0 && (
@@ -1531,8 +1531,8 @@ export default function ReviewImportPage() {
                       value={item.type}
                       onChange={(v) => updateItem(item.id, { type: v })}
                       suggestions={plantSuggestions}
-                      placeholder={addPlantMode && importSource === "purchase_order" ? "Plant name" : "Plant type (optional)"}
-                      aria-label="Plant type (optional)"
+                      placeholder={addPlantMode && importSource === "purchase_order" ? "Plant name" : "Plant type"}
+                      aria-label="Plant type"
                       className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
                     </div>
@@ -1570,8 +1570,8 @@ export default function ReviewImportPage() {
                           value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
                           suggestions={varietySuggestionsByPlant[item.type ?? ""] ?? []}
-                          placeholder={addPlantMode && importSource === "purchase_order" ? "Variety" : "Variety (optional)"}
-                          aria-label="Variety (optional)"
+                          placeholder={addPlantMode && importSource === "purchase_order" ? "Variety" : "Variety"}
+                          aria-label="Variety"
                           className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         />
                         {item.linkNotFound && (
@@ -1641,7 +1641,7 @@ export default function ReviewImportPage() {
                       value={item.purchaseDate || todayISO()}
                       onChange={(e) => updateItem(item.id, { purchaseDate: e.target.value })}
                       className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
-                      aria-label="Purchase date (optional)"
+                      aria-label="Purchase date"
                     />
                     </div>
                     {addPlantMode && importSource === "purchase_order" && (
@@ -1658,7 +1658,7 @@ export default function ReviewImportPage() {
                       </div>
                     )}
                     <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">{(addPlantMode && importSource === "purchase_order") ? "Plant notes (optional)" : "Packet notes (optional)"}</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">{(addPlantMode && importSource === "purchase_order") ? "Plant notes" : "Packet notes"}</label>
                     <textarea
                       value={item.user_notes ?? ""}
                       onChange={(e) => updateItem(item.id, { user_notes: e.target.value })}
@@ -1670,7 +1670,7 @@ export default function ReviewImportPage() {
                     </div>
                     {!(addPlantMode && importSource === "purchase_order") && (
                     <div>
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location (optional)</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location</label>
                     <input
                       type="text"
                       value={item.storage_location ?? ""}

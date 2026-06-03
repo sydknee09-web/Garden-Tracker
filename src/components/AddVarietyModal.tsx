@@ -215,8 +215,7 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
         </div>
         <div>
           <label htmlFor="add-variety-cultivar" className="block text-sm font-medium text-black/80 mb-1">
-            Variety / cultivar (optional)
-          </label>
+            Variety / cultivar          </label>
           <input
             id="add-variety-cultivar"
             type="text"
@@ -229,8 +228,7 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
         </div>
         <div>
           <label htmlFor="add-variety-source" className="block text-sm font-medium text-black/80 mb-1">
-            Where did you hear about it? (optional)
-          </label>
+            Where did you hear about it?          </label>
           <input
             id="add-variety-source"
             type="text"

@@ -680,8 +680,7 @@ export function AddPlantModal({
                 {plantType === "permanent" && (
                   <div>
                     <label htmlFor="add-plant-vendor-existing" className="block text-sm font-medium text-neutral-700 mb-1">
-                      Vendor / Nursery <span className="text-neutral-500 font-normal">(optional)</span>
-                    </label>
+                      Vendor / Nursery                    </label>
                     <input
                       id="add-plant-vendor-existing"
                       type="text"
@@ -716,7 +715,7 @@ export function AddPlantModal({
                 </div>
                 {plantType === "seasonal" && selectedProfileId && (
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Seed packet (optional)</label>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Seed packet</label>
                     {packetsForProfile.length > 0 ? (
                       <div className="space-y-2">
                         <select
@@ -749,7 +748,7 @@ export function AddPlantModal({
                               type="text"
                               value={addPacketVendor}
                               onChange={(e) => setAddPacketVendor(e.target.value)}
-                              placeholder="Vendor (optional)"
+                              placeholder="Vendor"
                               className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-sm"
                             />
                             <div className="flex gap-2">
@@ -772,7 +771,7 @@ export function AddPlantModal({
                               type="text"
                               value={addPacketVendor}
                               onChange={(e) => setAddPacketVendor(e.target.value)}
-                              placeholder="Vendor (optional)"
+                              placeholder="Vendor"
                               className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-sm"
                             />
                             <div className="flex gap-2">
@@ -788,8 +787,7 @@ export function AddPlantModal({
                 {plantType === "permanent" && (
                   <div>
                     <label htmlFor="add-plant-vendor-link-existing" className="block text-sm font-medium text-neutral-700 mb-1">
-                      Vendor / Nursery <span className="text-neutral-500 font-normal">(optional)</span>
-                    </label>
+                      Vendor / Nursery                    </label>
                     <input
                       id="add-plant-vendor-link-existing"
                       type="text"
@@ -816,7 +814,7 @@ export function AddPlantModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="add-plant-variety" className="block text-sm font-medium text-neutral-700 mb-1">Variety (optional)</label>
+                  <label htmlFor="add-plant-variety" className="block text-sm font-medium text-neutral-700 mb-1">Variety</label>
                   <input
                     id="add-plant-variety"
                     type="text"
@@ -827,7 +825,7 @@ export function AddPlantModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="add-plant-vendor-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery (optional)</label>
+                  <label htmlFor="add-plant-vendor-nursery" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
                   <input
                     id="add-plant-vendor-nursery"
                     type="text"
@@ -839,7 +837,7 @@ export function AddPlantModal({
                   {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">For your records. We use plant + variety only to find details and a photo.</p>}
                 </div>
                 <div>
-                  <label htmlFor="add-plant-price" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                  <label htmlFor="add-plant-price" className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
                   <input
                     id="add-plant-price"
                     type="text"
@@ -851,7 +849,7 @@ export function AddPlantModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="add-plant-qty-new" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
+                  <label htmlFor="add-plant-qty-new" className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
                   <input
                     id="add-plant-qty-new"
                     type="number"
@@ -860,7 +858,7 @@ export function AddPlantModal({
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="e.g. 1"
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                    aria-label="Number of plants (optional)"
+                    aria-label="Number of plants"
                   />
                 </div>
                 {!establishedMode && (
@@ -901,7 +899,7 @@ export function AddPlantModal({
             {(mode === "existing" || addToExistingProfile) && (
               <>
                 <div>
-                  <label htmlFor="add-plant-price-existing" className="block text-sm font-medium text-neutral-700 mb-1">Price (optional)</label>
+                  <label htmlFor="add-plant-price-existing" className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
                   <input
                     id="add-plant-price-existing"
                     type="text"
@@ -913,7 +911,7 @@ export function AddPlantModal({
                   />
                 </div>
                 <div>
-                  <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity (optional)</label>
+                  <label htmlFor="add-plant-qty" className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
                   <input
                     id="add-plant-qty"
                     type="number"
@@ -922,13 +920,13 @@ export function AddPlantModal({
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="e.g. 1"
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                    aria-label="Number of plants (optional)"
+                    aria-label="Number of plants"
                   />
                 </div>
               </>
             )}
             <div>
-              <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location (optional)</label>
+              <label htmlFor="add-plant-location" className="block text-sm font-medium text-neutral-700 mb-1">Location</label>
               <input
                 id="add-plant-location"
                 type="text"
@@ -940,7 +938,7 @@ export function AddPlantModal({
             </div>
 
             <div>
-              <label htmlFor="add-plant-groups" className="block text-sm font-medium text-neutral-700 mb-1">Groups (optional)</label>
+              <label htmlFor="add-plant-groups" className="block text-sm font-medium text-neutral-700 mb-1">Groups</label>
               {selectedGroupIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {selectedGroupIds.map((gid) => {
@@ -1014,7 +1012,7 @@ export function AddPlantModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Photos (optional)</label>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Photos</label>
                 <input
                   ref={cameraInputRef}
                   type="file"
@@ -1040,7 +1038,7 @@ export function AddPlantModal({
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={captureFromWebcam} className="min-h-[44px] min-w-[44px] py-2.5 px-4 rounded-3xl bg-emerald-600 text-white text-sm font-medium">Capture</button>
-                      <button type="button" onClick={stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-3xl border border-neutral-300 text-neutral-700 text-sm font-medium">Cancel</button>
+                      <button type="button" onClick={stopWebcam} className="min-h-[44px] py-2.5 px-4 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -1066,7 +1064,7 @@ export function AddPlantModal({
                           <button
                             type="button"
                             onClick={() => cameraInputRef.current?.click()}
-                            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white text-sm font-medium inline-flex items-center justify-center gap-2"
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium inline-flex items-center justify-center gap-2 hover:bg-teal-gus/10"
                             aria-label="Take photo with camera"
                           >
                             <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
@@ -1075,7 +1073,7 @@ export function AddPlantModal({
                           <button
                             type="button"
                             onClick={() => galleryInputRef.current?.click()}
-                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-neutral-300 text-neutral-800 text-sm font-medium hover:bg-neutral-50 inline-flex items-center justify-center gap-2"
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10 inline-flex items-center justify-center gap-2"
                             aria-label="Choose photos from gallery"
                           >
                             <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
@@ -1087,7 +1085,7 @@ export function AddPlantModal({
                           <button
                             type="button"
                             onClick={startWebcam}
-                            className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white text-sm font-medium inline-flex items-center justify-center gap-2"
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium inline-flex items-center justify-center gap-2 hover:bg-teal-gus/10"
                             aria-label="Use webcam"
                           >
                             <ICON_MAP.Camera className="w-4 h-4 shrink-0" />
@@ -1096,7 +1094,7 @@ export function AddPlantModal({
                           <button
                             type="button"
                             onClick={() => galleryInputRef.current?.click()}
-                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-neutral-300 text-neutral-800 text-sm font-medium hover:bg-neutral-50 inline-flex items-center justify-center gap-2"
+                            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10 inline-flex items-center justify-center gap-2"
                             aria-label="Choose photos from gallery"
                           >
                             <ICON_MAP.PhotoImport className="w-4 h-4 shrink-0" />
@@ -1117,7 +1115,7 @@ export function AddPlantModal({
             />
 
             <div>
-              <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
+              <label htmlFor="add-plant-notes" className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
               <textarea
                 id="add-plant-notes"
                 rows={3}

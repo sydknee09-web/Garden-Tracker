@@ -16,7 +16,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SupplyPicker({
   selectedIds,
   onChange,
-  label = "Supplies used (optional)",
+  label = "Supplies used",
   placeholder = "e.g. seed starter, fertilizer at sowing",
 }: {
   selectedIds: Set<string>;

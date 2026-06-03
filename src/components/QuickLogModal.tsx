@@ -531,7 +531,7 @@ export function JournalEntryForm({
         </div>
 
         <div>
-          <span className="block text-sm font-medium text-black/80 mb-2">Photo (optional)</span>
+          <span className="block text-sm font-medium text-black/80 mb-2">Photo</span>
           {webcamActive ? (
             <div className="space-y-2">
               <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
@@ -541,7 +541,7 @@ export function JournalEntryForm({
                 <button type="button" onClick={captureFromWebcam} className="min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 text-white text-sm font-medium">
                   <ICON_MAP.Camera className="w-5 h-5 inline mr-1" /> Capture
                 </button>
-                <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium">
+                <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">
                   Cancel
                 </button>
               </div>
@@ -562,11 +562,11 @@ export function JournalEntryForm({
                 <button
                   type="button"
                   onClick={() => (isMobile ? cameraMobileRef.current?.click() : startDesktopWebcam())}
-                  className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2"
+                  className="min-h-[44px] py-3 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium inline-flex items-center gap-2 hover:bg-teal-gus/10"
                 >
                   <ICON_MAP.Camera className="w-5 h-5" /> Take Photo
                 </button>
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-black/10 text-sm font-medium inline-flex items-center gap-2">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] py-3 px-4 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium inline-flex items-center gap-2 hover:bg-teal-gus/10">
                   <ICON_MAP.Gallery className="w-5 h-5" /> From Gallery
                 </button>
               </div>

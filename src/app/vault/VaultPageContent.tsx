@@ -1452,7 +1452,7 @@ function VaultPageInner() {
                 <SupplyPicker
                   selectedIds={plantSelectedSupplyIds}
                   onChange={setPlantSelectedSupplyIds}
-                  label="Supplies used (optional)"
+                  label="Supplies used"
                   placeholder="e.g. seed starter, fertilizer at sowing"
                 />
               </div>
@@ -1494,7 +1494,7 @@ function VaultPageInner() {
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                            <label className="text-xs text-black/60 shrink-0">Seeds sown</label>
                             <input
                               type="number"
                               min={0}
@@ -1506,7 +1506,7 @@ function VaultPageInner() {
                             />
                           </div>
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                            <label className="text-xs text-black/60 shrink-0">Plant count</label>
                             <input
                               type="number"
                               min={0}

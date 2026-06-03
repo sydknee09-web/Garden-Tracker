@@ -488,8 +488,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-brand" className="block text-sm font-medium text-black/80 mb-1">
-                Brand (optional)
-              </label>
+                Brand              </label>
               <input
                 id="supply-brand"
                 type="text"
@@ -518,7 +517,7 @@ export function SupplyForm({
               </select>
             </div>
             <div>
-              <span className="block text-sm font-medium text-black/80 mb-1">Photo (optional)</span>
+              <span className="block text-sm font-medium text-black/80 mb-1">Photo</span>
               {photoPreviewUrl || (existingImageUrl && !photoRemoved) ? (
                 <div className="space-y-2">
                   <img
@@ -549,14 +548,14 @@ export function SupplyForm({
                   <button
                     type="button"
                     onClick={() => { if (isMobileDeviceSupply) fileInputRef.current?.click(); else startSupplyWebcam(); }}
-                    className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
+                    className="flex-1 min-h-[44px] py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 flex items-center justify-center gap-2"
                   >
                     Take Photo
                   </button>
                   <button
                     type="button"
                     onClick={() => galleryInputRef.current?.click()}
-                    className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
+                    className="flex-1 min-h-[44px] py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 flex items-center justify-center gap-2"
                   >
                     From Gallery
                   </button>
@@ -565,8 +564,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-npk" className="block text-sm font-medium text-black/80 mb-1">
-                NPK (e.g. 5-1-1) (optional)
-              </label>
+                NPK (e.g. 5-1-1)              </label>
               <input
                 id="supply-npk"
                 type="text"
@@ -579,8 +577,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-rate" className="block text-sm font-medium text-black/80 mb-1">
-                Application rate (optional)
-              </label>
+                Application rate              </label>
               <input
                 id="supply-rate"
                 type="text"
@@ -594,8 +591,7 @@ export function SupplyForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="supply-size" className="block text-sm font-medium text-black/80 mb-1">
-                  Size (optional)
-                </label>
+                  Size                </label>
                 <input
                   id="supply-size"
                   type="text"
@@ -624,8 +620,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-instructions" className="block text-sm font-medium text-black/80 mb-1">
-                Usage instructions (optional)
-              </label>
+                Usage instructions              </label>
               <textarea
                 id="supply-instructions"
                 value={usageInstructions}
@@ -638,8 +633,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-notes" className="block text-sm font-medium text-black/80 mb-1">
-                Notes (optional)
-              </label>
+                Notes              </label>
               <textarea
                 id="supply-notes"
                 value={notes}
@@ -652,8 +646,7 @@ export function SupplyForm({
             </div>
             <div>
               <label htmlFor="supply-source" className="block text-sm font-medium text-black/80 mb-1">
-                Product URL (optional)
-              </label>
+                Product URL              </label>
               <input
                 id="supply-source"
                 type="url"

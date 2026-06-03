@@ -593,7 +593,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
               />
 
               <div>
-                <span className="block text-sm font-medium text-black/80 mb-2">Photos (optional)</span>
+                <span className="block text-sm font-medium text-black/80 mb-2">Photos</span>
                 {webcamActive ? (
                   <div className="space-y-2">
                     <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
@@ -608,7 +608,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                         <ICON_MAP.Camera stroke="currentColor" className="w-[18px] h-[18px]" />
                         Capture
                       </button>
-                      <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80">
+                      <button type="button" onClick={stopWebcamStream} className="min-h-[44px] py-2.5 px-4 rounded-xl border border-teal-gus/40 text-sm font-medium text-teal-gus hover:bg-teal-gus/10">
                         Cancel
                       </button>
                     </div>
@@ -639,7 +639,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                             if (isMobile) cameraMobileRef.current?.click();
                             else startDesktopWebcam();
                           }}
-                          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
+                          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-teal-gus/40 text-sm font-medium text-teal-gus hover:bg-teal-gus/10"
                         >
                           <ICON_MAP.Camera stroke="currentColor" className="w-[18px] h-[18px]" />
                           Take Photo
@@ -647,7 +647,7 @@ export function EditJournalModal({ entry, onClose, onSaved, canEdit }: EditJourn
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
+                          className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-teal-gus/40 text-sm font-medium text-teal-gus hover:bg-teal-gus/10"
                         >
                           <UploadIcon />
                           From Gallery

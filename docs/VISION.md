@@ -467,6 +467,27 @@ GT uses an **industry-standard casing split**, parallel to Apple HIG / Material 
 
 **GT-only.** Voyager has its own visual register; this convention does NOT apply there.
 
+### Button-system hierarchy (primary / secondary / tertiary / destructive)
+
+**Locked 2026-06-01 (Sprint 5 cont Ship 5 — Finding 28).** Every button in GT belongs to one of four tiers. The tier sets visual weight; weight communicates which action the user is meant to reach for first. Parallel to Apple HIG (filled prominent / tinted / plain) + Material Design (filled / outlined / text).
+
+**The four tiers:**
+
+- **Primary** — the form's submit / main CTA. Solid `bg-emerald-600 hover:bg-emerald-700 text-white`, larger, sits in the sticky-bottom footer. One per surface. Canonical across 41+ files via the FAB-form submit saga (locked 2026-05-26, `fc1463d`→`ba9319f`). The primary CTA must be the **most prominent** control on the surface — nothing mid-form may out-weigh it.
+- **Secondary** — alternate source, cancel, dismiss, or any "do this other thing" that isn't the main commit. **Outlined pill, green text:** `border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10` (teal-gus = `#2A9D8F`). Smaller weight than primary (outline vs fill carries the hierarchy; tap targets stay ≥44px for accessibility). Matches the locked Cancel button token — Cancel, alt-source photo buttons (`Take Photo` / `From Gallery`), and other dismiss/alt actions all share this one treatment.
+- **Tertiary** — low-emphasis inline action. Text-only, minimal weight: e.g. `text-sm font-medium text-emerald-600 hover:text-emerald-700` (no border, no fill). For secondary-to-the-secondary actions (`Crop scraped image`, inline `+ Add packet` affordances).
+- **Destructive** — delete / remove / irreversible. Outlined OR solid **red** pill, never green. (e.g. `border border-red-600 text-red-600 hover:bg-red-50` outlined, or `bg-red-600 hover:bg-red-700 text-white` solid for high-stakes confirm.)
+
+**Decision criterion at audit time (one question):** *Is this the surface's main commit (primary), an alternate/cancel/dismiss action (secondary), a low-emphasis inline link (tertiary), or a delete/remove (destructive)? Pick the tier; apply its token.* If two buttons sit side-by-side as equal alternatives (e.g. `Take Photo` + `From Gallery`), they share the SAME tier and SAME treatment — never one solid + one outlined.
+
+**Why this rule exists.** Syd dogfood Finding 28 (locked 2026-06-01): the Add Supply form rendered `From Gallery` as a large solid-green button — visually heavier than the actual `Add Supply` submit CTA — while its paired `Take Photo` button was outlined with BLACK text and the footer `Cancel` was outlined with GREEN text. Three drifts in one form: (a) a mid-form alt-source button out-weighing the primary submit, (b) two equal alt-source buttons with mismatched treatments, (c) inconsistent secondary text color. The tier system names which weight each action gets so the eye always lands on the real CTA first, and equal alternatives read as equal. Same cohesion-by-aggregation principle as the emerald-token-split + chrome-control-framing conventions — a per-button decision becomes a per-tier framework lock.
+
+**Sweep at lock time (2026-06-01):** all `Take Photo` / `From Gallery` photo-source pairs across 12 add/edit form surfaces (QuickAddSupply, AddPlantModal, HarvestModal, QuickLogModal, EditJournalModal, BatchLogSheet, BatchAddSupply, garden inline quick-add, vault/[id] hero, vault/review-import, shed/review-import, vault/shed/[id]) normalized to the secondary teal token. Footer Save/Cancel already compliant (FAB-form saga). `Capture` (webcam-commit) stays primary — it's the commit action of the webcam sub-flow, not an alt-source.
+
+**Persona walk.** All 5 personas pass. Maya (power user, scans for the action) — the real submit CTA is now always the heaviest control; no false-primary mid-form. Sydney (cohesion-driver + reporter) — sees the exact drift she flagged close; alt-source pairs match. Walter (iPad-primary, tap targets) — secondary buttons keep ≥44px targets; outline-vs-fill is the only thing that changed, discoverability intact. Aria + Sam (low-data, first forms) — calmer forms where one green-filled button (the submit) signals "this is the finish line," outlined greens signal "optional side paths."
+
+**GT-only.** Voyager has its own visual register; this convention does NOT apply there.
+
 ### Default sort by use case (discovery vs lookup)
 
 **Locked 2026-05-28.** Inventory surfaces split into two semantic categories. Default sort follows the user's mental model for that category — discovery surfaces surface fresh signal, lookup surfaces enable name-based finding.

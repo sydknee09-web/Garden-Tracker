@@ -333,7 +333,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 py-3 rounded-xl border border-black/15 bg-transparent text-black/70 font-medium min-h-[44px] hover:bg-black/5 transition-colors"
+              className="flex-1 py-3 rounded-xl border border-teal-gus/40 bg-transparent text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10 transition-colors"
             >
               {previewUrl ? "Replace image" : "Upload from files"}
             </button>

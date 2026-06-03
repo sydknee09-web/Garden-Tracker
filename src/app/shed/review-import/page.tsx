@@ -252,7 +252,7 @@ export default function ShedReviewImportPage() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-neutral-500 mb-1">Photo (optional)</label>
+                  <label className="block text-xs font-medium text-neutral-500 mb-1">Photo</label>
                   {itemPhotos[item.id] ? (
                     <div className="space-y-2">
                       <img
@@ -337,14 +337,14 @@ export default function ShedReviewImportPage() {
                       <button
                         type="button"
                         onClick={() => photoInputRefs.current[item.id]?.click()}
-                        className="flex-1 min-h-[44px] py-3 rounded-lg border border-black/10 text-black/80 font-medium hover:bg-black/5 flex items-center justify-center gap-2"
+                        className="flex-1 min-h-[44px] py-3 rounded-lg border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 flex items-center justify-center gap-2"
                       >
                         Take Photo
                       </button>
                       <button
                         type="button"
                         onClick={() => photoGalleryInputRefs.current[item.id]?.click()}
-                        className="flex-1 min-h-[44px] py-3 rounded-lg bg-emerald text-white font-medium hover:bg-emerald/90 flex items-center justify-center gap-2"
+                        className="flex-1 min-h-[44px] py-3 rounded-lg border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 flex items-center justify-center gap-2"
                       >
                         From Gallery
                       </button>

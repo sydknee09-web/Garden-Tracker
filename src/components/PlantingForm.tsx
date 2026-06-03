@@ -550,8 +550,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
         </div>
         <div className="flex-1 min-w-[160px]">
           <label htmlFor="plant-notes" className="block text-xs font-medium text-black/60 mb-1">
-            Notes (optional)
-          </label>
+            Notes          </label>
           <input
             id="plant-notes"
             type="text"
@@ -578,13 +577,13 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                       type="text"
                       value={newPacketVendorByProfileId[row.rowId] ?? ""}
                       onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [row.rowId]: e.target.value }))}
-                      placeholder="Vendor (optional)"
+                      placeholder="Vendor"
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${row.customName} packet`}
                     />
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                        <label className="text-xs text-black/60 shrink-0">Seeds sown</label>
                         <input
                           type="number"
                           min={0}
@@ -596,7 +595,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                        <label className="text-xs text-black/60 shrink-0">Plant count</label>
                         <input
                           type="number"
                           min={0}
@@ -633,13 +632,13 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                       type="text"
                       value={newPacketVendorByProfileId[profile.id] ?? ""}
                       onChange={(e) => setNewPacketVendorByProfileId((prev) => ({ ...prev, [profile.id]: e.target.value }))}
-                      placeholder="Vendor (optional)"
+                      placeholder="Vendor"
                       className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 min-h-[44px]"
                       aria-label={`Vendor for new ${displayName} packet`}
                     />
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                        <label className="text-xs text-black/60 shrink-0">Seeds sown</label>
                         <input
                           type="number"
                           min={0}
@@ -651,7 +650,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                        <label className="text-xs text-black/60 shrink-0">Plant count</label>
                         <input
                           type="number"
                           min={0}
@@ -705,7 +704,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                   )}
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-black/60 shrink-0">Seeds sown (optional)</label>
+                      <label className="text-xs text-black/60 shrink-0">Seeds sown</label>
                       <input
                         type="number"
                         min={0}
@@ -717,7 +716,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-black/60 shrink-0">Plant count (optional)</label>
+                      <label className="text-xs text-black/60 shrink-0">Plant count</label>
                       <input
                         type="number"
                         min={0}

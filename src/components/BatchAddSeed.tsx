@@ -865,7 +865,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-3 rounded-xl border border-black/20 text-black/80 font-medium min-h-[44px]"
+                className="flex-1 py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium min-h-[44px] hover:bg-teal-gus/10"
               >
                 Upload from files
               </button>

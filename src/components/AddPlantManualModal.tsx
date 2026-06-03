@@ -118,8 +118,7 @@ export function AddPlantManualModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="add-plant-manual-vendor" className="block text-sm font-medium text-neutral-700 mb-1">
-              Vendor (optional)
-            </label>
+              Vendor            </label>
             <input
               id="add-plant-manual-vendor"
               type="text"
@@ -145,8 +144,7 @@ export function AddPlantManualModal({
           </div>
           <div>
             <label htmlFor="add-plant-manual-url" className="block text-sm font-medium text-neutral-700 mb-1">
-              Purchase URL (optional)
-            </label>
+              Purchase URL            </label>
             <input
               id="add-plant-manual-url"
               type="url"
@@ -159,8 +157,7 @@ export function AddPlantManualModal({
           </div>
           <div>
             <label htmlFor="add-plant-manual-price" className="block text-sm font-medium text-neutral-700 mb-1">
-              Price (optional)
-            </label>
+              Price            </label>
             <input
               id="add-plant-manual-price"
               type="text"
@@ -172,7 +169,7 @@ export function AddPlantManualModal({
             />
           </div>
           <div>
-            <span className="block text-sm font-medium text-neutral-700 mb-2">Volume (optional)</span>
+            <span className="block text-sm font-medium text-neutral-700 mb-2">Volume</span>
             <div className="flex gap-2 flex-wrap">
               {VOLUMES.map((v) => (
                 <button
@@ -190,8 +187,7 @@ export function AddPlantManualModal({
           </div>
           <div>
             <label htmlFor="add-plant-manual-notes" className="block text-sm font-medium text-neutral-700 mb-1">
-              Packet notes (optional)
-            </label>
+              Packet notes            </label>
             <textarea
               id="add-plant-manual-notes"
               value={notes}
@@ -204,8 +200,7 @@ export function AddPlantManualModal({
           </div>
           <div>
             <label htmlFor="add-plant-manual-storage" className="block text-sm font-medium text-neutral-700 mb-1">
-              Storage location (optional)
-            </label>
+              Storage location            </label>
             <input
               id="add-plant-manual-storage"
               type="text"

@@ -887,8 +887,8 @@ function GardenPageInner() {
                     </div>
                     {quickAddPhotos.length < MAX_JOURNAL_PHOTOS && (
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-black/10 text-black/80 text-sm font-medium">Take Photo</button>
-                        <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg bg-emerald text-white text-sm font-medium">From Gallery</button>
+                        <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">Take Photo</button>
+                        <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="min-h-[44px] py-2 px-3 rounded-lg border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10">From Gallery</button>
                       </div>
                     )}
                   </div>
@@ -896,8 +896,8 @@ function GardenPageInner() {
                   <div className="flex flex-col gap-2">
                     {quickAddWebcam.webcamError && <p className="text-sm text-amber-600">{quickAddWebcam.webcamError}</p>}
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-black/10 text-black/80 font-medium hover:bg-black/5">Take Photo</button>
-                      <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl bg-emerald text-white font-medium hover:bg-emerald/90">From Gallery</button>
+                      <button type="button" onClick={() => { if (quickAddWebcam.isMobile) quickAddFileRef.current?.click(); else quickAddWebcam.startWebcam(); }} className="flex-1 min-h-[44px] py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">Take Photo</button>
+                      <button type="button" onClick={() => quickAddGalleryRef.current?.click()} className="flex-1 min-h-[44px] py-3 rounded-xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10">From Gallery</button>
                     </div>
                   </div>
                 )}
