@@ -483,8 +483,12 @@ export function AddPlantModal({
           // When no packets exist: create grow with seed_packet_id: null (no packet created, per plan)
         }
 
-        const { data: profileRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
-        const harvestDays = (profileRow as { harvest_days?: number | null })?.harvest_days;
+        const { data: profileRow } = await supabase.from("plant_profiles").select("harvest_days, profile_type").eq("id", profileId).single();
+        const typedProfileRow = profileRow as { harvest_days?: number | null; profile_type?: string | null } | null;
+        const harvestDays = typedProfileRow?.harvest_days;
+        // Derive permanence from the SELECTED profile's type, not the (now-removed) entry toggle.
+        // Linking to a permanent profile must record a permanent planting regardless of default.
+        const isPermanentExisting = typedProfileRow?.profile_type === "permanent";
         const expectedHarvestDate = harvestDays != null && harvestDays > 0
           ? new Date(new Date(plantedDate).getTime() + harvestDays * 86400000).toISOString().slice(0, 10)
           : null;
@@ -498,7 +502,7 @@ export function AddPlantModal({
           seed_packet_id: primaryPacketId,
           location: location.trim() || null,
           plant_count: plantCount,
-          is_permanent_planting: plantType === "permanent",
+          is_permanent_planting: isPermanentExisting,
           ...(vendorNursery.trim() && { vendor: vendorNursery.trim() }),
           ...(price.trim() && { purchase_price: price.trim() }),
           ...(plantCount != null && { purchase_quantity: plantCount }),
@@ -859,6 +863,28 @@ export function AddPlantModal({
                     aria-label="Number of plants (optional)"
                   />
                 </div>
+                {!establishedMode && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Plant type</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPlantType("seasonal")}
+                        className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border min-h-[44px] ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
+                      >
+                        Seasonal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlantType("permanent")}
+                        className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border min-h-[44px] ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
+                      >
+                        Permanent
+                      </button>
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1">Perennial, tree, or shrub = permanent. Annual or veg = seasonal.</p>
+                  </div>
+                )}
               </>
             )}
 

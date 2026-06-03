@@ -1,0 +1,77 @@
+/**
+ * Sprint 5 cont Ship 4 — Finding 29 regression guards (v1-blocking MUST).
+ *
+ * The "[ My Plants | Active Garden ]" entry-point toggle (which set the in-memory
+ * addPlantDefaultType used to type every Manual add) was removed from UniversalAddMenu.
+ * Its single responsibility — setting permanent/seasonal on the Manual add-new path —
+ * moved to an inline "Plant type" control inside AddPlantModal's add-new body.
+ * The link-to-existing path's is_permanent_planting now derives from the SELECTED
+ * profile's profile_type (DB), not the toggle.
+ *
+ * These are source-text regression guards — the repo pattern for derivation that the
+ * 300-line multi-table add-plant submit can't assert cheaply behaviorally
+ * (cf. permanentPlantProfile.regression.test.ts, gardenView.regression.test.ts).
+ *
+ * Plan-doc: .claude/plans/add_plant_flow_restructure.md §"Forward-compat for Ship 4".
+ */
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const ROOT = process.cwd();
+const addPlantModal = readFileSync(join(ROOT, "src/components/AddPlantModal.tsx"), "utf-8");
+const universalAddMenu = readFileSync(join(ROOT, "src/components/UniversalAddMenu.tsx"), "utf-8");
+
+describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () => {
+  // Test 1 — Manual add-new derives profile_type + is_permanent_planting from the inline plantType.
+  // Permanent → profile_type "permanent" + is_permanent_planting true.
+  it("add-new derives profile_type + is_permanent_planting from the inline plantType", () => {
+    expect(addPlantModal).toContain(
+      'profileType: plantType === "permanent" ? "permanent" : "seed"'
+    );
+    expect(addPlantModal).toContain('is_permanent_planting: plantType === "permanent",');
+  });
+
+  // Test 2 — Seasonal add-new gets care templates + harvest task; permanent skips them
+  // (both live inside `if (plantType === "seasonal")`, so permanent never reaches them).
+  it("care-template copy + harvest task are seasonal-gated (permanent skips them)", () => {
+    const seasonalGate = addPlantModal.indexOf('if (plantType === "seasonal") {');
+    const careCopy = addPlantModal.indexOf("copyCareTemplatesToInstance(profileId, growInstanceIdNew");
+    const harvestTask = addPlantModal.indexOf('category: "harvest"');
+    expect(seasonalGate).toBeGreaterThan(-1);
+    expect(careCopy).toBeGreaterThan(seasonalGate);
+    expect(harvestTask).toBeGreaterThan(seasonalGate);
+    // Permanent runs enrichment in the background and creates neither.
+    expect(addPlantModal).toContain('if (plantType === "permanent") {');
+    expect(addPlantModal).toContain("void runEnrichment();");
+  });
+
+  // Test 3 — link-to-existing derives is_permanent_planting from the selected profile's
+  // profile_type (DB fetch), NOT the removed toggle / addPlantDefaultType.
+  it("link-to-existing derives is_permanent_planting from the profile's profile_type", () => {
+    expect(addPlantModal).toContain('.select("harvest_days, profile_type")');
+    expect(addPlantModal).toContain(
+      'const isPermanentExisting = typedProfileRow?.profile_type === "permanent"'
+    );
+    expect(addPlantModal).toContain("is_permanent_planting: isPermanentExisting,");
+  });
+
+  // Test 4 — Established chip is untouched: still hard-codes permanent, and the new inline
+  // type control is hidden in establishedMode so it can't be flipped to seasonal.
+  it("established chip stays permanent + inline type control is hidden in establishedMode", () => {
+    expect(universalAddMenu).toContain("establishedMode");
+    expect(universalAddMenu).toContain('defaultPlantType="permanent"');
+    expect(addPlantModal).toContain("{!establishedMode && (");
+  });
+
+  // Test 5 — the My Plants / Active Garden entry-point toggle is gone (no stale in-memory
+  // type leak); the inline Plant type control is the replacement source of truth.
+  it("entry-point toggle removed; inline Plant type control present", () => {
+    expect(universalAddMenu).not.toContain("My Plants");
+    expect(universalAddMenu).not.toContain("Active Garden");
+    expect(universalAddMenu).not.toContain('setAddPlantDefaultType("permanent")');
+    expect(universalAddMenu).not.toContain('setAddPlantDefaultType("seasonal")');
+    expect(addPlantModal).toContain('onClick={() => setPlantType("permanent")}');
+    expect(addPlantModal).toContain('onClick={() => setPlantType("seasonal")}');
+  });
+});

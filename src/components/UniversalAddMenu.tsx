@@ -21,9 +21,9 @@ export interface UniversalAddMenuProps {
   pathname: string;
   /** When on Garden page: "active" | "plants" for Add plant default type */
   gardenTab?: "active" | "plants";
-  /** Add plant type: permanent (My Plants) or seasonal (Active Garden). From UniversalAddContext. */
+  /** Add plant type (permanent | seasonal): seeds the Manual add-plant form's initial type. From UniversalAddContext. */
   addPlantDefaultType: "permanent" | "seasonal";
-  /** Update add plant type. From UniversalAddContext. */
+  /** Setter retained for context-bridge parity (parents pass it); the entry toggle was removed Ship 4. From UniversalAddContext. */
   setAddPlantDefaultType: (t: "permanent" | "seasonal") => void;
   /** Open Purchase Order import (screenshot of cart/order with plants); adds to vault */
   onAddPlantPurchaseOrder?: () => void;
@@ -63,7 +63,6 @@ export function UniversalAddMenu({
   pathname,
   gardenTab = "active",
   addPlantDefaultType,
-  setAddPlantDefaultType,
   onAddPlantPurchaseOrder,
   onAddPlantPhotoImport,
   onSeedOpenBatch,
@@ -223,23 +222,6 @@ export function UniversalAddMenu({
                 </button>
                 <h2 id="universal-add-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">Add Plant</h2>
                 <div className="w-11 shrink-0" aria-hidden />
-              </div>
-              <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
-              <div className="flex gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => setAddPlantDefaultType("permanent")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-                >
-                  My Plants
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddPlantDefaultType("seasonal")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${addPlantDefaultType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-                >
-                  Active Garden
-                </button>
               </div>
               <p className="text-sm text-neutral-500 text-center">How do you want to add a plant?</p>
             </div>
