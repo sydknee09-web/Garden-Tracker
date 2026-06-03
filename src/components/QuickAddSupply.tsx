@@ -37,6 +37,9 @@ export interface SupplyFormProps {
   onOpenBatchPhotoImport?: () => void;
   /** When provided, renders a Back arrow on the choose step. */
   onBack?: () => void;
+  /** When true (and not edit/prefill), open directly on the manual form step, skipping the
+   * method-choose intermediate. Used by the Shed empty-state "deliver, don't intermediate" CTA. */
+  startOnForm?: boolean;
 }
 
 /**
@@ -61,6 +64,7 @@ export function SupplyForm({
   onOpenPurchaseOrder,
   onOpenBatchPhotoImport,
   onBack,
+  startOnForm,
 }: SupplyFormProps) {
   const { user, session } = useAuth();
   const [step, setStep] = useState<SupplyFormStep>("choose");
@@ -150,9 +154,9 @@ export function SupplyForm({
       setSourceUrl("");
       setSize("");
       setSizeUom("");
-      setStep("choose");
+      setStep(startOnForm ? "form" : "choose");
     }
-  }, [initialData, initialName]);
+  }, [initialData, initialName, startOnForm]);
 
   const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -350,7 +354,7 @@ export function SupplyForm({
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col">
-      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-neutral-200">
         <div className="flex items-center gap-2">
           {!isEdit && step === "choose" && onBack ? (
             <button
@@ -746,9 +750,11 @@ interface QuickAddSupplyProps {
   onOpenBatchPhotoImport?: () => void;
   /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
   onBackToMenu?: () => void;
+  /** When true (and not edit/prefill), open directly on the manual form step (Shed empty-state CTA). */
+  startOnForm?: boolean;
 }
 
-export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialName, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu }: QuickAddSupplyProps) {
+export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialName, onOpenPurchaseOrder, onOpenBatchPhotoImport, onBackToMenu, startOnForm }: QuickAddSupplyProps) {
   useBodyScrollLock(open);
 
   if (!open) return null;
@@ -774,6 +780,7 @@ export function QuickAddSupply({ open, onClose, onSuccess, initialData, initialN
           onOpenPurchaseOrder={onOpenPurchaseOrder}
           onOpenBatchPhotoImport={onOpenBatchPhotoImport}
           onBack={onBackToMenu}
+          startOnForm={startOnForm}
         />
       </div>
     </div>

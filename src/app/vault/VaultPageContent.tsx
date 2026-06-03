@@ -160,6 +160,10 @@ function VaultPageInner() {
   const packetActionsRef = useRef<{ openSelectionActions: () => void; closeAllPacketModals: () => void } | null>(null);
 
   const [qrPrefill, setQrPrefill] = useState<SeedQRPrefill | null>(null);
+  // When a vault empty-state CTA ("Add a Packet" / "Add a Plant") fires, deliver straight to the
+  // seed manual entry form (skip the FAB menu intermediate). Reset on every exit so a later
+  // toolbar-driven openSeed() doesn't inherit the manual-direct start.
+  const [seedStartOnManual, setSeedStartOnManual] = useState(false);
   const {
     addMenuOpen,
     setAddMenuOpen,
@@ -176,6 +180,7 @@ function VaultPageInner() {
     closeAll,
     openMenuOnScreen,
   } = useUniversalAddModals();
+  const handleAddFirstManual = useCallback(() => { setSeedStartOnManual(true); openSeed(); }, [openSeed]);
 
   const anyModalOpen = batchAddOpen || batchAddSupplyOpen || scannerOpen || purchaseOrderOpen || shedModalOpen || addMenuOpen || !!activeModal || packetModalOpen;
   const skipPopOnNavigateRef = useRef(false);
@@ -941,7 +946,7 @@ function VaultPageInner() {
         onEmptyStateChange={(empty) => setVaultHasSeeds(!empty)}
         onSaveMessage={setSaveToastMessage}
         onOpenScanner={() => setScannerOpen(true)}
-        onAddFirst={openMenu}
+        onAddFirst={handleAddFirstManual}
         sharedSearchQuery={searchQuery}
         onSyncSearchToGrid={setSearchQuery}
         packetDisplayStyle={packetDisplayStyle}
@@ -1209,7 +1214,7 @@ function VaultPageInner() {
               seedTypeFilters={gridFilters.filters.seedTypes}
               onTagsLoaded={handleTagsLoaded}
               onOpenScanner={() => setScannerOpen(true)}
-              onAddFirst={openMenu}
+              onAddFirst={handleAddFirstManual}
               batchSelectMode={batchSelectMode}
               selectedVarietyIds={selectedVarietyIds}
               onToggleVarietySelection={toggleVarietySelection}
@@ -1809,8 +1814,10 @@ function VaultPageInner() {
       {activeModal === "seed" && (
         <QuickAddSeed
           open
-          onClose={() => { setQrPrefill(null); closeActiveModal(); }}
+          startOnManual={seedStartOnManual}
+          onClose={() => { setQrPrefill(null); setSeedStartOnManual(false); closeActiveModal(); }}
           onSuccess={(opts) => {
+            setSeedStartOnManual(false);
             if (opts?.newProfileId) {
               closeActiveModal();
               router.push(`/vault/${opts.newProfileId}?added=1`);

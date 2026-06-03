@@ -62,6 +62,9 @@ export interface SeedPacketFormProps {
   onStartManualImport?: () => void;
   /** When provided, renders a Back arrow on the choose step (instead of nothing). */
   onBack?: () => void;
+  /** When true (and no prefill/preSelected), open directly on the manual entry step, skipping the
+   * method-choose intermediate. Used by the vault empty-state "deliver, don't intermediate" CTAs. */
+  startOnManual?: boolean;
 }
 
 function applyPrefillToForm(
@@ -101,6 +104,7 @@ export function SeedPacketForm({
   onOpenPurchaseOrder,
   onStartManualImport,
   onBack,
+  startOnManual,
 }: SeedPacketFormProps) {
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
@@ -145,7 +149,7 @@ export function SeedPacketForm({
     setAddedToVault(false);
     const hasPrefill = initialPrefill && Object.keys(initialPrefill).length > 0;
     const hasPreSelected = !!preSelectedProfileId;
-    setStep(hasPrefill || hasPreSelected ? "manual" : "choose");
+    setStep(hasPrefill || hasPreSelected || startOnManual ? "manual" : "choose");
     if (hasPreSelected && preSelectedProfileId) {
       setManualMode("link");
       setSelectedProfileIdForLink(preSelectedProfileId);
@@ -157,7 +161,7 @@ export function SeedPacketForm({
         setVendor,
       });
     }
-  }, [initialPrefill, preSelectedProfileId]);
+  }, [initialPrefill, preSelectedProfileId, startOnManual]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -580,7 +584,7 @@ export function SeedPacketForm({
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col">
-      <div className="flex-shrink-0 px-6 pt-6 pb-4">
+      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-neutral-200">
         <div className="flex items-center gap-2">
           {step === "manual" || step === "link" ? (
             <button
@@ -1253,9 +1257,11 @@ interface QuickAddSeedProps {
   onStartManualImport?: () => void;
   /** When provided, show back arrow on choose screen to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
   onBackToMenu?: () => void;
+  /** When true (and no prefill/preSelected), open directly on the manual entry step (vault empty-state CTA). */
+  startOnManual?: boolean;
 }
 
-export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenPurchaseOrder, onStartManualImport, onBackToMenu }: QuickAddSeedProps) {
+export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSelectedProfileId, profileDisplayName, onOpenBatch, onOpenPurchaseOrder, onStartManualImport, onBackToMenu, startOnManual }: QuickAddSeedProps) {
   useBodyScrollLock(open);
 
   if (!open) return null;
@@ -1283,6 +1289,7 @@ export function QuickAddSeed({ open, onClose, onSuccess, initialPrefill, preSele
           onOpenPurchaseOrder={onOpenPurchaseOrder}
           onStartManualImport={onStartManualImport}
           onBack={onBackToMenu}
+          startOnManual={startOnManual}
         />
       </div>
     </div>

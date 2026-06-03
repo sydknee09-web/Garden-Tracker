@@ -135,15 +135,15 @@ export function UniversalAddMenu({
       >
         {screen === "main" && (
           <div key="main" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
-            <div className="flex-shrink-0 px-6 pt-5 pb-3">
+            <div className="flex-shrink-0 px-6 pt-4 pb-2">
               <h2 id="universal-add-title" className="text-xl font-bold text-center text-neutral-900">Add</h2>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("variety"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
                   <div>
@@ -154,7 +154,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("seed"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.SeedPacket className="w-5 h-5" /></span>
                   <div>
@@ -165,7 +165,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Tree className="w-5 h-5" /></span>
                   <div>
@@ -176,7 +176,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("shed"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Shed className="w-5 h-5" /></span>
                   <div>
@@ -187,7 +187,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("task"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Task className="w-5 h-5" /></span>
                   <div>
@@ -198,7 +198,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("journal"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Journal className="w-5 h-5" /></span>
                   <div>
@@ -244,11 +244,11 @@ export function UniversalAddMenu({
               <p className="text-sm text-neutral-500 text-center">How do you want to add a plant?</p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <button
                   type="button"
                   onClick={handleAddPlantManual}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.ManualEntry className="w-5 h-5" /></span>
                   <div>
@@ -259,7 +259,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant-established"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Sprout className="w-5 h-5" /></span>
                   <div>
@@ -270,7 +270,7 @@ export function UniversalAddMenu({
                 <button
                   type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant-from-vault"); }}
-                  className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
                   <div>
@@ -282,7 +282,7 @@ export function UniversalAddMenu({
                   <button
                     type="button"
                     onClick={() => { onClose(); onAddPlantPurchaseOrder(); }}
-                    className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                    className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                   >
                     <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PurchaseOrder className="w-5 h-5" /></span>
                     <div>
@@ -295,7 +295,7 @@ export function UniversalAddMenu({
                   <button
                     type="button"
                     onClick={() => { onClose(); onAddPlantPhotoImport(); }}
-                    className="w-full py-3 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
+                    className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                   >
                     <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.PhotoImport className="w-5 h-5" /></span>
                     <div>

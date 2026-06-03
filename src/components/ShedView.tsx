@@ -118,6 +118,9 @@ export function ShedView({
   const [supplies, setSupplies] = useState<(SupplyProfile & { last_used_at?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // When opened from the empty-state CTA, deliver straight to the manual form (skip method-choose);
+  // toolbar "+" keeps the choose step. Reset on close so the next toolbar open isn't sticky.
+  const [quickAddDirect, setQuickAddDirect] = useState(false);
   const [batchAddSupplyOpen, setBatchAddSupplyOpen] = useState(false);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [internalCategoryFilter, setInternalCategoryFilter] = useState<string | null>(null);
@@ -374,7 +377,7 @@ export function ShedView({
             title="Your supplies live here."
             body="Add fertilizers, pesticides, or anything else you use on your plants. We&rsquo;ll track how often and on what."
             actionLabel="Add a Supply"
-            onAction={() => setQuickAddOpen(true)}
+            onAction={() => { setQuickAddDirect(true); setQuickAddOpen(true); }}
             illustration={<ShedSupplyIcon className="w-16 h-16 text-neutral-300" />}
           />
         ) : (
@@ -559,7 +562,8 @@ export function ShedView({
 
       <QuickAddSupply
         open={quickAddOpen}
-        onClose={() => setQuickAddOpen(false)}
+        startOnForm={quickAddDirect}
+        onClose={() => { setQuickAddOpen(false); setQuickAddDirect(false); }}
         onSuccess={handleAddSuccess}
         onOpenBatchPhotoImport={() => {
           setQuickAddOpen(false);
