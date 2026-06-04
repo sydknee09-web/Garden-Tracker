@@ -404,10 +404,6 @@ export default function HomePage() {
           <Link href="/schedule?view=roadmap" prefetch={false} className="text-emerald-600 font-medium hover:underline">
             View full schedule &rarr;
           </Link>
-          {" · "}
-          <Link href="/resources" prefetch={false} className="text-emerald-600 font-medium hover:underline">
-            Zone charts & resources &rarr;
-          </Link>
         </p>
       </section>
 
