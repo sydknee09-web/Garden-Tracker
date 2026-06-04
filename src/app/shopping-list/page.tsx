@@ -15,6 +15,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/useToast";
 import { AddItemModal } from "@/components/AddItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
+import { SwipeCompleteRow } from "@/components/SwipeCompleteRow";
+import { RowCompleteButton } from "@/components/RowCompleteButton";
 
 type ShoppingItem = {
   id: string;
@@ -237,7 +239,6 @@ export default function ShoppingListPage() {
                 return (
                   <li
                     key={item.id}
-                    className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
                     onTouchStart={startLongPress}
                     onTouchMove={cancelLongPress}
                     onTouchEnd={cancelLongPress}
@@ -247,91 +248,88 @@ export default function ShoppingListPage() {
                     onMouseLeave={cancelLongPress}
                     onClick={handleRowClick}
                   >
-                    {isEditing ? (
-                      <input
-                        ref={editInputRef}
-                        type="text"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleInlineSave(item)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleInlineSave(item);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        className="flex-1 min-h-[44px] px-2 rounded-lg border border-emerald-300 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        onClick={(e) => e.stopPropagation()}
+                    <SwipeCompleteRow
+                      onComplete={() => handlePurchased(item)}
+                      enabled={togglingId !== item.id && canEdit && !isEditing}
+                      className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
+                    >
+                      {isEditing ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleInlineSave(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleInlineSave(item);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          className="flex-1 min-h-[44px] px-2 rounded-lg border border-emerald-300 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="flex-1 text-neutral-900" title="Hold to edit">{label}</span>
+                      )}
+                      {showOwnerBadge && (
+                        <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
+                      )}
+                      <RowCompleteButton
+                        onClick={() => handlePurchased(item)}
+                        disabled={togglingId === item.id || !canEdit}
+                        ariaLabel="Mark as purchased"
                       />
-                    ) : (
-                      <span className="flex-1 text-neutral-900" title="Hold to edit">{label}</span>
-                    )}
-                    {showOwnerBadge && (
-                      <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handlePurchased(item)}
-                      disabled={togglingId === item.id || !canEdit}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                      aria-label="Mark as purchased"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(item)}
-                      disabled={togglingId === item.id || !canEdit}
-                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
-                      aria-label="Remove from list"
-                    >
-                      <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(item)}
+                        disabled={togglingId === item.id || !canEdit}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60 shrink-0"
+                        aria-label="Remove from list"
+                      >
+                        <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
+                      </button>
+                    </SwipeCompleteRow>
                   </li>
                 );
               }
 
               return (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
-                >
-                  <span className="flex-1 min-w-0 text-neutral-900">
-                    {item.plant_profile_id ? (
-                      <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
-                        {label}
-                      </Link>
-                    ) : isSupply && !supplyLinkDisabled ? (
-                      <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
-                        {label}
-                      </Link>
-                    ) : (
-                      <span>{label}</span>
+                <li key={item.id}>
+                  <SwipeCompleteRow
+                    onComplete={() => handlePurchased(item)}
+                    enabled={togglingId !== item.id && canEdit}
+                    className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white border border-black/10"
+                  >
+                    <span className="flex-1 min-w-0 text-neutral-900">
+                      {item.plant_profile_id ? (
+                        <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
+                          {label}
+                        </Link>
+                      ) : isSupply && !supplyLinkDisabled ? (
+                        <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
+                          {label}
+                        </Link>
+                      ) : (
+                        <span>{label}</span>
+                      )}
+                    </span>
+                    {showOwnerBadge && (
+                      <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
                     )}
-                  </span>
-                  {showOwnerBadge && (
-                    <OwnerBadge shorthand={getShorthandForUser(item.user_id)} canEdit={canEdit} />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handlePurchased(item)}
-                    disabled={togglingId === item.id || !canEdit}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                    aria-label="Mark as purchased"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(item)}
-                    disabled={togglingId === item.id || !canEdit}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60"
-                    aria-label="Remove from list"
-                  >
-                    <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-                  </button>
+                    <RowCompleteButton
+                      onClick={() => handlePurchased(item)}
+                      disabled={togglingId === item.id || !canEdit}
+                      ariaLabel="Mark as purchased"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item)}
+                      disabled={togglingId === item.id || !canEdit}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-60 shrink-0"
+                      aria-label="Remove from list"
+                    >
+                      <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
+                    </button>
+                  </SwipeCompleteRow>
                 </li>
               );
             })}

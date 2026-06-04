@@ -584,6 +584,28 @@ Italic + muted register signals "structurally distinct but subordinate axis" —
 
 **GT-only.** Voyager has its own profile taxonomy; this convention does NOT apply there.
 
+### Complete-task affordance — responsive primitive lock (2026-06-01)
+
+**Locked 2026-06-01** (Syd dogfood). A **single shared primitive** renders the complete affordance for every task/item-complete surface — so the interaction reads identically app-wide instead of each surface re-inventing it (cohesion-by-aggregation). Anchor: **Calendar's task row is the canonical reference.**
+
+**The contract:**
+- **Mobile (phone-portrait): swipe-LEFT to complete.** Reveals an emerald check; commits past 100px. Native iOS/Android row-action convention.
+- **Desktop / iPad-portrait+ (`md:`+): checkmark button to complete.** Mouse-friendly; 44×44 tap target. Per Principle 9 (Walter persona, swipe-excluded): phone is swipe-only, `md:`+ shows the visible button alongside swipe.
+- **Same underlying complete action; the viewport dictates the interaction mode** — not two different behaviors.
+
+**Implementation (the shared pieces):**
+- [`useRowSwipe`](../src/hooks/useRowSwipe.ts) — the swipe engine (custom touch listeners, no library; threshold 100px, direction-locks at 8px so vertical scroll isn't hijacked). Extracted 2026-06-01 from `calendar/page.tsx`.
+- [`SwipeCompleteRow`](../src/components/SwipeCompleteRow.tsx) — wraps a row: emerald-check reveal + `translateX` slide + an optional amber snooze reveal when `onSnooze` is passed (Calendar's bidirectional config).
+- [`RowCompleteButton`](../src/components/RowCompleteButton.tsx) — the `hidden md:flex` emerald checkmark pill; byte-identical across surfaces.
+
+**Applies to:** Home At-a-Glance, Home Shopping List, dedicated Shopping List page, Calendar tasks, and **any future task/item-complete surface** (classify it, then compose the primitive — don't rebuild).
+
+**Secondary actions stay per-surface and are NOT part of the swipe contract unless reversible.** Calendar maps swipe-RIGHT → snooze (reversible). Shopping List's secondary action is **remove**, which has no undo — so it stays a persistent visible button, never a swipe (locked 2026-06-01, Q1 = A: swipe-to-delete on a no-undo action is a footgun; Calendar's reversible snooze is not a true parallel). At-a-Glance is complete-only (no Home snooze — separate feature scope; Q2 = A).
+
+**Persona walk.** Maya/Sydney/Aria get the same swipe parity they know from Calendar. Walter (iPad-primary, swipe-excluded) keeps the visible `md:` checkmark button. Sam's empty-states are untouched (primitive only renders on populated rows).
+
+**GT-only.** Voyager has its own interaction register; this convention does NOT apply there.
+
 ### Beds as first-class entity (architectural decision)
 **Locked 2026-05-08.** Each garden bed is a distinct entity with its own profile, identity, and lifecycle. Growing instances belong to beds (one-to-many: a bed can hold multiple growing instances, including polyculture). Tasks, soil tests, photos, and history can attach at the bed level OR at the growing-instance level.
 

@@ -55,6 +55,8 @@ const QuickLogModal = dynamic(
   { ssr: false }
 );
 import { completeTask } from "@/lib/completeSowTask";
+import { SwipeCompleteRow } from "@/components/SwipeCompleteRow";
+import { RowCompleteButton } from "@/components/RowCompleteButton";
 import { generateCareTasks } from "@/lib/generateCareTasks";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { buildForecastUrl, weatherCodeToCondition, weatherCodeToIcon } from "@/lib/weatherSnapshot";
@@ -376,7 +378,6 @@ export default function HomePage() {
       {/* ---- Planting Schedule (zone reference guide; separate from vault) ---- */}
       <section className="mb-6 rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
         <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">When to Plant</h2>
-        <p className="text-xs text-black/50 mb-3">Action now · Monthly view · Yearly view</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
             href="/schedule?view=action"
@@ -441,60 +442,60 @@ export default function HomePage() {
 
                   if (isPlaceholder) {
                     return (
-                      <li key={item.id} className="flex items-center gap-3 group">
-                        <span className="flex-1 text-sm text-black/90 min-w-0">{label}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkPurchased(item)}
-                          disabled={markingPurchasedId === item.id}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                          aria-label="Mark as purchased"
+                      <li key={item.id}>
+                        <SwipeCompleteRow
+                          onComplete={() => handleMarkPurchased(item)}
+                          enabled={markingPurchasedId !== item.id}
+                          className="flex items-center gap-3 bg-white group"
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkPurchased(item)}
-                          disabled={markingPurchasedId === item.id}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-50"
-                          aria-label="Remove from list"
-                        >
-                          <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
-                        </button>
+                          <span className="flex-1 text-sm text-black/90 min-w-0">{label}</span>
+                          <RowCompleteButton
+                            onClick={() => handleMarkPurchased(item)}
+                            disabled={markingPurchasedId === item.id}
+                            ariaLabel="Mark as purchased"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleMarkPurchased(item)}
+                            disabled={markingPurchasedId === item.id}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 disabled:opacity-50 shrink-0"
+                            aria-label="Remove from list"
+                          >
+                            <ICON_MAP.Close stroke="currentColor" className="w-5 h-5" />
+                          </button>
+                        </SwipeCompleteRow>
                       </li>
                     );
                   }
 
                   return (
-                    <li key={item.id} className="flex items-center gap-3 group">
-                      <span className="flex-1 text-sm text-black/90 min-w-0">
-                        {isSupply ? (
-                          supplyLinkDisabled ? (
-                            <span>{label}</span>
+                    <li key={item.id}>
+                      <SwipeCompleteRow
+                        onComplete={() => handleMarkPurchased(item)}
+                        enabled={markingPurchasedId !== item.id}
+                        className="flex items-center gap-3 bg-white group"
+                      >
+                        <span className="flex-1 text-sm text-black/90 min-w-0">
+                          {isSupply ? (
+                            supplyLinkDisabled ? (
+                              <span>{label}</span>
+                            ) : (
+                              <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                                {label}
+                              </Link>
+                            )
                           ) : (
-                            <Link href={`/vault/shed/${item.supply_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                            <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
                               {label}
                             </Link>
-                          )
-                        ) : (
-                          <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
-                            {label}
-                          </Link>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleMarkPurchased(item)}
-                        disabled={markingPurchasedId === item.id}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                        aria-label={`Mark ${label} as purchased`}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </button>
+                          )}
+                        </span>
+                        <RowCompleteButton
+                          onClick={() => handleMarkPurchased(item)}
+                          disabled={markingPurchasedId === item.id}
+                          ariaLabel={`Mark ${label} as purchased`}
+                        />
+                      </SwipeCompleteRow>
                     </li>
                   );
                 })}
@@ -520,10 +521,7 @@ export default function HomePage() {
 
         {/* ---- Tasks ---- */}
         <section className="rounded-xl bg-white p-4 shadow-card-soft border border-black/5">
-          <h2 className="text-base font-bold text-black mb-1 text-center pb-2 border-b border-black/5">At a Glance</h2>
-          {!loadingTasksAndList && pendingTasks.length > 0 && (
-            <p className="text-xs text-black/50 mb-3">Tasks (pending)</p>
-          )}
+          <h2 className="text-base font-bold text-black mb-3 text-center pb-2 border-b border-black/5">At a Glance</h2>
           {loadingTasksAndList ? (
             <LoadingState message="Loading…" className="py-4" />
           ) : (
@@ -546,23 +544,24 @@ export default function HomePage() {
                       const vaultId = t.plant_profile_id;
                       const taskHref = vaultId ? `/vault/${vaultId}` : "/calendar";
                       const isMarking = markingTaskDoneId === t.id;
+                      const taskLabel = t.title ?? t.category ?? "";
+                      const showPlant = t.plant_name && !taskLabel.includes(t.plant_name);
                       return (
-                        <li key={t.id} className="flex items-center justify-between gap-2">
-                          <Link href={taskHref} className="text-sm text-black/90 hover:text-emerald flex-1 min-w-0 truncate">
-                            {(() => {
-                              const label = t.title ?? t.category ?? "";
-                              const showPlant = t.plant_name && !label.includes(t.plant_name);
-                              return `${label}${showPlant ? ` · ${t.plant_name}` : ""} (${new Date(t.due_date).toLocaleDateString()})`;
-                            })()}
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleMarkTaskDone(t)}
-                            disabled={isMarking}
-                            className="shrink-0 min-w-[44px] min-h-[44px] px-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-medium hover:bg-emerald-100 disabled:opacity-50"
+                        <li key={t.id}>
+                          <SwipeCompleteRow
+                            onComplete={() => handleMarkTaskDone(t)}
+                            enabled={!isMarking}
+                            className={`flex items-center justify-between gap-2 bg-white py-2 ${isMarking ? "opacity-50" : ""}`}
                           >
-                            {isMarking ? "…" : "Done"}
-                          </button>
+                            <Link href={taskHref} className="text-sm text-black/90 hover:text-emerald flex-1 min-w-0 break-words">
+                              {`${taskLabel}${showPlant ? ` · ${t.plant_name}` : ""} (${new Date(t.due_date).toLocaleDateString()})`}
+                            </Link>
+                            <RowCompleteButton
+                              onClick={() => handleMarkTaskDone(t)}
+                              disabled={isMarking}
+                              ariaLabel={`Mark ${taskLabel} done`}
+                            />
+                          </SwipeCompleteRow>
                         </li>
                       );
                     })}

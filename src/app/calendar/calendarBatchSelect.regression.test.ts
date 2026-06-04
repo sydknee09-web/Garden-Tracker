@@ -24,6 +24,10 @@ import { join } from "path";
 const ROOT = process.cwd();
 const src = readFileSync(join(ROOT, "src/app/calendar/page.tsx"), "utf-8");
 const newTaskModalSrc = readFileSync(join(ROOT, "src/components/NewTaskModal.tsx"), "utf-8");
+// useRowSwipe was extracted from calendar/page.tsx to a shared hook (2026-06-01) so all
+// task/item-complete surfaces share one swipe engine. Gesture-machinery assertions read the
+// hook's real home; call-site + JSX assertions still read calendar src.
+const hookSrc = readFileSync(join(ROOT, "src/hooks/useRowSwipe.ts"), "utf-8");
 
 // ---------------------------------------------------------------------------
 // Fix A — Submit button label (now in NewTaskModal)
@@ -287,14 +291,14 @@ describe("Day header visual treatment", () => {
 // (`hidden md:flex`) alongside swipe. Swipe-left = complete, swipe-right = open snooze.
 // ---------------------------------------------------------------------------
 describe("Calendar row — swipe gestures (mobile)", () => {
-  it("Swipe state and refs exist on CalendarTaskRow", () => {
-    expect(src).toContain("swipeOffsetX");
-    expect(src).toContain("setSwipeOffsetX");
-    expect(src).toContain("isSwiping");
-    expect(src).toContain("setIsSwiping");
-    expect(src).toContain("swipeStartRef");
-    expect(src).toContain("swipeDirectionRef");
-    expect(src).toContain("latestOffsetRef");
+  it("Swipe state and refs exist in useRowSwipe hook", () => {
+    expect(hookSrc).toContain("swipeOffsetX");
+    expect(hookSrc).toContain("setSwipeOffsetX");
+    expect(hookSrc).toContain("isSwiping");
+    expect(hookSrc).toContain("setIsSwiping");
+    expect(hookSrc).toContain("swipeStartRef");
+    expect(hookSrc).toContain("swipeDirectionRef");
+    expect(hookSrc).toContain("latestOffsetRef");
   });
 
   it("Swipe is gated by eligibility (not completed, not selectMode, not optimistic, canEdit)", () => {
@@ -305,25 +309,25 @@ describe("Calendar row — swipe gestures (mobile)", () => {
   it("Touch handlers are attached via native addEventListener with passive: false", () => {
     // React's synthetic touchmove is passive by default on mobile, which would
     // block preventDefault. Native listeners with passive:false are required.
-    expect(src).toContain('addEventListener("touchstart"');
-    expect(src).toContain('addEventListener("touchmove"');
-    expect(src).toContain('{ passive: false }');
+    expect(hookSrc).toContain('addEventListener("touchstart"');
+    expect(hookSrc).toContain('addEventListener("touchmove"');
+    expect(hookSrc).toContain('{ passive: false }');
   });
 
   it("Direction lock prevents diagonal-jitter from triggering false swipes during scroll", () => {
     // The lock decides "horizontal" vs "vertical" once early movement crosses
     // a small threshold; only the horizontal branch intercepts (preventDefault).
     // Vertical lock just falls through, letting the page scroll naturally.
-    expect(src).toContain('"horizontal" : "vertical"');
-    expect(src).toContain('swipeDirectionRef.current === "horizontal"');
+    expect(hookSrc).toContain('"horizontal" : "vertical"');
+    expect(hookSrc).toContain('swipeDirectionRef.current === "horizontal"');
   });
 
   it("Swipe-left past threshold fires onSwipeLeft; swipe-right fires onSwipeRight (via useRowSwipe hook)", () => {
-    expect(src).toContain("SWIPE_THRESHOLD");
-    expect(src).toContain("dx <= -SWIPE_THRESHOLD");
-    expect(src).toContain("onSwipeLeft()");
-    expect(src).toContain("dx >= SWIPE_THRESHOLD");
-    expect(src).toContain("onSwipeRight()");
+    expect(hookSrc).toContain("SWIPE_THRESHOLD");
+    expect(hookSrc).toContain("dx <= -SWIPE_THRESHOLD");
+    expect(hookSrc).toContain("onSwipeLeft()");
+    expect(hookSrc).toContain("dx >= SWIPE_THRESHOLD");
+    expect(hookSrc).toContain("onSwipeRight()");
   });
 
   it("CalendarTaskRow wires onSwipeLeft to onComplete and onSwipeRight to openSnooze", () => {
@@ -343,10 +347,10 @@ describe("Calendar row — swipe gestures (mobile)", () => {
   });
 
   it("Cleanup removes all touch listeners on unmount or eligibility change", () => {
-    expect(src).toContain('removeEventListener("touchstart"');
-    expect(src).toContain('removeEventListener("touchmove"');
-    expect(src).toContain('removeEventListener("touchend"');
-    expect(src).toContain('removeEventListener("touchcancel"');
+    expect(hookSrc).toContain('removeEventListener("touchstart"');
+    expect(hookSrc).toContain('removeEventListener("touchmove"');
+    expect(hookSrc).toContain('removeEventListener("touchend"');
+    expect(hookSrc).toContain('removeEventListener("touchcancel"');
   });
 });
 
@@ -365,18 +369,22 @@ describe("Calendar row — responsive button visibility (iPad-portrait+/desktop)
 // machinery.
 // ---------------------------------------------------------------------------
 describe("useRowSwipe hook — extracted swipe primitive", () => {
-  it("useRowSwipe is defined as a top-level function", () => {
-    expect(src).toContain("function useRowSwipe(");
+  it("useRowSwipe is exported as a top-level function from the shared hook", () => {
+    expect(hookSrc).toContain("export function useRowSwipe(");
   });
 
   it("useRowSwipe accepts enabled, onSwipeLeft, onSwipeRight props", () => {
-    expect(src).toContain("enabled: boolean");
-    expect(src).toContain("onSwipeLeft: () => void");
-    expect(src).toContain("onSwipeRight: () => void");
+    expect(hookSrc).toContain("enabled: boolean");
+    expect(hookSrc).toContain("onSwipeLeft: () => void");
+    expect(hookSrc).toContain("onSwipeRight: () => void");
   });
 
   it("useRowSwipe returns { rowRef, swipeOffsetX, isSwiping }", () => {
-    expect(src).toContain("return { rowRef, swipeOffsetX, isSwiping };");
+    expect(hookSrc).toContain("return { rowRef, swipeOffsetX, isSwiping };");
+  });
+
+  it("calendar/page.tsx imports useRowSwipe from the shared hook", () => {
+    expect(src).toContain('import { useRowSwipe } from "@/hooks/useRowSwipe"');
   });
 
   it("CalendarTaskRow consumes useRowSwipe (no inline gesture state)", () => {
