@@ -956,7 +956,7 @@ export function SeedVaultView({
   const isPhotoCards = gridDisplayStyle === "photo";
     /* Gallery = 3-col grid matching peer surfaces (Packets/Shed/Active Garden/My Plants); list = vertical rows with divider. */
     const containerClass = isPhotoCards
-      ? "grid grid-cols-3 gap-2"
+      ? "grid grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2"
       : "rounded-xl border border-black/10 bg-white overflow-hidden divide-y divide-black/5";
 
     return (
