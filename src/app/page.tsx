@@ -401,11 +401,6 @@ export default function HomePage() {
             Yearly view
           </Link>
         </div>
-        <p className="text-xs text-black/50 mt-2 text-center">
-          <Link href="/schedule?view=roadmap" prefetch={false} className="text-emerald-600 font-medium hover:underline">
-            View full schedule &rarr;
-          </Link>
-        </p>
       </section>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
