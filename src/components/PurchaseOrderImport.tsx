@@ -25,7 +25,7 @@ interface PurchaseOrderImportProps {
   onClose: () => void;
   /** "seed" = plant profiles (vault/review-import). "supply" = supply profiles (shed/review-import). Default "seed". */
   mode?: "seed" | "supply";
-  /** When "permanent", imported items become trees/perennials (My Plants). Only used when mode="seed". */
+  /** When "permanent", imported items become trees/perennials (seeds review-import's Permanent/Seasonal picker). Only used when mode="seed". */
   defaultProfileType?: "seed" | "permanent";
   /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Scan Purchase Order. */
   addPlantMode?: boolean;
@@ -41,16 +41,13 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [profileType, setProfileType] = useState<"seed" | "permanent">(defaultProfileType);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setProfileType(defaultProfileType);
-    } else {
+    if (!open) {
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       setFile(null);
       setPreviewUrl(null);
@@ -59,7 +56,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-  }, [open, defaultProfileType]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !videoRef.current) return;
@@ -221,7 +218,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         purchase_quantity: item.quantity,
       }));
 
-      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType: profileType, addPlantMode });
+      setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType, addPlantMode });
       onClose();
       window.location.href = "/vault/review-import";
     } catch (e) {
@@ -281,28 +278,10 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
-          {addPlantMode && mode === "seed" && (
-            <div className="mb-4">
-              <p className="text-xs font-medium text-neutral-500 mb-2">Add to</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setProfileType("permanent")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-                >
-                  My Plants
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProfileType("seed")}
-                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${profileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-                >
-                  Active Garden
-                </button>
-              </div>
-            </div>
-          )}
-
+          {/* Ship 4 scope-gap close (Syd dogfood 2026-06-01): the stale destination-framed type toggle
+              (post-Ship-B dead tab names) was removed here. Permanent/seasonal is chosen once, with
+              correct lifecycle labels, at the review step (review-import's Permanent/Seasonal picker).
+              This input-step toggle was both dead-labeled and redundant — it only seeded that picker. */}
           <p className="text-sm text-black/70 mb-4">
             <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We&rsquo;ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
           </p>

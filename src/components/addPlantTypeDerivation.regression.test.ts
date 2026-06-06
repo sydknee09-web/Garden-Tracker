@@ -21,6 +21,8 @@ import { join } from "path";
 const ROOT = process.cwd();
 const addPlantModal = readFileSync(join(ROOT, "src/components/AddPlantModal.tsx"), "utf-8");
 const universalAddMenu = readFileSync(join(ROOT, "src/components/UniversalAddMenu.tsx"), "utf-8");
+const purchaseOrderImport = readFileSync(join(ROOT, "src/components/PurchaseOrderImport.tsx"), "utf-8");
+const reviewImport = readFileSync(join(ROOT, "src/app/vault/review-import/page.tsx"), "utf-8");
 
 describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () => {
   // Test 1 — Manual add-new derives profile_type + is_permanent_planting from the inline plantType.
@@ -73,5 +75,26 @@ describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () 
     expect(universalAddMenu).not.toContain('setAddPlantDefaultType("seasonal")');
     expect(addPlantModal).toContain('onClick={() => setPlantType("permanent")}');
     expect(addPlantModal).toContain('onClick={() => setPlantType("seasonal")}');
+  });
+});
+
+describe("Ship 4 scope-gap close — stale type toggle removed from PO sub-flow (Syd dogfood 2026-06-01)", () => {
+  // The "[ My Plants | Active Garden ]" labels are post-Ship-B dead tab names. They survived in
+  // the PurchaseOrderImport input step after Ship 4 removed the entry-point toggle. That input
+  // toggle was redundant — it only seeded review-import's own (correctly-labeled) picker.
+  it("PurchaseOrderImport no longer renders the stale My Plants / Active Garden toggle", () => {
+    expect(purchaseOrderImport).not.toContain("My Plants");
+    expect(purchaseOrderImport).not.toContain("Active Garden");
+    // The vestigial local type state is gone; the prop flows straight through to review-import.
+    expect(purchaseOrderImport).not.toContain("setProfileType");
+    expect(purchaseOrderImport).toContain('source: "purchase_order", defaultProfileType, addPlantMode');
+  });
+
+  // Type determination still happens — once, with correct lifecycle labels — at the review step,
+  // for BOTH the PO and Photo Add-Plant flows. This is the single source of truth post-fix.
+  it("review-import retains the correctly-labeled Permanent / Seasonal picker", () => {
+    expect(reviewImport).toContain('onClick={() => setDefaultProfileType("permanent")}');
+    expect(reviewImport).toContain('onClick={() => setDefaultProfileType("seed")}');
+    expect(reviewImport).toContain('is_permanent_planting: defaultProfileType === "permanent"');
   });
 });
