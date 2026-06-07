@@ -12,7 +12,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStateCart } from "@/components/EmptyStateIllustrations";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useToast } from "@/hooks/useToast";
+import { useToast, UNDO_WINDOW_MS } from "@/hooks/useToast";
 import { AddItemModal } from "@/components/AddItemModal";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { SwipeCompleteRow } from "@/components/SwipeCompleteRow";
@@ -146,20 +146,28 @@ export default function ShoppingListPage() {
   }, [editingId, items]);
 
   const handlePurchased = useCallback(
-    async (item: ShoppingItem) => {
+    (item: ShoppingItem) => {
       const removed = items.find((i) => i.id === item.id);
       if (!removed) return;
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setTogglingId(item.id);
-      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: item.user_id });
-      setTogglingId(null);
-      if (error) {
-        hapticError();
+      const restore = () =>
         setItems((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
-      } else {
-        hapticSuccess();
-        showToast("Marked as purchased");
-      }
+      // Optimistic remove; the DB write is deferred to the undo window's close so Undo never reverses a write.
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      showToast("Marked as purchased", {
+        durationMs: UNDO_WINDOW_MS,
+        action: { label: "Undo", onAction: restore },
+        onAutoDismiss: async () => {
+          setTogglingId(item.id);
+          const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: item.user_id });
+          setTogglingId(null);
+          if (error) {
+            hapticError();
+            restore();
+          } else {
+            hapticSuccess();
+          }
+        },
+      });
     },
     [items, showToast]
   );

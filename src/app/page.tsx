@@ -13,7 +13,7 @@ import { useSync } from "@/contexts/SyncContext";
 import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { useToast } from "@/hooks/useToast";
+import { useToast, UNDO_WINDOW_MS } from "@/hooks/useToast";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { OnboardingDock } from "@/components/OnboardingDock";
 import { LoadingState } from "@/components/LoadingState";
@@ -263,32 +263,52 @@ export default function HomePage() {
   }, [weather?.daily]);
   const frostAlert = frostDays.length > 0;
 
-  async function handleMarkPurchased(item: ShoppingItemWithName) {
+  function handleMarkPurchased(item: ShoppingItemWithName) {
     if (!user?.id) return;
+    const userId = user.id;
     const removed = item;
+    const restore = () =>
+      setShoppingList((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
+    // Optimistic remove; the DB write is deferred to the undo window's close so Undo never reverses a write.
     setShoppingList((prev) => prev.filter((i) => i.id !== item.id));
-    setMarkingPurchasedId(item.id);
-    setSyncing(true);
-    try {
-      const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: user.id });
-      if (error) {
-        hapticError();
-        setShoppingList((prev) => [...prev, removed].sort((a, b) => (a.created_at > b.created_at ? -1 : 1)));
-      } else {
-        hapticSuccess();
-        showToast("Marked as purchased");
-      }
-    } finally { setMarkingPurchasedId(null); setSyncing(false); }
+    showToast("Marked as purchased", {
+      durationMs: UNDO_WINDOW_MS,
+      action: { label: "Undo", onAction: restore },
+      onAutoDismiss: async () => {
+        setMarkingPurchasedId(item.id);
+        setSyncing(true);
+        try {
+          const { error } = await updateWithOfflineQueue("shopping_list", { is_purchased: true }, { id: item.id, user_id: userId });
+          if (error) {
+            hapticError();
+            restore();
+          } else {
+            hapticSuccess();
+          }
+        } finally { setMarkingPurchasedId(null); setSyncing(false); }
+      },
+    });
   }
 
-  async function handleMarkTaskDone(t: TaskWithPlant) {
+  function handleMarkTaskDone(t: TaskWithPlant) {
     if (!user?.id || t.completed_at) return;
-    setMarkingTaskDoneId(t.id);
-    setSyncing(true);
-    try {
-      await completeTask(t, user.id);
-      setPendingTasks((prev) => prev.filter((x) => x.id !== t.id));
-    } finally { setMarkingTaskDoneId(null); setSyncing(false); }
+    const userId = user.id;
+    const removed = t;
+    const restore = () =>
+      setPendingTasks((prev) => [...prev, removed].sort((a, b) => (a.due_date > b.due_date ? 1 : -1)));
+    // Optimistic remove; completeTask (an irreversible cascade) is deferred to the undo window's close.
+    setPendingTasks((prev) => prev.filter((x) => x.id !== t.id));
+    showToast("Marked as done", {
+      durationMs: UNDO_WINDOW_MS,
+      action: { label: "Undo", onAction: restore },
+      onAutoDismiss: async () => {
+        setMarkingTaskDoneId(t.id);
+        setSyncing(true);
+        try {
+          await completeTask(removed, userId);
+        } finally { setMarkingTaskDoneId(null); setSyncing(false); }
+      },
+    });
   }
 
   return (
