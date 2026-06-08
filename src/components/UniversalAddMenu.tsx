@@ -12,7 +12,7 @@ import { AddPlantModal } from "@/components/AddPlantModal";
 import { PlantingForm } from "@/components/PlantingForm";
 import { AddVarietyForm } from "@/components/AddVarietyModal";
 
-export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "add-plant-established" | "add-plant-from-vault" | "seed" | "shed" | "task" | "journal" | "variety";
+export type UniversalAddMenuScreen = "main" | "add-plant" | "add-plant-manual" | "add-plant-from-vault" | "seed" | "shed" | "task" | "journal" | "variety";
 
 export interface UniversalAddMenuProps {
   open: boolean;
@@ -240,17 +240,6 @@ export function UniversalAddMenu({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setScreenDirection("forward"); setScreen("add-plant-established"); }}
-                  className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
-                >
-                  <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Sprout className="w-5 h-5" /></span>
-                  <div>
-                    <div>Established Plant</div>
-                    <div className="text-xs font-normal text-neutral-500">Nursery purchase, gift, division</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
                   onClick={() => { setScreenDirection("forward"); setScreen("add-plant-from-vault"); }}
                   className="w-full py-2.5 px-4 rounded-3xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-luxury/40 text-left font-semibold text-neutral-900 transition-colors flex items-center gap-3 min-h-[44px]"
                 >
@@ -302,20 +291,6 @@ export function UniversalAddMenu({
               onClose={onClose}
               onBackToMenu={goBackToAddPlant}
               defaultPlantType={addPlantDefaultType}
-              stayInGarden={pathname.startsWith("/garden")}
-            />
-          </div>
-        )}
-
-        {screen === "add-plant-established" && (
-          <div key="add-plant-established" className={`${slideClass} relative flex-1 min-h-0 flex flex-col`}>
-            <AddPlantModal
-              open
-              embedded
-              establishedMode
-              onClose={onClose}
-              onBackToMenu={goBackToAddPlant}
-              defaultPlantType="permanent"
               stayInGarden={pathname.startsWith("/garden")}
             />
           </div>

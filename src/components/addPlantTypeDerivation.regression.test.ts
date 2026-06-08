@@ -58,12 +58,16 @@ describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () 
     expect(addPlantModal).toContain("is_permanent_planting: isPermanentExisting,");
   });
 
-  // Test 4 — Established chip is untouched: still hard-codes permanent, and the new inline
-  // type control is hidden in establishedMode so it can't be flipped to seasonal.
-  it("established chip stays permanent + inline type control is hidden in establishedMode", () => {
-    expect(universalAddMenu).toContain("establishedMode");
-    expect(universalAddMenu).toContain('defaultPlantType="permanent"');
-    expect(addPlantModal).toContain("{!establishedMode && (");
+  // Test 4 — The "Established Plant" entry + establishedMode were removed (Finding 30 minimal,
+  // Syd dogfood 2026-06-01: "this page is a How not a what"). Acquisition was never a separate
+  // entity — establishedMode only forced permanent + relabeled copy. The inline Plant type
+  // control now renders unconditionally on the add-new path (no longer gated by establishedMode).
+  it("Established Plant entry + establishedMode fully removed; inline type control unconditional", () => {
+    expect(universalAddMenu).not.toContain("establishedMode");
+    expect(universalAddMenu).not.toContain("add-plant-established");
+    expect(universalAddMenu).not.toContain("Established Plant");
+    expect(addPlantModal).not.toContain("establishedMode");
+    expect(addPlantModal).not.toContain("{!establishedMode && (");
   });
 
   // Test 5 — the My Plants / Active Garden entry-point toggle is gone (no stale in-memory

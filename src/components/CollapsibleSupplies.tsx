@@ -7,7 +7,7 @@ import { SupplyPicker } from "@/components/SupplyPicker";
 /**
  * Collapsible wrapper around SupplyPicker for use across plant-add flows.
  * Default-closed for progressive disclosure (supplies is power-user data).
- * Shared between AddPlantModal (Manual + Established) and PlantingForm (From Vault)
+ * Shared between AddPlantModal (Manual) and PlantingForm (From Vault)
  * so Supplies treatment stays consistent — see CLAUDE.md cohesion-by-aggregation rule.
  */
 export function CollapsibleSupplies({
