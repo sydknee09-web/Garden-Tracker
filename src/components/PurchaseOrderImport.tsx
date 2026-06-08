@@ -168,7 +168,8 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
           price: item.price,
         }));
         setSupplyReviewData({ items: reviewItems });
-        onClose();
+        // #9: keep the "Reading your order…" overlay up through the hard nav (do NOT onClose()
+        // first — that unmounts the modal and leaves a silent gap until review-import loads).
         window.location.href = "/shed/review-import";
         return;
       }
@@ -219,7 +220,8 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       }));
 
       setReviewImportData({ items: reviewItems, source: "purchase_order", defaultProfileType, addPlantMode });
-      onClose();
+      // #9: keep the "Reading your order…" overlay up through the hard nav (do NOT onClose()
+      // first — that unmounts the modal and leaves a silent gap until review-import loads).
       window.location.href = "/vault/review-import";
     } catch (e) {
       setError(formatAddFlowError(e));
@@ -244,6 +246,23 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
 
   return (
     <>
+      {/* #9: full-screen "Reading your order…" overlay while extracting. Persists through the
+          hard nav to review-import (success paths no longer onClose() first) so there's no
+          silent gap. Style anchored to SubmitLoadingOverlay (emerald-500 spinner, white blur). */}
+      {isExtracting && (
+        <div
+          className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm"
+          aria-live="polite"
+          aria-busy="true"
+          role="status"
+        >
+          <div
+            className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"
+            aria-hidden
+          />
+          <p className="text-sm font-medium text-neutral-700">Reading your order…</p>
+        </div>
+      )}
       <div
         className="fixed inset-0 z-[60] bg-black/40"
         aria-hidden

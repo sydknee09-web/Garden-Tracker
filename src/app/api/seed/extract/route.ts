@@ -150,6 +150,10 @@ export type ExtractResponse = {
   companion_plants?: string[];
   /** From research: plants to avoid planting nearby */
   avoid_plants?: string[];
+  /** F19: count of additional items the model found in this single image beyond the first (which is the one returned). 0/undefined when single-item. */
+  additional_items_detected?: number;
+  /** F19: short labels (type + variety) of the additional items not captured, so the UI can name what was dropped and route the user to receipt/order import. */
+  additional_item_labels?: string[];
 };
 
 const SYSTEM_PROMPT = `You are a botanical inventory expert. Look at the seed packet image and extract text you can clearly see.
@@ -582,14 +586,23 @@ export async function POST(req: Request) {
           );
         }
 
-        // Model returns a JSON array of objects; take first element for single-image input
+        // Model returns a JSON array of objects; the single-image flow returns the FIRST element.
+        // F19 (data loss): when the image actually contains multiple items (e.g. a cart screenshot
+        // or several packets in one photo), we still return the first BUT report the extras so the
+        // consumer can warn the user (non-silent) and route them to receipt/order import which
+        // captures all items. Full multi-item extraction belongs to the unified Import rewrite.
         const arrayMatch = text.match(/\[[\s\S]*\]/);
         let parsed: Record<string, unknown> = {};
+        let extraItems: Record<string, unknown>[] = [];
         if (arrayMatch) {
           try {
             const arr = JSON.parse(arrayMatch[0]) as unknown[];
-            const first = Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
-            parsed = first && typeof first === "object" && first !== null ? (first as Record<string, unknown>) : {};
+            const objs = Array.isArray(arr)
+              ? arr.filter((x): x is Record<string, unknown> => x != null && typeof x === "object")
+              : [];
+            const first = objs.length > 0 ? objs[0] : null;
+            parsed = first ?? {};
+            extraItems = objs.slice(1);
           } catch {
             const objMatch = text.match(/\{[\s\S]*\}/);
             parsed = objMatch ? (JSON.parse(objMatch[0]) as Record<string, unknown>) : {};
@@ -598,6 +611,13 @@ export async function POST(req: Request) {
           const objMatch = text.match(/\{[\s\S]*\}/);
           parsed = objMatch ? (JSON.parse(objMatch[0]) as Record<string, unknown>) : {};
         }
+        const additionalItemLabels = extraItems
+          .map((it) => {
+            const t = typeof it.plant_type === "string" ? it.plant_type.trim() : (typeof it.type === "string" ? it.type.trim() : "");
+            const v = typeof it.variety === "string" ? it.variety.trim() : "";
+            return [v, t].filter(Boolean).join(" ").trim();
+          })
+          .filter(Boolean);
 
         const vendorRaw = typeof parsed.vendor === "string" ? parsed.vendor.trim() : "";
         const typeRaw = typeof parsed.plant_type === "string" ? parsed.plant_type.trim() : (typeof parsed.type === "string" ? parsed.type.trim() : "");
@@ -636,6 +656,10 @@ export async function POST(req: Request) {
           variety: varietyForResponse ?? "",
           tags: mergedTags,
           ...(confidence_score !== undefined && { confidence_score }),
+          ...(extraItems.length > 0 && {
+            additional_items_detected: extraItems.length,
+            additional_item_labels: additionalItemLabels,
+          }),
         };
 
         if (typeForNorm || varietyForResponse) {

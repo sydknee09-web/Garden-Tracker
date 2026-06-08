@@ -37,6 +37,8 @@ export default function ImportPhotosPage() {
   const [items, setItems] = useState<PhotoItem[]>([]);
   const [processing, setProcessing] = useState(true);
   const [allDone, setAllDone] = useState(false);
+  /** F19: set when a single photo contained multiple items (only the first is captured here). Non-silent warning + route to receipt import. */
+  const [multiItemWarning, setMultiItemWarning] = useState<string | null>(null);
   const processingRef = useRef(false);
   const stopRequestedRef = useRef(false);
   const vaultProfilesRef = useRef<VaultProfile[] | null>(null);
@@ -104,6 +106,14 @@ export default function ImportPhotosPage() {
             });
             processingRef.current = false;
             return;
+          }
+          // F19: this photo held more than one item; we only capture the first here. Warn (non-silent) and route to receipt import.
+          if (typeof data.additional_items_detected === "number" && data.additional_items_detected > 0) {
+            const dropped = (data.additional_item_labels ?? []).filter(Boolean);
+            const droppedText = dropped.length ? ` Not captured: ${dropped.join(", ")}.` : "";
+            setMultiItemWarning(
+              `One image contained ${data.additional_items_detected + 1} items — Photo Import saves one per photo, so only the first was read.${droppedText} For multi-item orders, use Add → Import from a receipt, which captures every line.`
+            );
           }
           const stockUrl = (data as { stock_photo_url?: string }).stock_photo_url?.trim();
           if (stockUrl) {
@@ -360,6 +370,13 @@ export default function ImportPhotosPage() {
             />
           </div>
         </div>
+
+        {/* F19: multi-item-in-one-photo warning — non-silent, routes to receipt import */}
+        {multiItemWarning && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3" role="alert">
+            <p className="text-sm font-medium text-amber-800">{multiItemWarning}</p>
+          </div>
+        )}
 
         {/* Card list */}
         <ul className="space-y-4 list-none p-0 m-0">

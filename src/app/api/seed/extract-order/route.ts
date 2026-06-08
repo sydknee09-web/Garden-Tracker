@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
+import { stripPlantFromVariety, cleanVarietyForDisplay } from "@/lib/varietyNormalize";
 
 export const maxDuration = 60;
 
@@ -99,13 +100,26 @@ Important:
 
     const items: OrderLineItem[] = rawItems
       .filter((item): item is Record<string, unknown> => item != null && typeof item === "object")
-      .map((item) => ({
-        name: typeof item.name === "string" ? item.name.trim() : "Unknown",
-        variety: typeof item.variety === "string" ? item.variety.trim() : "",
-        vendor,
-        quantity: typeof item.quantity === "number" ? item.quantity : 1,
-        price: typeof item.price === "string" ? item.price : undefined,
-      }))
+      .map((item) => {
+        const name = typeof item.name === "string" ? item.name.trim() : "Unknown";
+        const rawVariety = typeof item.variety === "string" ? item.variety.trim() : "";
+        // F15: normalize variety the same way the photo extract route does, so PO imports
+        // (plant + seed) produce canonical names consistent with photo import. This strips a
+        // redundant plant-type prefix/suffix and marketing/maturity noise, reducing duplicate
+        // profiles for variant spellings. (Does not reorder genus words — no code path does.)
+        const typeForNorm = name && name !== "Unknown" ? name : "Imported seed";
+        const { cleanedVariety } = cleanVarietyForDisplay(
+          stripPlantFromVariety(rawVariety, typeForNorm),
+          typeForNorm
+        );
+        return {
+          name,
+          variety: cleanedVariety,
+          vendor,
+          quantity: typeof item.quantity === "number" ? item.quantity : 1,
+          price: typeof item.price === "string" ? item.price : undefined,
+        };
+      })
       .filter((item) => item.name !== "Unknown" || item.variety !== "");
 
     if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "extract-order" });

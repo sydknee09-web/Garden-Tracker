@@ -24,6 +24,36 @@ interface HeroItem extends PendingPhotoHeroItem {
   error?: string;
 }
 
+/**
+ * F13: verify a hero URL actually loads in the browser before declaring it "Ready".
+ * find-hero-photo can fall back to an external URL that 403s / hotlink-blocks; the PO flow
+ * has no packet-image fallback, so an unloadable URL surfaces as "No image" on Review Import
+ * AFTER the green checkmark — the "checkmark lied" bug. Only persist URLs that truly load.
+ * Mirrors review-import's <img referrerPolicy="no-referrer"> render conditions.
+ */
+function imageLoads(url: string, timeoutMs = 6000): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") { resolve(false); return; }
+    if (!url || !(url.startsWith("http") || url.startsWith("//") || url.startsWith("data:"))) {
+      resolve(false);
+      return;
+    }
+    const img = new Image();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    img.referrerPolicy = "no-referrer";
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.src = url;
+  });
+}
+
 export default function HeroImportPage() {
   const router = useRouter();
   const { session: authSession } = useAuth();
@@ -98,10 +128,17 @@ export default function HeroImportPage() {
           processingRef.current = false;
           return;
         }
+        // F13: only call it "Ready" (and persist the hero) if the URL actually loads — an
+        // unverified URL that later fails to load is the "checkmark lied" bug.
+        const loadable = heroUrl ? await imageLoads(heroUrl) : false;
+        if (stopRequestedRef.current) {
+          processingRef.current = false;
+          return;
+        }
         updateItem(id, {
           status: "success",
-          phaseLabel: heroUrl ? "Ready" : "No hero found",
-          hero_image_url: heroUrl || undefined,
+          phaseLabel: loadable ? "Ready" : "No hero found",
+          hero_image_url: loadable ? heroUrl : undefined,
         });
       } catch (e) {
         if (stopRequestedRef.current) {

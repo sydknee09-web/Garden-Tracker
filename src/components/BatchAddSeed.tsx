@@ -104,6 +104,8 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   const [saving, setSaving] = useState(false);
   const [saveSuccessCount, setSaveSuccessCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** F19: set when a single photo held multiple items (only the first is captured per photo). Non-silent warning + route to receipt import. */
+  const [multiItemWarning, setMultiItemWarning] = useState<string | null>(null);
   const [knownPlantTypes, setKnownPlantTypes] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -282,6 +284,14 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
           variety = (data.variety ?? "").trim();
           vendor = (data.vendor ?? "").trim();
           tags = Array.isArray(data.tags) ? data.tags : [];
+          // F19: this photo held more than one item; we only capture the first per photo. Warn (non-silent).
+          if (typeof data.additional_items_detected === "number" && data.additional_items_detected > 0) {
+            const dropped = (data.additional_item_labels ?? []).filter(Boolean);
+            const droppedText = dropped.length ? ` Not captured: ${dropped.join(", ")}.` : "";
+            setMultiItemWarning(
+              `One photo contained ${data.additional_items_detected + 1} items — only the first was read (one item per photo).${droppedText} For multi-item orders, use Add → Import from a receipt, which captures every line.`
+            );
+          }
         }
         if (!name || !variety) {
           const fromFilename = applyRareseedsFromFilename(file.name, knownTypes);
@@ -951,6 +961,11 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         ) : step === "review" ? (
           <>
             <p className="text-sm text-black/70 mb-2">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
+            {multiItemWarning && (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800" role="alert">
+                {multiItemWarning}
+              </div>
+            )}
             {loadingCount > 0 && (
               <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" aria-hidden />
