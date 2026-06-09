@@ -17,7 +17,8 @@ import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
-import { formatAddFlowError } from "@/lib/addFlowError";
+import { formatAddFlowError, EXTRACTION_RETRY_FAILED } from "@/lib/addFlowError";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
@@ -268,7 +269,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
 
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (authSession?.access_token) headers.Authorization = `Bearer ${authSession.access_token}`;
-        const res = await fetch("/api/seed/extract", {
+        const res = await fetchWithRetry("/api/seed/extract", {
           method: "POST",
           headers,
           body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
@@ -413,21 +414,22 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (authSession?.access_token) headers.Authorization = `Bearer ${authSession.access_token}`;
-      const res = await fetch("/api/seed/extract-order", {
+      const res = await fetchWithRetry("/api/seed/extract-order", {
         method: "POST",
         headers,
         body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
       });
 
       if (!res.ok) {
-        setError(formatAddFlowError(new Error("Failed to process order confirmation.")));
+        // Transient/API failure (auto-retried already) — don't blame the image.
+        setError(EXTRACTION_RETRY_FAILED);
         setOrderProcessing(false);
         return;
       }
 
       const data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
       if (data.error) {
-        setError(formatAddFlowError(data.error));
+        setError(EXTRACTION_RETRY_FAILED);
         setOrderProcessing(false);
         return;
       }

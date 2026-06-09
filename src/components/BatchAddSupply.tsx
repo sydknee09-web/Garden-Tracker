@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { setSupplyReviewData, type SupplyReviewItem } from "@/lib/supplyReviewStorage";
 import { compressImage } from "@/lib/compressImage";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 
 const SUPPLY_CATEGORIES = ["fertilizer", "pesticide", "soil_amendment", "other"] as const;
@@ -178,7 +179,7 @@ export function BatchAddSupply({ open, onClose, onSuccess, onBack }: BatchAddSup
           reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(blob);
         });
-        const res = await fetch("/api/supply/extract-from-photo", {
+        const res = await fetchWithRetry("/api/supply/extract-from-photo", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

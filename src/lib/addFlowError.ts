@@ -5,6 +5,14 @@
 
 export const ADD_FLOW_ERROR_PRIMARY = "Something went wrong. Try again.";
 
+/**
+ * Error copy for AI image-extraction calls (PO/photo/supply import) that fail after auto-retry.
+ * Deliberately does NOT blame the image — most failures are a transient AI/API hiccup, not a bad
+ * photo. Use this for the post-retry transient/API-failure branch; keep "No items found in this
+ * image. Try a clearer screenshot." for the genuine empty-result case (AI succeeded, found nothing).
+ */
+export const EXTRACTION_RETRY_FAILED = "Couldn't read the image right now — try again in a moment.";
+
 const MAX_DETAIL_LENGTH = 120;
 const UNSAFE_PATTERNS = [/file:\/\//i, /\/[\w-]+\/[\w-]+\.(tsx?|jsx?|mjs)/, /at\s+\S+\s+\(/];
 

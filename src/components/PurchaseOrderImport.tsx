@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImage } from "@/lib/compressImage";
-import { formatAddFlowError } from "@/lib/addFlowError";
+import { EXTRACTION_RETRY_FAILED } from "@/lib/addFlowError";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { setReviewImportData, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { setSupplyReviewData } from "@/lib/supplyReviewStorage";
 import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
@@ -41,6 +42,9 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Whether the current error is an image-related "no items found" case (show the
+  // "try a clearer screenshot" hint) vs a transient API failure (don't blame the image).
+  const [showImageHint, setShowImageHint] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,6 +57,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       setPreviewUrl(null);
       setIsExtracting(false);
       setError(null);
+      setShowImageHint(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
@@ -121,6 +126,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
   async function handleExtract() {
     if (!file) return;
     setError(null);
+    setShowImageHint(false);
     setIsExtracting(true);
     try {
       const { blob } = await resizeImageIfNeeded(file);
@@ -139,19 +145,22 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       if (authSession?.access_token) headers.Authorization = `Bearer ${authSession.access_token}`;
 
       if (mode === "supply") {
-        const res = await fetch("/api/supply/extract-order", {
+        const res = await fetchWithRetry("/api/supply/extract-order", {
           method: "POST",
           headers,
           body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
         });
         const data = (await res.json().catch(() => ({}))) as { items: SupplyOrderLineItem[]; vendor: string; error?: string };
         if (!res.ok || data.error) {
-          setError(formatAddFlowError((data.error as string) || `Failed to process order (${res.status}).`));
+          // Transient/API failure (auto-retried already) — don't blame the image.
+          setError(EXTRACTION_RETRY_FAILED);
           setIsExtracting(false);
           return;
         }
         if (!data.items?.length) {
+          // AI succeeded but found nothing — genuinely image-related; show the clearer-shot hint.
           setError("No supply items found in this image. Try a clearer screenshot of a fertilizer, pesticide, or garden supply order.");
+          setShowImageHint(true);
           setIsExtracting(false);
           return;
         }
@@ -174,7 +183,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         return;
       }
 
-      const res = await fetch("/api/seed/extract-order", {
+      const res = await fetchWithRetry("/api/seed/extract-order", {
         method: "POST",
         headers,
         body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
@@ -184,24 +193,22 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       try {
         data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
       } catch {
-        setError(formatAddFlowError(res.ok ? "Invalid response from server." : `Failed to process order (${res.status}).`));
+        setError(EXTRACTION_RETRY_FAILED);
         setIsExtracting(false);
         return;
       }
 
-      if (!res.ok) {
-        setError(formatAddFlowError((data.error as string) || `Failed to process order (${res.status}).`));
-        setIsExtracting(false);
-        return;
-      }
-      if (data.error) {
-        setError(formatAddFlowError(data.error));
+      if (!res.ok || data.error) {
+        // Transient/API failure (auto-retried already) — don't blame the image.
+        setError(EXTRACTION_RETRY_FAILED);
         setIsExtracting(false);
         return;
       }
 
       if (!data.items?.length) {
+        // AI succeeded but found nothing — genuinely image-related; show the clearer-shot hint.
         setError("No seed items found in this image. Try a clearer screenshot.");
+        setShowImageHint(true);
         setIsExtracting(false);
         return;
       }
@@ -223,8 +230,9 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
       // #9: keep the "Reading your order…" overlay up through the hard nav (do NOT onClose()
       // first — that unmounts the modal and leaves a silent gap until review-import loads).
       window.location.href = "/vault/review-import";
-    } catch (e) {
-      setError(formatAddFlowError(e));
+    } catch {
+      // Network throw (survived retries) or read/resize failure — transient, not an image problem.
+      setError(EXTRACTION_RETRY_FAILED);
       setIsExtracting(false);
     }
   }
@@ -346,7 +354,9 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
           {error && (
             <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
               <p className="text-sm font-medium text-red-800">{error}</p>
-              <p className="text-xs text-red-600/90 mt-1">Try a clearer screenshot or replace the image.</p>
+              {showImageHint && (
+                <p className="text-xs text-red-600/90 mt-1">Try a clearer screenshot or replace the image.</p>
+              )}
             </div>
           )}
         </div>

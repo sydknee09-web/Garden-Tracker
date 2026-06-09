@@ -14,6 +14,7 @@ import {
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { supabase } from "@/lib/supabase";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
 type PhotoPhase = "uploading" | "scanning" | "finding_hero" | "success" | "error";
 
@@ -89,7 +90,7 @@ export default function ImportPhotosPage() {
       }
       if (next.phase === "uploading" || next.phase === "scanning") {
         try {
-          const res = await fetch("/api/seed/extract", {
+          const res = await fetchWithRetry("/api/seed/extract", {
             method: "POST",
             headers,
             body: JSON.stringify({
@@ -198,7 +199,7 @@ export default function ImportPhotosPage() {
             phaseLabel: "Finding hero photo (Pass 2)...",
             extractResult: data,
           });
-          const heroRes = await fetch("/api/seed/find-hero-photo", {
+          const heroRes = await fetchWithRetry("/api/seed/find-hero-photo", {
             method: "POST",
             headers,
             body: JSON.stringify({
