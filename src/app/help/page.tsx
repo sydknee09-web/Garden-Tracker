@@ -16,7 +16,7 @@ export default function HelpPage() {
         <h2 className="text-base font-bold text-black mb-3 pb-2 border-b border-black/5">Adding Things</h2>
         <ul className="space-y-2 text-sm text-black/80">
           <li><strong>Add seeds</strong> — Tap <strong>+</strong> → Add Seed Packet → Manual, Photo, Link, or Purchase Order.</li>
-          <li><strong>Add a plant</strong> — Tap <strong>+</strong> → Add Plant → Manual Entry or From Vault.</li>
+          <li><strong>Add a plant</strong> — Tap <strong>+</strong> → Add Plant → Manual Entry or From Library.</li>
           <li><strong>Add supplies</strong> — Tap <strong>+</strong> → Add to Shed.</li>
           <li><strong>Add a task</strong> — Tap <strong>+</strong> → Add Task.</li>
           <li><strong>Log a quick note</strong> — Tap <strong>+</strong> → Add Journal. Or on Journal page, tap <strong>+ Entry</strong>.</li>
