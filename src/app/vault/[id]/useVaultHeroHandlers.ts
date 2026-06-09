@@ -6,6 +6,7 @@ import type { PlantProfile, SeedPacket } from "@/types/garden";
 import { compressImage } from "@/lib/compressImage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { parseFindHeroPhotoGalleryResponse } from "@/lib/parseFindHeroPhotoResponse";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { syncExtractCache } from "./vaultProfileUtils";
 
 type SessionLike = { access_token: string } | null;
@@ -121,7 +122,7 @@ export function useVaultHeroHandlers({
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
     try {
-      const res = await fetch("/api/seed/find-hero-photo", {
+      const res = await fetchWithRetry("/api/seed/find-hero-photo", {
         method: "POST",
         headers,
         body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, profile_id: profileId }),
@@ -157,7 +158,7 @@ export function useVaultHeroHandlers({
     searchWebAbortRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 20_000);
     try {
-      const res = await fetch("/api/seed/find-hero-photo", {
+      const res = await fetchWithRetry("/api/seed/find-hero-photo", {
         method: "POST",
         headers,
         body: JSON.stringify({

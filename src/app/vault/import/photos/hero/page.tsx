@@ -13,6 +13,7 @@ import {
 } from "@/lib/reviewImportStorage";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 
 type HeroStatus = "pending" | "processing" | "success" | "error";
@@ -112,7 +113,7 @@ export default function HeroImportPage() {
       }
       const identityKey = identityKeyFromVariety(item.type || "Imported seed", item.variety ?? "");
       try {
-        const res = await fetch("/api/seed/find-hero-photo", {
+        const res = await fetchWithRetry("/api/seed/find-hero-photo", {
           method: "POST",
           headers,
           body: JSON.stringify({

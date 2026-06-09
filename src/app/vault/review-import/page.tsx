@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import {
   getReviewImportData,
   setReviewImportData,
@@ -432,7 +433,7 @@ export default function ReviewImportPage() {
         (async () => {
           let didLog = false;
           try {
-            const res = await fetch("/api/seed/find-hero-photo", {
+            const res = await fetchWithRetry("/api/seed/find-hero-photo", {
               method: "POST",
               headers,
               body: JSON.stringify({

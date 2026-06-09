@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
@@ -283,7 +284,7 @@ export function SeedPacketForm({
     setImporting(true);
     setImportError(null);
     try {
-      const res = await fetch("/api/seed/extract-single-url", {
+      const res = await fetchWithRetry("/api/seed/extract-single-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

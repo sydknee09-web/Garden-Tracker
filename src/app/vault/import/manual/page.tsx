@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { getPendingManualAdd, clearPendingManualAdd, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { saveManualImportItem } from "@/lib/reviewImportSave";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
@@ -128,7 +129,7 @@ export default function ImportManualPage() {
       setPhase("hero");
       skipHeroRef.current = () => proceedToSave(undefined);
 
-      fetch("/api/seed/find-hero-photo", {
+      fetchWithRetry("/api/seed/find-hero-photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

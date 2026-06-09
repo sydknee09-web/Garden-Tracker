@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { cascadeTasksAndShoppingForDeletedProfiles } from "@/lib/cascadeOnProfileDelete";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 
@@ -243,7 +244,7 @@ export default function SettingsDeveloperPage() {
     setReExtractLoading(true);
     setReExtractResult(null);
     try {
-      const res = await fetch("/api/seed/re-extract-url", {
+      const res = await fetchWithRetry("/api/seed/re-extract-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -321,7 +322,7 @@ export default function SettingsDeveloperPage() {
         const identityKey = identityKeyFromVariety(p.name, p.variety_name ?? "") || undefined;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-        const res = await fetch("/api/seed/find-hero-photo", {
+        const res = await fetchWithRetry("/api/seed/find-hero-photo", {
           method: "POST",
           headers,
           body: JSON.stringify({

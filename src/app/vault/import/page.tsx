@@ -13,6 +13,7 @@ import {
   rareseedsAutotreatment,
 } from "@/lib/rareseedsAutotreatment";
 import { setReviewImportData, addProgressiveItem, clearProgressiveItems, getProgressiveItems } from "@/lib/reviewImportStorage";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { getCanonicalKey } from "@/lib/canonicalKey";
@@ -625,7 +626,7 @@ export default function VaultImportPage() {
 
     const fetchExtractMetadata = async (url: string, i: number) => {
       const skipProductPageFetch = isBlockedVendorUrl(url);
-      const res = await fetch("/api/seed/extract-metadata", {
+      const res = await fetchWithRetry("/api/seed/extract-metadata", {
         method: "POST",
         headers,
         signal,
@@ -857,7 +858,7 @@ export default function VaultImportPage() {
           const url = parsed[i];
           updateItem(i, { phaseLabel: "Rescuing Data via Search..." });
           try {
-            const res = await fetch("/api/seed/extract-rescue", {
+            const res = await fetchWithRetry("/api/seed/extract-rescue", {
               method: "POST",
               headers,
               signal,
@@ -952,7 +953,7 @@ export default function VaultImportPage() {
           updateItem(i, { phaseLabel: "Finding Hero Photo...", status: "processing" });
           let heroUrl = "";
           try {
-            const res = await fetch("/api/seed/find-hero-photo", {
+            const res = await fetchWithRetry("/api/seed/find-hero-photo", {
               method: "POST",
               headers,
               signal,
@@ -986,7 +987,7 @@ export default function VaultImportPage() {
             await delay(500);
             if (signal.aborted) return;
             try {
-              const res4 = await fetch("/api/seed/find-hero-photo", {
+              const res4 = await fetchWithRetry("/api/seed/find-hero-photo", {
                 method: "POST",
                 headers,
                 signal,
@@ -1019,7 +1020,7 @@ export default function VaultImportPage() {
             console.log("[PASS 4] Search Failed: Retrying with Pass 5 (clean plant name)...");
             updateItem(i, { phaseLabel: "Searching AI (final try)...", status: "processing" });
             try {
-              const res5 = await fetch("/api/seed/find-hero-photo", {
+              const res5 = await fetchWithRetry("/api/seed/find-hero-photo", {
                 method: "POST",
                 headers,
                 signal,

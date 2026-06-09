@@ -5,6 +5,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { supabase } from "@/lib/supabase";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { useAuth } from "@/contexts/AuthContext";
 import { hapticSuccess } from "@/lib/haptics";
 import { compressImage } from "@/lib/compressImage";
@@ -211,7 +212,7 @@ export function SupplyForm({
     setImporting(true);
     setImportError(null);
     try {
-      const res = await fetch("/api/supply/extract-from-url", {
+      const res = await fetchWithRetry("/api/supply/extract-from-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

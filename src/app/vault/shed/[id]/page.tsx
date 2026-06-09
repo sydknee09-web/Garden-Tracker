@@ -12,6 +12,7 @@ import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { QuickLogModal } from "@/components/QuickLogModal";
 import { ShedSupplyIcon } from "@/components/ShedView";
 import { compressImage } from "@/lib/compressImage";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
@@ -257,7 +258,7 @@ export default function VaultShedDetailPage() {
         primary_image_path?: string;
       };
       if (supply.source_url?.trim()?.startsWith("http")) {
-        const res = await fetch("/api/supply/extract-from-url", {
+        const res = await fetchWithRetry("/api/supply/extract-from-url", {
           method: "POST",
           headers,
           body: JSON.stringify({ url: supply.source_url.trim() }),
