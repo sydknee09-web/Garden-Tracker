@@ -182,6 +182,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
   // Bulk select state
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  // Hero URLs that failed to load (404 / hotlink-blocked external AI hero). Fall
+  // back to the clean placeholder instead of the browser's broken-image icon.
+  // Mirrors the profile-page gallery onError pattern (vault/[id]/page.tsx).
+  const [failedThumbUrls, setFailedThumbUrls] = useState<Set<string>>(new Set());
 
   // Quick-tap toast
   const [quickToast, setQuickToast] = useState<string | null>(null);
@@ -1102,7 +1106,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
         ) : displayStyle === "grid" ? (
           <div className="grid grid-cols-3 gap-2">
             {sortedBatches.map((batch) => {
-              const thumbUrl = getBatchImageUrl(batch);
+              const rawThumbUrl = getBatchImageUrl(batch);
+              const thumbUrl = rawThumbUrl && !failedThumbUrls.has(rawThumbUrl) ? rawThumbUrl : null;
               const isPerennial = batch.is_permanent_planting === true;
               return (
                 <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
@@ -1152,7 +1157,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                     <div className="px-1.5 pt-1.5 shrink-0">
                       <div className="relative w-full aspect-square bg-neutral-100 overflow-hidden rounded-xl">
                         {thumbUrl ? (
-                          <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" />
+                          <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" onError={() => setFailedThumbUrls((prev) => new Set(prev).add(thumbUrl))} />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                         )}
@@ -1221,7 +1226,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
                   : rawExpected
                   ? `Est. harvest ~${new Date(rawExpected).toLocaleDateString()}`
                   : "No maturity set";
-                const thumbUrl = getBatchImageUrl(batch);
+                const rawThumbUrl = getBatchImageUrl(batch);
+                const thumbUrl = rawThumbUrl && !failedThumbUrls.has(rawThumbUrl) ? rawThumbUrl : null;
 
                 return (
                   <li
@@ -1256,7 +1262,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                       )}
                       <div className="shrink-0 w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 overflow-hidden flex items-center justify-center">
                         {thumbUrl ? (
-                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" onError={() => setFailedThumbUrls((prev) => new Set(prev).add(thumbUrl))} />
                         ) : (
                           <PlantPlaceholderIcon size="sm" />
                         )}

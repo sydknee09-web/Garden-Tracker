@@ -121,6 +121,12 @@ export default function VaultSeedPage() {
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [heroImageLoaded, setHeroImageLoaded] = useState(false);
+  // Client-side safety cap on the "Researching…" pulse driven by the DB
+  // hero_image_pending flag. The flag can get stuck true if the background
+  // hero job is killed mid-run (serverless timeout) before it resets the flag,
+  // which would otherwise pulse forever. Mirrors SeedVaultView's
+  // HERO_PENDING_TIMEOUT_MS (30s) so the two surfaces behave consistently.
+  const [heroPendingTimedOut, setHeroPendingTimedOut] = useState(false);
 
   const [vendorDetailsOpen, setVendorDetailsOpen] = useState(false);
   const [journalPhotos, setJournalPhotos] = useState<JournalPhoto[]>([]);
@@ -612,11 +618,24 @@ export default function VaultSeedPage() {
   const isPlaceholderResolved = !resolvedHeroUrl || isPlaceholderHeroUrl(resolvedHeroUrl);
   const hasHeroImage = (resolvedHeroUrl?.trim() !== "") && !imageError && !isPlaceholderResolved;
   const heroImageUrl = hasHeroImage ? resolvedHeroUrl : null;
-  const showHeroResearching = !heroImageUrl && (hero.findingStockPhoto || heroPending);
+  // Gate only the DB-flag-driven pending with the timeout; the client-driven
+  // findingStockPhoto (active in-page search) resolves on its own.
+  const showHeroResearching = !heroImageUrl && (hero.findingStockPhoto || (heroPending && !heroPendingTimedOut));
 
   useEffect(() => {
     setHeroImageLoaded(false);
   }, [heroImageUrl]);
+
+  useEffect(() => {
+    if (!heroPending) {
+      setHeroPendingTimedOut(false);
+      return;
+    }
+    setHeroPendingTimedOut(false);
+    const HERO_PENDING_TIMEOUT_MS = 30000;
+    const t = setTimeout(() => setHeroPendingTimedOut(true), HERO_PENDING_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [heroPending]);
 
   // Quick stats
   const packetCount = packets.length;
