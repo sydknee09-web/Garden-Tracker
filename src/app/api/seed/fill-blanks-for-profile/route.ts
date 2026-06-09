@@ -9,6 +9,15 @@ import {
   type EnrichDataForCache,
 } from "@/lib/fillBlanksCache";
 import { logRequestMetrics } from "@/lib/logRequestMetrics";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
+
+// Single retry (2 attempts) for the slow AI calls below. The route's maxDuration
+// is 60s and enrich-from-name is a Gemini call, so we bound retries tightly to
+// avoid pushing the route past its serverless budget (an unbounded retry would
+// risk the timeout-kill that strands hero_image_pending). Transient retryable
+// statuses (429/503/etc.) return fast, so one retry is cheap insurance against
+// the silent-blank-profile failure Syd hit on PO import 2026-06-08.
+const AI_RETRY_DELAYS = [1500];
 
 const BACKGROUND_ENRICH_ROUTE_ID = "background-enrich";
 
@@ -25,23 +34,28 @@ async function findHeroPhotoWithToken(
   const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const url = base.startsWith("http") ? base : `https://${base}`;
   try {
-    const res = await fetch(`${url}/api/seed/find-hero-photo`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+    const res = await fetchWithRetry(
+      `${url}/api/seed/find-hero-photo`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          variety,
+          vendor,
+          identity_key: identityKey ?? undefined,
+          scientific_name: scientificName ?? "",
+        }),
       },
-      body: JSON.stringify({
-        name,
-        variety,
-        vendor,
-        identity_key: identityKey ?? undefined,
-        scientific_name: scientificName ?? "",
-      }),
-    });
+      { delays: AI_RETRY_DELAYS }
+    );
     const data = (await res.json()) as { hero_image_url?: string };
     return (data.hero_image_url ?? "").trim();
-  } catch {
+  } catch (e) {
+    console.warn("[fill-blanks-for-profile] hero fetch failed after retry:", e instanceof Error ? e.message : e);
     return "";
   }
 }
@@ -174,11 +188,15 @@ export async function POST(req: Request) {
         const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const origin = base.startsWith("http") ? base : `https://${base}`;
         try {
-          const enrichRes = await fetch(`${origin}/api/seed/enrich-from-name`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ name, variety }),
-          });
+          const enrichRes = await fetchWithRetry(
+            `${origin}/api/seed/enrich-from-name`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ name, variety }),
+            },
+            { delays: AI_RETRY_DELAYS }
+          );
           if (enrichRes.ok) {
             const data = (await enrichRes.json()) as {
               plant_description?: string;
@@ -269,8 +287,8 @@ export async function POST(req: Request) {
               }
             }
           }
-        } catch {
-          // ignore
+        } catch (e) {
+          console.warn("[fill-blanks-for-profile] enrich-from-name failed after retry:", e instanceof Error ? e.message : e);
         }
       }
     }
