@@ -665,10 +665,8 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     return Number.isNaN(t) ? 0 : t;
   };
 
-  // Journal tab — user-written entries for this grow. System-generated `vault_add` excluded
-  // per Syd 2026-05-28 mental-model lock (Task History owns task completions; Journal owns user logs).
-  const userJournalEntries = journalEntries
-    .filter((e) => e.entry_type !== "vault_add")
+  // Acquisition entries (vault_add) shown on both profile + instance Journal tabs per 2026-06-10 Syd lock (reversed 2026-05-28 user-logs-only filter — instance page now exists as the canonical surface, acquisition history belongs in the user-facing journal).
+  const userJournalEntries = [...journalEntries]
     .sort((a, b) => toTime(b.created_at) - toTime(a.created_at));
 
   // Task History tab — Scheduled Care (upcoming) + Completed (peer sections; no journal mix).
