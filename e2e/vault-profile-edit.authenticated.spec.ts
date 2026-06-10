@@ -31,7 +31,8 @@ test.describe("Vault — Plant Profile inline editing", () => {
     await page.waitForURL(/\/vault\/[^/]+$/, { timeout: 10000 });
     await page.waitForLoadState("networkidle");
 
-    // The profile may need a "Packets" tab to be selected to show packet fields
+    // Open the Packets tab, then tap into the dedicated packet detail page where
+    // inventory fields (notes / storage / vendor specs) now live.
     const packetsTab = page.getByRole("tab", { name: /packets/i });
     const hasTab = await packetsTab
       .waitFor({ state: "visible", timeout: 3000 })
@@ -41,6 +42,19 @@ test.describe("Vault — Plant Profile inline editing", () => {
       await packetsTab.click();
       await page.waitForTimeout(500);
     }
+
+    const firstPacket = page.locator('a[href^="/vault/packets/"]').first();
+    const hasPacket = await firstPacket
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasPacket) {
+      test.skip(true, "No seed packets on this profile — skipping packet notes test");
+      return;
+    }
+    await firstPacket.click();
+    await page.waitForURL(/\/vault\/packets\/[^/]+/, { timeout: 10000 });
+    await page.waitForLoadState("networkidle");
 
     // Look for the packet notes textarea
     const notesField = page.getByLabel(/packet notes/i).first();
@@ -95,6 +109,19 @@ test.describe("Vault — Plant Profile inline editing", () => {
       await packetsTab.click();
       await page.waitForTimeout(500);
     }
+
+    const firstPacket = page.locator('a[href^="/vault/packets/"]').first();
+    const hasPacket = await firstPacket
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasPacket) {
+      test.skip(true, "No seed packets on this profile — skipping storage location test");
+      return;
+    }
+    await firstPacket.click();
+    await page.waitForURL(/\/vault\/packets\/[^/]+/, { timeout: 10000 });
+    await page.waitForLoadState("networkidle");
 
     // Look for the storage location input
     const locationField = page.getByLabel(/storage location/i).first();

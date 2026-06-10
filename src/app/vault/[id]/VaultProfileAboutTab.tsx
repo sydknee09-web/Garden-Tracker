@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import type { PlantProfile, VendorSpecs } from "@/types/garden";
+import type { PlantProfile } from "@/types/garden";
 import { TagBadges } from "@/components/TagBadges";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatVendorDetails } from "./vaultProfileUtils";
@@ -217,49 +217,6 @@ export function VaultProfileAboutTab({
                   <p className="text-sm text-neutral-500">Nothing here yet. Tap the ✨ button above to fill in details from our library or AI.</p>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Vendor recommendations */}
-      {packets.some((p) => p.vendor_specs && Object.keys(p.vendor_specs as object).length > 0) && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("vendorRecs")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("vendorRecs")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Vendor Recommendations</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("vendorRecs") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("vendorRecs") && (
-            <div className="px-4 pb-4 pt-0">
-              <p className="text-xs text-neutral-500 mb-3">What each packet or vendor says about growing this variety.</p>
-              <ul className="space-y-4">
-                {packets
-                  .filter((p) => p.vendor_specs && Object.keys(p.vendor_specs as object).length > 0)
-                  .map((pkt) => {
-                    const vs = pkt.vendor_specs as VendorSpecs | undefined;
-                    const vendorLabel = (pkt.vendor_name ?? "").trim() || "Unknown vendor";
-                    const parts: string[] = [];
-                    if (vs?.sowing_depth) parts.push(`Sow: ${vs.sowing_depth}`);
-                    if (vs?.spacing) parts.push(`Spacing: ${vs.spacing}`);
-                    if (vs?.sun_requirement) parts.push(`Sun: ${vs.sun_requirement}`);
-                    if (vs?.days_to_germination) parts.push(`Germ: ${vs.days_to_germination}`);
-                    if (vs?.days_to_maturity) parts.push(`Maturity: ${vs.days_to_maturity}`);
-                    return (
-                      <li key={pkt.id} className="border border-neutral-100 rounded-lg p-3">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-sm font-medium text-neutral-800">{vendorLabel}</span>
-                          {pkt.purchase_url?.trim() && (
-                            <a href={pkt.purchase_url} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline truncate max-w-[140px]">Link</a>
-                          )}
-                        </div>
-                        <p className="text-sm text-neutral-600">{parts.join(" · ") || "—"}</p>
-                        {vs?.plant_description?.trim() && (
-                          <p className="text-xs text-neutral-500 mt-2 line-clamp-2">{vs.plant_description}</p>
-                        )}
-                      </li>
-                    );
-                  })}
-              </ul>
             </div>
           )}
         </div>

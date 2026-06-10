@@ -171,7 +171,7 @@ export function PacketVaultView({
           longPressFiredRef.current = false;
           return;
         }
-        router.push(`/vault/${pkt.plant_profile_id}`);
+        router.push(`/vault/packets/${pkt.id}`);
       },
     }),
     [onLongPressPacket, clearLongPressTimer, router]
@@ -566,17 +566,17 @@ export function PacketVaultView({
     onEmptyStateChange?.(packets.length === 0 && !loading);
   }, [packets.length, loading, onEmptyStateChange]);
 
-  const goToProfile = useCallback((profileId: string) => {
-    router.push(`/vault/${profileId}`);
+  const goToPacket = useCallback((pkt: PacketVaultItem) => {
+    router.push(`/vault/packets/${pkt.id}`);
   }, [router]);
 
   const handleRowClick = useCallback((pkt: PacketVaultItem) => {
     if (batchSelectMode && onTogglePacketSelection) {
       onTogglePacketSelection(pkt.id);
     } else {
-      goToProfile(pkt.plant_profile_id);
+      goToPacket(pkt);
     }
-  }, [batchSelectMode, onTogglePacketSelection, goToProfile]);
+  }, [batchSelectMode, onTogglePacketSelection, goToPacket]);
 
   if (loading && packets.length === 0) {
     return (
@@ -731,8 +731,8 @@ export function PacketVaultView({
                       role="link"
                       tabIndex={0}
                       className="block cursor-pointer"
-                      onClick={lp ? () => lp.handleClick() : () => goToProfile(pkt.plant_profile_id)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToProfile(pkt.plant_profile_id); } }}
+                      onClick={lp ? () => lp.handleClick() : () => goToPacket(pkt)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goToPacket(pkt); } }}
                       {...(lp ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                     >
                       <article className={`rounded-lg bg-white shadow-card overflow-hidden flex flex-col border border-black/5 hover:border-emerald-500/40 transition-colors w-full card-interactive ${isArchived ? "opacity-50" : ""}`}>
@@ -765,7 +765,7 @@ export function PacketVaultView({
                 <li key={pkt.id}>
                   <button
                     type="button"
-                    onClick={() => batchSelectMode ? onTogglePacketSelection?.(pkt.id) : (lp ? lp.handleClick() : goToProfile(pkt.plant_profile_id))}
+                    onClick={() => batchSelectMode ? onTogglePacketSelection?.(pkt.id) : (lp ? lp.handleClick() : goToPacket(pkt))}
                     className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${batchSelectMode && isSelected ? "bg-emerald/5 border-2 border-emerald-500" : ""}`}
                     {...(lp && !batchSelectMode ? { onTouchStart: lp.onTouchStart, onTouchMove: lp.onTouchMove, onTouchEnd: lp.onTouchEnd, onTouchCancel: lp.onTouchCancel } : {})}
                   >

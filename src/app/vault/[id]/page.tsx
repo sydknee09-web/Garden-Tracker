@@ -58,9 +58,7 @@ import { VaultProfileCareTab } from "./VaultProfileCareTab";
 import { VaultProfilePacketsTab } from "./VaultProfilePacketsTab";
 import { VaultProfilePlantingsTab } from "./VaultProfilePlantingsTab";
 import { VaultProfileJournalTab } from "./VaultProfileJournalTab";
-import { formatDisplayDate, getPacketImageUrls } from "./vaultProfileUtils";
 import { useVaultPlantingsHandlers } from "./useVaultPlantingsHandlers";
-import { useVaultPacketHandlers } from "./useVaultPacketHandlers";
 import { useVaultHeroHandlers } from "./useVaultHeroHandlers";
 import { useVaultEditHandlers } from "./useVaultEditHandlers";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
@@ -427,14 +425,6 @@ export default function VaultSeedPage() {
     loadProfile,
   });
 
-  const packetHandlers = useVaultPacketHandlers({
-    userId: user?.id,
-    profileId: id,
-    profileOwnerId,
-    packets,
-    setPackets,
-  });
-
   const hero = useVaultHeroHandlers({
     userId: user?.id,
     profileId: id,
@@ -483,19 +473,6 @@ export default function VaultSeedPage() {
     handleEditGrowSave,
     buildBatchFromEditTarget,
   } = plantings;
-
-  const {
-    openPacketDetails,
-    journalByPacketId,
-    loadingJournalForPacket,
-    togglePacketDetails,
-    updatePacketQty,
-    updatePacketPurchaseDate,
-    updatePacketNotes,
-    updatePacketStorageLocation,
-    updatePacketRating,
-    deletePacket,
-  } = packetHandlers;
 
   const {
     showSetPhotoModal, setShowSetPhotoModal,
@@ -1412,21 +1389,10 @@ export default function VaultSeedPage() {
           <VaultProfilePacketsTab
             sortedPackets={sortedPackets}
             packetImagesByPacketId={packetImagesByPacketId}
-            journalByPacketId={journalByPacketId}
-            loadingJournalForPacket={loadingJournalForPacket}
-            growInstances={growInstances}
             canEdit={canEdit}
             isPermanent={isPermanent}
-            openPacketDetails={openPacketDetails}
-            togglePacketDetails={togglePacketDetails}
-            updatePacketRating={updatePacketRating}
-            updatePacketPurchaseDate={updatePacketPurchaseDate}
-            updatePacketQty={updatePacketQty}
-            updatePacketNotes={updatePacketNotes}
-            updatePacketStorageLocation={updatePacketStorageLocation}
-            deletePacket={deletePacket}
+            profileId={id}
             setAddPlantManualOpen={setAddPlantManualOpen}
-            setImageLightbox={setImageLightbox}
           />
         )}
 

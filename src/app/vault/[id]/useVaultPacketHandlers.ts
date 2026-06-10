@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import type { SeedPacket } from "@/types/garden";
+import type { SeedPacket, VendorSpecs } from "@/types/garden";
 
 interface UseVaultPacketHandlersArgs {
   userId: string | undefined;
@@ -147,6 +147,31 @@ export function useVaultPacketHandlers({
     [userId, profileOwnerId, setPackets],
   );
 
+  // Edit a single vendor_specs field, merging into the existing jsonb (never overwriting
+  // sibling keys). Mirrors the notes/storage inline-edit pattern: persist:false = optimistic
+  // local update only; persist (default) = optimistic + DB write. Empty value removes the key;
+  // an empty specs object persists as null so the section reads as absent.
+  const updatePacketVendorSpec = useCallback(
+    async (packetId: string, field: keyof VendorSpecs, value: string, options?: { persist?: boolean }) => {
+      const current = packets.find((p) => p.id === packetId);
+      const nextSpecs = { ...((current?.vendor_specs ?? {}) as Record<string, string | undefined>) };
+      if (options?.persist === false) {
+        nextSpecs[field] = value;
+        setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, vendor_specs: nextSpecs as VendorSpecs } : p)));
+        return;
+      }
+      const v = value.trim();
+      if (v) nextSpecs[field] = v;
+      else delete nextSpecs[field];
+      setPackets((prev) => prev.map((p) => (p.id === packetId ? { ...p, vendor_specs: nextSpecs as VendorSpecs } : p)));
+      if (!userId) return;
+      const owner = profileOwnerId || userId;
+      const payload = Object.keys(nextSpecs).length > 0 ? (nextSpecs as VendorSpecs) : null;
+      await supabase.from("seed_packets").update({ vendor_specs: payload }).eq("id", packetId).eq("user_id", owner);
+    },
+    [packets, userId, profileOwnerId, setPackets],
+  );
+
   const deletePacket = useCallback(async (packetId: string) => {
     if (!userId) return;
     const owner = profileOwnerId || userId;
@@ -157,9 +182,6 @@ export function useVaultPacketHandlers({
       .eq("user_id", owner);
     if (!e) setPackets((prev) => prev.filter((p) => p.id !== packetId));
   }, [userId, profileOwnerId, setPackets]);
-
-  // Suppress unused-variable lint: packets is a dependency for callers, not used directly in this hook
-  void packets;
 
   return {
     openPacketDetails,
@@ -172,6 +194,7 @@ export function useVaultPacketHandlers({
     updatePacketNotes,
     updatePacketStorageLocation,
     updatePacketRating,
+    updatePacketVendorSpec,
     deletePacket,
   };
 }
