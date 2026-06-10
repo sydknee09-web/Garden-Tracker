@@ -107,6 +107,9 @@ import {
 } from "@/lib/navSectionClear";
 import { useVault } from "@/contexts/VaultContext";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { GroupSelectField } from "@/components/GroupSelectField";
+import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
+import type { Group } from "@/types/garden";
 import {
   VaultShedWingProvider,
   VaultShedWingToolbar,
@@ -688,6 +691,11 @@ function VaultPageInner() {
   const [plantSeedsSownByProfileId, setPlantSeedsSownByProfileId] = useState<Record<string, number | "">>({});
   const [plantPlantCountByProfileId, setPlantPlantCountByProfileId] = useState<Record<string, number | "">>({});
   const [plantSelectedSupplyIds, setPlantSelectedSupplyIds] = useState<Set<string>>(new Set());
+  // Group — SINGLE-select, batch-wide like Sow method (one group per plant, locked 2026-06-09).
+  const [plantAvailableGroups, setPlantAvailableGroups] = useState<Group[]>([]);
+  const [plantSelectedGroupId, setPlantSelectedGroupId] = useState<string | null>(null);
+  const [plantGroupQuery, setPlantGroupQuery] = useState("");
+  const [plantCreatingGroup, setPlantCreatingGroup] = useState(false);
   useEffect(() => {
     if (!plantModalOpen || !user?.id || selectedVarietyIds.size === 0) return;
     setPlantDate(new Date().toISOString().slice(0, 10));
@@ -695,6 +703,9 @@ function VaultPageInner() {
     setPlantSowMethod(null);
     setPlantSeedsSownByProfileId({});
     setPlantPlantCountByProfileId({});
+    setPlantSelectedGroupId(null);
+    setPlantGroupQuery("");
+    fetchUserGroups(supabase, user.id).then((rows) => setPlantAvailableGroups(rows));
     let cancelled = false;
     (async () => {
       const ids = Array.from(selectedVarietyIds);
@@ -721,6 +732,24 @@ function VaultPageInner() {
     })();
     return () => { cancelled = true; };
   }, [plantModalOpen, user?.id, selectedVarietyIds]);
+
+  const handlePlantCreateGroupInline = useCallback(async () => {
+    const name = plantGroupQuery.trim();
+    if (!name || !user?.id || plantCreatingGroup) return;
+    setPlantCreatingGroup(true);
+    try {
+      const newGroup = await createGroup(supabase, user.id, name);
+      if (newGroup) {
+        setPlantAvailableGroups((prev) => [...prev, newGroup]);
+        setPlantSelectedGroupId(newGroup.id);
+        setPlantGroupQuery("");
+      }
+    } catch (e) {
+      console.error("VaultPageContent: createGroup failed", e);
+    } finally {
+      setPlantCreatingGroup(false);
+    }
+  }, [plantGroupQuery, user?.id, plantCreatingGroup]);
 
   /** Consume packet quantity. toUse is in "packet units" (1 = full packet). qty_status 0-100 = percent remaining; packetValue = qty_status/100. */
   const consumePackets = useCallback(
@@ -798,6 +827,24 @@ function VaultPageInner() {
         break;
       }
 
+      if (plantSelectedGroupId) {
+        const group = plantAvailableGroups.find((g) => g.id === plantSelectedGroupId);
+        if (group) {
+          try {
+            // New planting has no prior group → setInstanceGroup auto-journals "Added to {group}".
+            await setInstanceGroup(supabase, {
+              growInstanceId: growRow.id,
+              userId: user.id,
+              plantProfileId: p.id,
+              nextGroup: { id: group.id, name: group.name },
+              priorGroups: [],
+            });
+          } catch (e) {
+            console.error("VaultPageContent: setInstanceGroup failed", { plantSelectedGroupId, error: e });
+          }
+        }
+      }
+
       const displayName = p.variety_name?.trim() ? `${decodeHtmlEntities(p.name)} (${decodeHtmlEntities(p.variety_name)})` : decodeHtmlEntities(p.name);
       const noteParts: string[] = [`Sowed ${displayName}`];
       if (plantSowMethod) noteParts.push(plantSowMethod === "seed_start" ? "via seed start" : "via direct sow");
@@ -864,7 +911,7 @@ function VaultPageInner() {
     refetch();
     setSaveToastMessage("Planted!");
     setTimeout(() => router.push("/garden"), 600);
-  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantPlantCountByProfileId, plantSelectedSupplyIds, router, consumePackets]);
+  }, [user?.id, plantModalRows, plantDate, plantNotes, plantSowMethod, plantSeedsSownByProfileId, plantPlantCountByProfileId, plantSelectedSupplyIds, plantSelectedGroupId, plantAvailableGroups, router, consumePackets]);
 
   const setPlantRowQuantity = useCallback((profileId: string, choice: PlantQuantityChoice) => {
     setPlantModalRows((prev) => prev.map((r) => (r.profile.id === profileId ? { ...r, quantityChoice: choice } : r)));
@@ -1426,6 +1473,19 @@ function VaultPageInner() {
                 />
               </div>
               <div className="mt-3">
+                <GroupSelectField
+                  idPrefix="vault-confirm-plant"
+                  availableGroups={plantAvailableGroups}
+                  selectedGroupId={plantSelectedGroupId}
+                  onSelectGroup={setPlantSelectedGroupId}
+                  query={plantGroupQuery}
+                  onQueryChange={setPlantGroupQuery}
+                  creatingGroup={plantCreatingGroup}
+                  onCreateInline={handlePlantCreateGroupInline}
+                  compact
+                />
+              </div>
+              <div className="mt-3">
                 <span className="block text-xs font-medium text-black/60 mb-1.5">Sow method</span>
                 <div className="flex gap-2">
                   <button
@@ -1545,7 +1605,7 @@ function VaultPageInner() {
             <div className="p-4 border-t border-black/10 flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => { setPlantModalOpen(false); setPlantSelectedSupplyIds(new Set()); }}
+                onClick={() => { setPlantModalOpen(false); setPlantSelectedSupplyIds(new Set()); setPlantSelectedGroupId(null); setPlantGroupQuery(""); }}
                 className="px-4 py-2 rounded-lg border border-black/10 text-sm font-medium text-black/80 hover:bg-black/5"
               >
                 Cancel

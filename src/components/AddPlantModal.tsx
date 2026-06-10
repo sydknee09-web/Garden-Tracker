@@ -23,6 +23,7 @@ import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { logEvent } from "@/lib/debugLog";
 import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
+import { GroupSelectField } from "@/components/GroupSelectField";
 import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import type { Group } from "@/types/garden";
 
@@ -888,75 +889,16 @@ export function AddPlantModal({
             )}
 
             <div>
-              <label htmlFor="add-plant-group" className="block text-sm font-medium text-neutral-700 mb-1">Group</label>
-              {selectedGroupId ? (() => {
-                const g = availableGroups.find((x) => x.id === selectedGroupId);
-                if (!g) return null;
-                return (
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-medium">
-                      {g.name}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedGroupId(null)}
-                        className="text-emerald-700 hover:text-emerald-900 leading-none"
-                        aria-label={`Remove ${g.name}`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  </div>
-                );
-              })() : (
-                <>
-                  <input
-                    id="add-plant-group"
-                    type="text"
-                    value={groupQuery}
-                    onChange={(e) => setGroupQuery(e.target.value)}
-                    placeholder="Search or add a group"
-                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                    aria-label="Search groups"
-                  />
-                  {(() => {
-                    const q = groupQuery.trim().toLowerCase();
-                    const matches = q
-                      ? availableGroups.filter((g) => g.name.toLowerCase().includes(q))
-                      : availableGroups;
-                    const exactMatch = availableGroups.some((g) => g.name.toLowerCase() === q);
-                    const showCreate = q.length > 0 && !exactMatch;
-                    if (matches.length === 0 && !showCreate) return null;
-                    return (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {matches.map((g) => (
-                          <button
-                            key={g.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedGroupId(g.id);
-                              setGroupQuery("");
-                            }}
-                            className="inline-flex items-center px-2 py-1 rounded-full border border-neutral-300 text-neutral-700 text-xs hover:bg-neutral-50"
-                          >
-                            + {g.name}
-                          </button>
-                        ))}
-                        {showCreate && (
-                          <button
-                            type="button"
-                            onClick={handleCreateGroupInline}
-                            disabled={creatingGroup}
-                            className="inline-flex items-center px-2 py-1 rounded-full border border-dashed border-emerald-400 text-emerald-700 text-xs hover:bg-emerald-50 disabled:opacity-50"
-                          >
-                            {creatingGroup ? "Creating…" : `+ Create "${groupQuery.trim()}"`}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
-              <p className="mt-1 text-xs text-neutral-500">Optional — organize this plant into one Garden group.</p>
+              <GroupSelectField
+                idPrefix="add-plant"
+                availableGroups={availableGroups}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={setSelectedGroupId}
+                query={groupQuery}
+                onQueryChange={setGroupQuery}
+                creatingGroup={creatingGroup}
+                onCreateInline={handleCreateGroupInline}
+              />
             </div>
 
             <div>

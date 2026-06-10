@@ -10,8 +10,11 @@ import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
+import { GroupSelectField } from "@/components/GroupSelectField";
 import { LoadingState } from "@/components/LoadingState";
 import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
+import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
+import type { Group } from "@/types/garden";
 
 type Profile = { id: string; name: string; variety_name: string | null; harvest_days: number | null };
 type Packet = { id: string; plant_profile_id: string; qty_status: number; created_at?: string; tags?: string[] | null; vendor_name?: string | null };
@@ -77,8 +80,45 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
   const [plantCountByProfileId, setPlantCountByProfileId] = useState<Record<string, number | "">>({});
   const [plantCountByRowId, setPlantCountByRowId] = useState<Record<string, number | "">>({});
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<Set<string>>(new Set());
+  // Group — SINGLE-select, batch-wide like Location/Sow method (one group per plant, locked 2026-06-09).
+  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupQuery, setGroupQuery] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   const idsKey = profileIds.join(",");
+
+  useEffect(() => {
+    if (!user?.id) {
+      setAvailableGroups([]);
+      return;
+    }
+    let cancelled = false;
+    fetchUserGroups(supabase, user.id).then((rows) => {
+      if (!cancelled) setAvailableGroups(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const handleCreateGroupInline = useCallback(async () => {
+    const name = groupQuery.trim();
+    if (!name || !user?.id || creatingGroup) return;
+    setCreatingGroup(true);
+    try {
+      const newGroup = await createGroup(supabase, user.id, name);
+      if (newGroup) {
+        setAvailableGroups((prev) => [...prev, newGroup]);
+        setSelectedGroupId(newGroup.id);
+        setGroupQuery("");
+      }
+    } catch (e) {
+      console.error("PlantingForm: createGroup failed", e);
+    } finally {
+      setCreatingGroup(false);
+    }
+  }, [groupQuery, user?.id, creatingGroup]);
 
   const setUsePercentForPacket = useCallback((packetId: string, value: number) => {
     setUsePercentByPacketId((prev) => ({ ...prev, [packetId]: Math.max(0, Math.min(100, value)) }));
@@ -349,6 +389,24 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
           break;
         }
 
+        if (selectedGroupId) {
+          const group = availableGroups.find((g) => g.id === selectedGroupId);
+          if (group) {
+            try {
+              // New planting has no prior group → setInstanceGroup auto-journals "Added to {group}".
+              await setInstanceGroup(supabase, {
+                growInstanceId: growRow.id,
+                userId: user.id,
+                plantProfileId: profile.id,
+                nextGroup: { id: group.id, name: group.name },
+                priorGroups: [],
+              });
+            } catch (e) {
+              console.error("PlantingForm: setInstanceGroup failed", { selectedGroupId, error: e });
+            }
+          }
+        }
+
         if (!("isNew" in row)) {
           const { profile: p2, packets } = row as ProfileWithPackets;
           if (packets.length === 0) {
@@ -460,7 +518,7 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
     } finally {
       setConfirming(false);
     }
-  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, plantCountByProfileId, plantCountByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, selectedSupplyIds, fromGarden, mode, onSaved, session?.access_token]);
+  }, [user?.id, rows, plantDate, plantLocation, plantNotes, usePercentByPacketId, selectedPacketIdsByProfileId, sowMethod, seedsSownByProfileId, seedsSownByRowId, plantCountByProfileId, plantCountByRowId, newPacketVendorByProfileId, newPacketUsePctByProfileId, selectedSupplyIds, selectedGroupId, availableGroups, fromGarden, mode, onSaved, session?.access_token]);
 
   if (!user) return null;
 
@@ -523,6 +581,19 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
             onChange={(e) => setPlantLocation(e.target.value)}
             placeholder="e.g. Raised bed #2"
             className="w-full min-h-[44px] rounded-lg border border-black/10 px-4 py-3 text-sm text-black"
+          />
+        </div>
+        <div className="w-full">
+          <GroupSelectField
+            idPrefix="planting-form"
+            availableGroups={availableGroups}
+            selectedGroupId={selectedGroupId}
+            onSelectGroup={setSelectedGroupId}
+            query={groupQuery}
+            onQueryChange={setGroupQuery}
+            creatingGroup={creatingGroup}
+            onCreateInline={handleCreateGroupInline}
+            compact
           />
         </div>
         <div className="w-full">
