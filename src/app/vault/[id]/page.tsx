@@ -21,6 +21,7 @@ import { HarvestModal } from "@/components/HarvestModal";
 import { AddPlantManualModal } from "@/components/AddPlantManualModal";
 import { stripHtmlForDisplay, looksLikeScientificName } from "@/lib/htmlEntities";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
+import { getSwipeOrder } from "@/lib/swipeOrder";
 import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { useToast } from "@/hooks/useToast";
 import { PROFILE_STATUS_OPTIONS, getProfileStatusLabel } from "@/lib/profileStatus";
@@ -539,7 +540,14 @@ export default function VaultSeedPage() {
 
   // Fetch ordered profile IDs for swipe prev/next (name A–Z; plant_profiles only)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !id) return;
+    // Prefer the filtered+sorted snapshot from the Library list (so swipe follows the user's
+    // filter/sort), falling back to all-profiles A–Z for deep-links/other entry points.
+    const snapshot = getSwipeOrder("profiles", id);
+    if (snapshot) {
+      setOrderedProfileIds(snapshot);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -551,7 +559,7 @@ export default function VaultSeedPage() {
       if (!cancelled && data) setOrderedProfileIds((data as { id: string }[]).map((r) => r.id));
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, id]);
 
   // =========================================================================
   // Derived

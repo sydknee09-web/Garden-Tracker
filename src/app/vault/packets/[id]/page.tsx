@@ -13,6 +13,7 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { AddPlantModal } from "@/components/AddPlantModal";
 import { EditPacketModal } from "@/components/EditPacketModal";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
+import { getSwipeOrder } from "@/lib/swipeOrder";
 import { useVaultPacketHandlers } from "@/app/vault/[id]/useVaultPacketHandlers";
 import { getPacketImageUrls, toDateInputValue, formatDisplayDate } from "@/app/vault/[id]/vaultProfileUtils";
 import type { SeedPacket, GrowInstance } from "@/types/garden";
@@ -160,6 +161,13 @@ export default function VaultPacketDetailPage() {
         });
         setOrderedPacketIds(sorted.map((r) => r.id));
       } else {
+        // Prefer the filtered+sorted snapshot from the Vault Seed Packets list (so swipe follows
+        // the user's filter/sort), falling back to newest-first for deep-links/other entry points.
+        const snapshot = id ? getSwipeOrder("packets", id) : null;
+        if (snapshot) {
+          setOrderedPacketIds(snapshot);
+          return;
+        }
         const { data } = await supabase
           .from("seed_packets")
           .select("id")
@@ -171,7 +179,7 @@ export default function VaultPacketDetailPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id, fromParam, profileIdParam]);
+  }, [user?.id, fromParam, profileIdParam, id]);
 
   const imageUrls = useMemo(() => (pkt ? getPacketImageUrls(pkt, extraImages) : []), [pkt, extraImages]);
 

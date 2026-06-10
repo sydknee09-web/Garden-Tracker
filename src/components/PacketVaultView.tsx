@@ -30,6 +30,7 @@ function isPlantableInMonthSimple(plantingWindow: string | null | undefined, mon
 }
 import { StarRating } from "@/components/StarRating";
 import { qtyStatusToLabel } from "@/lib/packetQtyLabels";
+import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
 import { VaultListSkeleton } from "@/components/PageSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PacketStatusFilter } from "@/types/vault";
@@ -457,6 +458,10 @@ export function PacketVaultView({
     () => sortedPackets.filter((p) => !selectedOwnerFilter || p.owner_user_id === selectedOwnerFilter).map((p) => p.id),
     [sortedPackets, selectedOwnerFilter]
   );
+
+  // Snapshot the displayed (filtered + sorted) packet order so the packet detail page's
+  // vault-context swipe follows the user's filter/sort instead of newest-first (lib/swipeOrder).
+  useSwipeOrderSnapshot("packets", filteredPacketIds);
 
   const packetStatusChips = useMemo(() => {
     const statuses: { value: PacketStatusFilter; label: string }[] = [

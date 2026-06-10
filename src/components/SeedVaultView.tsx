@@ -13,6 +13,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
+import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
 import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStateVault, EmptyStateSprout } from "@/components/EmptyStateIllustrations";
@@ -599,6 +600,11 @@ export function SeedVaultView({
     }
     return list;
   }, [filteredSeeds, gridSortBy, sortByProp, vaultSortCmp]);
+
+  // Snapshot the displayed (filtered + sorted) profile order so the profile detail page's swipe
+  // traverses the filtered set the user is browsing — not all profiles A–Z (see lib/swipeOrder).
+  const swipeOrderIds = useMemo(() => sortedGridSeeds.map((s) => s.id), [sortedGridSeeds]);
+  useSwipeOrderSnapshot("profiles", swipeOrderIds);
 
   /** Returns the shorthand badge label for a card in family view (null = don't show badge). */
   function getOwnerBadge(seed: VaultCardItem): string | null {
