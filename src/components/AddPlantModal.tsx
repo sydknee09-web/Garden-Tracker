@@ -42,6 +42,8 @@ export function AddPlantModal({
   profileId: profileIdProp,
   /** Optional display name for the profile (e.g. "Rose (Cecile Brunner)"). When profileIdProp is set, used for journal note if provided. */
   profileDisplayName,
+  /** When set (with profileIdProp), pre-selects this packet in the seasonal packet picker (e.g. "Plant from this packet" on the packet detail page). Falls back to first packet if not found. */
+  initialPacketId,
   /** When provided, renders a back-arrow that returns to the FAB menu (instead of closing the flow). */
   onBackToMenu,
   /** When true, render the 3-section triplet directly without the standalone backdrop + panel wrappers. Menu owns focus trap + body scroll lock + outer chrome. */
@@ -54,6 +56,7 @@ export function AddPlantModal({
   stayInGarden?: boolean;
   profileId?: string;
   profileDisplayName?: string;
+  initialPacketId?: string;
   onBackToMenu?: () => void;
   embedded?: boolean;
 }) {
@@ -207,9 +210,10 @@ export function AddPlantModal({
       .order("created_at", { ascending: true });
     const list = (data ?? []) as PacketOption[];
     setPacketsForProfile(list);
-    setSelectedPacketId(list.length > 0 ? list[0].id : "");
+    const preferred = initialPacketId && list.some((p) => p.id === initialPacketId) ? initialPacketId : (list.length > 0 ? list[0].id : "");
+    setSelectedPacketId(preferred);
     setShowAddPacketInline(false);
-  }, [user?.id, plantType]);
+  }, [user?.id, plantType, initialPacketId]);
 
   useEffect(() => {
     if (selectedProfileId && plantType === "seasonal") loadPacketsForProfile(selectedProfileId);

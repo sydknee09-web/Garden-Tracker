@@ -52,7 +52,7 @@ function getPageTitle(pathname: string | null): string {
   if (pathname.startsWith("/vault/plant")) return "Plant";
   if (pathname.startsWith("/vault/shed/")) return "Shed";
   if (pathname.startsWith("/vault/history")) return "History";
-  if (pathname.startsWith("/vault/packets")) return "Packets";
+  if (pathname.startsWith("/vault/packets")) return "Packet";
   if (pathname.startsWith("/vault/tags")) return "Tags";
   if (pathname.startsWith("/vault")) return "Vault";
   if (pathname === "/shed/review-import") return "Review Supply Import";

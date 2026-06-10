@@ -9,6 +9,8 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { StarRating } from "@/components/StarRating";
+import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { AddPlantModal } from "@/components/AddPlantModal";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useVaultPacketHandlers } from "@/app/vault/[id]/useVaultPacketHandlers";
 import { getPacketImageUrls, toDateInputValue, formatDisplayDate } from "@/app/vault/[id]/vaultProfileUtils";
@@ -37,12 +39,16 @@ export default function VaultPacketDetailPage() {
   const [packets, setPackets] = useState<SeedPacket[]>([]);
   const [profileName, setProfileName] = useState<string>("");
   const [profileVariety, setProfileVariety] = useState<string>("");
+  const [profileHeroPath, setProfileHeroPath] = useState<string | null>(null);
+  const [profilePrimaryPath, setProfilePrimaryPath] = useState<string | null>(null);
   const [growInstances, setGrowInstances] = useState<GrowInstance[]>([]);
   const [extraImages, setExtraImages] = useState<{ image_path: string }[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [heroFailed, setHeroFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [plantFromPacketOpen, setPlantFromPacketOpen] = useState(false);
 
   const pkt = packets[0] ?? null;
 
@@ -83,7 +89,7 @@ export default function VaultPacketDetailPage() {
     setPackets([row]);
 
     const [{ data: prof }, { data: grows }, { data: imgs }] = await Promise.all([
-      supabase.from("plant_profiles").select("name, variety_name").eq("id", row.plant_profile_id).maybeSingle(),
+      supabase.from("plant_profiles").select("name, variety_name, hero_image_path, primary_image_path").eq("id", row.plant_profile_id).maybeSingle(),
       supabase
         .from("grow_instances")
         .select("id, sown_date, location, seed_packet_id, seeds_sown, seeds_sprouted")
@@ -97,9 +103,11 @@ export default function VaultPacketDetailPage() {
         .order("sort_order", { ascending: true }),
     ]);
 
-    const p = prof as { name?: string; variety_name?: string | null } | null;
+    const p = prof as { name?: string; variety_name?: string | null; hero_image_path?: string | null; primary_image_path?: string | null } | null;
     setProfileName(p?.name ?? "");
     setProfileVariety(p?.variety_name?.trim() ?? "");
+    setProfileHeroPath(p?.hero_image_path?.trim() || null);
+    setProfilePrimaryPath(p?.primary_image_path?.trim() || null);
     setGrowInstances((grows ?? []) as GrowInstance[]);
     setExtraImages(((imgs ?? []) as { image_path: string }[]).map((r) => ({ image_path: r.image_path })));
     setLoading(false);
@@ -107,6 +115,7 @@ export default function VaultPacketDetailPage() {
 
   useEffect(() => {
     setActiveImageIdx(0);
+    setHeroFailed(false);
     void loadPacket();
   }, [loadPacket]);
 
@@ -115,6 +124,16 @@ export default function VaultPacketDetailPage() {
   }, [id, fetchJournalForPacket]);
 
   const imageUrls = useMemo(() => (pkt ? getPacketImageUrls(pkt, extraImages) : []), [pkt, extraImages]);
+
+  // Hero: packet photo first; fall back to the plant profile's STORED photo (hero_image_path →
+  // primary_image_path). The external hero_image_url is deliberately skipped — it can 404 /
+  // hotlink-block (the 2026-06-08 broken-image class). Null → placeholder so the page is never sparse.
+  const profileHeroUrl = useMemo(() => {
+    if (profileHeroPath) return supabase.storage.from("journal-photos").getPublicUrl(profileHeroPath).data.publicUrl;
+    if (profilePrimaryPath) return supabase.storage.from("seed-packets").getPublicUrl(profilePrimaryPath).data.publicUrl;
+    return null;
+  }, [profileHeroPath, profilePrimaryPath]);
+  const heroDisplayUrl = imageUrls.length > 0 ? (imageUrls[activeImageIdx] ?? imageUrls[0]) : profileHeroUrl;
 
   const backHref =
     fromParam === "profile" && profileIdParam
@@ -150,7 +169,10 @@ export default function VaultPacketDetailPage() {
 
   const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
   const vendorLabel = pkt.vendor_name?.trim() || "Unknown vendor";
+  const plantTitle = profileName ? (profileVariety ? `${profileName} (${profileVariety})` : profileName) : vendorLabel;
   const vs = (pkt.vendor_specs ?? {}) as VendorSpecs;
+  const hasAnyVendorSpec = VENDOR_SPEC_FIELDS.some(({ key }) => vs[key]?.trim()) || !!vs.plant_description?.trim();
+  const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
   const journal = journalByPacketId[pkt.id] ?? [];
 
   const withGermination = growInstances.filter(
@@ -176,43 +198,43 @@ export default function VaultPacketDetailPage() {
         </div>
       )}
 
-      {/* Header: photo + vendor + variety context */}
+      {/* Header: hero photo (packet → profile fallback → placeholder) + plant-primary title */}
       <div className="rounded-xl bg-white border border-black/10 overflow-hidden mb-4">
-        {imageUrls.length > 0 && (
-          <div className="bg-white">
-            <div className="aspect-video bg-white relative">
-              <img src={imageUrls[activeImageIdx] ?? imageUrls[0]} alt="" className="w-full h-full object-contain" loading="lazy" />
-            </div>
-            {imageUrls.length > 1 && (
-              <div className="flex flex-wrap gap-2 p-3 pt-0">
-                {imageUrls.map((url, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveImageIdx(idx)}
-                    className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 min-w-[44px] min-h-[44px] border-2 ${idx === activeImageIdx ? "border-emerald-500" : "border-transparent"} bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                    aria-label={`View photo ${idx + 1} of ${imageUrls.length}`}
-                  >
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+        <div className="aspect-video bg-white relative flex items-center justify-center">
+          {heroDisplayUrl && !heroFailed ? (
+            <img src={heroDisplayUrl} alt="" className="w-full h-full object-contain" loading="lazy" onError={() => setHeroFailed(true)} />
+          ) : (
+            <PlantPlaceholderIcon size="xl" className="object-contain" />
+          )}
+        </div>
+        {imageUrls.length > 1 && (
+          <div className="flex flex-wrap gap-2 p-3 pt-3">
+            {imageUrls.map((url, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => { setActiveImageIdx(idx); setHeroFailed(false); }}
+                className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 min-w-[44px] min-h-[44px] border-2 ${idx === activeImageIdx ? "border-emerald-500" : "border-transparent"} bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
+                aria-label={`View photo ${idx + 1} of ${imageUrls.length}`}
+              >
+                <img src={url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
           </div>
         )}
         <div className="p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-neutral-900 break-words">{vendorLabel}</h1>
-              {year != null && <p className="text-neutral-500 text-sm mt-0.5">{year}</p>}
-              {profileName && (
-                <p className="text-sm text-neutral-600 mt-1">
-                  {profileName}
-                  {profileVariety && <span className="italic text-neutral-500"> · {profileVariety}</span>}
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Plant is the primary label (matches profile header); vendor + year secondary */}
+          <h1 className="text-2xl font-bold text-neutral-900 break-words">{plantTitle}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            {vendorLabel}{year != null ? ` · ${year}` : ""}
+          </p>
+          <Link
+            href={`/vault/${pkt.plant_profile_id}`}
+            className="inline-flex items-center gap-1 mt-2 text-sm text-emerald-600 font-medium hover:underline"
+          >
+            View Plant Profile
+            <ICON_MAP.ChevronRight className="w-3.5 h-3.5" aria-hidden />
+          </Link>
           <div className="mt-3">
             <StarRating
               value={pkt.packet_rating ?? null}
@@ -224,6 +246,20 @@ export default function VaultPacketDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Plant from this packet — primary CTA (hidden once the packet is empty/archived) */}
+      {canEdit && !isArchived && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setPlantFromPacketOpen(true)}
+            className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium min-h-[44px]"
+          >
+            <ICON_MAP.Sprout className="w-4 h-4" aria-hidden />
+            Plant from This Packet
+          </button>
+        </div>
+      )}
 
       {/* Inventory */}
       <div className="rounded-xl bg-white border border-black/10 p-4 mb-4">
@@ -295,6 +331,9 @@ export default function VaultPacketDetailPage() {
         <p className="text-xs text-neutral-500 mb-3">What this vendor says about growing this variety.</p>
         {canEdit ? (
           <div className="space-y-3">
+            {!hasAnyVendorSpec && (
+              <p className="text-sm text-neutral-600 italic">No vendor info captured yet — add it below.</p>
+            )}
             {VENDOR_SPEC_FIELDS.map(({ key, label, placeholder }) => (
               <div key={key}>
                 <label className="block text-xs font-medium text-neutral-500 mb-1">{label}</label>
@@ -338,16 +377,6 @@ export default function VaultPacketDetailPage() {
             )}
           </dl>
         )}
-      </div>
-
-      {/* Cross-layer navigation (VISION §6 Theme 4 — make traversal first-class) */}
-      <div className="mb-4">
-        <Link
-          href={`/vault/${pkt.plant_profile_id}`}
-          className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium min-h-[44px]"
-        >
-          View Plant Profile
-        </Link>
       </div>
 
       {/* Used in Instance */}
@@ -432,6 +461,17 @@ export default function VaultPacketDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Plant from this packet — pre-selects this packet in the seasonal picker */}
+      <AddPlantModal
+        open={plantFromPacketOpen}
+        onClose={() => setPlantFromPacketOpen(false)}
+        onSuccess={() => { setPlantFromPacketOpen(false); void loadPacket(); }}
+        profileId={pkt.plant_profile_id}
+        profileDisplayName={plantTitle}
+        defaultPlantType="seasonal"
+        initialPacketId={pkt.id}
+      />
     </div>
   );
 }
