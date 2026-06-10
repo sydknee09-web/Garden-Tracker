@@ -187,7 +187,7 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
             <div className="w-11 shrink-0" aria-hidden />
           )}
           <h2 id="add-variety-title" className="text-xl font-bold text-neutral-900 flex-1 text-center">
-            Add Variety
+            Add to Library
           </h2>
           <div className="w-11 shrink-0" aria-hidden />
         </div>

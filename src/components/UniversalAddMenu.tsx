@@ -146,7 +146,7 @@ export function UniversalAddMenu({
                 >
                   <span className="flex h-10 w-10 rounded-3xl bg-emerald-luxury/10 items-center justify-center shrink-0 text-emerald-luxury p-2.5"><ICON_MAP.Plant className="w-5 h-5" /></span>
                   <div>
-                    <div>Add Variety</div>
+                    <div>Add to Library</div>
                     <div className="text-xs font-normal text-neutral-500">Add to your Library</div>
                   </div>
                 </button>
