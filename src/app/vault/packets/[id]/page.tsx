@@ -11,19 +11,13 @@ import { PacketQtyOptions } from "@/components/PacketQtyOptions";
 import { StarRating } from "@/components/StarRating";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { AddPlantModal } from "@/components/AddPlantModal";
+import { EditPacketModal } from "@/components/EditPacketModal";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { useVaultPacketHandlers } from "@/app/vault/[id]/useVaultPacketHandlers";
 import { getPacketImageUrls, toDateInputValue, formatDisplayDate } from "@/app/vault/[id]/vaultProfileUtils";
-import type { SeedPacket, GrowInstance, VendorSpecs } from "@/types/garden";
+import type { SeedPacket, GrowInstance } from "@/types/garden";
 
-/** The 5 single-line vendor-spec fields. plant_description (multi-line) is handled separately. */
-const VENDOR_SPEC_FIELDS: { key: keyof VendorSpecs; label: string; placeholder: string }[] = [
-  { key: "sowing_depth", label: "Sowing depth", placeholder: "e.g. ¼ inch deep" },
-  { key: "spacing", label: "Spacing", placeholder: "e.g. 18 in apart" },
-  { key: "sun_requirement", label: "Sun", placeholder: "e.g. Full sun" },
-  { key: "days_to_germination", label: "Days to germination", placeholder: "e.g. 7–14 days" },
-  { key: "days_to_maturity", label: "Days to maturity", placeholder: "e.g. 60–80 days" },
-];
+const PILL = "min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0";
 
 export default function VaultPacketDetailPage() {
   const { user } = useAuth();
@@ -41,6 +35,13 @@ export default function VaultPacketDetailPage() {
   const [profileVariety, setProfileVariety] = useState<string>("");
   const [profileHeroPath, setProfileHeroPath] = useState<string | null>(null);
   const [profilePrimaryPath, setProfilePrimaryPath] = useState<string | null>(null);
+  // Growing recs are profile-canonical (one set per variety); read-only here, edited on the profile.
+  const [profileSun, setProfileSun] = useState<string | null>(null);
+  const [profileSpacing, setProfileSpacing] = useState<string | null>(null);
+  const [profileGermination, setProfileGermination] = useState<string | null>(null);
+  const [profileMaturity, setProfileMaturity] = useState<number | null>(null);
+  const [profileSowingDepth, setProfileSowingDepth] = useState<string | null>(null);
+  const [profileDescription, setProfileDescription] = useState<string | null>(null);
   const [growInstances, setGrowInstances] = useState<GrowInstance[]>([]);
   const [extraImages, setExtraImages] = useState<{ image_path: string }[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -49,6 +50,7 @@ export default function VaultPacketDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [plantFromPacketOpen, setPlantFromPacketOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const pkt = packets[0] ?? null;
 
@@ -61,7 +63,6 @@ export default function VaultPacketDetailPage() {
     updatePacketNotes,
     updatePacketStorageLocation,
     updatePacketRating,
-    updatePacketVendorSpec,
     deletePacket,
   } = useVaultPacketHandlers({
     userId: user?.id,
@@ -89,7 +90,7 @@ export default function VaultPacketDetailPage() {
     setPackets([row]);
 
     const [{ data: prof }, { data: grows }, { data: imgs }] = await Promise.all([
-      supabase.from("plant_profiles").select("name, variety_name, hero_image_path, primary_image_path").eq("id", row.plant_profile_id).maybeSingle(),
+      supabase.from("plant_profiles").select("name, variety_name, hero_image_path, primary_image_path, sun, plant_spacing, days_to_germination, harvest_days, botanical_care_notes, plant_description").eq("id", row.plant_profile_id).maybeSingle(),
       supabase
         .from("grow_instances")
         .select("id, sown_date, location, seed_packet_id, seeds_sown, seeds_sprouted")
@@ -103,11 +104,22 @@ export default function VaultPacketDetailPage() {
         .order("sort_order", { ascending: true }),
     ]);
 
-    const p = prof as { name?: string; variety_name?: string | null; hero_image_path?: string | null; primary_image_path?: string | null } | null;
+    const p = prof as {
+      name?: string; variety_name?: string | null; hero_image_path?: string | null; primary_image_path?: string | null;
+      sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null;
+      botanical_care_notes?: unknown; plant_description?: string | null;
+    } | null;
     setProfileName(p?.name ?? "");
     setProfileVariety(p?.variety_name?.trim() ?? "");
     setProfileHeroPath(p?.hero_image_path?.trim() || null);
     setProfilePrimaryPath(p?.primary_image_path?.trim() || null);
+    setProfileSun(p?.sun?.trim() || null);
+    setProfileSpacing(p?.plant_spacing?.trim() || null);
+    setProfileGermination(p?.days_to_germination?.trim() || null);
+    setProfileMaturity(p?.harvest_days ?? null);
+    const bcn = p?.botanical_care_notes;
+    setProfileSowingDepth(bcn && typeof bcn === "object" && typeof (bcn as { sowing_depth?: unknown }).sowing_depth === "string" ? (bcn as { sowing_depth: string }).sowing_depth.trim() || null : null);
+    setProfileDescription(p?.plant_description?.trim() || null);
     setGrowInstances((grows ?? []) as GrowInstance[]);
     setExtraImages(((imgs ?? []) as { image_path: string }[]).map((r) => ({ image_path: r.image_path })));
     setLoading(false);
@@ -170,10 +182,17 @@ export default function VaultPacketDetailPage() {
   const year = pkt.purchase_date ? new Date(pkt.purchase_date).getFullYear() : null;
   const vendorLabel = pkt.vendor_name?.trim() || "Unknown vendor";
   const plantTitle = profileName ? (profileVariety ? `${profileName} (${profileVariety})` : profileName) : vendorLabel;
-  const vs = (pkt.vendor_specs ?? {}) as VendorSpecs;
-  const hasAnyVendorSpec = VENDOR_SPEC_FIELDS.some(({ key }) => vs[key]?.trim()) || !!vs.plant_description?.trim();
   const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
   const journal = journalByPacketId[pkt.id] ?? [];
+
+  // Growing recs come from the profile (canonical, one set per variety). Read-only here.
+  const growingRows: { label: string; value: string }[] = [
+    { label: "Sun", value: profileSun || "—" },
+    { label: "Spacing", value: profileSpacing || "—" },
+    { label: "Days to germination", value: profileGermination || "—" },
+    { label: "Days to maturity", value: profileMaturity != null ? `${profileMaturity} days` : "—" },
+    { label: "Sowing depth", value: profileSowingDepth || "—" },
+  ];
 
   const withGermination = growInstances.filter(
     (gi) => gi.seeds_sown != null && gi.seeds_sprouted != null && gi.seeds_sown > 0,
@@ -188,9 +207,24 @@ export default function VaultPacketDetailPage() {
 
   return (
     <div className="px-6 pb-10 max-w-2xl mx-auto">
-      <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">
-        ← Back
-      </Link>
+      {/* Top bar: Back (left) + framed action pills (right) — matches GrowInstanceModal chrome strip
+          (VISION §8 chrome-control-framing: framed = action chrome). */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline">
+          ← Back
+        </Link>
+        <div className="flex items-center gap-1">
+          <Link href={`/vault/${pkt.plant_profile_id}`} className={PILL} aria-label="View plant profile">
+            Profile
+          </Link>
+          {canEdit && (
+            <button type="button" onClick={() => setEditOpen(true)} className={PILL} aria-label="Edit packet">
+              <ICON_MAP.Edit className="w-4 h-4 shrink-0" aria-hidden />
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
 
       {!isOwn && householdViewMode === "family" && (
         <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
@@ -228,13 +262,6 @@ export default function VaultPacketDetailPage() {
           <p className="text-sm text-neutral-500 mt-0.5">
             {vendorLabel}{year != null ? ` · ${year}` : ""}
           </p>
-          <Link
-            href={`/vault/${pkt.plant_profile_id}`}
-            className="inline-flex items-center gap-1 mt-2 text-sm text-emerald-600 font-medium hover:underline"
-          >
-            View Plant Profile
-            <ICON_MAP.ChevronRight className="w-3.5 h-3.5" aria-hidden />
-          </Link>
           <div className="mt-3">
             <StarRating
               value={pkt.packet_rating ?? null}
@@ -325,57 +352,24 @@ export default function VaultPacketDetailPage() {
         )}
       </div>
 
-      {/* Vendor recommendations (vendor-specific facts for THIS packet) */}
+      {/* How to Grow — the variety's canonical growing recs (from the profile, read-only here).
+          One set per variety; edited on the plant profile (Profile pill). */}
       <div className="rounded-xl bg-white border border-black/10 p-4 mb-4">
-        <h2 className="text-sm font-semibold text-neutral-700 mb-1">Vendor Recommendations</h2>
-        <p className="text-xs text-neutral-500 mb-3">What this vendor says about growing this variety.</p>
-        {canEdit ? (
-          <div className="space-y-3">
-            {!hasAnyVendorSpec && (
-              <p className="text-sm text-neutral-600 italic">No vendor info captured yet — add it below.</p>
-            )}
-            {VENDOR_SPEC_FIELDS.map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">{label}</label>
-                <input
-                  type="text"
-                  value={vs[key] ?? ""}
-                  onChange={(e) => updatePacketVendorSpec(pkt.id, key, e.target.value, { persist: false })}
-                  onBlur={(e) => updatePacketVendorSpec(pkt.id, key, e.target.value, { persist: true })}
-                  placeholder={placeholder}
-                  className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label={label}
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">Vendor description</label>
-              <textarea
-                value={vs.plant_description ?? ""}
-                onChange={(e) => updatePacketVendorSpec(pkt.id, "plant_description", e.target.value, { persist: false })}
-                onBlur={(e) => updatePacketVendorSpec(pkt.id, "plant_description", e.target.value, { persist: true })}
-                placeholder="What the vendor's listing says about this variety"
-                rows={3}
-                className="w-full px-2 py-1.5 text-sm rounded border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                aria-label="Vendor description"
-              />
+        <h2 className="text-sm font-semibold text-neutral-700 mb-1">How to Grow</h2>
+        <p className="text-xs text-neutral-500 mb-3">Growing info for this variety. Edit it on the plant profile.</p>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {growingRows.map(({ label, value }) => (
+            <div key={label}>
+              <dt className="text-xs text-neutral-500">{label}</dt>
+              <dd className="text-sm text-neutral-900 font-medium">{value}</dd>
             </div>
+          ))}
+        </dl>
+        {profileDescription && (
+          <div className="mt-3">
+            <p className="text-xs text-neutral-500">Description</p>
+            <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profileDescription}</p>
           </div>
-        ) : (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {VENDOR_SPEC_FIELDS.map(({ key, label }) => (
-              <div key={key}>
-                <dt className="text-xs text-neutral-500">{label}</dt>
-                <dd className="text-sm text-neutral-900 font-medium">{vs[key]?.trim() || "—"}</dd>
-              </div>
-            ))}
-            {vs.plant_description?.trim() && (
-              <div className="col-span-2 mt-1">
-                <dt className="text-xs text-neutral-500">Vendor description</dt>
-                <dd className="text-sm text-neutral-700 whitespace-pre-wrap">{vs.plant_description}</dd>
-              </div>
-            )}
-          </dl>
         )}
       </div>
 
@@ -472,6 +466,15 @@ export default function VaultPacketDetailPage() {
         defaultPlantType="seasonal"
         initialPacketId={pkt.id}
       />
+
+      {/* Edit pill → full packet editor (vendor name, price, qty, rating, date, notes, storage, tags) */}
+      {editOpen && (
+        <EditPacketModal
+          packetId={pkt.id}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); void loadPacket(); }}
+        />
+      )}
     </div>
   );
 }
