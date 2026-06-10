@@ -11,12 +11,16 @@ const createGroupMock = vi.fn();
 const renameGroupMock = vi.fn();
 const deleteGroupMock = vi.fn();
 const updateGroupPositionsMock = vi.fn();
+const fetchGroupAssignmentsMock = vi.fn();
+const setInstanceGroupMock = vi.fn();
 vi.mock("@/lib/groups", () => ({
   fetchUserGroups: (...args: unknown[]) => fetchUserGroupsMock(...args),
   createGroup: (...args: unknown[]) => createGroupMock(...args),
   renameGroup: (...args: unknown[]) => renameGroupMock(...args),
   deleteGroup: (...args: unknown[]) => deleteGroupMock(...args),
   updateGroupPositions: (...args: unknown[]) => updateGroupPositionsMock(...args),
+  fetchGroupAssignments: (...args: unknown[]) => fetchGroupAssignmentsMock(...args),
+  setInstanceGroup: (...args: unknown[]) => setInstanceGroupMock(...args),
 }));
 
 vi.mock("@/lib/supabase", () => ({ supabase: {} }));
@@ -28,6 +32,9 @@ vi.mock("@/hooks/useBodyScrollLock", () => ({ useBodyScrollLock: vi.fn() }));
 describe("ManageGroupsModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: groups have no assigned plants → delete takes the clean (no-reassign) path.
+    fetchGroupAssignmentsMock.mockResolvedValue([]);
+    setInstanceGroupMock.mockResolvedValue("moved");
     fetchUserGroupsMock.mockResolvedValue([
       { id: "g-1", user_id: "u-1", name: "Patio", position: 0, created_at: "2026-01-01", updated_at: "2026-01-01", deleted_at: null },
       { id: "g-2", user_id: "u-1", name: "Bedroom", position: 1, created_at: "2026-01-02", updated_at: "2026-01-02", deleted_at: null },
@@ -97,6 +104,31 @@ describe("ManageGroupsModal", () => {
     expect(screen.getByText("Delete?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Yes" }));
     await waitFor(() => {
+      expect(deleteGroupMock).toHaveBeenCalledWith(expect.anything(), "g-1");
+    });
+  });
+
+  it("delete with plants opens reassign panel, then reassigns + deletes on confirm", async () => {
+    fetchGroupAssignmentsMock.mockResolvedValue([
+      { grow_instance_id: "gi-1", user_id: "u-1", plant_profile_id: "pp-1" },
+      { grow_instance_id: "gi-2", user_id: "u-1", plant_profile_id: "pp-2" },
+    ]);
+    deleteGroupMock.mockResolvedValue(undefined);
+    render(<ManageGroupsModal open onClose={vi.fn()} />);
+    const deleteBtn = await screen.findByLabelText("Delete Patio");
+    fireEvent.click(deleteBtn);
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+
+    // Reassign panel appears with the plant count + destination options.
+    await waitFor(() => {
+      expect(screen.getByText("Patio has 2 plants.")).toBeInTheDocument();
+    });
+    // Pick the other group (Bedroom) as destination, then confirm.
+    fireEvent.click(screen.getByRole("radio", { name: "Bedroom" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Group" }));
+
+    await waitFor(() => {
+      expect(setInstanceGroupMock).toHaveBeenCalledTimes(2);
       expect(deleteGroupMock).toHaveBeenCalledWith(expect.anything(), "g-1");
     });
   });

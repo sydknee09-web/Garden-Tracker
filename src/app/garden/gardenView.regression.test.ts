@@ -120,14 +120,16 @@ describe("GardenView — unified data + routing", () => {
     expect(gardenView).toContain("b.groups.some((g) => g.id === groupFilter)");
   });
 
-  it("exposes a unified imperative handle with both perennial-toggle actions", () => {
-    expect(gardenView).toContain("moveSelectedToPermanentPlants");
-    expect(gardenView).toContain("moveSelectedToGrowingGarden");
+  it("exposes a Door-3 batch group-assign imperative handle (perennial-toggle actions removed 2026-06-09)", () => {
+    expect(gardenView).toContain("assignSelectedToGroup");
+    expect(gardenView).not.toContain("moveSelectedToPermanentPlants");
+    expect(gardenView).not.toContain("moveSelectedToGrowingGarden");
   });
 
-  it("renders a Perennial pill for is_permanent_planting=true instances", () => {
+  it("keeps isPerennial display branches but no longer renders a Perennial pill (Item 5: variety-level edit moved to Library)", () => {
     expect(gardenView).toContain("isPerennial");
-    expect(gardenView).toContain("Perennial");
+    expect(gardenView).not.toContain('font-medium">Perennial');
+    expect(gardenView).not.toContain('text-[9px]" aria-hidden');
   });
 });
 

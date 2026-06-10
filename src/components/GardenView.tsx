@@ -16,7 +16,7 @@ import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
-import { fetchAllUserGrowInstances } from "@/lib/groups";
+import { fetchAllUserGrowInstances, setInstanceGroup } from "@/lib/groups";
 import type { WeatherSnapshotData, Group } from "@/types/garden";
 import type { SelectedGroup } from "@/components/GroupTabs";
 
@@ -90,8 +90,8 @@ export type GardenViewHandle = {
   enterBulkMode: () => void;
   openBulkDeleteConfirm: () => void;
   openBulkEndBatchConfirm: () => void;
-  moveSelectedToPermanentPlants: () => Promise<void>;
-  moveSelectedToGrowingGarden: () => Promise<void>;
+  /** Door 3 — batch-assign all selected plants to one group (or null to unassign). Throws on partial failure. */
+  assignSelectedToGroup: (next: { id: string; name: string } | null) => Promise<void>;
 };
 
 export const GardenView = forwardRef<GardenViewHandle, {
@@ -830,62 +830,43 @@ export const GardenView = forwardRef<GardenViewHandle, {
     load();
   }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
 
-  const moveSelectedToPermanentPlants = useCallback(async () => {
+  // Door 3 — batch "Move to group". Single-membership: setInstanceGroup clears
+  // any prior membership + auto-journals Added/Moved/Removed per plant. priorGroups
+  // come from the loaded batch (avoids a per-plant fetch). Throws on partial
+  // failure so the page can surface a toast; selection is cleared either way.
+  const assignSelectedToGroup = useCallback(async (next: { id: string; name: string } | null) => {
     if (!user?.id || bulkSelected.size === 0) return;
     const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
     let hadError = false;
     for (const batch of selectedBatches) {
       const batchUserId = batch.user_id ?? user.id;
-      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: true }, { id: batch.id, user_id: batchUserId });
-      if (error) hadError = true;
+      try {
+        await setInstanceGroup(supabase, {
+          growInstanceId: batch.id,
+          userId: batchUserId,
+          plantProfileId: batch.plant_profile_id ?? null,
+          nextGroup: next,
+          priorGroups: batch.groups,
+        });
+      } catch {
+        hadError = true;
+      }
     }
     setBulkSelected(new Set());
     setBulkMode(false);
     onBulkSelectionChange?.(0);
     onBulkModeChange?.(false);
-    if (hadError) {
-      setQuickToast("Couldn't mark some plantings perennial — please refresh and try again");
-      setTimeout(() => setQuickToast(null), 3000);
-    } else {
-      const msg = `Marked ${selectedBatches.length} as perennial`;
-      if (onSaveMessage) onSaveMessage(msg);
-      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
-    }
     load();
-  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
-
-  const moveSelectedToGrowingGarden = useCallback(async () => {
-    if (!user?.id || bulkSelected.size === 0) return;
-    const selectedBatches = batches.filter((b) => bulkSelected.has(b.id));
-    let hadError = false;
-    for (const batch of selectedBatches) {
-      const batchUserId = batch.user_id ?? user.id;
-      const { error } = await updateWithOfflineQueue("grow_instances", { is_permanent_planting: false }, { id: batch.id, user_id: batchUserId });
-      if (error) hadError = true;
-    }
-    setBulkSelected(new Set());
-    setBulkMode(false);
-    onBulkSelectionChange?.(0);
-    onBulkModeChange?.(false);
-    if (hadError) {
-      setQuickToast("Couldn't mark some plantings annual — please refresh and try again");
-      setTimeout(() => setQuickToast(null), 3000);
-    } else {
-      const msg = `Marked ${selectedBatches.length} as annual`;
-      if (onSaveMessage) onSaveMessage(msg);
-      else { setQuickToast(msg); setTimeout(() => setQuickToast(null), 2000); }
-    }
-    load();
-  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load, onSaveMessage]);
+    if (hadError) throw new Error("group-assign-partial-failure");
+  }, [user?.id, bulkSelected, batches, onBulkSelectionChange, onBulkModeChange, load]);
 
   useImperativeHandle(ref, () => ({
     exitBulkMode,
     enterBulkMode,
     openBulkDeleteConfirm,
     openBulkEndBatchConfirm,
-    moveSelectedToPermanentPlants,
-    moveSelectedToGrowingGarden,
-  }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, moveSelectedToPermanentPlants, moveSelectedToGrowingGarden]);
+    assignSelectedToGroup,
+  }), [exitBulkMode, enterBulkMode, openBulkDeleteConfirm, openBulkEndBatchConfirm, assignSelectedToGroup]);
 
   const toggleBulkSelect = useCallback((id: string) => {
     setBulkSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -1161,11 +1142,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
                         )}
-                        {isPerennial ? (
-                          <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 font-medium text-[9px]" aria-hidden>
-                            Perennial
-                          </span>
-                        ) : batch.planting_method_badge ? (
+                        {!isPerennial && batch.planting_method_badge ? (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
                         ) : null}
                         {householdViewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
@@ -1315,7 +1292,6 @@ export const GardenView = forwardRef<GardenViewHandle, {
                           <span className="font-semibold text-sm text-neutral-900 group-hover:text-emerald-700">
                             {decodeHtmlEntities(batch.profile_name)}
                           </span>
-                          {isPerennial && <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 text-[10px] font-medium">Perennial</span>}
                           {!isPerennial && batch.planting_method_badge && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{batch.planting_method_badge}</span>}
                           {householdViewMode === "family" && batch.user_id && batch.user_id !== user?.id && (
                             <OwnerBadge shorthand={getShorthandForUser(batch.user_id)} canEdit={canEditPage(batch.user_id ?? "", "garden")} size="xs" />

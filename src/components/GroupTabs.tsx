@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchUserGroups } from "@/lib/groups";
@@ -38,6 +38,11 @@ export function GroupTabs({
   const [manageOpen, setManageOpen] = useState(false);
   const [localRefetchKey, setLocalRefetchKey] = useState(0);
   const [showManageTooltip, setShowManageTooltip] = useState(false);
+  // Tabs scaling: pin Manage outside the scroll strip + show a right-edge fade
+  // when the tab strip overflows so it's obvious more tabs exist (Walter/Sam
+  // discoverability; brief item 1). Recompute on group-count change + resize.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
 
   // B4 first-visit hint: reveal a one-time tooltip pointing at the Manage button
   // so Sam-persona discovers group creation without an in-app walkthrough.
@@ -70,6 +75,15 @@ export function GroupTabs({
     };
   }, [user?.id, refetchTrigger, localRefetchKey]);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setOverflowing(el.scrollWidth > el.clientWidth + 1);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [groups]);
+
   // If currently-selected group disappears (rare: deleted in B3 from another tab),
   // fall back to "all" to avoid a filter that matches nothing.
   useEffect(() => {
@@ -82,44 +96,60 @@ export function GroupTabs({
 
   return (
     <>
-      <div
-        className="flex mb-3 -mx-6 px-6 overflow-x-auto scrollbar-hide items-center gap-2"
-        role="tablist"
-        aria-label="Filter plants by group"
-      >
-        <div
-          className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5"
-          role="group"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedGroup === "all"}
-            onClick={() => onSelectGroup("all")}
-            className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              selectedGroup === "all"
-                ? "bg-white text-emerald-700 shadow-sm"
-                : "text-black/60 hover:text-black"
-            }`}
+      <div className="flex mb-3 items-center gap-2">
+        {/* Scrollable tab strip — flex-1 + min-w-0 so it shrinks to leave room
+            for the pinned Manage button instead of pushing it off-screen (the
+            old 4+ groups break). */}
+        <div className="relative flex-1 min-w-0">
+          <div
+            ref={scrollRef}
+            className="overflow-x-auto scrollbar-hide"
+            role="tablist"
+            aria-label="Filter plants by group"
           >
-            All
-          </button>
-          {groups.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              role="tab"
-              aria-selected={selectedGroup === g.id}
-              onClick={() => onSelectGroup(g.id)}
-              className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                selectedGroup === g.id
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-black/60 hover:text-black"
-              }`}
+            <div
+              className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5"
+              role="group"
             >
-              {g.name}
-            </button>
-          ))}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selectedGroup === "all"}
+                onClick={() => onSelectGroup("all")}
+                className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedGroup === "all"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-black/60 hover:text-black"
+                }`}
+              >
+                All
+              </button>
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedGroup === g.id}
+                  onClick={() => onSelectGroup(g.id)}
+                  className={`min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    selectedGroup === g.id
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "text-black/60 hover:text-black"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Right-edge fade indicating more tabs scroll off-screen. from-white
+              matches the bg-white/95 sticky bar this row lives in. */}
+          {overflowing && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent"
+            />
+          )}
         </div>
         <div className="relative shrink-0">
           <button

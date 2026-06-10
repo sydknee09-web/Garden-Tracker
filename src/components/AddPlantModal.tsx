@@ -22,7 +22,7 @@ import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { logEvent } from "@/lib/debugLog";
-import { assignInstanceToGroup, createGroup, fetchUserGroups } from "@/lib/groups";
+import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
 import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import type { Group } from "@/types/garden";
 
@@ -93,9 +93,9 @@ export function AddPlantModal({
   const [addPacketVendor, setAddPacketVendor] = useState("");
   const [addPacketSaving, setAddPacketSaving] = useState(false);
 
-  // B3 Group autocomplete (multi-select + inline create)
+  // Group autocomplete — SINGLE-select (one group per plant; locked 2026-06-09) + inline create.
   const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupQuery, setGroupQuery] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
@@ -154,20 +154,26 @@ export function AddPlantModal({
     };
   }, [open, user?.id]);
 
-  const assignSelectedGroupsToInstance = useCallback(
-    async (growInstanceId: string) => {
-      if (!user?.id || selectedGroupIds.length === 0) return;
-      for (const gid of selectedGroupIds) {
-        try {
-          await assignInstanceToGroup(supabase, growInstanceId, gid, user.id);
-        } catch (e) {
-          // Don't block on group-assign errors; the instance is created.
-          // Surface in console for debugging.
-          console.error("AddPlantModal: assignInstanceToGroup failed", { gid, error: e });
-        }
+  const assignSelectedGroupToInstance = useCallback(
+    async (growInstanceId: string, plantProfileId: string | null) => {
+      if (!user?.id || !selectedGroupId) return;
+      const group = availableGroups.find((g) => g.id === selectedGroupId);
+      if (!group) return;
+      try {
+        // New plant has no prior group → setInstanceGroup auto-journals "Added to {group}".
+        await setInstanceGroup(supabase, {
+          growInstanceId,
+          userId: user.id,
+          plantProfileId,
+          nextGroup: { id: group.id, name: group.name },
+          priorGroups: [],
+        });
+      } catch (e) {
+        // Don't block on group-assign errors; the instance is created.
+        console.error("AddPlantModal: setInstanceGroup failed", { selectedGroupId, error: e });
       }
     },
-    [user?.id, selectedGroupIds]
+    [user?.id, selectedGroupId, availableGroups]
   );
 
   const handleCreateGroupInline = useCallback(async () => {
@@ -178,7 +184,7 @@ export function AddPlantModal({
       const newGroup = await createGroup(supabase, user.id, name);
       if (newGroup) {
         setAvailableGroups((prev) => [...prev, newGroup]);
-        setSelectedGroupIds((prev) => [...prev, newGroup.id]);
+        setSelectedGroupId(newGroup.id);
         setGroupQuery("");
       }
     } catch (e) {
@@ -261,7 +267,7 @@ export function AddPlantModal({
     setError(null);
     setEnrichmentFailed(false);
     setCreatedProfileId(null);
-    setSelectedGroupIds([]);
+    setSelectedGroupId(null);
     setGroupQuery("");
     setSelectedSupplyIds(new Set());
   }, []);
@@ -363,7 +369,7 @@ export function AddPlantModal({
           return;
         }
         const growInstanceIdNew = (growRow as { id: string }).id;
-        await assignSelectedGroupsToInstance(growInstanceIdNew);
+        await assignSelectedGroupToInstance(growInstanceIdNew, profileId);
 
         // Supplies-used journal entries (mirrors PlantingForm.tsx:402-411 — entry_type "care").
         for (const supplyId of selectedSupplyIds) {
@@ -510,7 +516,7 @@ export function AddPlantModal({
           return;
         }
         const growId = (growRow as { id: string }).id;
-        await assignSelectedGroupsToInstance(growId);
+        await assignSelectedGroupToInstance(growId, profileId);
 
         // Supplies-used journal entries (mirrors PlantingForm.tsx:402-411 — entry_type "care").
         for (const supplyId of selectedSupplyIds) {
@@ -882,6 +888,78 @@ export function AddPlantModal({
             )}
 
             <div>
+              <label htmlFor="add-plant-group" className="block text-sm font-medium text-neutral-700 mb-1">Group</label>
+              {selectedGroupId ? (() => {
+                const g = availableGroups.find((x) => x.id === selectedGroupId);
+                if (!g) return null;
+                return (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-medium">
+                      {g.name}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGroupId(null)}
+                        className="text-emerald-700 hover:text-emerald-900 leading-none"
+                        aria-label={`Remove ${g.name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                );
+              })() : (
+                <>
+                  <input
+                    id="add-plant-group"
+                    type="text"
+                    value={groupQuery}
+                    onChange={(e) => setGroupQuery(e.target.value)}
+                    placeholder="Search or add a group"
+                    className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Search groups"
+                  />
+                  {(() => {
+                    const q = groupQuery.trim().toLowerCase();
+                    const matches = q
+                      ? availableGroups.filter((g) => g.name.toLowerCase().includes(q))
+                      : availableGroups;
+                    const exactMatch = availableGroups.some((g) => g.name.toLowerCase() === q);
+                    const showCreate = q.length > 0 && !exactMatch;
+                    if (matches.length === 0 && !showCreate) return null;
+                    return (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {matches.map((g) => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedGroupId(g.id);
+                              setGroupQuery("");
+                            }}
+                            className="inline-flex items-center px-2 py-1 rounded-full border border-neutral-300 text-neutral-700 text-xs hover:bg-neutral-50"
+                          >
+                            + {g.name}
+                          </button>
+                        ))}
+                        {showCreate && (
+                          <button
+                            type="button"
+                            onClick={handleCreateGroupInline}
+                            disabled={creatingGroup}
+                            className="inline-flex items-center px-2 py-1 rounded-full border border-dashed border-emerald-400 text-emerald-700 text-xs hover:bg-emerald-50 disabled:opacity-50"
+                          >
+                            {creatingGroup ? "Creating…" : `+ Create "${groupQuery.trim()}"`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+              <p className="mt-1 text-xs text-neutral-500">Optional — organize this plant into one Garden group.</p>
+            </div>
+
+            <div>
               <label htmlFor="add-plant-date" className="block text-sm font-medium text-neutral-700 mb-1">{plantType === "seasonal" ? "Purchase date *" : "Date planted *"}</label>
               <input
                 id="add-plant-date"
@@ -932,79 +1010,6 @@ export function AddPlantModal({
               />
             </div>
 
-            <div>
-              <label htmlFor="add-plant-groups" className="block text-sm font-medium text-neutral-700 mb-1">Groups</label>
-              {selectedGroupIds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {selectedGroupIds.map((gid) => {
-                    const g = availableGroups.find((x) => x.id === gid);
-                    if (!g) return null;
-                    return (
-                      <span
-                        key={gid}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-medium"
-                      >
-                        {g.name}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedGroupIds((prev) => prev.filter((x) => x !== gid))}
-                          className="text-emerald-700 hover:text-emerald-900 leading-none"
-                          aria-label={`Remove ${g.name}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              <input
-                id="add-plant-groups"
-                type="text"
-                value={groupQuery}
-                onChange={(e) => setGroupQuery(e.target.value)}
-                placeholder="Search or add a group"
-                className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
-                aria-label="Search groups"
-              />
-              {(() => {
-                const q = groupQuery.trim().toLowerCase();
-                const unselected = availableGroups.filter((g) => !selectedGroupIds.includes(g.id));
-                const matches = q
-                  ? unselected.filter((g) => g.name.toLowerCase().includes(q))
-                  : unselected;
-                const exactMatch = availableGroups.some((g) => g.name.toLowerCase() === q);
-                const showCreate = q.length > 0 && !exactMatch;
-                if (matches.length === 0 && !showCreate) return null;
-                return (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {matches.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedGroupIds((prev) => [...prev, g.id]);
-                          setGroupQuery("");
-                        }}
-                        className="inline-flex items-center px-2 py-1 rounded-full border border-neutral-300 text-neutral-700 text-xs hover:bg-neutral-50"
-                      >
-                        + {g.name}
-                      </button>
-                    ))}
-                    {showCreate && (
-                      <button
-                        type="button"
-                        onClick={handleCreateGroupInline}
-                        disabled={creatingGroup}
-                        className="inline-flex items-center px-2 py-1 rounded-full border border-dashed border-emerald-400 text-emerald-700 text-xs hover:bg-emerald-50 disabled:opacity-50"
-                      >
-                        {creatingGroup ? "Creating…" : `+ Create "${groupQuery.trim()}"`}
-                      </button>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Photos</label>

@@ -944,6 +944,28 @@ export default function VaultSeedPage() {
                   </button>
                 </div>
               )}
+              {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, lifecycleType: "seed" }))}
+                      className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${editForm.lifecycleType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}
+                    >
+                      Seasonal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, lifecycleType: "permanent" }))}
+                      className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${editForm.lifecycleType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}
+                    >
+                      Permanent
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">Perennial, tree, or shrub = permanent. Annual or veg = seasonal.</p>
+                </div>
+              )}
               {[
                 { id: "edit-status", label: "Status", key: "status" as const },
                 { id: "edit-plant-type", label: "Plant Type", key: "plantType" as const },

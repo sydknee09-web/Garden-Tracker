@@ -16,6 +16,8 @@ type SessionLike = { access_token: string } | null;
 
 export type VaultEditForm = {
   plantType: string;
+  /** Variety-level lifecycle classification = plant_profiles.profile_type ('seed' | 'permanent'). Relocated edit (2026-06-09). */
+  lifecycleType: string;
   varietyName: string;
   sun: string;
   water: string;
@@ -35,7 +37,7 @@ export type VaultEditForm = {
 };
 
 const EDIT_FORM_DEFAULTS: VaultEditForm = {
-  plantType: "", varietyName: "", sun: "", water: "", spacing: "",
+  plantType: "", lifecycleType: "seed", varietyName: "", sun: "", water: "", spacing: "",
   germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
   purchaseDate: "", purchaseVendor: "", growingNotes: "", status: "",
   companionPlants: "", avoidPlants: "",
@@ -93,6 +95,7 @@ export function useVaultEditHandlers({
     const avoid = pp.avoid_plants ?? [];
     setEditForm({
       plantType: profile.name ?? "",
+      lifecycleType: (profile as { profile_type?: string | null }).profile_type === "permanent" ? "permanent" : "seed",
       varietyName: profile.variety_name ?? "",
       sun: profile.sun ?? "",
       water: ("water" in profile ? (profile as { water?: string | null }).water : null) ?? "",
@@ -134,6 +137,7 @@ export function useVaultEditHandlers({
       status: editForm.status.trim() || null,
       ...(isLeg ? { growing_notes: editForm.growingNotes.trim() || null } : {}),
       ...(!isLeg ? {
+        profile_type: editForm.lifecycleType === "permanent" ? "permanent" : "seed",
         sowing_method: editForm.sowingMethod.trim() || null,
         planting_window: editForm.plantingWindow.trim() || null,
         companion_plants: parseCommaList(editForm.companionPlants),

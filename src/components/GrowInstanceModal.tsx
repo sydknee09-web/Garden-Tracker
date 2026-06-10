@@ -13,7 +13,8 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useToast } from "@/hooks/useToast";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
-import type { GrowInstance, JournalEntry, Task, SupplyProfile } from "@/types/garden";
+import { fetchUserGroups, fetchInstanceGroups, setInstanceGroup } from "@/lib/groups";
+import type { GrowInstance, JournalEntry, Task, SupplyProfile, Group } from "@/types/garden";
 import type { BatchLogBatch } from "@/components/BatchLogSheet";
 import { isEdiblePlant } from "@/constants/seedTypes";
 import dynamic from "next/dynamic";
@@ -198,6 +199,11 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   const [archiveSaving, setArchiveSaving] = useState(false);
   const [batchLogOpen, setBatchLogOpen] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
+  // Door 2 — Group tag (single-membership; locked 2026-06-09). Tappable to change.
+  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+  const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
+  const [editingGroup, setEditingGroup] = useState(false);
+  const [savingGroup, setSavingGroup] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Data loading
@@ -419,6 +425,44 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     if (!err) {
       setGrow((g) => g ? { ...g, location: locationDraft.trim() || null } : g);
       setEditingLocation(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Door 2 — Group tag (single-membership)
+  // ---------------------------------------------------------------------------
+  const loadGroups = useCallback(async () => {
+    if (!instanceId) return;
+    const [all, mine] = await Promise.all([
+      user?.id ? fetchUserGroups(supabase, user.id) : Promise.resolve([] as Group[]),
+      fetchInstanceGroups(supabase, instanceId),
+    ]);
+    setAvailableGroups(all);
+    setCurrentGroup(mine[0] ?? null);
+  }, [instanceId, user?.id]);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
+
+  async function saveGroup(next: Group | null) {
+    if (!grow || !user) return;
+    setSavingGroup(true);
+    try {
+      // priorGroups omitted → setInstanceGroup fetches fresh prior (single-plant
+      // edit; accuracy over the saved round-trip). Auto-journals Added/Moved/Removed.
+      await setInstanceGroup(supabase, {
+        growInstanceId: grow.id,
+        userId: user.id,
+        plantProfileId: grow.plant_profile_id ?? null,
+        nextGroup: next ? { id: next.id, name: next.name } : null,
+      });
+      setCurrentGroup(next);
+      setEditingGroup(false);
+    } catch {
+      showErrorToast("Couldn't update group. Please try again.");
+    } finally {
+      setSavingGroup(false);
     }
   }
 
@@ -788,6 +832,59 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
                     aria-label={allowEdits ? "Edit location" : undefined}
                   >
                     {grow.location?.trim() || (allowEdits ? "Add Location" : "—")}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className="text-xs font-semibold text-neutral-500 uppercase w-28 shrink-0">Group</span>
+                {allowEdits && editingGroup ? (
+                  <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                    {availableGroups.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        disabled={savingGroup}
+                        onClick={() => saveGroup(g)}
+                        className={`px-2 py-1 rounded-full border text-xs font-medium disabled:opacity-50 ${
+                          currentGroup?.id === g.id
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                            : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                        }`}
+                      >
+                        {g.name}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={savingGroup}
+                      onClick={() => saveGroup(null)}
+                      className={`px-2 py-1 rounded-full border text-xs font-medium disabled:opacity-50 ${
+                        !currentGroup
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                          : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                      }`}
+                    >
+                      No group
+                    </button>
+                    {availableGroups.length === 0 && (
+                      <span className="text-xs text-neutral-500 italic">No groups yet — create one in the Garden tab.</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setEditingGroup(false)}
+                      className="text-xs text-neutral-500 hover:text-neutral-800 ml-1"
+                    >
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={allowEdits ? () => setEditingGroup(true) : undefined}
+                    className={`text-sm text-left ${allowEdits ? "text-emerald-700 hover:text-emerald-900 hover:underline" : "text-neutral-900"}`}
+                    aria-label={allowEdits ? "Edit group" : undefined}
+                  >
+                    {currentGroup?.name || (allowEdits ? "Add to a Group" : "—")}
                   </button>
                 )}
               </div>

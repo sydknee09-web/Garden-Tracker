@@ -84,11 +84,13 @@ type ActionInfo = {
     | "care"
     | "archive"
     | "prune"
-    | "cold_stratify";
+    | "cold_stratify"
+    | "group_change";
 };
 
 function getActionFromNote(note: string | null, entryType?: string | null): ActionInfo {
   const n = (note ?? "").toLowerCase();
+  if (entryType === "group_change") return { label: "Group", icon: "group_change" };
   if (entryType === "cold_stratify") return { label: "Cold stratify", icon: "cold_stratify" };
   if (entryType === "prune") return { label: "Pruned", icon: "prune" };
   if (entryType === "quick" || entryType === "care") {
@@ -128,6 +130,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
   if (has("planting")) return { label: "Planted", icon: "plant" };
   if (has("prune")) return { label: "Pruned", icon: "prune" };
   if (has("cold_stratify")) return { label: "Cold stratify", icon: "cold_stratify" };
+  if (has("group_change")) return { label: "Group", icon: "group_change" };
   if (has("vault_add")) return { label: "Added to Garden", icon: "archive" };
   if (has("quick") || has("care")) return { label: "Care", icon: "care" };
   if (has("growth")) return { label: "Growth", icon: "growth" };
@@ -136,7 +139,7 @@ function getActionForGroup(group: JournalEntryWithPlant[]): ActionInfo {
 }
 
 /** One row per journal entry (Section 6: one entry can tag multiple plants). */
-function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_names?: string[]; plant_profile_ids?: string[] })[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[] {
+function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_names?: string[]; plant_profile_ids?: string[] })[]): { date: string; note: string | null; action: ActionInfo; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null; isAuto: boolean }[] {
   return entries
     .map((e) => {
       const plantNames = (e as JournalEntryWithPlant & { plant_display_names?: string[] }).plant_display_names
@@ -152,6 +155,8 @@ function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_
         entryIds: [e.id],
         plant_profile_id: e.plant_profile_id ?? null,
         owner_user_id: e.user_id ?? null,
+        // Auto-logged (system) entries render lighter / compact per VISION §8 info-note register.
+        isAuto: (e.entry_type ?? "").toLowerCase() === "group_change",
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -159,7 +164,7 @@ function groupEntriesForTable(entries: (JournalEntryWithPlant & { plant_display_
 
 /** Insert year/month section headers into table rows for glanceable timeline. */
 function tableRowsWithSections(
-  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null }[]
+  rows: { date: string; note: string | null; action: ReturnType<typeof getActionFromNote>; plantNames: string[]; plant_profile_ids: string[]; entryIds: string[]; plant_profile_id: string | null; owner_user_id: string | null; isAuto: boolean }[]
 ): ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] {
   const out: ({ type: "section"; label: string } | { type: "row"; row: (typeof rows)[0] })[] = [];
   let lastYM = "";
@@ -229,6 +234,11 @@ function ActionIcon({ icon }: { icon: ActionInfo["icon"] }) {
     case "spray": return <ICON_MAP.Spray className={className} />;
     case "care": return <ICON_MAP.JournalCareHands className={className} />;
     case "cold_stratify": return <ICON_MAP.ColdStratify className={className} />;
+    case "group_change": return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+      </svg>
+    );
     default: return <ICON_MAP.ManualEntry className={className} />;
   }
 }
@@ -722,7 +732,7 @@ export default function JournalPage() {
                         }
                         setExpandedNoteId(isExpanded ? null : rowId);
                       }}
-                      className="text-left w-full block text-sm text-black/90"
+                      className={`text-left w-full block text-sm ${row.isAuto ? "text-neutral-600 italic" : "text-black/90"}`}
                     >
                       <span className={isExpanded ? "" : "line-clamp-3"} title={row.note}>
                         {row.note}
@@ -815,7 +825,7 @@ export default function JournalPage() {
                               }
                               setExpandedNoteId(isExpanded ? null : rowId);
                             }}
-                            className="text-left w-full block min-w-0"
+                            className={`text-left w-full block min-w-0 ${row.isAuto ? "italic text-neutral-600" : ""}`}
                           >
                             <span className={isExpanded ? "" : "line-clamp-2"} title={row.note}>
                               {row.note}
@@ -959,7 +969,7 @@ export default function JournalPage() {
                       <span className="text-sm font-medium">{row.action.label}</span>
                     </span>
                   </div>
-                  {row.note && <p className="text-black/90 text-sm mb-3">{row.note}</p>}
+                  {row.note && <p className={`text-sm mb-3 ${row.isAuto ? "text-neutral-600 italic" : "text-black/90"}`}>{row.note}</p>}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex flex-wrap gap-1.5 items-center">
                       {row.plantNames.map((name, i) => {

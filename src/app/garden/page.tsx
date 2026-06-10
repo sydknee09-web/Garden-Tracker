@@ -61,8 +61,8 @@ import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { useFilterState } from "@/hooks/useFilterState";
 import { FILTER_DEFAULT_KEYS } from "@/lib/filterDefaults";
 import { generateCareTasks } from "@/lib/generateCareTasks";
-import type { RefineChips } from "@/types/garden";
-import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import type { RefineChips, Group } from "@/types/garden";
+import { fetchUserGroups } from "@/lib/groups";
 
 type GrowingBatchForLog = { id: string; plant_profile_id: string; profile_name: string; profile_variety_name: string | null };
 
@@ -128,7 +128,11 @@ function GardenPageInner() {
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0);
   const [bulkModeActive, setBulkModeActive] = useState(false);
   const [openBulkLog, setOpenBulkLog] = useState(false);
-  const [perennialToast, setPerennialToast] = useState<string | null>(null);
+  const [bulkToast, setBulkToast] = useState<string | null>(null);
+  // Door 3 — batch "Move to group" destination picker.
+  const [moveGroupPickerOpen, setMoveGroupPickerOpen] = useState(false);
+  const [moveGroups, setMoveGroups] = useState<Group[]>([]);
+  const [moving, setMoving] = useState(false);
   const {
     addMenuOpen,
     setAddMenuOpen,
@@ -386,20 +390,37 @@ function GardenPageInner() {
     setRefetchTrigger((t) => t + 1);
   }, [user?.id, quickAddNote, quickAddPhotos]);
 
-  // B2: move-to-permanent / move-to-growing-garden bulk actions are wired to the GardenView
-  // imperative handle (no longer a parent-state operation since the unified view owns selection).
-  const handleMoveSelectedPerennial = useCallback(async (toPerennial: boolean) => {
-    if (toPerennial) {
-      await gardenRef.current?.moveSelectedToPermanentPlants();
-      setPerennialToast("Marked as perennial");
-    } else {
-      await gardenRef.current?.moveSelectedToGrowingGarden();
-      setPerennialToast("Marked as annual");
-    }
+  // Door 3 — batch "Move to group". Opens a destination picker; applies to all
+  // selected plants via the GardenView imperative handle (single-membership +
+  // auto-journal handled in setInstanceGroup). "Mark as perennial/annual" bulk
+  // actions removed — annual/perennial is now a variety-level edit at the Library
+  // (profile_type), not a per-plant batch action.
+  const openMoveGroupPicker = useCallback(async () => {
     setSelectionActionsOpen(false);
-    setRefetchTrigger((t) => t + 1);
-    setTimeout(() => setPerennialToast(null), 2000);
-  }, []);
+    if (user?.id) {
+      const groups = await fetchUserGroups(supabase, user.id);
+      setMoveGroups(groups);
+    }
+    setMoveGroupPickerOpen(true);
+  }, [user?.id]);
+
+  const handleMoveSelectedToGroup = useCallback(
+    async (next: { id: string; name: string } | null) => {
+      setMoving(true);
+      try {
+        await gardenRef.current?.assignSelectedToGroup(next);
+        setBulkToast(next ? `Moved to ${next.name}` : "Removed from group");
+      } catch {
+        setBulkToast("Couldn't move plants — try again.");
+      } finally {
+        setMoving(false);
+        setMoveGroupPickerOpen(false);
+        setRefetchTrigger((t) => t + 1);
+        setTimeout(() => setBulkToast(null), 2000);
+      }
+    },
+    []
+  );
 
   return (
     <div className="min-h-screen pb-24">
@@ -1093,36 +1114,26 @@ function GardenPageInner() {
             <div className="flex-1 overflow-y-auto py-2">
               <button
                 type="button"
-                onClick={() => handleMoveSelectedPerennial(true)}
+                onClick={openMoveGroupPicker}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
-                aria-label="Mark as perennial"
+                aria-label="Move to group"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
-                  <path d="M12 22v-4" />
-                  <path d="M12 18a4 4 0 0 0 4-4 4 4 0 0 0-8 0 4 4 0 0 0 4 4Z" />
+                  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
                 </svg>
-                Mark as perennial
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMoveSelectedPerennial(false)}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-black/5"
-                aria-label="Mark as annual"
-              >
-                <span className="w-5 h-5 shrink-0 flex items-center justify-center"><PlantPlaceholderIcon size="sm" /></span>
-                Mark as annual
+                Move to group
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  gardenRef.current?.openBulkDeleteConfirm();
+                  setOpenBulkLog(true);
                   setSelectionActionsOpen(false);
                 }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-black/5"
-                aria-label="Delete selected"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
+                aria-label="Journal"
               >
-                <ICON_MAP.Trash stroke="currentColor" className="w-5 h-5 shrink-0" />
-                Delete
+                <ICON_MAP.ManualEntry stroke="currentColor" className="w-5 h-5 shrink-0" />
+                Journal
               </button>
               <button
                 type="button"
@@ -1143,15 +1154,65 @@ function GardenPageInner() {
               <button
                 type="button"
                 onClick={() => {
-                  setOpenBulkLog(true);
+                  gardenRef.current?.openBulkDeleteConfirm();
                   setSelectionActionsOpen(false);
                 }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5"
-                aria-label="Journal"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-black/5"
+                aria-label="Delete selected"
               >
-                <ICON_MAP.ManualEntry stroke="currentColor" className="w-5 h-5 shrink-0" />
-                Journal
+                <ICON_MAP.Trash stroke="currentColor" className="w-5 h-5 shrink-0" />
+                Delete
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {moveGroupPickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[99] bg-black/40"
+            aria-hidden
+            onClick={() => {
+              if (!moving) setMoveGroupPickerOpen(false);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Move to group"
+            className="fixed left-4 right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+1rem)] z-[100] rounded-2xl bg-white shadow-xl border border-black/10 overflow-hidden max-h-[70vh] flex flex-col"
+          >
+            <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
+              <p className="text-sm font-medium text-black/70">
+                Move {bulkSelectedCount} to…
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {moveGroups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  disabled={moving}
+                  onClick={() => handleMoveSelectedToGroup({ id: g.id, name: g.name })}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/80 hover:bg-black/5 disabled:opacity-50"
+                >
+                  {g.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={moving}
+                onClick={() => handleMoveSelectedToGroup(null)}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-black/60 hover:bg-black/5 disabled:opacity-50"
+              >
+                No group / Unassigned
+              </button>
+              {moveGroups.length === 0 && (
+                <p className="px-4 py-3 text-sm text-neutral-500 italic">
+                  No groups yet — create one with Manage in the tab row.
+                </p>
+              )}
             </div>
           </div>
         </>
@@ -1208,9 +1269,9 @@ function GardenPageInner() {
         </button>
       )}
 
-      {perennialToast && (
-        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg animate-fade-in ${perennialToast.includes("Couldn") ? "bg-amber-600" : "bg-emerald-600"}`} role="status" aria-live="polite">
-          {perennialToast}
+      {bulkToast && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-white text-sm font-medium shadow-lg animate-fade-in ${bulkToast.includes("Couldn") ? "bg-amber-600" : "bg-emerald-600"}`} role="status" aria-live="polite">
+          {bulkToast}
         </div>
       )}
 

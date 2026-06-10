@@ -9,7 +9,41 @@ import {
   deleteGroup,
   updateGroupPositions,
   fetchAllUserGrowInstances,
+  setInstanceGroup,
+  fetchGroupAssignments,
 } from "./groups";
+
+/** sb mock that records journal_entries inserts + plant_groups ops (for setInstanceGroup tests). */
+function makeSbCapture() {
+  const journalInserts: Array<Record<string, unknown>> = [];
+  const plantGroupOps: string[] = [];
+  const sb = {
+    from: vi.fn((table: string) => {
+      const chain: Record<string, unknown> = {};
+      Object.assign(chain, {
+        select: vi.fn(() => chain),
+        insert: vi.fn((arg: Record<string, unknown>) => {
+          if (table === "journal_entries") journalInserts.push(arg);
+          if (table === "plant_groups") plantGroupOps.push("insert");
+          return chain;
+        }),
+        update: vi.fn(() => chain),
+        delete: vi.fn(() => {
+          if (table === "plant_groups") plantGroupOps.push("delete");
+          return chain;
+        }),
+        eq: vi.fn(() => chain),
+        is: vi.fn(() => chain),
+        order: vi.fn(() => chain),
+        single: vi.fn(() => Promise.resolve({ data: { id: "je-1" }, error: null })),
+        then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
+          Promise.resolve({ data: [], error: null }).then(resolve),
+      });
+      return chain;
+    }),
+  };
+  return { sb, journalInserts, plantGroupOps };
+}
 
 function makeChain(result: { data?: unknown; error?: unknown } = {}) {
   const chain = {
@@ -266,5 +300,76 @@ describe("groups helpers", () => {
     // confirm both annual + perennial returned by the unified fetch
     expect(result[0]!.is_permanent_planting).toBe(false);
     expect(result[1]!.is_permanent_planting).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // setInstanceGroup — single-membership + Added/Moved/Removed journal language
+  // -------------------------------------------------------------------------
+  const grp = (id: string, name: string) => ({
+    id, user_id: "u-1", name, position: 0, created_at: "2026-01-01", updated_at: "2026-01-01", deleted_at: null,
+  });
+
+  it("setInstanceGroup: no prior + next → 'added', journals 'Added to {name}'", async () => {
+    const { sb, journalInserts, plantGroupOps } = makeSbCapture();
+    const kind = await setInstanceGroup(sb as never, {
+      growInstanceId: "gi-1", userId: "u-1", plantProfileId: "pp-1",
+      nextGroup: { id: "g-1", name: "Patio" }, priorGroups: [],
+    });
+    expect(kind).toBe("added");
+    expect(plantGroupOps).toContain("insert");
+    expect(plantGroupOps).not.toContain("delete"); // no prior to clear
+    expect(journalInserts).toHaveLength(1);
+    expect(journalInserts[0]!.entry_type).toBe("group_change");
+    expect(journalInserts[0]!.note).toBe("Added to Patio");
+  });
+
+  it("setInstanceGroup: prior A + next B → 'moved', journals 'Moved A → B', clears then inserts", async () => {
+    const { sb, journalInserts, plantGroupOps } = makeSbCapture();
+    const kind = await setInstanceGroup(sb as never, {
+      growInstanceId: "gi-1", userId: "u-1", plantProfileId: "pp-1",
+      nextGroup: { id: "g-2", name: "Bedroom" }, priorGroups: [grp("g-1", "Patio")],
+    });
+    expect(kind).toBe("moved");
+    expect(plantGroupOps).toEqual(["delete", "insert"]);
+    expect(journalInserts[0]!.note).toBe("Moved Patio → Bedroom");
+  });
+
+  it("setInstanceGroup: prior A + next null → 'removed', journals 'Removed from A', clears only", async () => {
+    const { sb, journalInserts, plantGroupOps } = makeSbCapture();
+    const kind = await setInstanceGroup(sb as never, {
+      growInstanceId: "gi-1", userId: "u-1", plantProfileId: "pp-1",
+      nextGroup: null, priorGroups: [grp("g-1", "Patio")],
+    });
+    expect(kind).toBe("removed");
+    expect(plantGroupOps).toEqual(["delete"]);
+    expect(journalInserts[0]!.note).toBe("Removed from Patio");
+  });
+
+  it("setInstanceGroup: same group (prior === next) → 'none', no writes", async () => {
+    const { sb, journalInserts, plantGroupOps } = makeSbCapture();
+    const kind = await setInstanceGroup(sb as never, {
+      growInstanceId: "gi-1", userId: "u-1", plantProfileId: "pp-1",
+      nextGroup: { id: "g-1", name: "Patio" }, priorGroups: [grp("g-1", "Patio")],
+    });
+    expect(kind).toBe("none");
+    expect(plantGroupOps).toEqual([]);
+    expect(journalInserts).toHaveLength(0);
+  });
+
+  it("fetchGroupAssignments returns grow_instance_id + plant_profile_id per assignment", async () => {
+    const chain = makeChain({
+      data: [
+        { grow_instance_id: "gi-1", user_id: "u-1", grow_instances: { plant_profile_id: "pp-1" } },
+        { grow_instance_id: "gi-2", user_id: "u-1", grow_instances: null },
+      ],
+    });
+    const sb = { from: vi.fn(() => chain) };
+    const result = await fetchGroupAssignments(sb as never, "g-1");
+    expect(sb.from).toHaveBeenCalledWith("plant_groups");
+    expect(chain.eq).toHaveBeenCalledWith("group_id", "g-1");
+    expect(result).toEqual([
+      { grow_instance_id: "gi-1", user_id: "u-1", plant_profile_id: "pp-1" },
+      { grow_instance_id: "gi-2", user_id: "u-1", plant_profile_id: null },
+    ]);
   });
 });
