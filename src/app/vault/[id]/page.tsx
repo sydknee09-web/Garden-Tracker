@@ -49,10 +49,6 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
-const GrowInstanceModal = dynamic(
-  () => import("@/components/GrowInstanceModal").then((m) => ({ default: m.GrowInstanceModal })),
-  { ssr: false }
-);
 
 import { VaultProfileAboutTab } from "./VaultProfileAboutTab";
 import { VaultProfileCareTab } from "./VaultProfileCareTab";
@@ -148,9 +144,6 @@ export default function VaultSeedPage() {
   const [addFromQuickLogInitialName, setAddFromQuickLogInitialName] = useState("");
   const [suppliesRefreshKey, setSuppliesRefreshKey] = useState(0);
   const [quickLogGrowInstanceId, setQuickLogGrowInstanceId] = useState<string | null>(null);
-  /** Read-only planting detail overlay from Plantings tab (replaces navigating away to Garden). */
-  const [growViewId, setGrowViewId] = useState<string | null>(null);
-  const skipGrowViewHistoryPopRef = useRef(false);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
@@ -194,7 +187,6 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(addPlantManualOpen, () => setAddPlantManualOpen(false));
-  useModalBackClose(!!growViewId, () => setGrowViewId(null), skipGrowViewHistoryPopRef);
 
   // =========================================================================
   // Load data
@@ -661,7 +653,7 @@ export default function VaultSeedPage() {
   const legacyGrowingInfo = isLegacy ? (profile as PlantVarietyProfile).growing_info_from_source : null;
 
   // Swipe to prev/next profile (mobile); only when no modal is open
-  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget || !!growViewId;
+  const modalOpen = showSetPhotoModal || showEditModal || !!imageLightbox || addPlantManualOpen || !!editGrowTarget;
 
   // VISION §8 "Profile-tab contextual add actions" (locked 2026-05-30): Plants tab
   // "Add Plant" always opens AddPlantModal pre-filled for this profile. AddPlantModal
@@ -1420,7 +1412,7 @@ export default function VaultSeedPage() {
               setQuickLogGrowInstanceId(gi.id);
               setQuickLogOpen(true);
             }}
-            onViewGrow={(gi) => setGrowViewId(gi.id)}
+            onViewGrow={(gi) => router.push(`/garden/grow/${gi.id}?from=library&profileId=${id}`)}
           />
         )}
 
@@ -1462,22 +1454,6 @@ export default function VaultSeedPage() {
         }}
         initialName={addFromQuickLogInitialName}
       />
-      {growViewId && (
-        <GrowInstanceModal
-          key={growViewId}
-          growId={growViewId}
-          readOnly
-          initialTab="history"
-          onClose={() => setGrowViewId(null)}
-          onOpenInGarden={() => {
-            skipGrowViewHistoryPopRef.current = true;
-            const gid = growViewId;
-            setGrowViewId(null);
-            router.push(`/garden?grow=${gid}&from=profile&profile=${id}`);
-          }}
-        />
-      )}
-
       <QuickLogModal
         open={quickLogOpen}
         onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}

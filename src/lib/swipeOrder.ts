@@ -25,7 +25,7 @@
  */
 import { useEffect } from "react";
 
-export type SwipeScope = "profiles" | "packets" | "supplies";
+export type SwipeScope = "profiles" | "packets" | "supplies" | "instances";
 
 const storageKey = (scope: SwipeScope) => `swipeOrder:${scope}`;
 

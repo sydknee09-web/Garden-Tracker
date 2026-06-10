@@ -17,6 +17,7 @@ import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { fetchAllUserGrowInstances, setInstanceGroup } from "@/lib/groups";
+import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
 import type { WeatherSnapshotData, Group } from "@/types/garden";
 import type { SelectedGroup } from "@/components/GroupTabs";
 
@@ -590,6 +591,11 @@ export const GardenView = forwardRef<GardenViewHandle, {
     return list;
   }, [displayBatches, sortBy, sortDir]);
 
+  // Carry the filtered+sorted Garden order to the instance detail page so swipe / prev-next
+  // traverses exactly what the user was browsing (NORTH_STAR "Take mental load OFF the user").
+  const sortedBatchIds = useMemo(() => sortedBatches.map((b) => b.id), [sortedBatches]);
+  useSwipeOrderSnapshot("instances", sortedBatchIds);
+
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
@@ -1093,7 +1099,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
               return (
                 <div key={batch.id} ref={highlightGrowId === batch.id ? (highlightBatchRef as React.RefObject<HTMLDivElement>) : undefined} className={`rounded-lg bg-white overflow-hidden flex flex-col border shadow-card transition-all card-interactive ${highlightGrowId === batch.id ? "ring-2 ring-emerald-500 border-emerald-500" : bulkMode && bulkSelected.has(batch.id) ? "ring-2 ring-emerald-500 border-2 border-emerald-500" : "border-black/5"}`}>
                   <Link
-                    href={`/garden?grow=${batch.id}`}
+                    href={`/garden/grow/${batch.id}`}
                     className="flex flex-col flex-1 min-h-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-xl group"
                     onClick={(e) => {
                       if (bulkMode && canEditPage(batch.user_id ?? "", "garden")) {
@@ -1245,7 +1251,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
                         )}
                       </div>
                       <Link
-                        href={`/garden?grow=${batch.id}`}
+                        href={`/garden/grow/${batch.id}`}
                         className="min-w-0 flex-1 block focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-inset rounded-lg -m-1 p-1 group hover:bg-emerald-50/50 transition-colors"
                         aria-label={`View plant: ${decodeHtmlEntities(formatBatchDisplayName(batch.profile_name, batch.profile_variety_name))}`}
                         onClick={(e) => {

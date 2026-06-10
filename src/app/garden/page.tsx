@@ -38,10 +38,6 @@ const QuickLogModal = dynamic(
   () => import("@/components/QuickLogModal").then((m) => ({ default: m.QuickLogModal })),
   { ssr: false }
 );
-const GrowInstanceModal = dynamic(
-  () => import("@/components/GrowInstanceModal").then((m) => ({ default: m.GrowInstanceModal })),
-  { ssr: false }
-);
 import { getTagStyle } from "@/components/TagBadges";
 import { supabase } from "@/lib/supabase";
 import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
@@ -184,6 +180,20 @@ function GardenPageInner() {
   const quickAddWebcam = useDesktopPhotoCapture(addQuickAddPhoto);
 
   const growParam = searchParams.get("grow");
+
+  // Back-compat (Sprint 3): the growing instance is now a standalone page. Legacy `?grow=` deep-links
+  // (shared / bookmarked URLs) redirect to `/garden/grow/<id>`, preserving instanceTab/schedule and
+  // mapping the old from=profile&profile context to the new from=library&profileId context.
+  useEffect(() => {
+    if (!growParam) return;
+    const qs: string[] = [];
+    const instanceTab = searchParams.get("instanceTab");
+    const schedule = searchParams.get("schedule");
+    if (instanceTab) qs.push(`instanceTab=${encodeURIComponent(instanceTab)}`);
+    if (schedule) qs.push(`schedule=${encodeURIComponent(schedule)}`);
+    if (fromParam === "profile" && profileParam) qs.push(`from=library&profileId=${encodeURIComponent(profileParam)}`);
+    router.replace(`/garden/grow/${growParam}${qs.length > 0 ? `?${qs.join("&")}` : ""}`);
+  }, [growParam, fromParam, profileParam, searchParams, router]);
 
   useEffect(() => {
     if (user?.id) generateCareTasks(user.id);
@@ -816,8 +826,9 @@ function GardenPageInner() {
         )}
 
         {/* B2: unified view consumes fetchAllUserGrowInstances (B1 helper).
-            Card-tap → /garden?grow=<id> (instance modal everywhere — fixes the prior
-            My-Plants → /vault/<profile> divergence flagged by Syd 2026-05-29). */}
+            Card-tap → /garden/grow/<id> (standalone instance page, Sprint 3 2026-06-10 —
+            real-page parity with Library/Packet/Shed; fixes the prior My-Plants → /vault/<profile>
+            divergence flagged by Syd 2026-05-29). */}
         <div className="pt-2">
           <GardenView
             ref={gardenRef}
@@ -1297,31 +1308,6 @@ function GardenPageInner() {
         addPlantMode={purchaseOrderMode === "seed" ? purchaseOrderAddPlantMode : false}
       />
 
-      {growParam && (
-        <GrowInstanceModal
-          growId={growParam}
-          initialTab={(() => {
-            const t = searchParams.get("instanceTab");
-            return t === "care" || t === "journal" || t === "history" || t === "overview" ? t : undefined;
-          })()}
-          focusScheduleId={searchParams.get("schedule") ?? undefined}
-          onGroupChanged={() => setRefetchTrigger((t) => t + 1)}
-          onClose={() => {
-            if (fromParam === "profile" && profileParam) router.push(`/vault/${profileParam}`);
-            else router.replace(buildGardenUrl());
-          }}
-          backHref={fromParam === "profile" && profileParam ? `/vault/${profileParam}` : undefined}
-          onLogHarvest={(batch) => {
-            router.replace(buildGardenUrl());
-            setLogHarvestBatch({
-              id: batch.id,
-              plant_profile_id: batch.plant_profile_id,
-              profile_name: batch.profile_name,
-              profile_variety_name: batch.profile_variety_name,
-            });
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -40,4 +40,11 @@ describe("swipeOrder", () => {
     expect(getSwipeOrder("packets", "a")).toBeNull();
     expect(getSwipeOrder("packets", "d")).toEqual(["c", "d"]);
   });
+
+  it("supports the instances scope (Sprint 3 — Garden tab → instance page swipe)", () => {
+    setSwipeOrder("instances", ["g1", "g2", "g3"]);
+    expect(getSwipeOrder("instances", "g2")).toEqual(["g1", "g2", "g3"]);
+    expect(getSwipeOrder("instances", "gX")).toBeNull(); // archived/deep-link id not in snapshot → fall back
+    expect(getSwipeOrder("profiles", "g1")).toBeNull(); // scope isolation
+  });
 });

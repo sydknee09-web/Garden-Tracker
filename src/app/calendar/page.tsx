@@ -1807,7 +1807,7 @@ export default function CalendarPage() {
                     // Instance-scoped care tasks deep-link to GrowInstanceModal Care tab; profile-scoped
                     // (no grow_instance_id) deep-link to the Vault profile Care tab.
                     if (gid) {
-                      router.push(`/garden?grow=${gid}&instanceTab=care&schedule=${sid}`);
+                      router.push(`/garden/grow/${gid}?instanceTab=care&schedule=${sid}`);
                     } else {
                       router.push(`/vault/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
                     }

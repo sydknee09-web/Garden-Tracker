@@ -44,6 +44,19 @@ export interface GrowInstanceModalProps {
    * navigate without double back-stack issues with modal history.pushState.
    */
   onOpenInGarden?: () => void;
+  /**
+   * Render shell:
+   *   "modal" — legacy fixed-overlay shell + scrim + focus-trap + Escape + hero back-arrow.
+   *   "page"  — in-flow render for the standalone /garden/grow/[id] route (default). The page
+   *             wrapper owns Back chip, swipe, and the HarvestModal host.
+   * NOTE: as of Sprint 3 the "modal" branch is dormant (zero callers) — kept gated, not deleted,
+   * so the rich render tree stays intact; full prune deferred to a Sprint 4 tidy.
+   */
+  variant?: "modal" | "page";
+  /** Page-mode: notifies the wrapper when an internal sub-sheet (archive / BatchLog) opens, so it can suspend swipe. */
+  onSubSheetOpenChange?: (open: boolean) => void;
+  /** Page-mode: bump to force a data refetch in place (e.g. after the wrapper's HarvestModal saves). */
+  reloadKey?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +190,7 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
-export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, focusScheduleId, onGroupChanged, onOpenInGarden }: GrowInstanceModalProps) {
+export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, focusScheduleId, onGroupChanged, onOpenInGarden, variant = "page", onSubSheetOpenChange, reloadKey }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast, showToast, showErrorToast } = useToast();
@@ -319,7 +332,10 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     } finally {
       setLoading(false);
     }
-  }, [user, instanceId]);
+    // reloadKey is an intentional extra dep: bumping it (page-mode, after HarvestModal save)
+    // changes this callback's identity → the effect below refetches in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, instanceId, reloadKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
@@ -335,8 +351,14 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     onClose();
   }, [backHref, onClose, router]);
 
-  useEscapeKey(true, onClose);
-  const trapRef = useFocusTrap(true);
+  // Modal-only: Escape closes + focus stays trapped. Page mode uses the real route + Back chip.
+  useEscapeKey(variant === "modal", onClose);
+  const trapRef = useFocusTrap(variant === "modal");
+
+  // Page mode: tell the wrapper when a sub-sheet is open so it can suspend swipe navigation.
+  useEffect(() => {
+    onSubSheetOpenChange?.(archiveOpen || batchLogOpen);
+  }, [archiveOpen, batchLogOpen, onSubSheetOpenChange]);
 
   // ---------------------------------------------------------------------------
   // Hero image (Law 7 for this grow: journal → profile hero → profile packet → sprout)
@@ -549,6 +571,13 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   // Render
   // ---------------------------------------------------------------------------
   if (loading) {
+    if (variant === "page") {
+      return (
+        <div className="flex items-center justify-center py-24">
+          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
     return (
       <>
         <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
@@ -560,6 +589,10 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   }
 
   if (error || !grow) {
+    if (variant === "page") {
+      // Back affordance lives in the page wrapper; just render the in-flow message.
+      return <p className="text-red-600 py-8">{error ?? "Plant not found."}</p>;
+    }
     return (
       <>
         <div className="fixed inset-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
@@ -647,12 +680,14 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     .filter((t) => t.completed_at)
     .sort((a, b) => toTime(b.completed_at) - toTime(a.completed_at));
 
+  const isModal = variant === "modal";
+
   return (
     <>
       {toast}
-      <div className="fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />
-      <div ref={trapRef} className="fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[81] flex flex-col overflow-hidden bg-neutral-50">
-        <div className="flex-1 overflow-auto pb-28 min-h-0">
+      {isModal && <div className="fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[80] bg-black/40" aria-hidden onClick={onClose} />}
+      <div ref={isModal ? trapRef : undefined} className={isModal ? "fixed inset-x-0 top-0 bottom-16 xl:bottom-0 z-[81] flex flex-col overflow-hidden bg-neutral-50" : ""}>
+        <div className={isModal ? "flex-1 overflow-auto pb-28 min-h-0" : ""}>
       {/* ------------------------------------------------------------------ */}
       {/* HERO — full-bleed from top; minimal controls overlay; serif name + age */}
       {/* ------------------------------------------------------------------ */}
@@ -667,17 +702,20 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             <PlantPlaceholderIcon size="2xl" className="opacity-90" />
           </div>
         )}
-        {/* Hero overlay: back arrow only — pill chrome relocated below hero for legibility. */}
-        <div className="absolute top-0 left-0 right-0 flex items-center px-2 py-2 z-10">
-          <button
-            type="button"
-            onClick={handleBack}
-            className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full -ml-1 ${heroUrl ? "text-white/95 hover:bg-white/20" : "text-neutral-700 hover:bg-neutral-100"}`}
-            aria-label="Back"
-          >
-            <ICON_MAP.Back className="w-5 h-5" />
-          </button>
-        </div>
+        {/* Hero overlay: back arrow only — pill chrome relocated below hero for legibility.
+            Page mode: the page wrapper renders an unframed Back chip above the hero (§8 chrome-control framing). */}
+        {isModal && (
+          <div className="absolute top-0 left-0 right-0 flex items-center px-2 py-2 z-10">
+            <button
+              type="button"
+              onClick={handleBack}
+              className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full -ml-1 ${heroUrl ? "text-white/95 hover:bg-white/20" : "text-neutral-700 hover:bg-neutral-100"}`}
+              aria-label="Back"
+            >
+              <ICON_MAP.Back className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         <div className="absolute bottom-0 left-0 right-0 p-4 pb-4">
           <h1 className={`font-serif text-xl leading-tight ${heroUrl ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" : "text-neutral-900"}`}>
             {displayTitle}

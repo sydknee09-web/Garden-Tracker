@@ -7,7 +7,7 @@
  *
  * Covers:
  *  - Unified Garden page wires GardenView (no ActiveGardenView / MyPlantsView refs)
- *  - GardenView card-tap → /garden?grow=<id> (instance modal), NOT /vault/<id>
+ *  - GardenView card-tap → /garden/grow/<id> (standalone instance page, Sprint 3), NOT /vault/<id>
  *    (the Syd 2026-05-29 finding; My Plants used to route to profile page)
  *  - GroupTabs sub-tab primitive matches Vault sub-tab JSX shape (cohesion-by-aggregation)
  *  - URL migration: ?tab=active|plants → /garden one-time redirect on mount
@@ -103,11 +103,13 @@ describe("GardenView — unified data + routing", () => {
     expect(gardenView).toContain("fetchAllUserGrowInstances");
   });
 
-  it("card-tap routes to /garden?grow=<id> (instance modal) in BOTH grid and list modes", () => {
-    // Per Syd 2026-05-29 lock: unified card-tap → instance modal. Pre-B2, MyPlantsView
-    // routed grid-card-taps to /vault/<profileId> (profile page) — that divergence is closed.
-    const occurrences = (gardenView.match(/`\/garden\?grow=\$\{batch\.id\}`/g) ?? []).length;
+  it("card-tap routes to /garden/grow/<id> (standalone instance page) in BOTH grid and list modes", () => {
+    // Sprint 3 2026-06-10: the instance is now a real page (NORTH_STAR "No duplicate paths"); card-tap
+    // navigates to /garden/grow/<id> instead of the legacy ?grow= modal overlay. Both grid + list.
+    const occurrences = (gardenView.match(/`\/garden\/grow\/\$\{batch\.id\}`/g) ?? []).length;
     expect(occurrences).toBeGreaterThanOrEqual(2);
+    // The legacy modal-overlay route is gone from the card taps.
+    expect(gardenView).not.toContain("`/garden?grow=${batch.id}`");
   });
 
   it("does NOT route card-tap to /vault/<profileId> anywhere", () => {
