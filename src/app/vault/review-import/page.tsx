@@ -1749,10 +1749,7 @@ export default function ReviewImportPage() {
         </div>
       </div>
 
-      <div
-        className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper/95 border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-        style={{ paddingBottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))" }}
-      >
+      <div className="fixed left-0 right-0 bottom-20 z-[100] p-4 bg-paper/95 border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
         <button
           type="button"
           onClick={handleSaveAll}

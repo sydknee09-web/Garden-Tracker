@@ -33,10 +33,7 @@ export function VaultProfilePlantingsTab({
   return (
     <>
       {growInstances.length > 0 && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3">
-          <p className="text-xs text-neutral-500 max-w-md">
-            The bold name is <span className="font-medium text-neutral-600">Location</span> on each planting. Tap <span className="font-medium text-neutral-600">Edit</span> → in the planting screen use <span className="font-medium text-neutral-600">Location</span> (top bar or Overview) to rename. Count shows when saved on that planting.
-          </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-end mb-3">
           <button
             type="button"
             onClick={onPlantAgain}
@@ -95,9 +92,6 @@ export function VaultProfilePlantingsTab({
                   </div>
                   <span className="text-xs text-neutral-500 shrink-0">{formatDisplayDate(gi.sown_date)}</span>
                 </div>
-                {!loc && (
-                  <p className="text-xs text-amber-700/90 mb-1">No location label — tap Edit to add one.</p>
-                )}
                 {vendorLabel && <p className="text-xs text-neutral-500">{vendorLabel}</p>}
               </>
             );
