@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -51,6 +51,8 @@ export default function VaultPacketDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [plantFromPacketOpen, setPlantFromPacketOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [orderedPacketIds, setOrderedPacketIds] = useState<string[]>([]);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const pkt = packets[0] ?? null;
 
@@ -135,6 +137,42 @@ export default function VaultPacketDetailPage() {
     if (id) void fetchJournalForPacket(id);
   }, [id, fetchJournalForPacket]);
 
+  // Context-aware swipe set (Option A): from a profile → that variety's packets only (matching the
+  // profile Packets-tab order: in-stock first, then newest); from the Vault list → all packets,
+  // newest-first (the list's user-chosen sort isn't accessible here, so newest-first per the lock).
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      if (fromParam === "profile" && profileIdParam) {
+        const { data } = await supabase
+          .from("seed_packets")
+          .select("id, qty_status, created_at")
+          .eq("plant_profile_id", profileIdParam)
+          .eq("user_id", user.id)
+          .is("deleted_at", null);
+        if (cancelled || !data) return;
+        const sorted = [...(data as { id: string; qty_status: number | null; created_at?: string }[])].sort((a, b) => {
+          const aHas = (a.qty_status ?? 0) > 0 ? 1 : 0;
+          const bHas = (b.qty_status ?? 0) > 0 ? 1 : 0;
+          if (bHas !== aHas) return bHas - aHas;
+          return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+        });
+        setOrderedPacketIds(sorted.map((r) => r.id));
+      } else {
+        const { data } = await supabase
+          .from("seed_packets")
+          .select("id")
+          .eq("user_id", user.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        if (cancelled || !data) return;
+        setOrderedPacketIds((data as { id: string }[]).map((r) => r.id));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, fromParam, profileIdParam]);
+
   const imageUrls = useMemo(() => (pkt ? getPacketImageUrls(pkt, extraImages) : []), [pkt, extraImages]);
 
   // Hero: packet photo first; fall back to the plant profile's STORED photo (hero_image_path →
@@ -154,6 +192,36 @@ export default function VaultPacketDetailPage() {
 
   const canEdit = pkt ? (pkt.user_id === user?.id ? true : canEditPage(pkt.user_id, "plant_vault")) : false;
   const isOwn = pkt?.user_id === user?.id;
+
+  // Preserve entry context across swipes so the traversal set stays consistent.
+  const contextQuery = fromParam === "profile" && profileIdParam ? `?from=profile&profileId=${profileIdParam}` : "";
+
+  const { prevId, nextId } = useMemo(() => {
+    if (!id || orderedPacketIds.length === 0) return { prevId: null as string | null, nextId: null as string | null };
+    const idx = orderedPacketIds.indexOf(id);
+    if (idx < 0) return { prevId: null, nextId: null };
+    return {
+      prevId: idx > 0 ? orderedPacketIds[idx - 1]! : null,
+      nextId: idx < orderedPacketIds.length - 1 ? orderedPacketIds[idx + 1]! : null,
+    };
+  }, [id, orderedPacketIds]);
+
+  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
+    swipeStartRef.current = { x: e.touches[0]?.clientX ?? 0, y: e.touches[0]?.clientY ?? 0 };
+  }, []);
+  const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    // Don't navigate while a modal/sheet is open.
+    if (start == null || showDeleteConfirm || plantFromPacketOpen || editOpen) return;
+    const end = e.changedTouches[0];
+    if (!end) return;
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < -50 && nextId) router.push(`/vault/packets/${nextId}${contextQuery}`); // swipe left → next
+    else if (dx > 50 && prevId) router.push(`/vault/packets/${prevId}${contextQuery}`); // swipe right → previous
+  }, [showDeleteConfirm, plantFromPacketOpen, editOpen, nextId, prevId, router, contextQuery]);
 
   const handleDelete = useCallback(async () => {
     if (!pkt) return;
@@ -231,6 +299,27 @@ export default function VaultPacketDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Swipe left = next, right = previous; context-aware set. Desktop = arrow buttons. */}
+      <div className="relative touch-pan-y" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
+        {prevId && (
+          <Link
+            href={`/vault/packets/${prevId}${contextQuery}`}
+            className="absolute left-0 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            aria-label="Previous packet"
+          >
+            <ICON_MAP.ChevronLeft className="w-6 h-6" />
+          </Link>
+        )}
+        {nextId && (
+          <Link
+            href={`/vault/packets/${nextId}${contextQuery}`}
+            className="absolute right-0 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            aria-label="Next packet"
+          >
+            <ICON_MAP.ChevronRight className="w-6 h-6" />
+          </Link>
+        )}
 
       {!isOwn && householdViewMode === "family" && (
         <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
@@ -484,6 +573,7 @@ export default function VaultPacketDetailPage() {
           onSaved={() => { setEditOpen(false); void loadPacket(); }}
         />
       )}
+      </div>
     </div>
   );
 }
