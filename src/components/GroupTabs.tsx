@@ -27,11 +27,22 @@ export function GroupTabs({
   selectedGroup,
   onSelectGroup,
   refetchTrigger = 0,
+  onMutated,
 }: {
   selectedGroup: SelectedGroup;
   onSelectGroup: (next: SelectedGroup) => void;
   /** Bump to re-fetch groups (e.g. after Manage Groups CRUD in B3). */
   refetchTrigger?: number;
+  /**
+   * Called after any Manage Groups mutation (create/rename/reorder/delete/
+   * reassign-on-delete). Parent should bump the SAME trigger that reloads its
+   * plant list — Manage mutations can change plant_groups memberships, and a
+   * tab-only refetch leaves the page's group-filtered batches stale (Syd
+   * dogfood 2026-06-09: reassign-on-delete invisible on destination tab).
+   * When provided, replaces the internal tab-only refetch (parent's
+   * refetchTrigger reaches this component too — no double fetch).
+   */
+  onMutated?: () => void;
 }) {
   const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -189,7 +200,10 @@ export function GroupTabs({
       <ManageGroupsModal
         open={manageOpen}
         onClose={() => setManageOpen(false)}
-        onMutated={() => setLocalRefetchKey((k) => k + 1)}
+        onMutated={() => {
+          if (onMutated) onMutated();
+          else setLocalRefetchKey((k) => k + 1);
+        }}
       />
     </>
   );

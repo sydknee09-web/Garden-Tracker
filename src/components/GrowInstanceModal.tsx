@@ -37,6 +37,8 @@ export interface GrowInstanceModalProps {
   initialTab?: "overview" | "journal" | "care" | "history";
   /** Care-tab deep-link: scrolls the matching care_schedule card into view once rendered. */
   focusScheduleId?: string;
+  /** Called after a successful group change so the parent page can refetch its batch list (Garden tab group filters read page-level cache, not this modal's state). */
+  onGroupChanged?: () => void;
   /**
    * When set (e.g. from Vault profile), used for "Open in Garden" so the host can
    * navigate without double back-stack issues with modal history.pushState.
@@ -175,7 +177,7 @@ function isPlaceholderHeroUrl(url: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
-export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, focusScheduleId, onOpenInGarden }: GrowInstanceModalProps) {
+export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, readOnly = false, initialTab, focusScheduleId, onGroupChanged, onOpenInGarden }: GrowInstanceModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast, showToast, showErrorToast } = useToast();
@@ -459,6 +461,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       });
       setCurrentGroup(next);
       setEditingGroup(false);
+      onGroupChanged?.();
     } catch {
       showErrorToast("Couldn't update group. Please try again.");
     } finally {

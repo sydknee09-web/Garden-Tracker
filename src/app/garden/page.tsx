@@ -433,6 +433,7 @@ function GardenPageInner() {
             selectedGroup={effectiveGroup}
             onSelectGroup={setGroup}
             refetchTrigger={refetchTrigger}
+            onMutated={() => setRefetchTrigger((t) => t + 1)}
           />
 
         {/* Always show toolbar (search, filter, toggle) so users can search/add even when list is empty */}
@@ -1185,7 +1186,7 @@ function GardenPageInner() {
           >
             <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
               <p className="text-sm font-medium text-black/70">
-                Move {bulkSelectedCount} to…
+                Move {bulkSelectedCount} {bulkSelectedCount === 1 ? "plant" : "plants"} to…
               </p>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
@@ -1304,6 +1305,7 @@ function GardenPageInner() {
             return t === "care" || t === "journal" || t === "history" || t === "overview" ? t : undefined;
           })()}
           focusScheduleId={searchParams.get("schedule") ?? undefined}
+          onGroupChanged={() => setRefetchTrigger((t) => t + 1)}
           onClose={() => {
             if (fromParam === "profile" && profileParam) router.push(`/vault/${profileParam}`);
             else router.replace(buildGardenUrl());
