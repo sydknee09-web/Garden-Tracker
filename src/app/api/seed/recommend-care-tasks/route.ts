@@ -6,6 +6,7 @@ import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 
 export const maxDuration = 30;
 
@@ -134,6 +135,13 @@ export async function POST(req: Request) {
           })),
         } satisfies RecommendCareTasksResponse & { suggestions: Array<CareSuggestionPayload & { id: string }> });
       }
+    }
+
+    // Durable per-user daily ceiling (Leak 3) — checked after the free cache tier
+    // so cache hits stay free under the cap.
+    const daily = await checkDailyAiCeiling(auth.user.id);
+    if (!daily.allowed) {
+      return NextResponse.json({ error: "DAILY_AI_LIMIT", limit: daily.limit }, { status: 429 });
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();

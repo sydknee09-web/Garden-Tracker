@@ -4,6 +4,7 @@ import { getSupabaseUser, unauthorized } from "@/app/api/import/auth";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { logRequestMetrics } from "@/lib/logRequestMetrics";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { getVendorFromUrl, toCanonicalDisplay } from "@/lib/vendorNormalize";
@@ -466,6 +467,12 @@ export async function POST(req: Request) {
     if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
       statusCode = 429;
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
+    // Durable per-user daily ceiling on Gemini usage (leak audit 2026-06-10, Leak 3).
+    const daily = await checkDailyAiCeiling(auth.user.id);
+    if (!daily.allowed) {
+      statusCode = 429;
+      return NextResponse.json({ error: "DAILY_AI_LIMIT", limit: daily.limit }, { status: 429 });
     }
     const bodySizeErr = checkContentLength(req);
     if (bodySizeErr) {

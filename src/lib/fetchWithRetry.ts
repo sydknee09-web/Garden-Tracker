@@ -2,16 +2,19 @@
  * fetch wrapper with exponential-backoff auto-retry for transient failures.
  *
  * Built for AI image-extraction calls (Gemini-backed routes), which intermittently
- * throw on rate-limit / 503 / timeout and return 500. Without retry the user sees an
- * error on the first hiccup and has to manually re-click 2-3 times (Syd dogfood 2026-06-08).
+ * throw on timeout and return 500. Without retry the user sees an error on the
+ * first hiccup and has to manually re-click 2-3 times (Syd dogfood 2026-06-08).
  *
  * Retries on: a thrown fetch (network drop) OR a retryable HTTP status.
  * Does NOT retry 4xx (400/401/403/404 are permanent — retrying won't help).
+ * Does NOT retry 429 or 503: both are Gemini quota/load signals, and every failed
+ * attempt is counted against quota (free tier) or billed (paid tier) — retrying
+ * mid-burst turns a soft cap into a hard wall (AI usage leak audit 2026-06-10, Leak 1).
  * Returns the final Response (ok or not) so callers keep their existing body-handling.
  */
 
-/** Statuses worth retrying: request timeout, rate-limit, and transient server/gateway errors. */
-export const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+/** Statuses worth retrying: request timeout and transient server/gateway errors. */
+export const RETRYABLE_STATUSES = new Set([408, 500, 502, 504]);
 
 /** Default backoff between attempts. delays.length === number of retries after the first attempt. */
 export const DEFAULT_RETRY_DELAYS = [1000, 2000];

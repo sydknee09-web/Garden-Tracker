@@ -6,6 +6,7 @@ import { getSupabaseUser } from "@/app/api/import/auth";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 
 export const maxDuration = 30;
 
@@ -117,6 +118,15 @@ export async function POST(req: Request) {
         }
       } catch {
         // Table may not exist yet (migration not propagated); fall through to AI
+      }
+    }
+
+    // Durable per-user daily ceiling (Leak 3) — checked after the free library tier
+    // so cache hits stay free under the cap.
+    if (auth?.user?.id) {
+      const daily = await checkDailyAiCeiling(auth.user.id);
+      if (!daily.allowed) {
+        return NextResponse.json({ error: "DAILY_AI_LIMIT", limit: daily.limit }, { status: 429 });
       }
     }
 

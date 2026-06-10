@@ -125,7 +125,9 @@ export function useVaultHeroHandlers({
       const res = await fetchWithRetry("/api/seed/find-hero-photo", {
         method: "POST",
         headers,
-        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, profile_id: profileId }),
+        // allow_fallback: explicit user "AI refresh" is the one caller that gets the
+        // primary+fallback double attempt (leak audit 2026-06-10, Leak 2).
+        body: JSON.stringify({ name, variety, vendor, identity_key: identityKey ?? undefined, profile_id: profileId, allow_fallback: true }),
       });
       const data = (await res.json()) as { hero_image_url?: string; hero_image_path?: string; error?: string };
       const storagePath = data.hero_image_path?.trim();

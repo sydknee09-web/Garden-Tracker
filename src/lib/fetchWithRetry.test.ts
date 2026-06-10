@@ -13,7 +13,7 @@ describe("fetchWithRetry", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(res(500))
-      .mockResolvedValueOnce(res(503))
+      .mockResolvedValueOnce(res(502))
       .mockResolvedValueOnce(res(200));
     const out = await fetchWithRetry("/api/x", undefined, { ...noWait, fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
@@ -21,11 +21,11 @@ describe("fetchWithRetry", () => {
   });
 
   it("returns the last non-ok response when all attempts fail with retryable status", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(res(503));
+    const fetchImpl = vi.fn().mockResolvedValue(res(500));
     const out = await fetchWithRetry("/api/x", undefined, { ...noWait, fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(out.ok).toBe(false);
-    expect(out.status).toBe(503);
+    expect(out.status).toBe(500);
   });
 
   it("does NOT retry a non-retryable 4xx — returns immediately on the first call", async () => {
@@ -33,6 +33,20 @@ describe("fetchWithRetry", () => {
     const out = await fetchWithRetry("/api/x", undefined, { ...noWait, fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(out.status).toBe(400);
+  });
+
+  it("does NOT retry 429 — quota signal returns immediately (leak audit 2026-06-10 Leak 1)", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(res(429));
+    const out = await fetchWithRetry("/api/x", undefined, { ...noWait, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(out.status).toBe(429);
+  });
+
+  it("does NOT retry 503 — load signal returns immediately (leak audit 2026-06-10 Leak 1)", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(res(503));
+    const out = await fetchWithRetry("/api/x", undefined, { ...noWait, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(out.status).toBe(503);
   });
 
   it("retries a thrown network error then succeeds", async () => {
@@ -73,9 +87,11 @@ describe("fetchWithRetry", () => {
     expect(sleeps).toEqual([1000, 2000]);
   });
 
-  it("exposes sensible defaults (3 attempts, 1s/2s backoff)", () => {
+  it("exposes sensible defaults (3 attempts, 1s/2s backoff; quota signals excluded)", () => {
     expect(DEFAULT_RETRY_DELAYS).toEqual([1000, 2000]);
-    expect(RETRYABLE_STATUSES.has(429)).toBe(true);
+    expect([...RETRYABLE_STATUSES].sort()).toEqual([408, 500, 502, 504]);
+    expect(RETRYABLE_STATUSES.has(429)).toBe(false);
+    expect(RETRYABLE_STATUSES.has(503)).toBe(false);
     expect(RETRYABLE_STATUSES.has(400)).toBe(false);
   });
 });

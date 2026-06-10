@@ -11,13 +11,20 @@ import {
 import { logRequestMetrics } from "@/lib/logRequestMetrics";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
-// Single retry (2 attempts) for the slow AI calls below. The route's maxDuration
+// Single retry (2 attempts) for the slow enrich call below. The route's maxDuration
 // is 60s and enrich-from-name is a Gemini call, so we bound retries tightly to
 // avoid pushing the route past its serverless budget (an unbounded retry would
-// risk the timeout-kill that strands hero_image_pending). Transient retryable
-// statuses (429/503/etc.) return fast, so one retry is cheap insurance against
-// the silent-blank-profile failure Syd hit on PO import 2026-06-08.
+// risk the timeout-kill that strands hero_image_pending). 429/503 are no longer
+// retryable (leak audit 2026-06-10, Leak 1), so this only fires on genuine
+// transients (408/500/502/504/network) — cheap insurance against the
+// silent-blank-profile failure Syd hit on PO import 2026-06-08.
 const AI_RETRY_DELAYS = [1500];
+
+// Hero gets NO fetch-layer retry: find-hero-photo internally manages its own Gemini
+// attempts and returns 200-with-empty-URL on a miss, so a retry here would only
+// re-fire the whole hero pipeline and multiply calls during the import fan-out
+// (leak audit 2026-06-10, Leak 2 — hero attempts hard-capped per profile).
+const HERO_RETRY_DELAYS: number[] = [];
 
 const BACKGROUND_ENRICH_ROUTE_ID = "background-enrich";
 
@@ -50,7 +57,7 @@ async function findHeroPhotoWithToken(
           scientific_name: scientificName ?? "",
         }),
       },
-      { delays: AI_RETRY_DELAYS }
+      { delays: HERO_RETRY_DELAYS }
     );
     const data = (await res.json()) as { hero_image_url?: string };
     return (data.hero_image_url ?? "").trim();

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser } from "@/app/api/import/auth";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeVendorKey } from "@/lib/vendorNormalize";
@@ -131,6 +132,13 @@ export async function POST(req: Request) {
     const profile_id = typeof body?.profile_id === "string" ? body.profile_id.trim() : "";
     /** When true (e.g. Set Profile Photo modal), single Gemini pass, return multiple URLs for user to pick. */
     const gallery = body?.gallery === true;
+    /**
+     * When true (explicit user "AI refresh" only), a primary-query miss may fire ONE
+     * fallback Gemini attempt with a simpler query. Defaults to false so fan-out and
+     * background callers (import, fill-blanks, background-hero) are capped at a single
+     * Gemini attempt per profile (AI usage leak audit 2026-06-10, Leak 2).
+     */
+    const allowFallback = body?.allow_fallback === true;
     const logLabel = `${name} ${(variety || "").trim()}`.trim() || name;
     if (!name) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
@@ -236,8 +244,16 @@ export async function POST(req: Request) {
     }
 
     // -------------------------------------------------------------------------
-    // AI search
+    // AI search — durable per-user daily ceiling checked here, AFTER the free
+    // cache tiers, so cache hits stay free under the cap (Leak 3).
     // -------------------------------------------------------------------------
+    if (!gallery && auth?.user?.id) {
+      const daily = await checkDailyAiCeiling(auth.user.id);
+      if (!daily.allowed) {
+        return NextResponse.json({ error: "DAILY_AI_LIMIT", limit: daily.limit }, { status: 429 });
+      }
+    }
+
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json({ error: "GOOGLE_GENERATIVE_AI_API_KEY not configured" }, { status: 503 });
@@ -302,6 +318,18 @@ export async function POST(req: Request) {
       }
 
       // ---- Gemini supplement (for plants with few Wikimedia photos) ----
+      // Daily ceiling (Leak 3): Wikimedia is free; only the Gemini supplement counts.
+      // When capped, degrade gracefully — return the free pool instead of a hard 429.
+      if (auth?.user?.id) {
+        const daily = await checkDailyAiCeiling(auth.user.id);
+        if (!daily.allowed) {
+          if (wikimediaUrls.length > 0) {
+            return NextResponse.json({ urls: shuffle(wikimediaUrls).slice(0, GALLERY_VISIBLE_LIMIT) });
+          }
+          return NextResponse.json({ urls: [], error: "DAILY_AI_LIMIT" }, { status: 429 });
+        }
+      }
+
       const geminiQuery = specificQuery || genericQuery || "plant";
       const geminiPrompt = `Using Google Search, find 8 direct image URLs (https) of the actual plant, flower, or fruit for: "${geminiQuery}". Only photos of the growing plant — no seed packets, no product shots, no watermarked stock previews (shutterstock, alamy, dreamstime, getty, 123rf). Prefer pixabay.com, unsplash.com, pexels.com, staticflickr.com, and .edu sites. Each URL must be a direct image file (.jpg, .jpeg, .png, .webp). Return only valid JSON: { "urls": ["https://...", ...] }.`;
 
@@ -411,8 +439,9 @@ export async function POST(req: Request) {
       } catch { /* leave url empty */ }
     }
 
-    // If first pass failed, retry with a simpler query (just plant name, no variety)
-    if (!url && name) {
+    // If first pass failed, retry with a simpler query (just plant name, no variety).
+    // Gated on allow_fallback: only the explicit user "AI refresh" gets the double attempt.
+    if (!url && name && allowFallback) {
       const fallbackQuery = `${name} plant botanical -packet -seeds`.replace(/\s+/g, " ").trim();
       console.log(`[hero] Retry with simpler query: ${fallbackQuery}`);
       let retryResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;

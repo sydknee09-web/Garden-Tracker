@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseUser } from "@/app/api/import/auth";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 import { checkContentLength, MAX_URL_LENGTH } from "@/lib/requestValidation";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { logRequestMetrics } from "@/lib/logRequestMetrics";
@@ -3850,7 +3851,15 @@ export async function POST(request: Request) {
 
     // Smart Scraping: try Gemini 1.5 Flash first, then Zone 10b / category defaults.
     const pageText = getPageTextForGemini(html, metadata);
-    const geminiResult = await extractWithGemini(pageText, url);
+    // Durable per-user daily ceiling (leak audit 2026-06-10, Leak 3): when capped,
+    // skip the Gemini extraction and fall through to the HTML parsers / category
+    // defaults — the scrape itself stays free.
+    let geminiAllowed = true;
+    if (auth?.user?.id) {
+      const daily = await checkDailyAiCeiling(auth.user.id);
+      geminiAllowed = daily.allowed;
+    }
+    const geminiResult = geminiAllowed ? await extractWithGemini(pageText, url) : null;
     if (geminiResult) {
       if (auth?.user?.id) logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "scrape-url" });
       const plantName =

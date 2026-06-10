@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
+import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 
 export const maxDuration = 30;
 
@@ -113,6 +114,11 @@ export async function POST(req: Request) {
     if (!auth) return unauthorized();
     if (!checkRateLimit(auth.user.id, DEFAULT_RATE_LIMIT)) {
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+    }
+    // Durable per-user daily ceiling on Gemini usage (leak audit 2026-06-10, Leak 3).
+    const daily = await checkDailyAiCeiling(auth.user.id);
+    if (!daily.allowed) {
+      return NextResponse.json({ error: "DAILY_AI_LIMIT", limit: daily.limit }, { status: 429 });
     }
     const { user } = auth;
 
