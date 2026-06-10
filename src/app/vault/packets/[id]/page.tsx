@@ -185,6 +185,12 @@ export default function VaultPacketDetailPage() {
   const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
   const journal = journalByPacketId[pkt.id] ?? [];
 
+  // Description: a packet's own captured vendor description takes precedence; otherwise fall back
+  // to the profile's canonical description WITH attribution so the source is transparent (Option C).
+  const packetDescription = (pkt.vendor_specs as { plant_description?: string } | null)?.plant_description?.trim() || null;
+  const descriptionText = packetDescription ?? profileDescription;
+  const descriptionFromProfile = !packetDescription && !!profileDescription;
+
   // Growing recs come from the profile (canonical, one set per variety). Read-only here.
   const growingRows: { label: string; value: string }[] = [
     { label: "Sun", value: profileSun || "—" },
@@ -365,10 +371,13 @@ export default function VaultPacketDetailPage() {
             </div>
           ))}
         </dl>
-        {profileDescription && (
+        {descriptionText && (
           <div className="mt-3">
             <p className="text-xs text-neutral-500">Description</p>
-            <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profileDescription}</p>
+            <p className="text-sm text-neutral-700 whitespace-pre-wrap">{descriptionText}</p>
+            {descriptionFromProfile && (
+              <p className="text-xs text-neutral-500 italic mt-1">From plant profile</p>
+            )}
           </div>
         )}
       </div>
