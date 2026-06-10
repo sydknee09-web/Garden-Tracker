@@ -698,7 +698,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
     const batchId = endBatchTarget.id;
     const now = new Date().toISOString();
     const isDead = endReason === "plant_died";
-    const status = isDead ? "dead" : "archived";
+    // Terminal status is always 'archived' (2-state enum, collapsed 2026-05-28 — 'dead' is no longer
+    // valid and was rejected by grow_instances_status_check, leaving the planting stuck at 'growing').
+    // The death is preserved via end_reason + the "death" journal entry below.
+    const status = "archived";
     const batchUserId = endBatchTarget.user_id ?? user.id;
 
     const { error: updateErr } = await updateWithOfflineQueue("grow_instances", {

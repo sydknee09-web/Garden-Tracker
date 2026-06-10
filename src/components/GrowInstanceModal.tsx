@@ -13,6 +13,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useToast } from "@/hooks/useToast";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
+import { formatAge } from "@/lib/formatAge";
 import { fetchUserGroups, fetchInstanceGroups, setInstanceGroup } from "@/lib/groups";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile, Group } from "@/types/garden";
 import type { BatchLogBatch } from "@/components/BatchLogSheet";
@@ -77,21 +78,6 @@ type ActiveTab = "overview" | "journal" | "care" | "history";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatAge(sowDate: string, endDate?: string | null): string {
-  const start = new Date(sowDate + "T12:00:00");
-  const finish = endDate ? new Date(endDate + "T12:00:00") : new Date();
-  const diffMs = finish.getTime() - start.getTime();
-  if (diffMs < 0) return "Not yet planted";
-  const days = Math.floor(diffMs / 86400000);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"}`;
-  if (days < 60) return `${Math.floor(days / 7)} wk${Math.floor(days / 7) === 1 ? "" : "s"}`;
-  const months = Math.floor(days / 30.44);
-  if (months < 24) return `${months} mo`;
-  const years = Math.floor(months / 12);
-  const remMonths = months % 12;
-  return remMonths > 0 ? `${years} yr ${remMonths} mo` : `${years} yr`;
-}
-
 // AGE source: first planting journal entry > sown_date fallback.
 function firstPlantedDate(journalEntries: JournalEntry[], sownDate: string): string {
   const plantingEntries = journalEntries

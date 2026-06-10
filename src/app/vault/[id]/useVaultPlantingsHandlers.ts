@@ -72,7 +72,10 @@ export function useVaultPlantingsHandlers({
     const batchId = endBatchTarget.id;
     const now = new Date().toISOString();
     const isDead = endReason === "plant_died";
-    const status = isDead ? "dead" : "archived";
+    // Terminal status is always 'archived' (the 2-state enum, collapsed 2026-05-28 — 'dead' is no
+    // longer a valid status; it was rejected by grow_instances_status_check, leaving status='growing').
+    // The death is preserved via end_reason + the "death" journal entry below.
+    const status = "archived";
     const { error: growErr } = await supabase.from("grow_instances").update({ status, ended_at: now, end_reason: endReason }).eq("id", batchId).eq("user_id", endBatchTarget.user_id ?? userId);
     if (growErr) { showErrorToast("Could not end batch. Try again."); setEndSaving(false); setEndBatchTarget(null); setEndReason("season_ended"); setEndNote(""); return; }
     await softDeleteTasksForGrowInstance(batchId, endBatchTarget.user_id ?? userId);
