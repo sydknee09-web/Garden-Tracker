@@ -28,6 +28,10 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { researchVariety } from "../../src/lib/researchVariety";
+// Model: regular gemini-2.5-flash (full quality) via the shared researchVariety lib. Run piecemeal
+// across calendar days as the free DAILY flash quota allows; the worklist is idempotent so each
+// day's run resumes the remainder. (flash-lite was trialled 2026-06-09 then rejected — quality
+// matters more than speed for a data-QUALITY cleanup.)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, "..", "..", ".env.local");
