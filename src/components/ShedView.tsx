@@ -15,6 +15,7 @@ import { QuickAddSupply } from "@/components/QuickAddSupply";
 import { BatchAddSupply } from "@/components/BatchAddSupply";
 import { OwnerBadge } from "@/components/OwnerBadge";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
+import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
 import type { SupplyProfile } from "@/types/garden";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
@@ -228,6 +229,11 @@ export function ShedView({
       onFilteredIdsChange(filteredSupplies.map((s) => s.id));
     }
   }, [embedded, onFilteredIdsChange, filteredSupplies]);
+
+  // Snapshot the displayed (filtered + sorted) supply order so the shed detail page's swipe
+  // follows the user's filter/sort instead of global updated_at-desc (lib/swipeOrder).
+  const swipeOrderSupplyIds = useMemo(() => filteredSupplies.map((s) => s.id), [filteredSupplies]);
+  useSwipeOrderSnapshot("supplies", swipeOrderSupplyIds);
 
   const handleAddSuccess = useCallback(() => {
     fetchSupplies();

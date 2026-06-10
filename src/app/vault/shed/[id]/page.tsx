@@ -14,6 +14,7 @@ import { ShedSupplyIcon } from "@/components/ShedView";
 import { compressImage } from "@/lib/compressImage";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { parseNpkForDisplay } from "@/lib/supplyProfiles";
+import { getSwipeOrder } from "@/lib/swipeOrder";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useDesktopPhotoCapture } from "@/hooks/useDesktopPhotoCapture";
 import { hapticSuccess } from "@/lib/haptics";
@@ -155,9 +156,16 @@ export default function VaultShedDetailPage() {
     setShedSackFallbackFailed(false);
   }, [id]);
 
-  // Fetch ordered supply IDs for swipe prev/next (updated_at desc, same as ShedView)
+  // Ordered supply IDs for swipe prev/next. Prefer the filtered+sorted snapshot from the Shed
+  // list (so swipe follows the user's filter/sort), falling back to updated_at desc for
+  // deep-links/other entry points (see lib/swipeOrder).
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !id) return;
+    const snapshot = getSwipeOrder("supplies", id);
+    if (snapshot) {
+      setOrderedSupplyIds(snapshot);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -168,7 +176,7 @@ export default function VaultShedDetailPage() {
       if (!cancelled && data) setOrderedSupplyIds((data as { id: string }[]).map((r) => r.id));
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, id]);
 
   const { prevId, nextId } = useMemo(() => {
     if (!id || orderedSupplyIds.length === 0) return { prevId: null as string | null, nextId: null as string | null };
