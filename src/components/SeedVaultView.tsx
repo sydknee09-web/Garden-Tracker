@@ -132,7 +132,7 @@ const VOLUME_COLORS: Record<string, string> = {
 /** Card border: green only when active_plantings_count > 0 (status is "active" only when profile has active grow_instances). */
 function getCardBorderClass(seed: VaultCardItem): string {
   if (seed.status === "active") return "border-emerald-500/60 border-2";
-  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-neutral-300 border border-dashed";
+  if (seed.packet_count === 0 || seed.status === "out_of_stock") return "border-neutral-200 border";
   return "border-slate-200/80 border";
 }
 
