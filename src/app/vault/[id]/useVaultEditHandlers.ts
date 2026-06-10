@@ -14,6 +14,20 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 type SessionLike = { access_token: string } | null;
 
+type EnrichResult = { ok?: boolean; enriched?: boolean; fieldsFilled?: number; error?: string };
+
+/**
+ * Honest-feedback toast copy for AI Fill blanks / Overwrite (locked verbatim, Syd 2026-06-10;
+ * audit 2026-06-10 §8.4). "field"/"fields" pluralizes for natural reading; the rest is locked.
+ */
+function enrichToastMessage(ok: boolean, data: EnrichResult): string {
+  const filled = typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0;
+  const quota = data.error === "DAILY_AI_LIMIT" || data.error === "RATE_LIMITED";
+  if (filled > 0) return `Updated ${filled} ${filled === 1 ? "field" : "fields"}`;
+  if (!ok || quota || data.enriched === false) return "AI unavailable, try again later";
+  return "Nothing new to add";
+}
+
 export type VaultEditForm = {
   plantType: string;
   /** Variety-level lifecycle classification = plant_profiles.profile_type ('seed' | 'permanent'). Relocated edit (2026-06-09). */
@@ -206,18 +220,18 @@ export function useVaultEditHandlers({
       const res = await fetch("/api/seed/fill-blanks-for-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId, useGemini: true }),
+        body: JSON.stringify({ profileId, useGemini: true, forceRefresh: true }),
       });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Fill failed");
+      const data = (await res.json().catch(() => ({}))) as EnrichResult;
       await loadProfile();
-    } catch (e) {
-      setFillBlanksError(e instanceof Error ? e.message : "Could not fill blanks");
+      setToastMessage(enrichToastMessage(res.ok, data));
+    } catch {
+      setToastMessage("AI unavailable, try again later");
     } finally {
       setFillBlanksRunning(false);
       setFillBlanksAttempted(true);
     }
-  }, [profileId, session?.access_token, profile, fillBlanksRunning, loadProfile]);
+  }, [profileId, session?.access_token, profile, fillBlanksRunning, loadProfile, setToastMessage]);
 
   const handleOverwriteWithAi = useCallback(async () => {
     if (!profileId || !session?.access_token || fillBlanksRunning) return;
@@ -228,18 +242,18 @@ export function useVaultEditHandlers({
       const res = await fetch("/api/seed/fill-blanks-for-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId, useGemini: true, overwrite: true }),
+        body: JSON.stringify({ profileId, useGemini: true, overwrite: true, forceRefresh: true }),
       });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Overwrite failed");
+      const data = (await res.json().catch(() => ({}))) as EnrichResult;
       await loadProfile();
-    } catch (e) {
-      setFillBlanksError(e instanceof Error ? e.message : "Could not overwrite with AI");
+      setToastMessage(enrichToastMessage(res.ok, data));
+    } catch {
+      setToastMessage("AI unavailable, try again later");
     } finally {
       setFillBlanksRunning(false);
       setFillBlanksAttempted(true);
     }
-  }, [profileId, session?.access_token, fillBlanksRunning, loadProfile]);
+  }, [profileId, session?.access_token, fillBlanksRunning, loadProfile, setToastMessage]);
 
   const handleAddToShoppingList = useCallback(async () => {
     if (!userId || !profileId) return;

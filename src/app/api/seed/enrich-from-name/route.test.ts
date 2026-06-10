@@ -214,6 +214,24 @@ describe("POST /api/seed/enrich-from-name", () => {
       expect(data.zoneUsed).toBe("5a");
     });
 
+    it("forceRefresh:true bypasses the library cache even at zone 10b", async () => {
+      const ctx = makeSupabaseWithZone("10b");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple", forceRefresh: true }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      // forceRefresh skips the global_plant_library branch and goes straight to AI.
+      expect(tablesConsulted).not.toContain("global_plant_library");
+      expect(mockResearchVariety).toHaveBeenCalled();
+      expect(data.enriched).toBe(true);
+      expect(data.fromCache).toBe(false);
+    });
+
     it("normalizes 'Zone 5a' prefix when deciding library-skip", async () => {
       const ctx = makeSupabaseWithZone("Zone 5a");
       mockGetSupabaseUser.mockResolvedValue(ctx);

@@ -71,6 +71,10 @@ async function findHeroPhotoWithToken(
  * Fill blanks for a single profile: cache lookup (global_plant_cache) then optional AI (hero + enrich).
  * When AI is used, hero is written to cache by find-hero-photo; we write AI enrich data to global_plant_cache here.
  * Used after import save so new profiles never persist with empty cells; also callable from Developer.
+ *
+ * Honest-feedback contract (audit 2026-06-10 §8.4): returns { ok, fromCache, fromAi, enriched, fieldsFilled, error? }
+ * so the client can distinguish "filled N fields" / "nothing new" / "AI unavailable" instead of a silent no-op.
+ * `forceRefresh: true` (explicit user AI buttons) bypasses BOTH caches and forwards to a fresh Gemini call.
  */
 export async function POST(req: Request) {
   try {
@@ -85,28 +89,47 @@ export async function POST(req: Request) {
     const skipHero = Boolean(body?.skipHero);
     /** When true, skip cache and run AI (hero + enrich), overwriting all AI-fillable fields. */
     const overwrite = Boolean(body?.overwrite);
+    /** When true (explicit user re-research), bypass both caches and force a fresh Gemini call. */
+    const forceRefresh = Boolean(body?.forceRefresh);
     /** When true, log request metrics with routeId background-enrich for observability. */
     const backgroundEnrich = Boolean(body?.backgroundEnrich);
     const startTime = Date.now();
+
+    /** AI buttons that bypass the cache-first cheap path and go straight to Gemini. */
+    const bypassCache = overwrite || forceRefresh;
 
     if (!profileId) {
       if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 400);
       return NextResponse.json({ error: "profileId required" }, { status: 400 });
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profileRow, error: profileError } = await supabase
       .from("plant_profiles")
       .select(
-        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context"
+        "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
+          "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, family, genus, species"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (profileError || !profile) {
+    if (profileError || !profileRow) {
       if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 404);
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
+
+    // The wide select string defeats supabase's row-type inference, so cast to a known shape.
+    type ProfileRow = {
+      name?: string | null;
+      variety_name?: string | null;
+      scientific_name?: string | null;
+      hero_image_url?: string | null;
+      hero_image_path?: string | null;
+      plant_description?: string | null;
+      growing_notes?: string | null;
+      [key: string]: unknown;
+    };
+    const profile = profileRow as unknown as ProfileRow;
 
     const { data: packets } = await supabase
       .from("seed_packets")
@@ -127,9 +150,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not derive identity key from name/variety" }, { status: 400 });
     }
 
-    const bestRow = !overwrite ? await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor) : null;
+    /** Profile field names that received a new value this run (cache + AI). Drives fieldsFilled count. */
+    const filledFields = new Set<string>();
+    const countUpdate = (obj: Record<string, unknown>) =>
+      Object.keys(obj).forEach((k) => {
+        if (k !== "description_source") filledFields.add(k);
+      });
+
+    const bestRow = !bypassCache ? await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor) : null;
     let updates = bestRow
-      ? await buildUpdatesFromCacheRow(profile as Parameters<typeof buildUpdatesFromCacheRow>[0], bestRow)
+      ? await buildUpdatesFromCacheRow(profile as unknown as Parameters<typeof buildUpdatesFromCacheRow>[0], bestRow)
       : {};
     if (skipHero) {
       delete (updates as Record<string, unknown>).hero_image_url;
@@ -138,14 +168,19 @@ export async function POST(req: Request) {
 
     let fromCache = false;
     let fromAi = false;
+    let aiEnriched = false;
+    let aiError: string | undefined;
 
-    if (!overwrite && Object.keys(updates).length > 0) {
+    if (!bypassCache && Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase
         .from("plant_profiles")
         .update(updates)
         .eq("id", profileId)
         .eq("user_id", user.id);
-      if (!updateError) fromCache = true;
+      if (!updateError) {
+        fromCache = true;
+        countUpdate(updates as Record<string, unknown>);
+      }
     }
 
     const hadNoHero =
@@ -161,12 +196,18 @@ export async function POST(req: Request) {
       !(updates as Record<string, unknown>).plant_description &&
       !(updates as Record<string, unknown>).growing_notes;
     const u = updates as Record<string, unknown>;
-    const stillMissingSowingDepth = !(profile.sowing_depth ?? "").trim() && !u.sowing_depth;
-    const stillMissingPropagation = !(profile.propagation_notes ?? "").trim() && !u.propagation_notes;
-    const stillMissingSeedSaving = !(profile.seed_saving_notes ?? "").trim() && !u.seed_saving_notes;
-    const stillMissingSeedContext = !(profile.seed_propagation_context ?? "").trim() && !u.seed_propagation_context;
-    const hasOtherBlanks = stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving || stillMissingSeedContext;
-    const needAi = (useGemini && (stillMissingHero || stillMissingDescription || hasOtherBlanks)) || overwrite;
+    const p = profile as Record<string, unknown>;
+    const blankStr = (k: string) => !(String(p[k] ?? "").trim()) && !u[k];
+    const stillMissingSowingDepth = blankStr("sowing_depth");
+    const stillMissingPropagation = blankStr("propagation_notes");
+    const stillMissingSeedSaving = blankStr("seed_saving_notes");
+    const stillMissingSeedContext = blankStr("seed_propagation_context");
+    const stillMissingLifecycle = blankStr("lifecycle");
+    const stillMissingCategory = blankStr("plant_category");
+    const hasOtherBlanks =
+      stillMissingSowingDepth || stillMissingPropagation || stillMissingSeedSaving || stillMissingSeedContext ||
+      stillMissingLifecycle || stillMissingCategory;
+    const needAi = (useGemini && (stillMissingHero || stillMissingDescription || hasOtherBlanks)) || bypassCache;
 
     if (needAi) {
       const token = req.headers.get("authorization")?.startsWith("Bearer ") ? req.headers.get("authorization")!.slice(7).trim() : null;
@@ -188,115 +229,139 @@ export async function POST(req: Request) {
             .eq("id", profileId)
             .eq("user_id", user.id);
           fromAi = true;
+          filledFields.add("hero_image_url");
         }
       }
 
-      if (stillMissingDescription || overwrite || hasOtherBlanks || (!fromCache && (profile.plant_description ?? "").trim() === "")) {
-        const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const origin = base.startsWith("http") ? base : `https://${base}`;
-        try {
-          const enrichRes = await fetchWithRetry(
-            `${origin}/api/seed/enrich-from-name`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ name, variety }),
-            },
-            { delays: AI_RETRY_DELAYS }
-          );
-          if (enrichRes.ok) {
-            const data = (await enrichRes.json()) as {
-              plant_description?: string;
-              growing_notes?: string;
-              sun?: string;
-              plant_spacing?: string;
-              days_to_germination?: string;
-              harvest_days?: number;
-              sowing_depth?: string;
-              water?: string;
-              sowing_method?: string;
-              planting_window?: string;
-              propagation_notes?: string;
-              seed_saving_notes?: string;
-              seed_propagation_context?: string;
-              companion_plants?: string[] | string;
-              avoid_plants?: string[] | string;
-            };
-            const aiDesc = (data.plant_description ?? "").trim();
-            const aiNotes = (data.growing_notes ?? "").trim();
-            const aiSun = (data.sun ?? "").trim();
-            const aiSpacing = (data.plant_spacing ?? "").trim();
-            const aiGerm = (data.days_to_germination ?? "").trim();
-            const aiHarvest = data.harvest_days;
-            const aiSowingDepth = (data.sowing_depth ?? "").trim();
-            const aiWater = (data.water ?? "").trim();
-            const aiSowingMethod = (data.sowing_method ?? "").trim();
-            const aiPlantingWindow = (data.planting_window ?? "").trim();
-            const aiPropagation = (data.propagation_notes ?? "").trim();
-            const aiSeedSaving = (data.seed_saving_notes ?? "").trim();
-            const aiSeedContext = (data.seed_propagation_context ?? "").trim();
-            const aiCompanions = Array.isArray(data.companion_plants)
-              ? data.companion_plants.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
-              : typeof data.companion_plants === "string"
-                ? data.companion_plants.split(",").map((x) => x.trim()).filter(Boolean)
-                : [];
-            const aiAvoid = Array.isArray(data.avoid_plants)
-              ? data.avoid_plants.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
-              : typeof data.avoid_plants === "string"
-                ? data.avoid_plants.split(",").map((x) => x.trim()).filter(Boolean)
-                : [];
-            const hasAiData = aiDesc || aiNotes || aiSun || aiSpacing || aiGerm || (aiHarvest != null && aiHarvest > 0) || aiSowingDepth || aiWater || aiSowingMethod || aiPlantingWindow || aiPropagation || aiSeedSaving || aiSeedContext || aiCompanions.length > 0 || aiAvoid.length > 0;
-            if (hasAiData) {
-              const aiUpdates: Record<string, unknown> = { description_source: "ai" };
-              if (aiDesc) aiUpdates.plant_description = aiDesc;
-              if (aiNotes) aiUpdates.growing_notes = aiNotes;
-              if (aiSun) aiUpdates.sun = aiSun;
-              if (aiSpacing) aiUpdates.plant_spacing = aiSpacing;
-              if (aiGerm) aiUpdates.days_to_germination = aiGerm;
-              if (aiHarvest != null && aiHarvest > 0) aiUpdates.harvest_days = aiHarvest;
-              if (aiSowingDepth) aiUpdates.sowing_depth = aiSowingDepth;
-              if (aiWater) aiUpdates.water = aiWater;
-              if (aiSowingMethod) aiUpdates.sowing_method = aiSowingMethod;
-              if (aiPlantingWindow) aiUpdates.planting_window = aiPlantingWindow;
-              if (aiPropagation) aiUpdates.propagation_notes = aiPropagation;
-              if (aiSeedSaving) aiUpdates.seed_saving_notes = aiSeedSaving;
-              if (aiSeedContext) aiUpdates.seed_propagation_context = aiSeedContext;
-              if (aiCompanions.length > 0) aiUpdates.companion_plants = aiCompanions;
-              if (aiAvoid.length > 0) aiUpdates.avoid_plants = aiAvoid;
-              const { error: aiErr } = await supabase
-                .from("plant_profiles")
-                .update(aiUpdates)
-                .eq("id", profileId)
-                .eq("user_id", user.id);
-              if (!aiErr) {
-                fromAi = true;
-                const admin = getSupabaseAdmin();
-                if (admin) {
-                  const enrichData: EnrichDataForCache = {
-                    plant_description: aiDesc || undefined,
-                    growing_notes: aiNotes || undefined,
-                    sun_requirement: aiSun || undefined,
-                    spacing: aiSpacing || undefined,
-                    days_to_germination: aiGerm || undefined,
-                    days_to_maturity: aiHarvest != null ? String(aiHarvest) : undefined,
-                    sowing_depth: aiSowingDepth || undefined,
-                    water: aiWater || undefined,
-                    sowing_method: aiSowingMethod || undefined,
-                    planting_window: aiPlantingWindow || undefined,
-                    propagation_notes: aiPropagation || undefined,
-                    seed_saving_notes: aiSeedSaving || undefined,
-                    seed_propagation_context: aiSeedContext || undefined,
-                    companion_plants: aiCompanions.length > 0 ? aiCompanions : undefined,
-                    avoid_plants: aiAvoid.length > 0 ? aiAvoid : undefined,
-                  };
-                  await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
-                }
+      const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const origin = base.startsWith("http") ? base : `https://${base}`;
+      try {
+        const enrichRes = await fetchWithRetry(
+          `${origin}/api/seed/enrich-from-name`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ name, variety, forceRefresh }),
+          },
+          { delays: AI_RETRY_DELAYS }
+        );
+        if (enrichRes.ok) {
+          const data = (await enrichRes.json()) as Record<string, unknown> & { enriched?: boolean };
+          aiEnriched = data.enriched === true;
+
+          const dStr = (k: string) => (typeof data[k] === "string" ? (data[k] as string).trim() : "");
+          const dNum = (k: string) => (typeof data[k] === "number" && Number.isFinite(data[k]) ? (data[k] as number) : null);
+          const dArr = (k: string): string[] => {
+            const v = data[k];
+            if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean);
+            if (typeof v === "string") return v.split(",").map((x) => x.trim()).filter(Boolean);
+            return [];
+          };
+
+          const aiUpdates: Record<string, unknown> = {};
+          // Fill-only-blanks unless overwrite: respects the "Fill blanks" vs "Overwrite" button semantics.
+          const setStr = (col: string, val: string) => {
+            if (val && (overwrite || !String(p[col] ?? "").trim())) aiUpdates[col] = val;
+          };
+          const setNum = (col: string, val: number | null) => {
+            if (val != null && (overwrite || p[col] == null || p[col] === 0)) aiUpdates[col] = val;
+          };
+          const setArr = (col: string, val: string[]) => {
+            const existing = Array.isArray(p[col]) ? (p[col] as unknown[]) : [];
+            if (val.length > 0 && (overwrite || existing.length === 0)) aiUpdates[col] = val;
+          };
+
+          const aiDesc = dStr("plant_description");
+          const aiNotes = dStr("growing_notes");
+          setStr("plant_description", aiDesc);
+          setStr("growing_notes", aiNotes);
+          setStr("sun", dStr("sun"));
+          setStr("sun_summary", dStr("sun_summary") || dStr("sun"));
+          setStr("sun_detail", dStr("sun_detail"));
+          setStr("plant_spacing", dStr("plant_spacing"));
+          setStr("days_to_germination", dStr("days_to_germination"));
+          setNum("harvest_days", dNum("harvest_days"));
+          setStr("sowing_depth", dStr("sowing_depth"));
+          setNum("planting_depth", dNum("planting_depth"));
+          setStr("water", dStr("water"));
+          setStr("water_summary", dStr("water_summary") || dStr("water"));
+          setStr("water_detail", dStr("water_detail"));
+          setStr("sowing_method", dStr("sowing_method"));
+          setStr("planting_window", dStr("planting_window"));
+          setStr("spring_indoor_window", dStr("spring_indoor_window"));
+          setStr("spring_outdoor_window", dStr("spring_outdoor_window"));
+          setStr("summer_window", dStr("summer_window"));
+          setStr("fall_outdoor_window", dStr("fall_outdoor_window"));
+          setStr("propagation_notes", dStr("propagation_notes"));
+          setStr("seed_saving_notes", dStr("seed_saving_notes"));
+          setStr("seed_propagation_context", dStr("seed_propagation_context"));
+          setStr("lifecycle", dStr("lifecycle"));
+          setStr("growth_form", dStr("growth_form"));
+          setStr("plant_category", dStr("plant_category"));
+          setStr("growth_habit", dStr("growth_habit"));
+          setStr("soil_preference", dStr("soil_preference"));
+          setStr("pollination_requirements", dStr("pollination_requirements"));
+          setStr("toxicity", dStr("toxicity"));
+          setStr("deer_rabbit_resistance", dStr("deer_rabbit_resistance"));
+          setStr("wildlife_value", dStr("wildlife_value"));
+          setStr("invasiveness", dStr("invasiveness"));
+          setStr("native_origin", dStr("native_origin"));
+          setStr("drought_salt_tolerance", dStr("drought_salt_tolerance"));
+          setStr("family", dStr("family"));
+          setStr("genus", dStr("genus"));
+          setStr("species", dStr("species"));
+          const aiCompanions = dArr("companion_plants");
+          const aiAvoid = dArr("avoid_plants");
+          setArr("companion_plants", aiCompanions);
+          setArr("avoid_plants", aiAvoid);
+          setArr("propagation_method", dArr("propagation_method"));
+          setArr("disease_susceptibility", dArr("disease_susceptibility"));
+          setArr("synonyms", dArr("synonyms"));
+          setArr("uses", dArr("uses"));
+          setArr("special_features", dArr("special_features"));
+          setArr("harvest_season", dArr("harvest_season"));
+
+          if (Object.keys(aiUpdates).length > 0) {
+            if (aiUpdates.plant_description || aiUpdates.growing_notes) aiUpdates.description_source = "ai";
+            const { error: aiErr } = await supabase
+              .from("plant_profiles")
+              .update(aiUpdates)
+              .eq("id", profileId)
+              .eq("user_id", user.id);
+            if (!aiErr) {
+              fromAi = true;
+              countUpdate(aiUpdates);
+              const admin = getSupabaseAdmin();
+              if (admin) {
+                const enrichData: EnrichDataForCache = {
+                  plant_description: aiDesc || undefined,
+                  growing_notes: aiNotes || undefined,
+                  sun_requirement: dStr("sun") || undefined,
+                  spacing: dStr("plant_spacing") || undefined,
+                  days_to_germination: dStr("days_to_germination") || undefined,
+                  days_to_maturity: dNum("harvest_days") != null ? String(dNum("harvest_days")) : undefined,
+                  sowing_depth: dStr("sowing_depth") || undefined,
+                  water: dStr("water") || undefined,
+                  sowing_method: dStr("sowing_method") || undefined,
+                  planting_window: dStr("planting_window") || undefined,
+                  propagation_notes: dStr("propagation_notes") || undefined,
+                  seed_saving_notes: dStr("seed_saving_notes") || undefined,
+                  seed_propagation_context: dStr("seed_propagation_context") || undefined,
+                  companion_plants: aiCompanions.length > 0 ? aiCompanions : undefined,
+                  avoid_plants: aiAvoid.length > 0 ? aiAvoid : undefined,
+                };
+                await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
               }
             }
           }
-        } catch (e) {
-          console.warn("[fill-blanks-for-profile] enrich-from-name failed after retry:", e instanceof Error ? e.message : e);
+        } else {
+          // Non-OK: capture the error code (DAILY_AI_LIMIT / RATE_LIMITED / …) for honest feedback.
+          const errData = (await enrichRes.json().catch(() => ({}))) as { error?: string };
+          aiError = errData.error || `HTTP_${enrichRes.status}`;
         }
+      } catch (e) {
+        console.warn("[fill-blanks-for-profile] enrich-from-name failed after retry:", e instanceof Error ? e.message : e);
+        aiError = "AI_UNREACHABLE";
       }
     }
 
@@ -305,6 +370,9 @@ export async function POST(req: Request) {
       ok: true,
       fromCache,
       fromAi,
+      enriched: aiEnriched,
+      fieldsFilled: filledFields.size,
+      ...(aiError ? { error: aiError } : {}),
     });
   } catch (e) {
     console.error("[fill-blanks-for-profile]", e);
