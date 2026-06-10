@@ -362,7 +362,7 @@ export default function VaultPacketDetailPage() {
               return (
                 <li key={gi.id}>
                   <Link
-                    href={`/vault/${pkt.plant_profile_id}?tab=plantings`}
+                    href={`/garden/grow/${gi.id}`}
                     className="flex items-center justify-between gap-2 py-2.5 min-h-[44px] hover:text-emerald-600"
                   >
                     <span className="text-sm min-w-0">
