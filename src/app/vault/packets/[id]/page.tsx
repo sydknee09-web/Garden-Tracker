@@ -41,6 +41,8 @@ export default function VaultPacketDetailPage() {
   const [extraImages, setExtraImages] = useState<{ image_path: string }[]>([]);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const pkt = packets[0] ?? null;
 
@@ -124,6 +126,7 @@ export default function VaultPacketDetailPage() {
 
   const handleDelete = useCallback(async () => {
     if (!pkt) return;
+    setDeleting(true);
     await deletePacket(pkt.id);
     router.push(backHref);
   }, [pkt, deletePacket, router, backHref]);
@@ -406,13 +409,27 @@ export default function VaultPacketDetailPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 min-h-[44px]"
             aria-label="Remove packet"
           >
             <ICON_MAP.Trash className="w-4 h-4" />
             Remove Packet
           </button>
+        </div>
+      )}
+
+      {/* Remove confirmation (mirrors the Delete Plant Profile dialog pattern in vault/[id]) */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" role="alertdialog" aria-modal="true" aria-labelledby="delete-packet-title">
+          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+            <h2 id="delete-packet-title" className="text-lg font-semibold text-neutral-900 mb-2">Remove Packet?</h2>
+            <p className="text-sm text-neutral-600 mb-4">This removes this seed packet from your collection. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={deleting} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={handleDelete} disabled={deleting} className="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50">{deleting ? "Removing…" : "Remove"}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
