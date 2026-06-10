@@ -102,8 +102,52 @@ type Profile = {
   sowing_method: string | null; planting_window: string | null; mature_height: string | null;
   mature_width: string | null; propagation_notes: string | null; seed_saving_notes: string | null;
   seed_propagation_context: string | null; companion_plants: string[] | null; avoid_plants: string[] | null;
+  // Sprint 4 enrichment fields (re-enriched by the shallow-cohort sweep below)
+  lifecycle: string | null; growth_form: string | null; plant_category: string | null; growth_habit: string | null;
+  propagation_method: string[] | null; soil_preference: string | null; disease_susceptibility: string[] | null;
+  pollination_requirements: string | null; toxicity: string | null; deer_rabbit_resistance: string | null;
+  wildlife_value: string | null; invasiveness: string | null; native_origin: string | null;
+  drought_salt_tolerance: string | null; synonyms: string[] | null; uses: string[] | null; special_features: string[] | null;
+  water_summary: string | null; water_detail: string | null; sun_summary: string | null; sun_detail: string | null;
+  harvest_season: string[] | null; spring_indoor_window: string | null; spring_outdoor_window: string | null;
+  summer_window: string | null; fall_outdoor_window: string | null; planting_depth: number | null;
+  family: string | null; genus: string | null; species: string | null;
 };
-const SELECT = "id,user_id,name,variety_name,plant_description,growing_notes,description_source,sun,water,plant_spacing,days_to_germination,harvest_days,sowing_depth,sowing_method,planting_window,mature_height,mature_width,propagation_notes,seed_saving_notes,seed_propagation_context,companion_plants,avoid_plants";
+const SELECT = "id,user_id,name,variety_name,plant_description,growing_notes,description_source,sun,water,plant_spacing,days_to_germination,harvest_days,sowing_depth,sowing_method,planting_window,mature_height,mature_width,propagation_notes,seed_saving_notes,seed_propagation_context,companion_plants,avoid_plants,lifecycle,growth_form,plant_category,growth_habit,propagation_method,soil_preference,disease_susceptibility,pollination_requirements,toxicity,deer_rabbit_resistance,wildlife_value,invasiveness,native_origin,drought_salt_tolerance,synonyms,uses,special_features,water_summary,water_detail,sun_summary,sun_detail,harvest_season,spring_indoor_window,spring_outdoor_window,summer_window,fall_outdoor_window,planting_depth,family,genus,species";
+
+// Sprint 4 enrichment fields used by the shallow-cohort detector. A profile missing >=5 of these
+// is "shallow" and gets a fresh-AI re-enrichment pass (fill-blanks only — idempotent across days).
+const NEW_TEXT_FIELDS: (keyof Profile)[] = [
+  "lifecycle", "growth_form", "plant_category", "growth_habit", "soil_preference",
+  "pollination_requirements", "toxicity", "deer_rabbit_resistance", "wildlife_value", "invasiveness",
+  "native_origin", "drought_salt_tolerance", "water_summary", "water_detail", "sun_summary", "sun_detail",
+  "spring_indoor_window", "spring_outdoor_window", "summer_window", "fall_outdoor_window",
+  "family", "genus", "species",
+];
+const NEW_ARR_FIELDS: (keyof Profile)[] = [
+  "propagation_method", "disease_susceptibility", "synonyms", "uses", "special_features", "harvest_season",
+];
+function blankCount(v: unknown): number {
+  if (v == null) return 1;
+  if (typeof v === "string") return v.trim() === "" ? 1 : 0;
+  if (Array.isArray(v)) return v.length === 0 ? 1 : 0;
+  return 0;
+}
+const SHALLOW_THRESHOLD = 5;
+function isShallow(p: Profile): boolean {
+  let missing = 0;
+  for (const k of NEW_TEXT_FIELDS) missing += blankCount(p[k]);
+  for (const k of NEW_ARR_FIELDS) missing += blankCount(p[k]);
+  if (p.planting_depth == null) missing += 1;
+  return missing >= SHALLOW_THRESHOLD;
+}
+function parseInchesNumeric(s: string | undefined): number | null {
+  if (!s?.trim()) return null;
+  const m = s.trim().match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
 
 async function main() {
   console.log(`=== DATA HYGIENE CLEANUP ${DRY_RUN ? "(DRY RUN — no writes/AI)" : "(LIVE)"} ===\n`);
@@ -130,16 +174,17 @@ async function main() {
     if (E2E_RE.test(p.name ?? "")) return false;
     const hollow = isBlank(p.description_source);
     const c = corruptOf(p);
-    return hollow || c.sun || c.days_to_germination || c.harvest_days;
+    return hollow || c.sun || c.days_to_germination || c.harvest_days || isShallow(p);
   }).slice(0, LIMIT);
 
   const hollowCount = worklist.filter((p) => isBlank(p.description_source)).length;
   const corruptCount = worklist.filter((p) => { const c = corruptOf(p); return c.sun || c.days_to_germination || c.harvest_days; }).length;
-  console.log(`Worklist: ${worklist.length} profiles  (hollow=${hollowCount}, with-corrupt=${corruptCount}, overlap counted once)\n`);
+  const shallowCount = worklist.filter((p) => isShallow(p)).length;
+  console.log(`Worklist: ${worklist.length} profiles  (hollow=${hollowCount}, with-corrupt=${corruptCount}, shallow-new-fields=${shallowCount}, overlap counted once)\n`);
   if (DRY_RUN) {
     worklist.forEach((p, i) => {
       const c = corruptOf(p);
-      const tags = [isBlank(p.description_source) ? "HOLLOW" : "", c.sun ? "sun" : "", c.days_to_germination ? "germ" : "", c.harvest_days ? `harvest=${p.harvest_days}` : ""].filter(Boolean).join(",");
+      const tags = [isBlank(p.description_source) ? "HOLLOW" : "", c.sun ? "sun" : "", c.days_to_germination ? "germ" : "", c.harvest_days ? `harvest=${p.harvest_days}` : "", isShallow(p) ? "SHALLOW-NEW" : ""].filter(Boolean).join(",");
       console.log(`  [${i + 1}] "${[p.name, p.variety_name].filter(Boolean).join(" / ")}" -> ${tags}`);
     });
     console.log("\nDRY RUN complete — nothing written.");
@@ -156,7 +201,7 @@ async function main() {
     });
   }
 
-  let enriched = 0, corruptFixed = 0, fieldsCleared = 0, failed = 0, skipped = 0;
+  let enriched = 0, corruptFixed = 0, fieldsCleared = 0, failed = 0, skipped = 0, deepEnriched = 0;
   const fixByField: Record<string, number> = { sun: 0, days_to_germination: 0, harvest_days: 0 };
   const clearByField: Record<string, number> = { sun: 0, days_to_germination: 0, harvest_days: 0 };
   const failures: string[] = [];
@@ -169,6 +214,8 @@ async function main() {
     if (!name) { skipped++; failures.push(`SKIP (no name): ${p.id}`); continue; }
 
     const r = await researchVariety(GEMINI_KEY, name, variety, vendorByProfile[p.id] ?? "");
+    // Log the Gemini call per the api_usage_log observability pattern (non-fatal on failure).
+    try { await admin.from("api_usage_log").insert({ user_id: p.user_id, provider: "gemini", operation: "cleanup-reenrich" }); } catch { /* non-fatal */ }
     if (!r) { failed++; failures.push(`AI FAIL: ${label}`); console.log(`  [${i + 1}/${worklist.length}] AI returned nothing: ${label}`); if (i < worklist.length - 1) await new Promise((res) => setTimeout(res, THROTTLE_MS)); continue; }
 
     const updates: Record<string, unknown> = {};
@@ -212,6 +259,45 @@ async function main() {
       if (d != null && d >= 10 && d <= 400) { updates.harvest_days = d; fixByField.harvest_days++; } else { updates.harvest_days = null; clearByField.harvest_days++; fieldsCleared++; }
     }
 
+    // ---- shallow-cohort re-enrichment: fill EMPTY new Sprint 4 fields only (idempotent) ----
+    const keysBefore = Object.keys(updates).length;
+    const fillNew = (col: keyof Profile, val: string | undefined) => { if (isBlank(p[col]) && val && val.trim()) updates[col] = val.trim(); };
+    const fillNewArr = (col: keyof Profile, csv: string | undefined) => {
+      const empty = isBlank(p[col]) || (Array.isArray(p[col]) && (p[col] as unknown[]).length === 0);
+      if (empty) { const a = toArr(csv); if (a.length) updates[col] = a; }
+    };
+    fillNew("lifecycle", r.lifecycle);
+    fillNew("growth_form", r.growth_form);
+    fillNew("plant_category", r.plant_category);
+    fillNew("growth_habit", r.growth_habit);
+    fillNew("soil_preference", r.soil_preference);
+    fillNew("pollination_requirements", r.pollination_requirements);
+    fillNew("toxicity", r.toxicity);
+    fillNew("deer_rabbit_resistance", r.deer_rabbit_resistance);
+    fillNew("wildlife_value", r.wildlife_value);
+    fillNew("invasiveness", r.invasiveness);
+    fillNew("native_origin", r.native_origin);
+    fillNew("drought_salt_tolerance", r.drought_salt_tolerance);
+    fillNew("water_summary", r.water);
+    fillNew("water_detail", r.water_detail);
+    fillNew("sun_summary", r.sun_requirement);
+    fillNew("sun_detail", r.sun_detail);
+    fillNew("spring_indoor_window", r.spring_indoor_window);
+    fillNew("spring_outdoor_window", r.spring_outdoor_window);
+    fillNew("summer_window", r.summer_window);
+    fillNew("fall_outdoor_window", r.fall_outdoor_window);
+    fillNew("family", r.family);
+    fillNew("genus", r.genus);
+    fillNew("species", r.species);
+    if (p.planting_depth == null) { const d = parseInchesNumeric(r.planting_depth); if (d != null) updates.planting_depth = d; }
+    fillNewArr("propagation_method", r.propagation_method);
+    fillNewArr("disease_susceptibility", r.disease_susceptibility);
+    fillNewArr("synonyms", r.synonyms);
+    fillNewArr("uses", r.uses);
+    fillNewArr("special_features", r.special_features);
+    fillNewArr("harvest_season", r.harvest_season);
+    const wroteDeepFields = Object.keys(updates).length > keysBefore;
+
     const wroteCorruptFix = c.sun || c.days_to_germination || c.harvest_days;
     if (Object.keys(updates).length === 0) { skipped++; continue; }
 
@@ -220,7 +306,8 @@ async function main() {
     else {
       if (hollow) enriched++;
       if (wroteCorruptFix) corruptFixed++;
-      const what = [hollow ? `enriched(${Object.keys(updates).length}f)` : "", wroteCorruptFix ? "corrupt-fixed" : ""].filter(Boolean).join("+");
+      if (wroteDeepFields) deepEnriched++;
+      const what = [hollow ? `enriched(${Object.keys(updates).length}f)` : "", wroteCorruptFix ? "corrupt-fixed" : "", wroteDeepFields ? "deep-fields" : ""].filter(Boolean).join("+");
       console.log(`  [${i + 1}/${worklist.length}] ${what}: ${label}`);
     }
     if (i < worklist.length - 1) await new Promise((res) => setTimeout(res, THROTTLE_MS));
@@ -229,6 +316,7 @@ async function main() {
 
   console.log("\n---------- RESULTS ----------");
   console.log(`Hollow profiles enriched: ${enriched}`);
+  console.log(`Shallow profiles given new Sprint 4 fields: ${deepEnriched}`);
   console.log(`Profiles with corrupt fields fixed: ${corruptFixed}`);
   console.log(`  corrupt fields replaced w/ valid AI: sun=${fixByField.sun}, germ=${fixByField.days_to_germination}, harvest=${fixByField.harvest_days}`);
   console.log(`  corrupt fields CLEARED to null (AI also bad/empty): sun=${clearByField.sun}, germ=${clearByField.days_to_germination}, harvest=${clearByField.harvest_days}  (total ${fieldsCleared})`);

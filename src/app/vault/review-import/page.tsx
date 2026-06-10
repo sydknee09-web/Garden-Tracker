@@ -862,6 +862,18 @@ export default function ReviewImportPage() {
           const noteParts: string[] = [`Added ${displayName} to vault`];
           if ((item.user_notes ?? "").trim()) noteParts.push((item.user_notes ?? "").trim());
           const note = noteParts.join(". ");
+          // A6 (Q10): persist the acquisition source artifact on the vault_add entry so the instance
+          // Sources section (Chunk D2) can render it. Link import -> source_url; PO import -> source_po_ref
+          // (file name + line-item context). Photo import already persists via image_file_path above.
+          const srcUrl = (item.source_url ?? "").trim();
+          const poRef =
+            importSource === "purchase_order"
+              ? [
+                  (item.fileName ?? "").trim(),
+                  (item.price ?? "").trim() && `Price: ${(item.price ?? "").trim()}`,
+                  (item.purchase_quantity ?? 0) > 1 && `Qty: ${item.purchase_quantity}`,
+                ].filter(Boolean).join(" · ")
+              : "";
           await supabase.from("journal_entries").insert({
             user_id: user.id,
             plant_profile_id: profileId,
@@ -870,6 +882,8 @@ export default function ReviewImportPage() {
             note: note || null,
             entry_type: "vault_add",
             ...(journalPhotoPath && { image_file_path: journalPhotoPath }),
+            ...(srcUrl && { source_url: srcUrl }),
+            ...(poRef && { source_po_ref: poRef }),
           });
           if (journalPhotoPath && item.useStockPhotoAsHero !== false) {
             await supabase.from("plant_profiles").update({ hero_image_path: journalPhotoPath, hero_image_url: null }).eq("id", profileId).eq("user_id", user.id);
