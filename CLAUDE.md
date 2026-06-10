@@ -256,6 +256,8 @@ User flagged 2026-05-13 that bug-chasing keeps recurring despite mature process 
 
 2. **`docs/ROADMAP.md`** — where we are right now and what's next. Current focus, build chunks status, design phase status, parked items, recently shipped, decision log. **Read §1 (current focus) first** to know exactly where to pick up.
 
+2.5. **`docs/NORTH_STAR.md`** — the cross-cutting product principle-set ("No duplicate paths," "Take mental load OFF the user," "Information-hub framing"). The *why* behind the VISION §8 conventions and the ROADMAP §6 decision-log locks that cite these principles by name. Ground cohesion / architectural-treatment decisions against it (cite by principle name).
+
 3. **`docs/WORKFLOW.md`** — how we work together. Key rules:
    - **Plan → audit → resolve → clean pass → user greenlight → build** for any non-trivial work
    - **Batch small fixes** (3-5 XS-S items per deploy, not one at a time)
