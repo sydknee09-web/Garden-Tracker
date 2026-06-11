@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { FormError } from "@/components/FormError";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import type { Volume } from "@/types/vault";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
@@ -111,7 +113,7 @@ export function AddPlantManualModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/20" role="dialog" aria-modal="true" aria-labelledby="add-plant-manual-title">
-      <div className="bg-white rounded-3xl shadow-xl border border-neutral-200/80 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
+      <div className="relative bg-white rounded-3xl shadow-xl border border-neutral-200/80 max-w-md w-full max-h-[85vh] overflow-y-auto p-6">
         <h2 id="add-plant-manual-title" className="text-lg font-bold text-neutral-900 mb-4">
           Add Seed Packet
         </h2>
@@ -211,11 +213,7 @@ export function AddPlantManualModal({
               aria-label="Storage location"
             />
           </div>
-          {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <FormError>{error}</FormError>}
           <div className="flex gap-3 justify-end pt-2">
             <button
               type="button"
@@ -228,13 +226,14 @@ export function AddPlantManualModal({
             <button
               type="submit"
               disabled={saving}
-              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+              className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
             >
               <ICON_MAP.Save className="w-4 h-4" />
-              {saving ? "Adding…" : "Add packet"}
+              {saving ? "Adding…" : "Add Packet"}
             </button>
           </div>
         </form>
+        <SubmitLoadingOverlay show={saving} message="Adding…" />
       </div>
     </div>
   );

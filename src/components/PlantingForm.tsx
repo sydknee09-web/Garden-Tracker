@@ -11,6 +11,7 @@ import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
 import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
 import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import { GroupSelectField } from "@/components/GroupSelectField";
+import { FormError } from "@/components/FormError";
 import { LoadingState } from "@/components/LoadingState";
 import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
@@ -907,9 +908,9 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
       )}
 
       {error && (
-        <p className="mt-4 text-sm text-red-600" role="alert">
-          {error}
-        </p>
+        <div className="mt-4">
+          <FormError>{error}</FormError>
+        </div>
       )}
 
       {showSeedlingCelebration && (

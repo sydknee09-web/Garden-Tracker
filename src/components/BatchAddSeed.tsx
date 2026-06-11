@@ -15,6 +15,7 @@ import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
 import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, getPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
+import { FormError } from "@/components/FormError";
 import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
 import { formatAddFlowError, EXTRACTION_RETRY_FAILED } from "@/lib/addFlowError";
@@ -951,7 +952,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                 </div>
               </>
             )}
-            {error && <p className="text-sm text-citrus mt-2">{error}</p>}
+            {error && <div className="mt-2"><FormError>{error}</FormError></div>}
           </>
         )}
 
@@ -1037,7 +1038,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                   </li>
                 ))}
             </ul>
-            {error && <p className="text-sm text-citrus mb-2">{error}</p>}
+            {error && <div className="mb-2"><FormError>{error}</FormError></div>}
           </>
         ) : null}
         </div>

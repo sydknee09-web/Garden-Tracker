@@ -13,6 +13,7 @@ import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { SearchableMultiSelect } from "@/components/SearchableMultiSelect";
+import { FormError } from "@/components/FormError";
 import { logClientMetrics } from "@/lib/logClientMetrics";
 import { logEvent } from "@/lib/debugLog";
 
@@ -578,7 +579,7 @@ export function JournalEntryForm({
           {webcamError && <p className="text-xs text-amber-600 mt-1">{webcamError}</p>}
         </div>
 
-        {submitError && <p className="text-sm text-red-600 font-medium" role="alert">{submitError}</p>}
+        {submitError && <FormError>{submitError}</FormError>}
       </div>
       <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
         <button type="button" onClick={onClose} disabled={saving || uploadingPhoto} className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50">

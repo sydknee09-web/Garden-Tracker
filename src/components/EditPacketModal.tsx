@@ -8,6 +8,8 @@ import { LoadingState } from "@/components/LoadingState";
 import { StarRating } from "@/components/StarRating";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { formatAddFlowError } from "@/lib/addFlowError";
+import { FormError } from "@/components/FormError";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { hapticSuccess, hapticError } from "@/lib/haptics";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
@@ -128,7 +130,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
     // z-[60] keeps the footer above the z-50 BottomNav (BottomNav renders after page content,
     // so an equal z-50 here paints the nav over the Save/Cancel band on mobile).
     <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
-      <div ref={trapRef} className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
+      <div ref={trapRef} className="relative bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
         <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
           <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit Packet</h2>
         </div>
@@ -234,7 +236,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
           )}
         </div>
         <div className="flex-shrink-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-black/10">
-          {saveError && <p className="text-sm text-red-600 mb-3" role="alert">{saveError}</p>}
+          {saveError && <div className="mb-3"><FormError>{saveError}</FormError></div>}
           <div className="flex gap-3 justify-end">
           <button
             type="button"
@@ -256,6 +258,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
           </button>
           </div>
         </div>
+        <SubmitLoadingOverlay show={saving} message="Saving…" />
       </div>
     </div>
   );

@@ -30,6 +30,8 @@ import { generateCareTasks } from "@/lib/generateCareTasks";
 import { PlantImage } from "@/components/PlantImage";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { FormError } from "@/components/FormError";
+import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import dynamic from "next/dynamic";
 
@@ -920,7 +922,7 @@ export default function VaultSeedPage() {
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[min(85vh,100dvh-5rem)] sm:max-h-[85vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0">
+          <div className="relative bg-white rounded-t-xl sm:rounded-xl shadow-lg max-w-md w-full max-h-[min(85vh,100dvh-5rem)] sm:max-h-[85vh] flex flex-col overflow-hidden border-t border-neutral-200 sm:border-t-0">
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
             <div className="flex-shrink-0 p-4 pb-2 flex items-start justify-between gap-3">
               <h2 className="text-lg font-semibold text-neutral-900">Edit Plant Profile</h2>
@@ -1040,16 +1042,17 @@ export default function VaultSeedPage() {
               )}
             </div>
             <div className="p-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-200 bg-white space-y-3 mt-auto">
-              {error && <p className="text-sm text-red-600 mb-4" role="alert">{error}</p>}
+              {error && <div className="mb-4"><FormError>{error}</FormError></div>}
               <button type="button" onClick={handleSaveEdit} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <ICON_MAP.Save className="w-4 h-4" />
-                {savingEdit ? "Saving..." : "Save Changes"}
+                {savingEdit ? "Saving…" : "Save"}
               </button>
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={savingEdit} className="w-full min-h-[44px] px-4 py-2 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50 disabled:opacity-50">Delete Plant Profile</button>
               )}
             </div>
             </div>
+            <SubmitLoadingOverlay show={savingEdit} message="Saving…" />
           </div>
         </div>
       )}
@@ -1510,7 +1513,7 @@ export default function VaultSeedPage() {
           keeps Save/Cancel reachable instead of buried at the end of the scroll content. */}
       {editGrowTarget && (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
-          <div className="bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
+          <div className="relative bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
             <div className="flex-shrink-0 px-6 pt-6 pb-3 border-b border-neutral-200">
               <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
             </div>
@@ -1604,18 +1607,19 @@ export default function VaultSeedPage() {
             </div>
             </div>
             <div className="flex-shrink-0 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-200">
-              {editGrowError && <p className="text-sm text-red-600 mb-3" role="alert">{editGrowError}</p>}
+              {editGrowError && <div className="mb-3"><FormError>{editGrowError}</FormError></div>}
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
                   <ICON_MAP.Cancel className="w-4 h-4" />
                   Cancel
                 </button>
-                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-900 text-white font-medium hover:opacity-90 disabled:opacity-50">
+                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
                   <ICON_MAP.Save className="w-4 h-4" />
                   {editGrowSaving ? "Saving…" : "Save"}
                 </button>
               </div>
             </div>
+            <SubmitLoadingOverlay show={editGrowSaving} message="Saving…" />
           </div>
         </div>
       )}
