@@ -22,6 +22,13 @@ export type EnrichProfileFromNameOptions = {
    * is visible from the caller side. Pass `useUserPlantingZone().zone`.
    */
   userZone?: string | null;
+  /**
+   * When true, the AI-returned lifecycle also derives profile_type (B6 mapping:
+   * Annual → "seed", Biennial/Perennial → "permanent"). Creation flows only —
+   * the Seasonal/Permanent toggle was removed there, so AI owns the type.
+   * Off by default so packet/variety flows never flip an existing profile_type.
+   */
+  deriveProfileType?: boolean;
 };
 
 export type EnrichProfileFromNameResult = {
@@ -47,6 +54,7 @@ type EnrichFromNameResponse = {
   seed_propagation_context?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
+  lifecycle?: string | null;
   zoneUsed?: string | null;
 };
 
@@ -121,7 +129,7 @@ export async function enrichProfileFromName(
   options: EnrichProfileFromNameOptions = {}
 ): Promise<EnrichProfileFromNameResult> {
   const startMs = Date.now();
-  const { vendor = "", skipHero = false, existingGrowingNotes, accessToken } = options;
+  const { vendor = "", skipHero = false, existingGrowingNotes, accessToken, deriveProfileType = false } = options;
   const varietyTrim = (variety ?? "").trim();
   const nameTrim = (name ?? "").trim();
   const userZoneTrim = (options.userZone ?? "").trim();
@@ -179,12 +187,20 @@ export async function enrichProfileFromName(
       if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;
       if (enrichData.days_to_germination != null) updates.days_to_germination = enrichData.days_to_germination;
       if (enrichData.harvest_days != null) updates.harvest_days = enrichData.harvest_days;
-      if (enrichData.sowing_depth != null) updates.sowing_method = enrichData.sowing_depth;
+      if (enrichData.sowing_depth != null) updates.sowing_depth = enrichData.sowing_depth;
       if (enrichData.sowing_method != null) updates.sowing_method = enrichData.sowing_method;
       if (enrichData.planting_window != null) updates.planting_window = enrichData.planting_window;
       if (enrichData.zoneUsed != null) updates.planting_window_zone = enrichData.zoneUsed;
       if (enrichData.water != null) updates.water = enrichData.water;
       if (enrichData.plant_description != null) updates.plant_description = enrichData.plant_description;
+      const aiLifecycle = (enrichData.lifecycle ?? "").trim();
+      if (aiLifecycle) {
+        updates.lifecycle = aiLifecycle;
+        if (deriveProfileType) {
+          // B6 mapping (useVaultEditHandlers.ts): Annual → seed; Biennial/Perennial → permanent.
+          updates.profile_type = aiLifecycle === "Annual" ? "seed" : "permanent";
+        }
+      }
 
       if (enrichData.growing_notes != null && !(existingGrowingNotes ?? "").trim()) {
         updates.growing_notes = enrichData.growing_notes;

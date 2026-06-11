@@ -93,6 +93,18 @@ export async function POST(req: Request) {
     const forceRefresh = Boolean(body?.forceRefresh);
     /** When true, log request metrics with routeId background-enrich for observability. */
     const backgroundEnrich = Boolean(body?.backgroundEnrich);
+    /**
+     * When true, a filled lifecycle also derives profile_type (B6 mapping: Annual → "seed",
+     * Biennial/Perennial → "permanent"). Sent by Add-Plant creation flows (review-import
+     * addPlantMode) where the Seasonal/Permanent toggle was removed and AI owns the type.
+     * Off by default so seed-import / profile-page AI fills never flip an existing profile_type.
+     */
+    const deriveProfileType = Boolean(body?.deriveProfileType);
+    const profileTypeFromLifecycle = (lc: unknown): "seed" | "permanent" | null => {
+      const v = typeof lc === "string" ? lc.trim() : "";
+      if (!v) return null;
+      return v === "Annual" ? "seed" : "permanent";
+    };
     const startTime = Date.now();
 
     /** AI buttons that bypass the cache-first cheap path and go straight to Gemini. */
@@ -164,6 +176,10 @@ export async function POST(req: Request) {
     if (skipHero) {
       delete (updates as Record<string, unknown>).hero_image_url;
       delete (updates as Record<string, unknown>).hero_image_path;
+    }
+    if (deriveProfileType) {
+      const derived = profileTypeFromLifecycle((updates as Record<string, unknown>).lifecycle);
+      if (derived) (updates as Record<string, unknown>).profile_type = derived;
     }
 
     let fromCache = false;
@@ -324,6 +340,10 @@ export async function POST(req: Request) {
           setArr("uses", dArr("uses"));
           setArr("special_features", dArr("special_features"));
           setArr("harvest_season", dArr("harvest_season"));
+          if (deriveProfileType) {
+            const derived = profileTypeFromLifecycle(aiUpdates.lifecycle);
+            if (derived) aiUpdates.profile_type = derived;
+          }
 
           if (Object.keys(aiUpdates).length > 0) {
             if (aiUpdates.plant_description || aiUpdates.growing_notes) aiUpdates.description_source = "ai";

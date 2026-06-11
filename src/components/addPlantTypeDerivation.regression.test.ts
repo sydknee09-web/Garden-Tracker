@@ -1,18 +1,20 @@
 /**
- * Sprint 5 cont Ship 4 — Finding 29 regression guards (v1-blocking MUST).
+ * Add Plant type derivation — regression guards.
  *
- * The "[ My Plants | Active Garden ]" entry-point toggle (which set the in-memory
- * addPlantDefaultType used to type every Manual add) was removed from UniversalAddMenu.
- * Its single responsibility — setting permanent/seasonal on the Manual add-new path —
- * moved to an inline "Plant type" control inside AddPlantModal's add-new body.
- * The link-to-existing path's is_permanent_planting now derives from the SELECTED
- * profile's profile_type (DB), not the toggle.
+ * History:
+ * - Ship 4 (Finding 29): removed the "[ My Plants | Active Garden ]" entry-point toggle;
+ *   moved permanent/seasonal to an inline "Plant type" control in AddPlantModal's add-new body.
+ * - 2026-06-10 sweep (Syd dogfood): removed that inline control AND review-import's
+ *   Permanent/Seasonal picker. Creation flows no longer ask the user for a type at all —
+ *   the AI-filled lifecycle derives profile_type (B6 mapping: Annual → "seed",
+ *   Biennial/Perennial → "permanent") and the add-new path corrects is_permanent_planting
+ *   + gates care templates / harvest task on the derived type.
  *
  * These are source-text regression guards — the repo pattern for derivation that the
  * 300-line multi-table add-plant submit can't assert cheaply behaviorally
  * (cf. permanentPlantProfile.regression.test.ts, gardenView.regression.test.ts).
  *
- * Plan-doc: .claude/plans/add_plant_flow_restructure.md §"Forward-compat for Ship 4".
+ * Plan-doc: .claude/plans/remove_seasonal_permanent_toggle_sweep.md
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
@@ -23,33 +25,34 @@ const addPlantModal = readFileSync(join(ROOT, "src/components/AddPlantModal.tsx"
 const universalAddMenu = readFileSync(join(ROOT, "src/components/UniversalAddMenu.tsx"), "utf-8");
 const purchaseOrderImport = readFileSync(join(ROOT, "src/components/PurchaseOrderImport.tsx"), "utf-8");
 const reviewImport = readFileSync(join(ROOT, "src/app/vault/review-import/page.tsx"), "utf-8");
+const enrichLib = readFileSync(join(ROOT, "src/lib/enrichProfileFromName.ts"), "utf-8");
 
-describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () => {
-  // Test 1 — Manual add-new derives profile_type + is_permanent_planting from the inline plantType.
-  // Permanent → profile_type "permanent" + is_permanent_planting true.
-  it("add-new derives profile_type + is_permanent_planting from the inline plantType", () => {
-    expect(addPlantModal).toContain(
-      'profileType: plantType === "permanent" ? "permanent" : "seed"'
-    );
-    expect(addPlantModal).toContain('is_permanent_planting: plantType === "permanent",');
+describe("Add Plant creation flows — Seasonal/Permanent toggle removed (2026-06-10 sweep)", () => {
+  // Test 1 — the inline Plant type control is gone from AddPlantModal; no UI sets plantType.
+  it("AddPlantModal renders no Seasonal/Permanent toggle", () => {
+    expect(addPlantModal).not.toContain('onClick={() => setPlantType("permanent")}');
+    expect(addPlantModal).not.toContain('onClick={() => setPlantType("seasonal")}');
+    expect(addPlantModal).not.toContain("Perennial, tree, or shrub = permanent");
   });
 
-  // Test 2 — Seasonal add-new gets care templates + harvest task; permanent skips them
-  // (both live inside `if (plantType === "seasonal")`, so permanent never reaches them).
-  it("care-template copy + harvest task are seasonal-gated (permanent skips them)", () => {
-    const seasonalGate = addPlantModal.indexOf('if (plantType === "seasonal") {');
+  // Test 2 — add-new inserts the seed default and lets AI derive the type:
+  // enrichment is awaited with deriveProfileType, then the derived profile_type
+  // corrects is_permanent_planting (permanent) or runs care templates + harvest task.
+  it("add-new defers type to AI-derived lifecycle (deriveProfileType + post-enrichment branch)", () => {
+    expect(addPlantModal).not.toContain('profileType: plantType === "permanent" ? "permanent" : "seed"');
+    expect(addPlantModal).toContain("deriveProfileType: true,");
+    expect(addPlantModal).toContain("await runEnrichment();");
+    expect(addPlantModal).not.toContain("void runEnrichment();");
+    const derivedFetch = addPlantModal.indexOf('.select("harvest_days, profile_type").eq("id", profileId)');
+    const permanentFixup = addPlantModal.indexOf('.update({ is_permanent_planting: true }).eq("id", growInstanceIdNew)');
     const careCopy = addPlantModal.indexOf("copyCareTemplatesToInstance(profileId, growInstanceIdNew");
-    const harvestTask = addPlantModal.indexOf('category: "harvest"');
-    expect(seasonalGate).toBeGreaterThan(-1);
-    expect(careCopy).toBeGreaterThan(seasonalGate);
-    expect(harvestTask).toBeGreaterThan(seasonalGate);
-    // Permanent runs enrichment in the background and creates neither.
-    expect(addPlantModal).toContain('if (plantType === "permanent") {');
-    expect(addPlantModal).toContain("void runEnrichment();");
+    expect(derivedFetch).toBeGreaterThan(-1);
+    expect(permanentFixup).toBeGreaterThan(derivedFetch);
+    expect(careCopy).toBeGreaterThan(derivedFetch);
   });
 
-  // Test 3 — link-to-existing derives is_permanent_planting from the selected profile's
-  // profile_type (DB fetch), NOT the removed toggle / addPlantDefaultType.
+  // Test 3 — link-to-existing still derives is_permanent_planting from the selected
+  // profile's profile_type (DB fetch), unchanged by the sweep (Ship 4 invariant).
   it("link-to-existing derives is_permanent_planting from the profile's profile_type", () => {
     expect(addPlantModal).toContain('.select("harvest_days, profile_type")');
     expect(addPlantModal).toContain(
@@ -58,47 +61,42 @@ describe("Ship 4 — Add Plant type derivation (Finding 29 toggle removal)", () 
     expect(addPlantModal).toContain("is_permanent_planting: isPermanentExisting,");
   });
 
-  // Test 4 — The "Established Plant" entry + establishedMode were removed (Finding 30 minimal,
-  // Syd dogfood 2026-06-01: "this page is a How not a what"). Acquisition was never a separate
-  // entity — establishedMode only forced permanent + relabeled copy. The inline Plant type
-  // control now renders unconditionally on the add-new path (no longer gated by establishedMode).
-  it("Established Plant entry + establishedMode fully removed; inline type control unconditional", () => {
-    expect(universalAddMenu).not.toContain("establishedMode");
-    expect(universalAddMenu).not.toContain("add-plant-established");
-    expect(universalAddMenu).not.toContain("Established Plant");
-    expect(addPlantModal).not.toContain("establishedMode");
-    expect(addPlantModal).not.toContain("{!establishedMode && (");
+  // Test 4 — the enrichment lib writes lifecycle and derives profile_type ONLY when
+  // opted in, so packet/variety flows (QuickAddSeed, AddVarietyModal, PlantingForm)
+  // never flip an existing profile_type.
+  it("enrichProfileFromName derivation is opt-in (deriveProfileType flag, B6 mapping)", () => {
+    expect(enrichLib).toContain("deriveProfileType = false");
+    expect(enrichLib).toContain("updates.lifecycle = aiLifecycle;");
+    expect(enrichLib).toContain('updates.profile_type = aiLifecycle === "Annual" ? "seed" : "permanent";');
   });
 
-  // Test 5 — the My Plants / Active Garden entry-point toggle is gone (no stale in-memory
-  // type leak); the inline Plant type control is the replacement source of truth.
-  it("entry-point toggle removed; inline Plant type control present", () => {
+  // Test 5 — Ship 4 invariants still hold: no entry-point toggle / establishedMode revival.
+  it("entry-point toggle + establishedMode stay removed from UniversalAddMenu", () => {
+    expect(universalAddMenu).not.toContain("establishedMode");
     expect(universalAddMenu).not.toContain("My Plants");
     expect(universalAddMenu).not.toContain("Active Garden");
     expect(universalAddMenu).not.toContain('setAddPlantDefaultType("permanent")');
-    expect(universalAddMenu).not.toContain('setAddPlantDefaultType("seasonal")');
-    expect(addPlantModal).toContain('onClick={() => setPlantType("permanent")}');
-    expect(addPlantModal).toContain('onClick={() => setPlantType("seasonal")}');
+    expect(addPlantModal).not.toContain("establishedMode");
   });
 });
 
-describe("Ship 4 scope-gap close — stale type toggle removed from PO sub-flow (Syd dogfood 2026-06-01)", () => {
-  // The "[ My Plants | Active Garden ]" labels are post-Ship-B dead tab names. They survived in
-  // the PurchaseOrderImport input step after Ship 4 removed the entry-point toggle. That input
-  // toggle was redundant — it only seeded review-import's own (correctly-labeled) picker.
-  it("PurchaseOrderImport no longer renders the stale My Plants / Active Garden toggle", () => {
-    expect(purchaseOrderImport).not.toContain("My Plants");
-    expect(purchaseOrderImport).not.toContain("Active Garden");
-    // The vestigial local type state is gone; the prop flows straight through to review-import.
-    expect(purchaseOrderImport).not.toContain("setProfileType");
-    expect(purchaseOrderImport).toContain('source: "purchase_order", defaultProfileType, addPlantMode');
+describe("Review-import (PO/photo Add Plant) — Permanent/Seasonal picker removed", () => {
+  // The step-1 review page no longer asks for a type (Syd dogfood 2026-06-10).
+  it("review-import renders no Permanent/Seasonal picker", () => {
+    expect(reviewImport).not.toContain('onClick={() => setDefaultProfileType("permanent")}');
+    expect(reviewImport).not.toContain('onClick={() => setDefaultProfileType("seed")}');
   });
 
-  // Type determination still happens — once, with correct lifecycle labels — at the review step,
-  // for BOTH the PO and Photo Add-Plant flows. This is the single source of truth post-fix.
-  it("review-import retains the correctly-labeled Permanent / Seasonal picker", () => {
-    expect(reviewImport).toContain('onClick={() => setDefaultProfileType("permanent")}');
-    expect(reviewImport).toContain('onClick={() => setDefaultProfileType("seed")}');
-    expect(reviewImport).toContain('is_permanent_planting: defaultProfileType === "permanent"');
+  // Post-save fill-blanks corrects profile_type from the AI lifecycle in addPlantMode only.
+  it("review-import forwards deriveProfileType to fill-blanks in addPlantMode", () => {
+    expect(reviewImport).toContain("...(addPlantMode && { deriveProfileType: true })");
+  });
+
+  // Ship 4 scope-gap invariants: PO input step has no type toggle either.
+  it("PurchaseOrderImport stays toggle-free", () => {
+    expect(purchaseOrderImport).not.toContain("My Plants");
+    expect(purchaseOrderImport).not.toContain("Active Garden");
+    expect(purchaseOrderImport).not.toContain("setProfileType");
+    expect(purchaseOrderImport).toContain('source: "purchase_order", defaultProfileType, addPlantMode');
   });
 });

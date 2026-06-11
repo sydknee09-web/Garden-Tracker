@@ -26,7 +26,9 @@ interface PurchaseOrderImportProps {
   onClose: () => void;
   /** "seed" = plant profiles (vault/review-import). "supply" = supply profiles (shed/review-import). Default "seed". */
   mode?: "seed" | "supply";
-  /** When "permanent", imported items become trees/perennials (seeds review-import's Permanent/Seasonal picker). Only used when mode="seed". */
+  /** Legacy seed for review-import's defaultProfileType state. The Permanent/Seasonal picker was
+   * removed from review-import (2026-06-10 sweep) — type now derives from the AI-filled lifecycle.
+   * Live entry points all pass "seed"; kept for session-handoff plumbing compatibility. */
   defaultProfileType?: "seed" | "permanent";
   /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Scan Purchase Order. */
   addPlantMode?: boolean;
@@ -305,10 +307,10 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
-          {/* Ship 4 scope-gap close (Syd dogfood 2026-06-01): the stale destination-framed type toggle
-              (post-Ship-B dead tab names) was removed here. Permanent/seasonal is chosen once, with
-              correct lifecycle labels, at the review step (review-import's Permanent/Seasonal picker).
-              This input-step toggle was both dead-labeled and redundant — it only seeded that picker. */}
+          {/* Ship 4 scope-gap close (Syd dogfood 2026-06-01) removed the stale destination-framed
+              type toggle here; the 2026-06-10 sweep then removed the review-step Permanent/Seasonal
+              picker too. Permanent/seasonal is no longer user-chosen anywhere in the import flow —
+              it derives from the AI-filled lifecycle after save (fill-blanks deriveProfileType). */}
           <p className="text-sm text-black/70 mb-4">
             <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We&rsquo;ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
           </p>

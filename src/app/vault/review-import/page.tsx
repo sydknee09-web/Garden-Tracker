@@ -1132,7 +1132,9 @@ export default function ReviewImportPage() {
         fetch("/api/seed/fill-blanks-for-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ profileId, useGemini: true, backgroundEnrich: true }),
+          // addPlantMode: AI-filled lifecycle also derives profile_type (the create-flow
+          // Seasonal/Permanent picker was removed; AI owns the type now).
+          body: JSON.stringify({ profileId, useGemini: true, backgroundEnrich: true, ...(addPlantMode && { deriveProfileType: true }) }),
         }).catch(() => {});
       });
     }
@@ -1220,25 +1222,6 @@ export default function ReviewImportPage() {
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" role="alert">
           {error}
         </p>
-      )}
-
-      {addPlantMode && (importSource === "purchase_order" || importSource === "photo") && (
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setDefaultProfileType("permanent")}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border min-h-[44px] ${defaultProfileType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-          >
-            Permanent
-          </button>
-          <button
-            type="button"
-            onClick={() => setDefaultProfileType("seed")}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border min-h-[44px] ${defaultProfileType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-          >
-            Seasonal
-          </button>
-        </div>
       )}
 
       {importSource === "purchase_order" && (

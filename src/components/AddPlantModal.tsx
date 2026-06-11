@@ -326,15 +326,16 @@ export function AddPlantModal({
           hapticError();
           return;
         }
+        // Type is AI-derived post-creation (lifecycle → profile_type, B6 mapping).
+        // Insert with the "seed" default; the awaited enrichment below corrects it.
         const basePayload = buildProfileInsertFromName(name, variety.trim(), user.id, {
-          profileType: plantType === "permanent" ? "permanent" : "seed",
           status: "active",
         });
         const insertPayload = {
           ...basePayload,
           growing_notes: notes.trim() || null,
           purchase_date: plantedDate || null,
-          purchase_vendor: plantType === "seasonal" ? (vendorNursery.trim() || null) : null,
+          purchase_vendor: vendorNursery.trim() || null,
         };
         const { data: insertRow, error: insertErr } = await supabase
           .from("plant_profiles")
@@ -361,7 +362,7 @@ export function AddPlantModal({
             seed_packet_id: null,
             location: location.trim() || null,
             plant_count: plantCountNum ?? 1,
-            is_permanent_planting: plantType === "permanent",
+            is_permanent_planting: false, // corrected post-enrichment when AI lifecycle derives permanent
             ...(vendorNursery.trim() && { vendor: vendorNursery.trim() }),
             ...(price.trim() && { purchase_price: price.trim() }),
             ...(plantCountNum != null && { purchase_quantity: plantCountNum }),
@@ -405,7 +406,7 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: i === 0 ? (plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).") : null,
+            note: i === 0 ? "Added to Garden." : null,
             entry_type: i === 0 ? "vault_add" : "growth",
             image_file_path: path,
           });
@@ -423,14 +424,13 @@ export function AddPlantModal({
             plant_profile_id: profileId,
             grow_instance_id: growInstanceIdNew,
             seed_packet_id: null,
-            note: plantType === "permanent" ? "Added to Garden (permanent plant)." : "Added to Garden (store-bought).",
+            note: "Added to Garden.",
             entry_type: "vault_add",
           });
         }
 
-        // Enrichment before seasonal tasks so harvest_days is available for harvest task.
-        // For permanent plants: run in background so modal closes immediately (enrichment can hang).
-        // For seasonal: must await so harvest task gets harvest_days.
+        // Await enrichment so the AI-filled lifecycle can derive the plant's type
+        // (profile_type via B6 mapping) before the type-dependent steps below.
         const runEnrichment = async () => {
           try {
             const { enriched } = await enrichProfileFromName(
@@ -445,6 +445,7 @@ export function AddPlantModal({
                 existingGrowingNotes: notes.trim() || null,
                 accessToken: session?.access_token ?? undefined,
                 userZone,
+                deriveProfileType: true,
               }
             );
             if (!enriched) setEnrichmentFailed(true);
@@ -452,17 +453,17 @@ export function AddPlantModal({
             setEnrichmentFailed(true);
           }
         };
+        await runEnrichment();
 
-        if (plantType === "permanent") {
-          void runEnrichment();
+        // Branch on the AI-derived type. Permanent: correct the instance flag, skip care
+        // templates + harvest task. Otherwise (including AI-fail): the seed-default path.
+        const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days, profile_type").eq("id", profileId).single();
+        const typedPRow = pRow as { harvest_days?: number | null; profile_type?: string | null } | null;
+        if (typedPRow?.profile_type === "permanent") {
+          await supabase.from("grow_instances").update({ is_permanent_planting: true }).eq("id", growInstanceIdNew).eq("user_id", user.id);
         } else {
-          await runEnrichment();
-        }
-
-        if (plantType === "seasonal") {
           await copyCareTemplatesToInstance(profileId, growInstanceIdNew, user.id, plantedDate);
-          const { data: pRow } = await supabase.from("plant_profiles").select("harvest_days").eq("id", profileId).single();
-          const hDays = (pRow as { harvest_days?: number | null })?.harvest_days;
+          const hDays = typedPRow?.harvest_days;
           const expHarvest = hDays != null && hDays > 0 ? new Date(new Date(plantedDate).getTime() + hDays * 86400000).toISOString().slice(0, 10) : null;
           const displayNameNew = variety.trim() ? `${name} (${variety.trim()})` : name;
           if (expHarvest) {
@@ -817,7 +818,7 @@ export function AddPlantModal({
                     type="text"
                     value={plantName}
                     onChange={(e) => setPlantName(e.target.value)}
-                    placeholder={plantType === "permanent" ? "e.g. Avocado Tree, Rose" : "e.g. Tomato, Basil"}
+                    placeholder="e.g. Tomato, Basil, Avocado Tree"
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
@@ -828,7 +829,7 @@ export function AddPlantModal({
                     type="text"
                     value={variety}
                     onChange={(e) => setVariety(e.target.value)}
-                    placeholder={plantType === "permanent" ? "e.g. Hass, Cecile Brunner" : "e.g. Cherokee Purple, Genovese"}
+                    placeholder="e.g. Cherokee Purple, Genovese"
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
@@ -839,10 +840,10 @@ export function AddPlantModal({
                     type="text"
                     value={vendorNursery}
                     onChange={(e) => setVendorNursery(e.target.value)}
-                    placeholder={plantType === "permanent" ? "e.g. Briggs Tree Nursery, Home Depot" : "e.g. Bonnie Plants, Home Depot"}
+                    placeholder="e.g. Bonnie Plants, Home Depot"
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-teal-gus focus:border-teal-gus"
                   />
-                  {plantType === "seasonal" && <p className="text-xs text-neutral-500 mt-1">For your records. We use plant + variety only to find details and a photo.</p>}
+                  <p className="text-xs text-neutral-500 mt-1">For your records. We use plant + variety only to find details and a photo.</p>
                 </div>
                 <div>
                   <label htmlFor="add-plant-price" className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
@@ -868,26 +869,6 @@ export function AddPlantModal({
                     className="w-full px-3 py-2 rounded-3xl border border-neutral-300 text-neutral-900 focus:ring-emerald-500 focus:border-emerald-500"
                     aria-label="Number of plants"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">Plant type</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPlantType("seasonal")}
-                      className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border min-h-[44px] ${plantType === "seasonal" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
-                    >
-                      Seasonal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPlantType("permanent")}
-                      className={`flex-1 py-2 px-3 rounded-3xl text-sm font-medium border min-h-[44px] ${plantType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-teal-gus/40 text-teal-gus hover:bg-teal-gus/10"}`}
-                    >
-                      Permanent
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-1">Perennial, tree, or shrub = permanent. Annual or veg = seasonal.</p>
                 </div>
               </>
             )}
