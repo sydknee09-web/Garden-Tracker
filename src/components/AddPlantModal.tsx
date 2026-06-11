@@ -719,7 +719,7 @@ export function AddPlantModal({
                         {p.variety_name?.trim() ? `${p.name} — ${p.variety_name}` : p.name}
                       </option>
                     ))}
-                    {profiles.length === 0 && <option value="">No {plantType === "permanent" ? "profiles" : "seasonal plants"} in vault yet</option>}
+                    {profiles.length === 0 && <option value="">No plants in your Library yet</option>}
                   </select>
                 </div>
                 {plantType === "seasonal" && selectedProfileId && (

@@ -725,7 +725,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
         user_id: user.id,
         plant_profile_id: endBatchTarget.plant_profile_id,
         grow_instance_id: batchId,
-        note: endNote.trim() || (isDead ? "Plant died" : "Batch ended"),
+        note: endNote.trim() || (isDead ? "Plant died" : "Planting ended"),
         entry_type: isDead ? "death" : "note",
         weather_snapshot: weather ?? undefined,
       });

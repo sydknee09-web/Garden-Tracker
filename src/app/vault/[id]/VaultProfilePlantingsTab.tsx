@@ -68,7 +68,7 @@ export function VaultProfilePlantingsTab({
             const giCanEdit = canEditPage((gi as { user_id?: string }).user_id ?? profileOwnerId, "garden");
             const sowBadge = !isPermanent && ((gi as GrowInstance).sow_method === "direct_sow" ? "Direct sow" : (gi as GrowInstance).sow_method === "seed_start" ? "Seed start" : null);
             const loc = gi.location?.trim() ?? "";
-            const titleLabel = loc || (isPermanent ? `Planting ${giIdx + 1}` : `Batch ${giIdx + 1}`);
+            const titleLabel = loc || `Planting ${giIdx + 1}`;
             const qty = (gi as GrowInstance).plant_count;
             const qtyLabel =
               qty != null && qty > 0
