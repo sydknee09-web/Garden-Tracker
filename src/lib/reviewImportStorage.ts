@@ -153,46 +153,6 @@ export function clearProgressiveItems(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Pending photo import (camera/file capture)
-// ---------------------------------------------------------------------------
-export const PENDING_PHOTO_IMPORT_KEY = "garden-pending-photo-import";
-
-export type PendingPhotoImportItem = {
-  id: string;
-  fileName: string;
-  /** Base64 image data (no data URL prefix). */
-  imageBase64: string;
-};
-
-export type PendingPhotoImportData = {
-  items: PendingPhotoImportItem[];
-  /** When true, create grow_instance only (no seed_packet). Passed through to review-import. */
-  addPlantMode?: boolean;
-  /** When "permanent", new profiles are trees/perennials (My Plants). Passed through to review-import. */
-  defaultProfileType?: "seed" | "permanent";
-};
-
-export function getPendingPhotoImport(): PendingPhotoImportData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(PENDING_PHOTO_IMPORT_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as PendingPhotoImportData;
-    return Array.isArray(data?.items) ? data : null;
-  } catch { return null; }
-}
-
-export function setPendingPhotoImport(data: PendingPhotoImportData): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(PENDING_PHOTO_IMPORT_KEY, JSON.stringify(data)); } catch { /* full */ }
-}
-
-export function clearPendingPhotoImport(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(PENDING_PHOTO_IMPORT_KEY);
-}
-
-// ---------------------------------------------------------------------------
 // Pending photo hero import (BatchAddSeed review → hero processing → review-import)
 // Items already have extracted vendor/type/variety; hero page runs find-hero-photo only.
 // ---------------------------------------------------------------------------
