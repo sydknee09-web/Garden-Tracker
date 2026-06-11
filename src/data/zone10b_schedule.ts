@@ -41,7 +41,7 @@ export interface PlantingData {
     "Pepper": {
       sowing_method: "Start Indoors / Transplant",
       planting_window: "Spring: Feb-Apr",
-      notes: "Highly frost sensitive. In Vista, can be grown as a multi-year perennial.",
+      notes: "Highly frost sensitive. In Zone 10b, can be grown as a multi-year perennial.",
       sun: "Full Sun",
       spacing: "12-18 inches",
       germination_time: "10-21 days",
@@ -101,7 +101,7 @@ export interface PlantingData {
     "Banana": {
       sowing_method: "Direct Sow / Transplant",
       planting_window: "Spring: Mar-May",
-      notes: "Hillside airflow helps. Ornamental/fruit varieties from seed.",
+      notes: "Good airflow helps. Ornamental/fruit varieties from seed.",
       sun: "Full Sun",
       spacing: "6-10 feet",
       days_to_maturity: "varies"

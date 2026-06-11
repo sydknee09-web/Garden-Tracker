@@ -1462,12 +1462,12 @@ function VaultPageInner() {
                 />
               </div>
               <div className="mt-3">
-                <label htmlFor="plant-notes" className="block text-xs font-medium text-black/60 mb-1">Notes (hillside details)</label>
+                <label htmlFor="plant-notes" className="block text-xs font-medium text-black/60 mb-1">Notes</label>
                 <textarea
                   id="plant-notes"
                   value={plantNotes}
                   onChange={(e) => setPlantNotes(e.target.value)}
-                  placeholder="e.g. Lower terrace, added compost"
+                  placeholder="e.g. Raised bed, added compost"
                   rows={2}
                   className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm resize-none"
                 />

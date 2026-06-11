@@ -7,7 +7,7 @@ import { useUniversalAddModals } from "@/contexts/UniversalAddContext";
 /** 3-step Quick Start dock: Personalize → Populate → Plan. Glassmorphism, Concierge Checklist progress. */
 export function OnboardingDock() {
   const { step, completed, isLoading, dismiss, openTaskForOnboarding } = useOnboardingContext();
-  const { openSeed } = useUniversalAddModals();
+  const { openMenu } = useUniversalAddModals();
 
   if (completed || isLoading) return null;
 
@@ -42,10 +42,10 @@ export function OnboardingDock() {
             {step === 2 && (
               <button
                 type="button"
-                onClick={() => openSeed()}
+                onClick={() => openMenu()}
                 className="text-sm text-emerald-700 hover:text-emerald-800 hover:underline font-medium text-left"
               >
-                Add your first seed packet
+                Add your first plant or seeds
               </button>
             )}
             {step === 3 && (

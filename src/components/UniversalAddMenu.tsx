@@ -53,7 +53,7 @@ export interface UniversalAddMenuProps {
  * extracted <TaskForm> / <JournalEntryForm> / <SupplyForm> / <SeedPacketForm> sub-components.
  *
  * The 4 standalone modal shells (NewTaskModal / QuickLogModal / QuickAddSupply / QuickAddSeed)
- * remain mounted on each page for non-add-button callers (onboarding "Observe Hillside",
+ * remain mounted on each page for non-add-button callers (onboarding "Check on my plants",
  * calendar ?openTask=1 deep-link, QuickLog cross-modal "+ Add New Supply", vault Plant Again,
  * etc.) — they're driven by `activeModal === "..."` from UniversalAddContext, not by this menu.
  */

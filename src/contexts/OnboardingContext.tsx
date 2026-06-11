@@ -12,16 +12,16 @@ type OnboardingContextValue = {
   isLoading: boolean;
   reportAction: (action: "zone_set" | "seed_added" | "task_added") => Promise<void>;
   dismiss: () => Promise<void>;
-  /** When set, NewTaskModal should use this as initial title (e.g. "Observe Hillside") and clear it after use. */
+  /** When set, NewTaskModal should use this as initial title (e.g. "Check on my plants") and clear it after use. */
   initialTaskTitle: string | null;
   clearInitialTaskTitle: () => void;
-  /** Opens task modal with "Observe Hillside" pre-filled for onboarding Step 3. */
+  /** Opens task modal with "Check on my plants" pre-filled for onboarding Step 3. */
   openTaskForOnboarding: () => void;
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(undefined);
 
-const ONBOARDING_TASK_TITLE = "Observe Hillside";
+const ONBOARDING_TASK_TITLE = "Check on my plants";
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();

@@ -28,7 +28,7 @@ export interface TaskFormProps {
   onSuccess?: () => void;
   /** Optional initial due date (YYYY-MM-DD) */
   initialDueDate?: string;
-  /** Optional initial title (e.g. from onboarding "Observe Hillside") */
+  /** Optional initial title (e.g. from onboarding "Check on my plants") */
   initialTitle?: string;
   /** When provided, renders a Back arrow in the header that calls this. */
   onBack?: () => void;
@@ -40,7 +40,7 @@ export interface TaskFormProps {
  * TaskForm — pure form body for creating or editing a task.
  *
  * Two mount paths:
- *  1. Inside the <NewTaskModal> standalone shell (for non-add-button callers — onboarding "Observe Hillside",
+ *  1. Inside the <NewTaskModal> standalone shell (for non-add-button callers — onboarding "Check on my plants",
  *     calendar `?openTask=1` deep-link, etc.). The shell provides backdrop + panel + focus trap + body scroll lock.
  *  2. Inside the <UniversalAddMenu> "task" sub-screen (the add-button flow). The menu provides its own
  *     dialog context (aria-modal + body scroll lock); no separate focus trap needed.
@@ -287,7 +287,7 @@ export function TaskForm({ onClose, onSuccess, initialDueDate, initialTitle, onB
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Water Hillside"
+            placeholder="e.g. Water the tomatoes"
             className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-emerald/40 focus:border-emerald"
           />
         </div>
@@ -453,7 +453,7 @@ export interface NewTaskModalProps {
   onSuccess?: () => void;
   /** Optional initial due date (YYYY-MM-DD) */
   initialDueDate?: string;
-  /** Optional initial title (e.g. from onboarding "Observe Hillside") */
+  /** Optional initial title (e.g. from onboarding "Check on my plants") */
   initialTitle?: string;
   /** When provided, show back arrow to return to FAB menu (parent closes this and re-opens Universal Add Menu) */
   onBackToMenu?: () => void;

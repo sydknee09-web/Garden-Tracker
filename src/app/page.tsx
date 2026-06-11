@@ -326,7 +326,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ---- Sanctuary Quick Start dock (3-step onboarding) ---- */}
+      {/* ---- Quick Start dock (3-step onboarding) ---- */}
       {onboardingCtx && <OnboardingDock />}
 
       {/* ---- Weather (compact, mesh gradient) ---- */}
