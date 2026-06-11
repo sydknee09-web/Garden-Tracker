@@ -290,6 +290,19 @@ export interface PlantProfile {
   family?: string | null;
   genus?: string | null;
   species?: string | null;
+  // ── AI Fill overhaul Ship 2 (migration 20260611150000) ──
+  /** Per-field AI provenance map { column: 'variety' | 'cultivar' | 'species' }. Absent entry = user-entered / legacy. */
+  field_provenance?: Record<string, string> | null;
+  /** Rich plain-language When-to-Plant narrative ("Cannas are a spring/summer plant…"). */
+  when_to_plant_description?: string | null;
+  /** Seasons appropriate for planting: Spring | Summer | Fall | Winter. */
+  planting_seasons_tags?: string[] | null;
+  /** Months 1-12 for planting (zone-biased when the AI ran with a zone). */
+  optimal_planting_months_array?: number[] | null;
+  /** Weeks BEFORE last frost to start indoors. NULL = not applicable. */
+  indoor_start_weeks_before_frost?: number | null;
+  /** Weeks AFTER last frost to plant/sow outside. 0 = at last frost. NULL = not applicable. */
+  outdoor_plant_weeks_after_frost?: number | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;

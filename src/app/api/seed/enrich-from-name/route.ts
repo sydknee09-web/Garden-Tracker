@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { researchVariety } from "@/app/api/seed/extract/route";
+import {
+  researchPlantTiered,
+  type ResearchLevel,
+  type ResearchProfileTags,
+} from "@/lib/researchVariety";
 import { logApiError } from "@/lib/apiErrorLog";
 import { logApiUsageAsync } from "@/lib/logApiUsage";
 import { getSupabaseUser } from "@/app/api/import/auth";
@@ -8,12 +12,46 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
 
-export const maxDuration = 30;
+// Tiered retry can run up to 3 sequential Gemini calls (variety/cultivar → combined → species).
+export const maxDuration = 60;
 
 function parseCommaList(s: string | undefined): string[] | null {
   if (!s?.trim()) return null;
   const arr = s.split(",").map((x) => x.trim()).filter(Boolean);
   return arr.length > 0 ? arr : null;
+}
+
+const SEASON_VOCAB = ["Spring", "Summer", "Fall", "Winter"];
+
+/** Parse "Spring, Summer" → ["Spring","Summer"], canonicalized + restricted to the vocabulary. */
+function parseSeasons(s: string | undefined): string[] | null {
+  if (!s?.trim()) return null;
+  const seen = new Set<string>();
+  for (const raw of s.split(",")) {
+    const canon = SEASON_VOCAB.find((v) => v.toLowerCase() === raw.trim().toLowerCase());
+    if (canon) seen.add(canon);
+  }
+  return seen.size > 0 ? SEASON_VOCAB.filter((v) => seen.has(v)) : null;
+}
+
+/** Parse "3,4,5" → [3,4,5]; clamps to valid months 1-12, dedupes, sorts. */
+function parseMonths(s: string | undefined): number[] | null {
+  if (!s?.trim()) return null;
+  const months = [...new Set(
+    s.split(",")
+      .map((x) => parseInt(x.trim(), 10))
+      .filter((n) => Number.isInteger(n) && n >= 1 && n <= 12)
+  )].sort((a, b) => a - b);
+  return months.length > 0 ? months : null;
+}
+
+/** Parse "6" / "6-8" → first integer (0 allowed — "at last frost"). */
+function parseWeeks(s: string | undefined): number | null {
+  if (!s?.trim()) return null;
+  const m = s.trim().match(/-?\d+/);
+  if (!m) return null;
+  const n = parseInt(m[0], 10);
+  return Number.isInteger(n) ? n : null;
 }
 
 /** Parse "65" or "55-70" to a number (use first number). */
@@ -83,6 +121,14 @@ export type EnrichFromNameResponse = {
   family?: string | null;
   genus?: string | null;
   species?: string | null;
+  // When to Plant (Ship 2)
+  when_to_plant_description?: string | null;
+  planting_seasons_tags?: string[] | null;
+  optimal_planting_months_array?: number[] | null;
+  indoor_start_weeks_before_frost?: number | null;
+  outdoor_plant_weeks_after_frost?: number | null;
+  /** Tier the data was found at — drives plant_profiles.field_provenance in the writers. */
+  provenance?: ResearchLevel | null;
   zoneUsed?: string | null;
 };
 
@@ -95,7 +141,8 @@ const LIBRARY_COLUMNS =
   "pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, " +
   "drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, " +
   "harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, " +
-  "family, genus, species";
+  "family, genus, species, " +
+  "when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, found_level";
 
 type LibraryRow = Record<string, unknown>;
 
@@ -104,9 +151,36 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 const arr = (v: unknown): string[] | null =>
   Array.isArray(v) ? (v.filter((x): x is string => typeof x === "string" && x.trim() !== "") || null) : null;
 
-/** Build the full enrich response from a cached global_plant_library row. */
-function responseFromLibraryRow(row: LibraryRow, userZone: string | null): EnrichFromNameResponse {
+const numArr = (v: unknown): number[] | null =>
+  Array.isArray(v)
+    ? (() => {
+        const ns = v.filter((x): x is number => typeof x === "number" && Number.isInteger(x) && x >= 1 && x <= 12);
+        return ns.length > 0 ? ns : null;
+      })()
+    : null;
+
+/**
+ * Build the full enrich response from a cached global_plant_library row.
+ * `fallbackLevel` covers legacy rows with no found_level: variety-keyed rows date from the
+ * exact-match-only era (variety data); species-keyed rows are species data by construction.
+ */
+function responseFromLibraryRow(
+  row: LibraryRow,
+  userZone: string | null,
+  fallbackLevel: ResearchLevel
+): EnrichFromNameResponse {
+  const storedLevel = str(row.found_level);
+  const provenance: ResearchLevel =
+    storedLevel === "variety" || storedLevel === "cultivar" || storedLevel === "species"
+      ? storedLevel
+      : fallbackLevel;
   return {
+    provenance,
+    when_to_plant_description: str(row.when_to_plant_description),
+    planting_seasons_tags: arr(row.planting_seasons_tags),
+    optimal_planting_months_array: numArr(row.optimal_planting_months_array),
+    indoor_start_weeks_before_frost: num(row.indoor_start_weeks_before_frost),
+    outdoor_plant_weeks_after_frost: num(row.outdoor_plant_weeks_after_frost),
     sun: str(row.sun),
     sun_summary: str(row.sun_summary) ?? str(row.sun),
     sun_detail: str(row.sun_detail),
@@ -171,6 +245,16 @@ export async function POST(req: Request) {
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const variety = typeof body?.variety === "string" ? body.variety.trim() : "";
     const forceRefresh = Boolean(body?.forceRefresh);
+    // Optional three-tag schema values from the caller's profile — drive tier-1 prompt framing.
+    // Absent/empty tags fall back to the untagged ladder (variety → combined → species).
+    const tagsBody = (body?.tags ?? null) as Record<string, unknown> | null;
+    const tagStr = (k: string) =>
+      tagsBody && typeof tagsBody[k] === "string" ? (tagsBody[k] as string).trim() : "";
+    const profileTags: ResearchProfileTags = {
+      lifecycle: tagStr("lifecycle"),
+      growth_form: tagStr("growth_form"),
+      plant_category: tagStr("plant_category"),
+    };
     if (!name) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
     }
@@ -201,8 +285,12 @@ export async function POST(req: Request) {
     const skipLibrary = zoneNormalized != null && zoneNormalized !== "10b";
 
     const identityKey = identityKeyFromVariety(name, variety);
+    // Species-level cache key: the bare plant-type key. Distinct from identityKey only when a
+    // variety is present.
+    const speciesKey = identityKeyFromVariety(name, "");
 
     // Botany brain: check global_plant_library before AI (fallback to AI if table missing or unreachable).
+    // Multi-tier read (Ship 2): variety key first, then the species key, before any AI call.
     // forceRefresh (explicit user re-research) bypasses the cache entirely so the AI actually runs.
     if (auth?.supabase && identityKey && !skipLibrary && !forceRefresh) {
       try {
@@ -212,8 +300,20 @@ export async function POST(req: Request) {
           .eq("identity_key", identityKey)
           .maybeSingle();
         if (libRow) {
-          const response = responseFromLibraryRow(libRow as unknown as LibraryRow, userZone);
+          const response = responseFromLibraryRow(libRow as unknown as LibraryRow, userZone, "variety");
           return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response });
+        }
+        if (speciesKey && speciesKey !== identityKey) {
+          const { data: speciesRow } = await auth.supabase
+            .from("global_plant_library")
+            .select(LIBRARY_COLUMNS)
+            .eq("identity_key", speciesKey)
+            .maybeSingle();
+          if (speciesRow) {
+            const response = responseFromLibraryRow(speciesRow as unknown as LibraryRow, userZone, "species");
+            // Species cache hits are tagged species-level — never silently presented as variety data.
+            return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response, provenance: "species" });
+          }
         }
       } catch {
         // Table/columns may not exist yet (migration not propagated); fall through to AI
@@ -237,25 +337,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Search with name + variety only (no vendor) for better results.
-    // Pass userZone so the AI prompt biases planting_window to the user's USDA zone.
-    const outcome = await researchVariety(apiKey, name, variety, "", userZone ?? undefined);
+    // Tiered research (Ship 2): most-specific framing first (per profile tags), falling broader
+    // on each honest not-found; aborts on AI failure. Pass userZone so the AI prompt biases
+    // planting_window / months to the user's USDA zone.
+    const outcome = await researchPlantTiered(apiKey, name, variety, profileTags, userZone ?? undefined);
     if (!outcome) {
       // AI failed to run / unparseable output → "AI unavailable" semantics.
       return NextResponse.json({ enriched: false });
     }
-    if (!outcome.found) {
-      // Exact variety not found (B5 honest empty-state). NEVER cached under the variety key —
-      // the next forceRefresh re-attempts the lookup fresh (variety-not-found lock, Syd 2026-06-10).
-      console.log(`[enrich-from-name] zone=${userZone ?? "unset"} forceRefresh=${forceRefresh} found=false`);
-      if (auth?.user?.id) {
+    // One api_usage row per Gemini call actually made, so the daily ceiling sees true spend.
+    if (auth?.user?.id) {
+      for (let i = 0; i < outcome.attempts; i++) {
         logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });
       }
+    }
+    if (!outcome.found) {
+      // Not found at ANY tier (B5 honest empty-state). NEVER cached —
+      // the next forceRefresh re-attempts the lookup fresh (couldn't-find lock, Syd 2026-06-10).
+      console.log(`[enrich-from-name] zone=${userZone ?? "unset"} forceRefresh=${forceRefresh} attempts=${outcome.attempts} found=false`);
       return NextResponse.json({ enriched: false, found: false });
     }
     const result = outcome.data;
+    const foundLevel: ResearchLevel = outcome.level;
 
-    console.log(`[enrich-from-name] zone=${userZone ?? "unset"} librarySkipped=${skipLibrary} forceRefresh=${forceRefresh} ai=true`);
+    console.log(`[enrich-from-name] zone=${userZone ?? "unset"} librarySkipped=${skipLibrary} forceRefresh=${forceRefresh} ai=true level=${foundLevel} attempts=${outcome.attempts}`);
 
     const harvestDays = parseDaysToMaturity(result.days_to_maturity);
     const response: EnrichFromNameResponse = {
@@ -307,20 +412,33 @@ export async function POST(req: Request) {
       family: result.family?.trim() || null,
       genus: result.genus?.trim() || null,
       species: result.species?.trim() || null,
+      when_to_plant_description: result.when_to_plant_description?.trim() || null,
+      planting_seasons_tags: parseSeasons(result.planting_seasons_tags),
+      optimal_planting_months_array: parseMonths(result.optimal_planting_months),
+      indoor_start_weeks_before_frost: parseWeeks(result.indoor_start_weeks_before_frost),
+      outdoor_plant_weeks_after_frost: parseWeeks(result.outdoor_plant_weeks_after_frost),
+      provenance: foundLevel,
       zoneUsed: userZone,
     };
-    if (auth?.user?.id) {
-      logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });
-    }
 
     // Upsert result into global_plant_library so the brain grows (service role only).
     // Writes the FULL field set so a future cache hit is as rich as this AI fill (NORTH_STAR §1).
+    // Cache key matches the scope the data was found at: variety/cultivar/combined-name hits key
+    // on the name+variety identity; only the bare species lookup keys on the species key, where
+    // every variety of that plant shares it. found_level keeps species data honest either way.
+    const cacheKey = outcome.cacheScope === "species" ? speciesKey : identityKey;
     const admin = getSupabaseAdmin();
-    if (admin && identityKey) {
+    if (admin && cacheKey) {
       try {
         await admin.from("global_plant_library").upsert(
           {
-            identity_key: identityKey,
+            identity_key: cacheKey,
+            found_level: foundLevel,
+            when_to_plant_description: response.when_to_plant_description ?? null,
+            planting_seasons_tags: response.planting_seasons_tags ?? null,
+            optimal_planting_months_array: response.optimal_planting_months_array ?? null,
+            indoor_start_weeks_before_frost: response.indoor_start_weeks_before_frost ?? null,
+            outdoor_plant_weeks_after_frost: response.outdoor_plant_weeks_after_frost ?? null,
             mature_height: response.mature_height ?? null,
             mature_width: response.mature_width ?? null,
             sun: response.sun ?? null,

@@ -18,6 +18,19 @@ import { decodeHtmlEntities, formatVarietyForDisplay } from "@/lib/htmlEntities"
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { EmptyStateVault, EmptyStateSprout } from "@/components/EmptyStateIllustrations";
 
+/**
+ * Sow-month check for a profile: prefers the structured optimal_planting_months_array
+ * (AI Fill overhaul Ship 2) and falls back to the planting_window text parse.
+ */
+function isProfilePlantableInMonth(
+  s: { optimal_planting_months_array?: number[] | null; planting_window?: string | null },
+  monthIndex: number
+): boolean {
+  const months = s.optimal_planting_months_array;
+  if (Array.isArray(months) && months.length > 0) return months.includes(monthIndex + 1);
+  return isPlantableInMonthSimple(s.planting_window, monthIndex);
+}
+
 /** Minimal sow-month check without loading zone10b_schedule (avoids init error in chunk). */
 function isPlantableInMonthSimple(plantingWindow: string | null | undefined, monthIndex: number): boolean {
   const w = plantingWindow?.trim();
@@ -75,6 +88,14 @@ export type VaultCardItem = {
   planting_window?: string | null;
   /** Sowing method (e.g. "Direct Sow", "Start Indoors / Transplant"); for display badge. */
   sowing_method?: string | null;
+  /** Structured planting seasons (Spring | Summer | Fall | Winter); Season refine filter. */
+  planting_seasons_tags?: string[] | null;
+  /** Structured months 1-12; preferred over planting_window text for Plant Now / Sowing Month. */
+  optimal_planting_months_array?: number[] | null;
+  /** Weeks before last frost to start indoors; non-null = "Indoors" method. */
+  indoor_start_weeks_before_frost?: number | null;
+  /** Weeks after last frost to plant outside; non-null = "Outdoors" method. */
+  outdoor_plant_weeks_after_frost?: number | null;
   /** Latest purchase_date among packets for this profile (YYYY-MM-DD); for sort by purchase date. */
   latest_purchase_date?: string | null;
   /** user_id of the owner; populated in family-view to show ownership badge. */
@@ -190,6 +211,8 @@ export function SeedVaultView({
   onSeedTypeChipsLoaded,
   varietyFilter = null,
   vendorFilter = null,
+  seasonFilter = null,
+  methodFilter = null,
   sunFilter = null,
   spacingFilter = null,
   germinationFilter = null,
@@ -241,6 +264,10 @@ export function SeedVaultView({
   /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
   varietyFilter?: string | null;
   vendorFilter?: string | null;
+  /** Planting season refine (Spring | Summer | Fall | Winter), from planting_seasons_tags. */
+  seasonFilter?: string | null;
+  /** Planting method refine ("indoors" | "outdoors"), from the frost-offset structured fields. */
+  methodFilter?: string | null;
   sunFilter?: string | null;
   spacingFilter?: string | null;
   germinationFilter?: string | null;
@@ -257,6 +284,8 @@ export function SeedVaultView({
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
+    season: { value: string; count: number }[];
+    method: { value: string; count: number }[];
   }) => void;
   /** Called when vault status counts (All, In storage, Active, Low inventory, Archived) are computed, for Refine By panel. */
   onVaultStatusChipsLoaded?: (chips: { value: StatusFilter; label: string; count: number }[]) => void;
@@ -396,7 +425,12 @@ export function SeedVaultView({
         const n = s.packet_count ?? 0;
         if (packetCountRange(n) !== packetCountFilter) return false;
       }
-      if (plantNowFilter && !isPlantableInMonthSimple(s.planting_window, sowMonthIndex)) return false;
+      if (plantNowFilter && !isProfilePlantableInMonth(s, sowMonthIndex)) return false;
+      if (seasonFilter != null && seasonFilter !== "") {
+        if (!(s.planting_seasons_tags ?? []).includes(seasonFilter)) return false;
+      }
+      if (methodFilter === "indoors" && s.indoor_start_weeks_before_frost == null) return false;
+      if (methodFilter === "outdoors" && s.outdoor_plant_weeks_after_frost == null) return false;
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
       if (selectedOwnerFilter && s.owner_user_id !== selectedOwnerFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
@@ -430,7 +464,7 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, seasonFilter, methodFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
 
   const seedTypeChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -453,7 +487,15 @@ export function SeedVaultView({
     const germinationMap = new Map<string, number>();
     const maturityMap = new Map<string, number>();
     const packetCountMap = new Map<string, number>();
+    const seasonMap = new Map<string, number>();
+    let indoorsCount = 0;
+    let outdoorsCount = 0;
     for (const s of seeds) {
+      for (const season of s.planting_seasons_tags ?? []) {
+        seasonMap.set(season, (seasonMap.get(season) ?? 0) + 1);
+      }
+      if (s.indoor_start_weeks_before_frost != null) indoorsCount++;
+      if (s.outdoor_plant_weeks_after_frost != null) outdoorsCount++;
       const v = (s.variety ?? "").trim() || "—";
       varietyMap.set(v, (varietyMap.get(v) ?? 0) + 1);
       (s.vendor_display ?? "").split(",").map((x) => x.trim()).filter(Boolean).forEach((vendor) => {
@@ -478,6 +520,11 @@ export function SeedVaultView({
       germination: Array.from(germinationMap.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" })),
       maturity: (["<60", "60-90", "90+"] as const).filter((k) => maturityMap.has(k)).map((value) => ({ value, count: maturityMap.get(value) ?? 0 })),
       packetCount: ["0", "1", "2+"].filter((k) => packetCountMap.has(k)).map((value) => ({ value, count: packetCountMap.get(value) ?? 0 })),
+      season: ["Spring", "Summer", "Fall", "Winter"].filter((k) => seasonMap.has(k)).map((value) => ({ value, count: seasonMap.get(value) ?? 0 })),
+      method: [
+        { value: "indoors", count: indoorsCount },
+        { value: "outdoors", count: outdoorsCount },
+      ].filter((m) => m.count > 0),
     };
   }, [seeds]);
 
@@ -528,7 +575,7 @@ export function SeedVaultView({
   const sowingMonthChips = useMemo(() => {
     const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     return MONTH_NAMES.map((monthName, monthIndex) => {
-      const count = seeds.filter((s) => isPlantableInMonthSimple(s.planting_window, monthIndex)).length;
+      const count = seeds.filter((s) => isProfilePlantableInMonth(s, monthIndex)).length;
       return { month: monthIndex + 1, monthName, count };
     });
   }, [seeds]);
@@ -664,7 +711,7 @@ export function SeedVaultView({
       const isFamilyView = householdViewMode === "family";
       let profilesQuery = supabase
         .from("plant_profiles")
-        .select("id, user_id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method")
+        .select("id, user_id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost")
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
       if (!isFamilyView) profilesQuery = profilesQuery.eq("user_id", user.id);
@@ -806,6 +853,10 @@ export function SeedVaultView({
           })(),
           planting_window: (p.planting_window as string | null) ?? null,
           sowing_method: (p.sowing_method as string | null) ?? null,
+          planting_seasons_tags: (p.planting_seasons_tags as string[] | null) ?? null,
+          optimal_planting_months_array: (p.optimal_planting_months_array as number[] | null) ?? null,
+          indoor_start_weeks_before_frost: (p.indoor_start_weeks_before_frost as number | null) ?? null,
+          outdoor_plant_weeks_after_frost: (p.outdoor_plant_weeks_after_frost as number | null) ?? null,
           latest_purchase_date: latestPurchaseByProfile.get(pid) ?? null,
           owner_user_id: (p.user_id as string | null) ?? null,
           best_rating: bestRatingByProfile.get(pid) ?? null,

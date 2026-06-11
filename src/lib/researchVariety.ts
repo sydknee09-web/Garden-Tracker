@@ -15,13 +15,36 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-export const RESEARCH_PROMPT = `Using Google Search Grounding, find the official product page or a reliable gardening guide for this specific seed variety.
+/**
+ * Ship 2 (2026-06-11): the prompt splits into a framing-specific preamble + the shared field
+ * list, so one extraction contract serves three lookup framings:
+ * - "variety"  — seed variety of a plant (the original framing; packet path unchanged)
+ * - "cultivar" — named cultivar of a perennial tree/shrub/vine
+ * - "species"  — a plant by its (full) common name; used for combined-name and species tiers
+ * Every framing keeps the EXACT MATCH ONLY honesty contract at ITS level — fallback happens by
+ * moving DOWN the tier ladder (researchPlantTiered), never by the model substituting.
+ */
+export type ResearchFraming = "variety" | "cultivar" | "species";
+
+const PREAMBLES: Record<ResearchFraming, string> = {
+  variety: `Using Google Search Grounding, find the official product page or a reliable gardening guide for this specific seed variety.
 
 EXACT MATCH ONLY: you must find data for this exact plant name and variety. If you cannot find a reliable source for this exact variety, return exactly {"found": false} and nothing else. Do NOT substitute a related species or different variety, do NOT guess, do NOT suggest a correction — the user's spelling is the source of truth. When you DO find the exact variety, include "found": true in the JSON alongside the fields below.
 
-Also: find a high-quality stock image URL or product photo that represents the Actual Plant or Fruit (not the seed packet) for this variety. Prefer a clear photo of the mature plant, flower, or harvest.
+Also: find a high-quality stock image URL or product photo that represents the Actual Plant or Fruit (not the seed packet) for this variety. Prefer a clear photo of the mature plant, flower, or harvest.`,
+  cultivar: `Using Google Search Grounding, find a reliable nursery page or gardening guide for this specific named cultivar of this plant.
 
-Extract the following and return a single JSON object only (no markdown, no explanation):
+EXACT MATCH ONLY: you must find data for this exact cultivar. If you cannot find a reliable source for this exact cultivar, return exactly {"found": false} and nothing else. Do NOT substitute a different cultivar or generic species data, do NOT guess, do NOT suggest a correction — the user's spelling is the source of truth. When you DO find the exact cultivar, include "found": true in the JSON alongside the fields below.
+
+Also: find a high-quality stock image URL that represents the Actual Plant (not packaging) for this cultivar. Prefer a clear photo of the mature plant, flower, or fruit.`,
+  species: `Using Google Search Grounding, find a reliable gardening guide or botanical reference for this plant, looked up by the common name given (species-level information).
+
+EXACT MATCH ONLY: you must positively identify this plant by the exact name given. If you cannot identify a real plant matching this name, return exactly {"found": false} and nothing else. Do NOT substitute a different plant, do NOT guess, do NOT suggest a correction — the user's spelling is the source of truth. When you DO identify the plant, include "found": true in the JSON alongside the fields below.
+
+Also: find a high-quality stock image URL that represents the Actual Plant (not packaging). Prefer a clear photo of the mature plant, flower, or harvest.`,
+};
+
+const FIELD_LIST = `Extract the following and return a single JSON object only (no markdown, no explanation):
 - sowing_depth: e.g. "0.25 inches" or "1/4 inch"
 - planting_depth: transplant depth for plugs/bulbs/tubers in inches (DISTINCT from sowing_depth, which is seed depth). e.g. "2 inches". Use empty string if not applicable.
 - spacing: e.g. "12-18 inches" or "2 feet"
@@ -64,6 +87,11 @@ Classification tags — pick from the EXACT vocabulary, single value each:
 
 Characteristics:
 - soil_preference: short phrase e.g. "Well-drained", "Clay tolerant", "Sandy", "Acidic", "Loam". Use empty string if not found.
+- when_to_plant_description: 2-4 plain sentences explaining WHEN to plant this plant and WHY (soil warmth, frost sensitivity, season). Example: "Cannas are a spring/summer plant — they need warm soil to grow. Start indoors 6-8 weeks before your last frost, or plant outside once the soil has warmed." Use empty string if not found.
+- planting_seasons_tags: comma-separated seasons when planting is appropriate, from the EXACT vocabulary {Spring, Summer, Fall, Winter}, e.g. "Spring, Summer". Use empty string if unknown.
+- optimal_planting_months: comma-separated month NUMBERS 1-12 for planting (calibrated to the user's zone if one is given, otherwise typical temperate-climate guidance), e.g. "3,4,5". Use empty string if unknown.
+- indoor_start_weeks_before_frost: number of weeks BEFORE the last frost to start this plant indoors, as a number e.g. "6" (for a range like 6-8 weeks, return the midpoint rounded down, "7"). Use empty string if indoor starting is not applicable.
+- outdoor_plant_weeks_after_frost: number of weeks AFTER the last frost to plant or sow outside, as a number e.g. "2" ("0" means right at the last frost date). Use empty string if not applicable.
 - disease_susceptibility: comma-separated list of common diseases this plant is prone to (e.g. "Powdery mildew, Blight"). Use empty string if none notable.
 - pollination_requirements: one of "Self-pollinating", "Cross-pollinating", "Wind", "Hand-pollination needed". Use empty string if not applicable.
 - toxicity: short note on pet/human toxicity (e.g. "Toxic to cats and dogs", "Non-toxic"). Use empty string if not found.
@@ -80,6 +108,13 @@ Characteristics:
 - species: taxonomic species epithet (e.g. "lycopersicum"). Use empty string if not found.
 
 Use standard units: inches for depth and spacing, days for germination and maturity. Use empty string for any field you cannot find. For the classification tags and pill fields, pick ONLY from the listed vocabulary. Return only valid JSON.`;
+
+export function buildResearchPrompt(framing: ResearchFraming): string {
+  return `${PREAMBLES[framing]}\n\n${FIELD_LIST}`;
+}
+
+/** The original variety-framed prompt — packet/extract path and prompt-contract tests use this. */
+export const RESEARCH_PROMPT = buildResearchPrompt("variety");
 
 export type ResearchVarietyResult = {
   sowing_depth?: string;
@@ -115,6 +150,12 @@ export type ResearchVarietyResult = {
   growth_form?: string;
   plant_category?: string;
   growth_habit?: string;
+  // When to Plant (Ship 2) — raw strings from the model; the API route parses arrays/ints.
+  when_to_plant_description?: string;
+  planting_seasons_tags?: string;
+  optimal_planting_months?: string;
+  indoor_start_weeks_before_frost?: string;
+  outdoor_plant_weeks_after_frost?: string;
   // Characteristics
   soil_preference?: string;
   disease_susceptibility?: string;
@@ -152,9 +193,10 @@ export type ResearchVarietyOutcome =
 async function runResearchQuery(
   ai: GoogleGenAI,
   searchQuery: string,
-  zoneClause: string
+  zoneClause: string,
+  framing: ResearchFraming = "variety"
 ): Promise<ResearchVarietyOutcome | null> {
-  const prompt = `${RESEARCH_PROMPT}\n\nSearch for: ${searchQuery}${zoneClause}`;
+  const prompt = `${buildResearchPrompt(framing)}\n\nSearch for: ${searchQuery}${zoneClause}`;
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: prompt,
@@ -178,6 +220,22 @@ async function runResearchQuery(
     source_url = firstWeb?.web?.uri ?? "";
   }
   const s = (k: string) => getStr(k) || undefined;
+  // Tolerant accessor for the numeric / list When-to-Plant fields: the model sometimes returns
+  // native JSON numbers or arrays despite the comma-separated-string ask. Normalize to string.
+  const sFlex = (k: string): string | undefined => {
+    const v = parsed[k];
+    if (typeof v === "string") return v.trim() || undefined;
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    if (Array.isArray(v)) {
+      const joined = v
+        .filter((x) => typeof x === "string" || (typeof x === "number" && Number.isFinite(x)))
+        .map((x) => String(x).trim())
+        .filter(Boolean)
+        .join(",");
+      return joined || undefined;
+    }
+    return undefined;
+  };
   const data: ResearchVarietyResult = {
     sowing_depth: s("sowing_depth"),
     planting_depth: s("planting_depth"),
@@ -211,6 +269,11 @@ async function runResearchQuery(
     growth_form: s("growth_form"),
     plant_category: s("plant_category"),
     growth_habit: s("growth_habit"),
+    when_to_plant_description: s("when_to_plant_description"),
+    planting_seasons_tags: sFlex("planting_seasons_tags"),
+    optimal_planting_months: sFlex("optimal_planting_months"),
+    indoor_start_weeks_before_frost: sFlex("indoor_start_weeks_before_frost"),
+    outdoor_plant_weeks_after_frost: sFlex("outdoor_plant_weeks_after_frost"),
     soil_preference: s("soil_preference"),
     disease_susceptibility: s("disease_susceptibility"),
     pollination_requirements: s("pollination_requirements"),
@@ -237,6 +300,10 @@ async function runResearchQuery(
  * - {found: false} when the AI ran but couldn't find the exact variety (never cache this)
  * - null when the AI failed to run or returned unparseable output
  */
+function buildZoneClause(zoneNormalized: string): string {
+  return `\n\nIMPORTANT — Zone-specific planting window: The user gardens in USDA Hardiness Zone ${zoneNormalized}. For the planting_window field above, return a window calibrated to Zone ${zoneNormalized} frost dates and growing season — NOT a generic window. Always use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec) so downstream parsing works. Examples: "Indoor sow Feb-Mar, transplant after last frost May-Jun" for cold zones; "Direct sow Mar-Apr or Aug-Sep" for mild zones; "Year-round" for tropical zones. VIABILITY CHECK: if this plant CANNOT survive outdoor growing in Zone ${zoneNormalized} year-round (e.g. tropical fruit in cold zones, plants that need winter chill the zone doesn't deliver, plants that need a longer growing season than the zone offers), return the exact string "Not viable in Zone ${zoneNormalized} — indoor / greenhouse only" instead of a window. Use this ONLY for plants that genuinely can't survive outdoor; don't use it for plants that are merely difficult or require extra care. If you cannot find zone-specific guidance for Zone ${zoneNormalized}, return empty string for planting_window rather than a generic window.`;
+}
+
 export async function researchVariety(
   apiKey: string,
   plantType: string,
@@ -249,11 +316,123 @@ export async function researchVariety(
     const searchQuery =
       [vendor, plantType, variety].filter(Boolean).join(" ") || "seed planting guide";
     const zoneNormalized = (userZone ?? "").trim();
-    const zoneClause = zoneNormalized
-      ? `\n\nIMPORTANT — Zone-specific planting window: The user gardens in USDA Hardiness Zone ${zoneNormalized}. For the planting_window field above, return a window calibrated to Zone ${zoneNormalized} frost dates and growing season — NOT a generic window. Always use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec) so downstream parsing works. Examples: "Indoor sow Feb-Mar, transplant after last frost May-Jun" for cold zones; "Direct sow Mar-Apr or Aug-Sep" for mild zones; "Year-round" for tropical zones. VIABILITY CHECK: if this plant CANNOT survive outdoor growing in Zone ${zoneNormalized} year-round (e.g. tropical fruit in cold zones, plants that need winter chill the zone doesn't deliver, plants that need a longer growing season than the zone offers), return the exact string "Not viable in Zone ${zoneNormalized} — indoor / greenhouse only" instead of a window. Use this ONLY for plants that genuinely can't survive outdoor; don't use it for plants that are merely difficult or require extra care. If you cannot find zone-specific guidance for Zone ${zoneNormalized}, return empty string for planting_window rather than a generic window.`
-      : "";
+    const zoneClause = zoneNormalized ? buildZoneClause(zoneNormalized) : "";
 
     return await runResearchQuery(ai, searchQuery, zoneClause);
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ship 2 (2026-06-11): tag-aware tiered research — variety/cultivar → combined
+// common name → species → honest not-found. Profile path only (the packet path
+// keeps researchVariety above).
+// ---------------------------------------------------------------------------
+
+/** Provenance level a tier's data is found at. Stored per-field on plant_profiles.field_provenance. */
+export type ResearchLevel = "variety" | "cultivar" | "species";
+
+/** The three-tag schema values that drive prompt framing (all optional — untagged profiles allowed). */
+export type ResearchProfileTags = {
+  lifecycle?: string | null;
+  growth_form?: string | null;
+  plant_category?: string | null;
+};
+
+export type ResearchTier = {
+  framing: ResearchFraming;
+  /** Provenance level recorded when THIS tier hits. Combined-name hits are species-level data. */
+  level: ResearchLevel;
+  /**
+   * Which cache identity the hit belongs to. Variety/cultivar/combined-name hits are specific to
+   * the name+variety identity ("Australian Tree Fern" data must NOT pollute the bare "Tree Fern"
+   * species row); only the bare species lookup caches under the species key, where every variety
+   * of that plant can share it.
+   */
+  cacheScope: "variety" | "species";
+  query: string;
+};
+
+/**
+ * Build the most-specific-first tier ladder for a plant + optional variety + optional tags.
+ * - Annual + Vegetable/Herb/Flower → variety framing first (seed-grown; current framing is right)
+ * - Perennial + Tree/Shrub/Vine → cultivar framing first
+ * - Tagged as anything else (ferns, cannas, palms — the shapes the variety framing breaks on)
+ *   → combined-common-name lookup first ("Australian Tree Fern" as one name), then species
+ * - Untagged with a variety → variety framing first (preserves existing behavior for pre-tag
+ *   profiles), then combined, then species
+ * - No variety → species lookup only
+ */
+export function buildTierLadder(name: string, variety: string, tags?: ResearchProfileTags | null): ResearchTier[] {
+  const nameTrim = (name ?? "").trim();
+  const varietyTrim = (variety ?? "").trim();
+  if (!varietyTrim) {
+    return [{ framing: "species", level: "species", cacheScope: "species", query: nameTrim }];
+  }
+  const combinedQuery = `${nameTrim} ${varietyTrim}`.trim();
+  const combined: ResearchTier = { framing: "species", level: "species", cacheScope: "variety", query: combinedQuery };
+  const species: ResearchTier = { framing: "species", level: "species", cacheScope: "species", query: nameTrim };
+
+  const lifecycle = (tags?.lifecycle ?? "").trim();
+  const growthForm = (tags?.growth_form ?? "").trim();
+  const category = (tags?.plant_category ?? "").trim();
+  const seedGrown = lifecycle === "Annual" && ["Vegetable", "Herb", "Flower"].includes(category);
+  const cultivarShaped = lifecycle === "Perennial" && ["Tree", "Shrub", "Vine"].includes(growthForm);
+  const untagged = !lifecycle && !growthForm && !category;
+
+  if (cultivarShaped) {
+    return [{ framing: "cultivar", level: "cultivar", cacheScope: "variety", query: combinedQuery }, combined, species];
+  }
+  if (seedGrown || untagged) {
+    return [{ framing: "variety", level: "variety", cacheScope: "variety", query: combinedQuery }, combined, species];
+  }
+  // Tagged, but neither seed-grown-annual nor woody-perennial: the "variety of X" relationship
+  // is exactly what breaks for these plants — go straight to the combined-name lookup.
+  return [combined, species];
+}
+
+export type ResearchTieredOutcome =
+  | {
+      found: true;
+      level: ResearchLevel;
+      cacheScope: "variety" | "species";
+      data: ResearchVarietyResult;
+      attempts: number;
+    }
+  | { found: false; attempts: number };
+
+/**
+ * Run the tier ladder: most specific first, falling one level broader on each honest not-found.
+ * - {found:true, level, data} — a tier hit; level says how specific the data is.
+ * - {found:false} — every tier ran and returned not-found (couldn't-find UX).
+ * - null — a Gemini call failed to run / returned unparseable output. The ladder ABORTS on the
+ *   first null (honest "AI unavailable") rather than continuing — continuing during a quota or
+ *   network outage would multiply cost for no signal (leak-hardening 2026-06-10 shape).
+ * `attempts` = Gemini calls actually made, so the caller can log true API usage.
+ */
+export async function researchPlantTiered(
+  apiKey: string,
+  name: string,
+  variety: string,
+  tags?: ResearchProfileTags | null,
+  userZone?: string
+): Promise<ResearchTieredOutcome | null> {
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const zoneNormalized = (userZone ?? "").trim();
+    const zoneClause = zoneNormalized ? buildZoneClause(zoneNormalized) : "";
+    const ladder = buildTierLadder(name, variety, tags);
+    let attempts = 0;
+    for (const tier of ladder) {
+      attempts++;
+      const outcome = await runResearchQuery(ai, tier.query, zoneClause, tier.framing);
+      if (outcome === null) return null;
+      if (outcome.found) {
+        return { found: true, level: tier.level, cacheScope: tier.cacheScope, data: outcome.data, attempts };
+      }
+    }
+    return { found: false, attempts };
   } catch {
     return null;
   }

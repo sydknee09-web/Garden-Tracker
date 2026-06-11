@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     // Profiles that need filling: missing hero (unless skipHero), sparse metadata, or missing description
     const { data: profiles, error: profilesError } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, mature_height, mature_width")
+      // Must cover EVERY field buildUpdatesFromCacheRow maps (ProfileForFill) — a mapped field
+      // missing from this SELECT reads as false-blank and the cache value overwrites user data.
+      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, mature_height, mature_width, propagation_notes, seed_saving_notes, seed_propagation_context, companion_plants, avoid_plants, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost")
       .eq("user_id", user.id)
       .is("deleted_at", null);
 
@@ -134,6 +136,16 @@ export async function POST(req: Request) {
       growing_notes?: string | null;
       mature_height?: string | null;
       mature_width?: string | null;
+      propagation_notes?: string | null;
+      seed_saving_notes?: string | null;
+      seed_propagation_context?: string | null;
+      companion_plants?: string[] | null;
+      avoid_plants?: string[] | null;
+      when_to_plant_description?: string | null;
+      planting_seasons_tags?: string[] | null;
+      optimal_planting_months_array?: number[] | null;
+      indoor_start_weeks_before_frost?: number | null;
+      outdoor_plant_weeks_after_frost?: number | null;
     }>;
       for (let idx = 0; idx < arr.length; idx++) {
       const p = arr[idx];

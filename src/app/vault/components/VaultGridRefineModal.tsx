@@ -18,6 +18,8 @@ export type GridRefineSection =
   | "germination"
   | "maturity"
   | "packetCount"
+  | "season"
+  | "method"
   | null;
 
 export type RefineChips = {
@@ -27,6 +29,8 @@ export type RefineChips = {
   germination: { value: string; count: number }[];
   maturity: { value: string; count: number }[];
   packetCount: { value: string; count: number }[];
+  season: { value: string; count: number }[];
+  method: { value: string; count: number }[];
 };
 
 export interface VaultGridRefineModalProps {
@@ -341,6 +345,78 @@ export function VaultGridRefineModal({
               </div>
             )}
           </div>
+          {refineChips.season.length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection((s) => (s === "season" ? null : "season"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "season"}
+              >
+                <span>Season</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
+                  {refineBySection === "season" ? "▼" : "▸"}
+                </span>
+              </button>
+              {refineBySection === "season" && (
+                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => vaultFilters.setSeason(null)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.season === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                  >
+                    All
+                  </button>
+                  {refineChips.season.map(({ value, count }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => vaultFilters.setSeason(value)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.season === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                    >
+                      {value} ({count})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {refineChips.method.length > 0 && (
+            <div className="border-b border-black/5">
+              <button
+                type="button"
+                onClick={() => setRefineBySection((s) => (s === "method" ? null : "method"))}
+                className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] text-sm font-medium text-black hover:bg-black/[0.03]"
+                aria-expanded={refineBySection === "method"}
+              >
+                <span>Method</span>
+                <span className="text-black/50 shrink-0 ml-2" aria-hidden>
+                  {refineBySection === "method" ? "▼" : "▸"}
+                </span>
+              </button>
+              {refineBySection === "method" && (
+                <div className="px-4 pb-3 pt-0 max-h-[220px] overflow-y-auto space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => vaultFilters.setMethod(null)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === null ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                  >
+                    All
+                  </button>
+                  {refineChips.method.map(({ value, count }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => vaultFilters.setMethod(value)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${vaultFilters.filters.method === value ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
+                    >
+                      {value === "indoors" ? "Start Indoors" : "Plant Outdoors"} ({count})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {refineChips.vendor.length > 0 && (
             <div className="border-b border-black/5">
               <button

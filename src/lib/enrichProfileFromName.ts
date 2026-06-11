@@ -57,6 +57,13 @@ type EnrichFromNameResponse = {
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
   lifecycle?: string | null;
+  when_to_plant_description?: string | null;
+  planting_seasons_tags?: string[] | null;
+  optimal_planting_months_array?: number[] | null;
+  indoor_start_weeks_before_frost?: number | null;
+  outdoor_plant_weeks_after_frost?: number | null;
+  /** Tier the AI found the data at (variety | cultivar | species) — drives field_provenance. */
+  provenance?: string | null;
   zoneUsed?: string | null;
 };
 
@@ -214,18 +221,46 @@ export async function enrichProfileFromName(
       if (enrichData.mature_width != null) updates.mature_width = enrichData.mature_width;
       if (Array.isArray(enrichData.companion_plants) && enrichData.companion_plants.length > 0) updates.companion_plants = enrichData.companion_plants;
       if (Array.isArray(enrichData.avoid_plants) && enrichData.avoid_plants.length > 0) updates.avoid_plants = enrichData.avoid_plants;
+      if (enrichData.when_to_plant_description != null) updates.when_to_plant_description = enrichData.when_to_plant_description;
+      if (Array.isArray(enrichData.planting_seasons_tags) && enrichData.planting_seasons_tags.length > 0) updates.planting_seasons_tags = enrichData.planting_seasons_tags;
+      if (Array.isArray(enrichData.optimal_planting_months_array) && enrichData.optimal_planting_months_array.length > 0) updates.optimal_planting_months_array = enrichData.optimal_planting_months_array;
+      if (typeof enrichData.indoor_start_weeks_before_frost === "number") updates.indoor_start_weeks_before_frost = enrichData.indoor_start_weeks_before_frost;
+      if (typeof enrichData.outdoor_plant_weeks_after_frost === "number") updates.outdoor_plant_weeks_after_frost = enrichData.outdoor_plant_weeks_after_frost;
 
-      if (enrichData.source_url != null) {
+      const provenanceLevel = (enrichData.provenance ?? "").trim();
+      const needsProfileRead =
+        enrichData.source_url != null ||
+        (["variety", "cultivar", "species"].includes(provenanceLevel) && Object.keys(updates).length > 0);
+      if (needsProfileRead) {
         try {
           const { data: existing } = await supabase
             .from("plant_profiles")
-            .select("botanical_care_notes")
+            .select("botanical_care_notes, field_provenance")
             .eq("id", profileId)
             .eq("user_id", userId)
             .single();
-          const existingCare = (existing as { botanical_care_notes?: Record<string, unknown> | null } | null)
-            ?.botanical_care_notes ?? {};
-          updates.botanical_care_notes = { ...existingCare, source_url: enrichData.source_url };
+          const existingRow = existing as {
+            botanical_care_notes?: Record<string, unknown> | null;
+            field_provenance?: Record<string, unknown> | null;
+          } | null;
+          if (enrichData.source_url != null) {
+            const existingCare = existingRow?.botanical_care_notes ?? {};
+            updates.botanical_care_notes = { ...existingCare, source_url: enrichData.source_url };
+          }
+          // Provenance tagging: every AI-written data field records the tier its data came from;
+          // merge preserves entries for fields not written this run.
+          if (["variety", "cultivar", "species"].includes(provenanceLevel)) {
+            const existingProvenance =
+              existingRow?.field_provenance && typeof existingRow.field_provenance === "object"
+                ? existingRow.field_provenance
+                : {};
+            const newEntries: Record<string, string> = {};
+            for (const key of Object.keys(updates)) {
+              if (key === "botanical_care_notes" || key === "profile_type") continue;
+              newEntries[key] = provenanceLevel;
+            }
+            updates.field_provenance = { ...existingProvenance, ...newEntries };
+          }
         } catch (e) {
           logEvent("enrich", "db_read_error", { profileId, label: "enrich_source_url_merge", error: errMsg(e) });
         }

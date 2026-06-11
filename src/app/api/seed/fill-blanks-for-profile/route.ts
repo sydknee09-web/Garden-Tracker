@@ -119,7 +119,8 @@ export async function POST(req: Request) {
       .from("plant_profiles")
       .select(
         "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
-          "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species"
+          "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species, " +
+          "field_provenance, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
     const filledFields = new Set<string>();
     const countUpdate = (obj: Record<string, unknown>) =>
       Object.keys(obj).forEach((k) => {
-        if (k !== "description_source") filledFields.add(k);
+        if (k !== "description_source" && k !== "field_provenance") filledFields.add(k);
       });
 
     const bestRow = !bypassCache ? await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor) : null;
@@ -258,7 +259,17 @@ export async function POST(req: Request) {
           {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ name, variety, forceRefresh }),
+            body: JSON.stringify({
+              name,
+              variety,
+              forceRefresh,
+              // Three-tag schema values drive tag-aware prompt framing + the tier ladder.
+              tags: {
+                lifecycle: (p.lifecycle as string | null) ?? "",
+                growth_form: (p.growth_form as string | null) ?? "",
+                plant_category: (p.plant_category as string | null) ?? "",
+              },
+            }),
           },
           { delays: AI_RETRY_DELAYS }
         );
@@ -342,6 +353,29 @@ export async function POST(req: Request) {
           setArr("uses", dArr("uses"));
           setArr("special_features", dArr("special_features"));
           setArr("harvest_season", dArr("harvest_season"));
+
+          // When to Plant (Ship 2): narrative + structured fields. The route returns native
+          // arrays/ints; week offsets fill on null only (0 = "at last frost" is meaningful).
+          setStr("when_to_plant_description", dStr("when_to_plant_description"));
+          const dSeasons = Array.isArray(data.planting_seasons_tags)
+            ? (data.planting_seasons_tags as unknown[]).filter((x): x is string => typeof x === "string")
+            : [];
+          setArr("planting_seasons_tags", dSeasons);
+          const dMonths = Array.isArray(data.optimal_planting_months_array)
+            ? (data.optimal_planting_months_array as unknown[]).filter(
+                (x): x is number => typeof x === "number" && Number.isInteger(x) && x >= 1 && x <= 12
+              )
+            : [];
+          {
+            const existingMonths = Array.isArray(p.optimal_planting_months_array) ? (p.optimal_planting_months_array as unknown[]) : [];
+            if (dMonths.length > 0 && (overwrite || existingMonths.length === 0)) aiUpdates.optimal_planting_months_array = dMonths;
+          }
+          const setWeeks = (col: string, v: unknown) => {
+            if (typeof v === "number" && Number.isInteger(v) && (overwrite || p[col] == null)) aiUpdates[col] = v;
+          };
+          setWeeks("indoor_start_weeks_before_frost", data.indoor_start_weeks_before_frost);
+          setWeeks("outdoor_plant_weeks_after_frost", data.outdoor_plant_weeks_after_frost);
+
           if (deriveProfileType) {
             const derived = profileTypeFromLifecycle(aiUpdates.lifecycle);
             if (derived) aiUpdates.profile_type = derived;
@@ -349,6 +383,22 @@ export async function POST(req: Request) {
 
           if (Object.keys(aiUpdates).length > 0) {
             if (aiUpdates.plant_description || aiUpdates.growing_notes) aiUpdates.description_source = "ai";
+            // Provenance tagging (Ship 2): every AI-written data field records the tier its data
+            // came from. Merge over the existing map — entries for fields NOT written this run
+            // (user edits, earlier fills) are preserved. Meta fields are not data → not tagged.
+            const level = typeof data.provenance === "string" ? data.provenance : null;
+            if (level === "variety" || level === "cultivar" || level === "species") {
+              const existingProvenance =
+                p.field_provenance && typeof p.field_provenance === "object" && !Array.isArray(p.field_provenance)
+                  ? (p.field_provenance as Record<string, unknown>)
+                  : {};
+              const newEntries: Record<string, string> = {};
+              for (const key of Object.keys(aiUpdates)) {
+                if (key === "description_source" || key === "profile_type") continue;
+                newEntries[key] = level;
+              }
+              aiUpdates.field_provenance = { ...existingProvenance, ...newEntries };
+            }
             const { error: aiErr } = await supabase
               .from("plant_profiles")
               .update(aiUpdates)
@@ -377,6 +427,13 @@ export async function POST(req: Request) {
                   mature_width: dStr("mature_width") || undefined,
                   companion_plants: aiCompanions.length > 0 ? aiCompanions : undefined,
                   avoid_plants: aiAvoid.length > 0 ? aiAvoid : undefined,
+                  when_to_plant_description: dStr("when_to_plant_description") || undefined,
+                  planting_seasons_tags: dSeasons.length > 0 ? dSeasons : undefined,
+                  optimal_planting_months_array: dMonths.length > 0 ? dMonths : undefined,
+                  indoor_start_weeks_before_frost:
+                    typeof data.indoor_start_weeks_before_frost === "number" ? (data.indoor_start_weeks_before_frost as number) : undefined,
+                  outdoor_plant_weeks_after_frost:
+                    typeof data.outdoor_plant_weeks_after_frost === "number" ? (data.outdoor_plant_weeks_after_frost as number) : undefined,
                 };
                 await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
               }

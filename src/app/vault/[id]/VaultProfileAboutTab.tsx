@@ -127,6 +127,56 @@ function SubHeader({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">{children}</p>;
 }
 
+// ---------------------------------------------------------------------------
+// Provenance (Ship 2) — extends the existing Source-line pattern with the AI
+// tier the data was found at (variety / cultivar / species).
+// ---------------------------------------------------------------------------
+
+const PROVENANCE_PHRASES: Record<string, string> = {
+  variety: "variety match",
+  cultivar: "cultivar match",
+  species: "species-level data",
+};
+
+/**
+ * Distinct AI tiers among a section's fields, from the profile's field_provenance map.
+ * Empty result = nothing AI-tagged in this section (user/legacy/vendor data).
+ */
+function sectionProvenanceLevels(
+  provenance: Record<string, string> | null | undefined,
+  fields: string[]
+): string[] {
+  if (!provenance) return [];
+  const levels = new Set<string>();
+  for (const f of fields) {
+    const level = provenance[f];
+    if (level && PROVENANCE_PHRASES[level]) levels.add(level);
+  }
+  return ["variety", "cultivar", "species"].filter((l) => levels.has(l));
+}
+
+/** "Source: AI research (species-level data)" line in the existing Source-line register. */
+function ProvenanceSourceLine({ levels }: { levels: string[] }) {
+  if (levels.length === 0) return null;
+  const phrase = levels.map((l) => PROVENANCE_PHRASES[l]).join(" + ");
+  return <p className="text-xs text-neutral-500 mt-3">Source: AI research ({phrase})</p>;
+}
+
+/** Field lists per About-tab section, for the per-section provenance Source line. */
+const HOW_TO_GROW_PROVENANCE_FIELDS = [
+  "sowing_method", "planting_window", "spring_indoor_window", "spring_outdoor_window", "summer_window",
+  "fall_outdoor_window", "plant_spacing", "sowing_depth", "planting_depth", "days_to_germination",
+  "harvest_days", "sun", "sun_summary", "sun_detail", "water", "water_summary", "water_detail",
+  "soil_preference", "disease_susceptibility", "harvest_season", "uses", "special_features",
+  "when_to_plant_description", "planting_seasons_tags", "optimal_planting_months_array",
+  "indoor_start_weeks_before_frost", "outdoor_plant_weeks_after_frost",
+];
+const CHARACTERISTICS_PROVENANCE_FIELDS = [
+  "lifecycle", "growth_form", "plant_category", "growth_habit", "mature_height", "mature_width",
+  "family", "genus", "species", "pollination_requirements", "deer_rabbit_resistance",
+  "drought_salt_tolerance", "native_origin", "invasiveness", "toxicity", "wildlife_value", "synonyms",
+];
+
 /** Human phrasing for non-seed propagation methods in the B3 sub-header. */
 const METHOD_PHRASES: Record<string, string> = {
   Cutting: "Cuttings",
@@ -225,6 +275,10 @@ export function VaultProfileAboutTab({
   const nonSeedMethods = propagationMethods.filter((m) => m !== "Seed");
   const hasSeedMethod = propagationMethods.includes("Seed");
   const notFoundName = [profile.name, profile.variety_name].map((s) => s?.trim()).filter(Boolean).join(" ");
+  // Tier suffix for the Description/Growing-Notes "Source: AI research" lines, e.g. " (species-level data)".
+  const descriptionLevels = sectionProvenanceLevels(profile.field_provenance, ["plant_description"]);
+  const descriptionTierSuffix =
+    descriptionLevels.length > 0 ? ` (${descriptionLevels.map((l) => PROVENANCE_PHRASES[l]).join(" + ")})` : "";
 
   return (
     <>
@@ -285,7 +339,7 @@ export function VaultProfileAboutTab({
           <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.plant_description}</p>
           {profile.description_source && (
             <p className="text-xs text-neutral-500 mt-2">
-              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? "AI research" : "You"}
+              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? `AI research${descriptionTierSuffix}` : "You"}
             </p>
           )}
         </SectionCard>
@@ -295,10 +349,14 @@ export function VaultProfileAboutTab({
       {(growingNotes || (!isLegacy && profile?.plant_description?.trim())) && (
         <SectionCard title="Growing Notes" isOpen={isAboutOpen("growingNotes")} onToggle={() => toggleAboutSection("growingNotes")}>
           <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes || profile.plant_description}</p>
-          {!growingNotes && profile.description_source && (
-            <p className="text-xs text-neutral-500 mt-2">
-              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? "AI research" : "You"}
-            </p>
+          {growingNotes ? (
+            <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, ["growing_notes"])} />
+          ) : (
+            profile.description_source && (
+              <p className="text-xs text-neutral-500 mt-2">
+                Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? `AI research${descriptionTierSuffix}` : "You"}
+              </p>
+            )
           )}
         </SectionCard>
       )}
@@ -332,6 +390,7 @@ export function VaultProfileAboutTab({
             <PillDetailField label="Wildlife Value" value={profile.wildlife_value} />
             <PillDetailField label="Synonyms" values={profile.synonyms} />
           </dl>
+          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, CHARACTERISTICS_PROVENANCE_FIELDS)} />
         </SectionCard>
       )}
 
@@ -347,6 +406,44 @@ export function VaultProfileAboutTab({
             This plant won&apos;t survive outdoor growing in Zone {profile.planting_window_zone || "your zone"}. Consider growing indoors or in a greenhouse.
           </p>
         )}
+        {/* When to Plant (Ship 2): quick-scan pills above the narrative. Pill register matches
+            PillDetailField; emoji markers are content-lane (seasonal/timing moments) per VISION §8. */}
+        {(() => {
+          const desc = profile?.when_to_plant_description?.trim();
+          const seasons = (profile?.planting_seasons_tags ?? []).filter(Boolean);
+          const indoorWeeks = profile?.indoor_start_weeks_before_frost;
+          const outdoorWeeks = profile?.outdoor_plant_weeks_after_frost;
+          if (!desc && seasons.length === 0 && indoorWeeks == null && outdoorWeeks == null) return null;
+          const pills: string[] = [];
+          if (indoorWeeks != null) {
+            pills.push(`🏠 Start indoors ${indoorWeeks} wk before last frost`);
+          }
+          if (outdoorWeeks != null) {
+            pills.push(
+              outdoorWeeks === 0
+                ? "🌱 Plant outside at last frost"
+                : outdoorWeeks < 0
+                  ? `🌱 Plant outside ${Math.abs(outdoorWeeks)} wk before last frost`
+                  : `🌱 Plant outside ${outdoorWeeks} wk after last frost`
+            );
+          }
+          if (seasons.length > 0) pills.push(`🌸 ${seasons.join(" · ")}`);
+          return (
+            <div className="mb-4">
+              <SubHeader>When to Plant</SubHeader>
+              {pills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {pills.map((p) => (
+                    <span key={p} className="inline-block text-sm font-semibold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-900">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {desc && <p className="text-sm text-neutral-700 whitespace-pre-wrap">{desc}</p>}
+            </div>
+          );
+        })()}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
           {howToGrowList.map(({ label, value }) => (
             <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
@@ -375,6 +472,7 @@ export function VaultProfileAboutTab({
           !sunPill && !waterPill && (
             <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
           )}
+        <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, HOW_TO_GROW_PROVENANCE_FIELDS)} />
       </SectionCard>
 
       {/* Companion planting */}

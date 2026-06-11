@@ -86,9 +86,45 @@ export type ProfileForFill = {
   mature_width?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
+  when_to_plant_description?: string | null;
+  planting_seasons_tags?: string[] | null;
+  optimal_planting_months_array?: number[] | null;
+  indoor_start_weeks_before_frost?: number | null;
+  outdoor_plant_weeks_after_frost?: number | null;
   hero_image_url?: string | null;
   hero_image_path?: string | null;
 };
+
+/** Accept both native arrays (new cache writes) and defensive CSV strings for string-array fields. */
+function strArrFromExtract(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean);
+  }
+  if (typeof v === "string") return v.split(",").map((x) => x.trim()).filter(Boolean);
+  return [];
+}
+
+/** Months 1-12 from a native number array or defensive CSV string. */
+function monthArrFromExtract(v: unknown): number[] {
+  const raw = Array.isArray(v)
+    ? v
+    : typeof v === "string"
+      ? v.split(",").map((x) => parseInt(x.trim(), 10))
+      : [];
+  return [...new Set(raw.filter((n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 12))].sort(
+    (a, b) => a - b
+  );
+}
+
+/** Integer weeks (0 allowed) from a number or numeric string. */
+function weeksFromExtract(v: unknown): number | null {
+  if (typeof v === "number" && Number.isInteger(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = parseInt(v.trim(), 10);
+    if (Number.isInteger(n)) return n;
+  }
+  return null;
+}
 
 /** Build updates (metadata + hero) from a cache row. Never replace existing data — only fills empty profile fields. */
 export async function buildUpdatesFromCacheRow(
@@ -144,6 +180,26 @@ export async function buildUpdatesFromCacheRow(
   const avoidArr = ed.avoid_plants;
   if ((!(p.avoid_plants ?? []).length) && Array.isArray(avoidArr) && avoidArr.length > 0) {
     updates.avoid_plants = avoidArr.filter((x): x is string => typeof x === "string").map((x) => String(x).trim()).filter(Boolean);
+  }
+  if (!(p.when_to_plant_description ?? "").trim() && str(ed.when_to_plant_description)) {
+    updates.when_to_plant_description = str(ed.when_to_plant_description);
+  }
+  const seasonsArr = strArrFromExtract(ed.planting_seasons_tags);
+  if (!(p.planting_seasons_tags ?? []).length && seasonsArr.length > 0) {
+    updates.planting_seasons_tags = seasonsArr;
+  }
+  const monthsArr = monthArrFromExtract(ed.optimal_planting_months_array);
+  if (!(p.optimal_planting_months_array ?? []).length && monthsArr.length > 0) {
+    updates.optimal_planting_months_array = monthsArr;
+  }
+  // 0 is meaningful for the frost-offset weeks ("at last frost") — fill only on null.
+  const indoorWeeks = weeksFromExtract(ed.indoor_start_weeks_before_frost);
+  if (p.indoor_start_weeks_before_frost == null && indoorWeeks != null) {
+    updates.indoor_start_weeks_before_frost = indoorWeeks;
+  }
+  const outdoorWeeks = weeksFromExtract(ed.outdoor_plant_weeks_after_frost);
+  if (p.outdoor_plant_weeks_after_frost == null && outdoorWeeks != null) {
+    updates.outdoor_plant_weeks_after_frost = outdoorWeeks;
   }
   return updates;
 }
@@ -211,6 +267,11 @@ export type EnrichDataForCache = {
   mature_width?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
+  when_to_plant_description?: string | null;
+  planting_seasons_tags?: string[] | null;
+  optimal_planting_months_array?: number[] | null;
+  indoor_start_weeks_before_frost?: number | null;
+  outdoor_plant_weeks_after_frost?: number | null;
 };
 
 /**
@@ -250,6 +311,11 @@ export async function writeEnrichToGlobalCache(
   if (data.mature_width?.trim()) extract_data.mature_width = data.mature_width.trim();
   if (Array.isArray(data.companion_plants) && data.companion_plants.length > 0) extract_data.companion_plants = data.companion_plants;
   if (Array.isArray(data.avoid_plants) && data.avoid_plants.length > 0) extract_data.avoid_plants = data.avoid_plants;
+  if (data.when_to_plant_description?.trim()) extract_data.when_to_plant_description = data.when_to_plant_description.trim();
+  if (Array.isArray(data.planting_seasons_tags) && data.planting_seasons_tags.length > 0) extract_data.planting_seasons_tags = data.planting_seasons_tags;
+  if (Array.isArray(data.optimal_planting_months_array) && data.optimal_planting_months_array.length > 0) extract_data.optimal_planting_months_array = data.optimal_planting_months_array;
+  if (data.indoor_start_weeks_before_frost != null) extract_data.indoor_start_weeks_before_frost = data.indoor_start_weeks_before_frost;
+  if (data.outdoor_plant_weeks_after_frost != null) extract_data.outdoor_plant_weeks_after_frost = data.outdoor_plant_weeks_after_frost;
 
   const scraped_fields = Object.keys(extract_data).filter((k) => extract_data[k] != null && extract_data[k] !== "");
 

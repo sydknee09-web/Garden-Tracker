@@ -243,7 +243,9 @@ function VaultPageInner() {
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
-  }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [] });
+    season: { value: string; count: number }[];
+    method: { value: string; count: number }[];
+  }>({ variety: [], vendor: [], sun: [], spacing: [], germination: [], maturity: [], packetCount: [], season: [], method: [] });
   const [vaultStatusChips, setVaultStatusChips] = useState<{ value: StatusFilter; label: string; count: number }[]>([]);
 
   const sowParam = searchParams.get("sow");
@@ -292,6 +294,8 @@ function VaultPageInner() {
     germination: { value: string; count: number }[];
     maturity: { value: string; count: number }[];
     packetCount: { value: string; count: number }[];
+    season: { value: string; count: number }[];
+    method: { value: string; count: number }[];
   }) => {
     setRefineChips(chips);
   }, []);
@@ -1276,6 +1280,8 @@ function VaultPageInner() {
               gridDisplayStyle={gridDisplayStyle}
               onSeedTypeChipsLoaded={handleSeedTypeChipsLoaded}
               vendorFilter={gridFilters.filters.vendor}
+              seasonFilter={gridFilters.filters.season}
+              methodFilter={gridFilters.filters.method}
               sunFilter={gridFilters.filters.sun}
               spacingFilter={gridFilters.filters.spacing}
               germinationFilter={gridFilters.filters.germination}
