@@ -1174,7 +1174,6 @@ export default function JournalPage() {
           setBatchAddSeedOpen(false);
           openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
         }}
-        onSuccess={() => setRefetchTrigger((t) => t + 1)}
         onNavigateToHero={() => {
           skipPopOnNavigateRef.current = true;
           setBatchAddSeedOpen(false);

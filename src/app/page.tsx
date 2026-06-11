@@ -732,7 +732,6 @@ export default function HomePage() {
           setBatchAddSeedOpen(false);
           openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
         }}
-        onSuccess={() => setShoppingListRefreshKey((k) => k + 1)}
         onNavigateToHero={() => {
           skipPopOnNavigateRef.current = true;
           setBatchAddSeedOpen(false);

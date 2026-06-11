@@ -10,6 +10,7 @@ import {
   getReviewImportData,
   setReviewImportData,
   type PendingPhotoHeroItem,
+  type ReviewImportSource,
 } from "@/lib/reviewImportStorage";
 import type { ReviewImportItem } from "@/lib/reviewImportStorage";
 import { identityKeyFromVariety } from "@/lib/identityKey";
@@ -65,6 +66,7 @@ export default function HeroImportPage() {
   const processingRef = useRef(false);
   const addPlantModeRef = useRef(false);
   const defaultProfileTypeRef = useRef<"seed" | "permanent">("seed");
+  const sourceRef = useRef<ReviewImportSource>("purchase_order");
 
   const updateItem = useCallback((id: string, updates: Partial<HeroItem>) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
@@ -78,6 +80,9 @@ export default function HeroImportPage() {
       return;
     }
     addPlantModeRef.current = !!pending.addPlantMode;
+    defaultProfileTypeRef.current = pending.defaultProfileType === "permanent" ? "permanent" : "seed";
+    // Missing source = batch stored before the source field existed; those were PO-roundtrip-shaped.
+    sourceRef.current = pending.source ?? "purchase_order";
     setItems(
       pending.items.map((p) => ({
         ...p,
@@ -192,7 +197,7 @@ export default function HeroImportPage() {
       };
     });
     if (reviewItems.length > 0) {
-      setReviewImportData({ items: reviewItems, source: "purchase_order", addPlantMode: addPlantModeRef.current, defaultProfileType: defaultProfileTypeRef.current });
+      setReviewImportData({ items: reviewItems, source: sourceRef.current, addPlantMode: addPlantModeRef.current, defaultProfileType: defaultProfileTypeRef.current });
       clearPendingPhotoHeroImport();
       router.push("/vault/review-import");
     }

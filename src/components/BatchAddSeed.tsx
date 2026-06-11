@@ -1,24 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { supabase } from "@/lib/supabase";
 import { rareseedsAutotreatment, slugToSpaced } from "@/lib/rareseedsAutotreatment";
-import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
-import { getTagsFromText } from "@/lib/parseSeedFromImportUrl";
-import { applyZone10bToProfile } from "@/data/zone10b_schedule";
 import type { ExtractResponse } from "@/app/api/seed/extract/route";
-import type { OrderLineItem } from "@/app/api/seed/extract-order/route";
-import { setReviewImportData, setPendingPhotoImport, setPendingPhotoHeroImport, getPendingPhotoHeroImport, type ReviewImportItem } from "@/lib/reviewImportStorage";
+import { setPendingPhotoHeroImport, getPendingPhotoHeroImport } from "@/lib/reviewImportStorage";
 import { compressImage } from "@/lib/compressImage";
 import { Combobox } from "@/components/Combobox";
 import { FormError } from "@/components/FormError";
-import { dedupeVendorsForSuggestions, toCanonicalDisplay } from "@/lib/vendorNormalize";
+import { dedupeVendorsForSuggestions } from "@/lib/vendorNormalize";
 import { filterValidPlantTypes } from "@/lib/plantTypeSuggestions";
-import { formatAddFlowError, EXTRACTION_RETRY_FAILED } from "@/lib/addFlowError";
+import { formatAddFlowError } from "@/lib/addFlowError";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
@@ -77,7 +72,6 @@ function applyRareseedsFromFilename(
 interface BatchAddSeedProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
   /** When provided, called instead of onClose + router.push so parent can skip history.back() (e.g. useModalBackClose). */
   onNavigateToHero?: () => void;
   /** When true, create grow_instance only (no seed_packet). Used when Add Plant -> Photo Import. */
@@ -88,23 +82,13 @@ interface BatchAddSeedProps {
   onBack?: () => void;
 }
 
-export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPlantMode = false, defaultProfileType, onBack }: BatchAddSeedProps) {
+export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = false, defaultProfileType, onBack }: BatchAddSeedProps) {
   const router = useRouter();
   const { user, session: authSession } = useAuth();
-  const onboardingCtx = useOnboardingContextOptional();
   const [queue, setQueue] = useState<PendingPhoto[]>([]);
   const [cropQueue, setCropQueue] = useState<CropQueueItem[]>([]);
   const [step, setStep] = useState<"capture" | "extracting" | "review">("capture");
-  const [processingAll, setProcessingAll] = useState(false);
-  const [geminiProcessing, setGeminiProcessing] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{
-    phase: "upload" | "extract";
-    current: number;
-    total: number;
-    label: string;
-  } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveSuccessCount, setSaveSuccessCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** F19: set when a single photo held multiple items (only the first is captured per photo). Non-silent warning + route to receipt import. */
   const [multiItemWarning, setMultiItemWarning] = useState<string | null>(null);
@@ -113,8 +97,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const orderInputRef = useRef<HTMLInputElement>(null);
-  const [orderProcessing, setOrderProcessing] = useState(false);
   const [plantSuggestions, setPlantSuggestions] = useState<string[]>([]);
   const [varietySuggestionsByPlant, setVarietySuggestionsByPlant] = useState<Record<string, string[]>>({});
   const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
@@ -141,9 +123,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       });
       setStep("capture");
       setError(null);
-      setSaveSuccessCount(null);
-      setProcessingAll(false);
-      setGeminiProcessing(false);
       setSaving(false);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -330,7 +309,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         );
       }
     },
-    []
+    [authSession?.access_token]
   );
 
   const [processTrigger, setProcessTrigger] = useState(0);
@@ -355,112 +334,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     }));
     setCropQueue((prev) => [...prev, ...newItems]);
     setError(null);
-  }
-
-  async function processFilesWithGeminiAndRedirect(files: FileList | File[]) {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) {
-      setError("No image files selected.");
-      return;
-    }
-    setError(null);
-    setGeminiProcessing(true);
-    setBatchProgress({ phase: "upload", current: 0, total: list.length, label: "Preparing files…" });
-    try {
-      const pendingItems: { id: string; fileName: string; imageBase64: string }[] = [];
-      for (let i = 0; i < list.length; i++) {
-        setBatchProgress({ phase: "upload", current: i + 1, total: list.length, label: `${i + 1} of ${list.length} files prepared` });
-        const file = list[i];
-        const { blob, fileName } = await resizeImageIfNeeded(file);
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result;
-            if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
-            else reject(new Error("Read failed"));
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(blob);
-        });
-        pendingItems.push({ id: crypto.randomUUID(), fileName, imageBase64: base64 });
-      }
-      setBatchProgress(null);
-      setPendingPhotoImport({ items: pendingItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
-      onClose();
-      router.push("/vault/import/photos");
-    } catch (e) {
-      const isQuota = e instanceof DOMException && (e.name === "QuotaExceededError" || (e as { code?: number }).code === 22);
-      setError(isQuota ? "Too many or large photos—try fewer or smaller images." : formatAddFlowError(e));
-    } finally {
-      setGeminiProcessing(false);
-      setBatchProgress(null);
-    }
-  }
-
-  async function processOrderConfirmation(file: File) {
-    setOrderProcessing(true);
-    setError(null);
-    try {
-      const { blob } = await resizeImageIfNeeded(file);
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (typeof result === "string") resolve(result.includes(",") ? result.split(",")[1] ?? result : result);
-          else reject(new Error("Read failed"));
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      });
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (authSession?.access_token) headers.Authorization = `Bearer ${authSession.access_token}`;
-      const res = await fetchWithRetry("/api/seed/extract-order", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ imageBase64: base64, mimeType: file.type || "image/jpeg" }),
-      });
-
-      if (!res.ok) {
-        // Transient/API failure (auto-retried already) — don't blame the image.
-        setError(EXTRACTION_RETRY_FAILED);
-        setOrderProcessing(false);
-        return;
-      }
-
-      const data = (await res.json()) as { items: OrderLineItem[]; vendor: string; error?: string };
-      if (data.error) {
-        setError(EXTRACTION_RETRY_FAILED);
-        setOrderProcessing(false);
-        return;
-      }
-
-      if (!data.items.length) {
-        setError("No seed items found in this image. Try a clearer screenshot.");
-        setOrderProcessing(false);
-        return;
-      }
-
-      // Convert order items to review items and navigate to review
-      const reviewItems: ReviewImportItem[] = data.items.map((item) => ({
-        id: crypto.randomUUID(),
-        imageBase64: "",
-        fileName: "",
-        type: item.name || "Imported seed",
-        variety: item.variety,
-        vendor: item.vendor || data.vendor,
-        tags: [],
-        purchaseDate: todayISO(),
-      }));
-
-      setReviewImportData({ items: reviewItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
-      onClose();
-      router.push("/vault/review-import");
-    } catch (e) {
-      setError(formatAddFlowError(e));
-    } finally {
-      setOrderProcessing(false);
-    }
   }
 
   function captureFrame() {
@@ -543,7 +416,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         });
       }
       try {
-        setPendingPhotoHeroImport({ items: pendingItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed" });
+        setPendingPhotoHeroImport({ items: pendingItems, addPlantMode, defaultProfileType: defaultProfileType ?? "seed", source: "photo" });
       } catch (storageErr) {
         const isQuota = storageErr instanceof DOMException && (storageErr.name === "QuotaExceededError" || (storageErr as { code?: number }).code === 22);
         setError(isQuota ? "Too much data for storage—try fewer photos." : formatAddFlowError(storageErr));
@@ -559,7 +432,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
       queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
       setQueue([]);
       setStep("capture");
-      setSaveSuccessCount(null);
       if (onNavigateToHero) {
         onNavigateToHero();
       } else {
@@ -572,120 +444,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleSaveAll() {
-    if (!user) return;
-    const toSave = queue.filter((i): i is PendingPhoto & { file: File } => i.status === "pending" && i.file != null);
-    if (toSave.length === 0) return;
-    setError(null);
-    setSaving(true);
-    const newProfileIds: string[] = [];
-    let bucketEnsured = false;
-    for (const item of toSave) {
-      const name = (item.name ?? "").trim() || "Unknown";
-      const varietyName = (item.variety ?? "").trim() || null;
-      let path = (item as { uploadedPath?: string }).uploadedPath;
-      if (!path) {
-        if (!bucketEnsured) {
-          const ensureRes = await fetch("/api/seed/ensure-storage-bucket", { method: "POST" });
-          if (!ensureRes.ok) {
-            setError(formatAddFlowError((await ensureRes.json()).error ?? "Storage bucket unavailable"));
-            setSaving(false);
-            return;
-          }
-          bucketEnsured = true;
-        }
-        path = `${user.id}/${crypto.randomUUID()}.jpg`;
-        const { blob } = await compressImage(item.file);
-        const { error: uploadErr } = await supabase.storage.from("seed-packets").upload(path, blob, {
-          contentType: "image/jpeg",
-          upsert: false,
-          cacheControl: "31536000",
-        });
-        if (uploadErr) {
-          setError(formatAddFlowError(uploadErr));
-          setSaving(false);
-          return;
-        }
-      }
-      const { coreVariety, tags: packetTags } = parseVarietyWithModifiers(item.variety ?? "");
-      const coreVarietyName = coreVariety || varietyName;
-      const functionalTags = getTagsFromText([name, varietyName ?? ""].filter(Boolean).join(" "));
-      const allTags = [...new Set([...packetTags, ...functionalTags, ...(item.tags ?? [])])];
-      const zone10b = applyZone10bToProfile(name, {});
-      const nameNorm = normalizeForMatch(name);
-      const varietyNorm = normalizeForMatch(coreVarietyName);
-      const { data: allProfiles } = await supabase
-        .from("plant_profiles")
-        .select("id, name, variety_name")
-        .eq("user_id", user.id);
-      const exact = (allProfiles ?? []).find(
-        (p: { name: string; variety_name: string | null }) =>
-          normalizeForMatch(p.name) === nameNorm && normalizeForMatch(p.variety_name) === varietyNorm
-      );
-      let profileId: string;
-      if (exact) {
-        profileId = exact.id;
-      } else {
-        const { data: newProfile, error: profileErr } = await supabase
-          .from("plant_profiles")
-          .insert({
-            user_id: user.id,
-            name: name.trim(),
-            variety_name: coreVarietyName || varietyName,
-            primary_image_path: path,
-            tags: allTags.length > 0 ? allTags : undefined,
-            ...(zone10b.sun && { sun: zone10b.sun }),
-            ...(zone10b.plant_spacing && { plant_spacing: zone10b.plant_spacing }),
-            ...(zone10b.days_to_germination && { days_to_germination: zone10b.days_to_germination }),
-            ...(zone10b.harvest_days != null && { harvest_days: zone10b.harvest_days }),
-            ...(zone10b.sowing_method && { sowing_method: zone10b.sowing_method }),
-            ...(zone10b.planting_window && { planting_window: zone10b.planting_window }),
-          })
-          .select("id")
-          .single();
-        if (profileErr) {
-          setError(formatAddFlowError(profileErr));
-          setSaving(false);
-          return;
-        }
-        profileId = (newProfile as { id: string }).id;
-        newProfileIds.push(profileId);
-      }
-      const purchaseDate = item.purchaseDate?.trim() || todayISO();
-      const tagsToSave = packetTags.length > 0 ? packetTags : (item.tags ?? []);
-      const { error: packetErr } = await supabase.from("seed_packets").insert({
-        plant_profile_id: profileId,
-        user_id: user.id,
-        vendor_name: item.vendor?.trim() ? (toCanonicalDisplay(item.vendor.trim()) || item.vendor.trim()) : null,
-        qty_status: 100,
-        primary_image_path: path,
-        purchase_date: purchaseDate,
-        ...(tagsToSave.length > 0 && { tags: tagsToSave }),
-      });
-      if (packetErr) {
-        setError(formatAddFlowError(packetErr));
-        setSaving(false);
-        return;
-      }
-      await supabase.from("plant_profiles").update({ status: "in_stock" }).eq("id", profileId).eq("user_id", user.id);
-    }
-    setSaving(false);
-    const count = queue.filter((i) => i.status === "pending").length;
-    queue.forEach((i) => { if (i.previewUrl.startsWith("blob:")) URL.revokeObjectURL(i.previewUrl); });
-    setSaveSuccessCount(count);
-    if (authSession?.access_token && newProfileIds.length > 0) {
-      newProfileIds.forEach((profileId) => {
-        fetch("/api/seed/fill-blanks-for-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
-          body: JSON.stringify({ profileId, useGemini: true, backgroundEnrich: true }),
-        }).catch(() => {});
-      });
-    }
-    onboardingCtx?.reportAction("seed_added");
-    onSuccess();
   }
 
   function removeFromQueue(id: string) {
@@ -701,7 +459,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
     setQueue([]);
     setStep("capture");
     setError(null);
-    setSaveSuccessCount(null);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     onClose();
@@ -714,34 +471,18 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
   return (
     <>
       <div className="fixed inset-0 z-[60] bg-black/40" aria-hidden onClick={handleClose} />
-      {geminiProcessing && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white/95 px-6" aria-live="polite" aria-busy="true">
-          <p className="text-lg font-medium text-black mb-2 text-center">
-            {batchProgress?.phase === "upload" ? "Preparing files" : "Extraction"}
-          </p>
-          <p className="text-sm text-black/60 mb-4 text-center">{batchProgress?.label ?? "Starting…"}</p>
-          <div className="w-full max-w-xs h-2.5 bg-black/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald transition-all duration-300 ease-out"
-              style={{
-                width: batchProgress
-                  ? `${(batchProgress.phase === "upload" ? batchProgress.current / (2 * batchProgress.total) : 0.5 + batchProgress.current / (2 * batchProgress.total)) * 100}%`
-                  : "0%",
-              }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-black/50">
-            {batchProgress ? `${batchProgress.current} of ${batchProgress.total} complete` : ""}
-          </p>
-        </div>
-      )}
       {cropQueue.length > 0 && (
         <ImageCropModal
           open={true}
           imageSrc={cropQueue[0].previewUrl}
           aspectRatio={1}
-          onConfirm={(blob) => {
-            const file = new File([blob], `packet-${Date.now()}.jpg`, { type: "image/jpeg" });
+          onConfirm={async (blob) => {
+            // ImageCropModal fires onConfirm THEN onClose on Apply (Cancel fires onClose only),
+            // so the single crop-queue pop lives in onClose — popping here too dropped every
+            // second photo in a multi-photo batch.
+            const raw = new File([blob], `packet-${Date.now()}.jpg`, { type: "image/jpeg" });
+            const { blob: compressed } = await resizeImageIfNeeded(raw);
+            const file = new File([compressed], raw.name, { type: "image/jpeg" });
             const previewUrl = URL.createObjectURL(file);
             setQueue((prev) => [
               ...prev,
@@ -757,11 +498,6 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
                 purchaseDate: todayISO(),
               },
             ]);
-            setCropQueue((prev) => {
-              const [current, ...rest] = prev;
-              if (current?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(current.previewUrl);
-              return rest;
-            });
           }}
           onClose={() => {
             setCropQueue((prev) => {
@@ -871,7 +607,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
               <button
                 type="button"
                 onClick={captureFrame}
-                className="flex-1 py-3 rounded-xl bg-emerald text-white font-medium min-h-[44px]"
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium min-h-[44px]"
               >
                 Capture
               </button>
@@ -956,12 +692,7 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
           </>
         )}
 
-        {saveSuccessCount != null ? (
-          <div className="py-4 text-center">
-            <p className="text-lg font-medium text-emerald-700 mb-2">Saved to vault</p>
-            <p className="text-sm text-black/70">{saveSuccessCount} item{saveSuccessCount !== 1 ? "s" : ""} added. Add more from the vault or close.</p>
-          </div>
-        ) : step === "review" ? (
+        {step === "review" ? (
           <>
             <p className="text-sm text-black/70 mb-2">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
             {multiItemWarning && (
@@ -1044,45 +775,33 @@ export function BatchAddSeed({ open, onClose, onSuccess, onNavigateToHero, addPl
         </div>
 
         <div className="flex-shrink-0 px-6 py-4 border-t border-neutral-200 flex gap-2.5 justify-end">
-          {saveSuccessCount != null ? (
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={step === "extracting" || saving}
+            className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          {step === "capture" && queue.length > 0 && (
             <button
               type="button"
-              onClick={handleClose}
-              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"
+              onClick={goToReview}
+              disabled={!canGoToReview}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              Done
+              {loadingCount > 0 ? `Review pending (${pendingCount} ready · ${loadingCount} scanning)` : `Review pending (${pendingCount})`}
             </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={step === "extracting" || saving}
-                className="min-h-[44px] px-4 py-2 rounded-3xl border border-teal-gus/40 text-teal-gus font-medium hover:bg-teal-gus/10 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              {step === "capture" && queue.length > 0 && (
-                <button
-                  type="button"
-                  onClick={goToReview}
-                  disabled={!canGoToReview}
-                  className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {loadingCount > 0 ? `Review pending (${pendingCount} ready · ${loadingCount} scanning)` : `Review pending (${pendingCount})`}
-                </button>
-              )}
-              {step === "review" && (
-                <button
-                  type="button"
-                  onClick={handleSaveToVault}
-                  disabled={saving || pendingCount === 0}
-                  className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {saving ? "Saving…" : "Save to Vault"}
-                </button>
-              )}
-            </>
+          )}
+          {step === "review" && (
+            <button
+              type="button"
+              onClick={handleSaveToVault}
+              disabled={saving || pendingCount === 0}
+              className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save to Vault"}
+            </button>
           )}
         </div>
       </div>

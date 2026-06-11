@@ -215,6 +215,8 @@ export type PendingPhotoHeroData = {
   addPlantMode?: boolean;
   /** When "permanent", new profiles are trees/perennials. Preserved from review-import. */
   defaultProfileType?: "seed" | "permanent";
+  /** Originating flow ("photo" from BatchAddSeed, "purchase_order" from review-import's hero roundtrip). Missing = pre-deploy batch, treated as "purchase_order". */
+  source?: ReviewImportSource;
 };
 
 export function getPendingPhotoHeroImport(): PendingPhotoHeroData | null {

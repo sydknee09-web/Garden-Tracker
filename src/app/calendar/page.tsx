@@ -2030,7 +2030,6 @@ export default function CalendarPage() {
           setBatchAddSeedOpen(false);
           openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
         }}
-        onSuccess={() => setRefetch((r) => r + 1)}
         onNavigateToHero={() => {
           skipPopOnNavigateRef.current = true;
           setBatchAddSeedOpen(false);

@@ -1938,7 +1938,6 @@ function VaultPageInner() {
           setBatchAddOpen(false);
           openMenuOnScreen(batchAddPlantMode ? "add-plant" : "seed");
         }}
-        onSuccess={() => refetch()}
         onNavigateToHero={() => {
           skipPopOnNavigateRef.current = true;
           setBatchAddOpen(false);

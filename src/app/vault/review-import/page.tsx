@@ -614,7 +614,7 @@ export default function ReviewImportPage() {
       tags: i.tags ?? [],
       purchaseDate: i.purchaseDate ?? todayISO(),
     }));
-    setPendingPhotoHeroImport({ items: heroItems, addPlantMode, defaultProfileType });
+    setPendingPhotoHeroImport({ items: heroItems, addPlantMode, defaultProfileType, source: importSource });
     router.push("/vault/import/photos/hero");
   }, [items, router, addPlantMode, importSource, defaultProfileType]);
 
