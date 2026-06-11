@@ -13,6 +13,7 @@ import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { DebugLogInit } from "@/components/DebugLogInit";
+import { Analytics } from "@vercel/analytics/next";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -68,6 +69,7 @@ export default function RootLayout({
             </HouseholdProvider>
           </AnnouncerProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
