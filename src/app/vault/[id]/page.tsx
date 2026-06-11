@@ -1564,19 +1564,17 @@ export default function VaultSeedPage() {
                   className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
                 />
               </div>
-              {isPermanent && (
-                <div>
-                  <label htmlFor="edit-grow-count" className="block text-sm font-medium text-neutral-700 mb-1">Number of plants</label>
-                  <input
-                    id="edit-grow-count"
-                    type="number"
-                    min={1}
-                    value={editGrowPlantCount}
-                    onChange={(e) => setEditGrowPlantCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  />
-                </div>
-              )}
+              <div>
+                <label htmlFor="edit-grow-count" className="block text-sm font-medium text-neutral-700 mb-1">Number of plants</label>
+                <input
+                  id="edit-grow-count"
+                  type="number"
+                  min={1}
+                  value={editGrowPlantCount}
+                  onChange={(e) => setEditGrowPlantCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
+                />
+              </div>
             </div>
             <div className="pt-4 mt-4 border-t border-neutral-200 space-y-2">
               <p className="text-xs font-medium text-neutral-500 mb-1">Or</p>
