@@ -130,10 +130,13 @@ describe("POST /api/seed/enrich-from-name", () => {
   describe("zone-aware enrichment (Phase 2)", () => {
     beforeEach(() => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
-      // Default: researchVariety returns a usable result so we can reach the response payload.
+      // Default: researchVariety returns a found outcome so we can reach the response payload.
       vi.mocked(mockResearchVariety).mockResolvedValue({
-        planting_window: "Indoor sow Feb-Mar, transplant May-Jun",
-        sun_requirement: "Full sun",
+        found: true,
+        data: {
+          planting_window: "Indoor sow Feb-Mar, transplant May-Jun",
+          sun_requirement: "Full sun",
+        },
       });
     });
 
@@ -230,6 +233,55 @@ describe("POST /api/seed/enrich-from-name", () => {
       expect(mockResearchVariety).toHaveBeenCalled();
       expect(data.enriched).toBe(true);
       expect(data.fromCache).toBe(false);
+    });
+
+    it("returns found:false with NO library cache write when the exact variety isn't found (B5)", async () => {
+      const ctx = makeSupabaseWithZone("10b");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
+      vi.mocked(mockResearchVariety).mockResolvedValue({ found: false });
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Canna Lily", variety: "Summer Spritz Lemon Zest", forceRefresh: true }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.enriched).toBe(false);
+      expect(data.found).toBe(false);
+      // forceRefresh skipped the cache read; found:false must ALSO skip the cache write —
+      // global_plant_library is never consulted in this flow (admin mock is null, but the
+      // user-client must not touch it either).
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      expect(tablesConsulted).not.toContain("global_plant_library");
+    });
+
+    it("returns enriched:false without a found flag when the AI fails entirely", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+      vi.mocked(mockResearchVariety).mockResolvedValue(null);
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+      expect(data.enriched).toBe(false);
+      // AI-failure (null) is distinct from variety-not-found ({found:false}).
+      expect(data.found).toBeUndefined();
+    });
+
+    it("includes found:true on a successful AI fill", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+      const req = new Request("http://localhost/api/seed/enrich-from-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+      expect(data.enriched).toBe(true);
+      expect(data.found).toBe(true);
     });
 
     it("normalizes 'Zone 5a' prefix when deciding library-skip", async () => {

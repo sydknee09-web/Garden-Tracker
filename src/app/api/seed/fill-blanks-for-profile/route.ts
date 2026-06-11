@@ -169,6 +169,7 @@ export async function POST(req: Request) {
     let fromCache = false;
     let fromAi = false;
     let aiEnriched = false;
+    let aiNotFound = false;
     let aiError: string | undefined;
 
     if (!bypassCache && Object.keys(updates).length > 0) {
@@ -246,8 +247,11 @@ export async function POST(req: Request) {
           { delays: AI_RETRY_DELAYS }
         );
         if (enrichRes.ok) {
-          const data = (await enrichRes.json()) as Record<string, unknown> & { enriched?: boolean };
+          const data = (await enrichRes.json()) as Record<string, unknown> & { enriched?: boolean; found?: boolean };
           aiEnriched = data.enriched === true;
+          // Variety-not-found (B5): AI ran but couldn't find this exact plant — surface to the
+          // client so it shows the couldn't-find toast + inline notice instead of "AI unavailable".
+          aiNotFound = data.found === false;
 
           const dStr = (k: string) => (typeof data[k] === "string" ? (data[k] as string).trim() : "");
           const dNum = (k: string) => (typeof data[k] === "number" && Number.isFinite(data[k]) ? (data[k] as number) : null);
@@ -372,6 +376,7 @@ export async function POST(req: Request) {
       fromAi,
       enriched: aiEnriched,
       fieldsFilled: filledFields.size,
+      ...(aiNotFound ? { notFound: true } : {}),
       ...(aiError ? { error: aiError } : {}),
     });
   } catch (e) {

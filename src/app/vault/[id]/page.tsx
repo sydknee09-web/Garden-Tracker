@@ -206,7 +206,9 @@ export default function VaultSeedPage() {
     // Household peers can read each other's profiles via household_profiles_select policy.
     const { data: profileData, error: e1 } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, planting_window_zone, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth, propagation_notes, seed_saving_notes, seed_propagation_context")
+      // Includes the Sprint 4 enrichment columns (Chunk B display). Kept as ONE literal —
+      // supabase's row-type inference degrades on concatenated select strings.
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, planting_window_zone, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth, propagation_notes, seed_saving_notes, seed_propagation_context, lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, family, genus, species, mature_height, mature_width")
       .eq("id", id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -524,7 +526,7 @@ export default function VaultSeedPage() {
     deletingProfile,
     fillBlanksRunning,
     fillBlanksError, setFillBlanksError,
-    fillBlanksAttempted,
+    aiNotFound, setAiNotFound,
     aiMenuOpen, setAiMenuOpen,
     overwriteConfirmOpen, setOverwriteConfirmOpen,
     editForm, setEditForm,
@@ -709,23 +711,30 @@ export default function VaultSeedPage() {
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
   if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
-  const careList = [
+  // How-to-Grow scalar rows (B1). Sun/Water moved out to the pill+detail pair below (B2).
+  // Edibles-only Days to Maturity appended per getEffectiveSeedTypes classification.
+  const plantingDepth = (profile as PlantProfile).planting_depth;
+  const howToGrowList = [
     { label: "Sowing Method", value: displaySowing || "—" },
     { label: "Planting Window", value: displayWindow || "—" },
+    { label: "Spring Indoor", value: (profile as PlantProfile).spring_indoor_window?.trim() || "—" },
+    { label: "Spring Outdoor", value: (profile as PlantProfile).spring_outdoor_window?.trim() || "—" },
+    { label: "Summer", value: (profile as PlantProfile).summer_window?.trim() || "—" },
+    { label: "Fall Outdoor", value: (profile as PlantProfile).fall_outdoor_window?.trim() || "—" },
     { label: "Spacing", value: ((effectiveCare?.plant_spacing ?? profile.plant_spacing?.trim()) || "—") },
     { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") },
-  ];
-  const growingList = [
-    { label: "Sun", value: ((effectiveCare?.sun ?? profile.sun?.trim()) || "—") },
-    { label: "Water", value: ((effectiveCare?.water ?? profileWater?.trim()) || "—") },
+    { label: "Planting Depth", value: plantingDepth != null ? `${plantingDepth} ${plantingDepth === 1 ? "inch" : "inches"}` : "—" },
     { label: "Germination", value: ((effectiveCare?.days_to_germination ?? profile.days_to_germination?.trim()) || "—") },
+    ...(isEdiblePlant(profile)
+      ? [{ label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) }]
+      : []),
   ];
-  // Edibles-only fields: only render when the plant is classified as edible (tag-based + name-inference per getEffectiveSeedTypes).
-  const harvestList = isEdiblePlant(profile)
-    ? [
-        { label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) },
-      ]
-    : [];
+  // B2 pill+detail pairs: summary pill prefers the canonical *_summary column, falling back to
+  // the effective-care value then the legacy single column.
+  const sunPill = (profile as PlantProfile).sun_summary?.trim() || effectiveCare?.sun || profile.sun?.trim() || null;
+  const sunDetail = (profile as PlantProfile).sun_detail?.trim() || null;
+  const waterPill = (profile as PlantProfile).water_summary?.trim() || effectiveCare?.water || profileWater?.trim() || null;
+  const waterDetail = (profile as PlantProfile).water_detail?.trim() || null;
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
   // canEdit = true when it's the user's own profile OR they have an edit grant from the owner
@@ -931,29 +940,26 @@ export default function VaultSeedPage() {
               )}
               {!(profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null) && (
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">Type</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditForm((f) => ({ ...f, lifecycleType: "seed" }))}
-                      className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${editForm.lifecycleType === "seed" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}
-                    >
-                      Seasonal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditForm((f) => ({ ...f, lifecycleType: "permanent" }))}
-                      className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border min-h-[44px] ${editForm.lifecycleType === "permanent" ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}
-                    >
-                      Permanent
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-500 mt-1">Perennial, tree, or shrub = permanent. Annual or veg = seasonal.</p>
+                  <label htmlFor="edit-lifecycle" className="block text-sm font-medium text-neutral-700 mb-1">Lifecycle</label>
+                  {/* AI-filled by default; gray-fill = dropdown affordance per VISION §8 field treatments.
+                      profile_type is derived from this on save (Q1 lock) — see useVaultEditHandlers. */}
+                  <select
+                    id="edit-lifecycle"
+                    value={editForm.lifecycle}
+                    onChange={(e) => setEditForm((f) => ({ ...f, lifecycle: e.target.value }))}
+                    className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    aria-label="Lifecycle"
+                  >
+                    {!editForm.lifecycle && <option value="">—</option>}
+                    <option value="Annual">Annual</option>
+                    <option value="Biennial">Biennial</option>
+                    <option value="Perennial">Perennial</option>
+                  </select>
                 </div>
               )}
               {[
                 { id: "edit-status", label: "Status", key: "status" as const },
-                { id: "edit-plant-type", label: "Plant Type", key: "plantType" as const },
+                { id: "edit-plant-type", label: "Plant Name", key: "plantType" as const },
                 { id: "edit-variety-name", label: "Variety Name", key: "varietyName" as const },
                 { id: "edit-sun", label: "Sun", key: "sun" as const },
                 { id: "edit-water", label: "Water", key: "water" as const },
@@ -1353,9 +1359,11 @@ export default function VaultSeedPage() {
             legacyPlantDesc={legacyPlantDesc ?? null}
             legacyGrowingInfo={legacyGrowingInfo ?? null}
             legacySourceUrl={legacySourceUrl ?? null}
-            careList={careList}
-            growingList={growingList}
-            harvestList={harvestList}
+            howToGrowList={howToGrowList}
+            sunPill={sunPill}
+            sunDetail={sunDetail}
+            waterPill={waterPill}
+            waterDetail={waterDetail}
             growingNotes={growingNotes}
             aboutCollapsed={aboutCollapsed}
             toggleAboutSection={toggleAboutSection}
@@ -1363,7 +1371,10 @@ export default function VaultSeedPage() {
             vendorDetailsOpen={vendorDetailsOpen}
             setVendorDetailsOpen={setVendorDetailsOpen}
             setImageLightbox={setImageLightbox}
-            fillBlanksAttempted={fillBlanksAttempted}
+            aiNotFound={isOwnProfile && aiNotFound}
+            retryRunning={fillBlanksRunning}
+            onRetryAi={handleFillBlanks}
+            onDismissAiNotFound={() => setAiNotFound(false)}
           />
         )}
 

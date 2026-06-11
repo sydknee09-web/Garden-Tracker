@@ -213,9 +213,11 @@ async function main() {
     const label = [name, variety].filter(Boolean).join(" / ") || p.id;
     if (!name) { skipped++; failures.push(`SKIP (no name): ${p.id}`); continue; }
 
-    const r = await researchVariety(GEMINI_KEY, name, variety, vendorByProfile[p.id] ?? "");
+    const outcome = await researchVariety(GEMINI_KEY, name, variety, vendorByProfile[p.id] ?? "");
     // Log the Gemini call per the api_usage_log observability pattern (non-fatal on failure).
     try { await admin.from("api_usage_log").insert({ user_id: p.user_id, provider: "gemini", operation: "cleanup-reenrich" }); } catch { /* non-fatal */ }
+    // Exact-match-only contract (Chunk B): not-found → skip profile (honest empty, no species fill).
+    const r = outcome && outcome.found ? outcome.data : null;
     if (!r) { failed++; failures.push(`AI FAIL: ${label}`); console.log(`  [${i + 1}/${worklist.length}] AI returned nothing: ${label}`); if (i < worklist.length - 1) await new Promise((res) => setTimeout(res, THROTTLE_MS)); continue; }
 
     const updates: Record<string, unknown> = {};

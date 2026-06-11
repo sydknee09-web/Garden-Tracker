@@ -443,9 +443,11 @@ async function researchVarietyForExtract(
   vendor: string
 ): Promise<Partial<ExtractResponse> | null> {
   console.log("[extract] Research variety (Gemini + Search) for", plantType, variety || "(no variety)");
-  const research = await researchVarietyLib(apiKey, plantType, variety, vendor);
-  if (!research) return null;
-  const { companion_plants: cpStr, avoid_plants: apStr, ...rest } = research;
+  const outcome = await researchVarietyLib(apiKey, plantType, variety, vendor);
+  // Exact-match-only contract (Chunk B): not-found behaves like no-data here — the extract
+  // proceeds without research enrichment (honest empty fields, no species-generic fill).
+  if (!outcome || !outcome.found) return null;
+  const { companion_plants: cpStr, avoid_plants: apStr, ...rest } = outcome.data;
   const out: Partial<ExtractResponse> = { ...rest };
   if (cpStr?.trim()) out.companion_plants = cpStr.split(",").map((x) => x.trim()).filter(Boolean);
   if (apStr?.trim()) out.avoid_plants = apStr.split(",").map((x) => x.trim()).filter(Boolean);

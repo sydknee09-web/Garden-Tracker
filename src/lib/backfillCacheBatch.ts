@@ -111,7 +111,9 @@ export async function runBackfillCacheBatch(
     const vendor = (row.vendor ?? "").trim();
 
     onGeminiCall?.();
-    const result = await researchVariety(geminiKey, type, variety, vendor);
+    const outcome = await researchVariety(geminiKey, type, variety, vendor);
+    // Exact-match-only contract (Chunk B): not-found is skipped like no-data (never cached).
+    const result = outcome && outcome.found ? outcome.data : null;
     if (!result) {
       failed++;
       await new Promise((r) => setTimeout(r, AI_DELAY_MS));

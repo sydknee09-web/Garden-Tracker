@@ -275,7 +275,9 @@ export async function runBackfillPlantDescriptionsBatch(
     }
 
     onGeminiCall?.();
-    const result = await researchVariety(geminiKey, name, variety, vendor);
+    const outcome = await researchVariety(geminiKey, name, variety, vendor);
+    // Exact-match-only contract (Chunk B): not-found → no updates (honest empty, no species fill).
+    const result = outcome && outcome.found ? outcome.data : null;
     updates = {};
     if (result) {
       if (!(p.sun ?? "").trim() && result.sun_requirement?.trim()) updates.sun = result.sun_requirement.trim();

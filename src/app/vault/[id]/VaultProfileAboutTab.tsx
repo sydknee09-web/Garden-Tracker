@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { PlantProfile } from "@/types/garden";
@@ -20,9 +21,13 @@ export interface VaultProfileAboutTabProps {
   legacyPlantDesc: string | null;
   legacyGrowingInfo: string | null;
   legacySourceUrl: string | null;
-  careList: AboutTabCareList;
-  growingList: AboutTabCareList;
-  harvestList: AboutTabCareList;
+  /** Core How-to-Grow scalar rows (sowing method, windows, spacing, depths, germination, maturity) with effective-care fallbacks applied by the page. */
+  howToGrowList: AboutTabCareList;
+  /** Sun/Water pill+detail pairs (page applies sun_summary→effectiveCare→sun fallback chain). */
+  sunPill: string | null;
+  sunDetail: string | null;
+  waterPill: string | null;
+  waterDetail: string | null;
   growingNotes: string;
   aboutCollapsed: Record<string, boolean>;
   toggleAboutSection: (key: string) => void;
@@ -30,7 +35,113 @@ export interface VaultProfileAboutTabProps {
   vendorDetailsOpen: boolean;
   setVendorDetailsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   setImageLightbox: (v: { urls: string[]; index: number } | null) => void;
-  fillBlanksAttempted?: boolean;
+  /** B5 variety-not-found: last AI run couldn't find this exact plant → inline notice + Try Again. */
+  aiNotFound?: boolean;
+  retryRunning?: boolean;
+  onRetryAi?: () => void;
+  onDismissAiNotFound?: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Shared primitives (NORTH_STAR §1 — one canonical shape per concept)
+// ---------------------------------------------------------------------------
+
+/** Collapsible section card — the single About-tab card primitive (existing register). */
+function SectionCard({
+  id,
+  title,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  id?: string;
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden scroll-mt-20">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl"
+        aria-expanded={isOpen}
+      >
+        <h3 className="text-sm font-semibold text-neutral-700">{title}</h3>
+        <span className="shrink-0 text-neutral-400" aria-hidden>
+          {isOpen ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}
+        </span>
+      </button>
+      {isOpen && <div className="px-4 pb-4 pt-0">{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * B2 pill+detail primitive — bold pill summary + 1-2 sentence detail beneath, both visible
+ * by default (no tap-to-expand, Q8 lock). One shared component for every data-rich field.
+ * `pill` renders value(s) as neutral chips; without it the value renders in the plain dd register.
+ * Empty values show "—" per the locked empty-cell convention.
+ */
+function PillDetailField({
+  label,
+  value,
+  values,
+  detail,
+  pill = false,
+}: {
+  label: string;
+  value?: string | null;
+  values?: string[] | null;
+  detail?: string | null;
+  pill?: boolean;
+}) {
+  const list = (values ?? (value != null ? [value] : []))
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean);
+  const detailText = detail?.trim();
+  return (
+    <div>
+      <dt className="text-xs text-neutral-500 mb-0.5">{label}</dt>
+      {list.length === 0 ? (
+        <dd className="text-sm text-neutral-900 font-medium">—</dd>
+      ) : pill ? (
+        <dd className="flex flex-wrap gap-1.5">
+          {list.map((v) => (
+            <span key={v} className="inline-block text-sm font-semibold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-900">
+              {v}
+            </span>
+          ))}
+        </dd>
+      ) : (
+        <dd className="text-sm text-neutral-900 font-medium">{list.join(", ")}</dd>
+      )}
+      {detailText && <dd className="mt-1 text-sm text-neutral-600">{detailText}</dd>}
+    </div>
+  );
+}
+
+/** In-card sub-header register (existing "How to propagate" label anchor). */
+function SubHeader({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">{children}</p>;
+}
+
+/** Human phrasing for non-seed propagation methods in the B3 sub-header. */
+const METHOD_PHRASES: Record<string, string> = {
+  Cutting: "Cuttings",
+  Division: "Division",
+  Layering: "Layering",
+  Grafting: "Grafting",
+  "Bulb-Tuber division": "Bulb or Tuber Division",
+  Spore: "Spores",
+  Runner: "Runners",
+};
+
+function joinWithOr(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} or ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`;
 }
 
 export function VaultProfileAboutTab({
@@ -42,9 +153,11 @@ export function VaultProfileAboutTab({
   legacyPlantDesc,
   legacyGrowingInfo,
   legacySourceUrl,
-  careList,
-  growingList,
-  harvestList,
+  howToGrowList,
+  sunPill,
+  sunDetail,
+  waterPill,
+  waterDetail,
   growingNotes,
   aboutCollapsed,
   toggleAboutSection,
@@ -52,235 +165,374 @@ export function VaultProfileAboutTab({
   vendorDetailsOpen,
   setVendorDetailsOpen,
   setImageLightbox,
-  fillBlanksAttempted = false,
+  aiNotFound = false,
+  retryRunning = false,
+  onRetryAi,
+  onDismissAiNotFound,
 }: VaultProfileAboutTabProps) {
+  // B4 anchor sections — auto-generated from the sections this profile renders.
+  const anchorSections = [
+    { key: "characteristics", label: "Characteristics", show: !isLegacy },
+    { key: "howToGrow", label: "How to Grow", show: true },
+    { key: "companion", label: "Companion Planting", show: true },
+    { key: "propagation", label: "Propagation", show: !isLegacy },
+  ].filter((s) => s.show);
+  const [activeSection, setActiveSection] = useState<string>(anchorSections[0]?.key ?? "");
+  const sectionKeysJoined = anchorSections.map((s) => s.key).join(",");
+  const suppressSpyUntilRef = useRef(0);
+
+  // Scroll-spy: highlight the section the user has scrolled into. Observer fires on
+  // boundary crossings; active = the last section whose top sits above the sticky-row
+  // offset. Disconnects on unmount / tab switch (About unmounts on tab change).
+  useEffect(() => {
+    const keys = sectionKeysJoined.split(",").filter(Boolean);
+    const els = keys
+      .map((key) => ({ key, el: document.getElementById(`about-section-${key}`) }))
+      .filter((x): x is { key: string; el: HTMLElement } => !!x.el);
+    if (els.length === 0) return;
+    const OFFSET = 96; // sticky pill row clearance, matches scroll-mt-20
+    const recompute = () => {
+      if (Date.now() < suppressSpyUntilRef.current) return;
+      let current = els[0].key;
+      for (const { key, el } of els) {
+        if (el.getBoundingClientRect().top <= OFFSET) current = key;
+      }
+      setActiveSection(current);
+    };
+    const observer = new IntersectionObserver(recompute, {
+      rootMargin: `-${OFFSET}px 0px 0px 0px`,
+      threshold: [0, 1],
+    });
+    els.forEach(({ el }) => observer.observe(el));
+    window.addEventListener("scroll", recompute, { passive: true });
+    recompute();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", recompute);
+    };
+  }, [sectionKeysJoined]);
+
   if (!profile) return null;
+
+  const handleAnchorTap = (key: string) => {
+    setActiveSection(key);
+    // Let smooth-scroll settle before the spy recomputes, so the tapped pill doesn't flicker.
+    suppressSpyUntilRef.current = Date.now() + 700;
+    document.getElementById(`about-section-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const propagationMethods = (profile.propagation_method ?? []).map((m) => m.trim()).filter(Boolean);
+  const nonSeedMethods = propagationMethods.filter((m) => m !== "Seed");
+  const hasSeedMethod = propagationMethods.includes("Seed");
+  const notFoundName = [profile.name, profile.variety_name].map((s) => s?.trim()).filter(Boolean).join(" ");
 
   return (
     <>
+      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ── */}
+      {anchorSections.length > 1 && (
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
+          <div className="overflow-x-auto scrollbar-hide" role="tablist" aria-label="Jump to profile section">
+            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+              {anchorSections.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSection === s.key}
+                  onClick={() => handleAnchorTap(s.key)}
+                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeSection === s.key ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── B5: variety-not-found honest empty-state (info-note register + Try Again) ── */}
+      {aiNotFound && !isLegacy && (
+        <div className="bg-white rounded-xl border border-neutral-200 mb-4 p-4" role="status">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm text-neutral-600 italic flex-1">
+              We couldn&apos;t find data for &apos;{notFoundName}&apos;. Please verify the spelling or fill in manually.
+            </p>
+            <button
+              type="button"
+              onClick={onDismissAiNotFound}
+              className="shrink-0 min-w-[44px] min-h-[44px] -mt-2 -mr-2 flex items-center justify-center rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+              aria-label="Dismiss"
+            >
+              <ICON_MAP.Close className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onRetryAi}
+            disabled={retryRunning}
+            className="mt-2 min-h-[44px] px-4 py-2 rounded-xl border border-teal-gus/40 text-teal-gus text-sm font-medium hover:bg-teal-gus/10 disabled:opacity-50"
+          >
+            {retryRunning ? "Trying…" : "Try Again"}
+          </button>
+        </div>
+      )}
+
       {/* Description (profile-level: vendor or AI) */}
       {!isLegacy && profile?.plant_description?.trim() && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("description")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("description")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Description</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("description") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("description") && (
-            <div className="px-4 pb-4 pt-0">
-              <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.plant_description}</p>
-              {profile.description_source && (
-                <p className="text-xs text-neutral-500 mt-2">
-                  Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? "AI research" : "You"}
-                </p>
-              )}
-            </div>
+        <SectionCard title="Description" isOpen={isAboutOpen("description")} onToggle={() => toggleAboutSection("description")}>
+          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.plant_description}</p>
+          {profile.description_source && (
+            <p className="text-xs text-neutral-500 mt-2">
+              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? "AI research" : "You"}
+            </p>
           )}
-        </div>
+        </SectionCard>
       )}
 
       {/* Growing Notes */}
       {growingNotes && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("growingNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growingNotes")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Growing Notes</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growingNotes") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("growingNotes") && (
-            <div className="px-4 pb-4 pt-0">
-              <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
-            </div>
-          )}
-        </div>
+        <SectionCard title="Growing Notes" isOpen={isAboutOpen("growingNotes")} onToggle={() => toggleAboutSection("growingNotes")}>
+          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+        </SectionCard>
       )}
 
-      {/* How to Grow */}
-      <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-        <button type="button" onClick={() => toggleAboutSection("howToGrow")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("howToGrow")}>
-          <h3 className="text-sm font-semibold text-neutral-700">How to Grow</h3>
-          <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("howToGrow") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-        </button>
-        {isAboutOpen("howToGrow") && (
-          <div className="px-4 pb-4 pt-0">
-            {profile?.planting_window?.trim().startsWith("Not viable in Zone") && (
-              <p className="mb-3 text-sm text-neutral-600 italic">
-                This plant won&apos;t survive outdoor growing in Zone {profile.planting_window_zone || "your zone"}. Consider growing indoors or in a greenhouse.
-              </p>
-            )}
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {[...careList, ...growingList, ...harvestList].map(({ label, value }) => (
-                <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
-              ))}
-            </dl>
-            {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && (
-              <p className="mt-3 text-sm text-neutral-600 italic">
-                Generated for Zone {profile.planting_window_zone}.
-              </p>
-            )}
-            {profile?.seed_propagation_context?.trim() && [...careList, ...growingList].every(({ value }) => value === "—") && (
-              <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
-            )}
-          </div>
+      {/* ── B1: Plant Characteristics — intrinsic properties of the species/variety ── */}
+      {!isLegacy && (
+        <SectionCard
+          id="about-section-characteristics"
+          title="Plant Characteristics"
+          isOpen={isAboutOpen("characteristics")}
+          onToggle={() => toggleAboutSection("characteristics")}
+        >
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <PillDetailField label="Lifecycle" value={profile.lifecycle} pill />
+            <PillDetailField label="Growth Form" value={profile.growth_form} pill />
+            <PillDetailField label="Plant Category" value={profile.plant_category} pill />
+            <PillDetailField label="Growth Habit" value={profile.growth_habit} pill />
+            <PillDetailField label="Mature Height" value={profile.mature_height} />
+            <PillDetailField label="Mature Width" value={profile.mature_width} />
+            <PillDetailField label="Family" value={profile.family} />
+            <PillDetailField label="Genus" value={profile.genus} />
+            <PillDetailField label="Species" value={profile.species} />
+            <PillDetailField label="Pollination" value={profile.pollination_requirements} pill />
+            <PillDetailField label="Deer / Rabbit Resistance" value={profile.deer_rabbit_resistance} pill />
+            <PillDetailField label="Drought / Salt Tolerance" value={profile.drought_salt_tolerance} pill />
+            <PillDetailField label="Native Origin" value={profile.native_origin} />
+            <PillDetailField label="Invasiveness" value={profile.invasiveness} />
+          </dl>
+          <dl className="mt-3 space-y-3">
+            <PillDetailField label="Toxicity" value={profile.toxicity} />
+            <PillDetailField label="Wildlife Value" value={profile.wildlife_value} />
+            <PillDetailField label="Synonyms" values={profile.synonyms} />
+          </dl>
+        </SectionCard>
+      )}
+
+      {/* ── B1: How to Grow — action-oriented growing instructions ── */}
+      <SectionCard
+        id="about-section-howToGrow"
+        title="How to Grow"
+        isOpen={isAboutOpen("howToGrow")}
+        onToggle={() => toggleAboutSection("howToGrow")}
+      >
+        {profile?.planting_window?.trim().startsWith("Not viable in Zone") && (
+          <p className="mb-3 text-sm text-neutral-600 italic">
+            This plant won&apos;t survive outdoor growing in Zone {profile.planting_window_zone || "your zone"}. Consider growing indoors or in a greenhouse.
+          </p>
         )}
-      </div>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {howToGrowList.map(({ label, value }) => (
+            <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
+          ))}
+        </dl>
+        <dl className="mt-4 space-y-4">
+          <PillDetailField label="Sun" value={sunPill} detail={sunDetail} pill />
+          <PillDetailField label="Water" value={waterPill} detail={waterDetail} pill />
+          <PillDetailField label="Soil" value={isLegacy ? null : profile.soil_preference} pill />
+          {!isLegacy && (
+            <>
+              <PillDetailField label="Disease Susceptibility" values={profile.disease_susceptibility} pill />
+              <PillDetailField label="Harvest Season" values={profile.harvest_season} pill />
+              <PillDetailField label="Uses" values={profile.uses} pill />
+              <PillDetailField label="Special Features" values={profile.special_features} pill />
+            </>
+          )}
+        </dl>
+        {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && (
+          <p className="mt-3 text-sm text-neutral-600 italic">
+            Generated for Zone {profile.planting_window_zone}.
+          </p>
+        )}
+        {profile?.seed_propagation_context?.trim() &&
+          howToGrowList.every(({ value }) => value === "—") &&
+          !sunPill && !waterPill && (
+            <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
+          )}
+      </SectionCard>
 
       {/* Companion planting */}
-      <div className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden">
-        <button type="button" onClick={() => toggleAboutSection("companion")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("companion")}>
-          <h3 className="text-sm font-semibold text-neutral-700">Companion Planting</h3>
-          <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("companion") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-        </button>
-        {isAboutOpen("companion") && (
-          <div className="px-4 pb-4 pt-0">
-            {(() => {
-              const companions = profile?.companion_plants ?? [];
-              const avoid = profile?.avoid_plants ?? [];
-              const hasCompanions = Array.isArray(companions) && companions.length > 0;
-              const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
-              const hasAny = hasCompanions || hasAvoid;
-              return hasAny ? (
-                <div className="space-y-3">
-                  {hasCompanions && (
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">Plant with</p>
-                      <TagBadges tags={companions} />
-                    </div>
-                  )}
-                  {hasAvoid && (
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {avoid.map((name) => {
-                          const key = name.trim();
-                          if (!key) return null;
-                          return (
-                            <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
-                              {key}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+      <SectionCard
+        id="about-section-companion"
+        title="Companion Planting"
+        isOpen={isAboutOpen("companion")}
+        onToggle={() => toggleAboutSection("companion")}
+      >
+        {(() => {
+          const companions = profile?.companion_plants ?? [];
+          const avoid = profile?.avoid_plants ?? [];
+          const hasCompanions = Array.isArray(companions) && companions.length > 0;
+          const hasAvoid = Array.isArray(avoid) && avoid.length > 0;
+          const hasAny = hasCompanions || hasAvoid;
+          return hasAny ? (
+            <div className="space-y-3">
+              {hasCompanions && (
+                <div>
+                  <SubHeader>Plant with</SubHeader>
+                  <TagBadges tags={companions} />
                 </div>
-              ) : (
-                <p className="text-sm text-neutral-500">None known</p>
-              );
-            })()}
-          </div>
-        )}
-      </div>
+              )}
+              {hasAvoid && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-700 mb-1.5">Don&apos;t plant with</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {avoid.map((name) => {
+                      const key = name.trim();
+                      if (!key) return null;
+                      return (
+                        <span key={key} className="inline-block text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200">
+                          {key}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">None known</p>
+          );
+        })()}
+      </SectionCard>
 
       {/* Tags */}
       {profile?.tags && profile.tags.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden">
-          <button type="button" onClick={() => toggleAboutSection("tags")} className="w-full flex items-center justify-between px-4 py-3 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("tags")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Tags</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("tags") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("tags") && (
-            <div className="px-4 pb-4 pt-0">
-              <TagBadges tags={profile.tags} />
-            </div>
-          )}
-        </div>
+        <SectionCard title="Tags" isOpen={isAboutOpen("tags")} onToggle={() => toggleAboutSection("tags")}>
+          <TagBadges tags={profile.tags} />
+        </SectionCard>
       )}
 
-      {/* Propagate & Harvest seeds */}
+      {/* ── B3: Propagation — predictable header, sub-content adapts to propagation_method ── */}
       {!isLegacy && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("propagation")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("propagation")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Propagate / Save Seeds</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("propagation") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("propagation") && (
-            <div className="px-4 pb-4 pt-0 space-y-4">
-              {profile?.seed_propagation_context?.trim() && (
-                <p className="text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
-              )}
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to propagate</p>
-                {profile?.propagation_notes?.trim() ? (
-                  <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
-                ) : fillBlanksAttempted ? (
-                  <p className="text-sm text-neutral-500">—</p>
-                ) : (
-                  <p className="text-sm text-neutral-500">Nothing here yet. Tap the ✨ button above to fill in details from our library or AI.</p>
+        <SectionCard
+          id="about-section-propagation"
+          title="Propagation"
+          isOpen={isAboutOpen("propagation")}
+          onToggle={() => toggleAboutSection("propagation")}
+        >
+          <div className="space-y-4">
+            {profile?.seed_propagation_context?.trim() && (
+              <p className="text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
+            )}
+            <dl>
+              <PillDetailField label="Method" values={propagationMethods} pill />
+            </dl>
+            {propagationMethods.length === 0 ? (
+              <>
+                <div>
+                  <SubHeader>How to Propagate</SubHeader>
+                  {profile?.propagation_notes?.trim() ? (
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
+                  ) : (
+                    <p className="text-sm text-neutral-500">—</p>
+                  )}
+                </div>
+                <div>
+                  <SubHeader>How to Save Seeds</SubHeader>
+                  {profile?.seed_saving_notes?.trim() ? (
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.seed_saving_notes}</p>
+                  ) : (
+                    <p className="text-sm text-neutral-500">—</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {nonSeedMethods.length > 0 && (
+                  <div>
+                    <SubHeader>
+                      Propagated by {joinWithOr(nonSeedMethods.map((m) => METHOD_PHRASES[m] ?? m))}
+                    </SubHeader>
+                    {profile?.propagation_notes?.trim() ? (
+                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
+                    ) : (
+                      <p className="text-sm text-neutral-500">—</p>
+                    )}
+                  </div>
                 )}
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">How to save seeds</p>
-                {profile?.seed_saving_notes?.trim() ? (
-                  <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.seed_saving_notes}</p>
-                ) : fillBlanksAttempted ? (
-                  <p className="text-sm text-neutral-500">—</p>
-                ) : (
-                  <p className="text-sm text-neutral-500">Nothing here yet. Tap the ✨ button above to fill in details from our library or AI.</p>
+                {hasSeedMethod && (
+                  <div>
+                    <SubHeader>Starting from Seed &amp; Saving Seeds</SubHeader>
+                    {(() => {
+                      // When Seed is the ONLY method, the general how-to narrative belongs here too.
+                      const paras = [
+                        nonSeedMethods.length === 0 ? profile?.propagation_notes?.trim() : "",
+                        profile?.seed_saving_notes?.trim(),
+                      ].filter((s): s is string => !!s);
+                      return paras.length > 0 ? (
+                        <div className="space-y-2">
+                          {paras.map((s, i) => (
+                            <p key={i} className="text-sm text-neutral-700 whitespace-pre-wrap">{s}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-neutral-500">—</p>
+                      );
+                    })()}
+                  </div>
                 )}
-              </div>
-            </div>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        </SectionCard>
       )}
 
       {/* Source URL */}
       {packets.length > 0 && packets[0].purchase_url?.trim() && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("source")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("source")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Source</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("source") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("source") && (
-            <div className="px-4 pb-4 pt-0">
-              <a href={packets[0].purchase_url!} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline break-all">{packets[0].purchase_url}</a>
-            </div>
-          )}
-        </div>
+        <SectionCard title="Source" isOpen={isAboutOpen("source")} onToggle={() => toggleAboutSection("source")}>
+          <a href={packets[0].purchase_url!} target="_blank" rel="noopener noreferrer" className="text-sm text-emerald-600 hover:underline break-all">{packets[0].purchase_url}</a>
+        </SectionCard>
       )}
 
       {/* Growth Gallery */}
       {journalPhotos.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("growthGallery")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("growthGallery")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Growth Gallery</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("growthGallery") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("growthGallery") && (
-            <div className="px-4 pb-4 pt-0">
-              <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
-                {journalPhotos.map((photo, idx) => {
-                  const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
-                  const galleryUrls = journalPhotos.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p.image_file_path).data.publicUrl);
-                  return (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setImageLightbox({ urls: galleryUrls, index: idx })}
-                      className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center cursor-pointer hover:ring-2 hover:ring-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
-                      aria-label="View photo larger"
-                    >
-                      <Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" loading="lazy" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <SectionCard title="Growth Gallery" isOpen={isAboutOpen("growthGallery")} onToggle={() => toggleAboutSection("growthGallery")}>
+          <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
+            {journalPhotos.map((photo, idx) => {
+              const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
+              const galleryUrls = journalPhotos.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p.image_file_path).data.publicUrl);
+              return (
+                <button
+                  key={photo.id}
+                  type="button"
+                  onClick={() => setImageLightbox({ urls: galleryUrls, index: idx })}
+                  className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-neutral-100 snap-center cursor-pointer hover:ring-2 hover:ring-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[44px] min-h-[44px]"
+                  aria-label="View photo larger"
+                >
+                  <Image src={src} alt="" width={96} height={96} className="w-full h-full object-cover" sizes="96px" loading="lazy" unoptimized={src.startsWith("data:") || !src.includes("supabase.co")} />
+                </button>
+              );
+            })}
+          </div>
+        </SectionCard>
       )}
 
       {/* Legacy content */}
       {isLegacy && legacyNotes.trim() && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("legacyNotes")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyNotes")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Notes</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyNotes") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("legacyNotes") && (
-            <div className="px-4 pb-4 pt-0">
-              <p className="text-neutral-700 whitespace-pre-wrap text-sm">{legacyNotes}</p>
-            </div>
-          )}
-        </div>
+        <SectionCard title="Notes" isOpen={isAboutOpen("legacyNotes")} onToggle={() => toggleAboutSection("legacyNotes")}>
+          <p className="text-neutral-700 whitespace-pre-wrap text-sm">{legacyNotes}</p>
+        </SectionCard>
       )}
       {(legacyPlantDesc?.trim() || legacyGrowingInfo?.trim()) && (
         <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden mb-4">
@@ -297,17 +549,9 @@ export function VaultProfileAboutTab({
         </div>
       )}
       {isLegacy && legacySourceUrl?.trim() && (
-        <div className="bg-white rounded-xl border border-neutral-200 mb-4">
-          <button type="button" onClick={() => toggleAboutSection("legacyImport")} className="w-full flex items-center justify-between gap-2 p-4 text-left min-h-[44px] hover:bg-neutral-50/80 rounded-t-xl" aria-expanded={isAboutOpen("legacyImport")}>
-            <h3 className="text-sm font-semibold text-neutral-700">Import Link</h3>
-            <span className="shrink-0 text-neutral-400" aria-hidden>{isAboutOpen("legacyImport") ? <ICON_MAP.ChevronDown className="w-3 h-3" /> : <ICON_MAP.ChevronRight className="w-3 h-3" />}</span>
-          </button>
-          {isAboutOpen("legacyImport") && (
-            <div className="px-4 pb-4 pt-0">
-              <a href={legacySourceUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all text-sm">{legacySourceUrl}</a>
-            </div>
-          )}
-        </div>
+        <SectionCard title="Import Link" isOpen={isAboutOpen("legacyImport")} onToggle={() => toggleAboutSection("legacyImport")}>
+          <a href={legacySourceUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all text-sm">{legacySourceUrl}</a>
+        </SectionCard>
       )}
     </>
   );

@@ -8,7 +8,7 @@ vi.mock("@google/genai", () => ({
   })),
 }));
 
-import { researchVariety } from "./researchVariety";
+import { researchVariety, RESEARCH_PROMPT } from "./researchVariety";
 
 /** Wrap a fields object as a Gemini-style response (text is JSON the parser regex-matches). */
 function geminiResponse(fields: Record<string, unknown>) {
@@ -16,6 +16,7 @@ function geminiResponse(fields: Record<string, unknown>) {
 }
 
 const RICH = {
+  found: true,
   plant_description: "A climbing fruit vine.",
   growing_notes: "Plant in full sun, train on a trellis.",
   propagation_notes: "Propagate from hardwood cuttings.",
@@ -28,64 +29,65 @@ const RICH = {
   water: "Regular",
 };
 
-const THIN = {
-  // Fewer than THIN_RESULT_THRESHOLD (3) deep fields populated → triggers species fallback.
-  sun_requirement: "Full Sun",
-  spacing: "24 inches",
-  plant_description: "A niche cultivar.",
-};
-
-describe("researchVariety", () => {
+describe("researchVariety (exact-match-only contract, B5)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns null when the model returns no parseable JSON", async () => {
+  it("instructs the model to return found:false instead of substituting or guessing", () => {
+    // Prompt-contract guard: exact-match-only + no species fallback is the locked behavior.
+    expect(RESEARCH_PROMPT).toContain("EXACT MATCH ONLY");
+    expect(RESEARCH_PROMPT).toContain('{"found": false}');
+  });
+
+  it("returns null when the model returns no parseable JSON (AI-unavailable semantics)", async () => {
     mockGenerateContent.mockResolvedValueOnce({ text: "no json here" });
-    const result = await researchVariety("key", "Tomato", "Cherokee Purple", "");
-    expect(result).toBeNull();
+    const outcome = await researchVariety("key", "Tomato", "Cherokee Purple", "");
+    expect(outcome).toBeNull();
   });
 
-  it("parses the full field set including the three classification tags", async () => {
+  it("returns null when the Gemini call throws", async () => {
+    mockGenerateContent.mockRejectedValueOnce(new Error("429"));
+    const outcome = await researchVariety("key", "Tomato", "Cherokee Purple", "");
+    expect(outcome).toBeNull();
+  });
+
+  it("parses the full field set including the three classification tags on a found result", async () => {
     mockGenerateContent.mockResolvedValueOnce(geminiResponse(RICH));
-    const result = await researchVariety("key", "Grape", "Concord", "");
-    expect(result?.lifecycle).toBe("Perennial");
-    expect(result?.growth_form).toBe("Vine");
-    expect(result?.plant_category).toBe("Fruit");
-    expect(result?.growing_notes).toContain("trellis");
-    // Rich primary → no species fallback call.
+    const outcome = await researchVariety("key", "Grape", "Concord", "");
+    expect(outcome).not.toBeNull();
+    expect(outcome!.found).toBe(true);
+    if (!outcome!.found) throw new Error("unreachable");
+    expect(outcome!.data.lifecycle).toBe("Perennial");
+    expect(outcome!.data.growth_form).toBe("Vine");
+    expect(outcome!.data.plant_category).toBe("Fruit");
+    expect(outcome!.data.growing_notes).toContain("trellis");
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
   });
 
-  it("runs a species-level fallback when the variety result is thin, merging without nulling", async () => {
-    mockGenerateContent
-      .mockResolvedValueOnce(geminiResponse(THIN)) // variety query — thin
-      .mockResolvedValueOnce(geminiResponse(RICH)); // species fallback — rich
-    const result = await researchVariety("key", "Canna Lily", "Summer Solstice Lemon", "");
-    // Two Gemini calls: the variety query, then the species fallback.
-    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
-    // Blanks from the thin primary are filled by the species result...
-    expect(result?.growing_notes).toContain("trellis");
-    expect(result?.lifecycle).toBe("Perennial");
-    // ...but a field the primary already populated is NOT overwritten (variety wins).
-    expect(result?.plant_description).toBe("A niche cultivar.");
-    expect(result?.sun_requirement).toBe("Full Sun");
+  it("treats legacy responses without a found flag as found (back-compat)", async () => {
+    const { found: _found, ...legacyFields } = RICH;
+    mockGenerateContent.mockResolvedValueOnce(geminiResponse(legacyFields));
+    const outcome = await researchVariety("key", "Grape", "Concord", "");
+    expect(outcome?.found).toBe(true);
   });
 
-  it("does NOT run a species fallback when there is no variety to narrow from", async () => {
-    mockGenerateContent.mockResolvedValueOnce(geminiResponse(THIN));
-    const result = await researchVariety("key", "Canna Lily", "", "");
-    // No variety → species query would equal the primary query → no second call.
+  it("returns {found:false} when the model can't find the exact variety — NO species fallback call", async () => {
+    mockGenerateContent.mockResolvedValueOnce(geminiResponse({ found: false }));
+    const outcome = await researchVariety("key", "Canna Lily", "Summer Spritz Lemon Zest", "");
+    expect(outcome).toEqual({ found: false });
+    // Exactly ONE Gemini call: the species-level fallback is removed (Syd lock 2026-06-10).
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
-    expect(result?.plant_description).toBe("A niche cultivar.");
   });
 
-  it("returns the thin primary if the species fallback itself fails", async () => {
-    mockGenerateContent
-      .mockResolvedValueOnce(geminiResponse(THIN))
-      .mockRejectedValueOnce(new Error("429"));
-    const result = await researchVariety("key", "Canna Lily", "Summer Solstice Lemon", "");
-    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
-    expect(result?.plant_description).toBe("A niche cultivar.");
+  it("runs exactly one query even when a variety is present (no thin-result retry)", async () => {
+    // A sparse-but-found result must NOT trigger a second (species) query.
+    mockGenerateContent.mockResolvedValueOnce(
+      geminiResponse({ found: true, sun_requirement: "Full Sun", spacing: "24 inches" })
+    );
+    const outcome = await researchVariety("key", "Canna Lily", "Summer Solstice Lemon", "");
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    expect(outcome?.found).toBe(true);
+    if (outcome?.found) expect(outcome.data.sun_requirement).toBe("Full Sun");
   });
 });

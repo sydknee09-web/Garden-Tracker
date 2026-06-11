@@ -213,7 +213,7 @@ export async function POST(req: Request) {
           .maybeSingle();
         if (libRow) {
           const response = responseFromLibraryRow(libRow as unknown as LibraryRow, userZone);
-          return NextResponse.json({ enriched: true, fromCache: true, ...response });
+          return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response });
         }
       } catch {
         // Table/columns may not exist yet (migration not propagated); fall through to AI
@@ -239,10 +239,21 @@ export async function POST(req: Request) {
 
     // Search with name + variety only (no vendor) for better results.
     // Pass userZone so the AI prompt biases planting_window to the user's USDA zone.
-    const result = await researchVariety(apiKey, name, variety, "", userZone ?? undefined);
-    if (!result) {
-      return NextResponse.json({ enriched: false } satisfies { enriched: false });
+    const outcome = await researchVariety(apiKey, name, variety, "", userZone ?? undefined);
+    if (!outcome) {
+      // AI failed to run / unparseable output → "AI unavailable" semantics.
+      return NextResponse.json({ enriched: false });
     }
+    if (!outcome.found) {
+      // Exact variety not found (B5 honest empty-state). NEVER cached under the variety key —
+      // the next forceRefresh re-attempts the lookup fresh (variety-not-found lock, Syd 2026-06-10).
+      console.log(`[enrich-from-name] zone=${userZone ?? "unset"} forceRefresh=${forceRefresh} found=false`);
+      if (auth?.user?.id) {
+        logApiUsageAsync({ userId: auth.user.id, provider: "gemini", operation: "enrich-from-name" });
+      }
+      return NextResponse.json({ enriched: false, found: false });
+    }
+    const result = outcome.data;
 
     console.log(`[enrich-from-name] zone=${userZone ?? "unset"} librarySkipped=${skipLibrary} forceRefresh=${forceRefresh} ai=true`);
 
@@ -366,7 +377,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ enriched: true, fromCache: false, ...response });
+    return NextResponse.json({ enriched: true, found: true, fromCache: false, ...response });
   } catch (e) {
     logApiError("enrich-from-name", e);
     return NextResponse.json(

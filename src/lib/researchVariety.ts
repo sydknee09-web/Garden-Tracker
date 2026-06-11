@@ -3,14 +3,21 @@
  * Used by: API route (enrich-from-name, extract), fill-in-blanks, and backfill CLI script.
  *
  * Sprint 4 Chunk A: prompt expanded to fill the full plant-profile field set (3-tag taxonomy,
- * characteristics, per-season windows, paired summary/detail, taxonomy) and a species-level
- * fallback search runs when the variety-level query returns thin deep fields (mirrors the
- * find-hero-photo:415 simpler-query retry pattern; one extra Gemini call only on a thin result).
+ * characteristics, per-season windows, paired summary/detail, taxonomy).
+ *
+ * Sprint 4 Chunk B (variety-not-found lock, Syd 2026-06-10): EXACT MATCH ONLY. The species-level
+ * fallback fill is removed — if the specific name+variety can't be found, the model returns
+ * {"found": false} and we surface an honest empty-state instead of filling with species-generic
+ * data masquerading as variety-specific (NORTH_STAR §2 — a clear empty state beats a misleading
+ * filled one). researchVariety now returns a discriminated outcome so every caller handles
+ * not-found consciously; null remains "AI failed to run/parse" (quota, network, bad JSON).
  */
 
 import { GoogleGenAI } from "@google/genai";
 
 export const RESEARCH_PROMPT = `Using Google Search Grounding, find the official product page or a reliable gardening guide for this specific seed variety.
+
+EXACT MATCH ONLY: you must find data for this exact plant name and variety. If you cannot find a reliable source for this exact variety, return exactly {"found": false} and nothing else. Do NOT substitute a related species or different variety, do NOT guess, do NOT suggest a correction — the user's spelling is the source of truth. When you DO find the exact variety, include "found": true in the JSON alongside the fields below.
 
 Also: find a high-quality stock image URL or product photo that represents the Actual Plant or Fruit (not the seed packet) for this variety. Prefer a clear photo of the mature plant, flower, or harvest.
 
@@ -126,36 +133,27 @@ export type ResearchVarietyResult = {
   species?: string;
 };
 
-/** Keys whose presence signals a "deep"/rich enrichment result (used by the thin-result gate). */
-const DEEP_FIELD_KEYS: (keyof ResearchVarietyResult)[] = [
-  "plant_description",
-  "growing_notes",
-  "propagation_notes",
-  "lifecycle",
-  "growth_form",
-  "plant_category",
-  "soil_preference",
-  "native_origin",
-];
-
-/** Count how many of the deep fields a result populated. Used to decide on a species-level fallback. */
-function deepFieldCount(r: ResearchVarietyResult | null): number {
-  if (!r) return 0;
-  return DEEP_FIELD_KEYS.reduce((n, k) => n + ((r[k] ?? "").toString().trim() ? 1 : 0), 0);
-}
-
-/** Below this many deep fields, a variety-level result is "thin" → try a species-level fallback. */
-const THIN_RESULT_THRESHOLD = 3;
+/**
+ * Outcome of a research pass. Three states, each with distinct user-facing semantics:
+ * - {found: true, data}  — exact variety match; fill normally.
+ * - {found: false}       — AI ran and could not find the exact variety; honest empty-state
+ *                          (B5 toast + inline notice + Try Again). NEVER cached.
+ * - null                 — AI failed to run or returned unparseable output (quota / network /
+ *                          bad JSON); "AI unavailable, try again later".
+ */
+export type ResearchVarietyOutcome =
+  | { found: true; data: ResearchVarietyResult }
+  | { found: false };
 
 /**
- * Run ONE Gemini + Google Search research pass for a query string. Returns parsed fields or null.
- * Inner helper so the public researchVariety can run it up to twice (variety, then species fallback).
+ * Run ONE Gemini + Google Search research pass for a query string.
+ * Returns the parsed outcome, or null when the response has no parseable JSON.
  */
 async function runResearchQuery(
   ai: GoogleGenAI,
   searchQuery: string,
   zoneClause: string
-): Promise<ResearchVarietyResult | null> {
+): Promise<ResearchVarietyOutcome | null> {
   const prompt = `${RESEARCH_PROMPT}\n\nSearch for: ${searchQuery}${zoneClause}`;
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -167,6 +165,10 @@ async function runResearchQuery(
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return null;
   const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  // Exact-match-only contract: the model returns {"found": false} when it can't find the
+  // exact variety. Treat an explicit false as not-found; anything else (true / legacy
+  // responses without the flag) is a found result.
+  if (parsed.found === false) return { found: false };
   const getStr = (k: string) => (typeof parsed[k] === "string" ? (parsed[k] as string).trim() : "");
   let source_url = getStr("source_url");
   if (!source_url && response.candidates?.[0]?.groundingMetadata?.groundingChunks?.length) {
@@ -176,7 +178,7 @@ async function runResearchQuery(
     source_url = firstWeb?.web?.uri ?? "";
   }
   const s = (k: string) => getStr(k) || undefined;
-  return {
+  const data: ResearchVarietyResult = {
     sowing_depth: s("sowing_depth"),
     planting_depth: s("planting_depth"),
     spacing: s("spacing"),
@@ -225,30 +227,15 @@ async function runResearchQuery(
     genus: s("genus"),
     species: s("species"),
   };
+  return { found: true, data };
 }
 
 /**
- * Merge a species-level fallback result into the variety-level result WITHOUT overwriting any field
- * the variety query already populated (variety wins; species only fills blanks). Never nulls a value.
- */
-function mergeFillingBlanks(
-  primary: ResearchVarietyResult,
-  fallback: ResearchVarietyResult
-): ResearchVarietyResult {
-  const merged: ResearchVarietyResult = { ...primary };
-  (Object.keys(fallback) as (keyof ResearchVarietyResult)[]).forEach((k) => {
-    const cur = (merged[k] ?? "").toString().trim();
-    const fb = (fallback[k] ?? "").toString().trim();
-    if (!cur && fb) merged[k] = fallback[k];
-  });
-  return merged;
-}
-
-/**
- * Name+variety research via Gemini + Google Search. Returns structured fields and description/notes.
- * Runs a species-level fallback pass when the variety-level query returns thin deep fields
- * (e.g. a niche cultivar like "Canna Summer Solstice Lemon" → retry "Canna Lily"), merging the
- * species result into the blanks the variety result left empty.
+ * Name+variety research via Gemini + Google Search. Exact match only — no species-level
+ * fallback (variety-not-found lock, Syd 2026-06-10). Returns:
+ * - {found: true, data} on an exact-variety match
+ * - {found: false} when the AI ran but couldn't find the exact variety (never cache this)
+ * - null when the AI failed to run or returned unparseable output
  */
 export async function researchVariety(
   apiKey: string,
@@ -256,7 +243,7 @@ export async function researchVariety(
   variety: string,
   vendor: string,
   userZone?: string
-): Promise<ResearchVarietyResult | null> {
+): Promise<ResearchVarietyOutcome | null> {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const searchQuery =
@@ -266,25 +253,7 @@ export async function researchVariety(
       ? `\n\nIMPORTANT — Zone-specific planting window: The user gardens in USDA Hardiness Zone ${zoneNormalized}. For the planting_window field above, return a window calibrated to Zone ${zoneNormalized} frost dates and growing season — NOT a generic window. Always use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec) so downstream parsing works. Examples: "Indoor sow Feb-Mar, transplant after last frost May-Jun" for cold zones; "Direct sow Mar-Apr or Aug-Sep" for mild zones; "Year-round" for tropical zones. VIABILITY CHECK: if this plant CANNOT survive outdoor growing in Zone ${zoneNormalized} year-round (e.g. tropical fruit in cold zones, plants that need winter chill the zone doesn't deliver, plants that need a longer growing season than the zone offers), return the exact string "Not viable in Zone ${zoneNormalized} — indoor / greenhouse only" instead of a window. Use this ONLY for plants that genuinely can't survive outdoor; don't use it for plants that are merely difficult or require extra care. If you cannot find zone-specific guidance for Zone ${zoneNormalized}, return empty string for planting_window rather than a generic window.`
       : "";
 
-    const primary = await runResearchQuery(ai, searchQuery, zoneClause);
-    if (!primary) return null;
-
-    // Species-level fallback: only when a VARIETY was specified and the variety query came back thin.
-    // Mirrors the find-hero-photo:415 simpler-query retry. One extra Gemini call, gated on thinness.
-    const hadVariety = !!variety.trim();
-    if (hadVariety && deepFieldCount(primary) < THIN_RESULT_THRESHOLD) {
-      const speciesQuery = [plantType].filter(Boolean).join(" ") || searchQuery;
-      if (speciesQuery !== searchQuery) {
-        try {
-          const fallback = await runResearchQuery(ai, speciesQuery, zoneClause);
-          if (fallback) return mergeFillingBlanks(primary, fallback);
-        } catch {
-          // Fallback failure is non-fatal — return the (thin) primary rather than nothing.
-        }
-      }
-    }
-
-    return primary;
+    return await runResearchQuery(ai, searchQuery, zoneClause);
   } catch {
     return null;
   }

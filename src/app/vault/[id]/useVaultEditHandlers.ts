@@ -14,13 +14,16 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 type SessionLike = { access_token: string } | null;
 
-type EnrichResult = { ok?: boolean; enriched?: boolean; fieldsFilled?: number; error?: string };
+type EnrichResult = { ok?: boolean; enriched?: boolean; fieldsFilled?: number; notFound?: boolean; error?: string };
 
 /**
  * Honest-feedback toast copy for AI Fill blanks / Overwrite (locked verbatim, Syd 2026-06-10;
- * audit 2026-06-10 §8.4). "field"/"fields" pluralizes for natural reading; the rest is locked.
+ * audit 2026-06-10 §8.4 + B5 variety-not-found FINAL lock). "field"/"fields" pluralizes for
+ * natural reading; the rest is locked. notFound wins over a hero-only fieldsFilled count —
+ * the honest signal about the DATA lookup outranks an incidental photo fill.
  */
 function enrichToastMessage(ok: boolean, data: EnrichResult): string {
+  if (data.notFound) return "Couldn't find data for this plant. Check the spelling of name and variety.";
   const filled = typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0;
   const quota = data.error === "DAILY_AI_LIMIT" || data.error === "RATE_LIMITED";
   if (filled > 0) return `Updated ${filled} ${filled === 1 ? "field" : "fields"}`;
@@ -30,8 +33,8 @@ function enrichToastMessage(ok: boolean, data: EnrichResult): string {
 
 export type VaultEditForm = {
   plantType: string;
-  /** Variety-level lifecycle classification = plant_profiles.profile_type ('seed' | 'permanent'). Relocated edit (2026-06-09). */
-  lifecycleType: string;
+  /** Botanical lifecycle: 'Annual' | 'Biennial' | 'Perennial' | '' (Sprint 4 three-tag, Q1). Replaces the Seasonal|Permanent toggle; profile_type is DERIVED from this on save (B6). */
+  lifecycle: string;
   varietyName: string;
   sun: string;
   water: string;
@@ -51,7 +54,7 @@ export type VaultEditForm = {
 };
 
 const EDIT_FORM_DEFAULTS: VaultEditForm = {
-  plantType: "", lifecycleType: "seed", varietyName: "", sun: "", water: "", spacing: "",
+  plantType: "", lifecycle: "", varietyName: "", sun: "", water: "", spacing: "",
   germination: "", maturity: "", sowingMethod: "", plantingWindow: "",
   purchaseDate: "", purchaseVendor: "", growingNotes: "", status: "",
   companionPlants: "", avoidPlants: "",
@@ -86,6 +89,10 @@ export function useVaultEditHandlers({
   const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
   const [fillBlanksAttempted, setFillBlanksAttempted] = useState(false);
+  // B5 variety-not-found: true when the last AI run reported it couldn't find this exact plant.
+  // Drives the inline notice + Try Again on the About tab. Session-local by design — clears on
+  // a successful fill, on profile edit-save (name/variety may have changed), or on dismiss.
+  const [aiNotFound, setAiNotFound] = useState(false);
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [editForm, setEditForm] = useState<VaultEditForm>(EDIT_FORM_DEFAULTS);
@@ -109,7 +116,7 @@ export function useVaultEditHandlers({
     const avoid = pp.avoid_plants ?? [];
     setEditForm({
       plantType: profile.name ?? "",
-      lifecycleType: (profile as { profile_type?: string | null }).profile_type === "permanent" ? "permanent" : "seed",
+      lifecycle: ((profile as { lifecycle?: string | null }).lifecycle ?? "").trim(),
       varietyName: profile.variety_name ?? "",
       sun: profile.sun ?? "",
       water: ("water" in profile ? (profile as { water?: string | null }).water : null) ?? "",
@@ -151,7 +158,12 @@ export function useVaultEditHandlers({
       status: editForm.status.trim() || null,
       ...(isLeg ? { growing_notes: editForm.growingNotes.trim() || null } : {}),
       ...(!isLeg ? {
-        profile_type: editForm.lifecycleType === "permanent" ? "permanent" : "seed",
+        lifecycle: editForm.lifecycle.trim() || null,
+        // profile_type stays as derived back-compat (Q1 lock): Annual→seed, Biennial/Perennial→permanent.
+        // Only derived when lifecycle is set — an empty lifecycle must NOT clobber the existing value.
+        ...(editForm.lifecycle.trim()
+          ? { profile_type: editForm.lifecycle.trim() === "Annual" ? "seed" : "permanent" }
+          : {}),
         sowing_method: editForm.sowingMethod.trim() || null,
         planting_window: editForm.plantingWindow.trim() || null,
         companion_plants: parseCommaList(editForm.companionPlants),
@@ -168,6 +180,8 @@ export function useVaultEditHandlers({
     setSavingEdit(false);
     if (error) { setError(error.message); hapticError(); return; }
     hapticSuccess();
+    // Name/variety may have changed — the stale not-found notice no longer applies (B5 auto-clear).
+    setAiNotFound(false);
     if (userId && profile) {
       const oldKey = identityKeyFromVariety(profile.name ?? "", profile.variety_name ?? "");
       const newKey = identityKeyFromVariety(editForm.plantType.trim(), editForm.varietyName.trim());
@@ -223,6 +237,7 @@ export function useVaultEditHandlers({
         body: JSON.stringify({ profileId, useGemini: true, forceRefresh: true }),
       });
       const data = (await res.json().catch(() => ({}))) as EnrichResult;
+      setAiNotFound(Boolean(data.notFound));
       await loadProfile();
       setToastMessage(enrichToastMessage(res.ok, data));
     } catch {
@@ -245,6 +260,7 @@ export function useVaultEditHandlers({
         body: JSON.stringify({ profileId, useGemini: true, overwrite: true, forceRefresh: true }),
       });
       const data = (await res.json().catch(() => ({}))) as EnrichResult;
+      setAiNotFound(Boolean(data.notFound));
       await loadProfile();
       setToastMessage(enrichToastMessage(res.ok, data));
     } catch {
@@ -279,6 +295,7 @@ export function useVaultEditHandlers({
     fillBlanksRunning,
     fillBlanksError, setFillBlanksError,
     fillBlanksAttempted,
+    aiNotFound, setAiNotFound,
     aiMenuOpen, setAiMenuOpen,
     overwriteConfirmOpen, setOverwriteConfirmOpen,
     editForm, setEditForm,

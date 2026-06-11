@@ -181,7 +181,9 @@ async function main() {
       const vendor = (row.vendor ?? "").trim();
       const display = [type, variety].filter(Boolean).join(" — ") || row.identity_key;
 
-      const result = await researchVariety(GEMINI_KEY, type, variety, vendor);
+      const outcome = await researchVariety(GEMINI_KEY, type, variety, vendor);
+      // Exact-match-only contract (Chunk B): not-found is skipped like no-data (never cached).
+      const result = outcome && outcome.found ? outcome.data : null;
       if (!result) {
         console.log(`[${totalProcessed}] No AI result: ${display} | ${row.source_url.slice(0, 50)}...`);
         totalFailed++;

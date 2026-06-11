@@ -251,6 +251,45 @@ export interface PlantProfile {
   seed_propagation_context?: string | null;
   /** Source of description/notes: 'vendor' | 'ai' | 'user' for UI attribution. */
   description_source?: string | null;
+  // ── Sprint 4 enrichment fields (migration 20260610120000) — all AI-fillable ──
+  /** Botanical lifecycle: Annual | Biennial | Perennial. Supersedes profile_type (kept derived). */
+  lifecycle?: string | null;
+  /** Structural type: Tree | Shrub | Vine | Herbaceous | Grass | Groundcover | Bulb | Tuber. */
+  growth_form?: string | null;
+  /** Category: Flower | Fruit | Vegetable | Herb | Ornamental | Houseplant. */
+  plant_category?: string | null;
+  /** Spreading pattern: Vining | Bushing | Trailing | Mounding | Upright | Spreading | Climbing | Clumping. */
+  growth_habit?: string | null;
+  /** Structured propagation methods: Seed | Cutting | Division | Layering | Grafting | Bulb-Tuber division | Spore | Runner. */
+  propagation_method?: string[] | null;
+  soil_preference?: string | null;
+  disease_susceptibility?: string[] | null;
+  pollination_requirements?: string | null;
+  toxicity?: string | null;
+  deer_rabbit_resistance?: string | null;
+  wildlife_value?: string | null;
+  invasiveness?: string | null;
+  native_origin?: string | null;
+  drought_salt_tolerance?: string | null;
+  synonyms?: string[] | null;
+  uses?: string[] | null;
+  special_features?: string[] | null;
+  /** Pill tier for watering; pairs with water_detail. */
+  water_summary?: string | null;
+  water_detail?: string | null;
+  /** Pill tier for sun/light; pairs with sun_detail. */
+  sun_summary?: string | null;
+  sun_detail?: string | null;
+  harvest_season?: string[] | null;
+  spring_indoor_window?: string | null;
+  spring_outdoor_window?: string | null;
+  summer_window?: string | null;
+  fall_outdoor_window?: string | null;
+  /** Transplant depth (inches), distinct from sowing_depth (seed depth). */
+  planting_depth?: number | null;
+  family?: string | null;
+  genus?: string | null;
+  species?: string | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
