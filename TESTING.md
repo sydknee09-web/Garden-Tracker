@@ -61,7 +61,6 @@ Do not merge or ship code with failing tests. If you're in a hurry, at minimum r
 - **`src/app/api/seed/enrich-from-name/route.test.ts`** — Enrich from name (missing name, rate limit, missing API key)
 - **`src/app/api/seed/find-hero-photo/route.test.ts`** — Find hero photo (missing name, rate limit, missing API key)
 - **`src/app/api/seed/save-hero-to-cache/route.test.ts`** — Save hero to cache
-- **`src/app/api/invite/route.test.ts`** — Invite user (missing env, invalid JSON, missing email, Supabase error, success)
 - **`src/app/api/developer/usage/route.test.ts`** — Developer usage API
 
 ### Components

@@ -10,8 +10,7 @@ import { useDeveloperUnlock } from "@/contexts/DeveloperUnlockContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import type { UserSettings } from "@/types/garden";
 import { LoadingState } from "@/components/LoadingState";
-
-const APP_VERSION = "0.1.0";
+import { APP_VERSION } from "@/lib/appVersion";
 
 function MapPinIcon({ className }: { className?: string }) {
   return (

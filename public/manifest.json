@@ -1,6 +1,6 @@
 {
-  "name": "Seed Vault – Garden Tracker",
-  "short_name": "Seed Vault",
+  "name": "Garden Tracker",
+  "short_name": "Garden Tracker",
   "description": "Track your seeds, plantings, and garden journal",
   "start_url": "/",
   "display": "standalone",

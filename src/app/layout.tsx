@@ -26,8 +26,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Seed Vault — Garden Tracker",
-  description: "Universal Garden Management PWA — Seed Vault",
+  title: "Garden Tracker",
+  description: "Track your seeds, plantings, and garden journal",
   manifest: "/manifest.json",
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Seed Vault",
+    title: "Garden Tracker",
   },
 };
 

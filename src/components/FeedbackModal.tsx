@@ -8,6 +8,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useVoiceRecorder, formatElapsed, VOICE_MAX_DURATION_MS } from "@/hooks/useVoiceRecorder";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { getEntries, formatEntriesForCopy } from "@/lib/debugLogBuffer";
+import { APP_VERSION } from "@/lib/appVersion";
 
 const CATEGORIES = [
   { value: "", label: "Select type…" },
@@ -118,7 +119,7 @@ export function FeedbackModal({
         voicePath = path;
       }
       const debugLogText = attachDebugLog ? formatEntriesForCopy(getEntries()) : null;
-      const { error: err } = await supabase.from("user_feedback").insert({
+      const baseRow = {
         user_id: currentUser.id,
         message: msg,
         category: category || null,
@@ -127,7 +128,21 @@ export function FeedbackModal({
         screenshot_path: screenshotPath,
         voice_path: voicePath,
         debug_log_text: debugLogText && debugLogText.length > 0 ? debugLogText : null,
-      });
+      };
+      const deviceMetadata = {
+        user_agent: navigator.userAgent,
+        viewport_w: window.innerWidth,
+        viewport_h: window.innerHeight,
+        app_version: APP_VERSION,
+      };
+      let { error: err } = await supabase
+        .from("user_feedback")
+        .insert({ ...baseRow, metadata: deviceMetadata });
+      if (err && (err.code === "PGRST204" || err.code === "42703")) {
+        // metadata column not on this database yet — send without device context
+        // rather than failing the submission.
+        ({ error: err } = await supabase.from("user_feedback").insert(baseRow));
+      }
       if (err) throw err;
       setSent(true);
       setMessage("");
@@ -387,11 +402,10 @@ export function FeedbackModal({
               />
             )}
           </div>
-          {pageUrl && (
-            <p className="text-xs text-black/50">
-              Submitting from: {pageUrl}
-            </p>
-          )}
+          <div className="text-xs text-black/50 space-y-0.5">
+            {pageUrl && <p>Submitting from: {pageUrl}</p>}
+            <p>Includes your browser type, screen size, and app version to help diagnose issues.</p>
+          </div>
           {error && (
             <p className="text-sm text-red-600" role="alert">
               {error}

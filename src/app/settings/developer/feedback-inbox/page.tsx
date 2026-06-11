@@ -17,6 +17,12 @@ type FeedbackRow = {
   screenshot_path: string | null;
   voice_path: string | null;
   debug_log_text: string | null;
+  metadata: {
+    user_agent?: string;
+    viewport_w?: number;
+    viewport_h?: number;
+    app_version?: string;
+  } | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -215,6 +221,17 @@ export default function FeedbackInboxPage() {
                     <p className="text-sm text-black/90 whitespace-pre-wrap">{row.message}</p>
                     {row.page_url && (
                       <p className="text-xs text-black/50 mt-2 truncate">Page: {row.page_url}</p>
+                    )}
+                    {row.metadata && (
+                      <p className="text-xs text-black/50 mt-1 break-words">
+                        Device: {[
+                          row.metadata.app_version ? `v${row.metadata.app_version}` : null,
+                          row.metadata.viewport_w && row.metadata.viewport_h
+                            ? `${row.metadata.viewport_w}×${row.metadata.viewport_h}`
+                            : null,
+                          row.metadata.user_agent ?? null,
+                        ].filter(Boolean).join(" · ")}
+                      </p>
                     )}
                     {row.screenshot_path && (
                       <div className="mt-3 rounded-lg overflow-hidden border border-black/10 max-w-xs">
