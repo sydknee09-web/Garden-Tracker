@@ -144,6 +144,36 @@ Hunt categories named: tier-loop cost/runaway, async ordering, null/empty/zero s
 - VISION §10 don't-touch: none touched (Plantable widget/banner = Home surface, untouched).
 - Push tier: schema migration ⇒ explicit greenlight required for `supabase db push` AND the dependent code push. Both held.
 
+## Both-button coverage — Fill Blanks AND AI Overwrite (Syd scope check, 2026-06-11)
+
+Explicit trace confirming both profile AI buttons ride the Ship 2 pipeline — **one shared path, no
+three-writers-style divergence; zero code changes needed**:
+
+| Step | Fill Blanks | AI Overwrite |
+|---|---|---|
+| UI handler | [useVaultEditHandlers.ts:234-238](../../src/app/vault/[id]/useVaultEditHandlers.ts) `{useGemini:true, forceRefresh:true}` | [useVaultEditHandlers.ts:257-261](../../src/app/vault/[id]/useVaultEditHandlers.ts) `{useGemini:true, overwrite:true, forceRefresh:true}` (behind the "Overwrite with AI?" confirm) |
+| Route | `/api/seed/fill-blanks-for-profile` — SAME route for both | same |
+| Cache bypass | `forceRefresh:true` → skips global_plant_cache AND (forwarded) the library cache — the 2026-06-10 cache-bypass fix, preserved | same |
+| Enrichment | route forwards `{name, variety, forceRefresh, tags}` → enrich-from-name → `researchPlantTiered` (one prompt template, one tier ladder, one cache write layer) | same |
+| Write semantics | `setStr/setNum/setArr/setWeeks` fill ONLY blank fields (user data wins) | `overwrite ||` branch replaces all AI-fillable fields (user explicitly asked) |
+| Provenance | `field_provenance` merge tags every field written this run with the tier | same — runs on `aiUpdates` regardless of the overwrite flag, so replaced fields are RE-tagged at the new tier |
+| When-to-Plant fields | fill-on-blank (months: empty-array check; week offsets: null-only — 0 is meaningful) | replace under `overwrite` |
+
+Background import callers (review-import / import page) hit the same route without `overwrite` and
+inherit the tier ladder + provenance automatically (profiles untagged at import → untagged ladder).
+
+**Known non-coverage (flagged, unchanged):** (a) the Settings bulk fill-in-blanks route's legacy
+inline AI-mapping block won't write when-to-plant/provenance on its AI branch — the pre-existing
+ADJACENT from Ship 1 (fill-pipeline consolidation backlog); its cache path DOES carry the new
+fields via the shared helper. (b) `user` provenance: a manual edit after an AI fill doesn't clear
+the field's AI tag (edit-modal provenance writes scoped out); absence of an entry = never-AI-filled.
+
+**Syd verification path, both flows (post-greenlight + deploy):**
+1. **Fill Blanks:** partially-filled profile (some user-entered fields + blanks) → ✨ Fill Blanks →
+   user-entered values UNCHANGED, blanks filled, Source lines show the tier for the filled sections.
+2. **Overwrite:** fully-filled profile → AI menu → Overwrite with AI? → confirm → AI-fillable fields
+   replaced (fresh research — cache bypassed), Source-line tiers updated to the new found level.
+
 ## Amendments (declared during Phase 3)
 
 1. **Settings fill-in-blanks SELECT — pre-existing false-blank hazard widened in scope.** During the file-8 edit, found the route's profile SELECT missing 5 fields `buildUpdatesFromCacheRow` ALREADY maps (`propagation_notes, seed_saving_notes, seed_propagation_context, companion_plants, avoid_plants`) — live user-data-overwrite hazard (same class Ship 1 fixed for mature dims; predates this ship). Re-audit: Pass 1 confirmed mapping-vs-SELECT mismatch; Pass 2 confirmed fix = SELECT + inline-cast widening only, strict-bug class. Folded in alongside the 5 new fields.
