@@ -291,10 +291,15 @@ export function VaultProfileAboutTab({
         </SectionCard>
       )}
 
-      {/* Growing Notes */}
-      {growingNotes && (
+      {/* Growing Notes — borrows plant_description when growing_notes is empty so the section doesn't vanish */}
+      {(growingNotes || (!isLegacy && profile?.plant_description?.trim())) && (
         <SectionCard title="Growing Notes" isOpen={isAboutOpen("growingNotes")} onToggle={() => toggleAboutSection("growingNotes")}>
-          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes || profile.plant_description}</p>
+          {!growingNotes && profile.description_source && (
+            <p className="text-xs text-neutral-500 mt-2">
+              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? "AI research" : "You"}
+            </p>
+          )}
         </SectionCard>
       )}
 

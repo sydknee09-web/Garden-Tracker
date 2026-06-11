@@ -82,6 +82,8 @@ export type ProfileForFill = {
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
   seed_propagation_context?: string | null;
+  mature_height?: string | null;
+  mature_width?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
   hero_image_url?: string | null;
@@ -133,6 +135,8 @@ export async function buildUpdatesFromCacheRow(
   if (!(p.propagation_notes ?? "").trim() && str(ed.propagation_notes)) updates.propagation_notes = str(ed.propagation_notes);
   if (!(p.seed_saving_notes ?? "").trim() && str(ed.seed_saving_notes)) updates.seed_saving_notes = str(ed.seed_saving_notes);
   if (!(p.seed_propagation_context ?? "").trim() && str(ed.seed_propagation_context)) updates.seed_propagation_context = str(ed.seed_propagation_context);
+  if (!(p.mature_height ?? "").trim() && str(ed.mature_height)) updates.mature_height = str(ed.mature_height);
+  if (!(p.mature_width ?? "").trim() && str(ed.mature_width)) updates.mature_width = str(ed.mature_width);
   const companionArr = ed.companion_plants;
   if ((!(p.companion_plants ?? []).length) && Array.isArray(companionArr) && companionArr.length > 0) {
     updates.companion_plants = companionArr.filter((x): x is string => typeof x === "string").map((x) => String(x).trim()).filter(Boolean);
@@ -203,6 +207,8 @@ export type EnrichDataForCache = {
   propagation_notes?: string | null;
   seed_saving_notes?: string | null;
   seed_propagation_context?: string | null;
+  mature_height?: string | null;
+  mature_width?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
 };
@@ -240,6 +246,8 @@ export async function writeEnrichToGlobalCache(
   if (data.propagation_notes?.trim()) extract_data.propagation_notes = data.propagation_notes.trim();
   if (data.seed_saving_notes?.trim()) extract_data.seed_saving_notes = data.seed_saving_notes.trim();
   if (data.seed_propagation_context?.trim()) extract_data.seed_propagation_context = data.seed_propagation_context.trim();
+  if (data.mature_height?.trim()) extract_data.mature_height = data.mature_height.trim();
+  if (data.mature_width?.trim()) extract_data.mature_width = data.mature_width.trim();
   if (Array.isArray(data.companion_plants) && data.companion_plants.length > 0) extract_data.companion_plants = data.companion_plants;
   if (Array.isArray(data.avoid_plants) && data.avoid_plants.length > 0) extract_data.avoid_plants = data.avoid_plants;
 

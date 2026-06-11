@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     // Profiles that need filling: missing hero (unless skipHero), sparse metadata, or missing description
     const { data: profiles, error: profilesError } = await supabase
       .from("plant_profiles")
-      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window")
+      .select("id, name, variety_name, hero_image_url, hero_image_path, sun, plant_spacing, days_to_germination, harvest_days, scientific_name, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, mature_height, mature_width")
       .eq("user_id", user.id)
       .is("deleted_at", null);
 
@@ -132,6 +132,8 @@ export async function POST(req: Request) {
       scientific_name?: string | null;
       plant_description?: string | null;
       growing_notes?: string | null;
+      mature_height?: string | null;
+      mature_width?: string | null;
     }>;
       for (let idx = 0; idx < arr.length; idx++) {
       const p = arr[idx];

@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       .from("plant_profiles")
       .select(
         "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
-          "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, family, genus, species"
+          "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
@@ -315,6 +315,8 @@ export async function POST(req: Request) {
           setStr("propagation_notes", dStr("propagation_notes"));
           setStr("seed_saving_notes", dStr("seed_saving_notes"));
           setStr("seed_propagation_context", dStr("seed_propagation_context"));
+          setStr("mature_height", dStr("mature_height"));
+          setStr("mature_width", dStr("mature_width"));
           setStr("lifecycle", dStr("lifecycle"));
           setStr("growth_form", dStr("growth_form"));
           setStr("plant_category", dStr("plant_category"));
@@ -371,6 +373,8 @@ export async function POST(req: Request) {
                   propagation_notes: dStr("propagation_notes") || undefined,
                   seed_saving_notes: dStr("seed_saving_notes") || undefined,
                   seed_propagation_context: dStr("seed_propagation_context") || undefined,
+                  mature_height: dStr("mature_height") || undefined,
+                  mature_width: dStr("mature_width") || undefined,
                   companion_plants: aiCompanions.length > 0 ? aiCompanions : undefined,
                   avoid_plants: aiAvoid.length > 0 ? aiAvoid : undefined,
                 };
