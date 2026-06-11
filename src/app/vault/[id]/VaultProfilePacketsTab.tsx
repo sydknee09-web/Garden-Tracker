@@ -13,6 +13,10 @@ export interface VaultProfilePacketsTabProps {
   isPermanent: boolean;
   profileId: string;
   setAddPlantManualOpen: (v: boolean) => void;
+  /** Pencil action — opens the full packet editor (EditPacketModal) for this packet. */
+  onEditPacket: (pkt: SeedPacket) => void;
+  /** Journal action — opens Add Journal Entry pre-linked to this packet. */
+  onOpenJournal: (pkt: SeedPacket) => void;
 }
 
 /**
@@ -27,6 +31,8 @@ export function VaultProfilePacketsTab({
   isPermanent,
   profileId,
   setAddPlantManualOpen,
+  onEditPacket,
+  onOpenJournal,
 }: VaultProfilePacketsTabProps) {
   if (sortedPackets.length === 0) {
     return (
@@ -57,10 +63,13 @@ export function VaultProfilePacketsTab({
           const pktImageUrl = getPacketImageUrls(pkt, extraImgs)[0] ?? null;
           const isArchived = pkt.is_archived || (pkt.qty_status ?? 0) <= 0;
           return (
-            <li key={pkt.id}>
+            <li key={pkt.id} className={`flex items-center gap-1 pr-3 ${isArchived ? "bg-neutral-50" : ""}`}>
+              {/* Row body links to the canonical packet detail page; inline actions are siblings
+                  of the Link (not nested) — same action set + primitive as the Plants tab cards
+                  (NORTH_STAR "No duplicate paths"). */}
               <Link
                 href={`/vault/packets/${pkt.id}?from=profile&profileId=${profileId}`}
-                className={`w-full flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors ${isArchived ? "bg-neutral-50" : ""}`}
+                className="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 text-left min-h-[44px] hover:bg-gray-50 transition-colors"
               >
                 <span className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center ${isArchived ? "bg-neutral-200 opacity-80" : "bg-neutral-100"}`}>
                   {pktImageUrl ? (
@@ -82,8 +91,28 @@ export function VaultProfilePacketsTab({
                     <span className="inline-flex items-center justify-center min-w-[1.75rem] px-1.5 py-0.5 rounded text-xs font-medium bg-black/10 text-neutral-700">{qtyStatusToLabel(pkt.qty_status)}</span>
                   )}
                 </span>
-                <ICON_MAP.ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" aria-hidden />
               </Link>
+              {canEdit && (
+                <span className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onEditPacket(pkt); }}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-neutral-600 hover:bg-neutral-50"
+                    aria-label="Edit packet"
+                  >
+                    <ICON_MAP.Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onOpenJournal(pkt); }}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-black/10 bg-white text-emerald-600 hover:bg-emerald/10"
+                    aria-label="Add journal entry"
+                  >
+                    <ICON_MAP.Journal className="w-4 h-4" />
+                  </button>
+                </span>
+              )}
+              <ICON_MAP.ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" aria-hidden />
             </li>
           );
         })}

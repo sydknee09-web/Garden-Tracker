@@ -74,6 +74,8 @@ export interface JournalEntryFormProps {
   preSelectedProfileId?: string | null;
   /** When set (e.g. from Plantings tab), attach journal entry to this grow instance for Life Story. */
   preSelectedGrowInstanceId?: string | null;
+  /** When set (e.g. from the profile Packets tab journal action), link the entry to this seed packet. */
+  preSelectedPacketId?: string | null;
   /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
   /** When opening with a supply, default quick action (e.g. fertilize, spray). */
@@ -105,6 +107,7 @@ export function JournalEntryForm({
   onClose,
   preSelectedProfileId,
   preSelectedGrowInstanceId,
+  preSelectedPacketId,
   preSelectedSupplyId,
   defaultActionType,
   onJournalAdded,
@@ -318,7 +321,7 @@ export function JournalEntryForm({
             user_id: sessionUserId,
             plant_profile_id: plantProfileId,
             grow_instance_id: preSelectedGrowInstanceId ?? null,
-            seed_packet_id: null,
+            seed_packet_id: preSelectedPacketId ?? null,
             supply_profile_id: singleSupplyId ?? undefined,
             note: noteForEntry || null,
             entry_type: entryType,
@@ -375,7 +378,7 @@ export function JournalEntryForm({
         setSaving(false);
       }
     },
-    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyIds, preSelectedGrowInstanceId, onJournalAdded, onClose]
+    [user?.id, note, photos, selectedProfileIds, selectedQuickAction, entryDate, selectedSupplyIds, preSelectedGrowInstanceId, preSelectedPacketId, onJournalAdded, onClose]
   );
 
   const supplyOptions = supplies.map((s) => ({
@@ -602,6 +605,8 @@ export interface QuickLogModalProps {
   preSelectedProfileId?: string | null;
   /** When set (e.g. from Plantings tab), attach journal entry to this grow instance for Life Story. */
   preSelectedGrowInstanceId?: string | null;
+  /** When set (e.g. from the profile Packets tab journal action), link the entry to this seed packet. */
+  preSelectedPacketId?: string | null;
   /** When set (e.g. from shed/[id] "I used this today"), pre-select this supply in the Supply Used dropdown. Do not pre-fill note. */
   preSelectedSupplyId?: string | null;
   /** When opening with a supply, default quick action (e.g. fertilize, spray). */
@@ -616,7 +621,7 @@ export interface QuickLogModalProps {
   onBackToMenu?: () => void;
 }
 
-export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey, onBackToMenu }: QuickLogModalProps) {
+export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelectedGrowInstanceId, preSelectedPacketId, preSelectedSupplyId, defaultActionType, onJournalAdded, onAddSupplyFromEmptyState, suppliesRefreshKey, onBackToMenu }: QuickLogModalProps) {
   const trapRef = useFocusTrap(open);
   useBodyScrollLock(open);
 
@@ -639,6 +644,7 @@ export function QuickLogModal({ open, onClose, preSelectedProfileId, preSelected
           onClose={onClose}
           preSelectedProfileId={preSelectedProfileId}
           preSelectedGrowInstanceId={preSelectedGrowInstanceId}
+          preSelectedPacketId={preSelectedPacketId}
           preSelectedSupplyId={preSelectedSupplyId}
           defaultActionType={defaultActionType}
           onJournalAdded={onJournalAdded}

@@ -125,7 +125,9 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
   }, [user?.id, packetId, vendorName, purchaseDate, purchaseUrl, price, qtyStatus, packetRating, userNotes, storageLocation, tagsInput, onSaved, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
+    // z-[60] keeps the footer above the z-50 BottomNav (BottomNav renders after page content,
+    // so an equal z-50 here paints the nav over the Save/Cancel band on mobile).
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="edit-packet-title">
       <div ref={trapRef} className="bg-white w-full max-w-md md:rounded-2xl shadow-lg border border-black/10 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
         <div className="flex-shrink-0 px-4 py-3 border-b border-black/10">
           <h2 id="edit-packet-title" className="text-lg font-semibold text-black">Edit Packet</h2>
@@ -231,7 +233,7 @@ export function EditPacketModal({ packetId, onClose, onSaved }: EditPacketModalP
             </>
           )}
         </div>
-        <div className="flex-shrink-0 p-4 border-t border-black/10">
+        <div className="flex-shrink-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-black/10">
           {saveError && <p className="text-sm text-red-600 mb-3" role="alert">{saveError}</p>}
           <div className="flex gap-3 justify-end">
           <button

@@ -1215,8 +1215,10 @@ export default function VaultImportPage() {
 
   const mainContent = (
     <>
+      {/* pb-20 clears the z-50 BottomNav on mobile so the sticky footer inside the sheet
+          stays tappable when content fills max-h-[85vh] (same carve-out as sibling sheets). */}
       {showNewPlantModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-4 sm:pb-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="new-plant-dialog-title">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-20 sm:pb-4 bg-black/40" role="dialog" aria-modal="true" aria-labelledby="new-plant-dialog-title">
           <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex-shrink-0 p-6 pb-2">
               <h2 id="new-plant-dialog-title" className="text-lg font-semibold text-neutral-900">New Plant Detected: Add Plant Defaults</h2>

@@ -49,6 +49,10 @@ const QuickAddSupply = dynamic(
   () => import("@/components/QuickAddSupply").then((m) => ({ default: m.QuickAddSupply })),
   { ssr: false }
 );
+const EditPacketModal = dynamic(
+  () => import("@/components/EditPacketModal").then((m) => ({ default: m.EditPacketModal })),
+  { ssr: false }
+);
 
 import { VaultProfileAboutTab } from "./VaultProfileAboutTab";
 import { VaultProfileCareTab } from "./VaultProfileCareTab";
@@ -144,6 +148,9 @@ export default function VaultSeedPage() {
   const [addFromQuickLogInitialName, setAddFromQuickLogInitialName] = useState("");
   const [suppliesRefreshKey, setSuppliesRefreshKey] = useState(0);
   const [quickLogGrowInstanceId, setQuickLogGrowInstanceId] = useState<string | null>(null);
+  // Packets tab inline actions: journal pre-linked to a packet, full packet editor
+  const [quickLogPacketId, setQuickLogPacketId] = useState<string | null>(null);
+  const [editPacketId, setEditPacketId] = useState<string | null>(null);
 
   // Ordered profile IDs for swipe prev/next (name A–Z); only plant_profiles
   const [orderedProfileIds, setOrderedProfileIds] = useState<string[]>([]);
@@ -187,6 +194,7 @@ export default function VaultSeedPage() {
 
   useModalBackClose(!!imageLightbox, () => setImageLightbox(null));
   useModalBackClose(addPlantManualOpen, () => setAddPlantManualOpen(false));
+  useModalBackClose(!!editPacketId, () => setEditPacketId(null));
 
   // =========================================================================
   // Load data
@@ -1393,6 +1401,12 @@ export default function VaultSeedPage() {
             isPermanent={isPermanent}
             profileId={id}
             setAddPlantManualOpen={setAddPlantManualOpen}
+            onEditPacket={(pkt) => setEditPacketId(pkt.id)}
+            onOpenJournal={(pkt) => {
+              setQuickLogGrowInstanceId(null);
+              setQuickLogPacketId(pkt.id);
+              setQuickLogOpen(true);
+            }}
           />
         )}
 
@@ -1410,6 +1424,7 @@ export default function VaultSeedPage() {
             onEditGrow={handleEditGrowOpen}
             onOpenJournal={(gi) => {
               setQuickLogGrowInstanceId(gi.id);
+              setQuickLogPacketId(null);
               setQuickLogOpen(true);
             }}
             onViewGrow={(gi) => router.push(`/garden/grow/${gi.id}?from=library&profileId=${id}`)}
@@ -1426,6 +1441,7 @@ export default function VaultSeedPage() {
             entryIdToPhotoPaths={entryIdToPhotoPaths}
             onAddJournal={() => {
               setQuickLogGrowInstanceId(null);
+              setQuickLogPacketId(null);
               setQuickLogOpen(true);
             }}
             canEdit={canEdit}
@@ -1456,8 +1472,9 @@ export default function VaultSeedPage() {
       />
       <QuickLogModal
         open={quickLogOpen}
-        onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); }}
+        onClose={() => { setQuickLogOpen(false); setQuickLogGrowInstanceId(null); setQuickLogPacketId(null); }}
         preSelectedGrowInstanceId={quickLogGrowInstanceId ?? undefined}
+        preSelectedPacketId={quickLogPacketId ?? undefined}
         preSelectedProfileId={quickLogOpen ? id : undefined}
         onJournalAdded={loadProfile}
         onAddSupplyFromEmptyState={(searchString) => {
@@ -1468,11 +1485,25 @@ export default function VaultSeedPage() {
         suppliesRefreshKey={suppliesRefreshKey}
       />
 
-      {/* Edit grow instance modal — full-screen on mobile, centered on desktop */}
+      {/* Packets tab pencil → full packet editor (same modal as the packet detail page) */}
+      {editPacketId && (
+        <EditPacketModal
+          packetId={editPacketId}
+          onClose={() => setEditPacketId(null)}
+          onSaved={() => { setEditPacketId(null); void loadProfile(); }}
+        />
+      )}
+
+      {/* Edit grow instance modal — full-screen on mobile, centered on desktop.
+          z-[60] keeps the footer above the z-50 BottomNav; sticky footer (flex-col shell)
+          keeps Save/Cancel reachable instead of buried at the end of the scroll content. */}
       {editGrowTarget && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
-          <div className="bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl p-6">
-            <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900 mb-4">Edit Plant</h2>
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
+          <div className="bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
+            <div className="flex-shrink-0 px-6 pt-6 pb-3 border-b border-neutral-200">
+              <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
               <div>
                 <label htmlFor="edit-grow-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
@@ -1560,7 +1591,8 @@ export default function VaultSeedPage() {
                 Delete batch
               </button>
             </div>
-            <div className="pt-4 mt-4 border-t border-neutral-200">
+            </div>
+            <div className="flex-shrink-0 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-200">
               {editGrowError && <p className="text-sm text-red-600 mb-3" role="alert">{editGrowError}</p>}
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
