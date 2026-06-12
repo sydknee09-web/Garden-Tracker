@@ -66,3 +66,24 @@ globals.css · AuthGuard.tsx · navItems.tsx · PageSkeleton.tsx · plants/page.
 - **Pass 2 (concerns hunt)** — categories: state transitions (none — pure layout/copy), compound gates (the -mx-6/isVault/sticky-offset table above), mobile-vs-desktop (px-2 applies at all breakpoints per P9 one-commit rule; desktop polish pass deferred per P9), null/empty states (skeletons + empty states inherit page wrapper — expand fine), RLS/auth (none), cohesion-by-aggregation (all new values anchor existing tokens: px-2/pt-2 standard Tailwind steps, top-11 = existing header height, italic variety = §8 token, teal/emerald untouched), persona walk (Walter: sticky header restores persistent orientation he never had — biggest win; Maya: denser grid from px-2 = more content per screen; Sydney: one gutter/rhythm primitive across siblings; Aria/Sam: no new complexity, calmer skeletons that don't shift). Clean after revision (sticky-offset corrections folded in).
 - **Pass 3 (sibling sweep):** all -mx-6 siblings enumerated; all sticky-top siblings enumerated; all four detail pages' back chips normalized together (not just the two Syd named); both PO entry modals (PhotoImport fixed in f5f80b8, PO Import here); e2e + unit greps clean (BLOCKING: none; ADJACENT: journal:675, getNavSection — logged above).
 - **Pass 4 (lock hygiene):** VISION §8 chrome-control framing (back chips unframed — preserved), §8 variety stacked-italic (extended to modal subtitle per Syd's explicit ask — supersession named, not silent), §8 single-state tab-slot (Library skeleton renders the inert tab), emerald tokens untouched, FAB-form submit saga untouched, 2026-06-11 ships (pencil edit, photo import f5f80b8, form parity) untouched — verified no overlapping lines.
+
+---
+
+## Amendment — Finding 10: empty-hero picture-box treatment (Syd dogfood 2026-06-12, post-cd738d3)
+
+**Scope (Syd, tightened twice):** the empty-state treatment INSIDE the picture box only. Card-level chrome (green border, sizing, padding) explicitly untouched. Canonical = Library's picture box: placeholder PNG fills the container on white, no grey inset box.
+
+**Audit (all four gallery surfaces + list rows):**
+
+| Surface | Empty picture-box today | Verdict |
+|---|---|---|
+| Library gallery ([SeedVaultView.tsx:1040](../../src/components/SeedVaultView.tsx)) | `PlantImage fill` fallback — PNG fills box, `bg-white` | **CANONICAL** |
+| Garden grid ([GardenView.tsx:1152](../../src/components/GardenView.tsx)) | grey `bg-neutral-100` field + small white w-12 `PlantPlaceholderIcon` box centered | **FIX** — the grey-inset look Syd flagged (Tuberose card) |
+| Packets gallery ([PacketVaultView.tsx:673](../../src/components/PacketVaultView.tsx)) | `bg-white` box + centered w-16 icon (white-on-white — container invisible) | OK — no grey-inset issue; icon-scale difference vs Library noted as cosmetic, out of tight scope |
+| Packets list row (:784) | white-on-white w-10 | OK |
+| Shed grid ([ShedView.tsx:503](../../src/components/ShedView.tsx)) | `/shed-sack.png` fills the box (`object-cover`); `ShedSupplyIcon` only on load-error | OK — fills-box pattern, content-icon asset per VISION §8 chrome/content split |
+| Garden list row ([GardenView.tsx:1253](../../src/components/GardenView.tsx)) | `PlantPlaceholderIcon sm` exactly fills its w-10 thumb box | OK — no inset (icon == container size) |
+
+**Fix:** GardenView grid empty branch → `<PlantImage imageUrl={null} alt="" fill variant="neutral" />` — reuses the exact component Library renders (NORTH_STAR "No duplicate paths"; calm-aesthetic cite: placeholder must not shout louder than the photo state it replaces). One file + import.
+
+**Pass 1:** PlantImage fill fallback = `absolute inset-0 … rounded-xl bg-white` + PNG `object-contain p-1`; parent at :1148 is `relative` ✓; badges/selection overlays render after the branch, unchanged stacking ✓. **Pass 2:** photo-error path routes through `failedThumbUrls` → same empty branch ✓; block comment inside the ternary parens is valid JS ✓. **Pass 3:** gardenView.regression.test.ts asserts only the GroupTabs pill shape — untouched; no other test references the branch. **Pass 4:** VISION §8 plant-placeholder token (bg-white container, /plant-placeholder.png) is exactly what PlantImage implements ✓.

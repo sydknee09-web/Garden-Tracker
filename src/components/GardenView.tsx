@@ -12,6 +12,7 @@ import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { softDeleteTasksForGrowInstance } from "@/lib/cascadeOnGrowEnd";
 import { BatchLogSheet, type BatchLogBatch } from "@/components/BatchLogSheet";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
+import { PlantImage } from "@/components/PlantImage";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
@@ -1192,7 +1193,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
                         {thumbUrl ? (
                           <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform" onError={() => setFailedThumbUrls((prev) => new Set(prev).add(thumbUrl))} />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100"><PlantPlaceholderIcon size="md" /></div>
+                          /* Empty hero: placeholder PNG fills the picture box on white — matches the
+                             Library gallery's PlantImage fill fallback (Syd lock 2026-06-12: no grey
+                             inset box inside the picture container; card-level chrome untouched). */
+                          <PlantImage imageUrl={null} alt="" fill variant="neutral" />
                         )}
                         {!isPerennial && batch.planting_method_badge ? (
                           <span className="absolute top-1 right-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100/90 text-emerald-800">{batch.planting_method_badge}</span>
