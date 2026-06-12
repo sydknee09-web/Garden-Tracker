@@ -64,7 +64,7 @@ describe("GrowInstanceModal — variant gating", () => {
 
   it("notifies the wrapper when a sub-sheet opens (page-mode swipe guard)", () => {
     expect(instanceModal).toContain("onSubSheetOpenChange");
-    expect(instanceModal).toContain("archiveOpen || batchLogOpen");
+    expect(instanceModal).toContain("editOpen || batchLogOpen");
   });
 
   it("supports reloadKey to refetch in place after the wrapper's HarvestModal saves", () => {

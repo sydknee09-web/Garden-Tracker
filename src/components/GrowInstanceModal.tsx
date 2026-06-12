@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { InstanceCareTab } from "@/components/InstanceCareTab";
+import { EditGrowModal } from "@/components/EditGrowModal";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -196,8 +197,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState("");
   const [savingLocation, setSavingLocation] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiveSaving, setArchiveSaving] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [batchLogOpen, setBatchLogOpen] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
   // Door 2 — Group tag (single-membership; locked 2026-06-09). Tappable to change.
@@ -343,8 +343,8 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
 
   // Page mode: tell the wrapper when a sub-sheet is open so it can suspend swipe navigation.
   useEffect(() => {
-    onSubSheetOpenChange?.(archiveOpen || batchLogOpen);
-  }, [archiveOpen, batchLogOpen, onSubSheetOpenChange]);
+    onSubSheetOpenChange?.(editOpen || batchLogOpen);
+  }, [editOpen, batchLogOpen, onSubSheetOpenChange]);
 
   // ---------------------------------------------------------------------------
   // Hero image (Law 7 for this grow: journal → profile hero → profile packet → sprout)
@@ -475,30 +475,6 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
     } finally {
       setSavingGroup(false);
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Archive
-  // ---------------------------------------------------------------------------
-  async function handleArchive() {
-    if (!grow || !user) return;
-    setArchiveSaving(true);
-    const now = new Date().toISOString();
-    const { error: err } = await supabase
-      .from("grow_instances")
-      .update({ status: "archived", ended_at: now, end_reason: "archived" })
-      .eq("id", grow.id)
-      .eq("user_id", user.id);
-    setArchiveSaving(false);
-    if (err) {
-      console.error("GrowInstanceModal.handleArchive: update failed", err);
-      showErrorToast("Couldn't archive — please try again");
-      return;
-    }
-    showToast("Archived");
-    setArchiveOpen(false);
-    if (backHref) router.push(backHref);
-    onClose();
   }
 
   const handleQuickCare = useCallback(
@@ -711,7 +687,8 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* CHROME STRIP — Profile / Log / Archive Plant (framed pills below hero) */}
+      {/* CHROME STRIP — Profile / Log / pencil Edit (framed pills below hero; archive +
+          delete live inside the pencil's Edit Plant menu per Syd lock 2026-06-11) */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white border-b border-neutral-100 px-2 py-2 flex items-center justify-end gap-1">
         {profile && (
@@ -756,11 +733,11 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
         {allowEdits && (
           <button
             type="button"
-            onClick={() => setArchiveOpen(true)}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
-            aria-label="Archive this plant"
+            onClick={() => setEditOpen(true)}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 shrink-0"
+            aria-label="Edit plant"
           >
-            Archive Plant
+            <ICON_MAP.Pencil className="w-5 h-5" />
           </button>
         )}
       </div>
@@ -1146,41 +1123,33 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
 
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* ARCHIVE CONFIRM DIALOG                                              */}
-      {/* ------------------------------------------------------------------ */}
-      {archiveOpen && (
-        <>
-          <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setArchiveOpen(false)} />
-          <div className="fixed left-4 right-4 bottom-4 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm">
-            <h2 className="font-semibold text-neutral-900 text-base mb-1">Archive This Plant?</h2>
-            <p className="text-sm text-neutral-500 mb-4">
-              Archives this plant and keeps it in your history. Review later under archived plantings.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setArchiveOpen(false)}
-                className="flex-1 min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleArchive}
-                disabled={archiveSaving}
-                className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {archiveSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden />}
-                Archive
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
         </div>
       </div>
+
+      {/* Edit Plant menu — pencil affordance target (shared EditGrowModal; Syd lock 2026-06-11) */}
+      {editOpen && grow && user && allowEdits && (
+        <EditGrowModal
+          grow={grow}
+          profileName={profile?.name ?? "Plant"}
+          profileVarietyName={profile?.variety_name ?? null}
+          isPermanent={!!grow.is_permanent_planting}
+          isEdible={isEdible}
+          currentUserId={user.id}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); showToast("Saved"); loadData(); }}
+          onArchived={() => {
+            setEditOpen(false);
+            showToast("Archived");
+            if (backHref) router.push(backHref);
+            onClose();
+          }}
+          onDeleted={() => {
+            setEditOpen(false);
+            if (backHref) router.push(backHref);
+            onClose();
+          }}
+        />
+      )}
 
       {/* BatchLogSheet for Log button */}
       <BatchLogSheet

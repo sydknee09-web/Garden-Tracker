@@ -84,7 +84,7 @@ export default function GardenGrowDetailPage() {
   const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
-    // Suspend swipe while an internal sub-sheet (archive dialog / BatchLogSheet) is open.
+    // Suspend swipe while an internal sub-sheet (Edit Plant menu / BatchLogSheet) is open.
     if (start == null || subSheetOpen) return;
     const end = e.changedTouches[0];
     if (!end) return;
@@ -112,7 +112,7 @@ export default function GardenGrowDetailPage() {
   return (
     <div className="max-w-2xl mx-auto pb-10">
       {/* Back chip — unframed transient nav (VISION §8 chrome-control framing). The framed action
-          pills (Profile / Log / Archive) live in the instance content's own chrome strip below the hero. */}
+          pills (Profile / Log / pencil Edit) live in the instance content's own chrome strip below the hero. */}
       <div className="px-4 pt-4">
         <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline min-h-[44px]">
           ← Back

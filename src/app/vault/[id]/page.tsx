@@ -32,6 +32,7 @@ import { PlantPlaceholderIcon } from "@/components/PlantPlaceholderIcon";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { EditGrowModal } from "@/components/EditGrowModal";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import dynamic from "next/dynamic";
 
@@ -425,8 +426,6 @@ export default function VaultSeedPage() {
   // ── Handlers extracted to focused hooks ─────────────────────────────────
   const plantings = useVaultPlantingsHandlers({
     userId: user?.id,
-    profileId: id,
-    profile: profile as PlantProfile | null,
     loadProfile,
   });
 
@@ -457,26 +456,9 @@ export default function VaultSeedPage() {
     batchLogOpen, setBatchLogOpen,
     batchLogTarget, setBatchLogTarget,
     harvestTarget, setHarvestTarget,
-    endBatchTarget, setEndBatchTarget,
-    endReason, setEndReason,
-    endNote, setEndNote,
-    endSaving,
-    deleteBatchTarget, setDeleteBatchTarget,
-    deleteSaving,
     editGrowTarget, setEditGrowTarget,
-    editGrowLocation, setEditGrowLocation,
-    editGrowVendor, setEditGrowVendor,
-    editGrowPrice, setEditGrowPrice,
-    editGrowPlantCount, setEditGrowPlantCount,
-    editGrowSownDate, setEditGrowSownDate,
-    editGrowSaving,
-    editGrowError,
     handlePlantingsQuickCare,
-    handlePlantingsEndBatch,
-    handlePlantingsDeleteBatch,
     handleEditGrowOpen,
-    handleEditGrowSave,
-    buildBatchFromEditTarget,
   } = plantings;
 
   const {
@@ -1206,7 +1188,7 @@ export default function VaultSeedPage() {
                     )}
                   </button>
                 )}
-                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><ICON_MAP.Edit className="w-4 h-4" /></button>
+                <button type="button" onClick={openEditModal} className="p-2 rounded-lg border border-neutral-300 text-neutral-600 hover:bg-neutral-50 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Edit profile"><ICON_MAP.Pencil className="w-4 h-4" /></button>
               </>
             )}
           </div>
@@ -1508,118 +1490,22 @@ export default function VaultSeedPage() {
         />
       )}
 
-      {/* Edit grow instance modal — full-screen on mobile, centered on desktop.
-          z-[60] keeps the footer above the z-50 BottomNav; sticky footer (flex-col shell)
-          keeps Save/Cancel reachable instead of buried at the end of the scroll content. */}
-      {editGrowTarget && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-grow-title">
-          <div className="relative bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
-            <div className="flex-shrink-0 px-6 pt-6 pb-3 border-b border-neutral-200">
-              <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="edit-grow-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
-                <input
-                  id="edit-grow-date"
-                  type="date"
-                  value={editGrowSownDate}
-                  onChange={(e) => setEditGrowSownDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-grow-vendor" className="block text-sm font-medium text-neutral-700 mb-1">Vendor / Nursery</label>
-                <input
-                  id="edit-grow-vendor"
-                  type="text"
-                  value={editGrowVendor}
-                  onChange={(e) => setEditGrowVendor(e.target.value)}
-                  placeholder="e.g. Home Depot, Briggs Tree Nursery"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Vendor or nursery"
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-grow-price" className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
-                <input
-                  id="edit-grow-price"
-                  type="text"
-                  value={editGrowPrice}
-                  onChange={(e) => setEditGrowPrice(e.target.value)}
-                  placeholder="e.g. $12.99"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                  aria-label="Price paid"
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-grow-location" className="block text-sm font-medium text-neutral-700 mb-1">Location</label>
-                <input
-                  id="edit-grow-location"
-                  type="text"
-                  value={editGrowLocation}
-                  onChange={(e) => setEditGrowLocation(e.target.value)}
-                  placeholder="e.g. North fence, Backyard"
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                />
-              </div>
-              <div>
-                <label htmlFor="edit-grow-count" className="block text-sm font-medium text-neutral-700 mb-1">Number of plants</label>
-                <input
-                  id="edit-grow-count"
-                  type="number"
-                  min={1}
-                  value={editGrowPlantCount}
-                  onChange={(e) => setEditGrowPlantCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full px-3 py-2 rounded-lg border border-neutral-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
-                />
-              </div>
-            </div>
-            <div className="pt-4 mt-4 border-t border-neutral-200 space-y-2">
-              <p className="text-xs font-medium text-neutral-500 mb-1">Or</p>
-              <button
-                type="button"
-                onClick={() => {
-                  const b = buildBatchFromEditTarget();
-                  if (!b) return;
-                  setEndBatchTarget(b);
-                  setEditGrowTarget(null);
-                }}
-                className="w-full min-h-[44px] py-2.5 rounded-lg border border-amber-200/80 text-amber-700 font-medium hover:bg-amber-50"
-              >
-                End batch
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const b = buildBatchFromEditTarget();
-                  if (!b) return;
-                  setDeleteBatchTarget(b);
-                  setEditGrowTarget(null);
-                }}
-                className="w-full min-h-[44px] py-2.5 rounded-lg border border-red-200 text-red-700 font-medium hover:bg-red-50"
-              >
-                Delete batch
-              </button>
-            </div>
-            </div>
-            <div className="flex-shrink-0 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-200">
-              {editGrowError && <div className="mb-3"><FormError>{editGrowError}</FormError></div>}
-              <div className="flex gap-3 justify-end">
-                <button type="button" onClick={() => setEditGrowTarget(null)} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50 disabled:opacity-50">
-                  <ICON_MAP.Cancel className="w-4 h-4" />
-                  Cancel
-                </button>
-                <button type="button" onClick={handleEditGrowSave} disabled={editGrowSaving} className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
-                  <ICON_MAP.Save className="w-4 h-4" />
-                  {editGrowSaving ? "Saving…" : "Save"}
-                </button>
-              </div>
-            </div>
-            <SubmitLoadingOverlay show={editGrowSaving} message="Saving…" />
-          </div>
-        </div>
+      {/* Edit grow instance modal — shared EditGrowModal (same menu the instance page's
+          pencil opens; NORTH_STAR "No duplicate paths"). Owns its Archive Planting +
+          Delete Planting dialogs and the Edit Photo placeholder. */}
+      {editGrowTarget && user && (
+        <EditGrowModal
+          grow={editGrowTarget}
+          profileName={profile?.name ?? "Plant"}
+          profileVarietyName={profile?.variety_name ?? null}
+          isPermanent={isPermanent}
+          isEdible={isEdiblePlant(profile)}
+          currentUserId={user.id}
+          onClose={() => setEditGrowTarget(null)}
+          onSaved={() => { setEditGrowTarget(null); loadProfile(); }}
+          onArchived={() => { setEditGrowTarget(null); showToast("Archived"); loadProfile(); }}
+          onDeleted={() => { setEditGrowTarget(null); loadProfile(); }}
+        />
       )}
 
       {/* BatchLogSheet for Plantings tab */}
@@ -1664,51 +1550,6 @@ export default function VaultSeedPage() {
           profileDisplayName={profile?.variety_name?.trim() ? `${profile?.name ?? ""} (${profile.variety_name})` : (profile?.name ?? "")}
           initialPrefill={{ name: profile?.name ?? "", variety: profile?.variety_name ?? "" }}
         />
-      )}
-
-      {endBatchTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">End Batch</h2>
-            <p className="text-sm text-neutral-600 mb-4">{endBatchTarget.profile_variety_name?.trim() ? `${endBatchTarget.profile_name} (${endBatchTarget.profile_variety_name})` : endBatchTarget.profile_name}</p>
-            <div className="space-y-3 mb-4">
-              {[
-                { value: "season_ended", label: "Season Ended" },
-                { value: "harvested_all", label: "Harvested All" },
-                { value: "plant_died", label: "Plant Died" },
-              ].map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="end-reason" value={opt.value} checked={endReason === opt.value} onChange={() => setEndReason(opt.value)} className="text-emerald-600 focus:ring-emerald-500" />
-                  <span className={`text-sm font-medium ${opt.value === "plant_died" ? "text-red-600" : "text-neutral-700"}`}>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-            <textarea placeholder="Optional note..." value={endNote} onChange={(e) => setEndNote(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-sm mb-4 focus:ring-emerald-500" />
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setEndBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
-              <button type="button" onClick={handlePlantingsEndBatch} disabled={endSaving} className={`px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50 ${endReason === "plant_died" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}>
-                {endSaving ? "Saving..." : endReason === "plant_died" ? "Mark as Dead" : "End Batch"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteBatchTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Delete Batch</h2>
-            <p className="text-sm text-neutral-600 mb-4">
-              Permanently remove {deleteBatchTarget.profile_variety_name?.trim() ? `${deleteBatchTarget.profile_name} (${deleteBatchTarget.profile_variety_name})` : deleteBatchTarget.profile_name}? This cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setDeleteBatchTarget(null)} className="px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50">Cancel</button>
-              <button type="button" onClick={handlePlantingsDeleteBatch} disabled={deleteSaving} className="px-4 py-2 rounded-lg font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50">
-                {deleteSaving ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Packet photo lightbox (tap thumbnail or gallery image to view full-size, swipe/arrows for multiple) */}

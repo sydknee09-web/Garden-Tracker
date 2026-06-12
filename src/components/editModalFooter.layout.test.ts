@@ -32,6 +32,7 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf-8");
 
 const editPacketModal = read("src/components/EditPacketModal.tsx");
 const vaultProfile = read("src/app/vault/[id]/page.tsx");
+const editGrowModal = read("src/components/EditGrowModal.tsx");
 const packetsTab = read("src/app/vault/[id]/VaultProfilePacketsTab.tsx");
 const quickLog = read("src/components/QuickLogModal.tsx");
 const importPage = read("src/app/vault/import/page.tsx");
@@ -58,24 +59,26 @@ describe("EditPacketModal — Save/Cancel reachable above BottomNav", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. vault/[id] editGrow "Edit Plant" modal — sticky footer + z fix
+// 2. EditGrowModal "Edit Plant" — sticky footer + z fix (extracted 2026-06-11 from
+//    the vault/[id] inline modal; shared with the instance page's pencil affordance)
 // ---------------------------------------------------------------------------
-describe("editGrow Edit Plant modal — sticky footer above BottomNav", () => {
+describe("EditGrowModal Edit Plant — sticky footer above BottomNav", () => {
   it("overlay uses z-[60] (was z-50, occluded by the nav)", () => {
-    const overlay = vaultProfile.match(/className="fixed inset-0 [^"]*"[^>]*aria-labelledby="edit-grow-title"/);
+    const overlay = editGrowModal.match(/className="fixed inset-0 [^"]*"[^>]*aria-labelledby="edit-grow-title"/);
     expect(overlay).not.toBeNull();
     expect(overlay![0]).toContain("z-[60]");
   });
 
   it("sheet is a flex-col shell, not one big overflow-y-auto scroll region", () => {
     // The old broken shape put Save/Cancel at the end of the scroll content.
-    const editGrowSection = vaultProfile.slice(
-      vaultProfile.indexOf('aria-labelledby="edit-grow-title"'),
-      vaultProfile.indexOf("BatchLogSheet for Plantings tab")
-    );
-    expect(editGrowSection).toContain("overflow-hidden flex flex-col");
-    expect(editGrowSection).toContain("flex-1 overflow-y-auto");
-    expect(editGrowSection).toContain("flex-shrink-0 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]");
+    expect(editGrowModal).toContain("overflow-hidden flex flex-col");
+    expect(editGrowModal).toContain("flex-1 overflow-y-auto");
+    expect(editGrowModal).toContain("flex-shrink-0 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]");
+  });
+
+  it("both hosts render the shared component (no inline duplicate left on the vault page)", () => {
+    expect(vaultProfile).toContain("<EditGrowModal");
+    expect(vaultProfile).not.toContain('id="edit-grow-title"');
   });
 });
 
