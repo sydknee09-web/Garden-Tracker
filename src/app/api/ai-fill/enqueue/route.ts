@@ -13,7 +13,7 @@ export const maxDuration = 120;
  * AI Fill backgrounding: enqueue a durable job row and return immediately; the
  * enrichment pipeline runs in this invocation's background continuation
  * (waitUntil), so it completes regardless of client navigation/disconnect. The
- * client tracks the row via realtime (AiFillJobsContext) for spinner/shimmer
+ * client tracks the row via realtime (AiFillJobsContext) for button-spinner
  * state + the completion toast.
  *
  * Worker choice rationale (vs Vercel cron / Supabase Edge Function): the whole

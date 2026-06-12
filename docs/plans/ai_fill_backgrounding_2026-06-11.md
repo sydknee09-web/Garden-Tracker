@@ -159,3 +159,16 @@ Hunt categories named: race conditions / async ordering; null-empty-many states;
 
 - `npm run test:run` + `npm run build` in worktree (Phase 4). No screenshots per brief.
 - Syd verification path (post-greenlight + deploy + migration): brief's script — click AI Fill → spinner+shimmer → navigate to Garden → return (state persists) → completion toast anywhere → profile populated w/ provenance → repeat with Overwrite.
+
+---
+
+## Addendum 2026-06-11 (same day) — per-field shimmer REMOVED after Syd dogfood
+
+**D10 superseded.** Syd dogfooded Overwrite All and reported visual weirdness: empty fields shimmer while already-filled fields stay static, creating a mixed gray/normal patchwork that reads as broken — exactly the honest-per-field-signal trade-off D10 accepted, judged wrong in practice. Decision locked via Dispatch: **drop the per-field shimmer entirely; the button spinner is the sole "AI is running" indicator** (NORTH_STAR §2 "Take mental load OFF the user" — one consistent signal beats a mixed patchwork the user has to interpret).
+
+**What changed** (follow-up ship, this addendum's commit):
+- `VaultProfileAboutTab.tsx` — `AiFillShimmerContext` + `FieldShimmer` + `EmptyNote` removed; `PillDetailField` shimmer branch removed; the four paragraph-register sites restored to the literal `<p className="text-sm text-neutral-500">—</p>`; provider wrapper back to a fragment. `retryRunning` prop KEPT (the B5 Try Again button consumes it).
+- Stale doc-comments updated in `AiFillJobsContext.tsx` + `enqueue/route.ts` (no behavior change).
+- Everything else from this ship — jobs table, enqueue worker, context, realtime, reconciliation, toast, sweeper — unchanged.
+
+**Latent bug fixed by the removal:** the shipped `EmptyNote` rendered `<EmptyNote />` recursively on its own non-running branch (instead of the em-dash paragraph) — infinite render recursion that would crash any profile rendering the Propagation section with an empty notes field while no job was running. Escaped Phase 4 because no component test covered the tab and the collapsed-by-default section hid it from the build/preview pass. Removal eliminates the component entirely.

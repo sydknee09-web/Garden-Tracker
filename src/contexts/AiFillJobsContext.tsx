@@ -11,7 +11,9 @@ import { aiFillJobToastContent, type AiFillResultSummary } from "@/lib/aiFillToa
  * Global AI Fill job tracking (backgrounding ship, 2026-06-11). Jobs are durable
  * rows in ai_fill_jobs written by /api/ai-fill/enqueue; this provider keeps the
  * user's active set in sync via Supabase realtime so:
- *   - the profile page restores button-spinner + per-field shimmer mid-job
+ *   - the profile page restores the button spinner mid-job — the sole running
+ *     indicator (per-field shimmer dropped 2026-06-11 after dogfood: shimmering
+ *     only the empty cells read as a broken patchwork next to static filled ones)
  *     (NORTH_STAR §2 — the app carries the job state, not the user), and
  *   - the completion toast fires on ANY page, with a View action back to the
  *     profile hub (§3), through the existing useToast primitive (§1 — no second

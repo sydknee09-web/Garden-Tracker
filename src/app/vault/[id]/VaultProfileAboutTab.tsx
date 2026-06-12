@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { PlantProfile } from "@/types/garden";
@@ -45,25 +45,6 @@ export interface VaultProfileAboutTabProps {
 // ---------------------------------------------------------------------------
 // Shared primitives (NORTH_STAR §1 — one canonical shape per concept)
 // ---------------------------------------------------------------------------
-
-/**
- * True while a background AI Fill job is running for this profile — empty cells swap
- * "—" for a shimmer so the user sees WHICH fields are being filled (backgrounding ship
- * 2026-06-11). File-local context: PillDetailField has ~25 call sites; one provider at
- * the tab root beats threading a prop through every site.
- */
-const AiFillShimmerContext = createContext(false);
-
-/** Per-field shimmer block (skeleton register anchor: page loading pulse — bg-neutral-200 + animate-pulse). */
-function FieldShimmer({ className = "h-5 w-24" }: { className?: string }) {
-  return <span className={`block rounded bg-neutral-200 animate-pulse ${className}`} aria-hidden />;
-}
-
-/** Paragraph-register empty cell ("—") that shimmers while a background AI Fill runs. */
-function EmptyNote() {
-  const aiFillRunning = useContext(AiFillShimmerContext);
-  return aiFillRunning ? <FieldShimmer className="h-4 w-32" /> : <EmptyNote />;
-}
 
 /** Collapsible section card — the single About-tab card primitive (existing register). */
 function SectionCard({
@@ -120,18 +101,6 @@ function PillDetailField({
     .map((v) => (v ?? "").trim())
     .filter(Boolean);
   const detailText = detail?.trim();
-  const aiFillRunning = useContext(AiFillShimmerContext);
-  // How-to-Grow rows arrive with a literal "—" fallback already applied by the page,
-  // so the em-dash itself counts as empty for shimmer purposes.
-  const isEmpty = list.length === 0 || (list.length === 1 && list[0] === "—");
-  if (isEmpty && aiFillRunning) {
-    return (
-      <div>
-        <dt className="text-xs text-neutral-500 mb-0.5">{label}</dt>
-        <dd className="text-sm text-neutral-900 font-medium"><FieldShimmer /></dd>
-      </div>
-    );
-  }
   return (
     <div>
       <dt className="text-xs text-neutral-500 mb-0.5">{label}</dt>
@@ -312,7 +281,7 @@ export function VaultProfileAboutTab({
     descriptionLevels.length > 0 ? ` (${descriptionLevels.map((l) => PROVENANCE_PHRASES[l]).join(" + ")})` : "";
 
   return (
-    <AiFillShimmerContext.Provider value={retryRunning}>
+    <>
       {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ── */}
       {anchorSections.length > 1 && (
         <div className="sticky top-0 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
@@ -579,7 +548,7 @@ export function VaultProfileAboutTab({
                   {profile?.propagation_notes?.trim() ? (
                     <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
                   ) : (
-                    <EmptyNote />
+                    <p className="text-sm text-neutral-500">—</p>
                   )}
                 </div>
                 <div>
@@ -587,7 +556,7 @@ export function VaultProfileAboutTab({
                   {profile?.seed_saving_notes?.trim() ? (
                     <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.seed_saving_notes}</p>
                   ) : (
-                    <EmptyNote />
+                    <p className="text-sm text-neutral-500">—</p>
                   )}
                 </div>
               </>
@@ -601,7 +570,7 @@ export function VaultProfileAboutTab({
                     {profile?.propagation_notes?.trim() ? (
                       <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.propagation_notes}</p>
                     ) : (
-                      <EmptyNote />
+                      <p className="text-sm text-neutral-500">—</p>
                     )}
                   </div>
                 )}
@@ -621,7 +590,7 @@ export function VaultProfileAboutTab({
                           ))}
                         </div>
                       ) : (
-                        <EmptyNote />
+                        <p className="text-sm text-neutral-500">—</p>
                       );
                     })()}
                   </div>
@@ -687,6 +656,6 @@ export function VaultProfileAboutTab({
           <a href={legacySourceUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline break-all text-sm">{legacySourceUrl}</a>
         </SectionCard>
       )}
-    </AiFillShimmerContext.Provider>
+    </>
   );
 }
