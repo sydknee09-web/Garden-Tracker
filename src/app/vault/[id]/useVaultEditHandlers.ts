@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/useToast";
+import { useAiFillJobs } from "@/contexts/AiFillJobsContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { upsertWithOfflineQueue } from "@/lib/supabaseWithOffline";
@@ -14,22 +15,10 @@ import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 type SessionLike = { access_token: string } | null;
 
-type EnrichResult = { ok?: boolean; enriched?: boolean; fieldsFilled?: number; notFound?: boolean; error?: string };
-
-/**
- * Honest-feedback toast copy for AI Fill blanks / Overwrite (locked verbatim, Syd 2026-06-10;
- * audit 2026-06-10 §8.4 + B5 variety-not-found FINAL lock). "field"/"fields" pluralizes for
- * natural reading; the rest is locked. notFound wins over a hero-only fieldsFilled count —
- * the honest signal about the DATA lookup outranks an incidental photo fill.
- */
-function enrichToastMessage(ok: boolean, data: EnrichResult): string {
-  if (data.notFound) return "Couldn't find data for this plant. Check the spelling of name and variety.";
-  const filled = typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0;
-  const quota = data.error === "DAILY_AI_LIMIT" || data.error === "RATE_LIMITED";
-  if (filled > 0) return `Updated ${filled} ${filled === 1 ? "field" : "fields"}`;
-  if (!ok || quota || data.enriched === false) return "AI unavailable, try again later";
-  return "Nothing new to add";
-}
+// AI Fill completion toasts moved to the global AiFillJobsContext (backgrounding ship
+// 2026-06-11): jobs survive navigation, so the provider fires the subject-named toast
+// (src/lib/aiFillToast.ts) wherever the user is. This hook only enqueues + mirrors
+// completion into page-local state (aiNotFound / attempted / profile refetch).
 
 export type VaultEditForm = {
   plantType: string;
@@ -86,7 +75,11 @@ export function useVaultEditHandlers({
   const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState(false);
-  const [fillBlanksRunning, setFillBlanksRunning] = useState(false);
+  const { activeJobs, lastCompleted, enqueue: enqueueAiFill } = useAiFillJobs();
+  // Bridges the click→enqueue-response gap so the button can't double-fire before
+  // the job lands in activeJobs (the DB partial unique index backs this anyway).
+  const [enqueueInFlight, setEnqueueInFlight] = useState(false);
+  const fillBlanksRunning = enqueueInFlight || Boolean(activeJobs[profileId]);
   const [fillBlanksError, setFillBlanksError] = useState<string | null>(null);
   const [fillBlanksAttempted, setFillBlanksAttempted] = useState(false);
   // B5 variety-not-found: true when the last AI run reported it couldn't find this exact plant.
@@ -228,48 +221,37 @@ export function useVaultEditHandlers({
     if (!profileId || !session?.access_token || fillBlanksRunning) return;
     const isLeg = profile && "vendor" in profile && (profile as PlantVarietyProfile).vendor != null;
     if (isLeg) return;
-    setFillBlanksRunning(true);
+    setEnqueueInFlight(true);
     setFillBlanksError(null);
-    try {
-      const res = await fetch("/api/seed/fill-blanks-for-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId, useGemini: true, forceRefresh: true }),
-      });
-      const data = (await res.json().catch(() => ({}))) as EnrichResult;
-      setAiNotFound(Boolean(data.notFound));
-      await loadProfile();
-      setToastMessage(enrichToastMessage(res.ok, data));
-    } catch {
-      setToastMessage("AI unavailable, try again later");
-    } finally {
-      setFillBlanksRunning(false);
-      setFillBlanksAttempted(true);
-    }
-  }, [profileId, session?.access_token, profile, fillBlanksRunning, loadProfile, setToastMessage]);
+    const result = await enqueueAiFill(profileId, false);
+    setEnqueueInFlight(false);
+    // Completion (toast + profile refetch + notFound state) arrives via the jobs
+    // context — only the enqueue handshake can fail here.
+    if (!result.ok) setToastMessage("AI unavailable, try again later");
+  }, [profileId, session?.access_token, profile, fillBlanksRunning, enqueueAiFill, setToastMessage]);
 
   const handleOverwriteWithAi = useCallback(async () => {
     if (!profileId || !session?.access_token || fillBlanksRunning) return;
     setOverwriteConfirmOpen(false);
-    setFillBlanksRunning(true);
+    setEnqueueInFlight(true);
     setFillBlanksError(null);
-    try {
-      const res = await fetch("/api/seed/fill-blanks-for-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ profileId, useGemini: true, overwrite: true, forceRefresh: true }),
-      });
-      const data = (await res.json().catch(() => ({}))) as EnrichResult;
-      setAiNotFound(Boolean(data.notFound));
-      await loadProfile();
-      setToastMessage(enrichToastMessage(res.ok, data));
-    } catch {
-      setToastMessage("AI unavailable, try again later");
-    } finally {
-      setFillBlanksRunning(false);
-      setFillBlanksAttempted(true);
-    }
-  }, [profileId, session?.access_token, fillBlanksRunning, loadProfile, setToastMessage]);
+    const result = await enqueueAiFill(profileId, true);
+    setEnqueueInFlight(false);
+    if (!result.ok) setToastMessage("AI unavailable, try again later");
+  }, [profileId, session?.access_token, fillBlanksRunning, enqueueAiFill, setToastMessage]);
+
+  // Mirror background-job completion for THIS profile into page-local state: refetch
+  // the profile (new values + provenance), update the B5 not-found notice, mark the
+  // attempt. jobId guard: lastCompleted survives re-renders; handle each job once.
+  const handledCompletionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!lastCompleted || lastCompleted.profileId !== profileId) return;
+    if (handledCompletionRef.current === lastCompleted.jobId) return;
+    handledCompletionRef.current = lastCompleted.jobId;
+    setAiNotFound(Boolean(lastCompleted.summary.notFound));
+    setFillBlanksAttempted(true);
+    void loadProfile();
+  }, [lastCompleted, profileId, loadProfile]);
 
   const handleAddToShoppingList = useCallback(async () => {
     if (!userId || !profileId) return;

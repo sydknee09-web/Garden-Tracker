@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AnnouncerProvider } from "@/contexts/AnnouncerContext";
 import { HouseholdProvider } from "@/contexts/HouseholdContext";
 import { SyncProvider } from "@/contexts/SyncContext";
+import { AiFillJobsProvider } from "@/contexts/AiFillJobsContext";
 import { DeveloperUnlockProvider } from "@/contexts/DeveloperUnlockContext";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -56,15 +57,17 @@ export default function RootLayout({
           <AnnouncerProvider>
             <HouseholdProvider>
               <SyncProvider>
-                <DeveloperUnlockProvider>
-                  <UniversalAddProvider>
-                    <OnboardingProvider>
-                      <ErrorBoundary>
-                        <AuthGuard>{children}</AuthGuard>
-                      </ErrorBoundary>
-                    </OnboardingProvider>
-                  </UniversalAddProvider>
-                </DeveloperUnlockProvider>
+                <AiFillJobsProvider>
+                  <DeveloperUnlockProvider>
+                    <UniversalAddProvider>
+                      <OnboardingProvider>
+                        <ErrorBoundary>
+                          <AuthGuard>{children}</AuthGuard>
+                        </ErrorBoundary>
+                      </OnboardingProvider>
+                    </UniversalAddProvider>
+                  </DeveloperUnlockProvider>
+                </AiFillJobsProvider>
               </SyncProvider>
             </HouseholdProvider>
           </AnnouncerProvider>
