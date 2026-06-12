@@ -26,7 +26,11 @@ body {
   min-width: 0;
   color: var(--foreground);
   background: var(--background);
-  overflow-x: auto;
+  /* No overflow-x here: any non-visible overflow makes body a scroll container,
+     which silently breaks position:sticky for ALL descendants (global header +
+     every top-11 toolbar). Horizontal overflow propagates to the viewport via
+     the html rule above. Fixed 2026-06-12 chrome cohesion sweep (was broken
+     since 3e871cb 2026-02-13). */
 }
 
 /* Avoid iOS zoom on focus: inputs/selects/textarea at least 16px */

@@ -23,17 +23,31 @@ import {
 import {
   PageSkeletonHome,
   PageSkeletonVault,
+  PageSkeletonLibrary,
+  PageSkeletonVaultDetail,
   PageSkeletonCalendar,
   PageSkeletonGarden,
   PageSkeletonJournal,
   PageSkeletonSchedule,
 } from "./PageSkeleton";
+import { isPlantProfilePath } from "./navItems";
 import { LoadingScreen } from "./LoadingScreen";
 
 const AUTH_PATHS = ["/login", "/signup", "/reset-password", "/update-password", "/auth/callback"];
 
 function getSkeletonForPath(pathname: string | null) {
   if (!pathname || pathname === "/") return <PageSkeletonHome />;
+  // Detail surfaces (plant profile / packet / shed item / growing instance) get the
+  // back-chip + hero detail skeleton, not a list-grid skeleton.
+  if (
+    isPlantProfilePath(pathname) ||
+    pathname.startsWith("/vault/packets/") ||
+    pathname.startsWith("/vault/shed/") ||
+    pathname.startsWith("/garden/grow/")
+  ) {
+    return <PageSkeletonVaultDetail />;
+  }
+  if (pathname === "/plants" || pathname.startsWith("/plants/")) return <PageSkeletonLibrary />;
   if (pathname === "/vault" || pathname.startsWith("/vault/")) return <PageSkeletonVault />;
   if (pathname === "/calendar") return <PageSkeletonCalendar />;
   if (pathname === "/garden" || pathname.startsWith("/garden/")) return <PageSkeletonGarden />;
@@ -45,6 +59,7 @@ function getSkeletonForPath(pathname: string | null) {
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "";
   if (pathname === "/") return "Home";
+  if (pathname === "/plants" || pathname.startsWith("/plants/")) return "Library";
   if (pathname === "/shopping-list") return "Shopping List";
   if (pathname === "/garden" || pathname.startsWith("/garden/")) return "Garden";
   if (pathname === "/vault/import" || pathname.startsWith("/vault/import/")) return "Import";
@@ -54,6 +69,8 @@ function getPageTitle(pathname: string | null): string {
   if (pathname.startsWith("/vault/history")) return "History";
   if (pathname.startsWith("/vault/packets")) return "Packet";
   if (pathname.startsWith("/vault/tags")) return "Tags";
+  // /vault/<id> = a Library plant profile (Library promoted to /plants, Ship A 2026-05-28)
+  if (isPlantProfilePath(pathname)) return "Library";
   if (pathname.startsWith("/vault")) return "Vault";
   if (pathname === "/shed/review-import") return "Review Supply Import";
   if (pathname.startsWith("/shed")) return "Shed";
@@ -95,7 +112,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
-  const isVault = pathname === "/vault" || pathname?.startsWith("/vault/");
+  // Top rhythm: main owns the 8px gap below the header on every surface (2026-06-12
+  // chrome cohesion sweep — replaced the isVault pt-0 special case; page wrappers
+  // contribute pt-0 so the rhythm has one source).
   const { syncing } = useSync();
   const isOnline = useOnlineStatus();
   const { isInHousehold, viewMode, setViewMode } = useHousehold();
@@ -241,7 +260,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             )}
             <main
               ref={mainRef}
-              className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] xl:pb-2" : ""}`}
+              className={`w-full min-w-0 min-h-screen pt-2 ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] xl:pb-2" : ""}`}
             >
               {getSkeletonForPath(pathname)}
             </main>
@@ -335,7 +354,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         )}
         <main
           ref={mainRef}
-          className={`w-full min-w-0 min-h-screen ${isVault ? "pt-0" : "pt-2"} ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] xl:pb-2" : ""}`}
+          className={`w-full min-w-0 min-h-screen pt-2 ${!isAuthPage ? "pb-[max(7rem,calc(5rem+env(safe-area-inset-bottom,0px)))] xl:pb-2" : ""}`}
         >
           {children}
         </main>

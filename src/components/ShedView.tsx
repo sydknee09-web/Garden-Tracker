@@ -293,7 +293,8 @@ export function ShedView({
   );
 
   return (
-    <div className="pt-2">
+    // Embedded: VaultShedWing's wrapper already provides pt-2 — no double gap vs Packets.
+    <div className={embedded ? "" : "pt-2"}>
       {!embedded && (
         <div className="flex items-center justify-between mb-4">
           <Link

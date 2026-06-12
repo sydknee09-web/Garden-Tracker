@@ -209,7 +209,8 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
 
       if (!data.items?.length) {
         // AI succeeded but found nothing — genuinely image-related; show the clearer-shot hint.
-        setError("No seed items found in this image. Try a clearer screenshot.");
+        // Chrome follows the mode, not the source (f5f80b8 pattern): Add Plant flow says plants.
+        setError(addPlantMode ? "No plant items found in this image. Try a clearer screenshot." : "No seed items found in this image. Try a clearer screenshot.");
         setShowImageHint(true);
         setIsExtracting(false);
         return;
@@ -219,7 +220,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
         id: crypto.randomUUID(),
         imageBase64: "",
         fileName: "",
-        type: item.name || "Imported seed",
+        type: item.name || (addPlantMode ? "Imported plant" : "Imported seed"),
         variety: item.variety ?? "",
         vendor: item.vendor || data.vendor || "",
         tags: [],
@@ -312,7 +313,7 @@ export function PurchaseOrderImport({ open, onClose, mode = "seed", defaultProfi
               picker too. Permanent/seasonal is no longer user-chosen anywhere in the import flow —
               it derives from the AI-filled lifecycle after save (fill-blanks deriveProfileType). */}
           <p className="text-sm text-black/70 mb-4">
-            <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We&rsquo;ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : "seed/plant "}line items from one image.
+            <strong>Tips:</strong> Use a screenshot of your cart, order confirmation, or receipt. We&rsquo;ll extract all {mode === "supply" ? "supply (fertilizer, pesticide, etc.) " : addPlantMode ? "plant " : "seed/plant "}line items from one image.
           </p>
           <div className="relative rounded-xl overflow-hidden bg-black/5 min-h-[200px] max-h-[320px] mb-4 border-2 border-dashed border-black/15 flex items-center justify-center">
             {previewUrl ? (

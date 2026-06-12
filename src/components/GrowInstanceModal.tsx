@@ -770,7 +770,9 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       {/* ------------------------------------------------------------------ */}
       {/* TABS                                                                */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border-b border-neutral-100 sticky top-0 z-10">
+      {/* Page variant scrolls the document — stick below the global h-11 header; modal
+          variant scrolls its own dialog container — stick to its top (0). */}
+      <div className={`bg-white border-b border-neutral-100 sticky z-10 ${isModal ? "top-0" : "top-11"}`}>
         <div className="flex">
           {(["overview", "journal", "care", "history"] as const).map((tab) => {
             const label = tab === "journal" ? "Journal" : tab === "care" ? "Care" : tab === "history" ? "Task History" : "Overview";

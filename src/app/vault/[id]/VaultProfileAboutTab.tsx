@@ -61,7 +61,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div id={id} className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden scroll-mt-20">
+    <div id={id} className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden scroll-mt-32">
       <button
         type="button"
         onClick={onToggle}
@@ -240,7 +240,7 @@ export function VaultProfileAboutTab({
       .map((key) => ({ key, el: document.getElementById(`about-section-${key}`) }))
       .filter((x): x is { key: string; el: HTMLElement } => !!x.el);
     if (els.length === 0) return;
-    const OFFSET = 96; // sticky pill row clearance, matches scroll-mt-20
+    const OFFSET = 140; // global header (44) + sticky pill row clearance, matches scroll-mt-32
     const recompute = () => {
       if (Date.now() < suppressSpyUntilRef.current) return;
       let current = els[0].key;
@@ -282,9 +282,11 @@ export function VaultProfileAboutTab({
 
   return (
     <>
-      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ── */}
+      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ──
+          top-11 = below the global sticky header (sticky restored 2026-06-12;
+          top-0 would pin underneath it) */}
       {anchorSections.length > 1 && (
-        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
+        <div className="sticky top-11 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
           <div className="overflow-x-auto scrollbar-hide" role="tablist" aria-label="Jump to profile section">
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
               {anchorSections.map((s) => (

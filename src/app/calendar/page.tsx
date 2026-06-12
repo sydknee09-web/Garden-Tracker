@@ -952,7 +952,7 @@ export default function CalendarPage() {
   const SWIPE_THRESHOLD = 50;
 
   return (
-    <div className="px-6 pt-2 pb-6 xl:flex xl:gap-6 xl:items-start">
+    <div className="px-2 pt-0 pb-6 xl:flex xl:gap-6 xl:items-start">
       {/* LEFT COLUMN — month nav, plantable, calendar grid (sticky at xl:) */}
       <div className="xl:w-[640px] xl:flex-shrink-0 xl:sticky xl:top-12 xl:self-start">
       <div

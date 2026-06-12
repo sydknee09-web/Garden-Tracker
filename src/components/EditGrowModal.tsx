@@ -185,10 +185,26 @@ export function EditGrowModal({
         <div className="relative bg-white w-full max-w-md md:rounded-2xl shadow-xl border border-neutral-200 min-h-[100dvh] md:min-h-0 max-h-[100dvh] md:max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
           <div className="flex-shrink-0 px-6 pt-6 pb-3 border-b border-neutral-200">
             <h2 id="edit-grow-title" className="text-lg font-bold text-neutral-900">Edit Plant</h2>
-            <p className="text-sm text-neutral-500 mt-0.5">{displayName}</p>
+            {/* Stacked-italic variety (VISION §8) — no parens; two skimmable lines. */}
+            <p className="text-sm text-neutral-500 mt-0.5">{profileName}</p>
+            {profileVarietyName?.trim() ? (
+              <p className="text-sm italic text-neutral-600">{profileVarietyName}</p>
+            ) : null}
           </div>
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
+              {/* Edit Photo at TOP — canonical position across edit modals (Syd lock
+                  2026-06-12; matches Edit Plant Profile modal). Placeholder until the
+                  Cover Photo ship wires the picker. */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setPhotoTodoOpen(true)}
+                  className="w-full min-h-[44px] py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
+                >
+                  Edit Photo
+                </button>
+              </div>
               <div>
                 <label htmlFor="edit-grow-date" className="block text-sm font-medium text-neutral-700 mb-1">Date planted</label>
                 <input
@@ -286,15 +302,6 @@ export function EditGrowModal({
                   />
                 </div>
               )}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setPhotoTodoOpen(true)}
-                  className="w-full min-h-[44px] py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
-                >
-                  Edit Photo
-                </button>
-              </div>
             </div>
             <div className="pt-4 mt-4 border-t border-neutral-200 space-y-2">
               <p className="text-xs font-medium text-neutral-500 mb-1">Or</p>

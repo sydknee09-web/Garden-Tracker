@@ -397,7 +397,7 @@ export default function VaultShedDetailPage() {
   const isOwn = supply.user_id === user?.id;
 
   return (
-    <div className="px-6 pb-10">
+    <div className="px-6 pt-2 pb-10">
       {toastMessage}
 
       {showSetPhotoModal && canEdit && (

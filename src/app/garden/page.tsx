@@ -435,8 +435,8 @@ function GardenPageInner() {
   return (
     <div className="min-h-screen pb-24">
       {toast}
-      <div className="px-6 pt-0 pb-6">
-        <div className="sticky top-11 z-40 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
+      <div className="px-2 pt-0 pb-6">
+        <div className="sticky top-11 z-40 -mx-2 px-2 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm">
           {/* B2: GroupTabs replaces Active Garden / My Plants dual-tab toggle.
               Vault sub-tab primitive cohesion anchor — same emerald-500 STATE token (VISION §8). */}
           <GroupTabs

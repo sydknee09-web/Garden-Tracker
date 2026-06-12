@@ -312,7 +312,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="px-6 pt-2 pb-6 max-w-2xl mx-auto">
+    <div className="px-2 pt-0 pb-6 max-w-2xl mx-auto">
       {toast}
       {/* ---- Frost Alert Banner ---- */}
       {frostAlert && (

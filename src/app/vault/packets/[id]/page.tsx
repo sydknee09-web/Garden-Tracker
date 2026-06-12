@@ -288,7 +288,7 @@ export default function VaultPacketDetailPage() {
       : null;
 
   return (
-    <div className="px-6 pb-10 max-w-2xl mx-auto">
+    <div className="px-6 pt-2 pb-10 max-w-2xl mx-auto">
       {/* Top bar: Back (left) + framed action pills (right) — matches GrowInstanceModal chrome strip
           (VISION §8 chrome-control-framing: framed = action chrome). */}
       <div className="flex items-center justify-between gap-2 mb-4">

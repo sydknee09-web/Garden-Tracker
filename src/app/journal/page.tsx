@@ -524,7 +524,7 @@ export default function JournalPage() {
 
   if (loading) {
     return (
-      <div className="px-6 pt-2 pb-6">
+      <div className="px-2 pt-0 pb-6">
         <p className="text-muted text-sm mb-4">Notes and photos</p>
         <div className="rounded-2xl bg-white p-8 shadow-card border border-black/5">
           <LoadingState message="Loading…" />
@@ -535,7 +535,7 @@ export default function JournalPage() {
 
   if (error) {
     return (
-      <div className="px-6 pt-2 pb-6">
+      <div className="px-2 pt-0 pb-6">
         <div className="rounded-2xl bg-white p-6 shadow-card border border-black/5">
           <p className="text-citrus font-medium">Could not load journal</p>
           <p className="text-sm text-black/60 mt-1">{error}</p>
@@ -545,9 +545,9 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="w-full min-w-0 px-6 pt-2 pb-24 min-h-[60vh] box-border">
+    <div className="w-full min-w-0 px-2 pt-0 pb-24 min-h-[60vh] box-border">
       {toast}
-      <div className="sticky top-11 z-30 -mx-6 px-6 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
+      <div className="sticky top-11 z-30 -mx-2 px-2 pt-2 pb-3 mb-4 bg-paper border-b border-black/5">
         <div className="flex gap-2 mb-2">
           <div className="flex-1 relative">
             <ICON_MAP.Search stroke="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-black/40 pointer-events-none" aria-hidden />
@@ -668,11 +668,11 @@ export default function JournalPage() {
       ) : viewMode === "table" ? (
         <>
           {/* Mobile: card layout — no horizontal scroll */}
-          <div className="sm:hidden space-y-4 pb-24 -mx-6 px-4">
+          <div className="sm:hidden space-y-4 pb-24">
             {tableRowsWithSections(groupEntriesForTable(filteredEntries)).map((item) => {
               if (item.type === "section") {
                 return (
-                  <h2 key={`section-${item.label}`} className="text-sm font-semibold text-slate-700 pt-2 first:pt-0 sticky top-11 bg-paper -mx-4 px-4 py-1 z-10">
+                  <h2 key={`section-${item.label}`} className="text-sm font-semibold text-slate-700 pt-2 first:pt-0 sticky top-11 bg-paper -mx-2 px-2 py-1 z-10">
                     {item.label}
                   </h2>
                 );
@@ -746,7 +746,7 @@ export default function JournalPage() {
             })}
           </div>
           {/* Desktop: table layout */}
-          <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white -mx-6 px-6 pb-24">
+          <div className="hidden sm:block overflow-x-auto rounded-xl border border-black/10 bg-white -mx-2 px-6 pb-24">
             <table className="w-full min-w-[480px] text-sm border-collapse" role="grid" aria-label="Journal entries">
               <thead>
                 <tr className="border-b border-black/10 bg-neutral-50/80">

@@ -1010,7 +1010,7 @@ function VaultPageInner() {
           sharedSearchQuery={searchQuery}
           onSyncSearchToGrid={setSearchQuery}
         />
-    <div className="px-6 pt-0 pb-10">
+    <div className="px-2 pt-0 pb-10">
       {hasPendingReview && (
         <div className="w-full mb-3 mt-2 flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 relative">
           <button
@@ -1035,7 +1035,7 @@ function VaultPageInner() {
           </button>
         </div>
       )}
-      <div ref={stickyHeaderRef} className="sticky top-11 z-50 h-auto min-h-0 -mx-6 px-6 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm pointer-events-none [&_*]:pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto">
+      <div ref={stickyHeaderRef} className="sticky top-11 z-50 h-auto min-h-0 -mx-2 px-2 pt-1 pb-2 bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm pointer-events-none [&_*]:pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto">
         <div className="flex items-center gap-2 mb-2 relative z-10 flex-wrap">
           {pendingHeroCount > 0 && (
             <span
@@ -1051,7 +1051,7 @@ function VaultPageInner() {
         {/* Tab switcher: /vault shows Packets + Shed only (Library promoted to /plants Ship A 2026-05-28).
             /plants is single-mode (Library) — no switcher row rendered. */}
         {!isPlantsSurface && (
-          <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+          <div className="flex mb-3 -mx-2 px-2" role="tablist" aria-label="View">
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
               <button
                 type="button"
@@ -1088,7 +1088,7 @@ function VaultPageInner() {
             Vault (Packets/Shed). Tap is a no-op — it's always the active/only view.
             Cohesion convention: VISION §8 "Single-state tab-slot for cross-surface cohesion". */}
         {isPlantsSurface && (
-          <div className="flex mb-3 -mx-6 px-6" role="tablist" aria-label="View">
+          <div className="flex mb-3 -mx-2 px-2" role="tablist" aria-label="View">
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
               <button
                 type="button"

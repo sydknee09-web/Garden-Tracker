@@ -113,7 +113,7 @@ export default function GardenGrowDetailPage() {
     <div className="max-w-2xl mx-auto pb-10">
       {/* Back chip — unframed transient nav (VISION §8 chrome-control framing). The framed action
           pills (Profile / Log / pencil Edit) live in the instance content's own chrome strip below the hero. */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-2">
         <Link href={backHref} className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline min-h-[44px]">
           ← Back
         </Link>

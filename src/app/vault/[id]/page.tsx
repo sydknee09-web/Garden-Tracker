@@ -918,7 +918,9 @@ export default function VaultSeedPage() {
                   <p className="text-sm font-medium text-neutral-700 mb-2">Photo</p>
                   <button type="button" onClick={() => setShowSetPhotoModal(true)} className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50" aria-label="Add or change photo">
                     <ICON_MAP.Camera className="w-4 h-4" />
-                    {profile?.hero_image_path || profile?.hero_image_url ? "Change Photo" : "Add Photo"}
+                    {/* "Edit Photo" = canonical label across edit modals (Syd lock 2026-06-12);
+                        "Add Photo" stays for the no-photo state (semantic, not drift). */}
+                    {profile?.hero_image_path || profile?.hero_image_url ? "Edit Photo" : "Add Photo"}
                   </button>
                 </div>
               )}
@@ -1062,7 +1064,7 @@ export default function VaultSeedPage() {
       {/* Main Content (swipe left/right on mobile to change profile)       */}
       {/* ================================================================ */}
       <div
-        className="mx-auto max-w-2xl px-6 pt-6 relative touch-pan-y"
+        className="mx-auto max-w-2xl px-6 pt-2 relative touch-pan-y"
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
