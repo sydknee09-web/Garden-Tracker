@@ -17,14 +17,22 @@ import { NoMatchCard } from "@/components/NoMatchCard";
 import { ListSkeleton } from "@/components/VaultSkeleton";
 import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { fetchAllUserGrowInstances, setInstanceGroup } from "@/lib/groups";
+import { resolveCoverEntry, type CoverEntryLike } from "@/lib/coverPhoto";
 import { useSwipeOrderSnapshot } from "@/lib/swipeOrder";
-import type { WeatherSnapshotData, Group } from "@/types/garden";
+import type { WeatherSnapshotData, Group, CoverPhotoMode } from "@/types/garden";
 import type { SelectedGroup } from "@/components/GroupTabs";
 
 const LONG_PRESS_MS = 500;
 
-/** Law 7: hero_image_url → hero_image_path → primary_image_path → placeholder fallback */
-function getBatchImageUrl(batch: { hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }): string | null {
+/** Journal-photo URL (image_file_path in journal-photos bucket, else external photo_url). */
+function journalEntryImageUrl(e: { image_file_path?: string | null; photo_url?: string | null }): string | null {
+  if (e.image_file_path?.trim()) return supabase.storage.from("journal-photos").getPublicUrl(e.image_file_path.trim()).data.publicUrl;
+  return e.photo_url ?? null;
+}
+
+/** Cover state machine first (journal cover resolved at load time — Syd lock 2026-06-11), then Law 7 profile chain: hero_image_url → hero_image_path → primary_image_path → placeholder fallback */
+function getBatchImageUrl(batch: { cover_journal_image_url?: string | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null }): string | null {
+  if (batch.cover_journal_image_url) return batch.cover_journal_image_url;
   const url = (batch.hero_image_url ?? "").trim();
   if (url && url.startsWith("http")) {
     if (url.includes("supabase.co")) return url;
@@ -83,6 +91,8 @@ type GardenBatch = {
   hero_image_url?: string | null;
   hero_image_path?: string | null;
   primary_image_path?: string | null;
+  /** Cover-resolved journal photo URL (load-time, per the cover state machine); null → profile chain. */
+  cover_journal_image_url?: string | null;
   groups: Group[];
 };
 
@@ -276,12 +286,14 @@ export const GardenView = forwardRef<GardenViewHandle, {
         seeds_sprouted?: number | null;
         plant_count?: number | null;
         is_permanent_planting?: boolean | null;
+        cover_photo_mode?: CoverPhotoMode | null;
+        cover_photo_journal_entry_id?: string | null;
         groups?: Group[];
       }> = [];
       if (isFamilyView) {
         const { data, error } = await supabase
           .from("grow_instances")
-          .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting, plant_groups(groups(id, user_id, name, position, created_at, updated_at, deleted_at))")
+          .select("id, plant_profile_id, sown_date, expected_harvest_date, status, location, user_id, sow_method, seeds_sown, seeds_sprouted, plant_count, is_permanent_planting, cover_photo_mode, cover_photo_journal_entry_id, plant_groups(groups(id, user_id, name, position, created_at, updated_at, deleted_at))")
           .is("deleted_at", null)
           .order("sown_date", { ascending: false });
         if (error) {
@@ -301,6 +313,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
           seeds_sprouted?: number | null;
           plant_count?: number | null;
           is_permanent_planting?: boolean | null;
+          cover_photo_mode?: CoverPhotoMode | null;
+          cover_photo_journal_entry_id?: string | null;
           plant_groups?: Array<{ groups: Group | null }> | null;
         };
         rawGrows = ((data ?? []) as unknown as RawWithJoin[]).map((row) => {
@@ -325,6 +339,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
           seeds_sprouted: i.seeds_sprouted ?? null,
           plant_count: i.plant_count ?? null,
           is_permanent_planting: i.is_permanent_planting ?? false,
+          cover_photo_mode: i.cover_photo_mode ?? null,
+          cover_photo_journal_entry_id: i.cover_photo_journal_entry_id ?? null,
           groups: i.groups ?? [],
         }));
       }
@@ -347,12 +363,21 @@ export const GardenView = forwardRef<GardenViewHandle, {
       type ProfileShape = { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null };
       const profileMap = new Map<string, ProfileShape>((profiles ?? []).map((p: ProfileShape) => [p.id, p]));
 
-      // 3. Parallel enrichment: weather snapshots + harvest counts + care counts.
+      // 3. Parallel enrichment: weather snapshots + harvest counts + care counts + cover photos.
       const growIds = activeGrows.map((r) => r.id);
-      const [weatherRes, harvestRes, careRes] = await Promise.all([
+      // Cover photos (Syd lock 2026-06-11): auto candidates skip vault_add (receipts)
+      // but MUST keep legacy entry_type-null rows — a bare neq filter drops NULLs in
+      // PostgREST, hence the explicit is.null OR branch. Pinned entries are fetched
+      // by id separately because a pin may target a vault_add entry (user agency).
+      const pinnedEntryIds = Array.from(new Set(activeGrows.map((r) => r.cover_photo_journal_entry_id).filter((id): id is string => !!id)));
+      const [weatherRes, harvestRes, careRes, coverCandidatesRes, pinnedCoverRes] = await Promise.all([
         supabase.from("journal_entries").select("grow_instance_id, weather_snapshot, note").in("grow_instance_id", growIds).like("note", "Planted%").order("created_at", { ascending: true }),
         supabase.from("journal_entries").select("grow_instance_id").in("grow_instance_id", growIds).eq("entry_type", "harvest").is("deleted_at", null),
         supabase.from("care_schedules").select("grow_instance_id").in("grow_instance_id", growIds).eq("is_active", true),
+        supabase.from("journal_entries").select("id, grow_instance_id, image_file_path, photo_url, created_at, entry_type").in("grow_instance_id", growIds).is("deleted_at", null).or("image_file_path.not.is.null,photo_url.not.is.null").or("entry_type.is.null,entry_type.neq.vault_add").order("created_at", { ascending: false }),
+        pinnedEntryIds.length > 0
+          ? supabase.from("journal_entries").select("id, grow_instance_id, image_file_path, photo_url, created_at, entry_type").in("id", pinnedEntryIds).is("deleted_at", null)
+          : Promise.resolve({ data: [] as never[] }),
       ]);
 
       const weatherByGrow = new Map<string, WeatherSnapshotData>();
@@ -380,6 +405,23 @@ export const GardenView = forwardRef<GardenViewHandle, {
       (careRes.data ?? []).forEach((c: { grow_instance_id: string | null }) => {
         if (c.grow_instance_id) careCountByGrow.set(c.grow_instance_id, (careCountByGrow.get(c.grow_instance_id) ?? 0) + 1);
       });
+      // Cover resolution per grow: pinned entry (if alive) + auto candidates → resolveCoverEntry.
+      type CoverRow = CoverEntryLike & { grow_instance_id: string | null };
+      const coverEntriesByGrow = new Map<string, CoverRow[]>();
+      const addCoverRow = (row: CoverRow) => {
+        if (!row.grow_instance_id) return;
+        const list = coverEntriesByGrow.get(row.grow_instance_id) ?? [];
+        list.push(row);
+        coverEntriesByGrow.set(row.grow_instance_id, list);
+      };
+      ((pinnedCoverRes.data ?? []) as CoverRow[]).forEach(addCoverRow);
+      ((coverCandidatesRes.data ?? []) as CoverRow[]).forEach(addCoverRow);
+      const coverUrlByGrow = new Map<string, string>();
+      for (const r of activeGrows) {
+        const coverEntry = resolveCoverEntry(r, coverEntriesByGrow.get(r.id) ?? []);
+        const url = coverEntry ? journalEntryImageUrl(coverEntry) : null;
+        if (url) coverUrlByGrow.set(r.id, url);
+      }
 
       // 4. Compose enriched batches.
       const enriched: GardenBatch[] = activeGrows
@@ -415,6 +457,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
             hero_image_url: p?.hero_image_url ?? null,
             hero_image_path: p?.hero_image_path ?? null,
             primary_image_path: p?.primary_image_path ?? null,
+            cover_journal_image_url: coverUrlByGrow.get(r.id) ?? null,
             groups: r.groups ?? [],
           };
         });

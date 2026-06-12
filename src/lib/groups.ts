@@ -353,7 +353,7 @@ export async function fetchAllUserGrowInstances(
     const { data, error } = await supabase
       .from("grow_instances")
       .select(
-        "id, plant_profile_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id, deleted_at, sow_method, seeds_sown, seeds_sprouted, sprout_date, plant_count, is_permanent_planting, purchase_price, purchase_quantity, vendor, plant_groups(groups(id, user_id, name, position, created_at, updated_at, deleted_at))"
+        "id, plant_profile_id, sown_date, expected_harvest_date, status, ended_at, location, end_reason, seed_packet_id, created_at, user_id, deleted_at, sow_method, seeds_sown, seeds_sprouted, sprout_date, plant_count, is_permanent_planting, purchase_price, purchase_quantity, vendor, cover_photo_mode, cover_photo_journal_entry_id, plant_groups(groups(id, user_id, name, position, created_at, updated_at, deleted_at))"
       )
       .eq("user_id", userId)
       .is("deleted_at", null)

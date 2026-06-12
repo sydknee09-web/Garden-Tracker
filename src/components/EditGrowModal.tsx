@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/useToast";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
+import { CoverPhotoSheet } from "@/components/CoverPhotoSheet";
 import type { GrowInstance } from "@/types/garden";
 
 /**
@@ -20,8 +21,9 @@ import type { GrowInstance } from "@/types/garden";
  * canonical surface; replaces the prior inline vault/[id] editGrow modal + the
  * instance page's standalone Archive pill, Syd lock 2026-06-11 Findings #12/#13).
  *
- * Contents: instance fields → Edit Photo placeholder (Cover Photo ship wires the
- * picker) → Archive Planting (amber, reason dialog — the merged archive/end flow)
+ * Contents: instance fields → Edit Photo (opens the CoverPhotoSheet picker —
+ * the planting's cover-photo state machine, Syd lock 2026-06-11) → Archive
+ * Planting (amber, reason dialog — the merged archive/end flow)
  * → Delete Planting (red, type-the-plant-name confirm; soft-deletes the planting
  * AND cascades its journal entries + tasks per the bulk-delete sibling pattern).
  */
@@ -40,6 +42,8 @@ export interface EditGrowModalProps {
   onArchived: () => void;
   /** Planting deleted — host refetches or navigates away. */
   onDeleted: () => void;
+  /** Cover photo changed — host refetches; the edit menu stays open. */
+  onCoverChanged?: () => void;
 }
 
 const ARCHIVE_REASONS = [
@@ -59,8 +63,9 @@ export function EditGrowModal({
   onSaved,
   onArchived,
   onDeleted,
+  onCoverChanged,
 }: EditGrowModalProps) {
-  const { toast, showErrorToast } = useToast();
+  const { toast, showToast, showErrorToast } = useToast();
   const ownerId = grow.user_id ?? currentUserId;
   const displayName = profileVarietyName?.trim() ? `${profileName} (${profileVarietyName})` : profileName;
 
@@ -87,8 +92,8 @@ export function EditGrowModal({
   const [deleteNameInput, setDeleteNameInput] = useState("");
   const [deleteSaving, setDeleteSaving] = useState(false);
 
-  // Edit Photo placeholder — replaced by the Cover Photo ship's picker sheet
-  const [photoTodoOpen, setPhotoTodoOpen] = useState(false);
+  // Edit Photo — cover-photo picker sheet (self-loading; CoverPhotoSheet)
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
 
   const busy = saving || archiveSaving || deleteSaving;
   useModalBackClose(true, () => { if (!busy) onClose(); });
@@ -194,12 +199,12 @@ export function EditGrowModal({
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
               {/* Edit Photo at TOP — canonical position across edit modals (Syd lock
-                  2026-06-12; matches Edit Plant Profile modal). Placeholder until the
-                  Cover Photo ship wires the picker. */}
+                  2026-06-12; matches Edit Plant Profile modal). Opens the
+                  CoverPhotoSheet picker (cover-photo state machine, Syd lock 2026-06-11). */}
               <div>
                 <button
                   type="button"
-                  onClick={() => setPhotoTodoOpen(true)}
+                  onClick={() => setPhotoSheetOpen(true)}
                   className="w-full min-h-[44px] py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
                 >
                   Edit Photo
@@ -422,22 +427,20 @@ export function EditGrowModal({
         </>
       )}
 
-      {/* Edit Photo — placeholder until the Cover Photo ship wires the picker sheet */}
-      {photoTodoOpen && (
-        <>
-          <div className="fixed inset-0 z-[100] bg-black/40" aria-hidden onClick={() => setPhotoTodoOpen(false)} />
-          <div className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[101] bg-white rounded-2xl shadow-xl p-5 mx-auto max-w-sm" role="dialog" aria-modal="true" aria-labelledby="edit-photo-title">
-            <h2 id="edit-photo-title" className="text-lg font-semibold text-neutral-900 mb-1">Edit Photo</h2>
-            <p className="text-sm text-neutral-500 mb-4">Cover photo editing is coming in an upcoming update.</p>
-            <button
-              type="button"
-              onClick={() => setPhotoTodoOpen(false)}
-              className="w-full min-h-[44px] rounded-xl border border-teal-gus/40 text-teal-gus font-medium text-sm hover:bg-teal-gus/10"
-            >
-              Close
-            </button>
-          </div>
-        </>
+      {/* Edit Photo — cover-photo picker (sits over the menu like the archive/delete dialogs) */}
+      {photoSheetOpen && (
+        <CoverPhotoSheet
+          growId={grow.id}
+          ownerId={ownerId}
+          currentUserId={currentUserId}
+          plantProfileId={grow.plant_profile_id ?? null}
+          onClose={() => setPhotoSheetOpen(false)}
+          onChanged={() => {
+            setPhotoSheetOpen(false);
+            showToast("Cover photo updated.");
+            onCoverChanged?.();
+          }}
+        />
       )}
     </>
   );

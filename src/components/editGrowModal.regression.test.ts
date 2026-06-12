@@ -143,9 +143,18 @@ describe("Edit Plant field-set expansion", () => {
     expect(editGrowModal).toContain("patch.purchase_quantity");
   });
 
-  it("Edit Photo placeholder entry opens the TODO dialog (Cover Photo ship wires the picker)", () => {
+  it("Edit Photo entry opens the CoverPhotoSheet picker (TODO placeholder replaced — Cover Photo ship)", () => {
     expect(editGrowModal).toContain("Edit Photo");
-    expect(editGrowModal).toContain("Cover photo editing is coming in an upcoming update.");
+    expect(editGrowModal).not.toContain("Cover photo editing is coming in an upcoming update.");
+    expect(editGrowModal).toContain("<CoverPhotoSheet");
+    expect(editGrowModal).toContain("setPhotoSheetOpen(true)");
+  });
+
+  it("cover changes refetch the host but keep the edit menu open (onCoverChanged, no onClose)", () => {
+    expect(editGrowModal).toContain("onCoverChanged?.()");
+    expect(editGrowModal).toContain('showToast("Cover photo updated.")');
+    expect(instanceModal).toContain("onCoverChanged={() => loadData()}");
+    expect(vaultProfile).toContain("onCoverChanged={() => loadProfile()}");
   });
 
   it("save goes through the offline queue with owner-scoped match", () => {

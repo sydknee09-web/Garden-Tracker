@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/useToast";
 import { insertWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { fetchWeatherSnapshot } from "@/lib/weatherSnapshot";
 import { formatAge } from "@/lib/formatAge";
+import { resolveCoverEntry } from "@/lib/coverPhoto";
 import { fetchUserGroups, fetchInstanceGroups, setInstanceGroup } from "@/lib/groups";
 import type { GrowInstance, JournalEntry, Task, SupplyProfile, Group } from "@/types/garden";
 import type { BatchLogBatch } from "@/components/BatchLogSheet";
@@ -347,12 +348,15 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
   }, [editOpen, batchLogOpen, onSubSheetOpenChange]);
 
   // ---------------------------------------------------------------------------
-  // Hero image (Law 7 for this grow: journal → profile hero → profile packet → sprout)
+  // Hero image (cover state machine, then Law 7 profile chain: journal cover →
+  // profile hero → profile packet → sprout). Cover modes (Syd lock 2026-06-11):
+  // auto = latest non-receipt journal photo; pinned_journal = the pinned entry;
+  // pinned_profile_hero = skip journal, fall straight to the profile chain.
   // ---------------------------------------------------------------------------
   function heroImageUrl(): string | null {
-    // 1. Latest journal photo for this grow
-    const firstWithPhoto = journalEntries.find((e) => e.image_file_path || e.photo_url);
-    if (firstWithPhoto) return getJournalImageUrl(firstWithPhoto);
+    // 1. Cover-resolved journal photo for this grow
+    const coverEntry = grow ? resolveCoverEntry(grow, journalEntries) : null;
+    if (coverEntry) return getJournalImageUrl(coverEntry);
     // 2. Plant profile hero_image_path (journal-photos bucket)
     if (profile?.hero_image_path?.trim()) {
       return supabase.storage.from("journal-photos").getPublicUrl(profile.hero_image_path.trim()).data.publicUrl;
@@ -1150,6 +1154,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
             if (backHref) router.push(backHref);
             onClose();
           }}
+          onCoverChanged={() => loadData()}
         />
       )}
 

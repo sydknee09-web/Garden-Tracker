@@ -1507,6 +1507,7 @@ export default function VaultSeedPage() {
           onSaved={() => { setEditGrowTarget(null); loadProfile(); }}
           onArchived={() => { setEditGrowTarget(null); showToast("Archived"); loadProfile(); }}
           onDeleted={() => { setEditGrowTarget(null); loadProfile(); }}
+          onCoverChanged={() => loadProfile()}
         />
       )}
 

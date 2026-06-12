@@ -43,7 +43,7 @@ The plant **profile** (`/vault/[id]`) describes a variety ("how to grow Peaches"
 - Edit (pencil icon, inline location) and red trash (archive with confirm dialog)
 
 ### Hero image
-Law 7 fallback for this grow: latest `image_file_path` from journal entries for this grow → `hero_image_path` (journal-photos bucket) from plant profile → `hero_image_url` (external URL) from plant profile → `PlantPlaceholderIcon`
+Cover state machine first (Syd lock 2026-06-11; `cover_photo_mode` on grow_instances, resolver in `src/lib/coverPhoto.ts`): `auto` (default) = latest non-receipt journal photo (`entry_type != 'vault_add'`); `pinned_journal` = the pinned entry (`cover_photo_journal_entry_id`); `pinned_profile_hero` = skip journal photos. Then the Law 7 profile chain unchanged: `hero_image_path` (journal-photos bucket) from plant profile → `hero_image_url` (external URL) from plant profile → packet image → `PlantPlaceholderIcon`. Picker opens via pencil Edit Plant menu → Edit Photo (no tap-the-hero gesture — one edit path).
 
 ### Stats bar (horizontal scroll)
 | Stat | Source |

@@ -48,6 +48,14 @@ export interface Task {
 // ---------------------------------------------------------------------------
 export type GrowInstanceStatus = "growing" | "archived";
 
+/**
+ * Cover-photo state machine for a growing instance (Syd lock 2026-06-11).
+ * auto = most-recent non-receipt journal photo (default; silent profile-hero fallback);
+ * pinned_journal = user pinned a specific journal photo (cover_photo_journal_entry_id set);
+ * pinned_profile_hero = user pinned the species hero — journaling new photos never overrides.
+ */
+export type CoverPhotoMode = "auto" | "pinned_journal" | "pinned_profile_hero";
+
 export interface GrowInstance {
   id: string;
   plant_profile_id?: string | null;
@@ -77,6 +85,10 @@ export interface GrowInstance {
   vendor?: string | null;
   /** User-defined organization labels assigned to this planting; populated by joins via plant_groups. Optional — only present when the query selected groups. */
   groups?: Group[];
+  /** Cover-photo mode; null/undefined reads as 'auto' (pre-migration rows + narrow selects). */
+  cover_photo_mode?: CoverPhotoMode | null;
+  /** Journal entry pinned as cover; only meaningful when cover_photo_mode = 'pinned_journal'. */
+  cover_photo_journal_entry_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------
