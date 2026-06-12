@@ -548,7 +548,7 @@ export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = f
         {step === "extracting" && (
           <div className="py-6">
             <p className="text-sm text-black/70 mb-4">
-              Extracting packet details from your photos. This usually takes a few seconds per image.
+              {addPlantMode ? "Extracting plant details from your photos." : "Extracting packet details from your photos."} This usually takes a few seconds per image.
             </p>
             <div className="mb-2 flex justify-between text-sm">
               <span className="font-medium text-emerald-700">{pendingCount} of {queue.length} ready</span>
@@ -587,7 +587,7 @@ export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = f
               </p>
             )}
             <p className="text-sm text-black/70 mb-3">
-              <strong>Tips for best results:</strong> Take photos in bright light with minimal background. Make sure packet text is clear and visible. Wait until results finish loading before pressing Continue.
+              <strong>Tips for best results:</strong> Take photos in bright light with minimal background. Make sure {addPlantMode ? "plant label text" : "packet text"} is clear and visible. Wait until results finish loading before pressing Continue.
             </p>
             <div className="relative rounded-xl overflow-hidden bg-black/10 aspect-[4/3] mb-3">
               <video
@@ -694,7 +694,7 @@ export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = f
 
         {step === "review" ? (
           <>
-            <p className="text-sm text-black/70 mb-2">Confirm or edit Plant Type and Variety for each entry before saving to the Vault.</p>
+            <p className="text-sm text-black/70 mb-2">Confirm or edit Plant Type and Variety for each entry before {addPlantMode ? "adding your plants" : "saving to the Vault"}.</p>
             {multiItemWarning && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800" role="alert">
                 {multiItemWarning}
@@ -800,7 +800,7 @@ export function BatchAddSeed({ open, onClose, onNavigateToHero, addPlantMode = f
               disabled={saving || pendingCount === 0}
               className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save to Vault"}
+              {saving ? "Saving…" : addPlantMode ? "Add Plants" : "Save to Vault"}
             </button>
           )}
         </div>

@@ -1214,8 +1214,12 @@ export default function ReviewImportPage() {
       </h1>
       <p className="text-sm text-black/60 mb-4">
         {importSource === "purchase_order"
-          ? "Edit the extracted data below, then find hero photos (Step 2) or save to the vault."
-          : "Edit the extracted data below, then save all to the vault."}
+          ? (addPlantMode
+              ? "Edit the extracted data below, then find hero photos (Step 2) or add your plants."
+              : "Edit the extracted data below, then find hero photos (Step 2) or save to the vault.")
+          : (addPlantMode
+              ? "Edit the extracted data below, then add your plants."
+              : "Edit the extracted data below, then save all to the vault.")}
       </p>
 
       {error && (
@@ -1506,13 +1510,13 @@ export default function ReviewImportPage() {
                   </div>
                   <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 content-start">
                     <div className="sm:col-span-2 lg:col-span-1">
-                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Vendor</label>}
+                    {addPlantMode && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Vendor</label>}
                     <div className="inline-flex items-center gap-1.5 flex-wrap w-full">
                       <Combobox
                         value={item.vendor}
                         onChange={(v) => updateItem(item.id, { vendor: v })}
                         suggestions={vendorSuggestions}
-                        placeholder={addPlantMode && importSource === "purchase_order" ? "Vendor" : "Vendor"}
+                        placeholder="Vendor"
                         aria-label="Vendor"
                         className={`w-full min-w-0 rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                       />
@@ -1524,12 +1528,12 @@ export default function ReviewImportPage() {
                     </div>
                     </div>
                     <div>
-                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Plant name</label>}
+                    {addPlantMode && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Plant name</label>}
                     <Combobox
                       value={item.type}
                       onChange={(v) => updateItem(item.id, { type: v })}
                       suggestions={plantSuggestions}
-                      placeholder={addPlantMode && importSource === "purchase_order" ? "Plant name" : "Plant type"}
+                      placeholder={addPlantMode ? "Plant name" : "Plant type"}
                       aria-label="Plant type"
                       className={`w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                     />
@@ -1562,13 +1566,13 @@ export default function ReviewImportPage() {
                     )}
                     <div className="sm:col-span-2">
                     <div className="space-y-1">
-                      {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Variety</label>}
+                      {addPlantMode && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Variety</label>}
                       <div className="flex items-center gap-2 flex-wrap">
                         <Combobox
                           value={decodeHtmlEntities(item.variety ?? item.cleanVariety ?? "")}
                           onChange={(v) => updateItem(item.id, { variety: v })}
                           suggestions={varietySuggestionsByPlant[item.type ?? ""] ?? []}
-                          placeholder={addPlantMode && importSource === "purchase_order" ? "Variety" : "Variety"}
+                          placeholder="Variety"
                           aria-label="Variety"
                           className={`flex-1 min-w-[100px] rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]${inputLowConfidence}`}
                         />
@@ -1596,7 +1600,7 @@ export default function ReviewImportPage() {
                               : "this variety";
                             return (
                               <span className="text-xs text-emerald-800/90 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                {(addPlantMode && importSource === "purchase_order") ? "Plant will be added under" : "Packet will be added under"} <strong>{label}</strong>
+                                {addPlantMode ? "Plant will be added under" : "Packet will be added under"} <strong>{label}</strong>
                                 {profile && (
                                   <Link
                                     href={`/vault/${profile.id}`}
@@ -1633,7 +1637,7 @@ export default function ReviewImportPage() {
                     </div>
                   </div>
                     <div>
-                    {(addPlantMode && importSource === "purchase_order") && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Purchase date</label>}
+                    {addPlantMode && <label className="block text-xs font-medium text-neutral-500 mb-0.5">Purchase date</label>}
                     <input
                       type="date"
                       value={item.purchaseDate || todayISO()}
@@ -1642,7 +1646,7 @@ export default function ReviewImportPage() {
                       aria-label="Purchase date"
                     />
                     </div>
-                    {addPlantMode && importSource === "purchase_order" && (
+                    {addPlantMode && (
                       <div>
                         <label className="block text-xs font-medium text-neutral-500 mb-0.5">Nursery</label>
                         <input
@@ -1656,17 +1660,17 @@ export default function ReviewImportPage() {
                       </div>
                     )}
                     <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">{(addPlantMode && importSource === "purchase_order") ? "Plant notes" : "Packet notes"}</label>
+                    <label className="block text-xs font-medium text-neutral-500 mb-0.5">{addPlantMode ? "Plant notes" : "Packet notes"}</label>
                     <textarea
                       value={item.user_notes ?? ""}
                       onChange={(e) => updateItem(item.id, { user_notes: e.target.value })}
                       placeholder="Optional"
                       rows={2}
                       className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-sm min-h-[44px]"
-                      aria-label={(addPlantMode && importSource === "purchase_order") ? "Plant notes" : "Packet notes"}
+                      aria-label={addPlantMode ? "Plant notes" : "Packet notes"}
                     />
                     </div>
-                    {!(addPlantMode && importSource === "purchase_order") && (
+                    {!addPlantMode && (
                     <div>
                     <label className="block text-xs font-medium text-neutral-500 mb-0.5">Storage location</label>
                     <input
@@ -1760,6 +1764,8 @@ export default function ReviewImportPage() {
             </>
           ) : saving ? (
             savingPhase
+          ) : addPlantMode ? (
+            "Add All Plants"
           ) : (
             "Save All to Vault"
           )}
