@@ -114,6 +114,25 @@ describe("buildResearchPrompt framings (Ship 2)", () => {
     expect(RESEARCH_PROMPT).toContain("indoor_start_weeks_before_frost");
     expect(RESEARCH_PROMPT).toContain("outdoor_plant_weeks_after_frost");
   });
+
+  // Sprint 6 (#15/#18/#22): the field instructions ask for rich, deep content rather than
+  // optional one-liners, and nudge intrinsic taxonomic facts to fill from general knowledge.
+  it("asks growing_notes for a rich how-to-grow narrative, not an optional one-liner", () => {
+    expect(RESEARCH_PROMPT).toContain("growing_notes");
+    expect(RESEARCH_PROMPT).toMatch(/growing_notes:[^]*?narrative/);
+    // The old weak "optional short ... if easily found" framing must be gone.
+    expect(RESEARCH_PROMPT).not.toContain("optional short");
+  });
+
+  it("asks propagation_notes and seed_saving_notes for detailed depth", () => {
+    expect(RESEARCH_PROMPT).toMatch(/propagation_notes:[^]*?step-by-step/);
+    expect(RESEARCH_PROMPT).toMatch(/seed_saving_notes:[^]*?viability/);
+  });
+
+  it("nudges intrinsic taxonomic characteristics to fill from general botanical knowledge", () => {
+    expect(RESEARCH_PROMPT).toContain("general botanical knowledge");
+    expect(RESEARCH_PROMPT).toContain("do not vary by seed brand");
+  });
 });
 
 describe("buildTierLadder (Ship 2 tag-aware framing)", () => {

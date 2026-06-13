@@ -40,24 +40,55 @@ export type EnrichProfileFromNameResult = {
 type EnrichFromNameResponse = {
   enriched?: boolean;
   sun?: string | null;
+  sun_summary?: string | null;
+  sun_detail?: string | null;
   plant_spacing?: string | null;
   days_to_germination?: string | null;
   harvest_days?: number | null;
   sowing_depth?: string | null;
+  planting_depth?: number | null;
   sowing_method?: string | null;
   planting_window?: string | null;
+  spring_indoor_window?: string | null;
+  spring_outdoor_window?: string | null;
+  summer_window?: string | null;
+  fall_outdoor_window?: string | null;
   water?: string | null;
+  water_summary?: string | null;
+  water_detail?: string | null;
   source_url?: string | null;
   plant_description?: string | null;
   growing_notes?: string | null;
   propagation_notes?: string | null;
+  propagation_method?: string[] | null;
   seed_saving_notes?: string | null;
   seed_propagation_context?: string | null;
   mature_height?: string | null;
   mature_width?: string | null;
   companion_plants?: string[] | null;
   avoid_plants?: string[] | null;
+  harvest_season?: string[] | null;
+  // Classification tags
   lifecycle?: string | null;
+  growth_form?: string | null;
+  plant_category?: string | null;
+  growth_habit?: string | null;
+  // Characteristics (Sprint 6 #18 — creation writer brought to parity with fill-blanks)
+  soil_preference?: string | null;
+  disease_susceptibility?: string[] | null;
+  pollination_requirements?: string | null;
+  toxicity?: string | null;
+  deer_rabbit_resistance?: string | null;
+  wildlife_value?: string | null;
+  invasiveness?: string | null;
+  native_origin?: string | null;
+  drought_salt_tolerance?: string | null;
+  synonyms?: string[] | null;
+  uses?: string[] | null;
+  special_features?: string[] | null;
+  family?: string | null;
+  genus?: string | null;
+  species?: string | null;
   when_to_plant_description?: string | null;
   planting_seasons_tags?: string[] | null;
   optimal_planting_months_array?: number[] | null;
@@ -229,6 +260,41 @@ export async function enrichProfileFromName(
       if (Array.isArray(enrichData.optimal_planting_months_array) && enrichData.optimal_planting_months_array.length > 0) updates.optimal_planting_months_array = enrichData.optimal_planting_months_array;
       if (typeof enrichData.indoor_start_weeks_before_frost === "number") updates.indoor_start_weeks_before_frost = enrichData.indoor_start_weeks_before_frost;
       if (typeof enrichData.outdoor_plant_weeks_after_frost === "number") updates.outdoor_plant_weeks_after_frost = enrichData.outdoor_plant_weeks_after_frost;
+
+      // Sprint 6 #18: creation-time writer brought to field-parity with the fill-blanks route, so a
+      // freshly-created profile shows a populated Plant Characteristics section without a second
+      // manual "Fill empty cells". New profiles are blank at creation → unconditional writes (matching
+      // the established sun/water/lifecycle pattern above) land on empty fields; provenance loop below
+      // tags every written key.
+      if (enrichData.sun_summary != null) updates.sun_summary = enrichData.sun_summary;
+      if (enrichData.sun_detail != null) updates.sun_detail = enrichData.sun_detail;
+      if (enrichData.water_summary != null) updates.water_summary = enrichData.water_summary;
+      if (enrichData.water_detail != null) updates.water_detail = enrichData.water_detail;
+      if (enrichData.planting_depth != null) updates.planting_depth = enrichData.planting_depth;
+      if (enrichData.spring_indoor_window != null) updates.spring_indoor_window = enrichData.spring_indoor_window;
+      if (enrichData.spring_outdoor_window != null) updates.spring_outdoor_window = enrichData.spring_outdoor_window;
+      if (enrichData.summer_window != null) updates.summer_window = enrichData.summer_window;
+      if (enrichData.fall_outdoor_window != null) updates.fall_outdoor_window = enrichData.fall_outdoor_window;
+      if (enrichData.growth_form != null) updates.growth_form = enrichData.growth_form;
+      if (enrichData.plant_category != null) updates.plant_category = enrichData.plant_category;
+      if (enrichData.growth_habit != null) updates.growth_habit = enrichData.growth_habit;
+      if (enrichData.soil_preference != null) updates.soil_preference = enrichData.soil_preference;
+      if (enrichData.pollination_requirements != null) updates.pollination_requirements = enrichData.pollination_requirements;
+      if (enrichData.toxicity != null) updates.toxicity = enrichData.toxicity;
+      if (enrichData.deer_rabbit_resistance != null) updates.deer_rabbit_resistance = enrichData.deer_rabbit_resistance;
+      if (enrichData.wildlife_value != null) updates.wildlife_value = enrichData.wildlife_value;
+      if (enrichData.invasiveness != null) updates.invasiveness = enrichData.invasiveness;
+      if (enrichData.native_origin != null) updates.native_origin = enrichData.native_origin;
+      if (enrichData.drought_salt_tolerance != null) updates.drought_salt_tolerance = enrichData.drought_salt_tolerance;
+      if (enrichData.family != null) updates.family = enrichData.family;
+      if (enrichData.genus != null) updates.genus = enrichData.genus;
+      if (enrichData.species != null) updates.species = enrichData.species;
+      if (Array.isArray(enrichData.propagation_method) && enrichData.propagation_method.length > 0) updates.propagation_method = enrichData.propagation_method;
+      if (Array.isArray(enrichData.harvest_season) && enrichData.harvest_season.length > 0) updates.harvest_season = enrichData.harvest_season;
+      if (Array.isArray(enrichData.disease_susceptibility) && enrichData.disease_susceptibility.length > 0) updates.disease_susceptibility = enrichData.disease_susceptibility;
+      if (Array.isArray(enrichData.synonyms) && enrichData.synonyms.length > 0) updates.synonyms = enrichData.synonyms;
+      if (Array.isArray(enrichData.uses) && enrichData.uses.length > 0) updates.uses = enrichData.uses;
+      if (Array.isArray(enrichData.special_features) && enrichData.special_features.length > 0) updates.special_features = enrichData.special_features;
 
       const provenanceLevel = (enrichData.provenance ?? "").trim();
       const needsProfileRead =

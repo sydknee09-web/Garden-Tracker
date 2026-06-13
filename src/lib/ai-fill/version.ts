@@ -14,9 +14,17 @@
  * enough that existing rows should be re-enriched the next time they're touched. A bump means
  * "every pre-bump profile becomes legacy" — so bump deliberately, not for cosmetic prompt tweaks.
  *
+ * BUMP LOG:
+ *  - v1 (2026-06-13): first versioned generation (enrichment_version ship).
+ *  - v2 (2026-06-13, Sprint 6): AI-fill quality bundle — the Gemini prompt now produces a rich
+ *    Growing Notes narrative, deeper Propagation + seed-saving guidance, and fuller Plant
+ *    Characteristics (Findings #15/#18/#22), and the creation-time writer now persists the full
+ *    characteristics field set. v1 output is materially thinner, so v1 profiles and library rows
+ *    self-heal (re-enrich) on their next AI-fill touch.
+ *
  * Pure constant — safe to import from both server routes and client components.
  */
-export const CURRENT_AI_FILL_VERSION = 1;
+export const CURRENT_AI_FILL_VERSION = 2;
 
 /**
  * Whether an AI Fill run may write an AI-derived value into a profile field.
