@@ -373,11 +373,6 @@ export function VaultProfileAboutTab({
   // houseplants. CORE fields (Toxicity, Wildlife) always show.
   const isHouseplant = profile.plant_category === "Houseplant";
   const isEdible = isEdiblePlant(profile);
-  // Tier suffix for the Description "Source: AI research" line, e.g. " (species-level data)".
-  const descriptionLevels = sectionProvenanceLevels(profile.field_provenance, ["plant_description"]);
-  const descriptionTierSuffix =
-    descriptionLevels.length > 0 ? ` (${descriptionLevels.map((l) => PROVENANCE_PHRASES[l]).join(" + ")})` : "";
-
   const matureSize = formatMatureSize(profile.mature_height, profile.mature_width);
 
   // When to Plant (Sprint 10): its own card now. Computed pieces drive both visibility and render.
@@ -467,12 +462,28 @@ export function VaultProfileAboutTab({
             <PillDetailField label="Plant Category" value={profile.plant_category} pill />
             <PillDetailField label="Mature Size" value={matureSize} />
           </dl>
-          {profile?.plant_description?.trim() && profile.description_source && (
-            <p className="text-xs text-neutral-500 mt-3">
-              Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? `AI research${descriptionTierSuffix}` : "You"}
-            </p>
-          )}
-          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, AT_A_GLANCE_PROVENANCE_FIELDS)} />
+          {/* ONE source footer (dogfood 2026-06-13): At a Glance merges the former Description +
+              Characteristics cards, so it must not render both cards' source lines. A vendor/you
+              description gets its explicit label; otherwise aggregate the AI provenance across the
+              card's fields (description + quick stats) into a single "AI research" line. */}
+          {(() => {
+            const hasDesc = !!profile?.plant_description?.trim();
+            if (hasDesc && (profile.description_source === "vendor" || profile.description_source === "you")) {
+              return (
+                <p className="text-xs text-neutral-500 mt-3">
+                  Source: {profile.description_source === "vendor" ? "Vendor" : "You"}
+                </p>
+              );
+            }
+            return (
+              <ProvenanceSourceLine
+                levels={sectionProvenanceLevels(profile.field_provenance, [
+                  ...(hasDesc ? ["plant_description"] : []),
+                  ...AT_A_GLANCE_PROVENANCE_FIELDS,
+                ])}
+              />
+            );
+          })()}
         </SectionCard>
       )}
 
