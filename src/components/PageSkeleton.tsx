@@ -143,7 +143,7 @@ export function PageSkeletonVault() {
   return <InventorySurfaceSkeleton tabs={2} />;
 }
 
-/** /plants — Library single-state tab slot (VISION §8 single-state tab-slot), toolbar, photo grid. */
+/** /library — Library single-state tab slot (VISION §8 single-state tab-slot), toolbar, photo grid. */
 export function PageSkeletonLibrary() {
   return <InventorySurfaceSkeleton tabs={1} />;
 }

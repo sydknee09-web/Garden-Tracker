@@ -154,7 +154,14 @@ The user should never feel lost. Cohesion (Operating principle 7) is the long-te
 
 *Detailed page goals deferred to Phase 5.*
 
-### Vault (Library, Packets, Shed)
+### Library + Vault
+
+**Surface split (locked 2026-06-13, `d6cf9ad`).** Library and Vault are now **distinct bottom-nav surfaces**:
+- **Library** = `/library` — the plant-profiles encyclopedia (`/library` landing → tap a profile → `/library/[id]`). The placeholder / grid-card notes below describe Library profile cards.
+- **Vault** = `/vault` — product inventory (Packets + Shed). The Shed block below lives here.
+
+Old `/plants` and `/vault/<profileId>` URLs 308-redirect to their `/library` equivalents; `/vault` sub-routes (packets / shed / import / history / tags / review-import / plant) are untouched.
+
 - **Plant placeholder asset:** `/public/plant-placeholder.png` (the three-leaf PNG). Canonical placeholder; not the SeedlingIcon component.
 - **Placeholder container background:** `bg-white`. Matches the PNG's white background — no visible seam.
 - **Vault grid card layout:** 3 cards per row on mobile/tablet (`<lg`). On desktop (`lg:`+) the Library grid auto-fills ~200px tiles (`grid-cols-[repeat(auto-fill,minmax(200px,1fr))]`) so wide viewports show more inventory per row instead of 3 oversized cards — cards stay ~200px at every desktop width (never huge on ultrawide, never below 200px). *(Finding 6, Syd dogfood 2026-06-01; Library-only pre-ship — Packets/Shed/Garden peers still 3-col, reconciled in the broader Desktop Responsive Audit per the cross-view question below.)*
