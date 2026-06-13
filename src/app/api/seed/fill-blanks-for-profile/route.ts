@@ -10,6 +10,7 @@ import {
 } from "@/lib/fillBlanksCache";
 import { logRequestMetrics } from "@/lib/logRequestMetrics";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
+import { CURRENT_AI_FILL_VERSION, isFieldFillEligible } from "@/lib/ai-fill/version";
 
 // Single retry (2 attempts) for the slow enrich call below. The route's maxDuration
 // is 60s and enrich-from-name is a Gemini call, so we bound retries tightly to
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       .select(
         "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
           "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species, " +
-          "field_provenance, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost"
+          "field_provenance, enrichment_version, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
@@ -167,7 +168,7 @@ export async function POST(req: Request) {
     const filledFields = new Set<string>();
     const countUpdate = (obj: Record<string, unknown>) =>
       Object.keys(obj).forEach((k) => {
-        if (k !== "description_source" && k !== "field_provenance") filledFields.add(k);
+        if (k !== "description_source" && k !== "field_provenance" && k !== "enrichment_version") filledFields.add(k);
       });
 
     const bestRow = !bypassCache ? await getBestCacheRow(supabase, identityKey, purchaseUrl ?? null, vendor) : null;
@@ -290,16 +291,30 @@ export async function POST(req: Request) {
           };
 
           const aiUpdates: Record<string, unknown> = {};
-          // Fill-only-blanks unless overwrite: respects the "Fill blanks" vs "Overwrite" button semantics.
+          // Version-aware Fill Blanks (enrichment versioning, 2026-06-13):
+          //  - Overwrite button  → always writes (unchanged).
+          //  - Fill Blanks, profile version == CURRENT → blanks-only (unchanged — current data stays).
+          //  - Fill Blanks, profile version <  CURRENT → ALSO re-fills fields that carry an AI
+          //    field_provenance entry (legacy AI data self-heals), while user-typed / vendor /
+          //    pre-Ship-2 fields (no provenance entry) stay protected (item 6 invariant).
+          const profileVersion = typeof p.enrichment_version === "number" ? p.enrichment_version : 0;
+          const provMap =
+            p.field_provenance && typeof p.field_provenance === "object" && !Array.isArray(p.field_provenance)
+              ? (p.field_provenance as Record<string, unknown>)
+              : {};
+          const aiOwned = (col: string) => Object.prototype.hasOwnProperty.call(provMap, col);
+          /** May this run write a value into `col`, whose current value is `blank`? */
+          const eligible = (col: string, blank: boolean) =>
+            isFieldFillEligible({ overwrite, blank, profileVersion, fieldHasProvenance: aiOwned(col) });
           const setStr = (col: string, val: string) => {
-            if (val && (overwrite || !String(p[col] ?? "").trim())) aiUpdates[col] = val;
+            if (val && eligible(col, !String(p[col] ?? "").trim())) aiUpdates[col] = val;
           };
           const setNum = (col: string, val: number | null) => {
-            if (val != null && (overwrite || p[col] == null || p[col] === 0)) aiUpdates[col] = val;
+            if (val != null && eligible(col, p[col] == null || p[col] === 0)) aiUpdates[col] = val;
           };
           const setArr = (col: string, val: string[]) => {
             const existing = Array.isArray(p[col]) ? (p[col] as unknown[]) : [];
-            if (val.length > 0 && (overwrite || existing.length === 0)) aiUpdates[col] = val;
+            if (val.length > 0 && eligible(col, existing.length === 0)) aiUpdates[col] = val;
           };
 
           const aiDesc = dStr("plant_description");
@@ -368,10 +383,11 @@ export async function POST(req: Request) {
             : [];
           {
             const existingMonths = Array.isArray(p.optimal_planting_months_array) ? (p.optimal_planting_months_array as unknown[]) : [];
-            if (dMonths.length > 0 && (overwrite || existingMonths.length === 0)) aiUpdates.optimal_planting_months_array = dMonths;
+            if (dMonths.length > 0 && eligible("optimal_planting_months_array", existingMonths.length === 0)) aiUpdates.optimal_planting_months_array = dMonths;
           }
+          // 0 is meaningful for the week offsets ("at last frost") → blank only when null.
           const setWeeks = (col: string, v: unknown) => {
-            if (typeof v === "number" && Number.isInteger(v) && (overwrite || p[col] == null)) aiUpdates[col] = v;
+            if (typeof v === "number" && Number.isInteger(v) && eligible(col, p[col] == null)) aiUpdates[col] = v;
           };
           setWeeks("indoor_start_weeks_before_frost", data.indoor_start_weeks_before_frost);
           setWeeks("outdoor_plant_weeks_after_frost", data.outdoor_plant_weeks_after_frost);
@@ -383,6 +399,10 @@ export async function POST(req: Request) {
 
           if (Object.keys(aiUpdates).length > 0) {
             if (aiUpdates.plant_description || aiUpdates.growing_notes) aiUpdates.description_source = "ai";
+            // Stamp the current enrichment generation: this profile's AI-fillable data is now
+            // current-pipeline output, so future Fill Blanks revert to blanks-only (legacy
+            // self-heal complete). Only on a real find — never on found:false.
+            if (data.found === true) aiUpdates.enrichment_version = CURRENT_AI_FILL_VERSION;
             // Provenance tagging (Ship 2): every AI-written data field records the tier its data
             // came from. Merge over the existing map — entries for fields NOT written this run
             // (user edits, earlier fills) are preserved. Meta fields are not data → not tagged.
@@ -394,7 +414,7 @@ export async function POST(req: Request) {
                   : {};
               const newEntries: Record<string, string> = {};
               for (const key of Object.keys(aiUpdates)) {
-                if (key === "description_source" || key === "profile_type") continue;
+                if (key === "description_source" || key === "profile_type" || key === "enrichment_version") continue;
                 newEntries[key] = level;
               }
               aiUpdates.field_provenance = { ...existingProvenance, ...newEntries };

@@ -11,6 +11,7 @@ import { identityKeyFromVariety } from "@/lib/identityKey";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { checkRateLimit, DEFAULT_RATE_LIMIT } from "@/lib/rateLimit";
 import { checkDailyAiCeiling } from "@/lib/aiDailyCeiling";
+import { CURRENT_AI_FILL_VERSION } from "@/lib/ai-fill/version";
 
 // Tiered retry can run up to 3 sequential Gemini calls (variety/cultivar → combined → species).
 export const maxDuration = 60;
@@ -142,7 +143,7 @@ const LIBRARY_COLUMNS =
   "drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, " +
   "harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, " +
   "family, genus, species, " +
-  "when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, found_level";
+  "when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, found_level, enrichment_version";
 
 type LibraryRow = Record<string, unknown>;
 
@@ -294,22 +295,26 @@ export async function POST(req: Request) {
     // forceRefresh (explicit user re-research) bypasses the cache entirely so the AI actually runs.
     if (auth?.supabase && identityKey && !skipLibrary && !forceRefresh) {
       try {
+        // Self-heal: a cached row below CURRENT_AI_FILL_VERSION is legacy data — treat it as a
+        // cache miss and fall through to fresh AI (which re-writes the row at CURRENT). This is
+        // what retires the deferred backfill pass. `num()` coerces a missing/0 version to legacy.
+        const isCurrentVersion = (row: LibraryRow) => (num(row.enrichment_version) ?? 0) >= CURRENT_AI_FILL_VERSION;
         const { data: libRow } = await auth.supabase
           .from("global_plant_library")
           .select(LIBRARY_COLUMNS)
           .eq("identity_key", identityKey)
           .maybeSingle();
-        if (libRow) {
+        if (libRow && isCurrentVersion(libRow as unknown as LibraryRow)) {
           const response = responseFromLibraryRow(libRow as unknown as LibraryRow, userZone, "variety");
           return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response });
         }
-        if (speciesKey && speciesKey !== identityKey) {
+        if (!libRow && speciesKey && speciesKey !== identityKey) {
           const { data: speciesRow } = await auth.supabase
             .from("global_plant_library")
             .select(LIBRARY_COLUMNS)
             .eq("identity_key", speciesKey)
             .maybeSingle();
-          if (speciesRow) {
+          if (speciesRow && isCurrentVersion(speciesRow as unknown as LibraryRow)) {
             const response = responseFromLibraryRow(speciesRow as unknown as LibraryRow, userZone, "species");
             // Species cache hits are tagged species-level — never silently presented as variety data.
             return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response, provenance: "species" });
@@ -434,6 +439,7 @@ export async function POST(req: Request) {
           {
             identity_key: cacheKey,
             found_level: foundLevel,
+            enrichment_version: CURRENT_AI_FILL_VERSION,
             when_to_plant_description: response.when_to_plant_description ?? null,
             planting_seasons_tags: response.planting_seasons_tags ?? null,
             optimal_planting_months_array: response.optimal_planting_months_array ?? null,

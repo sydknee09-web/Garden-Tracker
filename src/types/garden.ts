@@ -305,6 +305,8 @@ export interface PlantProfile {
   // ── AI Fill overhaul Ship 2 (migration 20260611150000) ──
   /** Per-field AI provenance map { column: 'variety' | 'cultivar' | 'species' }. Absent entry = user-entered / legacy. */
   field_provenance?: Record<string, string> | null;
+  /** Generation of AI enrichment (migration 20260613130000). 0 = legacy/needs-re-enrichment; CURRENT_AI_FILL_VERSION = current. */
+  enrichment_version?: number | null;
   /** Rich plain-language When-to-Plant narrative ("Cannas are a spring/summer plant…"). */
   when_to_plant_description?: string | null;
   /** Seasons appropriate for planting: Spring | Summer | Fall | Winter. */

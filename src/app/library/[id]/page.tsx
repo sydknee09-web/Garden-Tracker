@@ -10,6 +10,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import type { PlantProfile, PlantVarietyProfile, SeedPacket, GrowInstance, JournalEntry, CareSchedule, CareScheduleSuggestion, VendorSpecs } from "@/types/garden";
 import { getZone10bScheduleForPlant } from "@/data/zone10b_schedule";
 import { getEffectiveCare } from "@/lib/plantCareHierarchy";
+import { CURRENT_AI_FILL_VERSION } from "@/lib/ai-fill/version";
 import { isPlantableInMonthSimple } from "@/lib/plantingWindowSimple";
 import { TagBadges } from "@/components/TagBadges";
 import { CareScheduleManager } from "@/components/CareScheduleManager";
@@ -211,7 +212,7 @@ export default function VaultSeedPage() {
       .from("plant_profiles")
       // Includes the Sprint 4 enrichment columns (Chunk B display). Kept as ONE literal —
       // supabase's row-type inference degrades on concatenated select strings.
-      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, planting_window_zone, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth, propagation_notes, seed_saving_notes, seed_propagation_context, lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, family, genus, species, mature_height, mature_width, field_provenance, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost")
+      .select("id, name, variety_name, user_id, sun, water, harvest_days, days_to_germination, plant_spacing, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, height, tags, status, sowing_method, planting_window, planting_window_zone, purchase_date, created_at, botanical_care_notes, profile_type, companion_plants, avoid_plants, plant_description, growing_notes, description_source, scientific_name, sowing_depth, propagation_notes, seed_saving_notes, seed_propagation_context, lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, family, genus, species, mature_height, mature_width, field_provenance, enrichment_version, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost")
       .eq("id", id).is("deleted_at", null).maybeSingle();
 
     if (e1) {
@@ -721,6 +722,19 @@ export default function VaultSeedPage() {
   const waterDetail = (profile as PlantProfile).water_detail?.trim() || null;
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
+
+  // Enrichment-versioning loading state (2026-06-13): while an AI Fill job is in flight for this
+  // profile, branch the About-tab render on whether the on-row data is legacy or current.
+  //  - legacy (version < CURRENT): HIDE the AI-fillable values behind a skeleton — they may be
+  //    stale and about to change (kills the value-flash from Finding #39).
+  //  - current (version >= CURRENT): only blanks will fill, so existing values stay; skeleton only
+  //    the AI-fillable sections that are currently empty.
+  const profileEnrichVersion =
+    typeof (profile as PlantProfile).enrichment_version === "number"
+      ? ((profile as PlantProfile).enrichment_version as number)
+      : 0;
+  const enrichmentLoading = isOwnProfile && fillBlanksRunning && profileEnrichVersion < CURRENT_AI_FILL_VERSION;
+  const enrichmentBlankLoading = isOwnProfile && fillBlanksRunning && profileEnrichVersion >= CURRENT_AI_FILL_VERSION;
   // canEdit = true when it's the user's own profile OR they have an edit grant from the owner
   const canEdit = isOwnProfile || canEditPage(profileOwnerId, "plant_vault");
 
@@ -1352,6 +1366,8 @@ export default function VaultSeedPage() {
             waterPill={waterPill}
             waterDetail={waterDetail}
             growingNotes={growingNotes}
+            enrichmentLoading={enrichmentLoading}
+            enrichmentBlankLoading={enrichmentBlankLoading}
             aboutCollapsed={aboutCollapsed}
             toggleAboutSection={toggleAboutSection}
             isAboutOpen={isAboutOpen}

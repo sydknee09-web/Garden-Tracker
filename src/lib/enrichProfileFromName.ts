@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identityKeyFromVariety } from "@/lib/identityKey";
 import { logEvent } from "@/lib/debugLog";
+import { CURRENT_AI_FILL_VERSION } from "@/lib/ai-fill/version";
 
 export type EnrichProfileFromNameOptions = {
   vendor?: string;
@@ -192,6 +193,8 @@ export async function enrichProfileFromName(
         logEvent("enrich", "zone_fallback", { profileId, reason: "ai_no_zone_data" });
       }
       const updates: Record<string, unknown> = {};
+      // Current-pipeline enrichment → stamp the generation (enrichment versioning, 2026-06-13).
+      updates.enrichment_version = CURRENT_AI_FILL_VERSION;
       if (enrichData.sun != null) updates.sun = enrichData.sun;
       if (enrichData.plant_spacing != null) updates.plant_spacing = enrichData.plant_spacing;
       if (enrichData.days_to_germination != null) updates.days_to_germination = enrichData.days_to_germination;
@@ -256,7 +259,7 @@ export async function enrichProfileFromName(
                 : {};
             const newEntries: Record<string, string> = {};
             for (const key of Object.keys(updates)) {
-              if (key === "botanical_care_notes" || key === "profile_type") continue;
+              if (key === "botanical_care_notes" || key === "profile_type" || key === "enrichment_version") continue;
               newEntries[key] = provenanceLevel;
             }
             updates.field_provenance = { ...existingProvenance, ...newEntries };

@@ -40,6 +40,12 @@ export interface VaultProfileAboutTabProps {
   retryRunning?: boolean;
   onRetryAi?: () => void;
   onDismissAiNotFound?: () => void;
+  /** AI Fill in flight + on-row data is LEGACY (version < CURRENT) → hide possibly-stale AI values
+   *  behind a skeleton until the fill completes (kills the value-flash from Finding #39). */
+  enrichmentLoading?: boolean;
+  /** AI Fill in flight + on-row data is CURRENT → values stay (only blanks fill); show a subtle
+   *  "filling in details" skeleton hint rather than hiding anything. */
+  enrichmentBlankLoading?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +131,49 @@ function PillDetailField({
 /** In-card sub-header register (existing "How to propagate" label anchor). */
 function SubHeader({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1.5">{children}</p>;
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment-versioning loading states (2026-06-13). Skeleton lines use the
+// canonical bg-neutral-200 rounded animate-pulse token (PageSkeleton); the spinner
+// matches the existing AI-button spinner primitive.
+// ---------------------------------------------------------------------------
+
+/** A single AI-section card placeholder shown while AI Fill runs on a LEGACY profile. */
+function AiFillSkeletonCard({ title }: { title: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-neutral-200 mb-4 overflow-hidden" aria-hidden>
+      <div className="flex items-center justify-between gap-2 p-4 min-h-[44px]">
+        <h3 className="text-sm font-semibold text-neutral-700">{title}</h3>
+        <span className="w-4 h-4 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin shrink-0" />
+      </div>
+      <div className="px-4 pb-4 pt-0 space-y-2">
+        <div className="h-4 bg-neutral-200 rounded animate-pulse w-3/4" />
+        <div className="h-4 bg-neutral-200 rounded animate-pulse w-5/6" />
+        <div className="h-4 bg-neutral-200 rounded animate-pulse w-2/3" />
+      </div>
+    </div>
+  );
+}
+
+/** Legacy-profile loading group: hides possibly-stale AI content behind skeletons. */
+function AiFillSkeletonGroup() {
+  return (
+    <div aria-live="polite" aria-busy="true">
+      <AiFillSkeletonCard title="Description" />
+      <AiFillSkeletonCard title="How to Grow" />
+    </div>
+  );
+}
+
+/** Current-profile loading hint: values already shown stay put; this signals blanks are filling. */
+function AiFillBlankHint() {
+  return (
+    <div className="flex items-center gap-2 mb-4 px-1 text-xs text-neutral-500" aria-live="polite" aria-busy="true">
+      <span className="w-3.5 h-3.5 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin shrink-0" aria-hidden />
+      <span>Filling in remaining details…</span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +268,8 @@ export function VaultProfileAboutTab({
   retryRunning = false,
   onRetryAi,
   onDismissAiNotFound,
+  enrichmentLoading = false,
+  enrichmentBlankLoading = false,
 }: VaultProfileAboutTabProps) {
   // B4 anchor sections — auto-generated from the sections this profile renders.
   const anchorSections = [
@@ -335,6 +386,15 @@ export function VaultProfileAboutTab({
         </div>
       )}
 
+      {/* Enrichment-versioning loading branch (2026-06-13): a legacy in-flight fill hides the
+          possibly-stale AI sections behind a skeleton; otherwise render them, with a subtle
+          blank-fill hint when a current-version fill is running. Propagation (below Tags) is the
+          one AI section outside this contiguous block — minor uncovered tail, documented in plan. */}
+      {enrichmentLoading ? (
+        <AiFillSkeletonGroup />
+      ) : (
+        <>
+      {enrichmentBlankLoading && <AiFillBlankHint />}
       {/* Description (profile-level: vendor or AI) */}
       {!isLegacy && profile?.plant_description?.trim() && (
         <SectionCard title="Description" isOpen={isAboutOpen("description")} onToggle={() => toggleAboutSection("description")}>
@@ -520,6 +580,8 @@ export function VaultProfileAboutTab({
           );
         })()}
       </SectionCard>
+        </>
+      )}
 
       {/* Tags */}
       {profile?.tags && profile.tags.length > 0 && (
