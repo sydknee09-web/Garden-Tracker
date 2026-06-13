@@ -150,6 +150,12 @@ describe("Edit Plant field-set expansion", () => {
     expect(editGrowModal).toContain("setPhotoSheetOpen(true)");
   });
 
+  it("Edit Photo button uses the compact camera-icon treatment ported from Plant Profile (#16b cohesion)", () => {
+    // Compact outlined + camera icon, matching src/app/library/[id]/page.tsx Plant Profile photo button.
+    expect(editGrowModal).toContain("ICON_MAP.Camera");
+    expect(editGrowModal).toMatch(/inline-flex items-center gap-2[^"]*rounded-xl border border-neutral-300/);
+  });
+
   it("cover changes refetch the host but keep the edit menu open (onCoverChanged, no onClose)", () => {
     expect(editGrowModal).toContain("onCoverChanged?.()");
     expect(editGrowModal).toContain('showToast("Cover photo updated.")');

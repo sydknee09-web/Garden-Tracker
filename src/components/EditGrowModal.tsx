@@ -12,6 +12,7 @@ import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { CoverPhotoSheet } from "@/components/CoverPhotoSheet";
+import { ICON_MAP } from "@/lib/styleDictionary";
 import type { GrowInstance } from "@/types/garden";
 
 /**
@@ -199,14 +200,20 @@ export function EditGrowModal({
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
               {/* Edit Photo at TOP — canonical position across edit modals (Syd lock
-                  2026-06-12; matches Edit Plant Profile modal). Opens the
-                  CoverPhotoSheet picker (cover-photo state machine, Syd lock 2026-06-11). */}
+                  2026-06-12; matches Edit Plant Profile modal). Compact outlined +
+                  camera-icon treatment ported from the Plant Profile photo button
+                  (src/app/library/[id]/page.tsx:931-939) for cross-modal cohesion
+                  (NORTH_STAR §1 — no duplicate paths). Opens the CoverPhotoSheet picker
+                  (cover-photo state machine, Syd lock 2026-06-11). */}
               <div>
+                <p className="text-sm font-medium text-neutral-700 mb-2">Photo</p>
                 <button
                   type="button"
                   onClick={() => setPhotoSheetOpen(true)}
-                  className="w-full min-h-[44px] py-2.5 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
+                  className="inline-flex items-center gap-2 min-h-[44px] min-w-[44px] px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 font-medium hover:bg-neutral-50"
+                  aria-label="Edit photo"
                 >
+                  <ICON_MAP.Camera className="w-4 h-4" />
                   Edit Photo
                 </button>
               </div>
