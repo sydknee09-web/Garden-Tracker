@@ -697,20 +697,25 @@ export default function VaultSeedPage() {
   if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/library" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   // How-to-Grow scalar rows (B1). Sun/Water moved out to the pill+detail pair below (B2).
-  // Edibles-only Days to Maturity appended per getEffectiveSeedTypes classification.
+  // Sprint 8 cleanup (Findings #43–46): season-window rows + Germination removed from display
+  // (timing lives in "When to Plant"; germination is seed-lot-specific → Seed Packet detail).
+  // Sowing Method/Depth hidden for non-seed-propagated plants; Days to Maturity hidden for woody
+  // perennials (trees/shrubs) where a "days" value is nonsense. Underlying columns + AI Fill untouched.
   const plantingDepth = (profile as PlantProfile).planting_depth;
+  const isPerennialWoody =
+    profile.lifecycle === "Perennial" && (profile.growth_form === "Tree" || profile.growth_form === "Shrub");
+  const propMethods = (profile.propagation_method ?? []).map((m) => m.trim()).filter(Boolean);
+  const hasSeedMethod = propMethods.includes("Seed");
+  // Non-seed-propagated → sowing fields are irrelevant. The woody-perennial clause catches grafted
+  // fruit trees even when propagation_method is empty (mirrors cultivarShaped, researchVariety.ts:382).
+  const hideSowingFields = (propMethods.length > 0 && !hasSeedMethod) || (isPerennialWoody && !hasSeedMethod);
   const howToGrowList = [
-    { label: "Sowing Method", value: displaySowing || "—" },
+    ...(hideSowingFields ? [] : [{ label: "Sowing Method", value: displaySowing || "—" }]),
     { label: "Planting Window", value: displayWindow || "—" },
-    { label: "Spring Indoor", value: (profile as PlantProfile).spring_indoor_window?.trim() || "—" },
-    { label: "Spring Outdoor", value: (profile as PlantProfile).spring_outdoor_window?.trim() || "—" },
-    { label: "Summer", value: (profile as PlantProfile).summer_window?.trim() || "—" },
-    { label: "Fall Outdoor", value: (profile as PlantProfile).fall_outdoor_window?.trim() || "—" },
     { label: "Spacing", value: ((effectiveCare?.plant_spacing ?? profile.plant_spacing?.trim()) || "—") },
-    { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") },
+    ...(hideSowingFields ? [] : [{ label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") }]),
     { label: "Planting Depth", value: plantingDepth != null ? `${plantingDepth} ${plantingDepth === 1 ? "inch" : "inches"}` : "—" },
-    { label: "Germination", value: ((effectiveCare?.days_to_germination ?? profile.days_to_germination?.trim()) || "—") },
-    ...(isEdiblePlant(profile)
+    ...(isEdiblePlant(profile) && !isPerennialWoody
       ? [{ label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) }]
       : []),
   ];

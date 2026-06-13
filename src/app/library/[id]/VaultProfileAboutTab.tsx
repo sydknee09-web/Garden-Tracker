@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import type { PlantProfile } from "@/types/garden";
 import { TagBadges } from "@/components/TagBadges";
 import { ICON_MAP } from "@/lib/styleDictionary";
+import { isEdiblePlant } from "@/constants/seedTypes";
 import { formatVendorDetails } from "./vaultProfileUtils";
 
 export type AboutTabCareList = { label: string; value: string }[];
@@ -326,6 +327,10 @@ export function VaultProfileAboutTab({
   const nonSeedMethods = propagationMethods.filter((m) => m !== "Seed");
   const hasSeedMethod = propagationMethods.includes("Seed");
   const notFoundName = [profile.name, profile.variety_name].map((s) => s?.trim()).filter(Boolean).join(" ");
+  // Sprint 8 #32 conditional Characteristics: hide indoor-irrelevant + non-flowering fields for
+  // houseplants; hide Harvest Season for non-edibles. CORE fields (Disease, Wildlife) always show.
+  const isHouseplant = profile.plant_category === "Houseplant";
+  const isEdible = isEdiblePlant(profile);
   // Tier suffix for the Description/Growing-Notes "Source: AI research" lines, e.g. " (species-level data)".
   const descriptionLevels = sectionProvenanceLevels(profile.field_provenance, ["plant_description"]);
   const descriptionTierSuffix =
@@ -333,32 +338,6 @@ export function VaultProfileAboutTab({
 
   return (
     <>
-      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ──
-          top-11 = below the global sticky header (sticky restored 2026-06-12;
-          top-0 would pin underneath it) */}
-      {anchorSections.length > 1 && (
-        <div className="sticky top-11 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
-          <div className="overflow-x-auto scrollbar-hide" role="tablist" aria-label="Jump to profile section">
-            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
-              {anchorSections.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeSection === s.key}
-                  onClick={() => handleAnchorTap(s.key)}
-                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeSection === s.key ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── B5: variety-not-found honest empty-state (info-note register + Try Again) ── */}
       {aiNotFound && !isLegacy && (
         <div className="bg-white rounded-xl border border-neutral-200 mb-4 p-4" role="status">
@@ -388,7 +367,7 @@ export function VaultProfileAboutTab({
 
       {/* Enrichment-versioning loading branch (2026-06-13): a legacy in-flight fill hides the
           possibly-stale AI sections behind a skeleton; otherwise render them, with a subtle
-          blank-fill hint when a current-version fill is running. Propagation (below Tags) is the
+          blank-fill hint when a current-version fill is running. Propagation (further below) is the
           one AI section outside this contiguous block — minor uncovered tail, documented in plan. */}
       {enrichmentLoading ? (
         <AiFillSkeletonGroup />
@@ -423,6 +402,34 @@ export function VaultProfileAboutTab({
         </SectionCard>
       )}
 
+      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ──
+          Sprint 8 Finding #49: relocated to sit BELOW Description + Growing Notes (profile-level
+          intro) and directly ABOVE the four sections it navigates, so the intro reads once above
+          the sub-tab strip. Inside the enrichment-else so a legacy AI Fill still shows skeletons
+          (no value-flash). sticky top-11 keeps it pinned under the global header once scrolled past. */}
+      {anchorSections.length > 1 && (
+        <div className="sticky top-11 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
+          <div className="overflow-x-auto scrollbar-hide" role="tablist" aria-label="Jump to profile section">
+            <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
+              {anchorSections.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSection === s.key}
+                  onClick={() => handleAnchorTap(s.key)}
+                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeSection === s.key ? "bg-white text-emerald-700 shadow-sm" : "text-black/60 hover:text-black"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── B1: Plant Characteristics — intrinsic properties of the species/variety ── */}
       {!isLegacy && (
         <SectionCard
@@ -441,9 +448,9 @@ export function VaultProfileAboutTab({
             <PillDetailField label="Family" value={profile.family} />
             <PillDetailField label="Genus" value={profile.genus} />
             <PillDetailField label="Species" value={profile.species} />
-            <PillDetailField label="Pollination" value={profile.pollination_requirements} pill />
-            <PillDetailField label="Deer / Rabbit Resistance" value={profile.deer_rabbit_resistance} pill />
-            <PillDetailField label="Drought / Salt Tolerance" value={profile.drought_salt_tolerance} pill />
+            {!isHouseplant && <PillDetailField label="Pollination" value={profile.pollination_requirements} pill />}
+            {!isHouseplant && <PillDetailField label="Deer / Rabbit Resistance" value={profile.deer_rabbit_resistance} pill />}
+            {!isHouseplant && <PillDetailField label="Drought / Salt Tolerance" value={profile.drought_salt_tolerance} pill />}
             <PillDetailField label="Native Origin" value={profile.native_origin} />
             <PillDetailField label="Invasiveness" value={profile.invasiveness} />
           </dl>
@@ -465,7 +472,7 @@ export function VaultProfileAboutTab({
       >
         {profile?.planting_window?.trim().startsWith("Not viable in Zone") && (
           <p className="mb-3 text-sm text-neutral-600 italic">
-            This plant won&apos;t survive outdoor growing in Zone {profile.planting_window_zone || "your zone"}. Consider growing indoors or in a greenhouse.
+            This plant won&apos;t survive outdoor growing{profile.planting_window_zone?.trim() ? ` in Zone ${profile.planting_window_zone.trim()}` : " in your climate"}. Consider growing indoors or in a greenhouse.
           </p>
         )}
         {/* When to Plant (Ship 2): quick-scan pills above the narrative. Pill register matches
@@ -518,7 +525,7 @@ export function VaultProfileAboutTab({
           {!isLegacy && (
             <>
               <PillDetailField label="Disease Susceptibility" values={profile.disease_susceptibility} pill />
-              <PillDetailField label="Harvest Season" values={profile.harvest_season} pill />
+              {isEdible && <PillDetailField label="Harvest Season" values={profile.harvest_season} pill />}
               <PillDetailField label="Uses" values={profile.uses} pill />
               <PillDetailField label="Special Features" values={profile.special_features} pill />
             </>
@@ -583,12 +590,9 @@ export function VaultProfileAboutTab({
         </>
       )}
 
-      {/* Tags */}
-      {profile?.tags && profile.tags.length > 0 && (
-        <SectionCard title="Tags" isOpen={isAboutOpen("tags")} onToggle={() => toggleAboutSection("tags")}>
-          <TagBadges tags={profile.tags} />
-        </SectionCard>
-      )}
+      {/* Tags display removed (Sprint 8 Finding #48): Tags are a Library-filter concern, not profile
+          content — Plant Category + Characteristics already convey the same info. The tag column +
+          AI Fill stay (they drive Library filter chips, read from SeedVaultView's own query). */}
 
       {/* ── B3: Propagation — predictable header, sub-content adapts to propagation_method ── */}
       {!isLegacy && (
