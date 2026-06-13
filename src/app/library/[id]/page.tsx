@@ -161,8 +161,10 @@ export default function VaultSeedPage() {
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const journalTabRef = useRef<HTMLDivElement | null>(null);
 
-  // About tab: which sections are collapsed (default all open)
-  const [aboutCollapsed, setAboutCollapsed] = useState<Record<string, boolean>>({});
+  // About tab: which sections are collapsed (default all open EXCEPT the Characteristics
+  // Deep-Dive, collapsed by default per the Sprint 10 IA redesign — advanced taxonomy is one
+  // tap away, not in the primary scroll path).
+  const [aboutCollapsed, setAboutCollapsed] = useState<Record<string, boolean>>({ characteristics: true });
   const isAboutOpen = (key: string) => !aboutCollapsed[key];
   const toggleAboutSection = (key: string) => setAboutCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -709,16 +711,30 @@ export default function VaultSeedPage() {
   // Non-seed-propagated → sowing fields are irrelevant. The woody-perennial clause catches grafted
   // fruit trees even when propagation_method is empty (mirrors cultivarShaped, researchVariety.ts:382).
   const hideSowingFields = (propMethods.length > 0 && !hasSeedMethod) || (isPerennialWoody && !hasSeedMethod);
+  // Sprint 10 IA: How to Grow is decluttered to the at-a-glance care pills only (Spacing + Days
+  // to Maturity here; Sun/Water/Soil are pill props below). Sowing mechanics move to the new Seed
+  // Starting card; the planting window moves to the When to Plant card. Same effective-care
+  // fallback machinery, just routed to the card each value now belongs to.
   const howToGrowList = [
-    ...(hideSowingFields ? [] : [{ label: "Sowing Method", value: displaySowing || "—" }]),
-    { label: "Planting Window", value: displayWindow || "—" },
     { label: "Spacing", value: ((effectiveCare?.plant_spacing ?? profile.plant_spacing?.trim()) || "—") },
-    ...(hideSowingFields ? [] : [{ label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") }]),
-    { label: "Planting Depth", value: plantingDepth != null ? `${plantingDepth} ${plantingDepth === 1 ? "inch" : "inches"}` : "—" },
     ...(isEdiblePlant(profile) && !isPerennialWoody
       ? [{ label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) }]
       : []),
   ];
+  // Seed Starting card (Sprint 10): sowing mechanics, shown only when this plant is seed-grown
+  // (mirrors the old hideSowingFields gate). Days to Germination returns to the profile here per
+  // the Sprint 10 redesign (it had been removed in Sprint 8 #43–46 as seed-lot-specific).
+  const showSeedStarting = !hideSowingFields;
+  const seedStartingList = showSeedStarting
+    ? [
+        { label: "Sowing Method", value: displaySowing || "—" },
+        { label: "Sowing Depth", value: ((effectiveCare?.sowing_depth ?? (profile as { sowing_depth?: string | null }).sowing_depth?.trim()) || "—") },
+        { label: "Planting Depth", value: plantingDepth != null ? `${plantingDepth} ${plantingDepth === 1 ? "inch" : "inches"}` : "—" },
+        { label: "Days to Germination", value: ((effectiveCare?.days_to_germination ?? (profile as { days_to_germination?: string | null }).days_to_germination?.trim()) || "—") },
+      ]
+    : [];
+  // When to Plant card (Sprint 10): the planting-window scalar joins the timing pills/narrative.
+  const plantingWindowValue = displayWindow || null;
   // Sun/Water summary pills: prefers the canonical *_summary column, falling back to
   // the effective-care value then the legacy single column.
   const sunPill = (profile as PlantProfile).sun_summary?.trim() || effectiveCare?.sun || profile.sun?.trim() || null;
@@ -1364,6 +1380,9 @@ export default function VaultSeedPage() {
             legacyGrowingInfo={legacyGrowingInfo ?? null}
             legacySourceUrl={legacySourceUrl ?? null}
             howToGrowList={howToGrowList}
+            seedStartingList={seedStartingList}
+            showSeedStarting={showSeedStarting}
+            plantingWindow={plantingWindowValue}
             sunPill={sunPill}
             waterPill={waterPill}
             growingNotes={growingNotes}

@@ -22,8 +22,14 @@ export interface VaultProfileAboutTabProps {
   legacyPlantDesc: string | null;
   legacyGrowingInfo: string | null;
   legacySourceUrl: string | null;
-  /** Core How-to-Grow scalar rows (sowing method, windows, spacing, depths, germination, maturity) with effective-care fallbacks applied by the page. */
+  /** How to Grow at-a-glance care rows (Spacing + Days to Maturity) with effective-care fallbacks. */
   howToGrowList: AboutTabCareList;
+  /** Seed Starting card rows (sowing method/depth, planting depth, germination); empty when not seed-grown. */
+  seedStartingList: AboutTabCareList;
+  /** Whether the Seed Starting card renders (seed-propagatable). Single source of truth from the page. */
+  showSeedStarting: boolean;
+  /** Planting-window scalar for the When to Plant card (page applies schedule fallback). */
+  plantingWindow: string | null;
   /** Sun/Water summary pills (page applies sun_summary→effectiveCare→sun fallback chain). */
   sunPill: string | null;
   waterPill: string | null;
@@ -159,7 +165,7 @@ function AiFillSkeletonCard({ title }: { title: string }) {
 function AiFillSkeletonGroup() {
   return (
     <div aria-live="polite" aria-busy="true">
-      <AiFillSkeletonCard title="Description" />
+      <AiFillSkeletonCard title="At a Glance" />
       <AiFillSkeletonCard title="How to Grow" />
     </div>
   );
@@ -210,22 +216,58 @@ function ProvenanceSourceLine({ levels }: { levels: string[] }) {
   return <p className="text-xs text-neutral-500 mt-3">Source: AI research ({phrase})</p>;
 }
 
-/** Field lists per About-tab section, for the per-section provenance Source line. */
+// Per-card provenance field lists (Sprint 10): re-bucketed so each card's Source line reflects
+// only the fields that card now renders.
+const AT_A_GLANCE_PROVENANCE_FIELDS = [
+  "lifecycle", "growth_form", "plant_category", "mature_height", "mature_width",
+];
 const HOW_TO_GROW_PROVENANCE_FIELDS = [
-  "sowing_method", "planting_window", "spring_indoor_window", "spring_outdoor_window", "summer_window",
-  "fall_outdoor_window", "plant_spacing", "sowing_depth", "planting_depth", "days_to_germination",
-  "harvest_days", "sun", "sun_summary", "sun_detail", "water", "water_summary", "water_detail",
-  "soil_preference", "disease_susceptibility", "harvest_season", "uses", "special_features",
-  "when_to_plant_description", "planting_seasons_tags", "optimal_planting_months_array",
-  "indoor_start_weeks_before_frost", "outdoor_plant_weeks_after_frost",
+  "plant_spacing", "harvest_days", "sun", "sun_summary", "water", "water_summary", "soil_preference",
 ];
 const CHARACTERISTICS_PROVENANCE_FIELDS = [
-  "lifecycle", "growth_form", "plant_category", "growth_habit", "mature_height", "mature_width",
-  "family", "genus", "species", "pollination_requirements", "deer_rabbit_resistance",
+  "growth_habit", "family", "genus", "species", "pollination_requirements", "deer_rabbit_resistance",
   "drought_salt_tolerance", "native_origin", "invasiveness", "toxicity", "wildlife_value", "synonyms",
+  "uses", "special_features",
 ];
 
-/** Human phrasing for non-seed propagation methods in the B3 sub-header. */
+// ---------------------------------------------------------------------------
+// Growing Notes sectioning (Sprint 10). The v3 AI prompt emits growing_notes as
+// labeled sections (Soil / Watering / Feeding / Pruning & Training / Pests & Disease);
+// we parse those into bold-prefixed paragraphs. Legacy (v2 and earlier) single-narrative
+// notes have no labels → parse returns null → render as one block (graceful self-heal).
+// ---------------------------------------------------------------------------
+
+const GROWING_NOTES_LABELS = ["Soil", "Watering", "Feeding", "Pruning & Training", "Pests & Disease"];
+
+function parseGrowingNotes(text: string): { label: string; body: string }[] | null {
+  const labelAlt = GROWING_NOTES_LABELS.map((l) => l.replace(/[.*+?^${}()|[\]\\&]/g, "\\$&")).join("|");
+  // Match each label at a line start, tolerating optional **bold** markers around it: "Soil:",
+  // "**Soil:**", "**Soil**:". The label group (1) is captured for the bold subhead.
+  const re = new RegExp(`(?:^|\\n)\\s*\\*{0,2}(${labelAlt})\\*{0,2}\\s*:`, "g");
+  const matches = [...text.matchAll(re)];
+  if (matches.length < 2) return null; // not the sectioned format → treat as a single narrative
+  const sections: { label: string; body: string }[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const start = (m.index ?? 0) + m[0].length;
+    const end = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length;
+    const body = text.slice(start, end).replace(/^\s*\*{0,2}/, "").trim();
+    if (body) sections.push({ label: m[1], body });
+  }
+  return sections.length >= 2 ? sections : null;
+}
+
+/** Combine mature height + width into one human phrase; null when neither is known. */
+function formatMatureSize(height?: string | null, width?: string | null): string | null {
+  const h = height?.trim();
+  const w = width?.trim();
+  if (h && w) return `${h} tall × ${w} wide`;
+  if (h) return `${h} tall`;
+  if (w) return `${w} wide`;
+  return null;
+}
+
+/** Human phrasing for non-seed propagation methods in the Propagation sub-header. */
 const METHOD_PHRASES: Record<string, string> = {
   Cutting: "Cuttings",
   Division: "Division",
@@ -252,6 +294,9 @@ export function VaultProfileAboutTab({
   legacyGrowingInfo,
   legacySourceUrl,
   howToGrowList,
+  seedStartingList,
+  showSeedStarting,
+  plantingWindow,
   sunPill,
   waterPill,
   growingNotes,
@@ -268,12 +313,13 @@ export function VaultProfileAboutTab({
   enrichmentLoading = false,
   enrichmentBlankLoading = false,
 }: VaultProfileAboutTabProps) {
-  // B4 anchor sections — auto-generated from the sections this profile renders.
+  // Sticky quick-jump anchors — follow the Sprint 10 card order (At a Glance → How to Grow →
+  // Companion → Growing Notes). Growing Notes only anchors when the card renders.
   const anchorSections = [
-    { key: "characteristics", label: "Characteristics", show: !isLegacy },
+    { key: "glance", label: "At a Glance", show: !isLegacy },
     { key: "howToGrow", label: "How to Grow", show: true },
-    { key: "companion", label: "Companion Planting", show: true },
-    { key: "propagation", label: "Propagation", show: !isLegacy },
+    { key: "companion", label: "Companion", show: true },
+    { key: "growingNotes", label: "Growing Notes", show: !!growingNotes },
   ].filter((s) => s.show);
   const [activeSection, setActiveSection] = useState<string>(anchorSections[0]?.key ?? "");
   const sectionKeysJoined = anchorSections.map((s) => s.key).join(",");
@@ -324,13 +370,47 @@ export function VaultProfileAboutTab({
   const hasSeedMethod = propagationMethods.includes("Seed");
   const notFoundName = [profile.name, profile.variety_name].map((s) => s?.trim()).filter(Boolean).join(" ");
   // Sprint 8 #32 conditional Characteristics: hide indoor-irrelevant + non-flowering fields for
-  // houseplants; hide Harvest Season for non-edibles. CORE fields (Disease, Wildlife) always show.
+  // houseplants. CORE fields (Toxicity, Wildlife) always show.
   const isHouseplant = profile.plant_category === "Houseplant";
   const isEdible = isEdiblePlant(profile);
-  // Tier suffix for the Description/Growing-Notes "Source: AI research" lines, e.g. " (species-level data)".
+  // Tier suffix for the Description "Source: AI research" line, e.g. " (species-level data)".
   const descriptionLevels = sectionProvenanceLevels(profile.field_provenance, ["plant_description"]);
   const descriptionTierSuffix =
     descriptionLevels.length > 0 ? ` (${descriptionLevels.map((l) => PROVENANCE_PHRASES[l]).join(" + ")})` : "";
+
+  const matureSize = formatMatureSize(profile.mature_height, profile.mature_width);
+
+  // When to Plant (Sprint 10): its own card now. Computed pieces drive both visibility and render.
+  const wtpDesc = profile?.when_to_plant_description?.trim();
+  const wtpSeasons = (profile?.planting_seasons_tags ?? []).filter(Boolean);
+  const wtpIndoor = profile?.indoor_start_weeks_before_frost;
+  const wtpOutdoor = profile?.outdoor_plant_weeks_after_frost;
+  const notViable = !!profile?.planting_window?.trim().startsWith("Not viable in Zone");
+  const hasWhenToPlant =
+    !isLegacy && (!!wtpDesc || wtpSeasons.length > 0 || wtpIndoor != null || wtpOutdoor != null || !!plantingWindow || notViable);
+
+  // Seed Starting (Sprint 10): a short, plain how-to line assembled from the structured fields —
+  // additive phrasing over the pills above it, not a tutorial. Only the parts we have.
+  const seedStartingHowTo = (() => {
+    if (!showSeedStarting) return "";
+    const method = (() => {
+      const m = seedStartingList.find((r) => r.label === "Sowing Method")?.value;
+      return m && m !== "—" ? m : "";
+    })();
+    const depth = (() => {
+      const d = seedStartingList.find((r) => r.label === "Sowing Depth")?.value;
+      return d && d !== "—" ? d : "";
+    })();
+    const germ = (() => {
+      const g = seedStartingList.find((r) => r.label === "Days to Germination")?.value;
+      return g && g !== "—" ? g : "";
+    })();
+    const lead = method ? `${method} ${depth ? `at ${depth}` : ""}`.trim() : depth ? `Sow ${depth} deep` : "";
+    if (!lead && !germ) return "";
+    const germPhrase = germ ? `germination takes about ${germ} days` : "";
+    if (lead && germPhrase) return `${lead}; ${germPhrase}.`;
+    return `${lead || germPhrase.charAt(0).toUpperCase() + germPhrase.slice(1)}.`;
+  })();
 
   return (
     <>
@@ -363,46 +443,42 @@ export function VaultProfileAboutTab({
 
       {/* Enrichment-versioning loading branch (2026-06-13): a legacy in-flight fill hides the
           possibly-stale AI sections behind a skeleton; otherwise render them, with a subtle
-          blank-fill hint when a current-version fill is running. Propagation (further below) is the
-          one AI section outside this contiguous block — minor uncovered tail, documented in plan. */}
+          blank-fill hint when a current-version fill is running. */}
       {enrichmentLoading ? (
         <AiFillSkeletonGroup />
       ) : (
         <>
       {enrichmentBlankLoading && <AiFillBlankHint />}
-      {/* Description (profile-level: vendor or AI) */}
-      {!isLegacy && profile?.plant_description?.trim() && (
-        <SectionCard title="Description" isOpen={isAboutOpen("description")} onToggle={() => toggleAboutSection("description")}>
-          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{profile.plant_description}</p>
-          {profile.description_source && (
-            <p className="text-xs text-neutral-500 mt-2">
+
+      {/* ── 1. At a Glance — description + quick-stats pill row (Sprint 10) ── */}
+      {!isLegacy && (
+        <SectionCard
+          id="about-section-glance"
+          title="At a Glance"
+          isOpen={isAboutOpen("glance")}
+          onToggle={() => toggleAboutSection("glance")}
+        >
+          {profile?.plant_description?.trim() && (
+            <p className="text-sm text-neutral-700 whitespace-pre-wrap mb-4">{profile.plant_description}</p>
+          )}
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <PillDetailField label="Lifecycle" value={profile.lifecycle} pill />
+            <PillDetailField label="Growth Form" value={profile.growth_form} pill />
+            <PillDetailField label="Plant Category" value={profile.plant_category} pill />
+            <PillDetailField label="Mature Size" value={matureSize} />
+          </dl>
+          {profile?.plant_description?.trim() && profile.description_source && (
+            <p className="text-xs text-neutral-500 mt-3">
               Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? `AI research${descriptionTierSuffix}` : "You"}
             </p>
           )}
+          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, AT_A_GLANCE_PROVENANCE_FIELDS)} />
         </SectionCard>
       )}
 
-      {/* Growing Notes — borrows plant_description when growing_notes is empty so the section doesn't vanish */}
-      {(growingNotes || (!isLegacy && profile?.plant_description?.trim())) && (
-        <SectionCard title="Growing Notes" isOpen={isAboutOpen("growingNotes")} onToggle={() => toggleAboutSection("growingNotes")}>
-          <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes || profile.plant_description}</p>
-          {growingNotes ? (
-            <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, ["growing_notes"])} />
-          ) : (
-            profile.description_source && (
-              <p className="text-xs text-neutral-500 mt-2">
-                Source: {profile.description_source === "vendor" ? "Vendor" : profile.description_source === "ai" ? `AI research${descriptionTierSuffix}` : "You"}
-              </p>
-            )
-          )}
-        </SectionCard>
-      )}
-
-      {/* ── B4: sticky quick-jump anchor pills (GroupTabs tab-slot register) ──
-          Sprint 8 Finding #49: relocated to sit BELOW Description + Growing Notes (profile-level
-          intro) and directly ABOVE the four sections it navigates, so the intro reads once above
-          the sub-tab strip. Inside the enrichment-else so a legacy AI Fill still shows skeletons
-          (no value-flash). sticky top-11 keeps it pinned under the global header once scrolled past. */}
+      {/* ── Sticky quick-jump anchor pills (GroupTabs tab-slot register) ──
+          Sits below At a Glance and above the sections it navigates. sticky top-11 pins it under
+          the global header once scrolled past. */}
       {anchorSections.length > 1 && (
         <div className="sticky top-11 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
           {/* stopPropagation so horizontally scrolling the sub-tab strip doesn't trigger the
@@ -435,89 +511,61 @@ export function VaultProfileAboutTab({
         </div>
       )}
 
-      {/* ── B1: Plant Characteristics — intrinsic properties of the species/variety ── */}
-      {!isLegacy && (
+      {/* ── 2. When to Plant — timing pills + narrative + zone viability (Sprint 10: own card) ── */}
+      {hasWhenToPlant && (
         <SectionCard
-          id="about-section-characteristics"
-          title="Plant Characteristics"
-          isOpen={isAboutOpen("characteristics")}
-          onToggle={() => toggleAboutSection("characteristics")}
+          id="about-section-whenToPlant"
+          title="When to Plant"
+          isOpen={isAboutOpen("whenToPlant")}
+          onToggle={() => toggleAboutSection("whenToPlant")}
         >
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <PillDetailField label="Lifecycle" value={profile.lifecycle} pill />
-            <PillDetailField label="Growth Form" value={profile.growth_form} pill />
-            <PillDetailField label="Plant Category" value={profile.plant_category} pill />
-            <PillDetailField label="Growth Habit" value={profile.growth_habit} pill />
-            <PillDetailField label="Mature Height" value={profile.mature_height} />
-            <PillDetailField label="Mature Width" value={profile.mature_width} />
-            <PillDetailField label="Family" value={profile.family} />
-            <PillDetailField label="Genus" value={profile.genus} />
-            <PillDetailField label="Species" value={profile.species} />
-            {!isHouseplant && <PillDetailField label="Pollination" value={profile.pollination_requirements} pill />}
-            {!isHouseplant && <PillDetailField label="Deer / Rabbit Resistance" value={profile.deer_rabbit_resistance} pill />}
-            {!isHouseplant && <PillDetailField label="Drought / Salt Tolerance" value={profile.drought_salt_tolerance} pill />}
-            <PillDetailField label="Native Origin" value={profile.native_origin} />
-            <PillDetailField label="Invasiveness" value={profile.invasiveness} />
-          </dl>
-          <dl className="mt-3 space-y-3">
-            <PillDetailField label="Toxicity" value={profile.toxicity} />
-            <PillDetailField label="Wildlife Value" value={profile.wildlife_value} />
-            <PillDetailField label="Synonyms" values={profile.synonyms} />
-          </dl>
-          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, CHARACTERISTICS_PROVENANCE_FIELDS)} />
+          {notViable && (
+            <p className="mb-3 text-sm text-neutral-600 italic">
+              This plant won&apos;t survive outdoor growing{profile.planting_window_zone?.trim() ? ` in Zone ${profile.planting_window_zone.trim()}` : " in your climate"}. Consider growing indoors or in a greenhouse.
+            </p>
+          )}
+          {/* Quick-scan timing pills above the narrative. Emoji markers are content-lane
+              (seasonal/timing moments) per VISION §8. */}
+          {(() => {
+            const pills: string[] = [];
+            if (wtpIndoor != null) pills.push(`🏠 Start indoors ${wtpIndoor} wk before last frost`);
+            if (wtpOutdoor != null) {
+              pills.push(
+                wtpOutdoor === 0
+                  ? "🌱 Plant outside at last frost"
+                  : wtpOutdoor < 0
+                    ? `🌱 Plant outside ${Math.abs(wtpOutdoor)} wk before last frost`
+                    : `🌱 Plant outside ${wtpOutdoor} wk after last frost`
+              );
+            }
+            if (wtpSeasons.length > 0) pills.push(`🌸 ${wtpSeasons.join(" · ")}`);
+            return pills.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {pills.map((p) => (
+                  <span key={p} className="inline-block text-sm font-semibold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-900">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            ) : null;
+          })()}
+          {wtpDesc && <p className="text-sm text-neutral-700 whitespace-pre-wrap">{wtpDesc}</p>}
+          {plantingWindow && !notViable && (
+            <dl className="mt-3"><PillDetailField label="Planting Window" value={plantingWindow} /></dl>
+          )}
+          {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && !notViable && (
+            <p className="mt-3 text-sm text-neutral-600 italic">Generated for Zone {profile.planting_window_zone}.</p>
+          )}
         </SectionCard>
       )}
 
-      {/* ── B1: How to Grow — action-oriented growing instructions ── */}
+      {/* ── 3. How to Grow — decluttered to at-a-glance care pills (Sprint 10) ── */}
       <SectionCard
         id="about-section-howToGrow"
         title="How to Grow"
         isOpen={isAboutOpen("howToGrow")}
         onToggle={() => toggleAboutSection("howToGrow")}
       >
-        {profile?.planting_window?.trim().startsWith("Not viable in Zone") && (
-          <p className="mb-3 text-sm text-neutral-600 italic">
-            This plant won&apos;t survive outdoor growing{profile.planting_window_zone?.trim() ? ` in Zone ${profile.planting_window_zone.trim()}` : " in your climate"}. Consider growing indoors or in a greenhouse.
-          </p>
-        )}
-        {/* When to Plant (Ship 2): quick-scan pills above the narrative. Pill register matches
-            PillDetailField; emoji markers are content-lane (seasonal/timing moments) per VISION §8. */}
-        {(() => {
-          const desc = profile?.when_to_plant_description?.trim();
-          const seasons = (profile?.planting_seasons_tags ?? []).filter(Boolean);
-          const indoorWeeks = profile?.indoor_start_weeks_before_frost;
-          const outdoorWeeks = profile?.outdoor_plant_weeks_after_frost;
-          if (!desc && seasons.length === 0 && indoorWeeks == null && outdoorWeeks == null) return null;
-          const pills: string[] = [];
-          if (indoorWeeks != null) {
-            pills.push(`🏠 Start indoors ${indoorWeeks} wk before last frost`);
-          }
-          if (outdoorWeeks != null) {
-            pills.push(
-              outdoorWeeks === 0
-                ? "🌱 Plant outside at last frost"
-                : outdoorWeeks < 0
-                  ? `🌱 Plant outside ${Math.abs(outdoorWeeks)} wk before last frost`
-                  : `🌱 Plant outside ${outdoorWeeks} wk after last frost`
-            );
-          }
-          if (seasons.length > 0) pills.push(`🌸 ${seasons.join(" · ")}`);
-          return (
-            <div className="mb-4">
-              <SubHeader>When to Plant</SubHeader>
-              {pills.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {pills.map((p) => (
-                    <span key={p} className="inline-block text-sm font-semibold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-900">
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {desc && <p className="text-sm text-neutral-700 whitespace-pre-wrap">{desc}</p>}
-            </div>
-          );
-        })()}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
           {howToGrowList.map(({ label, value }) => (
             <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
@@ -527,29 +575,52 @@ export function VaultProfileAboutTab({
           <PillDetailField label="Sun" value={sunPill} pill />
           <PillDetailField label="Water" value={waterPill} pill />
           <PillDetailField label="Soil" value={isLegacy ? null : profile.soil_preference} pill />
-          {!isLegacy && (
-            <>
-              <PillDetailField label="Disease Susceptibility" values={profile.disease_susceptibility} pill />
-              {isEdible && <PillDetailField label="Harvest Season" values={profile.harvest_season} pill />}
-              <PillDetailField label="Uses" values={profile.uses} pill />
-              <PillDetailField label="Special Features" values={profile.special_features} pill />
-            </>
-          )}
         </dl>
-        {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && (
-          <p className="mt-3 text-sm text-neutral-600 italic">
-            Generated for Zone {profile.planting_window_zone}.
-          </p>
-        )}
-        {profile?.seed_propagation_context?.trim() &&
-          howToGrowList.every(({ value }) => value === "—") &&
-          !sunPill && !waterPill && (
-            <p className="mt-3 text-sm text-neutral-600 italic">{profile.seed_propagation_context}</p>
-          )}
         <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, HOW_TO_GROW_PROVENANCE_FIELDS)} />
       </SectionCard>
 
-      {/* Companion planting */}
+      {/* ── 4. Seed Starting — sowing mechanics split out of Propagation (Sprint 10) ── */}
+      {!isLegacy && showSeedStarting && (
+        <SectionCard
+          id="about-section-seedStarting"
+          title="Seed Starting"
+          isOpen={isAboutOpen("seedStarting")}
+          onToggle={() => toggleAboutSection("seedStarting")}
+        >
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {seedStartingList.map(({ label, value }) => (
+              <div key={label}><dt className="text-xs text-neutral-500">{label}</dt><dd className="text-sm text-neutral-900 font-medium">{value}</dd></div>
+            ))}
+          </dl>
+          {seedStartingHowTo && <p className="mt-3 text-sm text-neutral-700">{seedStartingHowTo}</p>}
+        </SectionCard>
+      )}
+
+      {/* ── 5. Pest + Disease ── */}
+      {!isLegacy && (
+        <SectionCard
+          id="about-section-pestDisease"
+          title="Pest + Disease"
+          isOpen={isAboutOpen("pestDisease")}
+          onToggle={() => toggleAboutSection("pestDisease")}
+        >
+          <dl><PillDetailField label="Susceptibility" values={profile.disease_susceptibility} pill /></dl>
+        </SectionCard>
+      )}
+
+      {/* ── 6. Harvest (edible only) ── */}
+      {!isLegacy && isEdible && (
+        <SectionCard
+          id="about-section-harvest"
+          title="Harvest"
+          isOpen={isAboutOpen("harvest")}
+          onToggle={() => toggleAboutSection("harvest")}
+        >
+          <dl><PillDetailField label="Harvest Season" values={profile.harvest_season} pill /></dl>
+        </SectionCard>
+      )}
+
+      {/* ── 7. Companion Planting ── */}
       <SectionCard
         id="about-section-companion"
         title="Companion Planting"
@@ -592,14 +663,38 @@ export function VaultProfileAboutTab({
           );
         })()}
       </SectionCard>
-        </>
+
+      {/* ── 8. Characteristics Deep-Dive — collapsed by default; advanced taxonomy (Sprint 10) ── */}
+      {!isLegacy && (
+        <SectionCard
+          id="about-section-characteristics"
+          title="Characteristics Deep-Dive"
+          isOpen={isAboutOpen("characteristics")}
+          onToggle={() => toggleAboutSection("characteristics")}
+        >
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <PillDetailField label="Growth Habit" value={profile.growth_habit} pill />
+            <PillDetailField label="Family" value={profile.family} />
+            <PillDetailField label="Genus" value={profile.genus} />
+            <PillDetailField label="Species" value={profile.species} />
+            <PillDetailField label="Native Origin" value={profile.native_origin} />
+            <PillDetailField label="Invasiveness" value={profile.invasiveness} />
+            {!isHouseplant && <PillDetailField label="Pollination" value={profile.pollination_requirements} pill />}
+            {!isHouseplant && <PillDetailField label="Deer / Rabbit Resistance" value={profile.deer_rabbit_resistance} pill />}
+            {!isHouseplant && <PillDetailField label="Drought / Salt Tolerance" value={profile.drought_salt_tolerance} pill />}
+          </dl>
+          <dl className="mt-3 space-y-3">
+            <PillDetailField label="Toxicity" value={profile.toxicity} />
+            <PillDetailField label="Wildlife Value" value={profile.wildlife_value} />
+            <PillDetailField label="Uses" values={profile.uses} pill />
+            <PillDetailField label="Special Features" values={profile.special_features} pill />
+            <PillDetailField label="Synonyms" values={profile.synonyms} />
+          </dl>
+          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, CHARACTERISTICS_PROVENANCE_FIELDS)} />
+        </SectionCard>
       )}
 
-      {/* Tags display removed (Sprint 8 Finding #48): Tags are a Library-filter concern, not profile
-          content — Plant Category + Characteristics already convey the same info. The tag column +
-          AI Fill stay (they drive Library filter chips, read from SeedVaultView's own query). */}
-
-      {/* ── B3: Propagation — predictable header, sub-content adapts to propagation_method ── */}
+      {/* ── 9. Propagation (advanced) — multiplying an existing plant; predictable header ── */}
       {!isLegacy && (
         <SectionCard
           id="about-section-propagation"
@@ -649,7 +744,7 @@ export function VaultProfileAboutTab({
                 )}
                 {hasSeedMethod && (
                   <div>
-                    <SubHeader>Starting from Seed &amp; Saving Seeds</SubHeader>
+                    <SubHeader>Saving Seeds</SubHeader>
                     {(() => {
                       // When Seed is the ONLY method, the general how-to narrative belongs here too.
                       const paras = [
@@ -672,6 +767,34 @@ export function VaultProfileAboutTab({
             )}
           </div>
         </SectionCard>
+      )}
+
+      {/* ── 10. Growing Notes (BOTTOM) — sectioned care narrative (Sprint 10) ── */}
+      {growingNotes && (
+        <SectionCard
+          id="about-section-growingNotes"
+          title="Growing Notes"
+          isOpen={isAboutOpen("growingNotes")}
+          onToggle={() => toggleAboutSection("growingNotes")}
+        >
+          {(() => {
+            const sections = parseGrowingNotes(growingNotes);
+            return sections ? (
+              <div className="space-y-3">
+                {sections.map((s) => (
+                  <p key={s.label} className="text-sm text-neutral-700 whitespace-pre-wrap">
+                    <span className="font-semibold text-neutral-700">{s.label}:</span> {s.body}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-neutral-700 whitespace-pre-wrap">{growingNotes}</p>
+            );
+          })()}
+          <ProvenanceSourceLine levels={sectionProvenanceLevels(profile.field_provenance, ["growing_notes"])} />
+        </SectionCard>
+      )}
+        </>
       )}
 
       {/* Source URL */}

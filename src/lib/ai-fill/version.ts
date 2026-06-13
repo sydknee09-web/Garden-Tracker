@@ -21,10 +21,16 @@
  *    Characteristics (Findings #15/#18/#22), and the creation-time writer now persists the full
  *    characteristics field set. v1 output is materially thinner, so v1 profiles and library rows
  *    self-heal (re-enrich) on their next AI-fill touch.
+ *  - v3 (2026-06-13, Sprint 10): profile IA redesign — the Gemini prompt now structures
+ *    growing_notes into five labeled sections (Soil / Watering / Feeding / Pruning & Training /
+ *    Pests & Disease) for the sectioned Growing Notes render, and asks propagation_method for
+ *    EVERY viable method (not just the primary) with propagation_notes as a brief 2-3 sentence
+ *    note per non-seed method. v2's single-narrative Growing Notes + single-method Propagation are
+ *    materially restructured, so v2 profiles and library rows self-heal on their next AI-fill touch.
  *
  * Pure constant — safe to import from both server routes and client components.
  */
-export const CURRENT_AI_FILL_VERSION = 2;
+export const CURRENT_AI_FILL_VERSION = 3;
 
 /**
  * Whether an AI Fill run may write an AI-derived value into a profile field.
