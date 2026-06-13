@@ -24,11 +24,9 @@ export interface VaultProfileAboutTabProps {
   legacySourceUrl: string | null;
   /** Core How-to-Grow scalar rows (sowing method, windows, spacing, depths, germination, maturity) with effective-care fallbacks applied by the page. */
   howToGrowList: AboutTabCareList;
-  /** Sun/Water pill+detail pairs (page applies sun_summary→effectiveCare→sun fallback chain). */
+  /** Sun/Water summary pills (page applies sun_summary→effectiveCare→sun fallback chain). */
   sunPill: string | null;
-  sunDetail: string | null;
   waterPill: string | null;
-  waterDetail: string | null;
   growingNotes: string;
   aboutCollapsed: Record<string, boolean>;
   toggleAboutSection: (key: string) => void;
@@ -255,9 +253,7 @@ export function VaultProfileAboutTab({
   legacySourceUrl,
   howToGrowList,
   sunPill,
-  sunDetail,
   waterPill,
-  waterDetail,
   growingNotes,
   aboutCollapsed,
   toggleAboutSection,
@@ -528,8 +524,8 @@ export function VaultProfileAboutTab({
           ))}
         </dl>
         <dl className="mt-4 space-y-4">
-          <PillDetailField label="Sun" value={sunPill} detail={sunDetail} pill />
-          <PillDetailField label="Water" value={waterPill} detail={waterDetail} pill />
+          <PillDetailField label="Sun" value={sunPill} pill />
+          <PillDetailField label="Water" value={waterPill} pill />
           <PillDetailField label="Soil" value={isLegacy ? null : profile.soil_preference} pill />
           {!isLegacy && (
             <>

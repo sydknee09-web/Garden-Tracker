@@ -719,12 +719,10 @@ export default function VaultSeedPage() {
       ? [{ label: "Days to Maturity", value: (effectiveCare?.harvest_days != null ? `${effectiveCare.harvest_days} days` : (profile.harvest_days != null ? `${profile.harvest_days} days` : "—")) }]
       : []),
   ];
-  // B2 pill+detail pairs: summary pill prefers the canonical *_summary column, falling back to
+  // Sun/Water summary pills: prefers the canonical *_summary column, falling back to
   // the effective-care value then the legacy single column.
   const sunPill = (profile as PlantProfile).sun_summary?.trim() || effectiveCare?.sun || profile.sun?.trim() || null;
-  const sunDetail = (profile as PlantProfile).sun_detail?.trim() || null;
   const waterPill = (profile as PlantProfile).water_summary?.trim() || effectiveCare?.water || profileWater?.trim() || null;
-  const waterDetail = (profile as PlantProfile).water_detail?.trim() || null;
 
   const growingNotes = profileWithSchedule?.growing_notes?.trim() || "";
 
@@ -1367,9 +1365,7 @@ export default function VaultSeedPage() {
             legacySourceUrl={legacySourceUrl ?? null}
             howToGrowList={howToGrowList}
             sunPill={sunPill}
-            sunDetail={sunDetail}
             waterPill={waterPill}
-            waterDetail={waterDetail}
             growingNotes={growingNotes}
             enrichmentLoading={enrichmentLoading}
             enrichmentBlankLoading={enrichmentBlankLoading}
