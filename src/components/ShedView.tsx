@@ -476,7 +476,7 @@ export function ShedView({
           </ul>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 [&_a]:pointer-events-auto">
+        <div className="grid grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 [&_a]:pointer-events-auto">
           {filteredSupplies.map((s) => {
             const npk = parseNpkForDisplay(s.npk);
             const thumbUrl = s.primary_image_path

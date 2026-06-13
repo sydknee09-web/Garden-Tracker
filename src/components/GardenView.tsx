@@ -1138,7 +1138,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
             />
           )
         ) : displayStyle === "grid" ? (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
             {sortedBatches.map((batch) => {
               const rawThumbUrl = getBatchImageUrl(batch);
               const thumbUrl = rawThumbUrl && !failedThumbUrls.has(rawThumbUrl) ? rawThumbUrl : null;

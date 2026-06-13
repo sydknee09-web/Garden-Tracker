@@ -656,7 +656,7 @@ export function PacketVaultView({
       )}
 
       {displayStyle === "grid" && (
-        <ul className="grid grid-cols-3 gap-2" role="list">
+        <ul className="grid grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2" role="list">
           {sortedPackets
             .filter((pkt) => !selectedOwnerFilter || pkt.owner_user_id === selectedOwnerFilter)
             .map((pkt, idx) => {
