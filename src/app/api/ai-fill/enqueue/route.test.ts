@@ -211,4 +211,108 @@ describe("POST /api/ai-fill/enqueue", () => {
     const data = await res.json();
     expect(data).toEqual({ jobId: "job-winner", alreadyRunning: true });
   });
+
+  it("runs a tag-aware second fill-blanks pass when an untagged creation's discovered tags change the tier framing", async () => {
+    // Untagged at enqueue (POST read) → first enrich uses variety framing. The first
+    // pass infers Perennial/Tree (cultivar framing), so the re-read sees tags that
+    // change the framing → a second skipHero pass re-fills the still-blank Characteristics.
+    // Fresh Response per call — both passes read .json() (a single shared Response body
+    // can only be consumed once).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ ok: true, enriched: true, fieldsFilled: 5 }), { status: 200 }))
+      )
+    );
+    const db = makeDb({ profile: { id: "profile-1", name: "Apple", variety_name: "Honeycrisp" } });
+    let profileReads = 0;
+    const origFrom = db.auth.supabase.from as ReturnType<typeof vi.fn>;
+    const baseImpl = origFrom.getMockImplementation()!;
+    origFrom.mockImplementation((table: string) => {
+      const chain = baseImpl(table) as Record<string, unknown>;
+      if (table === "plant_profiles") {
+        (chain as { maybeSingle: ReturnType<typeof vi.fn> }).maybeSingle = vi.fn(() => {
+          profileReads += 1;
+          // 1st read = POST ownership (untagged); 2nd read = runJob re-fill gate (tagged).
+          return Promise.resolve({
+            data:
+              profileReads >= 2
+                ? { id: "profile-1", lifecycle: "Perennial", growth_form: "Tree", plant_category: "Fruit" }
+                : { id: "profile-1", name: "Apple", variety_name: "Honeycrisp" },
+            error: null,
+          });
+        });
+      }
+      return chain;
+    });
+    mockGetSupabaseUser.mockResolvedValue(db.auth);
+
+    await POST(makeRequest({ profileId: "profile-1" }));
+    await flushBackground();
+
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Pass 1: hero + metadata (no skipHero). Pass 2: metadata only (skipHero).
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+      profileId: "profile-1",
+      useGemini: true,
+      forceRefresh: true,
+    });
+    expect(JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string)).toEqual({
+      profileId: "profile-1",
+      useGemini: true,
+      forceRefresh: true,
+      skipHero: true,
+    });
+    // fieldsFilled accumulates across both passes; completion writes once.
+    expect(db.jobUpdates[1]).toMatchObject({ status: "complete" });
+    expect(db.jobUpdates[1].result_summary).toMatchObject({ fieldsFilled: 10, enriched: true });
+  });
+
+  it("does not run a second pass when the profile already had classification tags", async () => {
+    // Profile-page button jobs run on already-tagged profiles → wasUntagged=false → no re-fill.
+    const db = makeDb({
+      profile: {
+        id: "profile-1",
+        name: "Apple",
+        variety_name: "Honeycrisp",
+        lifecycle: "Perennial",
+        growth_form: "Tree",
+        plant_category: "Fruit",
+      },
+    });
+    mockGetSupabaseUser.mockResolvedValue(db.auth);
+    await POST(makeRequest({ profileId: "profile-1" }));
+    await flushBackground();
+    expect(global.fetch as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not run a second pass for an untagged seed-grown annual (framing unchanged)", async () => {
+    // Tomato/Cherokee Purple: untagged framing is already 'variety', and the inferred
+    // Annual/Vegetable tags keep 'variety' framing → no wasted second AI call.
+    const db = makeDb({ profile: { id: "profile-1", name: "Tomato", variety_name: "Cherokee Purple" } });
+    let profileReads = 0;
+    const origFrom = db.auth.supabase.from as ReturnType<typeof vi.fn>;
+    const baseImpl = origFrom.getMockImplementation()!;
+    origFrom.mockImplementation((table: string) => {
+      const chain = baseImpl(table) as Record<string, unknown>;
+      if (table === "plant_profiles") {
+        (chain as { maybeSingle: ReturnType<typeof vi.fn> }).maybeSingle = vi.fn(() => {
+          profileReads += 1;
+          return Promise.resolve({
+            data:
+              profileReads >= 2
+                ? { id: "profile-1", lifecycle: "Annual", growth_form: "Herbaceous", plant_category: "Vegetable" }
+                : { id: "profile-1", name: "Tomato", variety_name: "Cherokee Purple" },
+            error: null,
+          });
+        });
+      }
+      return chain;
+    });
+    mockGetSupabaseUser.mockResolvedValue(db.auth);
+    await POST(makeRequest({ profileId: "profile-1" }));
+    await flushBackground();
+    expect(global.fetch as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+  });
 });
