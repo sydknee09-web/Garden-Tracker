@@ -91,6 +91,8 @@ export type ProfileForFill = {
   optimal_planting_months_array?: number[] | null;
   indoor_start_weeks_before_frost?: number | null;
   outdoor_plant_weeks_after_frost?: number | null;
+  hardiness_zone_min?: number | null;
+  hardiness_zone_max?: number | null;
   hero_image_url?: string | null;
   hero_image_path?: string | null;
 };
@@ -201,6 +203,15 @@ export async function buildUpdatesFromCacheRow(
   if (p.outdoor_plant_weeks_after_frost == null && outdoorWeeks != null) {
     updates.outdoor_plant_weeks_after_frost = outdoorWeeks;
   }
+  // Hardiness range (zone-agnostic) — fill when blank; valid 1-13.
+  const zoneInt = (v: unknown): number | null => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? parseInt(v, 10) : NaN;
+    return Number.isInteger(n) && n >= 1 && n <= 13 ? n : null;
+  };
+  const zMin = zoneInt(ed.hardiness_zone_min);
+  if (p.hardiness_zone_min == null && zMin != null) updates.hardiness_zone_min = zMin;
+  const zMax = zoneInt(ed.hardiness_zone_max);
+  if (p.hardiness_zone_max == null && zMax != null) updates.hardiness_zone_max = zMax;
   return updates;
 }
 
@@ -272,6 +283,8 @@ export type EnrichDataForCache = {
   optimal_planting_months_array?: number[] | null;
   indoor_start_weeks_before_frost?: number | null;
   outdoor_plant_weeks_after_frost?: number | null;
+  hardiness_zone_min?: number | null;
+  hardiness_zone_max?: number | null;
 };
 
 /**
@@ -316,6 +329,8 @@ export async function writeEnrichToGlobalCache(
   if (Array.isArray(data.optimal_planting_months_array) && data.optimal_planting_months_array.length > 0) extract_data.optimal_planting_months_array = data.optimal_planting_months_array;
   if (data.indoor_start_weeks_before_frost != null) extract_data.indoor_start_weeks_before_frost = data.indoor_start_weeks_before_frost;
   if (data.outdoor_plant_weeks_after_frost != null) extract_data.outdoor_plant_weeks_after_frost = data.outdoor_plant_weeks_after_frost;
+  if (data.hardiness_zone_min != null) extract_data.hardiness_zone_min = data.hardiness_zone_min;
+  if (data.hardiness_zone_max != null) extract_data.hardiness_zone_max = data.hardiness_zone_max;
 
   const scraped_fields = Object.keys(extract_data).filter((k) => extract_data[k] != null && extract_data[k] !== "");
 

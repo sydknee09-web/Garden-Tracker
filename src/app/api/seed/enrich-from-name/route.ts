@@ -55,6 +55,15 @@ function parseWeeks(s: string | undefined): number | null {
   return Number.isInteger(n) ? n : null;
 }
 
+/** Parse a USDA hardiness zone integer; clamps to the valid 1-13 range, else null. */
+function parseZoneInt(s: string | undefined): number | null {
+  if (!s?.trim()) return null;
+  const m = s.trim().match(/\d+/);
+  if (!m) return null;
+  const n = parseInt(m[0], 10);
+  return Number.isInteger(n) && n >= 1 && n <= 13 ? n : null;
+}
+
 /** Parse "65" or "55-70" to a number (use first number). */
 function parseDaysToMaturity(s: string | undefined): number | null {
   if (!s?.trim()) return null;
@@ -128,9 +137,11 @@ export type EnrichFromNameResponse = {
   optimal_planting_months_array?: number[] | null;
   indoor_start_weeks_before_frost?: number | null;
   outdoor_plant_weeks_after_frost?: number | null;
+  // Hardiness range (zone-agnostic) — drives the render-time viability banner.
+  hardiness_zone_min?: number | null;
+  hardiness_zone_max?: number | null;
   /** Tier the data was found at — drives plant_profiles.field_provenance in the writers. */
   provenance?: ResearchLevel | null;
-  zoneUsed?: string | null;
 };
 
 /** Columns selected from / upserted to global_plant_library. Single source of truth so read + write stay aligned. */
@@ -143,7 +154,7 @@ const LIBRARY_COLUMNS =
   "drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, " +
   "harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, " +
   "family, genus, species, " +
-  "when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, found_level, enrichment_version";
+  "when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, hardiness_zone_min, hardiness_zone_max, found_level, enrichment_version";
 
 type LibraryRow = Record<string, unknown>;
 
@@ -167,7 +178,6 @@ const numArr = (v: unknown): number[] | null =>
  */
 function responseFromLibraryRow(
   row: LibraryRow,
-  userZone: string | null,
   fallbackLevel: ResearchLevel
 ): EnrichFromNameResponse {
   const storedLevel = str(row.found_level);
@@ -182,6 +192,8 @@ function responseFromLibraryRow(
     optimal_planting_months_array: numArr(row.optimal_planting_months_array),
     indoor_start_weeks_before_frost: num(row.indoor_start_weeks_before_frost),
     outdoor_plant_weeks_after_frost: num(row.outdoor_plant_weeks_after_frost),
+    hardiness_zone_min: num(row.hardiness_zone_min),
+    hardiness_zone_max: num(row.hardiness_zone_max),
     sun: str(row.sun),
     sun_summary: str(row.sun_summary) ?? str(row.sun),
     sun_detail: str(row.sun_detail),
@@ -229,7 +241,6 @@ function responseFromLibraryRow(
     family: str(row.family),
     genus: str(row.genus),
     species: str(row.species),
-    zoneUsed: userZone,
   };
 }
 
@@ -265,26 +276,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
     }
 
-    // Read user's planting zone for zone-aware enrichment (BUGS.md Post-Launch #1).
-    // The library cache (global_plant_library) is keyed on identity only, not zone,
-    // so for non-10b users we skip the cache and let AI regenerate a zone-keyed window.
-    let userZone: string | null = null;
-    if (auth?.supabase && auth?.user?.id) {
-      try {
-        const { data: zoneRow } = await auth.supabase
-          .from("user_settings")
-          .select("planting_zone")
-          .eq("user_id", auth.user.id)
-          .maybeSingle();
-        const rawZone = (zoneRow as { planting_zone?: string | null } | null)?.planting_zone?.trim();
-        userZone = rawZone || null;
-      } catch {
-        // user_settings read failure → fall through with userZone null
-      }
-    }
-    const zoneNormalized = userZone?.toLowerCase().replace(/^zone\s+/, "") ?? null;
-    const skipLibrary = zoneNormalized != null && zoneNormalized !== "10b";
-
+    // Enrichment is zone-agnostic (zone-agnostic encyclopedia, Syd 2026-06-13): planting data is a
+    // generic temperate-climate baseline + a structured hardiness_zone_min/max range. The shared
+    // global_plant_library cache is therefore valid for ALL users regardless of zone (NORTH_STAR §1),
+    // so there is no longer a per-zone cache-skip. Zone-specific viability is computed at render time.
     const identityKey = identityKeyFromVariety(name, variety);
     // Species-level cache key: the bare plant-type key. Distinct from identityKey only when a
     // variety is present.
@@ -293,7 +288,7 @@ export async function POST(req: Request) {
     // Botany brain: check global_plant_library before AI (fallback to AI if table missing or unreachable).
     // Multi-tier read (Ship 2): variety key first, then the species key, before any AI call.
     // forceRefresh (explicit user re-research) bypasses the cache entirely so the AI actually runs.
-    if (auth?.supabase && identityKey && !skipLibrary && !forceRefresh) {
+    if (auth?.supabase && identityKey && !forceRefresh) {
       try {
         // Self-heal: a cached row below CURRENT_AI_FILL_VERSION is legacy data — treat it as a
         // cache miss and fall through to fresh AI (which re-writes the row at CURRENT). This is
@@ -305,7 +300,7 @@ export async function POST(req: Request) {
           .eq("identity_key", identityKey)
           .maybeSingle();
         if (libRow && isCurrentVersion(libRow as unknown as LibraryRow)) {
-          const response = responseFromLibraryRow(libRow as unknown as LibraryRow, userZone, "variety");
+          const response = responseFromLibraryRow(libRow as unknown as LibraryRow, "variety");
           return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response });
         }
         if (!libRow && speciesKey && speciesKey !== identityKey) {
@@ -315,7 +310,7 @@ export async function POST(req: Request) {
             .eq("identity_key", speciesKey)
             .maybeSingle();
           if (speciesRow && isCurrentVersion(speciesRow as unknown as LibraryRow)) {
-            const response = responseFromLibraryRow(speciesRow as unknown as LibraryRow, userZone, "species");
+            const response = responseFromLibraryRow(speciesRow as unknown as LibraryRow, "species");
             // Species cache hits are tagged species-level — never silently presented as variety data.
             return NextResponse.json({ enriched: true, found: true, fromCache: true, ...response, provenance: "species" });
           }
@@ -343,9 +338,9 @@ export async function POST(req: Request) {
     }
 
     // Tiered research (Ship 2): most-specific framing first (per profile tags), falling broader
-    // on each honest not-found; aborts on AI failure. Pass userZone so the AI prompt biases
-    // planting_window / months to the user's USDA zone.
-    const outcome = await researchPlantTiered(apiKey, name, variety, profileTags, userZone ?? undefined);
+    // on each honest not-found; aborts on AI failure. Zone-agnostic — the prompt produces a
+    // generic baseline window/months + a hardiness range (no per-user zone calibration).
+    const outcome = await researchPlantTiered(apiKey, name, variety, profileTags);
     if (!outcome) {
       // AI failed to run / unparseable output → "AI unavailable" semantics.
       return NextResponse.json({ enriched: false });
@@ -359,13 +354,13 @@ export async function POST(req: Request) {
     if (!outcome.found) {
       // Not found at ANY tier (B5 honest empty-state). NEVER cached —
       // the next forceRefresh re-attempts the lookup fresh (couldn't-find lock, Syd 2026-06-10).
-      console.log(`[enrich-from-name] zone=${userZone ?? "unset"} forceRefresh=${forceRefresh} attempts=${outcome.attempts} found=false`);
+      console.log(`[enrich-from-name] forceRefresh=${forceRefresh} attempts=${outcome.attempts} found=false`);
       return NextResponse.json({ enriched: false, found: false });
     }
     const result = outcome.data;
     const foundLevel: ResearchLevel = outcome.level;
 
-    console.log(`[enrich-from-name] zone=${userZone ?? "unset"} librarySkipped=${skipLibrary} forceRefresh=${forceRefresh} ai=true level=${foundLevel} attempts=${outcome.attempts}`);
+    console.log(`[enrich-from-name] forceRefresh=${forceRefresh} ai=true level=${foundLevel} attempts=${outcome.attempts}`);
 
     const harvestDays = parseDaysToMaturity(result.days_to_maturity);
     const response: EnrichFromNameResponse = {
@@ -422,8 +417,9 @@ export async function POST(req: Request) {
       optimal_planting_months_array: parseMonths(result.optimal_planting_months),
       indoor_start_weeks_before_frost: parseWeeks(result.indoor_start_weeks_before_frost),
       outdoor_plant_weeks_after_frost: parseWeeks(result.outdoor_plant_weeks_after_frost),
+      hardiness_zone_min: parseZoneInt(result.hardiness_zone_min),
+      hardiness_zone_max: parseZoneInt(result.hardiness_zone_max),
       provenance: foundLevel,
-      zoneUsed: userZone,
     };
 
     // Upsert result into global_plant_library so the brain grows (service role only).
@@ -445,6 +441,8 @@ export async function POST(req: Request) {
             optimal_planting_months_array: response.optimal_planting_months_array ?? null,
             indoor_start_weeks_before_frost: response.indoor_start_weeks_before_frost ?? null,
             outdoor_plant_weeks_after_frost: response.outdoor_plant_weeks_after_frost ?? null,
+            hardiness_zone_min: response.hardiness_zone_min ?? null,
+            hardiness_zone_max: response.hardiness_zone_max ?? null,
             mature_height: response.mature_height ?? null,
             mature_width: response.mature_width ?? null,
             sun: response.sun ?? null,

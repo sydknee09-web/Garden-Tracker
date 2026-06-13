@@ -7,6 +7,7 @@ import type { PlantProfile } from "@/types/garden";
 import { TagBadges } from "@/components/TagBadges";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { isEdiblePlant } from "@/constants/seedTypes";
+import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { formatVendorDetails } from "./vaultProfileUtils";
 
 export type AboutTabCareList = { label: string; value: string }[];
@@ -313,6 +314,23 @@ export function VaultProfileAboutTab({
   enrichmentLoading = false,
   enrichmentBlankLoading = false,
 }: VaultProfileAboutTabProps) {
+  // Zone-aware viability is computed at RENDER TIME (zone-agnostic encyclopedia, Syd 2026-06-13):
+  // stored data carries only a zone-agnostic hardiness range; the user's own zone decides whether
+  // this plant is viable outdoors here. Nothing zone-specific is persisted.
+  const { zone: userZoneRaw } = useUserPlantingZone();
+  const userZoneNum = (() => {
+    const m = (userZoneRaw ?? "").match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+  })();
+  const zMin = profile?.hardiness_zone_min ?? null;
+  const zMax = profile?.hardiness_zone_max ?? null;
+  const hardinessLabel =
+    zMin != null && zMax != null ? `${zMin}–${zMax}` : zMin != null ? `${zMin}+` : zMax != null ? `Up to ${zMax}` : null;
+  // Only computable when we know BOTH the plant's range and the user's zone. Unknown zone or
+  // missing range → no banner (we don't assert viability we can't determine).
+  const notViableHere =
+    userZoneNum != null && zMin != null && zMax != null && (userZoneNum < zMin || userZoneNum > zMax);
+
   // Sticky quick-jump anchors — follow the Sprint 10 card order (At a Glance → How to Grow →
   // Companion → Growing Notes). Growing Notes only anchors when the card renders.
   const anchorSections = [
@@ -380,9 +398,11 @@ export function VaultProfileAboutTab({
   const wtpSeasons = (profile?.planting_seasons_tags ?? []).filter(Boolean);
   const wtpIndoor = profile?.indoor_start_weeks_before_frost;
   const wtpOutdoor = profile?.outdoor_plant_weeks_after_frost;
-  const notViable = !!profile?.planting_window?.trim().startsWith("Not viable in Zone");
+  // Viability is computed at render time from the zone-agnostic hardiness range (notViableHere, above) —
+  // no zone-baked "Not viable" string is stored anymore. hardinessLabel keeps the card visible when the
+  // only When-to-Plant signal is the hardiness range.
   const hasWhenToPlant =
-    !isLegacy && (!!wtpDesc || wtpSeasons.length > 0 || wtpIndoor != null || wtpOutdoor != null || !!plantingWindow || notViable);
+    !isLegacy && (!!wtpDesc || wtpSeasons.length > 0 || wtpIndoor != null || wtpOutdoor != null || !!plantingWindow || !!hardinessLabel);
 
   // Seed Starting (Sprint 10): a short, plain how-to line assembled from the structured fields —
   // additive phrasing over the pills above it, not a tutorial. Only the parts we have.
@@ -530,15 +550,19 @@ export function VaultProfileAboutTab({
           isOpen={isAboutOpen("whenToPlant")}
           onToggle={() => toggleAboutSection("whenToPlant")}
         >
-          {notViable && (
-            <p className="mb-3 text-sm text-neutral-600 italic">
-              This plant won&apos;t survive outdoor growing{profile.planting_window_zone?.trim() ? ` in Zone ${profile.planting_window_zone.trim()}` : " in your climate"}. Consider growing indoors or in a greenhouse.
+          {/* Render-time viability banner: computed from the plant's zone-agnostic hardiness range
+              vs the user's own zone (Syd 2026-06-13). Nothing zone-specific is stored. */}
+          {notViableHere && (
+            <p className="mb-3 flex items-start gap-1.5 text-sm text-neutral-600 italic">
+              <ICON_MAP.Warning className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" aria-hidden />
+              <span>Not viable in Zone {userZoneNum} — indoor / greenhouse only. This plant&apos;s hardiness range is Zones {hardinessLabel}.</span>
             </p>
           )}
           {/* Quick-scan timing pills above the narrative. Emoji markers are content-lane
               (seasonal/timing moments) per VISION §8. */}
           {(() => {
             const pills: string[] = [];
+            if (hardinessLabel) pills.push(`🗺️ Hardy in Zones ${hardinessLabel}`);
             if (wtpIndoor != null) pills.push(`🏠 Start indoors ${wtpIndoor} wk before last frost`);
             if (wtpOutdoor != null) {
               pills.push(
@@ -561,11 +585,8 @@ export function VaultProfileAboutTab({
             ) : null;
           })()}
           {wtpDesc && <p className="text-sm text-neutral-700 whitespace-pre-wrap">{wtpDesc}</p>}
-          {plantingWindow && !notViable && (
+          {plantingWindow && !notViableHere && (
             <dl className="mt-3"><PillDetailField label="Planting Window" value={plantingWindow} /></dl>
-          )}
-          {profile?.planting_window_zone?.trim() && profile?.planting_window?.trim() && !notViable && (
-            <p className="mt-3 text-sm text-neutral-600 italic">Generated for Zone {profile.planting_window_zone}.</p>
           )}
         </SectionCard>
       )}

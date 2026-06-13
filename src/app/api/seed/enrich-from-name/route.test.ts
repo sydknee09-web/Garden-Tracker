@@ -127,7 +127,7 @@ describe("POST /api/seed/enrich-from-name", () => {
     expect(data.error).toMatch(/api.?key|not configured/i);
   });
 
-  describe("zone-aware enrichment (Phase 2)", () => {
+  describe("zone-agnostic enrichment", () => {
     beforeEach(() => {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
       // Default: researchPlantTiered returns a tier-1 found outcome so we can reach the response payload.
@@ -143,7 +143,7 @@ describe("POST /api/seed/enrich-from-name", () => {
       });
     });
 
-    it("passes userZone to researchVariety when user_settings has a zone", async () => {
+    it("calls researchPlantTiered WITHOUT any zone (enrichment is zone-agnostic)", async () => {
       mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
       const req = new Request("http://localhost/api/seed/enrich-from-name", {
         method: "POST",
@@ -151,33 +151,17 @@ describe("POST /api/seed/enrich-from-name", () => {
         body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
       });
       await POST(req);
+      // Zone-agnostic: the 5th positional zone argument is gone — the prompt no longer biases to a zone.
       expect(mockResearchPlantTiered).toHaveBeenCalledWith(
         "test-key",
         "Tomato",
         "Cherokee Purple",
-        { lifecycle: "", growth_form: "", plant_category: "" },
-        "5a"
+        { lifecycle: "", growth_form: "", plant_category: "" }
       );
+      expect(mockResearchPlantTiered.mock.calls[0]).toHaveLength(4);
     });
 
-    it("passes userZone undefined when user_settings has no zone", async () => {
-      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone(null));
-      const req = new Request("http://localhost/api/seed/enrich-from-name", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
-      });
-      await POST(req);
-      expect(mockResearchPlantTiered).toHaveBeenCalledWith(
-        "test-key",
-        "Tomato",
-        "Cherokee Purple",
-        { lifecycle: "", growth_form: "", plant_category: "" },
-        undefined
-      );
-    });
-
-    it("skips library lookup when zone is non-10b", async () => {
+    it("consults the library cache regardless of the user's zone (zone-agnostic cache valid for all)", async () => {
       const ctx = makeSupabaseWithZone("5a");
       mockGetSupabaseUser.mockResolvedValue(ctx);
       const req = new Request("http://localhost/api/seed/enrich-from-name", {
@@ -186,28 +170,14 @@ describe("POST /api/seed/enrich-from-name", () => {
         body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
       });
       await POST(req);
-      // user_settings was consulted; global_plant_library was NOT.
+      // No per-zone cache skip anymore — the shared library is valid for every zone (NORTH_STAR §1).
       const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
-      expect(tablesConsulted).toContain("user_settings");
-      expect(tablesConsulted).not.toContain("global_plant_library");
-    });
-
-    it("keeps library lookup when zone is 10b", async () => {
-      const ctx = makeSupabaseWithZone("10b");
-      mockGetSupabaseUser.mockResolvedValue(ctx);
-      const req = new Request("http://localhost/api/seed/enrich-from-name", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
-      });
-      await POST(req);
-      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
-      expect(tablesConsulted).toContain("user_settings");
       expect(tablesConsulted).toContain("global_plant_library");
     });
 
-    it("response includes zoneUsed field reflecting the server-read zone", async () => {
-      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+    it("no longer reads user_settings for a zone, and the response carries no zoneUsed field", async () => {
+      const ctx = makeSupabaseWithZone("5a");
+      mockGetSupabaseUser.mockResolvedValue(ctx);
       const req = new Request("http://localhost/api/seed/enrich-from-name", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,7 +187,9 @@ describe("POST /api/seed/enrich-from-name", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.enriched).toBe(true);
-      expect(data.zoneUsed).toBe("5a");
+      expect(data.zoneUsed).toBeUndefined();
+      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
+      expect(tablesConsulted).not.toContain("user_settings");
     });
 
     it("forceRefresh:true bypasses the library cache even at zone 10b", async () => {
@@ -337,31 +309,32 @@ describe("POST /api/seed/enrich-from-name", () => {
         "test-key",
         "Maple",
         "October Glory",
-        { lifecycle: "Perennial", growth_form: "Tree", plant_category: "Ornamental" },
-        "5a"
+        { lifecycle: "Perennial", growth_form: "Tree", plant_category: "Ornamental" }
       );
     });
 
-    it("normalizes 'Zone 5a' prefix when deciding library-skip", async () => {
-      const ctx = makeSupabaseWithZone("Zone 5a");
-      mockGetSupabaseUser.mockResolvedValue(ctx);
+    it("parses + returns the zone-agnostic hardiness range", async () => {
+      mockGetSupabaseUser.mockResolvedValue(makeSupabaseWithZone("5a"));
+      vi.mocked(mockResearchPlantTiered).mockResolvedValue({
+        found: true,
+        level: "variety",
+        cacheScope: "variety",
+        attempts: 1,
+        data: {
+          plant_description: "A cold-hardy apple.",
+          hardiness_zone_min: "3",
+          hardiness_zone_max: "8",
+        },
+      });
       const req = new Request("http://localhost/api/seed/enrich-from-name", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Tomato", variety: "Cherokee Purple" }),
+        body: JSON.stringify({ name: "Apple", variety: "Honeycrisp" }),
       });
-      await POST(req);
-      const tablesConsulted = ctx._from.mock.calls.map((c) => c[0]);
-      // "Zone 5a" normalizes to "5a" → skipLibrary = true → library NOT consulted.
-      expect(tablesConsulted).not.toContain("global_plant_library");
-      // researchPlantTiered still receives the raw "Zone 5a" string (server passes userZone as-is).
-      expect(mockResearchPlantTiered).toHaveBeenCalledWith(
-        "test-key",
-        "Tomato",
-        "Cherokee Purple",
-        { lifecycle: "", growth_form: "", plant_category: "" },
-        "Zone 5a"
-      );
+      const res = await POST(req);
+      const data = await res.json();
+      expect(data.hardiness_zone_min).toBe(3);
+      expect(data.hardiness_zone_max).toBe(8);
     });
   });
 });

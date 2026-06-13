@@ -17,13 +17,6 @@ export type EnrichProfileFromNameOptions = {
   /** For API usage logging and find-hero-photo cache. */
   accessToken?: string | null;
   /**
-   * Client-known USDA hardiness zone for observability only. The enrich-from-name
-   * API route reads user_settings.planting_zone server-side as the authoritative
-   * value for the AI prompt; this field is logged via debugLog so the lifecycle
-   * is visible from the caller side. Pass `useUserPlantingZone().zone`.
-   */
-  userZone?: string | null;
-  /**
    * When true, the AI-returned lifecycle also derives profile_type (B6 mapping:
    * Annual → "seed", Biennial/Perennial → "permanent"). Creation flows only —
    * the Seasonal/Permanent toggle was removed there, so AI owns the type.
@@ -94,9 +87,10 @@ type EnrichFromNameResponse = {
   optimal_planting_months_array?: number[] | null;
   indoor_start_weeks_before_frost?: number | null;
   outdoor_plant_weeks_after_frost?: number | null;
+  hardiness_zone_min?: number | null;
+  hardiness_zone_max?: number | null;
   /** Tier the AI found the data at (variety | cultivar | species) — drives field_provenance. */
   provenance?: string | null;
-  zoneUsed?: string | null;
 };
 
 function authHeaders(accessToken?: string | null): Record<string, string> {
@@ -173,14 +167,8 @@ export async function enrichProfileFromName(
   const { vendor = "", skipHero = false, existingGrowingNotes, accessToken, deriveProfileType = false } = options;
   const varietyTrim = (variety ?? "").trim();
   const nameTrim = (name ?? "").trim();
-  const userZoneTrim = (options.userZone ?? "").trim();
 
   logEvent("enrich", "start", { profileId, name: nameTrim, variety: varietyTrim, skipHero });
-  if (userZoneTrim) {
-    logEvent("enrich", "zone_requested", { profileId, userZone: userZoneTrim });
-  } else {
-    logEvent("enrich", "zone_fallback", { profileId, reason: "no_user_zone" });
-  }
 
   try {
     await supabase
@@ -213,16 +201,6 @@ export async function enrichProfileFromName(
 
     if (enrichData?.enriched) {
       enriched = true;
-      const aiPlantingWindow = (enrichData.planting_window ?? "").trim();
-      if (userZoneTrim && aiPlantingWindow) {
-        logEvent("enrich", "zone_window_generated", {
-          profileId,
-          userZone: enrichData.zoneUsed ?? userZoneTrim,
-          window: aiPlantingWindow,
-        });
-      } else if (userZoneTrim && !aiPlantingWindow) {
-        logEvent("enrich", "zone_fallback", { profileId, reason: "ai_no_zone_data" });
-      }
       const updates: Record<string, unknown> = {};
       // Current-pipeline enrichment → stamp the generation (enrichment versioning, 2026-06-13).
       updates.enrichment_version = CURRENT_AI_FILL_VERSION;
@@ -233,7 +211,6 @@ export async function enrichProfileFromName(
       if (enrichData.sowing_depth != null) updates.sowing_depth = enrichData.sowing_depth;
       if (enrichData.sowing_method != null) updates.sowing_method = enrichData.sowing_method;
       if (enrichData.planting_window != null) updates.planting_window = enrichData.planting_window;
-      if (enrichData.zoneUsed != null) updates.planting_window_zone = enrichData.zoneUsed;
       if (enrichData.water != null) updates.water = enrichData.water;
       if (enrichData.plant_description != null) updates.plant_description = enrichData.plant_description;
       const aiLifecycle = (enrichData.lifecycle ?? "").trim();
@@ -260,6 +237,8 @@ export async function enrichProfileFromName(
       if (Array.isArray(enrichData.optimal_planting_months_array) && enrichData.optimal_planting_months_array.length > 0) updates.optimal_planting_months_array = enrichData.optimal_planting_months_array;
       if (typeof enrichData.indoor_start_weeks_before_frost === "number") updates.indoor_start_weeks_before_frost = enrichData.indoor_start_weeks_before_frost;
       if (typeof enrichData.outdoor_plant_weeks_after_frost === "number") updates.outdoor_plant_weeks_after_frost = enrichData.outdoor_plant_weeks_after_frost;
+      if (typeof enrichData.hardiness_zone_min === "number") updates.hardiness_zone_min = enrichData.hardiness_zone_min;
+      if (typeof enrichData.hardiness_zone_max === "number") updates.hardiness_zone_max = enrichData.hardiness_zone_max;
 
       // Sprint 6 #18: creation-time writer brought to field-parity with the fill-blanks route, so a
       // freshly-created profile shows a populated Plant Characteristics section without a second

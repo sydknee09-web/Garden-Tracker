@@ -27,10 +27,16 @@
  *    EVERY viable method (not just the primary) with propagation_notes as a brief 2-3 sentence
  *    note per non-seed method. v2's single-narrative Growing Notes + single-method Propagation are
  *    materially restructured, so v2 profiles and library rows self-heal on their next AI-fill touch.
+ *  - v4 (2026-06-13, zone-agnostic encyclopedia): enrichment is now fully ZONE-AGNOSTIC. The
+ *    per-user zone clause is removed — planting_window + optimal_planting_months_array are
+ *    generic temperate-climate baselines (no zone calibration, no "Not viable in Zone N" strings),
+ *    and a structured hardiness_zone_min/max range is captured instead. Zone-specific viability is
+ *    computed at render time. v3 (and earlier) rows carry zone-biased windows/months, so they
+ *    self-heal (re-enrich zone-agnostic) on their next AI-fill touch.
  *
  * Pure constant — safe to import from both server routes and client components.
  */
-export const CURRENT_AI_FILL_VERSION = 3;
+export const CURRENT_AI_FILL_VERSION = 4;
 
 /**
  * Whether an AI Fill run may write an AI-derived value into a profile field.

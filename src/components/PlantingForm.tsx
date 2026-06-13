@@ -13,7 +13,6 @@ import { CollapsibleSupplies } from "@/components/CollapsibleSupplies";
 import { GroupSelectField } from "@/components/GroupSelectField";
 import { FormError } from "@/components/FormError";
 import { LoadingState } from "@/components/LoadingState";
-import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { createGroup, fetchUserGroups, setInstanceGroup } from "@/lib/groups";
 import type { Group } from "@/types/garden";
 
@@ -57,7 +56,6 @@ export interface PlantingFormProps {
  */
 export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: PlantingFormProps) {
   const { user, session } = useAuth();
-  const { zone: userZone } = useUserPlantingZone();
   const [rows, setRows] = useState<PlantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -306,7 +304,6 @@ export function PlantingForm({ profileIds, fromGarden, mode, onSaved }: Planting
                 vendor: (newPacketVendorByProfileId[row.rowId] ?? "").trim(),
                 skipHero: true,
                 accessToken: session?.access_token ?? undefined,
-                userZone,
               }),
               new Promise((_, reject) => setTimeout(() => reject(new Error("enrich_timeout")), enrichTimeout)),
             ]);

@@ -96,9 +96,11 @@ For the well-established taxonomic and intrinsic fields below — family, genus,
 - soil_preference: short phrase e.g. "Well-drained", "Clay tolerant", "Sandy", "Acidic", "Loam". Use empty string if not found.
 - when_to_plant_description: 2-4 plain sentences explaining WHEN to plant this plant and WHY (soil warmth, frost sensitivity, season). Example: "Cannas are a spring/summer plant — they need warm soil to grow. Start indoors 6-8 weeks before your last frost, or plant outside once the soil has warmed." Use empty string if not found.
 - planting_seasons_tags: comma-separated seasons when planting is appropriate, from the EXACT vocabulary {Spring, Summer, Fall, Winter}, e.g. "Spring, Summer". Use empty string if unknown.
-- optimal_planting_months: comma-separated month NUMBERS 1-12 for planting (calibrated to the user's zone if one is given, otherwise typical temperate-climate guidance), e.g. "3,4,5". Use empty string if unknown.
+- optimal_planting_months: comma-separated month NUMBERS 1-12 for planting, using typical temperate-climate guidance (zone-AGNOSTIC — do NOT calibrate to any specific hardiness zone; give a generic baseline), e.g. "3,4,5". Use empty string if unknown.
 - indoor_start_weeks_before_frost: number of weeks BEFORE the last frost to start this plant indoors, as a number e.g. "6" (for a range like 6-8 weeks, return the midpoint rounded down, "7"). Use empty string if indoor starting is not applicable.
 - outdoor_plant_weeks_after_frost: number of weeks AFTER the last frost to plant or sow outside, as a number e.g. "2" ("0" means right at the last frost date). Use empty string if not applicable.
+- hardiness_zone_min: the COLDEST USDA hardiness zone (integer 1-13) in which this plant reliably survives outdoors year-round. e.g. "3" for a cold-hardy apple, "9" for citrus. Species-level fact — give your best authoritative answer from general botanical knowledge. Use empty string only if genuinely not defined for this plant.
+- hardiness_zone_max: the WARMEST USDA hardiness zone (integer 1-13) in which this plant grows well outdoors. e.g. "8" for an apple that needs winter chill, "11" for citrus. Species-level fact — give your best authoritative answer. Use empty string only if genuinely not defined for this plant.
 - disease_susceptibility: comma-separated list of common diseases this plant is prone to (e.g. "Powdery mildew, Blight"). Use empty string if none notable.
 - pollination_requirements: one of "Self-pollinating", "Cross-pollinating", "Wind", "Hand-pollination needed". Use empty string if not applicable.
 - toxicity: short note on pet/human toxicity (e.g. "Toxic to cats and dogs", "Non-toxic"). Use empty string if not found.
@@ -163,6 +165,9 @@ export type ResearchVarietyResult = {
   optimal_planting_months?: string;
   indoor_start_weeks_before_frost?: string;
   outdoor_plant_weeks_after_frost?: string;
+  // Hardiness range (zone-agnostic stored fact; drives the render-time viability banner)
+  hardiness_zone_min?: string;
+  hardiness_zone_max?: string;
   // Characteristics
   soil_preference?: string;
   disease_susceptibility?: string;
@@ -200,10 +205,9 @@ export type ResearchVarietyOutcome =
 async function runResearchQuery(
   ai: GoogleGenAI,
   searchQuery: string,
-  zoneClause: string,
   framing: ResearchFraming = "variety"
 ): Promise<ResearchVarietyOutcome | null> {
-  const prompt = `${buildResearchPrompt(framing)}\n\nSearch for: ${searchQuery}${zoneClause}`;
+  const prompt = `${buildResearchPrompt(framing)}\n\nSearch for: ${searchQuery}`;
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: prompt,
@@ -281,6 +285,8 @@ async function runResearchQuery(
     optimal_planting_months: sFlex("optimal_planting_months"),
     indoor_start_weeks_before_frost: sFlex("indoor_start_weeks_before_frost"),
     outdoor_plant_weeks_after_frost: sFlex("outdoor_plant_weeks_after_frost"),
+    hardiness_zone_min: sFlex("hardiness_zone_min"),
+    hardiness_zone_max: sFlex("hardiness_zone_max"),
     soil_preference: s("soil_preference"),
     disease_susceptibility: s("disease_susceptibility"),
     pollination_requirements: s("pollination_requirements"),
@@ -307,25 +313,18 @@ async function runResearchQuery(
  * - {found: false} when the AI ran but couldn't find the exact variety (never cache this)
  * - null when the AI failed to run or returned unparseable output
  */
-function buildZoneClause(zoneNormalized: string): string {
-  return `\n\nIMPORTANT — Zone-specific planting window: The user gardens in USDA Hardiness Zone ${zoneNormalized}. For the planting_window field above, return a window calibrated to Zone ${zoneNormalized} frost dates and growing season — NOT a generic window. Always use 3-letter month abbreviations (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec) so downstream parsing works. Examples: "Indoor sow Feb-Mar, transplant after last frost May-Jun" for cold zones; "Direct sow Mar-Apr or Aug-Sep" for mild zones; "Year-round" for tropical zones. VIABILITY CHECK: if this plant CANNOT survive outdoor growing in Zone ${zoneNormalized} year-round (e.g. tropical fruit in cold zones, plants that need winter chill the zone doesn't deliver, plants that need a longer growing season than the zone offers), return the exact string "Not viable in Zone ${zoneNormalized} — indoor / greenhouse only" instead of a window. Use this ONLY for plants that genuinely can't survive outdoor; don't use it for plants that are merely difficult or require extra care. If you cannot find zone-specific guidance for Zone ${zoneNormalized}, return empty string for planting_window rather than a generic window.`;
-}
-
 export async function researchVariety(
   apiKey: string,
   plantType: string,
   variety: string,
-  vendor: string,
-  userZone?: string
+  vendor: string
 ): Promise<ResearchVarietyOutcome | null> {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const searchQuery =
       [vendor, plantType, variety].filter(Boolean).join(" ") || "seed planting guide";
-    const zoneNormalized = (userZone ?? "").trim();
-    const zoneClause = zoneNormalized ? buildZoneClause(zoneNormalized) : "";
 
-    return await runResearchQuery(ai, searchQuery, zoneClause);
+    return await runResearchQuery(ai, searchQuery);
   } catch {
     return null;
   }
@@ -422,18 +421,15 @@ export async function researchPlantTiered(
   apiKey: string,
   name: string,
   variety: string,
-  tags?: ResearchProfileTags | null,
-  userZone?: string
+  tags?: ResearchProfileTags | null
 ): Promise<ResearchTieredOutcome | null> {
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const zoneNormalized = (userZone ?? "").trim();
-    const zoneClause = zoneNormalized ? buildZoneClause(zoneNormalized) : "";
     const ladder = buildTierLadder(name, variety, tags);
     let attempts = 0;
     for (const tier of ladder) {
       attempts++;
-      const outcome = await runResearchQuery(ai, tier.query, zoneClause, tier.framing);
+      const outcome = await runResearchQuery(ai, tier.query, tier.framing);
       if (outcome === null) return null;
       if (outcome.found) {
         return { found: true, level: tier.level, cacheScope: tier.cacheScope, data: outcome.data, attempts };

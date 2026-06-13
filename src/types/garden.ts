@@ -317,6 +317,10 @@ export interface PlantProfile {
   indoor_start_weeks_before_frost?: number | null;
   /** Weeks AFTER last frost to plant/sow outside. 0 = at last frost. NULL = not applicable. */
   outdoor_plant_weeks_after_frost?: number | null;
+  /** Coldest USDA hardiness zone (1-13) the plant survives outdoors. Zone-AGNOSTIC stored fact; drives the render-time viability banner. */
+  hardiness_zone_min?: number | null;
+  /** Warmest USDA hardiness zone (1-13) the plant grows well in. Zone-AGNOSTIC stored fact. */
+  hardiness_zone_max?: number | null;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;

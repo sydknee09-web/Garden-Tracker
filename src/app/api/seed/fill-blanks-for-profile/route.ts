@@ -121,7 +121,7 @@ export async function POST(req: Request) {
       .select(
         "id, name, variety_name, scientific_name, sun, plant_spacing, days_to_germination, harvest_days, plant_description, growing_notes, water, sowing_depth, sowing_method, planting_window, hero_image_url, hero_image_path, companion_plants, avoid_plants, propagation_notes, seed_saving_notes, seed_propagation_context, " +
           "lifecycle, growth_form, plant_category, growth_habit, propagation_method, soil_preference, disease_susceptibility, pollination_requirements, toxicity, deer_rabbit_resistance, wildlife_value, invasiveness, native_origin, drought_salt_tolerance, synonyms, uses, special_features, water_summary, water_detail, sun_summary, sun_detail, harvest_season, spring_indoor_window, spring_outdoor_window, summer_window, fall_outdoor_window, planting_depth, mature_height, mature_width, family, genus, species, " +
-          "field_provenance, enrichment_version, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost"
+          "field_provenance, enrichment_version, when_to_plant_description, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, hardiness_zone_min, hardiness_zone_max"
       )
       .eq("id", profileId)
       .eq("user_id", user.id)
@@ -392,6 +392,11 @@ export async function POST(req: Request) {
           setWeeks("indoor_start_weeks_before_frost", data.indoor_start_weeks_before_frost);
           setWeeks("outdoor_plant_weeks_after_frost", data.outdoor_plant_weeks_after_frost);
 
+          // Hardiness range (zone-agnostic) — drives the render-time viability banner. Valid 1-13,
+          // so setNum's "blank when null or 0" guard is correct (0 is never a real zone).
+          setNum("hardiness_zone_min", dNum("hardiness_zone_min"));
+          setNum("hardiness_zone_max", dNum("hardiness_zone_max"));
+
           if (deriveProfileType) {
             const derived = profileTypeFromLifecycle(aiUpdates.lifecycle);
             if (derived) aiUpdates.profile_type = derived;
@@ -454,6 +459,8 @@ export async function POST(req: Request) {
                     typeof data.indoor_start_weeks_before_frost === "number" ? (data.indoor_start_weeks_before_frost as number) : undefined,
                   outdoor_plant_weeks_after_frost:
                     typeof data.outdoor_plant_weeks_after_frost === "number" ? (data.outdoor_plant_weeks_after_frost as number) : undefined,
+                  hardiness_zone_min: dNum("hardiness_zone_min") ?? undefined,
+                  hardiness_zone_max: dNum("hardiness_zone_max") ?? undefined,
                 };
                 await writeEnrichToGlobalCache(admin, identityKey, vendor, name, variety, enrichData);
               }
