@@ -124,7 +124,7 @@ export default function GardenGrowDetailPage() {
         {prevId && (
           <Link
             href={`/garden/grow/${prevId}${contextQuery}`}
-            className="absolute left-0 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            className="absolute left-0 md:-left-10 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
             aria-label="Previous plant"
           >
             <ICON_MAP.ChevronLeft className="w-6 h-6" />
@@ -133,7 +133,7 @@ export default function GardenGrowDetailPage() {
         {nextId && (
           <Link
             href={`/garden/grow/${nextId}${contextQuery}`}
-            className="absolute right-0 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            className="absolute right-0 md:-right-10 top-[30%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
             aria-label="Next plant"
           >
             <ICON_MAP.ChevronRight className="w-6 h-6" />
