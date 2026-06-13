@@ -620,7 +620,7 @@ export function AddPlantModal({
         return;
       }
       if (createdProfileId && !stayInGarden) {
-        router.push(`/vault/${createdProfileId}`);
+        router.push(`/library/${createdProfileId}`);
       }
       handleClose();
       router.refresh();
@@ -1091,7 +1091,7 @@ export function AddPlantModal({
                 type="button"
                 onClick={() => {
                   setEnrichmentFailed(false);
-                  if (createdProfileId && !stayInGarden) router.push(`/vault/${createdProfileId}`);
+                  if (createdProfileId && !stayInGarden) router.push(`/library/${createdProfileId}`);
                   handleClose();
                 }}
                 className="min-h-[44px] px-4 py-2 rounded-3xl bg-emerald-600 text-white font-medium hover:bg-emerald-700"

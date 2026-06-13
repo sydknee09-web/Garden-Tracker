@@ -269,7 +269,7 @@ export default function VendorScorecardPage() {
                       return (
                         <div key={pkt.id} className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-neutral-100 last:border-b-0">
                           <Link
-                            href={`/vault/${pkt.plant_profile_id}`}
+                            href={`/library/${pkt.plant_profile_id}`}
                             className="text-sm text-neutral-800 hover:text-emerald-600 hover:underline truncate min-w-0 flex-1"
                           >
                             {label}
@@ -322,7 +322,7 @@ export default function VendorScorecardPage() {
                         return (
                           <div key={pkt.id} className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-neutral-100 last:border-b-0">
                             <Link
-                              href={`/vault/${pkt.plant_profile_id}`}
+                              href={`/library/${pkt.plant_profile_id}`}
                               className="text-sm text-neutral-800 hover:text-emerald-600 hover:underline truncate min-w-0 flex-1"
                             >
                               {label}

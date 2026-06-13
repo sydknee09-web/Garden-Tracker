@@ -7,6 +7,7 @@ import { test, expect } from "./test-base";
 test.describe("Authenticated pages smoke", () => {
   const routes = [
     { path: "/", name: "Home" },
+    { path: "/library", name: "Library" },
     { path: "/vault", name: "Vault" },
     { path: "/garden", name: "Garden" },
     { path: "/calendar", name: "Calendar" },

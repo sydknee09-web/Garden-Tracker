@@ -25,8 +25,8 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf-8");
 
 const editGrowModal = read("src/components/EditGrowModal.tsx");
 const instanceModal = read("src/components/GrowInstanceModal.tsx");
-const vaultProfile = read("src/app/vault/[id]/page.tsx");
-const plantingsHandlers = read("src/app/vault/[id]/useVaultPlantingsHandlers.ts");
+const vaultProfile = read("src/app/library/[id]/page.tsx");
+const plantingsHandlers = read("src/app/library/[id]/useVaultPlantingsHandlers.ts");
 
 // ---------------------------------------------------------------------------
 // 1. Pencil affordance + single canonical editor

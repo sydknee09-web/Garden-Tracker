@@ -1026,7 +1026,7 @@ export default function CalendarPage() {
                   type="button"
                   onClick={() => {
                     const sowParam = `${month.year}-${String(month.month + 1).padStart(2, "0")}`;
-                    router.push(`/vault?sow=${sowParam}`);
+                    router.push(`/library?sow=${sowParam}`);
                   }}
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-white border border-emerald-300 text-emerald-700 font-bold hover:bg-emerald-100 transition-colors"
                   title="See plants for this month in Vault"
@@ -1099,7 +1099,7 @@ export default function CalendarPage() {
                           ))}
                         </ul>
                       )}
-                      <Link href={`/vault/${profile.id}`} className="text-xs text-emerald-600 hover:underline">
+                      <Link href={`/library/${profile.id}`} className="text-xs text-emerald-600 hover:underline">
                         View profile →
                       </Link>
                     </div>
@@ -1809,7 +1809,7 @@ export default function CalendarPage() {
                     if (gid) {
                       router.push(`/garden/grow/${gid}?instanceTab=care&schedule=${sid}`);
                     } else {
-                      router.push(`/vault/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
+                      router.push(`/library/${pid}?tab=care&from=calendar&date=${taskDetailTask.due_date}&schedule=${sid}`);
                     }
                   }}
                   className="w-full min-h-[44px] rounded-xl bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700"
@@ -1830,7 +1830,7 @@ export default function CalendarPage() {
                     type="button"
                     onClick={() => {
                       setTaskDetailTask(null);
-                      router.push(`/vault/${taskDetailTask.plant_profile_id}?tab=care&from=calendar&date=${taskDetailTask.due_date}`);
+                      router.push(`/library/${taskDetailTask.plant_profile_id}?tab=care&from=calendar&date=${taskDetailTask.due_date}`);
                     }}
                     className={`flex-1 min-h-[44px] rounded-xl font-medium text-sm ${taskDetailTask.care_schedule_id ? "border border-neutral-300 text-neutral-700" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
                   >
@@ -1996,7 +1996,7 @@ export default function CalendarPage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1`);
+              router.push(`/library/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetch((r) => r + 1);

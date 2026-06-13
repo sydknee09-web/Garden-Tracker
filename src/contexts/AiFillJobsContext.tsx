@@ -124,7 +124,7 @@ export function AiFillJobsProvider({ children }: { children: React.ReactNode }) 
       const profileId = row.plant_profile_id;
       showToast(message, {
         variant,
-        action: { label: "View", onAction: () => router.push(`/vault/${profileId}`) },
+        action: { label: "View", onAction: () => router.push(`/library/${profileId}`) },
       });
     },
     [removeActive, router, showToast]

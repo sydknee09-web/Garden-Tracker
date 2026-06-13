@@ -745,7 +745,7 @@ export default function SettingsDeveloperPage() {
                   {archivedPlantings.map((item) => (
                     <li key={item.id} className="px-4 py-3 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <Link href={`/vault/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline">
+                        <Link href={`/library/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline">
                           {item.name}{item.variety_name?.trim() ? ` (${item.variety_name})` : ""}
                         </Link>
                         <p className="text-sm text-neutral-500 mt-1">
@@ -816,7 +816,7 @@ export default function SettingsDeveloperPage() {
                 <ul className="mt-2 border border-neutral-200 rounded-xl bg-white divide-y divide-neutral-100 overflow-hidden">
                   {archived.map((item) => (
                     <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                      <Link href={`/vault/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline truncate min-w-0 flex-1">
+                      <Link href={`/library/${item.plant_profile_id}`} className="text-neutral-800 font-medium hover:text-emerald-600 hover:underline truncate min-w-0 flex-1">
                         {item.vendor} - {item.name}{item.variety_name?.trim() ? ` (${item.variety_name})` : ""}
                       </Link>
                       <button

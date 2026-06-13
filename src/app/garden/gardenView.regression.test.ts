@@ -113,8 +113,8 @@ describe("GardenView — unified data + routing", () => {
   });
 
   it("does NOT route card-tap to /vault/<profileId> anywhere", () => {
-    expect(gardenView).not.toContain("/vault/${profileId}");
-    expect(gardenView).not.toContain("/vault/${batch.plant_profile_id}");
+    expect(gardenView).not.toContain("/library/${profileId}");
+    expect(gardenView).not.toContain("/library/${batch.plant_profile_id}");
   });
 
   it("filters by selected group via instance.groups[] membership (client-side)", () => {

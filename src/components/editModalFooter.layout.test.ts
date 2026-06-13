@@ -31,9 +31,9 @@ const ROOT = process.cwd();
 const read = (p: string) => readFileSync(join(ROOT, p), "utf-8");
 
 const editPacketModal = read("src/components/EditPacketModal.tsx");
-const vaultProfile = read("src/app/vault/[id]/page.tsx");
+const vaultProfile = read("src/app/library/[id]/page.tsx");
 const editGrowModal = read("src/components/EditGrowModal.tsx");
-const packetsTab = read("src/app/vault/[id]/VaultProfilePacketsTab.tsx");
+const packetsTab = read("src/app/library/[id]/VaultProfilePacketsTab.tsx");
 const quickLog = read("src/components/QuickLogModal.tsx");
 const importPage = read("src/app/vault/import/page.tsx");
 

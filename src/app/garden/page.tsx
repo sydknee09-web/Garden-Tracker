@@ -1028,7 +1028,7 @@ function GardenPageInner() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1`);
+              router.push(`/library/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetchTrigger((t) => t + 1);

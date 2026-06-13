@@ -119,7 +119,7 @@ export default function ImportManualPage() {
           const profileId = await saveManualImportItem(reviewItem, user!.id, {
             ensureStorage: () => fetch("/api/seed/ensure-storage-bucket", { method: "POST" }),
           });
-          router.push(`/vault/${profileId}`);
+          router.push(`/library/${profileId}`);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Save failed");
           setPhase("error");

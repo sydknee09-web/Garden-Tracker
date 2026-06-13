@@ -19,12 +19,12 @@ import { join } from "path";
 const ROOT = process.cwd();
 
 const vaultPage = readFileSync(
-  join(ROOT, "src/app/vault/[id]/page.tsx"),
+  join(ROOT, "src/app/library/[id]/page.tsx"),
   "utf-8"
 );
 
 const careTab = readFileSync(
-  join(ROOT, "src/app/vault/[id]/VaultProfileCareTab.tsx"),
+  join(ROOT, "src/app/library/[id]/VaultProfileCareTab.tsx"),
   "utf-8"
 );
 

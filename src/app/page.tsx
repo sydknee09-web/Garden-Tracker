@@ -500,7 +500,7 @@ export default function HomePage() {
                               </Link>
                             )
                           ) : (
-                            <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
+                            <Link href={`/library/${item.plant_profile_id}`} className="hover:text-emerald" onClick={(e) => e.stopPropagation()}>
                               {label}
                             </Link>
                           )}
@@ -557,7 +557,7 @@ export default function HomePage() {
                   <ul className="space-y-1">
                     {pendingTasks.map((t) => {
                       const vaultId = t.plant_profile_id;
-                      const taskHref = vaultId ? `/vault/${vaultId}` : "/calendar";
+                      const taskHref = vaultId ? `/library/${vaultId}` : "/calendar";
                       const isMarking = markingTaskDoneId === t.id;
                       const taskLabel = t.title ?? t.category ?? "";
                       const showPlant = t.plant_name && !taskLabel.includes(t.plant_name);
@@ -697,7 +697,7 @@ export default function HomePage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1`);
+              router.push(`/library/${opts.newProfileId}?added=1`);
               return;
             }
             setShoppingListRefreshKey((k) => k + 1);

@@ -37,6 +37,11 @@ const JOURNAL_KEYS = ["journal-view-mode"];
 
 export function getNavSection(pathname: string): string {
   if (!pathname || pathname === "/") return "home";
+  // Library (landing + /library/[id] profiles) is its own section. It shares the
+  // VAULT_KEYS sessionStorage namespace with Vault but is NOT cross-cleared with it
+  // (AuthGuard only clears vault/garden/journal sections); Library↔Vault still clears
+  // Vault filters, matching the prior /plants→/vault behavior. Full rebrand 2026-06-13.
+  if (pathname === "/library" || pathname.startsWith("/library/")) return "library";
   if (pathname.startsWith("/vault")) return "vault";
   if (pathname === "/garden" || pathname.startsWith("/garden/")) return "garden";
   if (pathname.startsWith("/journal")) return "journal";

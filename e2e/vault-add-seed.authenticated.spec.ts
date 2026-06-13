@@ -70,8 +70,8 @@ test.describe("Vault — Add Seed Packet (FAB flow)", () => {
     // Should not redirect to login
     await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
 
-    // URL should be /vault or /vault/[id] (new profile redirect)
-    await expect(page).toHaveURL(/\/vault/, { timeout: 15000 });
+    // URL should be /vault (packet added to existing profile) or /library/[id] (new profile redirect)
+    await expect(page).toHaveURL(/\/(vault|library)/, { timeout: 15000 });
 
     // No visible error alert (excludes Next.js route announcer which is always in the DOM)
     await expect(

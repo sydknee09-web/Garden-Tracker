@@ -36,7 +36,7 @@ export default function GardenGrowDetailPage() {
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const backHref =
-    fromParam === "library" && profileIdParam ? `/vault/${profileIdParam}`
+    fromParam === "library" && profileIdParam ? `/library/${profileIdParam}`
     : fromParam === "packet" && packetIdParam ? `/vault/packets/${packetIdParam}`
     : "/garden";
 

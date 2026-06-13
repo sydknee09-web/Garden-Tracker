@@ -132,7 +132,7 @@ describe("Calendar deep-link routing (C4)", () => {
     expect(CAL_SRC).toMatch(/\/garden\/grow\/\$\{gid\}\?instanceTab=care&schedule=\$\{sid\}/);
   });
 
-  it("preserves /vault Care-tab routing fallback when no grow_instance_id", () => {
-    expect(CAL_SRC).toMatch(/\/vault\/\$\{pid\}\?tab=care&from=calendar/);
+  it("preserves /library Care-tab routing fallback when no grow_instance_id", () => {
+    expect(CAL_SRC).toMatch(/\/library\/\$\{pid\}\?tab=care&from=calendar/);
   });
 });

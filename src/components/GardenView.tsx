@@ -1098,7 +1098,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
             <p className="text-black/70 font-medium mb-2">Your garden is empty.</p>
             <p className="text-sm text-black/50 mb-6">Add a plant or set up a group to organize your garden.</p>
             <Link
-              href="/vault"
+              href="/library"
               className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
             >
               Add a Plant
@@ -1124,7 +1124,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
               <p className="text-black/70 font-medium mb-2">No plants in this group yet.</p>
               <p className="text-sm text-black/50 mb-6">Add a plant or move existing plants here from Manage Groups.</p>
               <Link
-                href="/vault"
+                href="/library"
                 className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
               >
                 Add a Plant

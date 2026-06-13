@@ -141,7 +141,7 @@ export default function PlantingHistoryPage() {
                   return (
                     <tr key={g.id} className="hover:bg-neutral-50">
                       <td className="px-4 py-3">
-                        <Link href={`/vault/${g.plant_profile_id}`} className="font-medium text-neutral-800 hover:text-emerald-600 hover:underline">
+                        <Link href={`/library/${g.plant_profile_id}`} className="font-medium text-neutral-800 hover:text-emerald-600 hover:underline">
                           {g.profile_name}{g.variety_name?.trim() ? ` (${g.variety_name})` : ""}
                         </Link>
                       </td>

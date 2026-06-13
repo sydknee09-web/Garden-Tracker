@@ -63,7 +63,7 @@ test.describe("Synthetic User Procedure", () => {
     await saveBtn.click();
 
     await expect(page).not.toHaveURL(/\/login/, { timeout: 15000 });
-    await expect(page).toHaveURL(/\/vault/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/(vault|library)/, { timeout: 15000 });
     await expect(
       page.locator('[role="alert"]:not(#__next-route-announcer__)').filter({ hasText: /./ })
     ).not.toBeVisible();

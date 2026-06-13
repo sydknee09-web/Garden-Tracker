@@ -1603,7 +1603,7 @@ export default function ReviewImportPage() {
                                 {addPlantMode ? "Plant will be added under" : "Packet will be added under"} <strong>{label}</strong>
                                 {profile && (
                                   <Link
-                                    href={`/vault/${profile.id}`}
+                                    href={`/library/${profile.id}`}
                                     className="text-emerald-700 underline hover:no-underline font-medium min-h-[44px] min-w-[44px] inline-flex items-center"
                                     aria-label={`View ${label} profile`}
                                   >

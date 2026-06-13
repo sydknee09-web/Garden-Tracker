@@ -122,42 +122,20 @@ export interface NavItem {
 
 export const primaryNavItems: NavItem[] = [
   { href: "/", label: "Home", Icon: HomeIcon },
-  { href: "/plants", label: "Library", Icon: SproutIcon },
+  { href: "/library", label: "Library", Icon: SproutIcon },
   { href: "/garden", label: "Garden", Icon: LeafIcon },
   { href: "/vault", label: "Vault", Icon: VaultIcon },
   { href: "/calendar", label: "Calendar", Icon: CalendarIcon },
   { href: "/journal", label: "Journal", Icon: JournalIcon },
 ];
 
-/** /vault sub-routes that are NOT plant profiles. Anything else under /vault/<segment>
- * is a Library plant profile page (Library promoted to /plants, Ship A 2026-05-28 —
- * profile routes kept their /vault/[id] address). */
-const VAULT_NON_PROFILE_SEGMENTS = new Set([
-  "import",
-  "review-import",
-  "plant",
-  "shed",
-  "history",
-  "packets",
-  "tags",
-]);
-
-/** True when pathname is a Library plant-profile page (/vault/<id>). */
-export function isPlantProfilePath(pathname: string | null): boolean {
-  if (!pathname?.startsWith("/vault/")) return false;
-  const seg = pathname.slice("/vault/".length).split("/")[0] ?? "";
-  return seg.length > 0 && !VAULT_NON_PROFILE_SEGMENTS.has(seg);
-}
-
 export function isNavItemActive(itemHref: string, pathname: string | null): boolean {
   if (!pathname) return false;
   const pathForMatch = itemHref.includes("?") ? itemHref.split("?")[0] : itemHref;
-  // Plant profiles live at /vault/[id] but belong to Library (/plants) — highlight
-  // Library, not Vault, so the nav reflects what the user is looking at (Syd
-  // chrome-cohesion lock 2026-06-12; NORTH_STAR "No duplicate paths").
-  if (isPlantProfilePath(pathname)) {
-    return pathForMatch === "/plants";
-  }
+  // Plant profiles live at /library/[id] (full rebrand, Syd lock 2026-06-13) so
+  // standard prefix matching highlights Library directly — no special-case needed.
+  // The Vault tab (/vault) keeps Packets/Shed + its sub-routes (/vault/packets,
+  // /vault/shed, /vault/import, etc.). NORTH_STAR "No duplicate paths".
   return (
     pathname === pathForMatch ||
     (pathForMatch !== "/" && pathname.startsWith(pathForMatch + "/"))

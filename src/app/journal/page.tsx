@@ -708,7 +708,7 @@ export default function JournalPage() {
                       return profileId ? (
                         <Link
                           key={`${name}-${i}`}
-                          href={`/vault/${profileId}?tab=journal`}
+                          href={`/library/${profileId}?tab=journal`}
                           onClick={(e) => e.stopPropagation()}
                           className={pillClass}
                         >
@@ -799,7 +799,7 @@ export default function JournalPage() {
                             return profileId ? (
                               <Link
                                 key={`${name}-${i}`}
-                                href={`/vault/${profileId}?tab=journal`}
+                                href={`/library/${profileId}?tab=journal`}
                                 onClick={(e) => e.stopPropagation()}
                                 className={pillClass}
                               >
@@ -858,7 +858,7 @@ export default function JournalPage() {
                   return firstWithImage.photo_url ?? null;
                 })()
               : null;
-            const href = group.profileId ? `/vault/${group.profileId}?tab=journal` : null;
+            const href = group.profileId ? `/library/${group.profileId}?tab=journal` : null;
             const card = (
               <div className="rounded-2xl bg-white border border-black/10 overflow-hidden shadow-card flex flex-col card-interactive">
                 {thumbSrc ? (
@@ -978,7 +978,7 @@ export default function JournalPage() {
                         return profileId ? (
                           <Link
                             key={`${name}-${i}`}
-                            href={`/vault/${profileId}?tab=journal`}
+                            href={`/library/${profileId}?tab=journal`}
                             onClick={(e) => e.stopPropagation()}
                             className={pillClass}
                           >
@@ -1140,7 +1140,7 @@ export default function JournalPage() {
           onSuccess={(opts) => {
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1`);
+              router.push(`/library/${opts.newProfileId}?added=1`);
               return;
             }
             setRefetchTrigger((t) => t + 1);

@@ -309,7 +309,7 @@ export default function ShoppingListPage() {
                   >
                     <span className="flex-1 min-w-0 text-neutral-900">
                       {item.plant_profile_id ? (
-                        <Link href={`/vault/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/library/${item.plant_profile_id}`} className="hover:text-emerald-600" onClick={(e) => e.stopPropagation()}>
                           {label}
                         </Link>
                       ) : isSupply && !supplyLinkDisabled ? (

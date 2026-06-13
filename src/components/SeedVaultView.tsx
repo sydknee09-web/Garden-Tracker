@@ -371,7 +371,7 @@ export function SeedVaultView({
   const q = searchQuery.trim().toLowerCase();
 
   function goToProfile(profileId: string) {
-    router.push(`/vault/${profileId}`);
+    router.push(`/library/${profileId}`);
   }
 
   const sowMonthIndex = useMemo(() => {

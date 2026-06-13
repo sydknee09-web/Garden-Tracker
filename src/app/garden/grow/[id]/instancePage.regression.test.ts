@@ -19,7 +19,7 @@ const swipeOrder = read("src/lib/swipeOrder.ts");
 const gardenView = read("src/components/GardenView.tsx");
 const gardenPage = read("src/app/garden/page.tsx");
 const packetPage = read("src/app/vault/packets/[id]/page.tsx");
-const vaultProfile = read("src/app/vault/[id]/page.tsx");
+const vaultProfile = read("src/app/library/[id]/page.tsx");
 const calendarPage = read("src/app/calendar/page.tsx");
 
 // ---------------------------------------------------------------------------

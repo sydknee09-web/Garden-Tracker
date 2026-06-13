@@ -131,7 +131,7 @@ import { VaultGridRefineModal, type GridRefineSection } from "@/app/vault/compon
 function getInitialViewMode(searchParams: URLSearchParams | null, isPlantsSurface: boolean): "grid" | "list" | "shed" {
   // Plants surface: always Library/grid (single mode; no tab switcher).
   if (isPlantsSurface) return "grid";
-  // Vault surface: Library moved to /plants. Default to Packets ("list"); legacy ?tab=grid|active|plants is handled by a mount-time redirect to /plants.
+  // Vault surface: Library moved to /library. Default to Packets ("list"); legacy ?tab=grid|active|plants is handled by a mount-time redirect to /library.
   if (!searchParams) return "list";
   const tab = searchParams.get("tab");
   if (tab === "shed") return "shed";
@@ -143,10 +143,11 @@ function VaultPageInner() {
   const { refetchTrigger, refetch, scrollContainerRef } = useVault();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  // Surface detection: /plants mounts this same component but in single-mode Library/grid.
+  // Surface detection: /library mounts this same component but in single-mode Library/grid.
   // /vault renders Packets + Shed only. Drives initial viewMode, tab switcher render, and URL ops.
-  const isPlantsSurface = pathname?.startsWith("/plants") ?? false;
-  const basePath = isPlantsSurface ? "/plants" : "/vault";
+  // Identifier kept as `isPlantsSurface` (regression test asserts it); semantics = Library surface.
+  const isPlantsSurface = pathname?.startsWith("/library") ?? false;
+  const basePath = isPlantsSurface ? "/library" : "/vault";
   const [viewMode, setViewMode] = useState<"grid" | "list" | "shed">(() => getInitialViewMode(searchParams, isPlantsSurface));
   const [shedModalOpen, setShedModalOpen] = useState(false);
   const [shedSelectionState, setShedSelectionState] = useState<{ shedBatchSelectMode: boolean; selectedSupplyIds: Set<string> }>({ shedBatchSelectMode: false, selectedSupplyIds: new Set() });
@@ -344,7 +345,7 @@ function VaultPageInner() {
     else refetch();
   }, [user?.id]);
 
-  // Surface migration: /vault?tab=grid|active|plants (legacy Library URLs) redirect to /plants,
+  // Surface migration: /vault?tab=grid|active|plants (legacy Library URLs) redirect to /library,
   // preserving other query params (sow, status, etc.). Mount-time only; runs before tab-sync effect below.
   useEffect(() => {
     if (isPlantsSurface) return;
@@ -353,7 +354,7 @@ function VaultPageInner() {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("tab");
       const qs = params.toString();
-      router.replace(qs ? `/plants?${qs}` : "/plants", { scroll: false });
+      router.replace(qs ? `/library?${qs}` : "/library", { scroll: false });
     }
   }, [isPlantsSurface, searchParams, router]);
 
@@ -384,7 +385,7 @@ function VaultPageInner() {
   // Sync tab from URL (e.g. /vault?tab=active after planting) and refetch so new plantings show
   useEffect(() => {
     if (isPlantsSurface) {
-      // /plants is single-mode Library; no tab sync. Status + sow still apply via gridFilters below.
+      // /library is single-mode Library; no tab sync. Status + sow still apply via gridFilters below.
       setViewMode("grid");
     } else {
       const tab = searchParams.get("tab");
@@ -404,7 +405,7 @@ function VaultPageInner() {
     }
     const sow = searchParams.get("sow");
     if (sow) {
-      // sow filter is grid-only — only meaningful on /plants. On /vault, redirect effect already moved us.
+      // sow filter is grid-only — only meaningful on /library. On /vault, redirect effect already moved us.
       if (isPlantsSurface) {
         setViewMode("grid");
         gridFilters.setStatus("vault");
@@ -432,10 +433,10 @@ function VaultPageInner() {
     hasRestoredSession.current = true;
     try {
       const savedView = sessionStorage.getItem("vault-view-mode");
-      // /plants is single-mode Library; viewMode is force-locked to "grid" by init + tab-sync.
+      // /library is single-mode Library; viewMode is force-locked to "grid" by init + tab-sync.
       // Skip the restore here so a stale "list" written during a prior /vault?tab=list visit can't
-      // flip /plants to render the Packets surface on mount. (Bug: sessionStorage-shared namespace
-      // between /plants and /vault leaked Packets viewMode onto /plants until next searchParams change.)
+      // flip /library to render the Packets surface on mount. (Bug: sessionStorage-shared namespace
+      // between /library and /vault leaked Packets viewMode onto /library until next searchParams change.)
       if (!isPlantsSurface) {
         if (savedView === "grid" || savedView === "list" || savedView === "shed") setViewMode(savedView);
         else if (savedView === "table") setViewMode("list");
@@ -977,7 +978,7 @@ function VaultPageInner() {
     const { data } = await supabase.from("plant_profiles").select("id").eq("id", possibleId).maybeSingle();
     if (data?.id) {
       setScannerOpen(false);
-      router.push(`/vault/${data.id}`);
+      router.push(`/library/${data.id}`);
       return;
     }
     const prefill = parseSeedFromQR(trimmed);
@@ -1048,8 +1049,8 @@ function VaultPageInner() {
           )}
         </div>
 
-        {/* Tab switcher: /vault shows Packets + Shed only (Library promoted to /plants Ship A 2026-05-28).
-            /plants is single-mode (Library) — no switcher row rendered. */}
+        {/* Tab switcher: /vault shows Packets + Shed only (Library promoted to /library Ship A 2026-05-28).
+            /library is single-mode (Library) — no switcher row rendered. */}
         {!isPlantsSurface && (
           <div className="flex mb-3 -mx-2 px-2" role="tablist" aria-label="View">
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
@@ -1083,7 +1084,7 @@ function VaultPageInner() {
           </div>
         )}
 
-        {/* Library single-state tab slot: /plants renders one inert "Library" tab so the
+        {/* Library single-state tab slot: /library renders one inert "Library" tab so the
             top-of-page tab-toggle slot stays visually consistent with Garden (All/groups) +
             Vault (Packets/Shed). Tap is a no-op — it's always the active/only view.
             Cohesion convention: VISION §8 "Single-state tab-slot for cross-surface cohesion". */}
@@ -1253,7 +1254,7 @@ function VaultPageInner() {
                     return new Date(2000, (m ?? 1) - 1).toLocaleString("default", { month: "long" });
                   })()})
                 </span>
-                <Link href="/vault" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</Link>
+                <Link href="/library" className="text-sm font-medium text-emerald-700 hover:text-emerald-800 underline">Show All</Link>
               </div>
             )}
             <SeedVaultView
@@ -1886,7 +1887,7 @@ function VaultPageInner() {
             setSeedStartOnManual(false);
             if (opts?.newProfileId) {
               closeActiveModal();
-              router.push(`/vault/${opts.newProfileId}?added=1`);
+              router.push(`/library/${opts.newProfileId}?added=1`);
               return;
             }
             refetch();

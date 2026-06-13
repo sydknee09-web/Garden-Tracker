@@ -10,12 +10,12 @@ import { test, expect } from "./test-base";
 
 test.describe("Vault — Plant Profile inline editing", () => {
   test("packet notes field allows spaces and multi-word input", async ({ page }) => {
-    await page.goto("/vault");
+    await page.goto("/library");
     await page.waitForLoadState("networkidle");
 
     // Find the first plant profile link
     const firstProfile = page
-      .locator('a[href^="/vault/"]:not([href="/vault/plant"]):not([href="/vault/import"])')
+      .locator('a[href^="/library/"]')
       .first();
     const hasProfile = await firstProfile
       .waitFor({ state: "visible", timeout: 10000 })
@@ -28,7 +28,7 @@ test.describe("Vault — Plant Profile inline editing", () => {
     }
 
     await firstProfile.click();
-    await page.waitForURL(/\/vault\/[^/]+$/, { timeout: 10000 });
+    await page.waitForURL(/\/library\/[^/]+$/, { timeout: 10000 });
     await page.waitForLoadState("networkidle");
 
     // Open the Packets tab, then tap into the dedicated packet detail page where
@@ -80,11 +80,11 @@ test.describe("Vault — Plant Profile inline editing", () => {
   });
 
   test("storage location field allows spaces and multi-word input", async ({ page }) => {
-    await page.goto("/vault");
+    await page.goto("/library");
     await page.waitForLoadState("networkidle");
 
     const firstProfile = page
-      .locator('a[href^="/vault/"]:not([href="/vault/plant"]):not([href="/vault/import"])')
+      .locator('a[href^="/library/"]')
       .first();
     const hasProfile = await firstProfile
       .waitFor({ state: "visible", timeout: 10000 })
@@ -97,7 +97,7 @@ test.describe("Vault — Plant Profile inline editing", () => {
     }
 
     await firstProfile.click();
-    await page.waitForURL(/\/vault\/[^/]+$/, { timeout: 10000 });
+    await page.waitForURL(/\/library\/[^/]+$/, { timeout: 10000 });
     await page.waitForLoadState("networkidle");
 
     const packetsTab = page.getByRole("tab", { name: /packets/i });
@@ -146,11 +146,11 @@ test.describe("Vault — Plant Profile inline editing", () => {
   });
 
   test("profile page loads with no errors and no login redirect", async ({ page }) => {
-    await page.goto("/vault");
+    await page.goto("/library");
     await page.waitForLoadState("networkidle");
 
     const firstProfile = page
-      .locator('a[href^="/vault/"]:not([href="/vault/plant"]):not([href="/vault/import"])')
+      .locator('a[href^="/library/"]')
       .first();
     const hasProfile = await firstProfile
       .waitFor({ state: "visible", timeout: 10000 })
@@ -163,7 +163,7 @@ test.describe("Vault — Plant Profile inline editing", () => {
     }
 
     await firstProfile.click();
-    await page.waitForURL(/\/vault\/[^/]+$/, { timeout: 10000 });
+    await page.waitForURL(/\/library\/[^/]+$/, { timeout: 10000 });
 
     // Should not redirect to login
     await expect(page).not.toHaveURL(/\/login/);

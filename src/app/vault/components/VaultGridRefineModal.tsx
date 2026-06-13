@@ -298,7 +298,7 @@ export function VaultGridRefineModal({
                 <button
                   type="button"
                   onClick={() => {
-                    router.replace("/vault", { scroll: false });
+                    router.replace("/library", { scroll: false });
                     onClose();
                   }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${!sowParam ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}
@@ -310,7 +310,7 @@ export function VaultGridRefineModal({
                   onClick={() => {
                     const now = new Date();
                     const sow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-                    router.push(`/vault?sow=${sow}`);
+                    router.push(`/library?sow=${sow}`);
                     onClose();
                   }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm min-h-[44px] ${
@@ -333,7 +333,7 @@ export function VaultGridRefineModal({
                       key={month}
                       type="button"
                       onClick={() => {
-                        router.push(`/vault?sow=${sowVal}`);
+                        router.push(`/library?sow=${sowVal}`);
                         onClose();
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm ${selected ? "bg-emerald/10 text-emerald-800 font-medium" : "text-black/80 hover:bg-black/5"}`}

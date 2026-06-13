@@ -178,7 +178,7 @@ export default function VaultSeedPage() {
       setAddedToVaultCelebration(true);
       const params = new URLSearchParams(searchParams.toString());
       params.delete("added");
-      const newUrl = params.toString() ? `/vault/${id}?${params.toString()}` : `/vault/${id}`;
+      const newUrl = params.toString() ? `/library/${id}?${params.toString()}` : `/library/${id}`;
       router.replace(newUrl, { scroll: false });
       const t = setTimeout(() => setAddedToVaultCelebration(false), 1200);
       return () => clearTimeout(t);
@@ -416,10 +416,10 @@ export default function VaultSeedPage() {
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  // Auto-redirect to vault when profile not found (e.g. after delete or stale link)
+  // Auto-redirect to Library when profile not found (e.g. after delete or stale link)
   useEffect(() => {
     if (!loading && !profile && id) {
-      router.replace("/vault");
+      router.replace("/library");
     }
   }, [loading, profile, id, router]);
 
@@ -673,8 +673,8 @@ export default function VaultSeedPage() {
     let from = "";
     if (fromParam === "garden") from = (tab ? `&from=garden` : `?from=garden`) + (gardenTab ? `&gardenTab=${gardenTab}` : "");
     else if (fromParam === "calendar") from = (tab ? `&from=calendar` : `?from=calendar`) + (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? `&date=${dateParam}` : "");
-    if (deltaX < -50 && nextId) router.push(`/vault/${nextId}${tab}${from}`);
-    else if (deltaX > 50 && prevId) router.push(`/vault/${prevId}${tab}${from}`);
+    if (deltaX < -50 && nextId) router.push(`/library/${nextId}${tab}${from}`);
+    else if (deltaX > 50 && prevId) router.push(`/library/${prevId}${tab}${from}`);
   }, [modalOpen, nextId, prevId, router, validTab, fromParam, searchParams]);
 
   // Packets with inventory first, then 0% (archived) at bottom; within each group, newest first
@@ -693,7 +693,7 @@ export default function VaultSeedPage() {
   // Loading / error states
   // =========================================================================
   if (loading) return <div className="min-h-screen bg-neutral-50 p-6"><div className="animate-pulse space-y-4 max-w-2xl mx-auto"><div className="h-6 bg-neutral-200 rounded w-1/3" /><div className="h-64 bg-neutral-200 rounded-2xl" /><div className="h-4 bg-neutral-200 rounded w-2/3" /></div></div>;
-  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
+  if (error || !profile) return <div className="min-h-screen bg-neutral-50 p-6">{fromParam === "garden" ? <Link href="/garden" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : fromParam === "calendar" ? <Link href={searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `/calendar?date=${searchParams.get("date")}` : "/calendar"} className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link> : <Link href="/library" className="inline-flex items-center gap-2 text-emerald-600 hover:underline mb-4">&larr; Back</Link>}<p className="text-red-600" role="alert">{error ?? "Plant not found."}</p></div>;
 
   // How-to-Grow scalar rows (B1). Sun/Water moved out to the pill+detail pair below (B2).
   // Edibles-only Days to Maturity appended per getEffectiveSeedTypes classification.
@@ -1073,7 +1073,7 @@ export default function VaultSeedPage() {
           <>
             {prevId ? (
               <Link
-                href={validTab !== "about" ? `/vault/${prevId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/vault/${prevId}${fromParam === "garden" ? "?from=garden" : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
+                href={validTab !== "about" ? `/library/${prevId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/library/${prevId}${fromParam === "garden" ? "?from=garden" : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
                 className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous plant profile"
               >
@@ -1082,7 +1082,7 @@ export default function VaultSeedPage() {
             ) : null}
             {nextId ? (
               <Link
-                href={validTab !== "about" ? `/vault/${nextId}?tab=${validTab}${fromParam === "garden" ? `&from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/vault/${nextId}${fromParam === "garden" ? `?from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
+                href={validTab !== "about" ? `/library/${nextId}?tab=${validTab}${fromParam === "garden" ? `&from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/library/${nextId}${fromParam === "garden" ? `?from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
                 className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next plant profile"
               >
@@ -1109,7 +1109,7 @@ export default function VaultSeedPage() {
         ) : fromParam === "journal" ? (
           <Link href="/journal?view=timeline" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
         ) : (
-          <Link href="/vault" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
+          <Link href="/library" className="inline-flex items-center gap-2 text-emerald-600 font-medium hover:underline mb-4">&larr; Back</Link>
         )}
 
         {/* Read-only banner for household members viewing someone else's profile */}
@@ -1324,7 +1324,7 @@ export default function VaultSeedPage() {
                 setActiveTab(tab);
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("tab", tab);
-                router.replace(`/vault/${id}?${params.toString()}`, { scroll: false });
+                router.replace(`/library/${id}?${params.toString()}`, { scroll: false });
               }}
               className={`shrink-0 min-h-[44px] px-1.5 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === tab ? "border-emerald-600 text-emerald-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
             >

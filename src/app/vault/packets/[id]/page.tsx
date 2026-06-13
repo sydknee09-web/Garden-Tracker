@@ -14,8 +14,8 @@ import { AddPlantModal } from "@/components/AddPlantModal";
 import { EditPacketModal } from "@/components/EditPacketModal";
 import { SEED_PACKET_PROFILE_SELECT } from "@/lib/seedPackets";
 import { getSwipeOrder } from "@/lib/swipeOrder";
-import { useVaultPacketHandlers } from "@/app/vault/[id]/useVaultPacketHandlers";
-import { getPacketImageUrls, toDateInputValue, formatDisplayDate } from "@/app/vault/[id]/vaultProfileUtils";
+import { useVaultPacketHandlers } from "@/app/library/[id]/useVaultPacketHandlers";
+import { getPacketImageUrls, toDateInputValue, formatDisplayDate } from "@/app/library/[id]/vaultProfileUtils";
 import type { SeedPacket, GrowInstance } from "@/types/garden";
 
 const PILL = "min-w-[44px] min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0";
@@ -195,7 +195,7 @@ export default function VaultPacketDetailPage() {
 
   const backHref =
     fromParam === "profile" && profileIdParam
-      ? `/vault/${profileIdParam}?tab=packets`
+      ? `/library/${profileIdParam}?tab=packets`
       : "/vault?tab=list";
 
   const canEdit = pkt ? (pkt.user_id === user?.id ? true : canEditPage(pkt.user_id, "plant_vault")) : false;
@@ -296,7 +296,7 @@ export default function VaultPacketDetailPage() {
           ← Back
         </Link>
         <div className="flex items-center gap-1">
-          <Link href={`/vault/${pkt.plant_profile_id}`} className={PILL} aria-label="View plant profile">
+          <Link href={`/library/${pkt.plant_profile_id}`} className={PILL} aria-label="View plant profile">
             Profile
           </Link>
           {canEdit && (

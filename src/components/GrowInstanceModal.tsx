@@ -697,7 +697,7 @@ export function GrowInstanceModal({ growId, onClose, backHref, onLogHarvest, rea
       <div className="bg-white border-b border-neutral-100 px-2 py-2 flex items-center justify-end gap-1">
         {profile && (
           <Link
-            href={`/vault/${profile.id}`}
+            href={`/library/${profile.id}`}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-black/10 bg-white text-emerald-800 hover:bg-neutral-50 font-medium text-sm px-3 shrink-0"
             aria-label="View plant profile"
           >

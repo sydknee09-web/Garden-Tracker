@@ -21,12 +21,12 @@ test.describe("Shopping List", () => {
   });
 
   test("add to shopping list from vault profile, verify, remove", async ({ page }) => {
-    // Step 1: go to vault, find the first plant profile card
-    await page.goto("/vault");
+    // Step 1: go to Library, find the first plant profile card
+    await page.goto("/library");
     await page.waitForLoadState("networkidle");
 
-    // Find the first clickable profile card (link to /vault/[id])
-    const firstProfileLink = page.locator('a[href^="/vault/"]:not([href="/vault/plant"]):not([href="/vault/import"]):not([href="/vault/shed"])').first();
+    // Find the first clickable profile card (link to /library/[id])
+    const firstProfileLink = page.locator('a[href^="/library/"]').first();
     const hasProfile = await firstProfileLink.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
 
     if (!hasProfile) {
@@ -36,7 +36,7 @@ test.describe("Shopping List", () => {
 
     const profileHref = await firstProfileLink.getAttribute("href");
     await firstProfileLink.click();
-    await page.waitForURL(/\/vault\/[^/]+$/, { timeout: 10000 });
+    await page.waitForURL(/\/library\/[^/]+$/, { timeout: 10000 });
 
     // Step 2: click "Add to shopping list" button on the profile page
     const addToListBtn = page.getByRole("button", { name: /add to shopping list/i });

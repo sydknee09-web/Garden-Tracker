@@ -209,7 +209,7 @@ export function useVaultEditHandlers({
       if (profileErr) throw profileErr;
       setShowDeleteConfirm(false);
       setShowEditModal(false);
-      router.replace("/vault");
+      router.replace("/library");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete profile");
     } finally {
