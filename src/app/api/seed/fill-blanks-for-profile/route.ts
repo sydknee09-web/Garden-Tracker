@@ -470,6 +470,15 @@ export async function POST(req: Request) {
       }
     }
 
+    // Honest partial-success signal (Finding #41): we filled SOMETHING and found the plant, yet a
+    // core section is still empty after the run. The success toast should say so rather than imply
+    // the profile is complete. Computed from the post-run filledFields set vs the original blanks.
+    const origBlank = (k: string) => !String(p[k] ?? "").trim();
+    const stillEmpty = (k: string) => origBlank(k) && !filledFields.has(k);
+    const characteristicsEmpty = stillEmpty("lifecycle") && stillEmpty("plant_category");
+    const descriptionEmpty = stillEmpty("plant_description") && stillEmpty("growing_notes");
+    const partial = filledFields.size > 0 && !aiNotFound && (characteristicsEmpty || descriptionEmpty);
+
     if (backgroundEnrich) logRequestMetrics(BACKGROUND_ENRICH_ROUTE_ID, Date.now() - startTime, 200);
     return NextResponse.json({
       ok: true,
@@ -477,6 +486,7 @@ export async function POST(req: Request) {
       fromAi,
       enriched: aiEnriched,
       fieldsFilled: filledFields.size,
+      ...(partial ? { partial: true } : {}),
       ...(aiNotFound ? { notFound: true } : {}),
       ...(aiError ? { error: aiError } : {}),
     });

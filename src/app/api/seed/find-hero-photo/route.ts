@@ -113,7 +113,7 @@ const HERO_SEARCH_PROMPT = `You are a professional botanical curator. Using Goog
 
 Subject: Must show the actual growing plant, flower, or fruit (not a seed packet).
 Quality: Prioritize high-resolution, clear lighting, and natural settings. Prioritize clear, well-lit images of the plant or fruit (for edible crops).
-Strictly Prohibited: No seed packets, no hands/people, no cooked food, no cutting boards, and no watermarked stock previews (e.g. Alamy, Getty).
+Strictly Prohibited: No seed packets, no hands/people, no cooked food, no cutting boards, no e-commerce product listings or price tags, and no watermarked stock previews (e.g. Alamy, Getty).
 Preferred Sources: Look for educational sites, university extensions, or reputable nurseries (e.g. Rare Seeds, Johnny's, Wikimedia).
 
 Return a single JSON object only (no markdown, no explanation):
@@ -268,10 +268,16 @@ export async function POST(req: Request) {
     if (gallery) {
       const CATALOG_SUFFIXES = /\b(Series|Mix|Blend|Formula|Collection|Mixture|Hybrid|F1)\b/gi;
       const cleanedVariety = variety.replace(CATALOG_SUFFIXES, "").replace(/\s+/g, " ").trim();
-      // Build queries: specific first (e.g. "French Durango Marigold"), then genus-only ("Marigold")
+      // Build queries: specific first (e.g. "French Durango Marigold"); a scientific-name-anchored
+      // query (e.g. "Durango Tagetes patula") when available — the botanical term disambiguates far
+      // better than common name, so true-species photos enter the pool and the user needn't be
+      // "really strict" (Finding #30); then genus-only ("Marigold" / scientific fallback).
       const specificQuery = [cleanedVariety, name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-      const genericQuery = (scientific_name?.trim() || name || "").trim();
-      const searchQueries = [...new Set([specificQuery, genericQuery].filter(Boolean))];
+      const sciQuery = scientific_name
+        ? [cleanedVariety, scientific_name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim()
+        : "";
+      const genericQuery = (scientific_name || name || "").trim();
+      const searchQueries = [...new Set([specificQuery, sciQuery, genericQuery].filter(Boolean))];
 
       // ---- Wikimedia Commons API ----
       // Collect into a larger pool than we show so each refresh can sample a
@@ -330,8 +336,8 @@ export async function POST(req: Request) {
         }
       }
 
-      const geminiQuery = specificQuery || genericQuery || "plant";
-      const geminiPrompt = `Using Google Search, find 8 direct image URLs (https) of the actual plant, flower, or fruit for: "${geminiQuery}". Only photos of the growing plant — no seed packets, no product shots, no watermarked stock previews (shutterstock, alamy, dreamstime, getty, 123rf). Prefer pixabay.com, unsplash.com, pexels.com, staticflickr.com, and .edu sites. Each URL must be a direct image file (.jpg, .jpeg, .png, .webp). Return only valid JSON: { "urls": ["https://...", ...] }.`;
+      const geminiQuery = sciQuery || specificQuery || genericQuery || "plant";
+      const geminiPrompt = `Using Google Search, find 8 direct image URLs (https) of the actual plant, flower, or fruit for: "${geminiQuery}". Only photos of the growing plant — no seed packets, no product shots, no e-commerce product listings, no price tags, no watermarked stock previews (shutterstock, alamy, dreamstime, getty, 123rf). Prefer pixabay.com, unsplash.com, pexels.com, staticflickr.com, and .edu sites. Each URL must be a direct image file (.jpg, .jpeg, .png, .webp). Return only valid JSON: { "urls": ["https://...", ...] }.`;
 
       let geminiResponse: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
       try {
@@ -406,7 +412,9 @@ export async function POST(req: Request) {
     const searchQuery = isRareSeedsVendor && variety
       ? `${restoreOrphanPunctuation(variety).trim()} Rare Seeds`
       : finalQuery || name;
-    const primaryQuery = `${searchQuery} botanical plant -packet -seeds -plate -food -hands`.replace(/\s+/g, " ").trim();
+    // Anchor on the scientific name when present (Finding #30) — disambiguates the species so the
+    // common-name + variety doesn't pull vendor/look-alike images.
+    const primaryQuery = `${searchQuery}${scientific_name ? ` ${scientific_name}` : ""} botanical plant -packet -seeds -plate -food -hands`.replace(/\s+/g, " ").trim();
 
     console.log(`[hero] Start: ${logLabel}`);
     let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;

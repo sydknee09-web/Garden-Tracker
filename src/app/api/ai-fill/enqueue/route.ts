@@ -29,6 +29,8 @@ type JobResultSummary = {
   fieldsFilled: number;
   notFound: boolean;
   enriched: boolean;
+  /** Filled something + found the plant, but a core section is still empty (Finding #41). */
+  partial?: boolean;
   error?: string;
   plantName: string;
 };
@@ -47,6 +49,7 @@ type PassResult = {
   fieldsFilled: number;
   notFound: boolean;
   enriched: boolean;
+  partial?: boolean;
   error?: string;
 };
 
@@ -78,12 +81,14 @@ async function fillBlanksPass(
     enriched?: boolean;
     fieldsFilled?: number;
     notFound?: boolean;
+    partial?: boolean;
     error?: string;
   };
   return {
     fieldsFilled: typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0,
     notFound: Boolean(data.notFound),
     enriched: data.enriched === true,
+    partial: Boolean(data.partial),
     ...(res.ok ? {} : { error: data.error || `HTTP_${res.status}` }),
     ...(res.ok && data.error ? { error: data.error } : {}),
   };
@@ -169,6 +174,9 @@ async function runJob(args: {
       const pass1 = await fillBlanksPass(origin, token, profileId, { overwrite });
       let fieldsFilled = pass1.fieldsFilled;
       let enriched = pass1.enriched;
+      // Partial reflects the FINAL state; the refill pass (when it runs) recomputes it against
+      // the now-fuller profile, so its value supersedes pass1's (Finding #41).
+      let partial = pass1.partial;
 
       // Tag-aware second pass — only for a fresh (untagged) creation that found data.
       // The spinner stays "running" through both passes (job completion writes once
@@ -178,6 +186,7 @@ async function runJob(args: {
         if (refill) {
           fieldsFilled += refill.fieldsFilled;
           enriched = enriched || refill.enriched;
+          partial = refill.partial;
         }
       }
 
@@ -185,6 +194,7 @@ async function runJob(args: {
         fieldsFilled,
         notFound: pass1.notFound,
         enriched,
+        ...(partial ? { partial: true } : {}),
         ...(pass1.error ? { error: pass1.error } : {}),
         plantName,
       };

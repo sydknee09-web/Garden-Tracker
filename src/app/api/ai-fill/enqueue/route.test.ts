@@ -163,6 +163,30 @@ describe("POST /api/ai-fill/enqueue", () => {
     expect(db.profileUpdates).toContainEqual({ hero_image_pending: false });
   });
 
+  it("threads the pipeline's partial flag into the completion result_summary (Finding #41)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, enriched: true, fieldsFilled: 12, partial: true }), { status: 200 })
+      )
+    );
+    const db = makeDb();
+    mockGetSupabaseUser.mockResolvedValue(db.auth);
+    await POST(makeRequest({ profileId: "profile-1" }));
+    await flushBackground();
+    const completion = db.jobUpdates[1];
+    expect(completion).toMatchObject({ status: "complete" });
+    expect(completion.result_summary).toMatchObject({ fieldsFilled: 12, partial: true });
+  });
+
+  it("omits partial from result_summary when the pipeline doesn't report it", async () => {
+    const db = makeDb();
+    mockGetSupabaseUser.mockResolvedValue(db.auth);
+    await POST(makeRequest({ profileId: "profile-1" }));
+    await flushBackground();
+    expect(db.jobUpdates[1].result_summary).not.toHaveProperty("partial");
+  });
+
   it("forwards overwrite mode to the job row and the pipeline body", async () => {
     const db = makeDb();
     mockGetSupabaseUser.mockResolvedValue(db.auth);

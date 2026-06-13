@@ -118,6 +118,35 @@ describe("POST /api/seed/find-hero-photo", () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(2);
   });
 
+  it("anchors the search query on the scientific name when provided (Finding #30)", async () => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
+    const req = new Request("http://localhost/api/seed/find-hero-photo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Marigold", variety: "Durango", scientific_name: "Tagetes patula" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    const { contents } = mockGenerateContent.mock.calls[0][0] as { contents: string };
+    expect(contents).toContain("Tagetes patula");
+    // Strengthened negative filtering keeps vendor/product listings out (Finding #30).
+    expect(contents).toMatch(/e-commerce product listings|price tags/i);
+  });
+
+  it("omits the scientific-name anchor when none is provided", async () => {
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
+    const req = new Request("http://localhost/api/seed/find-hero-photo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Marigold", variety: "Durango" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const { contents } = mockGenerateContent.mock.calls[0][0] as { contents: string };
+    expect(contents).toContain("Durango Marigold");
+  });
+
   it("returns 429 DAILY_AI_LIMIT before any Gemini call when the daily ceiling is hit (Leak 3)", async () => {
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
     mockGetSupabaseUser.mockResolvedValue({

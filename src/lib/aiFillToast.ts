@@ -13,6 +13,8 @@ export type AiFillResultSummary = {
   fieldsFilled?: number;
   notFound?: boolean;
   enriched?: boolean;
+  /** Filled something + found the plant, but a core section is still empty (Finding #41). */
+  partial?: boolean;
   error?: string;
   plantName?: string;
 };
@@ -32,7 +34,18 @@ export function aiFillJobToastContent(summary: AiFillResultSummary): AiFillToast
     };
   }
   const filled = typeof summary.fieldsFilled === "number" ? summary.fieldsFilled : 0;
-  if (filled > 0) return { message: `${subject} profile updated`, variant: "success" };
+  if (filled > 0) {
+    // Honest partial signal (Finding #41): a core section is still empty after a successful fill —
+    // name it so the user doesn't read the green toast as "fully done". Still success, not error.
+    if (summary.partial) {
+      const noun = filled === 1 ? "field" : "fields";
+      return {
+        message: `${subject}: filled ${filled} ${noun} — some details unavailable, tap Fill blanks to retry`,
+        variant: "success",
+      };
+    }
+    return { message: `${subject} profile updated`, variant: "success" };
+  }
   const quota = summary.error === "DAILY_AI_LIMIT" || summary.error === "RATE_LIMITED";
   if (summary.error || quota || summary.enriched === false) {
     return { message: `${subject}: AI unavailable, try again later`, variant: "error" };

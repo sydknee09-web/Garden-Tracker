@@ -409,7 +409,16 @@ export function VaultProfileAboutTab({
           (no value-flash). sticky top-11 keeps it pinned under the global header once scrolled past. */}
       {anchorSections.length > 1 && (
         <div className="sticky top-11 z-20 -mx-6 px-6 py-2 mb-2 bg-neutral-50/95 backdrop-blur-sm">
-          <div className="overflow-x-auto scrollbar-hide" role="tablist" aria-label="Jump to profile section">
+          {/* stopPropagation so horizontally scrolling the sub-tab strip doesn't trigger the
+              parent profile-swipe (prev/next plant). Matches VaultProfileJournalTab's gallery guard. */}
+          <div
+            className="overflow-x-auto scrollbar-hide"
+            role="tablist"
+            aria-label="Jump to profile section"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
             <div className="inline-flex rounded-xl p-1 bg-neutral-100 gap-0.5" role="group">
               {anchorSections.map((s) => (
                 <button
@@ -679,7 +688,13 @@ export function VaultProfileAboutTab({
       {/* Growth Gallery */}
       {journalPhotos.length > 0 && (
         <SectionCard title="Growth Gallery" isOpen={isAboutOpen("growthGallery")} onToggle={() => toggleAboutSection("growthGallery")}>
-          <div className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory" style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}>
+          <div
+            className="overflow-x-auto flex gap-2 pb-2 snap-x snap-mandatory"
+            style={{ scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
             {journalPhotos.map((photo, idx) => {
               const src = supabase.storage.from("journal-photos").getPublicUrl(photo.image_file_path).data.publicUrl;
               const galleryUrls = journalPhotos.map((p) => supabase.storage.from("journal-photos").getPublicUrl(p.image_file_path).data.publicUrl);

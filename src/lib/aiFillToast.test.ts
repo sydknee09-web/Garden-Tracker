@@ -38,4 +38,26 @@ describe("aiFillJobToastContent", () => {
     const r = aiFillJobToastContent({ fieldsFilled: 2 });
     expect(r.message).toBe("Plant profile updated");
   });
+
+  it("partial fill names what's missing without reading as an error (Finding #41)", () => {
+    const r = aiFillJobToastContent({ fieldsFilled: 12, enriched: true, partial: true, plantName: "Finger Lime" });
+    expect(r.variant).toBe("success");
+    expect(r.message).toBe("Finger Lime: filled 12 fields — some details unavailable, tap Fill blanks to retry");
+  });
+
+  it("partial fill uses singular 'field' for a count of 1", () => {
+    const r = aiFillJobToastContent({ fieldsFilled: 1, enriched: true, partial: true, plantName: "Finger Lime" });
+    expect(r.message).toBe("Finger Lime: filled 1 field — some details unavailable, tap Fill blanks to retry");
+  });
+
+  it("partial is ignored when nothing was filled (notFound / nothing-new copy wins)", () => {
+    const r = aiFillJobToastContent({ fieldsFilled: 0, enriched: true, partial: true, plantName: "Basil" });
+    expect(r).toEqual({ message: "Basil: nothing new to add", variant: "success" });
+  });
+
+  it("notFound still outranks partial", () => {
+    const r = aiFillJobToastContent({ fieldsFilled: 3, notFound: true, partial: true, plantName: "Basil" });
+    expect(r.variant).toBe("error");
+    expect(r.message).toMatch(/Couldn't find data/);
+  });
 });
