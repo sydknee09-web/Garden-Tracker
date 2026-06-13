@@ -5,14 +5,13 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
-import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
+import { useAiFillJobs } from "@/contexts/AiFillJobsContext";
 import { normalizeForMatch, parseVarietyWithModifiers } from "@/lib/varietyModifiers";
 import { formatAddFlowError } from "@/lib/addFlowError";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { FormError } from "@/components/FormError";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { ICON_MAP } from "@/lib/styleDictionary";
@@ -48,9 +47,9 @@ export interface AddVarietyFormProps {
  * for backward-compat callers (none in tree today; preserved for safety).
  */
 export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormProps) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
-  const { zone: userZone } = useUserPlantingZone();
+  const { enqueue } = useAiFillJobs();
 
   const [plantName, setPlantName] = useState("");
   const [variety, setVariety] = useState("");
@@ -129,6 +128,10 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
       const note = sourceNote.trim();
       const insertPayload = {
         ...basePayload,
+        // Set the "Researching…" flag atomically at insert so the Library card +
+        // header pulse show the moment the list refetches (SeedVaultView reads this
+        // flag from a one-shot query, not realtime). The background job resets it.
+        hero_image_pending: true,
         ...(note && { botanical_care_notes: { source_note: note } }),
       };
       const { data: newProfile, error: profileErr } = await supabase
@@ -143,23 +146,23 @@ export function AddVarietyForm({ onClose, onSuccess, onBack }: AddVarietyFormPro
         return;
       }
       profileId = (newProfile as { id: string }).id;
-      // Fire-and-forget background enrichment — modal closes immediately so
-      // the user sees the new variety card right away. Modal unmounts before
-      // this resolves; helper logs every lifecycle event + writes
-      // hero_image_pending=true/false so cards pick up "Researching..." via
-      // existing SeedVaultView getThumbState pattern.
-      const runEnrichment = async () => {
-        try {
-          await enrichProfileFromName(supabase, profileId, userId, name, variety.trim(), {
-            skipHero: false,
-            accessToken: session?.access_token ?? undefined,
-            userZone,
-          });
-        } catch {
-          /* errors already logged inside helper */
+      // Enqueue a durable server-side AI Fill job (NORTH_STAR §1 — same pipeline
+      // the profile-page buttons use; §2 — survives the user locking/backgrounding
+      // the phone right after Save, unlike the old client-side fire-and-forget
+      // enrichProfileFromName await chain that died on tab suspend). The job worker
+      // resets hero_image_pending=false on completion/failure. On enqueue failure,
+      // clear the flag so the card doesn't pulse forever.
+      const createdProfileId = profileId;
+      void (async () => {
+        const res = await enqueue(createdProfileId, false);
+        if (!res.ok) {
+          await supabase
+            .from("plant_profiles")
+            .update({ hero_image_pending: false })
+            .eq("id", createdProfileId)
+            .eq("user_id", userId);
         }
-      };
-      void runEnrichment();
+      })();
     }
 
     setSubmitting(false);

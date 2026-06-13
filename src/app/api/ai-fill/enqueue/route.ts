@@ -51,48 +51,63 @@ async function runJob(args: {
   plantName: string;
 }) {
   const { supabase, userId, jobId, profileId, overwrite, token, plantName } = args;
-  let summary: JobResultSummary;
   try {
-    const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const origin = base.startsWith("http") ? base : `https://${base}`;
-    // Byte-identical body to the old foreground handlers (Fill Blanks / Overwrite):
-    // forceRefresh bypasses both caches per the explicit-AI-button semantics.
-    const res = await fetch(`${origin}/api/seed/fill-blanks-for-profile`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ profileId, useGemini: true, forceRefresh: true, ...(overwrite ? { overwrite: true } : {}) }),
-    });
-    const data = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      enriched?: boolean;
-      fieldsFilled?: number;
-      notFound?: boolean;
-      error?: string;
-    };
-    summary = {
-      fieldsFilled: typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0,
-      notFound: Boolean(data.notFound),
-      enriched: data.enriched === true,
-      ...(res.ok ? {} : { error: data.error || `HTTP_${res.status}` }),
-      ...(res.ok && data.error ? { error: data.error } : {}),
-      plantName,
-    };
-  } catch (e) {
-    console.warn("ai-fill enqueue: pipeline fetch failed:", e instanceof Error ? e.message : e);
-    summary = { fieldsFilled: 0, notFound: false, enriched: false, error: "AI_UNREACHABLE", plantName };
-  }
+    let summary: JobResultSummary;
+    try {
+      const base = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const origin = base.startsWith("http") ? base : `https://${base}`;
+      // Byte-identical body to the old foreground handlers (Fill Blanks / Overwrite):
+      // forceRefresh bypasses both caches per the explicit-AI-button semantics.
+      const res = await fetch(`${origin}/api/seed/fill-blanks-for-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ profileId, useGemini: true, forceRefresh: true, ...(overwrite ? { overwrite: true } : {}) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        enriched?: boolean;
+        fieldsFilled?: number;
+        notFound?: boolean;
+        error?: string;
+      };
+      summary = {
+        fieldsFilled: typeof data.fieldsFilled === "number" ? data.fieldsFilled : 0,
+        notFound: Boolean(data.notFound),
+        enriched: data.enriched === true,
+        ...(res.ok ? {} : { error: data.error || `HTTP_${res.status}` }),
+        ...(res.ok && data.error ? { error: data.error } : {}),
+        plantName,
+      };
+    } catch (e) {
+      console.warn("ai-fill enqueue: pipeline fetch failed:", e instanceof Error ? e.message : e);
+      summary = { fieldsFilled: 0, notFound: false, enriched: false, error: "AI_UNREACHABLE", plantName };
+    }
 
-  const failed = Boolean(summary.error) && summary.fieldsFilled === 0 && !summary.notFound;
-  const { error: updateError } = await supabase
-    .from("ai_fill_jobs")
-    .update({
-      status: failed ? "failed" : "complete",
-      completed_at: new Date().toISOString(),
-      result_summary: summary,
-    })
-    .eq("id", jobId)
-    .eq("user_id", userId);
-  if (updateError) console.error("ai-fill enqueue: job completion write failed:", updateError.message);
+    const failed = Boolean(summary.error) && summary.fieldsFilled === 0 && !summary.notFound;
+    const { error: updateError } = await supabase
+      .from("ai_fill_jobs")
+      .update({
+        status: failed ? "failed" : "complete",
+        completed_at: new Date().toISOString(),
+        result_summary: summary,
+      })
+      .eq("id", jobId)
+      .eq("user_id", userId);
+    if (updateError) console.error("ai-fill enqueue: job completion write failed:", updateError.message);
+  } finally {
+    // Hero lifecycle: creation paths (AddVarietyModal / QuickAddSeed) set
+    // hero_image_pending=true at insert for the Library card "Researching…" pulse;
+    // fill-blanks-for-profile runs find-hero-photo but never touches this flag, so
+    // the job worker owns the reset. finally guarantees it even if the job-row write
+    // throws (anchor: background-hero-for-profile/route.ts finally). Profile-page
+    // button jobs never set it true → this is a harmless no-op for them.
+    const { error: heroResetError } = await supabase
+      .from("plant_profiles")
+      .update({ hero_image_pending: false })
+      .eq("id", profileId)
+      .eq("user_id", userId);
+    if (heroResetError) console.error("ai-fill enqueue: hero_image_pending reset failed:", heroResetError.message);
+  }
 }
 
 export async function POST(req: Request) {

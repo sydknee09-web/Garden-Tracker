@@ -34,11 +34,17 @@ function makeDb(opts: DbOptions = {}) {
       : opts.profile;
   const jobInserts: Record<string, unknown>[] = [];
   const jobUpdates: Record<string, unknown>[] = [];
+  /** plant_profiles update patches — records the hero_image_pending reset write. */
+  const profileUpdates: Record<string, unknown>[] = [];
 
   const profileChain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: profile, error: null }),
+    update: vi.fn((patch: Record<string, unknown>) => {
+      profileUpdates.push(patch);
+      return { eq: () => ({ eq: () => Promise.resolve({ error: null }) }) };
+    }),
   };
 
   const makeJobsChain = () => ({
@@ -70,6 +76,7 @@ function makeDb(opts: DbOptions = {}) {
     auth: { user: { id: "user-1" }, supabase: { from } },
     jobInserts,
     jobUpdates,
+    profileUpdates,
   };
 }
 
@@ -150,6 +157,10 @@ describe("POST /api/ai-fill/enqueue", () => {
     expect(completion).toMatchObject({ status: "complete" });
     expect(completion.result_summary).toMatchObject({ fieldsFilled: 5, enriched: true, plantName: "Cherokee Purple" });
     expect(completion.completed_at).toBeTruthy();
+
+    // Hero lifecycle: the job worker resets hero_image_pending=false so the
+    // creation-path card "Researching…" pulse clears (item 4).
+    expect(db.profileUpdates).toContainEqual({ hero_image_pending: false });
   });
 
   it("forwards overwrite mode to the job row and the pipeline body", async () => {
@@ -174,6 +185,8 @@ describe("POST /api/ai-fill/enqueue", () => {
     const completion = db.jobUpdates[1];
     expect(completion).toMatchObject({ status: "failed" });
     expect(completion.result_summary).toMatchObject({ error: "DAILY_AI_LIMIT", plantName: "Cherokee Purple" });
+    // Reset must run on failure too (finally), or the card pulse strands forever.
+    expect(db.profileUpdates).toContainEqual({ hero_image_pending: false });
   });
 
   it("recovers the winner job on an insert unique-violation race", async () => {

@@ -8,7 +8,7 @@ import { useOnboardingContextOptional } from "@/contexts/OnboardingContext";
 import { fetchWithRetry } from "@/lib/fetchWithRetry";
 import { parseVarietyWithModifiers, normalizeForMatch } from "@/lib/varietyModifiers";
 import { buildProfileInsertFromName } from "@/lib/buildProfileInsertFromName";
-import { enrichProfileFromName } from "@/lib/enrichProfileFromName";
+import { useAiFillJobs } from "@/contexts/AiFillJobsContext";
 import type { Volume } from "@/types/vault";
 import type { SeedQRPrefill } from "@/lib/parseSeedFromQR";
 import { Combobox } from "@/components/Combobox";
@@ -20,7 +20,6 @@ import { hapticSuccess } from "@/lib/haptics";
 import { SubmitLoadingOverlay } from "@/components/SubmitLoadingOverlay";
 import { FormError } from "@/components/FormError";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
-import { useUserPlantingZone } from "@/hooks/useUserPlantingZone";
 import { logEvent } from "@/lib/debugLog";
 
 const VOLUMES: Volume[] = ["full", "partial", "low", "empty"];
@@ -109,7 +108,7 @@ export function SeedPacketForm({
 }: SeedPacketFormProps) {
   const { user, session } = useAuth();
   const onboardingCtx = useOnboardingContextOptional();
-  const { zone: userZone } = useUserPlantingZone();
+  const { enqueue } = useAiFillJobs();
   const [step, setStep] = useState<SeedPacketFormStep>("choose");
   // stepDirection drives the slide animation between internal steps; mirrors UniversalAddMenu's
   // screenDirection pattern. Forward = slide in from right; back = slide in from left.
@@ -433,6 +432,9 @@ export function SeedPacketForm({
       if (sourceUrlVal) careNotes.source_url = sourceUrlVal;
       const insertPayload = {
         ...basePayload,
+        // "Researching…" flag set atomically at insert so the Library card pulse
+        // shows on the next list refetch (query-driven, not realtime). Job resets it.
+        hero_image_pending: true,
         tags: allTags.length > 0 ? allTags : undefined,
         ...(Object.keys(careNotes).length > 0 && { botanical_care_notes: careNotes }),
       };
@@ -448,23 +450,22 @@ export function SeedPacketForm({
       }
       const profileId = (newProfile as { id: string }).id;
       createdProfileId = profileId;
-      // Fire-and-forget background enrichment — modal closes immediately.
-      // Same rationale as AddVarietyModal: modal unmounts before this
-      // resolves; helper writes hero_image_pending=true/false so cards pick
-      // up "Researching..." via existing SeedVaultView getThumbState pattern.
-      const runEnrichment = async () => {
-        try {
-          await enrichProfileFromName(supabase, profileId, userId, name, varietyCultivar.trim(), {
-            vendor: vendor.trim(),
-            skipHero: false,
-            accessToken: session?.access_token ?? undefined,
-            userZone,
-          });
-        } catch {
-          /* errors already logged inside helper */
+      // Enqueue a durable server-side AI Fill job (NORTH_STAR §1 — same pipeline
+      // the profile-page buttons use; §2 — survives the user locking/backgrounding
+      // the phone right after Save, unlike the old client-side enrichProfileFromName
+      // await chain that died on tab suspend). The job worker resets
+      // hero_image_pending=false on completion/failure; on enqueue failure, clear
+      // the flag here so the card doesn't pulse forever.
+      void (async () => {
+        const res = await enqueue(profileId, false);
+        if (!res.ok) {
+          await supabase
+            .from("plant_profiles")
+            .update({ hero_image_pending: false })
+            .eq("id", profileId)
+            .eq("user_id", userId);
         }
-      };
-      void runEnrichment();
+      })();
     }
 
     setSubmitting(false);
