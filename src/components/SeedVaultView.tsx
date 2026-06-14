@@ -54,6 +54,7 @@ import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, VaultSortBy } from "@/types/vault";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import { buildPlantCategoryChips } from "@/constants/plantCategories";
+import { isPreviouslyOwned } from "@/lib/previouslyOwned";
 
 /** Unified vault card item sourced from plant_profiles. */
 export type VaultCardItem = {
@@ -107,6 +108,8 @@ export type VaultCardItem = {
   plant_category?: string | null;
   /** True if the profile has ≥1 archived (status≠growing) grow_instance — "Previously grown" inventory toggle (Phase 2b). */
   ever_grown?: boolean;
+  /** True if the profile has ≥1 packet row EVER (any state, incl. archived + soft-deleted history) — "Previously owned" inventory toggle (Sprint 13). Distinct from packet_count (in-stock only). */
+  ever_owned?: boolean;
 };
 
 /** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
@@ -401,7 +404,7 @@ export function SeedVaultView({
           (invGrowing && st === "active") ||
           (invHasPackets && (s.packet_count ?? 0) > 0) ||
           (invPrevGrown && s.ever_grown === true) ||
-          (invPrevOwned && (s.packet_count ?? 0) === 0 && (st === "out_of_stock" || st === "archived"));
+          (invPrevOwned && isPreviouslyOwned(s));
         if (!matches) return false;
       }
       if (plantNameFilters && plantNameFilters.length > 0 && !plantNameFilters.includes(s.name)) return false;
@@ -675,15 +678,28 @@ export function SeedVaultView({
         .in("plant_profile_id", profileIds)
         .is("deleted_at", null);
       if (!isFamilyView && user?.id) growsQuery = growsQuery.eq("user_id", user.id);
+      // Sprint 13: "ever owned" = profile has ≥1 packet row EVER, regardless of is_archived /
+      // deleted_at (counts archived + soft-deleted/consumed history). Powers the "Previously owned"
+      // toggle on real history instead of the old plant_profiles.status proxy (which false-matched
+      // profiles that never had a packet). Selects one column only; bounded by profileIds.
+      let everOwnedQuery = supabase
+        .from("seed_packets")
+        .select("plant_profile_id")
+        .in("plant_profile_id", profileIds);
+      if (!isFamilyView) everOwnedQuery = everOwnedQuery.eq("user_id", user.id);
 
-      const [packetsRes, packetImagesRes, activeGrowsRes] = await Promise.all([
+      const [packetsRes, packetImagesRes, activeGrowsRes, everOwnedRes] = await Promise.all([
         packetsQuery,
         packetImagesQuery,
         growsQuery,
+        everOwnedQuery,
       ]);
       const packets = packetsRes.data;
       const packetImages = packetImagesRes.data;
       const activeGrows = activeGrowsRes.data;
+      const everOwnedProfileIds = new Set(
+        (everOwnedRes.data ?? []).map((r) => (r as { plant_profile_id: string }).plant_profile_id)
+      );
 
       if (cancelled) return;
 
@@ -785,6 +801,7 @@ export function SeedVaultView({
           best_rating: bestRatingByProfile.get(pid) ?? null,
           plant_category: (p.plant_category as string | null) ?? null,
           ever_grown: everGrownProfileIds.has(pid),
+          ever_owned: everOwnedProfileIds.has(pid),
         };
       });
       const byId = new Map<string, VaultCardItem>();
