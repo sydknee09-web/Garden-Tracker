@@ -478,7 +478,7 @@ export default function VaultShedDetailPage() {
             {prevId ? (
               <Link
                 href={`/vault/shed/${prevId}${categoryFromUrl ? `?category=${categoryFromUrl}` : ""}`}
-                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                className="absolute left-0 top-[40%] md:fixed md:left-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous product"
               >
                 <ICON_MAP.ChevronLeft stroke="currentColor" className="w-6 h-6" />
@@ -487,7 +487,7 @@ export default function VaultShedDetailPage() {
             {nextId ? (
               <Link
                 href={`/vault/shed/${nextId}${categoryFromUrl ? `?category=${categoryFromUrl}` : ""}`}
-                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                className="absolute right-0 top-[40%] md:fixed md:right-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next product"
               >
                 <ICON_MAP.ChevronRight stroke="currentColor" className="w-6 h-6" />

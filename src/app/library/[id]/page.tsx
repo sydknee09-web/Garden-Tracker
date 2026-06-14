@@ -1107,7 +1107,7 @@ export default function VaultSeedPage() {
             {prevId ? (
               <Link
                 href={validTab !== "about" ? `/library/${prevId}?tab=${validTab}${fromParam === "garden" ? "&from=garden" : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/library/${prevId}${fromParam === "garden" ? "?from=garden" : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
-                className="absolute left-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                className="absolute left-0 top-[40%] md:fixed md:left-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Previous plant profile"
               >
                 <ICON_MAP.Back className="w-6 h-6" />
@@ -1116,7 +1116,7 @@ export default function VaultSeedPage() {
             {nextId ? (
               <Link
                 href={validTab !== "about" ? `/library/${nextId}?tab=${validTab}${fromParam === "garden" ? `&from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `&from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}` : `/library/${nextId}${fromParam === "garden" ? `?from=garden${searchParams.get("gardenTab") ? `&gardenTab=${searchParams.get("gardenTab")}` : ""}` : fromParam === "calendar" ? `?from=calendar${searchParams.get("date") && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date")!) ? `&date=${searchParams.get("date")}` : ""}` : ""}`}
-                className="absolute right-0 top-[40%] z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+                className="absolute right-0 top-[40%] md:fixed md:right-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
                 aria-label="Next plant profile"
               >
                 <ICON_MAP.ChevronRight className="w-6 h-6" />
