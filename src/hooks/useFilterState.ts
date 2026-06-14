@@ -12,6 +12,8 @@ import {
 export type GardenFilterValues = {
   category: string | null;
   variety: string | null;
+  /** Canonical plant_profiles.plant_category (Vegetable, Fruit, Herb, Flower, Ornamental, Houseplant). Primary-chip filter dim (Sprint 11.5). */
+  plantCategory: string | null;
   sun: string | null;
   spacing: string | null;
   germination: string | null;
@@ -37,6 +39,7 @@ export type FilterSchema = "garden" | "vault";
 const EMPTY_GARDEN: GardenFilterValues = {
   category: null,
   variety: null,
+  plantCategory: null,
   sun: null,
   spacing: null,
   germination: null,
@@ -58,6 +61,7 @@ function countActiveGardenFilters(f: GardenFilterValues): number {
   return [
     f.category !== null,
     f.variety !== null,
+    f.plantCategory !== null,
     f.sun !== null,
     f.spacing !== null,
     f.germination !== null,
@@ -87,6 +91,7 @@ function normalizeGardenLoaded(raw: unknown): GardenFilterValues | null {
   return {
     category: typeof o.category === "string" ? o.category : null,
     variety: typeof o.variety === "string" ? o.variety : null,
+    plantCategory: typeof o.plantCategory === "string" ? o.plantCategory : null,
     sun: typeof o.sun === "string" ? o.sun : null,
     spacing: typeof o.spacing === "string" ? o.spacing : null,
     germination: typeof o.germination === "string" ? o.germination : null,
@@ -134,6 +139,7 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       filters: GardenFilterValues;
       setCategory: (v: string | null) => void;
       setVariety: (v: string | null) => void;
+      setPlantCategory: (v: string | null) => void;
       setSun: (v: string | null) => void;
       setSpacing: (v: string | null) => void;
       setGermination: (v: string | null) => void;
@@ -152,6 +158,7 @@ export type UseFilterStateReturn<T extends FilterSchema> = T extends "garden"
       filters: VaultFilterValues;
       setCategory: (v: string | null) => void;
       setVariety: (v: string | null) => void;
+      setPlantCategory: (v: string | null) => void;
       setSun: (v: string | null) => void;
       setSpacing: (v: string | null) => void;
       setGermination: (v: string | null) => void;
@@ -248,6 +255,9 @@ export function useFilterState<T extends FilterSchema>(
   const setVariety = useCallback((v: string | null) => {
     setFilters((prev) => ({ ...prev, variety: v }));
   }, []);
+  const setPlantCategory = useCallback((v: string | null) => {
+    setFilters((prev) => ({ ...prev, plantCategory: v }));
+  }, []);
   const setSun = useCallback((v: string | null) => {
     setFilters((prev) => ({ ...prev, sun: v }));
   }, []);
@@ -303,6 +313,7 @@ export function useFilterState<T extends FilterSchema>(
     filters: filters as T extends "garden" ? GardenFilterValues : VaultFilterValues,
     setCategory,
     setVariety,
+    setPlantCategory,
     setSun,
     setSpacing,
     setGermination,

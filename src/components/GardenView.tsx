@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { buildPlantCategoryChips } from "@/constants/plantCategories";
 import { revertProfileStatusIfNoActiveGrows } from "@/lib/revertProfileStatus";
 import { insertWithOfflineQueue, insertManyWithOfflineQueue, updateWithOfflineQueue } from "@/lib/supabaseWithOffline";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +95,8 @@ type GardenBatch = {
   primary_image_path?: string | null;
   /** Cover-resolved journal photo URL (load-time, per the cover state machine); null → profile chain. */
   cover_journal_image_url?: string | null;
+  /** Canonical plant_profiles.plant_category; primary-chip filter dim (Sprint 11.5). */
+  plant_category?: string | null;
   groups: Group[];
 };
 
@@ -116,6 +119,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
   onLogHarvest: (batch: GardenBatch) => void;
   categoryFilter?: string | null;
   onCategoryChipsLoaded?: (chips: { type: string; count: number }[]) => void;
+  /** Primary-tier canonical plant_category filter (Sprint 11.5); single-select, null = all. */
+  plantCategoryFilter?: string | null;
+  /** Called when plant_category chips (count-gated, canonical order) are computed, for the primary chip row. */
+  onPlantCategoryChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   varietyFilter?: string | null;
   sunFilter?: string | null;
   spacingFilter?: string | null;
@@ -161,6 +168,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
   onLogHarvest,
   categoryFilter = null,
   onCategoryChipsLoaded,
+  plantCategoryFilter = null,
+  onPlantCategoryChipsLoaded,
   varietyFilter = null,
   sunFilter = null,
   spacingFilter = null,
@@ -359,9 +368,9 @@ export const GardenView = forwardRef<GardenViewHandle, {
       const profileIds = Array.from(new Set(activeGrows.map((r) => r.plant_profile_id).filter(Boolean)));
       const { data: profiles } = await supabase
         .from("plant_profiles")
-        .select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path")
+        .select("id, name, variety_name, sun, plant_spacing, days_to_germination, harvest_days, tags, hero_image_url, hero_image_path, primary_image_path, plant_category")
         .in("id", profileIds);
-      type ProfileShape = { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null };
+      type ProfileShape = { id: string; name: string; variety_name: string | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; tags?: string[] | null; hero_image_url?: string | null; hero_image_path?: string | null; primary_image_path?: string | null; plant_category?: string | null };
       const profileMap = new Map<string, ProfileShape>((profiles ?? []).map((p: ProfileShape) => [p.id, p]));
 
       // 3. Parallel enrichment: weather snapshots + harvest counts + care counts + cover photos.
@@ -459,6 +468,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
             hero_image_path: p?.hero_image_path ?? null,
             primary_image_path: p?.primary_image_path ?? null,
             cover_journal_image_url: coverUrlByGrow.get(r.id) ?? null,
+            plant_category: p?.plant_category ?? null,
             groups: r.groups ?? [],
           };
         });
@@ -499,6 +509,8 @@ export const GardenView = forwardRef<GardenViewHandle, {
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => a.type.localeCompare(b.type, undefined, { sensitivity: "base" }));
   }, [batches]);
+
+  const plantCategoryChips = useMemo(() => buildPlantCategoryChips(batches), [batches]);
 
   const refineChips = useMemo(() => {
     const varietyMap = new Map<string, number>();
@@ -541,6 +553,9 @@ export const GardenView = forwardRef<GardenViewHandle, {
         const first = (b.profile_name ?? "").trim().split(/\s+/)[0]?.trim() || "Other";
         if (first !== categoryFilter) return false;
       }
+      if (plantCategoryFilter != null && plantCategoryFilter !== "") {
+        if ((b.plant_category ?? "").trim() !== plantCategoryFilter) return false;
+      }
       if (varietyFilter != null && varietyFilter !== "") {
         const v = (b.profile_variety_name ?? "").trim();
         if (v !== varietyFilter) return false;
@@ -566,7 +581,7 @@ export const GardenView = forwardRef<GardenViewHandle, {
       }
       return true;
     });
-  }, [filteredByGroup, categoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
+  }, [filteredByGroup, categoryFilter, plantCategoryFilter, varietyFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, tagFilters]);
 
   const q = (searchQuery ?? "").trim().toLowerCase();
   const filteredBySearch = useMemo(() => {
@@ -643,6 +658,10 @@ export const GardenView = forwardRef<GardenViewHandle, {
   useEffect(() => {
     onCategoryChipsLoaded?.(categoryChips);
   }, [categoryChips, onCategoryChipsLoaded]);
+
+  useEffect(() => {
+    onPlantCategoryChipsLoaded?.(plantCategoryChips);
+  }, [plantCategoryChips, onPlantCategoryChipsLoaded]);
 
   useEffect(() => {
     onRefineChipsLoaded?.(refineChips);

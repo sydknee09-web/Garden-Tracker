@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { FilterChipGroup } from "@/components/FilterChipRow";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { GardenView, type GardenViewHandle } from "@/components/GardenView";
 import { GroupTabs, type SelectedGroup } from "@/components/GroupTabs";
@@ -82,6 +83,7 @@ function GardenPageInner() {
   const { toast, showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryChips, setCategoryChips] = useState<{ type: string; count: number }[]>([]);
+  const [plantCategoryChips, setPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
   const [filteredCount, setFilteredCount] = useState(0);
   const [refineByOpen, setRefineByOpen] = useState(false);
   const [refineBySection, setRefineBySection] = useState<"plantType" | "variety" | "sun" | "spacing" | "germination" | "maturity" | "tags" | "sort" | null>(null);
@@ -286,6 +288,9 @@ function GardenPageInner() {
 
   const handleCategoryChipsLoaded = useCallback((chips: { type: string; count: number }[]) => {
     setCategoryChips(chips);
+  }, []);
+  const handlePlantCategoryChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
+    setPlantCategoryChips(chips);
   }, []);
   const handleRefineChipsLoaded = useCallback((chips: RefineChips) => {
     setRefineChips(chips);
@@ -505,6 +510,18 @@ function GardenPageInner() {
                 >
                   Show All
                 </button>
+              </div>
+            )}
+
+            {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set (Plant Type, variety, sun…) stays in Refine drawer; bed/group via GroupTabs. */}
+            {plantCategoryChips.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
+                <FilterChipGroup
+                  chips={plantCategoryChips}
+                  selected={filters.filters.plantCategory}
+                  onSelect={filters.setPlantCategory}
+                  ariaLabelPrefix="Filter by category"
+                />
               </div>
             )}
 
@@ -842,6 +859,8 @@ function GardenPageInner() {
             onLogHarvest={openLogHarvest}
             categoryFilter={filters.filters.category}
             onCategoryChipsLoaded={handleCategoryChipsLoaded}
+            plantCategoryFilter={filters.filters.plantCategory}
+            onPlantCategoryChipsLoaded={handlePlantCategoryChipsLoaded}
             varietyFilter={filters.filters.variety}
             sunFilter={filters.filters.sun}
             spacingFilter={filters.filters.spacing}

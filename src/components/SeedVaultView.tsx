@@ -53,6 +53,7 @@ import { GridSkeleton } from "@/components/VaultSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PlantProfileDisplay, Volume, StatusFilter, VaultSortBy } from "@/types/vault";
 import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
+import { buildPlantCategoryChips } from "@/constants/plantCategories";
 
 /** Unified vault card item sourced from plant_profiles. */
 export type VaultCardItem = {
@@ -102,6 +103,8 @@ export type VaultCardItem = {
   owner_user_id?: string | null;
   /** Best (max) packet_rating 1–5 across packets for this profile; null if none rated. */
   best_rating?: number | null;
+  /** Canonical plant_profiles.plant_category (Vegetable | Fruit | Herb | Flower | Ornamental | Houseplant). Primary-chip filter dim (Sprint 11.5). */
+  plant_category?: string | null;
 };
 
 /** Placeholder hero URL (generic icon). Don't use for grid — prefer packet image or empty state. */
@@ -209,6 +212,8 @@ export function SeedVaultView({
   sowMonth = null,
   gridDisplayStyle = "photo" as const,
   onSeedTypeChipsLoaded,
+  plantCategoryFilter = null,
+  onPlantCategoryChipsLoaded,
   varietyFilter = null,
   vendorFilter = null,
   seasonFilter = null,
@@ -261,6 +266,10 @@ export function SeedVaultView({
   gridDisplayStyle?: "photo" | "list";
   /** Called when seed type chips (Vegetable, Herb, Flower, etc. with counts) are computed, for Refine By panel. */
   onSeedTypeChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  /** Primary-tier canonical plant_category filter (Sprint 11.5); single-select, null = all. */
+  plantCategoryFilter?: string | null;
+  /** Called when plant_category chips (count-gated, canonical order) are computed, for the primary chip row. */
+  onPlantCategoryChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   /** Refine-by filters (variety, vendor, sun, spacing, germination, maturity range, packet count range). */
   varietyFilter?: string | null;
   vendorFilter?: string | null;
@@ -431,6 +440,9 @@ export function SeedVaultView({
       }
       if (methodFilter === "indoors" && s.indoor_start_weeks_before_frost == null) return false;
       if (methodFilter === "outdoors" && s.outdoor_plant_weeks_after_frost == null) return false;
+      if (plantCategoryFilter != null && plantCategoryFilter !== "") {
+        if ((s.plant_category ?? "").trim() !== plantCategoryFilter) return false;
+      }
       if (plantTypeFilter && s.name !== plantTypeFilter) return false;
       if (selectedOwnerFilter && s.owner_user_id !== selectedOwnerFilter) return false;
       if (q && !s.name.toLowerCase().includes(q) && !(s.variety && s.variety.toLowerCase().includes(q)))
@@ -464,7 +476,9 @@ export function SeedVaultView({
       }
       return true;
     });
-  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, seasonFilter, methodFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+  }, [seeds, hideArchivedProfiles, q, statusFilter, tagFilters, seedTypeFilters, plantCategoryFilter, plantTypeFilter, selectedOwnerFilter, varietyFilter, vendorFilter, seasonFilter, methodFilter, sunFilter, spacingFilter, germinationFilter, maturityFilter, packetCountFilter, plantNowFilter, sowMonthIndex]);
+
+  const plantCategoryChips = useMemo(() => buildPlantCategoryChips(seeds), [seeds]);
 
   const seedTypeChips = useMemo(() => {
     const map = new Map<string, number>();
@@ -711,7 +725,7 @@ export function SeedVaultView({
       const isFamilyView = householdViewMode === "family";
       let profilesQuery = supabase
         .from("plant_profiles")
-        .select("id, user_id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost")
+        .select("id, user_id, name, variety_name, status, harvest_days, sun, plant_spacing, days_to_germination, tags, primary_image_path, hero_image_path, hero_image_url, hero_image_pending, created_at, botanical_care_notes, planting_window, sowing_method, planting_seasons_tags, optimal_planting_months_array, indoor_start_weeks_before_frost, outdoor_plant_weeks_after_frost, plant_category")
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
       if (!isFamilyView) profilesQuery = profilesQuery.eq("user_id", user.id);
@@ -860,6 +874,7 @@ export function SeedVaultView({
           latest_purchase_date: latestPurchaseByProfile.get(pid) ?? null,
           owner_user_id: (p.user_id as string | null) ?? null,
           best_rating: bestRatingByProfile.get(pid) ?? null,
+          plant_category: (p.plant_category as string | null) ?? null,
         };
       });
       const byId = new Map<string, VaultCardItem>();
@@ -896,6 +911,10 @@ export function SeedVaultView({
   useEffect(() => {
     onSeedTypeChipsLoaded?.(seedTypeChips);
   }, [seedTypeChips, onSeedTypeChipsLoaded]);
+
+  useEffect(() => {
+    onPlantCategoryChipsLoaded?.(plantCategoryChips);
+  }, [plantCategoryChips, onPlantCategoryChipsLoaded]);
 
   useEffect(() => {
     onRefineChipsLoaded?.(refineChips);

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { StatusFilter, VaultSortBy } from "@/types/vault";
 import { LoadingState } from "@/components/LoadingState";
+import { FilterChipGroup } from "@/components/FilterChipRow";
 
 const SeedVaultView = dynamic(
   () => import("@/components/SeedVaultView").then((m) => ({ default: m.SeedVaultView })),
@@ -235,6 +236,7 @@ function VaultPageInner() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectionActionsOpen, setSelectionActionsOpen] = useState(false);
   const [seedTypeChips, setSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
+  const [plantCategoryChips, setPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
   const [sowingMonthChips, setSowingMonthChips] = useState<{ month: number; monthName: string; count: number }[]>([]);
   const [refineChips, setRefineChips] = useState<{
     variety: { value: string; count: number }[];
@@ -283,6 +285,9 @@ function VaultPageInner() {
   }, []);
   const handleSeedTypeChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
     setSeedTypeChips(chips);
+  }, []);
+  const handlePlantCategoryChipsLoaded = useCallback((chips: { value: string; count: number }[]) => {
+    setPlantCategoryChips(chips);
   }, []);
   const handleSowingMonthChipsLoaded = useCallback((chips: { month: number; monthName: string; count: number }[]) => {
     setSowingMonthChips(chips);
@@ -1120,6 +1125,18 @@ function VaultPageInner() {
               </div>
             </div>
 
+            {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set stays in Refine drawer. */}
+            {plantCategoryChips.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
+                <FilterChipGroup
+                  chips={plantCategoryChips}
+                  selected={gridFilters.filters.plantCategory}
+                  onSelect={gridFilters.setPlantCategory}
+                  ariaLabelPrefix="Filter by category"
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
                 {/* Add Variety inline button removed Ship A 2026-05-28 — moved to FAB menu chip. */}
@@ -1135,6 +1152,7 @@ function VaultPageInner() {
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald text-white text-xs font-semibold">
                       {[
                         gridFilters.filters.status !== "",
+                        gridFilters.filters.plantCategory !== null,
                         gridFilters.filters.tags.length > 0,
                         gridFilters.filters.vendor !== null,
                         gridFilters.filters.sun !== null,
@@ -1280,6 +1298,8 @@ function VaultPageInner() {
               sowMonth={sowParam && /^\d{4}-\d{2}$/.test(sowParam) ? sowParam : null}
               gridDisplayStyle={gridDisplayStyle}
               onSeedTypeChipsLoaded={handleSeedTypeChipsLoaded}
+              plantCategoryFilter={gridFilters.filters.plantCategory}
+              onPlantCategoryChipsLoaded={handlePlantCategoryChipsLoaded}
               vendorFilter={gridFilters.filters.vendor}
               seasonFilter={gridFilters.filters.season}
               methodFilter={gridFilters.filters.method}

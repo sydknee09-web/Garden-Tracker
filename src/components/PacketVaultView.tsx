@@ -35,6 +35,7 @@ import { VaultListSkeleton } from "@/components/PageSkeleton";
 import { NoMatchCard } from "@/components/NoMatchCard";
 import type { PacketStatusFilter } from "@/types/vault";
 import { getEffectiveSeedTypes, isSeedTypeTag, SEED_TYPE_TAGS } from "@/constants/seedTypes";
+import { buildPlantCategoryChips } from "@/constants/plantCategories";
 
 export type { PacketStatusFilter };
 export type PacketVaultItem = {
@@ -62,6 +63,8 @@ export type PacketVaultItem = {
   plant_spacing?: string | null;
   days_to_germination?: string | null;
   harvest_days?: number | null;
+  /** Canonical plant_profiles.plant_category; primary-chip filter dim (Sprint 11.5). */
+  plant_category?: string | null;
 };
 
 const LONG_PRESS_MS = 500;
@@ -86,6 +89,8 @@ export function PacketVaultView({
   scrollContainerRef,
   onPacketStatusChipsLoaded,
   onPacketVendorChipsLoaded,
+  plantCategoryFilter = null,
+  onPacketPlantCategoryChipsLoaded,
   tagFilters = [],
   seedTypeFilters = [],
   sunFilter = null,
@@ -117,6 +122,10 @@ export function PacketVaultView({
   scrollContainerRef?: React.RefObject<HTMLElement | null>;
   onPacketStatusChipsLoaded?: (chips: { value: PacketStatusFilter; label: string; count: number }[]) => void;
   onPacketVendorChipsLoaded?: (chips: { value: string; count: number }[]) => void;
+  /** Primary-tier canonical plant_category filter (Sprint 11.5); single-select, null = all. */
+  plantCategoryFilter?: string | null;
+  /** Called when plant_category chips (count-gated, canonical order) are computed, for the primary chip row. */
+  onPacketPlantCategoryChipsLoaded?: (chips: { value: string; count: number }[]) => void;
   tagFilters?: string[];
   seedTypeFilters?: string[];
   sunFilter?: string | null;
@@ -272,7 +281,7 @@ export function PacketVaultView({
       const [profilesRes, growsRes] = await Promise.all([
         supabase
           .from("plant_profiles")
-          .select("id, name, variety_name, planting_window, hero_image_url, hero_image_path, tags, sun, plant_spacing, days_to_germination, harvest_days")
+          .select("id, name, variety_name, planting_window, hero_image_url, hero_image_path, tags, sun, plant_spacing, days_to_germination, harvest_days, plant_category")
           .in("id", profileIds)
           .is("deleted_at", null),
         growsQuery,
@@ -284,8 +293,8 @@ export function PacketVaultView({
       const activeGrows = growsRes.data ?? [];
       const activeProfileIds = new Set(activeGrows.map((g: { plant_profile_id: string }) => g.plant_profile_id));
 
-      type ProfileRow = { id: string; name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null };
-      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null }> = {};
+      type ProfileRow = { id: string; name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_category?: string | null };
+      const profileMap: Record<string, { name: string; variety_name: string | null; planting_window: string | null; hero_image_url?: string | null; hero_image_path?: string | null; tags?: string[] | null; sun?: string | null; plant_spacing?: string | null; days_to_germination?: string | null; harvest_days?: number | null; plant_category?: string | null }> = {};
       profiles.forEach((p: ProfileRow) => {
         profileMap[p.id] = {
           name: p.name ?? "Unknown",
@@ -298,6 +307,7 @@ export function PacketVaultView({
           plant_spacing: p.plant_spacing ?? null,
           days_to_germination: p.days_to_germination ?? null,
           harvest_days: p.harvest_days ?? null,
+          plant_category: p.plant_category ?? null,
         };
       });
 
@@ -338,6 +348,7 @@ export function PacketVaultView({
           plant_spacing: prof.plant_spacing ?? null,
           days_to_germination: prof.days_to_germination ?? null,
           harvest_days: prof.harvest_days ?? null,
+          plant_category: prof.plant_category ?? null,
         };
       });
 
@@ -374,6 +385,9 @@ export function PacketVaultView({
       if (vendorFilter != null && vendorFilter !== "") {
         const v = (pkt.vendor_name ?? "").trim();
         if (v !== vendorFilter) return false;
+      }
+      if (plantCategoryFilter != null && plantCategoryFilter !== "") {
+        if ((pkt.plant_category ?? "").trim() !== plantCategoryFilter) return false;
       }
       if (sowMonth && /^\d{4}-\d{2}$/.test(sowMonth)) {
         if (!isPlantableInMonthSimple(pkt.planting_window, sowMonthIndex)) return false;
@@ -421,7 +435,7 @@ export function PacketVaultView({
       }
       return true;
     });
-  }, [packets, q, vendorFilter, sowMonth, sowMonthIndex, statusFilter, tagFilters, seedTypeFilters, sunFilter, spacingFilter, germinationFilter, maturityFilter]);
+  }, [packets, q, vendorFilter, plantCategoryFilter, sowMonth, sowMonthIndex, statusFilter, tagFilters, seedTypeFilters, sunFilter, spacingFilter, germinationFilter, maturityFilter]);
 
   const sortedPackets = useMemo(() => {
     const list = [...filteredPackets];
@@ -493,6 +507,8 @@ export function PacketVaultView({
       .sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
   }, [packets]);
 
+  const packetPlantCategoryChips = useMemo(() => buildPlantCategoryChips(packets), [packets]);
+
   const packetTags = useMemo(() => {
     const all = new Set<string>();
     packets.forEach((p) => (p.tags ?? []).forEach((t) => all.add(t)));
@@ -553,6 +569,10 @@ export function PacketVaultView({
   useEffect(() => {
     onPacketVendorChipsLoaded?.(packetVendorChips);
   }, [packetVendorChips, onPacketVendorChipsLoaded]);
+
+  useEffect(() => {
+    onPacketPlantCategoryChipsLoaded?.(packetPlantCategoryChips);
+  }, [packetPlantCategoryChips, onPacketPlantCategoryChipsLoaded]);
 
   useEffect(() => {
     onPacketTagsLoaded?.(packetTags);

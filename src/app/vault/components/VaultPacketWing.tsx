@@ -24,6 +24,7 @@ import {
 } from "@/lib/filterDefaults";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { FilterChipGroup } from "@/components/FilterChipRow";
 import { getTagStyle } from "@/components/TagBadges";
 import { isSeedTypeTag } from "@/constants/seedTypes";
 import type { PacketStatusFilter } from "@/types/vault";
@@ -64,6 +65,9 @@ export type VaultPacketWingContextValue = {
   setPacketStatusChips: React.Dispatch<React.SetStateAction<{ value: PacketStatusFilter; label: string; count: number }[]>>;
   packetVendorChips: { value: string; count: number }[];
   setPacketVendorChips: React.Dispatch<React.SetStateAction<{ value: string; count: number }[]>>;
+  /** Canonical plant_category primary-chip counts (Sprint 11.5). */
+  packetPlantCategoryChips: { value: string; count: number }[];
+  setPacketPlantCategoryChips: React.Dispatch<React.SetStateAction<{ value: string; count: number }[]>>;
   packetAvailableTags: string[];
   setPacketAvailableTags: React.Dispatch<React.SetStateAction<string[]>>;
   packetSeedTypeChips: { value: string; count: number }[];
@@ -215,6 +219,7 @@ export function VaultPacketWingProvider({
   const [packetHasDefault, setPacketHasDefault] = useState(() => hasFilterDefault(FILTER_DEFAULT_KEYS.vaultPackets));
   const [packetStatusChips, setPacketStatusChips] = useState<{ value: PacketStatusFilter; label: string; count: number }[]>([]);
   const [packetVendorChips, setPacketVendorChips] = useState<{ value: string; count: number }[]>([]);
+  const [packetPlantCategoryChips, setPacketPlantCategoryChips] = useState<{ value: string; count: number }[]>([]);
   const [packetAvailableTags, setPacketAvailableTags] = useState<string[]>([]);
   const [packetSeedTypeChips, setPacketSeedTypeChips] = useState<{ value: string; count: number }[]>([]);
   const [packetRefineChips, setPacketRefineChips] = useState<{ sun: { value: string; count: number }[]; spacing: { value: string; count: number }[]; germination: { value: string; count: number }[]; maturity: { value: string; count: number }[] }>({ sun: [], spacing: [], germination: [], maturity: [] });
@@ -235,6 +240,7 @@ export function VaultPacketWingProvider({
     packetStatusFilter !== "" ||
     packetVendorFilter !== null ||
     (packetSowMonth != null && /^\d{4}-\d{2}$/.test(packetSowMonth)) ||
+    vaultFilters.filters.plantCategory !== null ||
     vaultFilters.filters.tags.length > 0 ||
     vaultFilters.filters.seedTypes.length > 0 ||
     vaultFilters.filters.sun !== null ||
@@ -247,6 +253,7 @@ export function VaultPacketWingProvider({
     setPacketVendorFilter(null);
     setPacketSowMonth(null);
     router.replace("/vault?tab=list", { scroll: false });
+    vaultFilters.setPlantCategory(null);
     vaultFilters.setTags([]);
     vaultFilters.setSeedTypes([]);
     vaultFilters.setSun(null);
@@ -372,6 +379,8 @@ export function VaultPacketWingProvider({
     setPacketStatusChips,
     packetVendorChips,
     setPacketVendorChips,
+    packetPlantCategoryChips,
+    setPacketPlantCategoryChips,
     packetAvailableTags,
     setPacketAvailableTags,
     packetSeedTypeChips,
@@ -456,6 +465,17 @@ export function VaultPacketWingToolbar() {
           />
         </div>
       </div>
+      {/* Sprint 11.5 — canonical primary filter chip row (plant_category). Rich set (status, vendor, sow, tags…) stays in Refine drawer. */}
+      {ctx.packetPlantCategoryChips.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Filter by category">
+          <FilterChipGroup
+            chips={ctx.packetPlantCategoryChips}
+            selected={ctx.vaultFilters.filters.plantCategory}
+            onSelect={ctx.vaultFilters.setPlantCategory}
+            ariaLabelPrefix="Filter by category"
+          />
+        </div>
+      )}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3 gap-y-2 relative z-40">
           <button
@@ -473,6 +493,7 @@ export function VaultPacketWingToolbar() {
                   ctx.packetStatusFilter !== "" ? 1 : 0,
                   ctx.packetVendorFilter !== null ? 1 : 0,
                   ctx.packetSowMonth != null && /^\d{4}-\d{2}$/.test(ctx.packetSowMonth) ? 1 : 0,
+                  ctx.vaultFilters.filters.plantCategory !== null ? 1 : 0,
                   ctx.vaultFilters.filters.tags.length,
                   ctx.vaultFilters.filters.seedTypes.length,
                   ctx.vaultFilters.filters.sun !== null ? 1 : 0,
@@ -552,6 +573,7 @@ export function VaultPacketWingContent() {
     vaultFilters,
     setPacketStatusChips,
     setPacketVendorChips,
+    setPacketPlantCategoryChips,
     setPacketAvailableTags,
     setPacketSeedTypeChips,
     setPacketRefineChips,
@@ -612,6 +634,8 @@ export function VaultPacketWingContent() {
         displayStyle={packetDisplayStyle}
         onPacketStatusChipsLoaded={setPacketStatusChips}
         onPacketVendorChipsLoaded={setPacketVendorChips}
+        plantCategoryFilter={vaultFilters!.filters.plantCategory}
+        onPacketPlantCategoryChipsLoaded={setPacketPlantCategoryChips}
         tagFilters={vaultFilters!.filters.tags}
         seedTypeFilters={vaultFilters!.filters.seedTypes}
         sunFilter={vaultFilters!.filters.sun}
