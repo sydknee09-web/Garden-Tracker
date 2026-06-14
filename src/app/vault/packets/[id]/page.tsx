@@ -282,7 +282,7 @@ export default function VaultPacketDetailPage() {
         {prevId && (
           <Link
             href={`/vault/packets/${prevId}${contextQuery}`}
-            className="absolute left-0 top-[30%] md:fixed md:left-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            className="absolute left-0 top-[30%] md:fixed md:left-[calc(50%-23.5rem)] xl:left-[calc(50%-23.5rem+var(--gt-content-shift))] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
             aria-label="Previous packet"
           >
             <ICON_MAP.ChevronLeft className="w-6 h-6" />
@@ -291,7 +291,7 @@ export default function VaultPacketDetailPage() {
         {nextId && (
           <Link
             href={`/vault/packets/${nextId}${contextQuery}`}
-            className="absolute right-0 top-[30%] md:fixed md:right-[calc(50%-23.5rem)] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
+            className="absolute right-0 top-[30%] md:fixed md:right-[calc(50%-23.5rem)] xl:right-[calc(50%-23.5rem-var(--gt-content-shift))] md:top-1/2 z-10 min-w-[44px] min-h-[44px] hidden md:flex items-center justify-center rounded-full bg-white/90 border border-neutral-200 text-neutral-600 shadow-sm hover:bg-white hover:text-emerald-600 -translate-y-1/2"
             aria-label="Next packet"
           >
             <ICON_MAP.ChevronRight className="w-6 h-6" />

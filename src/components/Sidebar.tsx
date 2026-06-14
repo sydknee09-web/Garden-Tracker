@@ -10,8 +10,8 @@ import {
   FeedbackIcon,
 } from "./navItems";
 
-const COLLAPSED_WIDTH = 64;
-const EXPANDED_WIDTH = 240;
+export const COLLAPSED_WIDTH = 64;
+export const EXPANDED_WIDTH = 240;
 
 interface SidebarProps {
   collapsed: boolean;

@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, type CSSProperties } from "react";
 import { ICON_MAP } from "@/lib/styleDictionary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BottomNav } from "./BottomNav";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, COLLAPSED_WIDTH, EXPANDED_WIDTH } from "./Sidebar";
 import { SettingsIcon, FeedbackIcon } from "./navItems";
 import { FeedbackModal } from "./FeedbackModal";
 import { useSync } from "@/contexts/SyncContext";
@@ -190,7 +190,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // Initial load: show placeholder that matches system splash (no teal, no icon)
     if (hasCompletedInitialLoadRef.current) {
       return (
-        <div className="animate-app-ready-fade-in xl:flex">
+        <div className="animate-app-ready-fade-in xl:flex" style={{ "--gt-content-shift": `${(sidebarCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH) / 2}px` } as CSSProperties}>
           {!isAuthPage && (
             <Sidebar
               collapsed={sidebarCollapsed}
@@ -274,7 +274,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="animate-app-ready-fade-in xl:flex">
+    <div className="animate-app-ready-fade-in xl:flex" style={{ "--gt-content-shift": `${(sidebarCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH) / 2}px` } as CSSProperties}>
       {!isAuthPage && (
         <Sidebar
           collapsed={sidebarCollapsed}
