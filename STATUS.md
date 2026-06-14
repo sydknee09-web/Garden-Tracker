@@ -30,9 +30,9 @@ Syd's 2026-06-14 feedback was right: there have been **three different "Sprint" 
 
 ## A) Where we are right now
 
-**Date:** 2026-06-14. **Latest shipped code:** `bfb5a17` (Sprint 13 — consumePackets archive-not-soft-delete forward-fix).
+**Date:** 2026-06-14. **Latest shipped code:** `9defc15` (Sprint 13 — backfill migration file; committed, **not yet applied to prod**).
 
-- **Just shipped (counter #3):** **Sprint 13 — consumePackets forward-fix** (`bfb5a17`). The Vault "Plant" flow was the lone consume path soft-deleting packets at qty 0 (mislabeled "Law 2 & 3"; Law 2 = true-deletion, Law 3 = archival). Now archives only (`qty=0, is_archived=true`, no `deleted_at`), matching the 4 other consume paths — consumed packets stay visible in "Used up (N)" instead of vanishing. Stops new history loss. **Held:** the backfill of the 19 already-tombstoned consumed packets (incl. Parsley) — pending Syd's migration greenlight (see §C).
+- **Just shipped (counter #3):** **Sprint 13 Part 2/2 — packet-history backfill** (`bfb5a17` forward-fix + `9defc15` migration). Forward-fix: `consumePackets` archives instead of soft-deleting (stops new history loss). Migration: un-tombstones the consumption-shaped packets (`deleted_at NOT NULL AND is_archived AND qty=0`) so they show in "Used up (N)" per Law 3. Broad/all-users per Syd greenlight. **⚠️ The migration is committed but NOT applied** — needs a Supabase Dashboard SQL run OR `supabase db push` from a linked env (the chat checkout has no DB link). Idempotent + reversible.
 - **Prior ship (counter #3):** **Sprint 13 Phase C (1/2) — "Previously owned" filter fix** (`ceb6776`). Library/Vault "Previously owned" toggle no longer uses the `plant_profiles.status` proxy (which false-matched profiles that never had a packet — the Parsley dogfood bug, Sprint 12 Phase 2 #73). New `ever_owned` signal (profile has ≥1 packet row EVER, incl. archived + soft-deleted history) gates the toggle via `isPreviouslyOwned(ever_owned && packet_count===0)`. Non-destructive; no migration. **Held (Phase C 2/2):** the destructive backfill migration + `consumePackets` soft-delete forward-fix — pending Syd's Phase A SQL classification + migration greenlight (fuzzy consumption-vs-deletion predicate → Syd-ASK).
 - **Prior ship (counter #3):** **Sprint 12 Phase 3 — Planting History UX + back-button sweep** (`4ac6134`). Planting History back → Settings (named label); mobile cards; "Currently growing (N)" / "Archived plantings (N)" sections; app-wide honest-label back-button sweep on 10 single-parent pages.
 - **In flight (counter #3):** **Sprint 13 packet-history architecture** — Phase A diagnostic queries authored for Syd (live SQL not runnable from this checkout); Phase B locked on **Option B** (unify on `is_archived`; `deleted_at` = true-deletion-only); Phase C 2/2 (backfill + consumePackets fix) awaiting Syd's Phase A data + migration greenlight.
@@ -89,12 +89,12 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 
 ## C) In flight right now
 
-**Sprint 13 — packet-history architecture (Foundation).** Phase C part 1 shipped (`ceb6776`, filter fix). Remaining:
+**Sprint 13 — packet-history architecture (Foundation).** All code + the migration file shipped. **One action left: apply the backfill migration to prod.**
 
-- **Phase A (DONE — Syd ran 2026-06-14 19:33):** of the 8 "Previously owned" matches, 5 were Type C false-positives (now excluded by `ceb6776`), 2 already-correct (archived non-deleted packets), 1 Type B (Parsley — 1 soft-deleted+archived packet). Discriminator: 19 consumption-shaped soft-deleted packets, but only 3 have a live planting link → **NOT sharp** (16 ambiguous).
-- **Phase B (locked):** Option B — unify consumed packets onto `is_archived`; reserve `deleted_at` for true deletion only. Grounded in NORTH_STAR §1 + VISION §8:509 + Law 3 (AUDIT-2025-02) + the 2026-05-28 grow_instances status-collapse precedent.
-- **Phase C forward-fix (DONE):** `consumePackets` archive-not-soft-delete shipped `bfb5a17`.
-- **Backfill (held — Syd-ASK):** un-tombstone the 19 consumed packets (`deleted_at=NULL` where `is_archived AND qty=0`). Predicate is fuzzy → **recommend Option A (broad, all 19)** because Parsley (the reported bug, 0 plantings) is in the 16-ambiguous set, so the tight 3-row predicate would silently fail to fix it; broad-backfill risk is low + recoverable (Syd can delete any unwanted row). Awaiting Syd's migration greenlight.
+- **Phase A (DONE 2026-06-14):** 8 "Previously owned" matches → 5 Type-C false-positives (excluded by `ceb6776`), 2 already-correct, 1 Type-B (Parsley). Discriminator NOT sharp (19 consumption-shaped vs 3 with live planting). Parsley confirmed in the 16 (`has_live_planting=false`).
+- **Phase B (locked):** Option B — `is_archived` is the canonical used-up state; `deleted_at` = true deletion only. NORTH_STAR §1 + VISION §8:509 + Law 3 (AUDIT-2025-02).
+- **Forward-fix (SHIPPED `bfb5a17`):** `consumePackets` archive-not-soft-delete.
+- **Backfill migration (COMMITTED `9defc15`, broad/all-users per Syd greenlight) — ⏳ NOT YET APPLIED.** `supabase/migrations/20260614200000_seed_packets_unarchive_consumed_backfill.sql`. **Apply step (Syd or linked env):** run it in the Supabase Dashboard SQL Editor (immediate) or `supabase db push` from a linked checkout. Then **Syd verifies on device** that Parsley's profile → Packets tab → "Used up (N)" now renders the packet. I can't apply or verify it from the chat checkout (no DB link/auth).
 
 ---
 
@@ -112,7 +112,8 @@ Dogfood-driven + IA-refinement work after the v1 plan. This is the live counter.
 | `68f015d` | Sprint 12 Phase 1 (#3) | **Archive consistency bundle** — profile Packets/Plants counts exclude archived/used-up (+ Used-up/Past subsections); dev archive browser → guarded Planting History delete |
 | `4ac6134` | Sprint 12 Phase 3 (#3) | **Planting History UX + back-label sweep** — back→Settings (named) + mobile cards + Currently-growing/Archived sections; 10-page honest-label back-button sweep |
 | `ceb6776` | Sprint 13 Phase C 1/2 (#3) | **"Previously owned" filter on real packet history** — `ever_owned` signal replaces `plant_profiles.status` proxy; fixes Parsley false-positive (#73); non-destructive, no migration |
-| `bfb5a17` | Sprint 13 (#3) | **consumePackets archive-not-soft-delete** — Vault Plant flow stops soft-deleting consumed packets (Law-3 archival, not Law-2 deletion); stops new "Used up" history loss ← HEAD |
+| `bfb5a17` | Sprint 13 (#3) | **consumePackets archive-not-soft-delete** — Vault Plant flow stops soft-deleting consumed packets (Law-3 archival, not Law-2 deletion); stops new "Used up" history loss |
+| `9defc15` | Sprint 13 (#3) | **backfill migration** — un-tombstone consumption-shaped packets so they show in "Used up (N)"; broad/all-users, idempotent; ⏳ committed, NOT yet applied to prod ← HEAD |
 
 *(Full ship history with hashes + dogfood paths: `docs/ROADMAP.md` §5 + §6.)*
 
@@ -165,6 +166,7 @@ Source: `gt_v1_scope.md §3` (6 items, from the 2026-05-28 Supabase + backup aud
 
 | Date | Address | What changed |
 |---|---|---|
+| 2026-06-14 | Sprint 13 (#3) | `9defc15` — backfill migration committed (broad/all-users, idempotent) to un-tombstone consumption-shaped packets into "Used up (N)". Parsley confirmed `has_live_planting=false` (in the 16). **NOT yet applied to prod** — Syd runs it in Dashboard SQL Editor / `db push`, then verifies Parsley "Used up" on device. |
 | 2026-06-14 | Sprint 13 (#3) | `bfb5a17` — consumePackets archive-not-soft-delete forward-fix. Phase A data in (Syd 19:33): 5/8 Type-C false-positives excluded by `ceb6776`, 1 Type-B (Parsley); discriminator NOT sharp (19 consumption-shaped vs 3 with live planting). Backfill held → recommend Option A (broad, all 19) since Parsley is in the 16-ambiguous; awaiting Syd migration greenlight. |
 | 2026-06-14 | Sprint 13 Phase C 1/2 (#3) | `ceb6776` — "Previously owned" filter fix: new `ever_owned` signal (≥1 packet row ever, incl. archived + soft-deleted) replaces the `plant_profiles.status` proxy; fixes Parsley false-positive (Sprint 12 Phase 2 #73). Non-destructive. Phase A diagnostic queries authored for Syd; Phase B locked on Option B; Phase C 2/2 (backfill + consumePackets fix) held pending Syd data + migration greenlight. |
 | 2026-06-14 | Sprint 12 Phase 3 (#3) | `4ac6134` — Planting History: back→Settings (named "← Settings" label) + mobile cards (table at md+) + "Currently growing (N)" / "Archived plantings (N)" sections; app-wide honest-label back-button sweep on 10 single-parent pages (settings/* → Settings, debug-log → Developer, settings root + resources + help → Home). Phase 2 was a diagnostic chat (no code). |
